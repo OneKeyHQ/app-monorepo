@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { Box } from '@onekeyhq/components';
+import { Box, useUserDevice } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
@@ -61,7 +61,9 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     <>
       <TokenInfo token={token} network={network} />
       <PriceChart
-        style={{ marginBottom: 20 }}
+        style={{
+          marginBottom: 20,
+        }}
         platform={network.shortCode}
         contract={token?.tokenIdOnNetwork}
       />

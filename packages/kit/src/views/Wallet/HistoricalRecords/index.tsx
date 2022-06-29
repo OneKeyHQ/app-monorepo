@@ -98,10 +98,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   });
 
   const { size } = useUserDevice();
-  const responsivePadding = () => {
-    if (['NORMAL', 'LARGE'].includes(size)) return 32;
-    return 16;
-  };
+  const responsivePadding = ['NORMAL', 'LARGE'].includes(size) ? 32 : 16;
 
   const { themeVariant } = useTheme();
 
@@ -237,7 +234,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     <ListElementType
       bg="background-default"
       contentContainerStyle={{
-        paddingHorizontal: responsivePadding(),
+        paddingHorizontal: responsivePadding,
         marginTop: 24,
       }}
       sections={transactionRecords}

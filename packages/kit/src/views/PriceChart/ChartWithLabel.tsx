@@ -33,16 +33,22 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
 
   const onHover = useCallback<OnHoverFunction>(
     (hoverData) => {
-      setPrice(hoverData.price);
-      let displayTime;
-      if (hoverData.time instanceof Date) {
-        displayTime = formatDate(hoverData.time);
-      } else if (typeof hoverData.time === 'number') {
-        displayTime = formatDate(new Date(hoverData.time));
-      } else {
-        displayTime = formatDate(new Date());
+      if (hoverData.time) {
+        let displayTime;
+        if (hoverData.time instanceof Date) {
+          displayTime = formatDate(hoverData.time);
+        } else if (typeof hoverData.time === 'number') {
+          displayTime = formatDate(new Date(hoverData.time));
+        } else if (typeof hoverData.time === 'string') {
+          displayTime = formatDate(new Date(+hoverData.time));
+        } else {
+          displayTime = formatDate(new Date());
+        }
+        setTime(displayTime);
       }
-      setTime(displayTime);
+      if (hoverData.price) {
+        setPrice(hoverData.price);
+      }
     },
     [formatDate],
   );
@@ -52,7 +58,7 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
   return isVerticalLayout ? (
     <>
       {priceLabel}
-      <Box h="190px">
+      <Box h="190px" mt="20px">
         <ChartView height={190} data={data} onHover={onHover} />
       </Box>
       {children}
@@ -63,7 +69,7 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
         {priceLabel}
         <Box w="280px">{children}</Box>
       </Box>
-      <Box h="240px">
+      <Box h="240px" mt="30px">
         <ChartView height={240} data={data} onHover={onHover} />
       </Box>
     </>

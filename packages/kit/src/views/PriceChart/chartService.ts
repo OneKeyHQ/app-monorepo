@@ -20,8 +20,8 @@ export type OnHoverFunction = ({
   time,
   price,
 }: {
-  time?: UTCTimestamp | BusinessDay | Date;
-  price?: number;
+  time?: UTCTimestamp | BusinessDay | Date | string;
+  price?: number | string;
 }) => void;
 export interface ChartViewProps {
   data: SingleValueData[];

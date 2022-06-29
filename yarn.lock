@@ -3629,6 +3629,18 @@
     "@onekeyfe/cross-inpage-provider-types" "^0.0.10"
     "@onekeyfe/extension-bridge-injected" "^0.0.10"
 
+"@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git":
+  version "1.0.0"
+  resolved "https://github.com/OneKeyHQ/react-native-animated-charts.git#c6acab3d80ecd6a0311ec2549a206829c6d2fe8b"
+  dependencies:
+    d3-scale "^4.0.2"
+    d3-shape "^3.0.1"
+    expo-haptics "^11.2.0"
+    react-native-gesture-handler "^2.5.0"
+    react-native-reanimated "^2.4.1"
+    react-native-redash "^16.2.2"
+    react-native-svg "^12.1.0"
+
 "@onekeyfe/rollout@1.0.6":
   version "1.0.6"
   resolved "https://registry.yarnpkg.com/@onekeyfe/rollout/-/rollout-1.0.6.tgz#3d2f1121be525a48cb97543434fe599e592208a1"
@@ -9291,6 +9303,67 @@ cyclist@^1.0.1:
   resolved "https://registry.yarnpkg.com/cyclist/-/cyclist-1.0.1.tgz#596e9698fd0c80e12038c2b82d6eb1b35b6224d9"
   integrity sha1-WW6WmP0MgOEgOMK4LW6xs1tiJNk=
 
+"d3-array@2 - 3", "d3-array@2.10.0 - 3":
+  version "3.1.6"
+  resolved "https://registry.yarnpkg.com/d3-array/-/d3-array-3.1.6.tgz#0342c835925826f49b4d16eb7027aec334ffc97d"
+  integrity sha512-DCbBBNuKOeiR9h04ySRBMW52TFVc91O9wJziuyXw6Ztmy8D3oZbmCkOO3UHKC7ceNJsN2Mavo9+vwV8EAEUXzA==
+  dependencies:
+    internmap "1 - 2"
+
+"d3-color@1 - 3":
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/d3-color/-/d3-color-3.1.0.tgz#395b2833dfac71507f12ac2f7af23bf819de24e2"
+  integrity sha512-zg/chbXyeBtMQ1LbD/WSoW2DpC3I0mpmPdW+ynRTj/x2DAWYrIY7qeZIHidozwV24m4iavr15lNwIwLxRmOxhA==
+
+"d3-format@1 - 3":
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/d3-format/-/d3-format-3.1.0.tgz#9260e23a28ea5cb109e93b21a06e24e2ebd55641"
+  integrity sha512-YyUI6AEuY/Wpt8KWLgZHsIU86atmikuoOmCfommt0LYHiQSPjvX2AcFc38PX0CBpr2RCyZhjex+NS/LPOv6YqA==
+
+"d3-interpolate@1.2.0 - 3":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/d3-interpolate/-/d3-interpolate-3.0.1.tgz#3c47aa5b32c5b3dfb56ef3fd4342078a632b400d"
+  integrity sha512-3bYs1rOD33uo8aqJfKP3JWPAibgw8Zm2+L9vBKEHJ2Rg+viTR7o5Mmv5mZcieN+FRYaAOWX5SJATX6k1PWz72g==
+  dependencies:
+    d3-color "1 - 3"
+
+"d3-path@1 - 3":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/d3-path/-/d3-path-3.0.1.tgz#f09dec0aaffd770b7995f1a399152bf93052321e"
+  integrity sha512-gq6gZom9AFZby0YLduxT1qmrp4xpBA1YZr19OI717WIdKE2OM5ETq5qrHLb301IgxhLwcuxvGZVLeeWc/k1I6w==
+
+d3-scale@^4.0.2:
+  version "4.0.2"
+  resolved "https://registry.yarnpkg.com/d3-scale/-/d3-scale-4.0.2.tgz#82b38e8e8ff7080764f8dcec77bd4be393689396"
+  integrity sha512-GZW464g1SH7ag3Y7hXjf8RoUuAFIqklOAq3MRl4OaWabTFJY9PN/E1YklhXLh+OQ3fM9yS2nOkCoS+WLZ6kvxQ==
+  dependencies:
+    d3-array "2.10.0 - 3"
+    d3-format "1 - 3"
+    d3-interpolate "1.2.0 - 3"
+    d3-time "2.1.1 - 3"
+    d3-time-format "2 - 4"
+
+d3-shape@^3.0.1:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/d3-shape/-/d3-shape-3.1.0.tgz#c8a495652d83ea6f524e482fca57aa3f8bc32556"
+  integrity sha512-tGDh1Muf8kWjEDT/LswZJ8WF85yDZLvVJpYU9Nq+8+yW1Z5enxrmXOhTArlkaElU+CTn0OTVNli+/i+HP45QEQ==
+  dependencies:
+    d3-path "1 - 3"
+
+"d3-time-format@2 - 4":
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/d3-time-format/-/d3-time-format-4.1.0.tgz#7ab5257a5041d11ecb4fe70a5c7d16a195bb408a"
+  integrity sha512-dJxPBlzC7NugB2PDLwo9Q8JiTR3M3e4/XANkreKSUxF8vvXKqm1Yfq4Q5dl8budlunRVlUUaDUgFt7eA8D6NLg==
+  dependencies:
+    d3-time "1 - 3"
+
+"d3-time@1 - 3", "d3-time@2.1.1 - 3":
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/d3-time/-/d3-time-3.0.0.tgz#65972cb98ae2d4954ef5c932e8704061335d4975"
+  integrity sha512-zmV3lRnlaLI08y9IMRXSDshQb5Nj77smnfpnd2LrBa/2K281Jijactokeak14QacHs/kKq0AQ121nidNYlarbQ==
+  dependencies:
+    d3-array "2 - 3"
+
 d@1, d@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/d/-/d-1.0.1.tgz#8698095372d58dbee346ffd0c7093f99f8f9eb5a"
@@ -13194,6 +13267,11 @@ internal-slot@^1.0.3:
     get-intrinsic "^1.1.0"
     has "^1.0.3"
     side-channel "^1.0.4"
+
+"internmap@1 - 2":
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/internmap/-/internmap-2.0.3.tgz#6685f23755e43c524e251d29cbc97248e3061009"
+  integrity sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==
 
 intl-messageformat@9.10.0, intl-messageformat@^9.6.12:
   version "9.10.0"
@@ -18362,10 +18440,10 @@ react-native-flipper@^0.150.0:
   resolved "https://registry.yarnpkg.com/react-native-flipper/-/react-native-flipper-0.150.0.tgz#1ff7610691879082fc54a09f928286ae951ee67d"
   integrity sha512-E9NLCl+vt3EfQ2AFHOyLIg3uaMpDj9vAXlceMTQpjgyBp3SWqL74GrOdtltVS8UIZ/+Ig455+Z4DHaEbgpreXA==
 
-react-native-gesture-handler@^2.4.2:
-  version "2.4.2"
-  resolved "https://registry.yarnpkg.com/react-native-gesture-handler/-/react-native-gesture-handler-2.4.2.tgz#de93760b0bc251d94e8ae692f9850ec3ed2e4f27"
-  integrity sha512-K3oMiQV7NOVB5RvNlxkyJxU1Gn6m1cYu53MoFA542FVDSTR491d1eQkWDdqy4lW52rfF7IK7eE1LCi+kTJx7jw==
+react-native-gesture-handler@^2.5.0:
+  version "2.5.0"
+  resolved "https://registry.yarnpkg.com/react-native-gesture-handler/-/react-native-gesture-handler-2.5.0.tgz#61385583570ed0a45a9ed142425e35f8fe8274fb"
+  integrity sha512-djZdcprFf08PZC332D+AeG5wcGeAPhzfCJtB3otUgOgTlvjVXmg/SLFdPJSpzLBqkRAmrC77tM79QgKbuLxkfw==
   dependencies:
     "@egjs/hammerjs" "^2.0.17"
     hoist-non-react-statics "^3.3.0"
@@ -18450,7 +18528,7 @@ react-native-randombytes@^3.6.1:
     buffer "^4.9.1"
     sjcl "^1.0.3"
 
-react-native-reanimated@^2.8.0:
+react-native-reanimated@^2.4.1, react-native-reanimated@^2.8.0:
   version "2.8.0"
   resolved "https://registry.yarnpkg.com/react-native-reanimated/-/react-native-reanimated-2.8.0.tgz#93c06ca84d91fb3865110b0857c49a24e316130e"
   integrity sha512-kJvf/UWLBMaGCs9X66MKq5zdFMgwx8D0nHnolbHR7s8ZnbLdb7TlQ/yuzIXqn/9wABfnwtNRI3CyaP1aHWMmZg==
@@ -18463,7 +18541,7 @@ react-native-reanimated@^2.8.0:
     setimmediate "^1.0.5"
     string-hash-64 "^1.0.3"
 
-react-native-redash@^16.1.1:
+react-native-redash@^16.1.1, react-native-redash@^16.2.2:
   version "16.3.0"
   resolved "https://registry.yarnpkg.com/react-native-redash/-/react-native-redash-16.3.0.tgz#a9112ff1b0e0b506a2e2ae50967597e73b69d343"
   integrity sha512-dhmeYbQ/usGzxZSGZmzmRuIFF2LrtJUKqgseKgf9Jdj0JQ7VM20m/LqTg60+wjxeiyAh2D/vKsQ2U7rMkuoplQ==
@@ -18504,7 +18582,7 @@ react-native-side-menu@^1.1.3:
   dependencies:
     prop-types "^15.5.10"
 
-react-native-svg@^12.3.0:
+react-native-svg@^12.1.0, react-native-svg@^12.3.0:
   version "12.3.0"
   resolved "https://registry.yarnpkg.com/react-native-svg/-/react-native-svg-12.3.0.tgz#40f657c5d1ee366df23f3ec8dae76fd276b86248"
   integrity sha512-ESG1g1j7/WLD7X3XRFTQHVv0r6DpbHNNcdusngAODIxG88wpTWUZkhcM3A2HJTb+BbXTFDamHv7FwtRKWQ/ALg==

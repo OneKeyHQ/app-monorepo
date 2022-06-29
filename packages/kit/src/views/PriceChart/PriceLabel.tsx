@@ -28,8 +28,13 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
     ? `+${percentageGain.toFixed(2)}%`
     : `${percentageGain.toFixed(2)}%`;
 
-  // TODO use unified currency format
-  const displayPrice = price > 0.1 ? price.toFixed(2) : price.toFixed(5);
+  const decimals =
+    price < 1
+      ? Math.min(8, price.toString().slice(2).slice().search(/[^0]/g) + 3)
+      : 2;
+  const displayPrice = `${price.toFixed(
+    decimals,
+  )} ${selectedFiatMoneySymbol.toUpperCase()}`;
 
   return (
     <Box flexDirection="column">
@@ -37,7 +42,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
         {priceLabel}
       </Typography.Subheading>
       <Typography.DisplayXLarge mt="4px" mb="4px">
-        {displayPrice} {selectedFiatMoneySymbol.toUpperCase()}
+        {displayPrice}
       </Typography.DisplayXLarge>
       <Box flexDirection="row">
         <Typography.Body2Strong
