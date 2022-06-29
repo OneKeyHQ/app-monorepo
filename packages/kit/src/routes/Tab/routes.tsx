@@ -70,10 +70,6 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.DAppListScreen,
         component: DAppList,
       },
-      {
-        name: HomeRoutes.SettingsWebviewScreen,
-        component: Webview,
-      },
     ],
   },
   {
@@ -93,6 +89,10 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.AddressBook,
         component: AddressBook,
+      },
+      {
+        name: HomeRoutes.SettingsWebviewScreen,
+        component: Webview,
       },
     ],
   },
