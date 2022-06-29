@@ -134,6 +134,11 @@ const ConnectHardwareModal: FC = () => {
 
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
+        ToastManager.show({
+          title: intl.formatMessage({
+            id: 'msg__hardware_failed_to_search_devices',
+          }),
+        });
         setIsSearching(false);
         return;
       }
