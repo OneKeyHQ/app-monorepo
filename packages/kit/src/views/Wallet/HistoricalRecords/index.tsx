@@ -244,7 +244,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
       ListFooterComponent={() => <Box key="footer" h="20px" />}
       ItemSeparatorComponent={() => <Divider key="separator" />}
-      keyExtractor={(_: Transaction, index: number) => String(index)}
+      keyExtractor={(tx: Transaction) => tx.txHash}
       showsVerticalScrollIndicator={false}
       stickySectionHeadersEnabled={false}
     />

@@ -1,11 +1,7 @@
-import { get } from 'lodash';
 import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { formatNative } from '../expanded-state/chart/chart-data-labels/ChartPriceLabel';
-import { useChartData } from '@rainbow-me/animated-charts';
-import { Text } from '@rainbow-me/design-system';
-import { useAccountSettings } from '@rainbow-me/hooks';
-import { supportedNativeCurrencies } from '@rainbow-me/references';
+import { useChartData } from '@onekeyfe/react-native-animated-charts';
+import { Text } from '@onekeyhq/components';
 
 function trim(val) {
   return Math.min(Math.max(val, 0.05), 0.95);
@@ -21,7 +17,7 @@ const CenteredLabel = ({ position, style, width, ...props }) => {
     }) => {
       setWidth(newWidth);
     },
-    [setWidth]
+    [setWidth],
   );
 
   const left = useMemo(
@@ -30,12 +26,12 @@ const CenteredLabel = ({ position, style, width, ...props }) => {
         Math.floor(
           Math.min(
             width * position - componentWidth / 2,
-            width - componentWidth - 10
-          )
+            width - componentWidth - 10,
+          ),
         ),
-        10
+        10,
       ),
-    [componentWidth, position, width]
+    [componentWidth, position, width],
   );
   return (
     <View
@@ -47,57 +43,69 @@ const CenteredLabel = ({ position, style, width, ...props }) => {
         position: 'absolute',
       }}
     >
-      <Text color={{ custom: props.color }} size="14px" weight="bold">
+      <Text color={props.color} size="14px" weight="bold">
         {props.children}
       </Text>
     </View>
   );
 };
 
-const Labels = React.memo(function Labels({ color, width }) {
-  const { nativeCurrency } = useAccountSettings();
-  const nativeSelected = get(supportedNativeCurrencies, `${nativeCurrency}`);
+const ExtremeLabels = React.memo(({ color, width }) => {
   const { greatestX, greatestY, smallestX, smallestY } = useChartData();
-  const { colors } = useTheme();
 
   if (!greatestX) {
     return null;
   }
   const positionMin = trim(
-    (smallestY.x - smallestX.x) / (greatestX.x - smallestX.x)
+    (smallestY.x - smallestX.x) / (greatestX.x - smallestX.x),
   );
   const positionMax = trim(
-    (greatestY.x - smallestX.x) / (greatestX.x - smallestX.x)
+    (greatestY.x - smallestX.x) / (greatestX.x - smallestX.x),
   );
 
   return (
     <>
       {positionMin ? (
         <CenteredLabel
-          color={colors.alpha(color, 0.8)}
+          color={`${color}cc`}
           position={positionMin}
           style={{
             bottom: -40,
           }}
           width={width}
         >
-          {formatNative(smallestY.y, null, nativeSelected)}
+          {formatNative(smallestY.y)}
         </CenteredLabel>
       ) : null}
       {positionMax ? (
         <CenteredLabel
-          color={colors.alpha(color, 0.8)}
+          color={`${color}cc`}
           position={positionMax}
           style={{
             top: -20,
           }}
           width={width}
         >
-          {formatNative(greatestY.y, null, nativeSelected)}
+          {formatNative(greatestY.y)}
         </CenteredLabel>
       ) : null}
     </>
   );
 });
 
-export default Labels;
+ExtremeLabels.displayName = 'ExtremeLabels';
+
+export function formatNative(value) {
+  'worklet';
+
+  if (!value || value === 'undefined') {
+    return '';
+  }
+  const decimals =
+    value < 1
+      ? Math.min(8, value.toString().slice(2).slice('').search(/[^0]/g) + 3)
+      : 2;
+  return value.toFixed(decimals);
+}
+
+export default ExtremeLabels;
