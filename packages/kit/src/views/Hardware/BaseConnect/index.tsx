@@ -8,8 +8,10 @@ import {
   Image,
   LottieView,
   Modal,
+  ToastManager,
   Typography,
   ZStack,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import Button, { ButtonType } from '@onekeyhq/components/src/Button';
 import iconNFCScanHint from '@onekeyhq/kit/assets/hardware/ic_pair_hint_scan_lite.png';
@@ -51,7 +53,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
   actionPressContent,
 }) => {
   const intl = useIntl();
-
+  const isVerticalLayout = useIsVerticalLayout();
   const [visibleIosHint, setVisibleIosHint] = useState(false);
   const [lottieConnectingIcon, setLottieConnectingIcon] =
     useState<any>(lottieNFCConnecting);
@@ -108,7 +110,15 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
             size="xl"
             mx={4}
             mb={platformEnv.isNativeIOS ? 12 : 4}
-            onPress={() => onActionPress?.()}
+            onPress={() => {
+              if (platformEnv.isNativeIOS && !isVerticalLayout) {
+                ToastManager.show({
+                  title: intl.formatMessage({ id: 'empty__not_supported' }),
+                });
+                return;
+              }
+              onActionPress?.();
+            }}
             type={actionPressStyle}
           >
             {actionPressContent}
