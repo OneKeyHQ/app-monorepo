@@ -95,7 +95,7 @@ class DeviceUtils {
     }
   }
 
-  async getFeatures(connectId: string | undefined) {
+  async getFeatures(connectId: string) {
     const HardwareSDK = await this.getSDKInstance();
     const response = await HardwareSDK?.getFeatures(connectId);
 

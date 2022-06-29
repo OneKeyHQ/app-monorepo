@@ -29,11 +29,6 @@ let showPermissionDialog = false;
 export const UIResponse = async (event: any, hideUiResponse?: boolean) => {
   const HardwareSDK = await getHardwareSDKInstance();
 
-  const cancelUIResponse = () => {
-    HardwareSDK.cancel();
-    deviceUtils.getFeatures(undefined);
-  };
-
   const { type } = event;
 
   switch (type) {
@@ -43,7 +38,8 @@ export const UIResponse = async (event: any, hideUiResponse?: boolean) => {
         render: (
           <RequestPinView
             deviceType={deviceUtils?.connectedDeviceType}
-            onCancel={cancelUIResponse}
+            // 不在硬件上输入 Pin 记得要手动 hide Dialog
+            onCancel={() => HardwareSDK.cancel()}
             onConfirm={(pin: string) => {
               HardwareSDK.uiResponse({
                 type: UI_RESPONSE.RECEIVE_PIN,
@@ -74,7 +70,14 @@ export const UIResponse = async (event: any, hideUiResponse?: boolean) => {
         render: (
           <RequestConfirmView
             deviceType={deviceUtils?.connectedDeviceType}
-            onCancel={cancelUIResponse}
+            onCancel={async () => {
+              HardwareSDK.cancel();
+
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              const device = event.payload?.device || {};
+              const { connectId } = device || {};
+              await deviceUtils.getFeatures(connectId ?? '');
+            }}
           />
         ),
       });
