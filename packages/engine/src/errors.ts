@@ -1,6 +1,8 @@
 /* eslint max-classes-per-file: "off" */
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
 
+import { LocaleIds } from '@onekeyhq/components/src/locale';
+
 export enum OneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyValidatorError = 'OneKeyValidatorError',
@@ -62,9 +64,11 @@ export class OneKeyInternalError extends OneKeyError {
 }
 
 export class OneKeyHardwareError extends OneKeyError {
+  reconnect = false;
+
   codeHardware?: string;
 
-  override key = 'msg__hardware_default_error';
+  override key: LocaleIds = 'msg__hardware_default_error';
 
   constructor({ message, code }: { message?: string; code?: string } = {}) {
     super(message, {});

@@ -5,10 +5,12 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
-import ClassicRestoreDevicePng from '@onekeyhq/kit/assets/wallet/classic-restore-wallet.png';
-import ClassicSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/classic-setup-new-device.png';
-import MiniRestoreDevicePng from '@onekeyhq/kit/assets/wallet/mini-restore-wallet.png';
-import MiniSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/mini-setup-new-device.png';
+import ClassicRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-classic-device.png';
+import MiniRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-mini-device.png';
+import TouchRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-touch-device.png';
+import ClassicSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-classic-device.png';
+import MiniSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-mini-device.png';
+import TouchSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-touch-device.png';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
 import {
   CreateWalletModalRoutes,
@@ -31,6 +33,8 @@ const getSetupNewDeviceIcon = (type: IDeviceType): any => {
       return ClassicSetupNewDevicePng;
     case 'mini':
       return MiniSetupNewDevicePng;
+    case 'touch':
+      return TouchSetupNewDevicePng;
     default:
       return undefined;
   }
@@ -42,6 +46,8 @@ const getRestoreDeviceIcon = (type: IDeviceType): any => {
       return ClassicRestoreDevicePng;
     case 'mini':
       return MiniRestoreDevicePng;
+    case 'touch':
+      return TouchRestoreDevicePng;
     default:
       return undefined;
   }
@@ -104,8 +110,13 @@ const SetupNewDeviceModal: FC = () => {
         }),
       });
     }
+
+    if (device.deviceType === 'touch' || device.deviceType === 'pro') {
+      // 0 <=> 1
+      hintList.splice(1, 1, ...hintList.splice(0, 1, hintList[1]));
+    }
     return hintList;
-  }, [intl, type]);
+  }, [device.deviceType, intl, type]);
 
   const content = (
     <>

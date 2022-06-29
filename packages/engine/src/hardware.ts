@@ -20,7 +20,7 @@ import { BigNumber } from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
-import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
+import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
 import { IMPL_EVM } from './constants';
 import * as engineUtils from './engineUtils';
@@ -52,10 +52,7 @@ export async function getFeatures(): Promise<Features> {
     return response.payload;
   }
   console.error(response.payload);
-  throw new OneKeyHardwareError({
-    code: response.payload.code,
-    message: response.payload.error,
-  });
+  throw deviceUtils.convertDeviceError(response.payload);
 }
 
 /**
@@ -80,10 +77,7 @@ export async function changePin(
     return;
   }
   console.error(response.payload);
-  throw new OneKeyHardwareError({
-    code: response.payload.code,
-    message: `changePin: ${response.payload.error}`,
-  });
+  throw deviceUtils.convertDeviceError(response.payload);
 }
 
 /**
@@ -105,10 +99,7 @@ export async function applySettings(
     return;
   }
   console.error(response.payload);
-  throw new OneKeyHardwareError({
-    code: response.payload.code,
-    message: `applySettings: ${response.payload.error}`,
-  });
+  throw deviceUtils.convertDeviceError(response.payload);
 }
 /**
  * get Eth address from the hardware wallet with the specified derivation path
@@ -138,11 +129,8 @@ export async function ethereumGetAddress(
       impl: IMPL_EVM,
     });
   }
-  console.error(response.payload);
-  throw new OneKeyHardwareError({
-    code: response.payload.code,
-    message: response.payload.error,
-  });
+
+  throw deviceUtils.convertDeviceError(response.payload);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -192,11 +180,7 @@ export async function solanaGetAddress(
 
 function getResultFromResponse<T>(response: Unsuccessful | Success<T>): T {
   if (!response.success) {
-    const { error, code } = response.payload;
-    throw new OneKeyHardwareError({
-      code,
-      message: error,
-    });
+    throw deviceUtils.convertDeviceError(response.payload);
   }
   return response.payload;
 }
@@ -221,17 +205,25 @@ export async function ethereumSignMessage({
     message.type === ETHMessageTypes.ETH_SIGN ||
     message.type === ETHMessageTypes.PERSONAL_SIGN
   ) {
-    // TODO non hex sign (utf8)
+    let messageBuffer: Buffer;
+    try {
+      messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
+    } catch (error) {
+      messageBuffer = Buffer.from('');
+    }
+
+    let messageHex = message.message;
+    if (messageBuffer.length === 0) {
+      messageHex = Buffer.from(message.message, 'utf-8').toString('hex');
+    }
+
     const res = await HardwareSDK.evmSignMessage(connectId, {
       path,
-      messageHex: message.message,
+      messageHex,
     });
 
     if (!res.success) {
-      throw new OneKeyHardwareError({
-        code: res.payload.code,
-        message: res.payload.error,
-      });
+      throw deviceUtils.convertDeviceError(res.payload);
     }
 
     const result = getResultFromResponse(res);
@@ -268,10 +260,7 @@ export async function ethereumSignMessage({
     });
 
     if (!res.success) {
-      throw new OneKeyHardwareError({
-        code: res.payload.code,
-        message: res.payload.error,
-      });
+      throw deviceUtils.convertDeviceError(res.payload);
     }
 
     const result = getResultFromResponse(res);
@@ -383,11 +372,7 @@ export async function ethereumSignTransaction(
     const txid = keccak256(rawTx);
     return { txid, rawTx };
   }
-  console.error(response.payload);
-  throw new OneKeyHardwareError({
-    code: response.payload.code,
-    message: response.payload.error,
-  });
+  throw deviceUtils.convertDeviceError(response.payload);
 }
 
 export async function getXpubs(
@@ -443,9 +428,5 @@ export async function getXpubs(
       },
     ];
   }
-  console.error(response.payload);
-  throw new OneKeyHardwareError({
-    code: response.payload.code,
-    message: response.payload.error,
-  });
+  throw deviceUtils.convertDeviceError(response.payload);
 }

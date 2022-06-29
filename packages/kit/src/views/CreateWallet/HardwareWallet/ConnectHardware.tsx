@@ -15,6 +15,7 @@ import {
   Modal,
   ScrollView,
   Spinner,
+  ToastManager,
   Typography,
   VStack,
 } from '@onekeyhq/components';
@@ -22,6 +23,7 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -42,7 +44,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Wallet } from '../../../../../engine/src/types/wallet';
-import { DeviceErrors } from '../../../utils/hardware/deviceUtils';
+import { DeviceNotBonded } from '../../../utils/hardware/errors';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
@@ -132,6 +134,11 @@ const ConnectHardwareModal: FC = () => {
 
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
+        ToastManager.show({
+          title: intl.formatMessage({
+            id: 'msg__hardware_failed_to_search_devices',
+          }),
+        });
         setIsSearching(false);
         return;
       }
@@ -160,6 +167,11 @@ const ConnectHardwareModal: FC = () => {
       const finishConnected = (result?: boolean) => {
         setIsConnectingDeviceId('');
         if (!result) {
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'modal__failed_to_connect',
+            }),
+          });
           return;
         }
         navigation.navigate(RootRoutes.Modal, {
@@ -179,7 +191,7 @@ const ConnectHardwareModal: FC = () => {
         })
         .catch(async (err) => {
           switch (err) {
-            case DeviceErrors.DeviceNotBonded: {
+            case DeviceNotBonded: {
               if (!checkBonded && platformEnv.isNativeAndroid) {
                 setCheckBonded(true);
                 const bonded = await deviceUtils.checkDeviceBonded(
@@ -195,11 +207,22 @@ const ConnectHardwareModal: FC = () => {
               break;
             }
             default:
+              if (err instanceof OneKeyHardwareError) {
+                ToastManager.show({
+                  title: intl.formatMessage({ id: err.key }),
+                });
+              } else {
+                ToastManager.show({
+                  title: intl.formatMessage({
+                    id: 'action__connection_timeout',
+                  }),
+                });
+              }
               break;
           }
         });
     },
-    [navigation, checkBonded],
+    [navigation, intl, checkBonded],
   );
 
   const renderDevices = useCallback(() => {
