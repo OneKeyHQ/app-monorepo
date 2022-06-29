@@ -5,11 +5,11 @@ import {
   Unsuccessful,
   getDeviceType,
 } from '@onekeyfe/hd-core';
+import BleManager from 'react-native-ble-manager';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { getBondedDevices } from './BleManager';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
 /**
@@ -39,8 +39,19 @@ class DeviceUtils {
 
   checkBonded = false;
 
+  bleManager?: typeof BleManager;
+
   async getSDKInstance() {
     return getHardwareSDKInstance();
+  }
+
+  getBleManager() {
+    if (!platformEnv.isNative) return null;
+    if (this.bleManager) {
+      return Promise.resolve(this.bleManager);
+    }
+    BleManager.start({ showAlert: false });
+    this.bleManager = BleManager;
   }
 
   startDeviceScan(
@@ -163,7 +174,7 @@ class DeviceUtils {
       if (!this.checkBonded) {
         return;
       }
-      const bondedDevices = await getBondedDevices();
+      const bondedDevices = await this.getBondedDevices();
       const hasBonded = !!bondedDevices.find(
         (bondedDevice) => bondedDevice.id === connectId,
       );
@@ -178,6 +189,18 @@ class DeviceUtils {
     };
     this.checkBonded = true;
     return poll();
+  }
+
+  async getBondedDevices() {
+    const bleManager = await this.getBleManager();
+    if (!bleManager) {
+      return [];
+    }
+    const peripherals = await bleManager.getBondedPeripherals();
+    return peripherals.map((peripheral) => {
+      const { id, name, advertising = {} } = peripheral;
+      return { id, name, ...advertising };
+    });
   }
 
   stopCheckBonded() {
