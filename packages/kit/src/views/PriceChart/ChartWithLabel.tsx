@@ -38,22 +38,18 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
 
   const onHover = useCallback<OnHoverFunction>(
     (hoverData) => {
-      if (hoverData.time) {
-        let displayTime;
-        if (hoverData.time instanceof Date) {
-          displayTime = formatDate(hoverData.time);
-        } else if (typeof hoverData.time === 'number') {
-          displayTime = formatDate(new Date(hoverData.time));
-        } else if (typeof hoverData.time === 'string') {
-          displayTime = formatDate(new Date(+hoverData.time));
-        } else {
-          displayTime = formatDate(new Date());
-        }
-        setTime(displayTime);
+      let displayTime;
+      if (hoverData.time instanceof Date) {
+        displayTime = formatDate(hoverData.time);
+      } else if (typeof hoverData.time === 'number') {
+        displayTime = formatDate(new Date(hoverData.time));
+      } else if (typeof hoverData.time === 'string') {
+        displayTime = formatDate(new Date(+hoverData.time));
+      } else {
+        displayTime = formatDate(new Date());
       }
-      if (hoverData.price) {
-        setPrice(hoverData.price);
-      }
+      setTime(displayTime);
+      setPrice(hoverData.price);
     },
     [formatDate],
   );
