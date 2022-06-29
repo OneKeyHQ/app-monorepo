@@ -700,7 +700,7 @@
   "msg__hardware_not_same": "हार्डवेयर मेल नहीं खाता, कृपया सही हार्डवेयर डिवाइस कनेक्ट करें",
   "msg__hardware_open_blind_sign_error": "ब्लाइंड साइनिंग खोलने के लिए कृपया हार्डवेयर सेटिंग्स -> सुरक्षा मेनू पर जाएं।",
   "msg__hardware_unknown_message_error": "वर्तमान फर्मवेयर समर्थित नहीं है, कृपया नवीनीकरण करने का प्रयास करें।",
-  "msg__hardware_user_cancel_error": "The user cancels the operation",
+  "msg__hardware_user_cancel_error": "Canceled on device.",
   "msg__hardware_version_to_low_error": "फर्मवेयर संस्करण इस कार्रवाई का समर्थन करने के लिए बहुत जल्दी है।",
   "msg__history_deleted": "इतिहास हटा दिया गया",
   "msg__image_saved": "छवि सहेजी गई",

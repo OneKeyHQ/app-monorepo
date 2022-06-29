@@ -15,12 +15,14 @@ import {
   ConnectTimeout,
   DeviceNotBonded,
   DeviceNotFind,
+  FirmwareVersionTooLow,
   InitIframeLoadFail,
   InitIframeTimeout,
   InvalidPIN,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
+  OpenBlindSign,
   UnknownHardwareError,
   UnknownMethod,
   UserCancel,
@@ -249,6 +251,10 @@ class DeviceUtils {
       return new DeviceNotBonded();
     }
 
+    if (error.includes('Device firmware version is too low')) {
+      return new FirmwareVersionTooLow();
+    }
+
     switch (error) {
       case 'Error: Bluetooth required to be turned on':
         return new NeedBluetoothTurnedOn();
@@ -277,6 +283,9 @@ class DeviceUtils {
       case 'PIN码错误':
       case 'PIN invalid':
         return new InvalidPIN();
+
+      case 'EIP712 blind sign is disabled':
+        return new OpenBlindSign();
 
       default:
         return new UnknownHardwareError();

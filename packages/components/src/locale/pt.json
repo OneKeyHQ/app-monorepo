@@ -699,7 +699,7 @@
   "msg__hardware_invalid_pin_error": "o PIN introduzido é inválido",
   "msg__hardware_not_same": "O hardware não corresponde, conecte o dispositivo de hardware correto",
   "msg__hardware_open_blind_sign_error": "Vá por favor a Hardware Settings -> Security Menu to open Blind Signing.",
-  "msg__hardware_unknown_message_error": "The current firmware is not supported, please try to upgrade.",
+  "msg__hardware_unknown_message_error": "The current firmware version is not supported. Please upgrade the firmware.",
   "msg__hardware_user_cancel_error": "O utilizador cancela a operação",
   "msg__hardware_version_to_low_error": "A versão de firmware é demasiado cedo para suportar esta operação.",
   "msg__history_deleted": "Histórico excluído",
