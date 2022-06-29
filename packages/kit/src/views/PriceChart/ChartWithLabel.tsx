@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 
 import { SingleValueData } from 'lightweight-charts';
 
-import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 
 import useFormatDate from '../../hooks/useFormatDate';
 
@@ -63,13 +63,17 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
   return isVerticalLayout ? (
     <>
       {priceLabel}
-      <Box h="190px" mt="20px">
-        <ChartView
-          isFetching={isFetching}
-          height={190}
-          data={data}
-          onHover={onHover}
-        />
+      <Box h="190px" mt="20px" justifyContent="center" alignItems="center">
+        {data.length ? (
+          <ChartView
+            isFetching={isFetching}
+            height={190}
+            data={data}
+            onHover={onHover}
+          />
+        ) : (
+          <Spinner />
+        )}
       </Box>
       {children}
     </>
@@ -79,13 +83,17 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
         {priceLabel}
         <Box w="280px">{children}</Box>
       </Box>
-      <Box h="240px" mt="30px">
-        <ChartView
-          isFetching={isFetching}
-          height={240}
-          data={data}
-          onHover={onHover}
-        />
+      <Box h="240px" mt="30px" justifyContent="center" alignItems="center">
+        {data.length ? (
+          <ChartView
+            isFetching={isFetching}
+            height={240}
+            data={data}
+            onHover={onHover}
+          />
+        ) : (
+          <Spinner />
+        )}
       </Box>
     </>
   );

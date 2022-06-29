@@ -23,7 +23,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
   platform,
   style,
 }) => {
-  const dataMap = useRef<MarketApiData[][]>([]);
+  const dataMap = useRef<MarketApiData[][]>();
   const [data, setData] = useState<MarketApiData[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
@@ -32,25 +32,42 @@ const PriceChart: React.FC<PriceChartProps> = ({
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
-      const cacheData = dataMap.current[newTimeIndex];
-      if (
-        !cacheData ||
-        // @ts-ignore
-        cacheData.__time < Date.now() - 1000 * 60
-      ) {
+      if (!dataMap.current) {
         setIsFetching(true);
-        setSelectedTimeIndex(newTimeIndex);
-        const days = TIMEOPTIONS_VALUE[newTimeIndex];
-        const newData = await fetchHistoricalPrices({
-          contract,
-          platform,
-          days,
-          vs_currency: selectedFiatMoneySymbol,
-        });
-        // @ts-ignore
-        newData.__time = Date.now();
-        dataMap.current[newTimeIndex] = newData;
+        dataMap.current = await Promise.all(
+          TIMEOPTIONS_VALUE.map((days) =>
+            fetchHistoricalPrices({
+              contract,
+              platform,
+              days,
+              vs_currency: selectedFiatMoneySymbol,
+            }).then((apiData) => {
+              // @ts-ignore
+              apiData.__time = Date.now();
+              return apiData;
+            }),
+          ),
+        );
       }
+      // no need to refresh data, the smallest time span is 1 day
+      // const cacheData = dataMap.current[newTimeIndex];
+      // if (
+      //   !cacheData ||
+      //   // @ts-ignore
+      //   cacheData.__time < Date.now() - 1000 * 60
+      // ) {
+      //   setIsFetching(true);
+      //   const newData = await fetchHistoricalPrices({
+      //     contract,
+      //     platform,
+      //     days: TIMEOPTIONS_VALUE[newTimeIndex],
+      //     vs_currency: selectedFiatMoneySymbol,
+      //   });
+      //   // @ts-ignore
+      //   newData.__time = Date.now();
+      //   dataMap.current[newTimeIndex] = newData;
+      // }
+      setSelectedTimeIndex(newTimeIndex);
       setData(dataMap.current[newTimeIndex]);
       setIsFetching(false);
     },
