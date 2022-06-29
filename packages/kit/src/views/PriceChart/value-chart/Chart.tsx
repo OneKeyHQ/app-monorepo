@@ -5,6 +5,7 @@ import {
   ChartPath,
   useChartData,
 } from '@onekeyfe/react-native-animated-charts';
+import { throttle } from 'lodash';
 import { Dimensions, View } from 'react-native';
 import {
   // Easing,
@@ -64,10 +65,12 @@ export default function ChartWrapper({
   const spinnerScale = useSharedValue(0);
   const { isActive, originalX, originalY } = useChartData();
 
+  const throttledOnHover = throttle(onHover, 25);
+
   useAnimatedReaction(
     () => [isActive.value, originalX.value, originalY.value],
     ([hasValue, x, y]) => {
-      runOnJS(onHover)(
+      runOnJS(throttledOnHover)(
         hasValue
           ? {
               time: x as string,
