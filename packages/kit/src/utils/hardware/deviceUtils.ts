@@ -219,7 +219,18 @@ class DeviceUtils {
 
     const HardwareSDK = await this.getSDKInstance();
     const transportRelease = await HardwareSDK?.checkTransportRelease();
-    return !!transportRelease.success;
+
+    if (!transportRelease.success) {
+      switch (transportRelease.payload.error) {
+        case 'Init_IframeTimeout':
+        case 'Init_IframeLoadFail':
+          return Promise.resolve(true);
+        default:
+          return Promise.resolve(false);
+      }
+    }
+
+    return Promise.resolve(true);
   }
 
   _hasUseBridge() {
