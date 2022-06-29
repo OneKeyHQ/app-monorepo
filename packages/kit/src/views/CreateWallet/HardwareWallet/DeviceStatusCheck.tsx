@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect } from 'react';
+import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -41,6 +41,7 @@ const DeviceStatusCheckModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
   const { serviceAccount } = backgroundApiProxy;
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const safeGoBack = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -49,14 +50,17 @@ const DeviceStatusCheckModal: FC = () => {
   }, [navigation]);
 
   useEffect(() => {
-    const timeId = setTimeout(() => {
+    const id = setTimeout(() => {
       safeGoBack();
       ToastManager.show({
         title: intl.formatMessage({ id: 'action__connection_timeout' }),
       });
     }, 60 * 1000);
+    timeoutRef.current = id;
     return () => {
-      clearTimeout(timeId);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [safeGoBack, intl]);
 
@@ -89,6 +93,10 @@ const DeviceStatusCheckModal: FC = () => {
           });
         }
         return;
+      }
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
 
       if (!features.initialized) {
