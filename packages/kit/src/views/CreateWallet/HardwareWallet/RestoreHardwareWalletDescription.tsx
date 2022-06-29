@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
-import ClassicRestoreWalletPng from '@onekeyhq/kit/assets/wallet/classic-restore-wallet.png';
+import ClassicRestoreWalletPng from '@onekeyhq/kit/assets/wallet/restore-classic-device.png';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,

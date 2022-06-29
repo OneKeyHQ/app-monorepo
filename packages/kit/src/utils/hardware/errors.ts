@@ -37,6 +37,14 @@ export class NeedBluetoothPermissions extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_bluetooth_requires_permission_error';
 }
 
+export class OpenBlindSign extends OneKeyHardwareError {
+  override key: LocaleIds = 'msg__hardware_open_blind_sign_error';
+}
+
+export class FirmwareVersionTooLow extends OneKeyHardwareError {
+  override key: LocaleIds = 'msg__hardware_version_to_low_error';
+}
+
 export class DeviceNotFind extends OneKeyHardwareError {
   override reconnect = true;
 

@@ -10,8 +10,10 @@ import {
   CheckBox,
   Divider,
   Modal,
+  ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -46,17 +48,29 @@ const RecoverConfirm: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const authenticationDone = async (password: string) => {
-    const selectedIndexes = flatListData
-      .filter((i) => i.selected)
-      .map((i) => i.index);
-    await serviceAccount.addHDAccounts(
-      password,
-      walletId,
-      network,
-      selectedIndexes,
-      undefined,
-      purpose,
-    );
+    try {
+      const selectedIndexes = flatListData
+        .filter((i) => i.selected)
+        .map((i) => i.index);
+      await serviceAccount.addHDAccounts(
+        password,
+        walletId,
+        network,
+        selectedIndexes,
+        undefined,
+        purpose,
+      );
+    } catch (e) {
+      if (e instanceof OneKeyHardwareError) {
+        ToastManager.show({
+          title: intl.formatMessage({ id: e.key }),
+        });
+      } else {
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'action__connection_timeout' }),
+        });
+      }
+    }
 
     if (navigation.canGoBack()) {
       navigation.getParent()?.goBack?.();

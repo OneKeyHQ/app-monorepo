@@ -205,10 +205,21 @@ export async function ethereumSignMessage({
     message.type === ETHMessageTypes.ETH_SIGN ||
     message.type === ETHMessageTypes.PERSONAL_SIGN
   ) {
-    // TODO non hex sign (utf8)
+    let messageBuffer: Buffer;
+    try {
+      messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
+    } catch (error) {
+      messageBuffer = Buffer.from('');
+    }
+
+    let messageHex = message.message;
+    if (messageBuffer.length === 0) {
+      messageHex = Buffer.from(message.message, 'utf-8').toString('hex');
+    }
+
     const res = await HardwareSDK.evmSignMessage(connectId, {
       path,
-      messageHex: message.message,
+      messageHex,
     });
 
     if (!res.success) {
