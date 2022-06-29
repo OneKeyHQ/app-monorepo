@@ -13,6 +13,7 @@ import bs58check from 'bs58check';
 import coinSelect from 'coinselect';
 // @ts-ignore
 import coinSelectSplit from 'coinselect/split';
+import memoizee from 'memoizee';
 
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
@@ -48,64 +49,50 @@ import { getAccountDefaultByPurpose } from './utils';
 import type { IBtcUTXO, IEncodedTxBtc } from './types';
 
 export default class Vault extends VaultBase {
-  lastFeeRate?: { updatedAt: number; rates: Array<string> };
-
-  cachedUTXOs?: { updatedAt: number; utxos: Array<IBtcUTXO> };
-
-  private async getFeeRate(): Promise<Array<string>> {
-    const now = Date.now();
-    const { updatedAt, rates } = this.lastFeeRate ?? {
-      updatedAt: 0,
-      rates: [],
-    };
-    if (now - updatedAt <= 30 * 1000) {
-      // 30 seconds cache.  TODO: may differ for different network?
-      return rates;
-    }
-    const client = await (this.engineProvider as Provider).blockbook;
-    const newRates = [];
-    try {
-      for (const blocks of [20, 10, 5]) {
-        newRates.push(
-          new BigNumber(await client.estimateFee(blocks)).toFixed(0),
+  private getFeeRate = memoizee(
+    async () => {
+      const client = await (this.engineProvider as Provider).blockbook;
+      const blockNums = [20, 10, 5];
+      try {
+        return await Promise.all(
+          blockNums.map((blockNum) =>
+            client
+              .estimateFee(blockNum)
+              .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
+          ),
         );
-        // TODO: blockbook API rate limit.
-        await new Promise((r) => setTimeout(r, 100));
+      } catch (e) {
+        console.error(e);
+        throw new OneKeyInternalError('Failed to get fee rates.');
       }
-    } catch (e) {
-      console.error(e);
-      throw new OneKeyInternalError('Failed to get fee rates.');
-    }
-    this.lastFeeRate = { updatedAt: Date.now(), rates: newRates };
-    return newRates;
-  }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 
-  async collectUTXOs(): Promise<Array<IBtcUTXO>> {
-    const now = Date.now();
-    const { updatedAt, utxos } = this.cachedUTXOs ?? {
-      updatedAt: 0,
-      utxos: [],
-    };
-    if (now - updatedAt <= 60 * 1000) {
-      // One minute cache.  TODO: may differ for different network?
-      return utxos;
-    }
-
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const client = await (this.engineProvider as Provider).blockbook;
-    let newUTXOs: Array<IBtcUTXO> = [];
-    try {
-      // TODO: use updated blockchain-libs API
-      newUTXOs = await client.restful
-        .get(`/api/v2/utxo/${dbAccount.xpub}`)
-        .then((i) => i.json());
-    } catch (e) {
-      console.error(e);
-      throw new OneKeyInternalError('Failed to get UTXOs of the account.');
-    }
-    this.cachedUTXOs = { updatedAt: Date.now(), utxos: newUTXOs };
-    return newUTXOs;
-  }
+  collectUTXOs = memoizee(
+    async () => {
+      const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+      const client = await (this.engineProvider as Provider).blockbook;
+      try {
+        // TODO: use updated blockchain-libs API
+        return await client.restful
+          .get(`/api/v2/utxo/${dbAccount.xpub}`)
+          .then((i) => i.json() as unknown as Array<IBtcUTXO>);
+      } catch (e) {
+        console.error(e);
+        throw new OneKeyInternalError('Failed to get UTXOs of the account.');
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 60,
+    },
+  );
 
   settings = settings;
 
