@@ -98,7 +98,8 @@ class DeviceUtils {
     };
 
     this.scanning = true;
-    poll();
+    const time = platformEnv.isNativeAndroid ? 2000 : POLL_INTERVAL;
+    poll(time);
   }
 
   stopScan() {
