@@ -108,8 +108,8 @@ const renderShapeHeight = (
 
 const Skeleton = ({
   children,
-  width = 80,
-  height = 24,
+  width,
+  height,
   size,
   shape,
   ...rest
