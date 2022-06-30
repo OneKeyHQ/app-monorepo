@@ -7,6 +7,7 @@ import ServiceAccount from './services/ServiceAccount';
 import ServiceApp from './services/ServiceApp';
 import ServiceCronJob from './services/ServiceCronJob';
 import ServiceDapp from './services/ServiceDapp';
+import ServiceHardware from './services/ServiceHardware';
 import ServiceHistory from './services/ServiceHistory';
 import ServiceNetwork from './services/ServiceNetwork';
 import ServiceOnboarding from './services/ServiceOnboarding';
@@ -57,6 +58,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceHistory = new ServiceHistory({
+    backgroundApi: this,
+  });
+
+  serviceHardware = new ServiceHardware({
     backgroundApi: this,
   });
 }

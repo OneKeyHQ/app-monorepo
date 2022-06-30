@@ -7,7 +7,6 @@ import { PayloadAction } from '@reduxjs/toolkit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
-import { UIResponse } from '@onekeyhq/kit/src/utils/hardware';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function syncWholeStoreState() {
   backgroundApiProxy
@@ -33,8 +32,6 @@ function init() {
     const { method, params } = payload.data as IJsonRpcRequest;
     if (method === 'dispatchActionBroadcast') {
       store.dispatch(params as PayloadAction);
-    } else if (method === 'SDKBackgroundBroadcastUIEvent') {
-      UIResponse(params, true);
     }
   };
   // TODO rename global.$extensionJsBridgeUiToBg
