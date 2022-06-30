@@ -12,6 +12,7 @@ import {
   Pressable,
   Text,
   VStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
@@ -122,6 +123,7 @@ function TxListItemView(props: {
   const { decodedTx, historyTx } = props;
   const { status } = decodedTx;
   const intl = useIntl();
+  const { isLight } = useTheme();
   const navigation =
     useNavigation<HistoryListViewNavigationProp['navigation']>();
   const statusInfo = getTxStatusInfo({ decodedTx });
@@ -166,6 +168,8 @@ function TxListItemView(props: {
   return (
     <Pressable.Item
       borderRadius={12}
+      borderWidth={isLight ? 1 : 0}
+      borderColor="border-subdued"
       onPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.TransactionDetail,
