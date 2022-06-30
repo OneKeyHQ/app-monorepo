@@ -306,8 +306,8 @@ const ConnectHardwareModal: FC = () => {
       );
     }
     return (
-      <ScrollView>
-        <VStack space={12} w="full" alignItems="center">
+      <ScrollView w="full">
+        <VStack space={12} alignItems="center">
           <Box w="358px" h="220px" mb={-4}>
             <LottieView
               // eslint-disable-next-line global-require
@@ -333,7 +333,9 @@ const ConnectHardwareModal: FC = () => {
   };
 
   const content = platformEnv.isNative ? (
-    <Center>{renderConnectScreen()}</Center>
+    <>
+      <Center>{renderConnectScreen()}</Center>
+    </>
   ) : (
     <VStack space={8} alignItems="center">
       <Box>
