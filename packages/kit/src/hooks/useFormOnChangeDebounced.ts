@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 import { UseFormReturn, WatchObserver } from 'react-hook-form';
@@ -15,11 +15,15 @@ function useFormOnChangeDebounced<T>({
   onChange?: WatchObserver<T>;
 }) {
   const { watch, trigger } = useFormReturn;
+  const loadingRef = useRef<boolean>(false);
+  const [values, setValues] = useState<T>();
 
   useEffect(() => {
     const debounceValidate = debounce(
       (formValues, { name, type }) => {
+        loadingRef.current = false;
         if (type === 'change') {
+          setValues(formValues);
           if (onChange) {
             onChange(formValues, { name, type });
           }
@@ -33,9 +37,12 @@ function useFormOnChangeDebounced<T>({
       { leading: false, trailing: true },
     );
     const subscription = watch((formValues, { name, type }) => {
+      loadingRef.current = true;
       debounceValidate(formValues, { name, type });
     });
     return () => subscription.unsubscribe();
   }, [onChange, revalidate, trigger, wait, watch]);
+
+  return { loadingRef, formValues: values };
 }
 export { useFormOnChangeDebounced };

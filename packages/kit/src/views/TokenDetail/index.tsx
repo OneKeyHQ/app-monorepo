@@ -8,10 +8,10 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens } from '../../hooks/useManageTokens';
+import { useManageTokens } from '../../hooks';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import PriceChart from '../PriceChart/PriceChart';
-import HistoricalRecords from '../Wallet/HistoricalRecords';
+import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import { TokenDetailRoutesParams } from './routes';
 import TokenInfo from './TokenInfo';
@@ -28,7 +28,7 @@ type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { accountId, networkId, tokenId, historyFilter } = route.params;
+  const { accountId, networkId, tokenId } = route.params;
   const [network, setNetwork] = useState<Network>();
   const { accountTokensMap, nativeToken } = useManageTokens();
 
@@ -57,7 +57,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     }
   }, [navigation, token, nativeToken, accountId, networkId]);
 
-  const headerView = !!network && (
+  const headerView = network ? (
     <>
       <TokenInfo token={token} network={network} />
       <PriceChart
@@ -66,18 +66,24 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         contract={token?.tokenIdOnNetwork}
       />
     </>
-  );
+  ) : null;
 
   return (
     <Box bg="background-default" flex={1}>
       <Box flex={1} marginX="auto" w="100%" maxW={MAX_PAGE_CONTAINER_WIDTH}>
-        <HistoricalRecords
+        <TxHistoryListView
+          accountId={accountId}
+          networkId={networkId}
+          tokenId={tokenId}
+          headerView={headerView}
+        />
+        {/* <HistoricalRecords
           accountId={accountId}
           networkId={networkId}
           tokenId={tokenId}
           headerView={headerView}
           historyFilter={historyFilter}
-        />
+         /> */}
       </Box>
     </Box>
   );

@@ -8,6 +8,7 @@ import {
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import {
+  IDecodedTxLegacy,
   IEncodedTxUpdatePayloadTransfer,
   IEncodedTxUpdateType,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -15,11 +16,13 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageTokens } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
-import TxConfirmDetail from '../../TxDetail/TxConfirmDetail';
+import TxConfirmDetail from '../../TxDetail/_legacy/TxConfirmDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
+import {
+  ITxConfirmViewProps,
+  SendConfirmModal,
+} from '../SendConfirmViews/SendConfirmModal';
 import { TransferSendParamsPayload } from '../types';
-
-import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
 
 function TxConfirmTransfer(props: ITxConfirmViewProps) {
   const {
@@ -28,8 +31,9 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
     feeInfoLoading,
     feeInfoEditable,
     encodedTx,
-    decodedTx,
+    decodedTx: decodedTxLegacy,
   } = props;
+  const decodedTx = decodedTxLegacy as IDecodedTxLegacy;
   const { accountId, networkId } = useActiveWalletAccount();
   const transferPayload = payload as TransferSendParamsPayload | undefined;
   const isTransferNativeToken = !transferPayload?.token?.idOnNetwork;

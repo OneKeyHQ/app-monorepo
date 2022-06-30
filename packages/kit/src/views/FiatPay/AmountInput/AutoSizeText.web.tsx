@@ -6,8 +6,10 @@ export const AutoSizeText: FC<{
   text: string;
   placeholder?: string;
   onChangeText?: (text: string) => void;
-}> = ({ text, onChangeText, placeholder }) => (
+  autoFocus?: boolean;
+}> = ({ text, onChangeText, placeholder, autoFocus }) => (
   <Input
+    autoFocus={autoFocus}
     flex={1}
     height="112"
     size="xl"

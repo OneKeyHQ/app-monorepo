@@ -1,3 +1,4 @@
+const isDev = process.env.NODE_ENV !== 'production';
 module.exports = {
   'manifest_version': 2,
 
@@ -35,9 +36,13 @@ module.exports = {
   'web_accessible_resources': [
     // allow content-script inject js file
     'injected.js',
-    // allow site load iframe force service-worker update
-    'ui-content-script-iframe.html',
-  ],
+    ...(isDev
+      ? [
+          // allow site load iframe force service-worker update
+          'ui-content-script-iframe.html',
+        ]
+      : []),
+  ].filter(Boolean),
 };
 /*
 action:{

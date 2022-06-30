@@ -1,4 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useCallback } from 'react';
+
+import { useNavigation } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/native';
 
 import { Button } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
@@ -11,7 +15,8 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
   const { accountId, networkId, networkImpl } = useActiveWalletAccount();
   const { engine } = backgroundApiProxy;
-
+  const navigation = useNavigation();
+  const route = useRoute();
   const decodeTxTest = useCallback(async () => {
     // call vaultHelper in UI (not recommend)
     const vaultHelper = createVaultHelperInstance({
@@ -41,15 +46,18 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
       accountId,
       networkId,
       encodedTx,
+      // @ts-ignore
+      payload: route.params?.payload,
     });
     console.log('decodeTxTest >>>> ', {
+      routeParams: route.params,
       encodedTx,
       decodedTx,
       nativeTx,
       decodedTxLegacy,
       _nativeTxFromRawTx: nativeTxFromRawTx,
     });
-  }, [networkId, accountId, networkImpl, encodedTx, engine]);
+  }, [networkId, accountId, engine, encodedTx, route.params, networkImpl]);
 
   if (!platformEnv.isDev) {
     return null;

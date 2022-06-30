@@ -8,14 +8,14 @@ import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
+  IDecodedTx,
   IDecodedTxLegacy,
   IEncodedTx,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { IDappCallParams } from '../../../background/IBackgroundApi';
-import { useManageTokens } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmPayload } from '../types';
 
@@ -32,18 +32,22 @@ export type ITxConfirmViewPropsHandleConfirm = ({
 export type ITxConfirmViewProps = ModalProps & {
   // TODO rename sourceInfo
   sourceInfo?: IDappCallParams;
-  encodedTx: IEncodedTx;
-  decodedTx?: IDecodedTxLegacy | null;
+  encodedTx: IEncodedTx | null;
+  decodedTx?: IDecodedTx | IDecodedTxLegacy | null;
+  payload?: SendConfirmPayload;
+
   updateEncodedTxBeforeConfirm?: (encodedTx: IEncodedTx) => Promise<IEncodedTx>;
-  confirmDisabled?: boolean;
   handleConfirm: ITxConfirmViewPropsHandleConfirm;
   onEncodedTxUpdate?: (encodedTx: IEncodedTx) => void; // TODO remove
+
   feeInfoPayload: IFeeInfoPayload | null;
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
-  payload?: SendConfirmPayload;
-  children?: React.ReactElement | JSX.Element;
+  feeInput?: JSX.Element;
+
+  confirmDisabled?: boolean;
   autoConfirm?: boolean;
+  children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
 };
 
 // TODO rename SendConfirmModalBase
@@ -82,6 +86,9 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
       let tx = encodedTx;
+      if (!tx) {
+        return;
+      }
       if (updateEncodedTxBeforeConfirm) {
         tx = await updateEncodedTxBeforeConfirm(tx);
       }

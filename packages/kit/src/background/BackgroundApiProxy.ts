@@ -13,6 +13,7 @@ import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
@@ -52,6 +53,8 @@ class BackgroundApiProxy
   ) as ServiceOnboarding;
 
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
+
+  serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 
   _createProxyService(name = 'ROOT') {
     const NOOP = new Proxy(

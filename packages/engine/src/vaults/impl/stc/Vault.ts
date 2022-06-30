@@ -19,8 +19,8 @@ import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxActionNativeTransfer,
   IDecodedTxActionType,
-  IDecodedTxDirection,
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
@@ -84,15 +84,7 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
 
-    let direction = IDecodedTxDirection.IN;
-    if (encodedTx.from === dbAccount.address) {
-      direction =
-        encodedTx.to === dbAccount.address
-          ? IDecodedTxDirection.SELF
-          : IDecodedTxDirection.OUT;
-    }
-
-    const nativeTransfer = {
+    const nativeTransfer: IDecodedTxActionNativeTransfer = {
       tokenInfo: token,
       from: encodedTx.from,
       to: encodedTx.to,
@@ -100,23 +92,30 @@ export default class Vault extends VaultBase {
         .shiftedBy(-network.decimals)
         .toFixed(),
       amountValue: encodedTx.value,
-      extra: null,
+      extraInfo: null,
     };
 
-    return Promise.resolve({
+    const result: IDecodedTx = {
       txid: '',
+      owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [{ type: IDecodedTxActionType.NATIVE_TRANSFER, nativeTransfer }],
+      actions: [
+        {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          nativeTransfer,
+        },
+      ],
       status: IDecodedTxStatus.Pending, // TODO
-      direction,
       network,
+      networkId: this.networkId,
       feeInfo: {
         price: encodedTx.gasPrice,
         limit: encodedTx.gasLimit,
       },
-      extra: null,
-    });
+      extraInfo: null,
+    };
+    return Promise.resolve(result);
   }
 
   async buildEncodedTxFromTransfer(
@@ -217,8 +216,8 @@ export default class Vault extends VaultBase {
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
-      symbol: network.feeSymbol,
-      decimals: network.feeDecimals,
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
 
       limit: (unsignedTx.feeLimit || new BigNumber('0')).toFixed(),
       prices,

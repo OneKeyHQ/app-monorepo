@@ -13,13 +13,10 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import {
-  EVMDecodedItemERC20Approve,
-  InfiniteAmountText,
-} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useActiveWalletAccount } from '../../../hooks';
 import { SendRoutes, SendRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -49,8 +46,8 @@ function TokenApproveAmountEdit({ ...rest }) {
   const { encodedTx, tokenApproveAmount, isMaxAmount } = route.params;
   const [isMax, setIsMax] = useState(isMaxAmount);
   const { decodedTx } = route.params;
-  const info = decodedTx?.info as EVMDecodedItemERC20Approve;
-  const token = info?.token;
+  const info = decodedTx?.actions?.[0]?.tokenApprove;
+  const token = info?.tokenInfo;
   const symbol = token?.symbol;
 
   const {
@@ -160,6 +157,7 @@ function TokenApproveAmountEdit({ ...rest }) {
                 rightText={symbol}
                 enableMaxButton
                 isMax={isMax}
+                maxModeCanEdit
                 onMaxChange={(v) => {
                   setIsMax(v);
                   if (v) {

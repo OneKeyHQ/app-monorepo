@@ -85,19 +85,38 @@ const Tab: FC<TabProps> = ({ children, name }) => {
   return <Box display={isHidden ? 'none' : 'block'}>{children}</Box>;
 };
 
-const Container: FC<ComponentProps<typeof BaseContainer>> = ({
+type ContainerProps = ComponentProps<typeof BaseContainer> & {
+  onTabChange?: (options: { tabName: string; index: number | string }) => void;
+  onIndexChange?: (index: number | string) => void;
+  initialTabName?: string;
+};
+const Container: FC<ContainerProps> = ({
   children,
   containerStyle,
   headerHeight,
   renderHeader,
   headerContainerStyle,
   renderTabBar,
+  onTabChange,
+  onIndexChange,
+  initialTabName,
 }) => {
   const { options, names } = useTabProps(children as any, Tab);
 
-  const [value, setValue] = React.useState(names[0]);
+  const [value, setValue] = React.useState(initialTabName || names[0]);
   const handleChange = (event: React.SyntheticEvent, newValue: string) => {
     setValue(newValue);
+    const index = names.findIndex((item) => item === newValue);
+
+    if (onTabChange) {
+      onTabChange({
+        index,
+        tabName: newValue,
+      });
+    }
+    if (onIndexChange) {
+      onIndexChange(index);
+    }
   };
 
   return (

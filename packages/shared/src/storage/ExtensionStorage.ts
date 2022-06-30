@@ -97,7 +97,7 @@ class ExtensionStorage implements IAsyncStorage {
     return value;
   }
 
-  setItem(key: string, value: string) {
+  async setItem(key: string, value: string) {
     return this.browserApi.storage.local.set({
       [key]: value,
     });

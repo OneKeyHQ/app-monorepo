@@ -12,19 +12,21 @@ import BigNumber from 'bignumber.js';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { InvalidAddress, InvalidTokenAddress, NotImplemented } from '../errors';
-import { Account, DBAccount } from '../types/account';
+import { Account } from '../types/account';
 import { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import { WalletType } from '../types/wallet';
 
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
-  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
+  IHistoryTx,
   ITransferInfo,
   IUserInputGuessingResult,
 } from './types';
@@ -32,8 +34,6 @@ import { VaultContext } from './VaultContext';
 
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
 import type {
-  IPrepareHardwareAccountsParams,
-  IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   ISignedTx,
   IVaultSettings,
@@ -156,7 +156,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTx>;
 
+  // TODO rename buildDecodedTx:
+  //    - _decodeTx
+  //    - fixDecodedTx
+  //    - append payload to decodedTx
   abstract decodeTx(encodedTx: IEncodedTx, payload?: any): Promise<IDecodedTx>;
+
+  // abstract _decodeTx(encodedTx: IEncodedTx, payload?: any): Promise<IDecodedTx>;
 
   abstract decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy>;
 
@@ -184,6 +190,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // buildEncodedTxFromNftTransfer
   // buildEncodedTxFromSwap
 
+  // TODO return { UnsignedTx, IEncodedTx } , IEncodedTx may be modified
   abstract buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTx,
   ): Promise<UnsignedTx>;
@@ -259,5 +266,132 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     pendingTxs: Array<HistoryEntry>,
   ): Promise<Record<string, HistoryEntryStatus>> {
     throw new NotImplemented();
+  }
+
+  async getAccountNonce(): Promise<number | null> {
+    return Promise.resolve(null);
+  }
+
+  async fixDecodedTx(decodedTx: IDecodedTx): Promise<IDecodedTx> {
+    decodedTx.createdAt = decodedTx.createdAt ?? Date.now();
+
+    // TODO fix tx action direction both at SendConfirm
+    const accountAddress = decodedTx.owner;
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < decodedTx.actions.length; i++) {
+      const action = decodedTx.actions[i];
+      action.direction = IDecodedTxDirection.OTHER;
+      if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
+        action.direction = await this.buildTxActionDirection({
+          from: action.nativeTransfer?.from || '',
+          to: action.nativeTransfer?.to || '',
+          address: accountAddress,
+        });
+      }
+      if (action.type === IDecodedTxActionType.TOKEN_TRANSFER) {
+        action.direction = await this.buildTxActionDirection({
+          from: action.tokenTransfer?.from || '',
+          to: action.tokenTransfer?.to || '',
+          address: accountAddress,
+        });
+      }
+    }
+    return Promise.resolve(decodedTx);
+  }
+
+  async fixHistoryTx(historyTx: IHistoryTx): Promise<IHistoryTx> {
+    historyTx.decodedTx = await this.fixDecodedTx(historyTx.decodedTx);
+    historyTx.createdAt = historyTx.decodedTx.createdAt;
+    historyTx.status = historyTx.decodedTx.status;
+    historyTx.isFinal = historyTx.decodedTx.isFinal;
+
+    return Promise.resolve(historyTx);
+  }
+
+  async buildHistoryTx({
+    historyTxToMerge,
+    encodedTx,
+    decodedTx,
+    signedTx,
+    isSigner,
+    isLocalCreated,
+  }: {
+    historyTxToMerge?: IHistoryTx;
+    encodedTx?: IEncodedTx | null;
+    decodedTx: IDecodedTx;
+    signedTx?: ISignedTx;
+    isSigner?: boolean;
+    isLocalCreated?: boolean;
+  }): Promise<IHistoryTx> {
+    const txid: string = decodedTx.txid || signedTx?.txid || '';
+    if (!txid) {
+      throw new Error('buildHistoryTx txid not found');
+    }
+    const address = await this.getAccountAddress();
+    decodedTx.txid = decodedTx.txid || txid;
+    decodedTx.owner = address;
+    if (isSigner) {
+      decodedTx.signer = address;
+    }
+    // TODO base.mergeDecodedTx with signedTx.rawTx
+    // must include accountId here, so that two account wont share same tx history
+    const historyId = `${this.networkId}_${txid}_${this.accountId}`;
+    let historyTx: IHistoryTx = {
+      id: historyId,
+
+      networkId: this.networkId,
+      accountId: this.accountId,
+
+      isLocalCreated: Boolean(isLocalCreated),
+
+      ...historyTxToMerge,
+
+      encodedTx,
+      decodedTx,
+    };
+    // TODO update encodedTx nonce from signedTx.rawTx
+    historyTx = await this.fixHistoryTx(historyTx);
+    return Promise.resolve(historyTx);
+  }
+
+  // TODO abstract method
+  async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory?: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    throw new NotImplemented();
+  }
+
+  fixAddressCase(address: string): Promise<string> {
+    // TODO replace `engineUtils.fixAddressCase`
+    return Promise.resolve(address);
+  }
+
+  async buildTxActionDirection({
+    from,
+    to,
+    address,
+  }: {
+    from?: string;
+    to: string;
+    address: string;
+  }) {
+    // eslint-disable-next-line no-param-reassign
+    from = await this.fixAddressCase(from || '');
+    // eslint-disable-next-line no-param-reassign
+    to = await this.fixAddressCase(to);
+    // eslint-disable-next-line no-param-reassign
+    address = await this.fixAddressCase(address);
+    if (from === to && from === address) {
+      return IDecodedTxDirection.SELF;
+    }
+    // out first for internal send
+    if (from && from === address) {
+      return IDecodedTxDirection.OUT;
+    }
+    if (to && to === address) {
+      return IDecodedTxDirection.IN;
+    }
+    return IDecodedTxDirection.OTHER;
   }
 }
