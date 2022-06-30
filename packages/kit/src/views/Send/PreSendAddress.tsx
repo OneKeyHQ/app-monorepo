@@ -38,18 +38,21 @@ function PreSendAddress() {
       to: transferInfo.to || '',
     },
   });
-  useFormOnChangeDebounced<FormValues>({
+  const { loadingRef, formValues } = useFormOnChangeDebounced<FormValues>({
     useFormReturn,
   });
-  const { control, watch, getValues, formState } = useFormReturn;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { control, watch, trigger, getValues, formState } = useFormReturn;
   const navigation = useNavigation<NavigationProps>();
   const tokenInfo = useTokenInfo({
     networkId,
     tokenIdOnNetwork: transferInfo.token,
   });
-  const watchedTo = watch('to');
   const submitDisabled =
-    !watchedTo || !formState.isValid || !!Object.keys(formState.errors).length;
+    loadingRef.current ||
+    !formValues?.to ||
+    !formState.isValid ||
+    !!Object.keys(formState.errors).length;
 
   return (
     <BaseSendModal
@@ -61,6 +64,7 @@ function PreSendAddress() {
         isDisabled: submitDisabled,
       }}
       onPrimaryActionPress={() => {
+        console.log('PreSendAddress route params', route.params);
         navigation.navigate(SendRoutes.PreSendAmount, {
           ...transferInfo,
           to: getValues('to'),
@@ -78,6 +82,13 @@ function PreSendAddress() {
               </Box>
               <Form.Item
                 control={control}
+                successMessage={
+                  submitDisabled
+                    ? ''
+                    : intl.formatMessage({
+                        id: 'form__enter_recipient_address_valid',
+                      })
+                }
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
@@ -86,6 +97,9 @@ function PreSendAddress() {
                   validate: async (toAddress) => {
                     if (!toAddress) {
                       return undefined;
+                      // return intl.formatMessage({
+                      //   id: 'form__address_invalid',
+                      // });
                     }
                     try {
                       await backgroundApiProxy.validator.validateAddress(

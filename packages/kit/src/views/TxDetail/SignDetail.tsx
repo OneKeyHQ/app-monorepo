@@ -22,7 +22,7 @@ import X from '@onekeyhq/kit/assets/red_x.png';
 import { IDappCallParams } from '../../background/IBackgroundApi';
 import { useActiveWalletAccount } from '../../hooks/redux';
 
-import ConfirmHeader from './ConfirmHeader';
+import ConfirmHeader from './_legacy/ConfirmHeader';
 
 type TabType = 'message' | 'data';
 

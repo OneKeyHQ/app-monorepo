@@ -7,6 +7,7 @@ import {
   BlockTransactionWithLogEvents,
   EVMTxFromType,
   HistoryDetailList,
+  ICovalentHistoryList,
   LogEvent,
   NftDetail,
   NftMetadata,
@@ -381,8 +382,8 @@ async function txAdapter(
 function getTxHistories(
   chainId: string,
   address: string,
-  pageNumber: number,
-  pageSize: number,
+  pageNumber = 0,
+  pageSize = 50,
 ): Promise<HistoryDetailList | null> {
   const request = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/`;
   return axios
@@ -428,6 +429,101 @@ function getTxHistories(
 
       return null;
     });
+}
+
+async function fetchCovalentHistoryRaw({
+  chainId,
+  address,
+  contract,
+  pageNumber,
+  pageSize,
+}: {
+  chainId: string;
+  address: string;
+  contract?: string;
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<ICovalentHistoryList> {
+  // eslint-disable-next-line no-param-reassign
+  pageNumber = pageNumber ?? 0;
+  // eslint-disable-next-line no-param-reassign
+  pageSize = pageSize ?? 50;
+
+  const tokenRequestUrl = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transfers_v2/`;
+  const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/`;
+
+  const response = await axios.get<ICovalentHistoryList>(
+    contract ? tokenRequestUrl : url,
+    {
+      params: {
+        'page-number': pageNumber,
+        'page-size': pageSize,
+        'key': COVALENT_API_KEY,
+        'contract-address': contract,
+      },
+    },
+  );
+  return response.data;
+}
+
+async function fetchCovalentHistory({
+  chainId,
+  address,
+  pageNumber,
+  pageSize,
+}: {
+  chainId: string;
+  address: string;
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<HistoryDetailList | null> {
+  // eslint-disable-next-line no-param-reassign
+  pageNumber = pageNumber ?? 0;
+  // eslint-disable-next-line no-param-reassign
+  pageSize = pageSize ?? 50;
+
+  const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/`;
+  const response = await axios.get<HistoryDetailList>(url, {
+    params: {
+      'page-number': pageNumber,
+      'page-size': pageSize,
+      'key': COVALENT_API_KEY,
+    },
+  });
+
+  if (response.data.error === false) {
+    const { data: rawData } = response.data;
+
+    const data = camelcase(rawData, { deep: true });
+
+    const txList: Array<Transaction> = [];
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    for (let i = 0; i < data.items.length; i += 1) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      txList.push(await txAdapter(chainId, data.address, data.items[i]));
+    }
+
+    const history: HistoryDetailList = {
+      error: false,
+      errorCode: null,
+      errorMessage: null,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      data: {
+        address: data.address,
+        updatedAt: data.updatedAt,
+        nextUpdateAt: data.nextUpdateAt,
+        quoteCurrency: data.quoteCurrency,
+        chainId: data.chainId,
+        pagination: data.pagination,
+        items: [],
+        txList,
+      },
+    };
+
+    return history;
+  }
+
+  return null;
 }
 
 function getErc20TransferHistories(
@@ -485,4 +581,10 @@ function getErc20TransferHistories(
     });
 }
 
-export { getTxHistories, getErc20TransferHistories, getNftDetail };
+export {
+  fetchCovalentHistoryRaw,
+  fetchCovalentHistory,
+  getTxHistories,
+  getErc20TransferHistories,
+  getNftDetail,
+};

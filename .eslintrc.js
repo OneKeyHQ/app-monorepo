@@ -1,3 +1,4 @@
+const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
   // eslint-disable-next-line global-require
   'prettier/prettier': ['error', require('./.prettierrc.js')],
@@ -13,7 +14,7 @@ const jsRules = {
   'react/jsx-props-no-spreading': 'off',
 };
 const tsRules = {
-  '@typescript-eslint/no-unused-vars': ['error'],
+  '@typescript-eslint/no-unused-vars': [isDev ? 'warn' : 'error'],
   '@typescript-eslint/no-use-before-define': ['error'],
   '@typescript-eslint/no-shadow': ['error'],
   '@typescript-eslint/explicit-module-boundary-types': 'off',

@@ -3,28 +3,22 @@ import React, { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
-import {
-  EVMDecodedItem,
-  EVMDecodedItemInternalSwap,
-} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappCallParams } from '../../background/IBackgroundApi';
+import { IDappCallParams } from '../../../background/IBackgroundApi';
 
 import Address from './Address';
 import ContractData from './ContractData';
 import HeaderIcon from './HeaderIcon';
 import TotalFee from './TotalFee';
 
-const TxConfirmSwapDetail: FC<{
+const TxConfirmBlindDetail: FC<{
   tx: EVMDecodedItem;
   sourceInfo?: IDappCallParams;
-  feeInfoPayload?: IFeeInfoPayload | null;
   feeInput?: any;
+  feeInfoPayload?: IFeeInfoPayload | null;
 }> = ({ tx, sourceInfo, feeInput, feeInfoPayload }) => {
-  const { info } = tx;
-  const swapInfo = info as EVMDecodedItemInternalSwap;
-  const { buyTokenSymbol, sellTokenSymbol, buyAmount, sellAmount } = swapInfo;
   const intl = useIntl();
 
   return (
@@ -34,26 +28,19 @@ const TxConfirmSwapDetail: FC<{
       alignItems="center"
       mb={{ base: 4, md: 0 }}
     >
-      <HeaderIcon
-        headerInfo={{ iconName: 'BrandLogoIllus', title: 'OneKey Swap' }}
-      />
+      <HeaderIcon headerInfo={tx.network} />
 
       <Container.Box mt={6}>
         <Address address={tx.fromAddress} isFromAddress />
-        <Container.Item
-          title={intl.formatMessage({ id: 'action__send' })}
-          describe={`${sellAmount} ${sellTokenSymbol}`}
-        />
 
-        <Container.Item
-          title={intl.formatMessage({ id: 'action__receive' })}
-          describe={`${buyAmount} ${buyTokenSymbol}`}
-        />
+        {/* toAddress could be a null if it's a contract creation */}
+        {!!tx.toAddress && (
+          <Address address={tx.toAddress} isFromAddress={false} />
+        )}
+
         {!!sourceInfo && (
           <Container.Item
-            title={`${intl.formatMessage({
-              id: 'content__interact_with',
-            })}`}
+            title={intl.formatMessage({ id: 'content__interact_with' })}
             describe={sourceInfo.origin}
           />
         )}
@@ -79,6 +66,7 @@ const TxConfirmSwapDetail: FC<{
       <Typography.Subheading mt={6} w="100%" color="text-subdued">
         {intl.formatMessage({ id: 'content__more_details' })}
       </Typography.Subheading>
+
       <Container.Box mt={6}>
         <ContractData tx={tx} />
       </Container.Box>
@@ -86,4 +74,4 @@ const TxConfirmSwapDetail: FC<{
   );
 };
 
-export default TxConfirmSwapDetail;
+export default TxConfirmBlindDetail;

@@ -18,6 +18,7 @@ import {
 import { jsonToEthersTx } from './util';
 
 import type { Engine } from '../../../..';
+import type VaultEvm from '../Vault';
 
 export const InfiniteAmountText = 'Infinite';
 export const InfiniteAmountHex =
@@ -78,9 +79,41 @@ class EVMTxDecoder {
     return decoded;
   }
 
+  public async decodeTx({
+    vault,
+    rawTx,
+    payload,
+    covalentTx,
+    historyEntry,
+  }: {
+    vault: VaultEvm;
+    rawTx: string | ethers.Transaction;
+    payload?: any;
+    covalentTx?: Transaction | null;
+    historyEntry?: HistoryEntryTransaction | null;
+  }): Promise<EVMDecodedItem> {
+    let decoded = await this._decode(rawTx, vault);
+
+    if (historyEntry) {
+      decoded = this.updateWithHistoryEntry(decoded, historyEntry);
+    }
+
+    if (payload) {
+      decoded = await this.updateWithPayload(decoded, payload);
+    }
+
+    if (covalentTx) {
+      decoded = this.updateWithCovalentTx(decoded, covalentTx);
+    }
+
+    return decoded;
+  }
+
   public async _decode(
     rawTx: string | ethers.Transaction,
+    vault?: VaultEvm,
   ): Promise<EVMDecodedItem> {
+    const accountAddress = await vault?.getAccountAddress();
     const { txType, tx, txDesc, protocol, mainSource, raw } =
       this.staticDecode(rawTx);
     const itemBuilder = { txType, protocol, raw } as EVMDecodedItem;
@@ -114,6 +147,13 @@ class EVMTxDecoder {
       };
     }
 
+    if (
+      (await vault?.fixAddressCase(itemBuilder.toAddress)) ===
+      (await vault?.fixAddressCase(accountAddress || ''))
+    ) {
+      itemBuilder.fromType = 'IN';
+    }
+
     let infoBuilder:
       | EVMDecodedItemERC20Transfer
       | EVMDecodedItemERC20Approve
@@ -129,21 +169,43 @@ class EVMTxDecoder {
       }
       switch (txType) {
         case EVMDecodedTxType.TOKEN_TRANSFER: {
-          // transfer(address _to, uint256 _value)
-          const recipient = (txDesc?.args[0] as string).toLowerCase();
-          const value = txDesc?.args[1] as ethers.BigNumber;
+          let from = tx.from?.toLowerCase() || '';
+          let recipient = tx.to?.toLowerCase() || '';
+          let value = ethers.BigNumber.from(0);
+
+          // Function:  transfer(address _to, uint256 _value)
+          if (txDesc?.name === 'transfer') {
+            from = tx.from?.toLowerCase() || '';
+            recipient = (txDesc?.args[0] as string).toLowerCase();
+            value = txDesc?.args[1] as ethers.BigNumber;
+          }
+
+          // Function:  transferFrom(address from, address to, uint256 value)
+          if (txDesc?.name === 'transferFrom') {
+            from = (txDesc?.args[0] as string).toLowerCase();
+            recipient = (txDesc?.args[1] as string).toLowerCase();
+            value = txDesc?.args[2] as ethers.BigNumber;
+          }
+
           const amount = EVMTxDecoder.formatValue(value, token.decimals);
           infoBuilder = {
             type: EVMDecodedTxType.TOKEN_TRANSFER,
             value: value.toString(),
             amount,
+            from,
             recipient,
             token,
           } as EVMDecodedItemERC20Transfer;
+          if (
+            (await vault?.fixAddressCase(infoBuilder.recipient)) ===
+            (await vault?.fixAddressCase(accountAddress || ''))
+          ) {
+            itemBuilder.fromType = 'IN';
+          }
           break;
         }
         case EVMDecodedTxType.TOKEN_APPROVE: {
-          // approve(address _spender, uint256 _value)
+          // Function:  approve(address _spender, uint256 _value)
           const spender = (txDesc?.args[0] as string).toLowerCase();
           const value = txDesc?.args[1] as ethers.BigNumber;
           const amount = EVMTxDecoder.formatValue(value, token.decimals);
@@ -253,6 +315,10 @@ class EVMTxDecoder {
 
     switch (txDesc.name) {
       case 'transfer': {
+        txType = EVMDecodedTxType.TOKEN_TRANSFER;
+        break;
+      }
+      case 'transferFrom': {
         txType = EVMDecodedTxType.TOKEN_TRANSFER;
         break;
       }

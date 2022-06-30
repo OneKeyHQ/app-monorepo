@@ -22,16 +22,16 @@ import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
 import { wait } from '../../utils/helper';
 import { SwapQuoteTx } from '../Swap/typings';
 
-import {
-  ITxConfirmViewProps,
-  ITxConfirmViewPropsHandleConfirm,
-  SendConfirmModal,
-} from './confirmViews/SendConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
 import { TxConfirmSpeedUpOrCancel } from './confirmViews/TxConfirmSpeedUpOrCancel';
 import { TxConfirmSwap } from './confirmViews/TxConfirmSwap';
 import { TxConfirmTokenApprove } from './confirmViews/TxConfirmTokenApprove';
 import { TxConfirmTransfer } from './confirmViews/TxConfirmTransfer';
+import {
+  ITxConfirmViewProps,
+  ITxConfirmViewPropsHandleConfirm,
+  SendConfirmModal,
+} from './SendConfirmViews/SendConfirmModal';
 import {
   SendConfirmPayloadBase,
   SendRoutes,

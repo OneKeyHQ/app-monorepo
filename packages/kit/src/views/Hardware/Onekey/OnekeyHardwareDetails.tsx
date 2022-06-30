@@ -133,7 +133,6 @@ const OnekeyHardwareDetailsModal: FC = () => {
       headerDescription=""
       footer={null}
       scrollViewProps={{
-        pt: 4,
         children: (
           <Protected walletId={walletId}>
             {() => <OnekeyHardwareDetails walletId={walletId} />}

@@ -20,7 +20,10 @@ import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
@@ -33,7 +36,10 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
+import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
@@ -43,16 +49,11 @@ import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import CollectiblesList from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
+import { WalletHomeTabEnum } from './type';
 
 import type { TextStyle } from 'react-native';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-
-enum TabEnum {
-  Tokens = 'Tokens',
-  Collectibles = 'Collectibles',
-  History = 'History',
-}
 
 // offline check url, CORS error in firefox
 // fix ERROR: internetReachability.ts:71 HEAD net::ERR_ABORTED 404 (Not Found)
@@ -79,6 +80,7 @@ const Home: FC = () => {
     'action-primary-default',
     'border-subdued',
   ]);
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -210,6 +212,15 @@ const Home: FC = () => {
   return (
     <>
       <Tabs.Container
+        // lazy={true}
+        initialTabName={homeTabName || undefined}
+        onIndexChange={(index) => {
+          console.log('homeTab onIndexChange', index);
+        }}
+        onTabChange={({ tabName, index }) => {
+          console.log('homeTab onTabChange', { index, tabName });
+          backgroundApiProxy.dispatch(setHomeTabName(tabName));
+        }}
         renderHeader={AccountInfo}
         width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
         pagerProps={{ scrollEnabled: false }}
@@ -248,26 +259,34 @@ const Home: FC = () => {
         )}
       >
         <Tabs.Tab
-          name={TabEnum.Tokens}
+          name={WalletHomeTabEnum.Tokens}
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
           <AssetsList />
         </Tabs.Tab>
         <Tabs.Tab
-          name={TabEnum.Collectibles}
+          name={WalletHomeTabEnum.Collectibles}
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
           <CollectiblesList address={account?.address} network={network} />
         </Tabs.Tab>
         <Tabs.Tab
-          name={TabEnum.History}
+          name={WalletHomeTabEnum.History}
           label={intl.formatMessage({ id: 'transaction__history' })}
         >
-          <HistoricalRecord
-            accountId={account?.id}
-            networkId={network?.id}
-            isTab
-          />
+          {platformEnv.isLegacyHistory ? (
+            <HistoricalRecord
+              accountId={account?.id}
+              networkId={network?.id}
+              isTab
+            />
+          ) : (
+            <TxHistoryListView
+              accountId={account?.id}
+              networkId={network?.id}
+              isHomeTab
+            />
+          )}
         </Tabs.Tab>
       </Tabs.Container>
       {backupToast()}

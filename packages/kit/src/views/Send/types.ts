@@ -1,7 +1,7 @@
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
-  IDecodedTxLegacy,
+  IDecodedTx,
   IEncodedTx,
   IFeeInfoSelected,
   ISignedTx,
@@ -30,14 +30,15 @@ export type TokenApproveAmountEditParams = {
   tokenApproveAmount: string;
   isMaxAmount: boolean;
   sourceInfo?: IDappCallParams | undefined;
-  encodedTx?: IEncodedTx;
-  decodedTx?: IDecodedTxLegacy;
+  encodedTx?: IEncodedTx | null;
+  decodedTx?: IDecodedTx;
 };
 
 export type EditFeeParams = {
   encodedTx?: IEncodedTx;
   feeInfoSelected?: IFeeInfoSelected;
   autoConfirmAfterFeeSaved?: boolean;
+  resendActionInfo?: SendConfirmResendActionInfo;
 };
 
 export type PreSendParams = ITransferInfo;
@@ -73,6 +74,10 @@ export type SendConfirmFromDappParams = {
   query?: string;
 };
 export type SendConfirmActionType = 'speedUp' | 'cancel';
+export type SendConfirmResendActionInfo = {
+  type: SendConfirmActionType;
+  replaceHistoryId?: string;
+};
 export type SendConfirmPayloadBase = {
   payloadType: 'Transfer' | 'InternalSwap';
 };
@@ -80,12 +85,19 @@ export type SendConfirmPayload =
   | SendConfirmPayloadBase
   | TransferSendParamsPayload
   | SwapQuoteTx;
+export type SendConfirmOnSuccessData = {
+  signedTx?: ISignedTx;
+  encodedTx?: IEncodedTx | null;
+  decodedTx?: IDecodedTx | null;
+};
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string; // TODO remove
   payload?: SendConfirmPayload; // use payload.payloadType
-  onSuccess?: (tx: ISignedTx) => void;
+  onSuccess?: (tx: ISignedTx, data?: SendConfirmOnSuccessData) => void;
   sourceInfo?: IDappCallParams;
-  actionType?: SendConfirmActionType;
+  // TODO remove, use resendActionInfo instead
+  actionType?: SendConfirmActionType; // 'speedUp' | 'cancel';
+  // resendActionInfo?: SendConfirmResendActionInfo;
   backRouteName?: keyof SendRoutesParams;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;

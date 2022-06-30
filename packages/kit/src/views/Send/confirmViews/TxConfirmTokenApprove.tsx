@@ -9,12 +9,15 @@ import {
   EVMDecodedItemERC20Approve,
   InfiniteAmountText,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { IDecodedTxLegacy } from '@onekeyhq/engine/src/vaults/types';
 
-import TxTokenApproveDetail from '../../TxDetail/TxTokenApproveDetail';
+import TxTokenApproveDetail from '../../TxDetail/_legacy/TxTokenApproveDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
+import {
+  ITxConfirmViewProps,
+  SendConfirmModal,
+} from '../SendConfirmViews/SendConfirmModal';
 import { SendRoutes, SendRoutesParams } from '../types';
-
-import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -28,8 +31,10 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
     feeInfoEditable,
     encodedTx,
     sourceInfo,
-    decodedTx,
+    decodedTx: decodedTxLegacy,
   } = props;
+  const decodedTx = decodedTxLegacy as IDecodedTxLegacy;
+
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
@@ -63,7 +68,7 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
           isMaxAmount,
           sourceInfo,
           encodedTx,
-          decodedTx,
+          decodedTx: decodedTx as any,
         });
         // TODO update Approve amount
         // const tx = cloneDeep(encodedTx) as IEncodedTxEvm;

@@ -8,7 +8,7 @@ type NetworkBase = HasName & {
   enabled: boolean;
   feeSymbol: string;
   decimals: number;
-  feeDecimals: number;
+  feeDecimals: number; // 1,000,000,000 -> 1 GWEI
   balance2FeeDecimals: number;
 };
 
@@ -88,8 +88,8 @@ type UpdateNetworkParams = UpdateEVMNetworkParams;
 
 type EIP1559Fee = {
   baseFee: string;
-  maxPriorityFeePerGas: string;
-  maxFeePerGas: string;
+  maxPriorityFeePerGas: string; // in GWEI
+  maxFeePerGas: string; // in GWEI
 };
 
 export type {
