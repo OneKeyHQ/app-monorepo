@@ -77,7 +77,7 @@ class DeviceUtils {
       return searchResponse;
     };
 
-    const poll: IPollFn<void> = async (time = 2000) => {
+    const poll: IPollFn<void> = async (time = POLL_INTERVAL) => {
       if (!this.scanning) {
         return;
       }
@@ -98,7 +98,8 @@ class DeviceUtils {
     };
 
     this.scanning = true;
-    poll();
+    const time = platformEnv.isNativeAndroid ? 2000 : POLL_INTERVAL;
+    poll(time);
   }
 
   stopScan() {
