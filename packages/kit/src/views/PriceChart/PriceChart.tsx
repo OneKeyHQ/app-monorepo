@@ -41,10 +41,6 @@ const PriceChart: React.FC<PriceChartProps> = ({
               platform,
               days,
               vs_currency: selectedFiatMoneySymbol,
-            }).then((apiData) => {
-              // @ts-ignore
-              apiData.__time = Date.now();
-              return apiData;
             }),
           ),
         );

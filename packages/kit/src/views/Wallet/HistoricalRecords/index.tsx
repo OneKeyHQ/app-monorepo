@@ -199,12 +199,14 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Box>
   );
 
-  const header = hiddenHeader ? null : (
-    <>
-      {headerView}
-      {headerViewBar}
-    </>
-  );
+  const renderListHeader = hiddenHeader
+    ? null
+    : () => (
+        <>
+          {headerView}
+          {headerViewBar}
+        </>
+      );
 
   const renderEmpty = () => (
     <Box py={4} flexDirection="row" alignItems="center">
@@ -240,7 +242,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       sections={transactionRecords}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      ListHeaderComponent={header}
+      ListHeaderComponent={renderListHeader}
       ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
       ListFooterComponent={() => <Box key="footer" h="20px" />}
       ItemSeparatorComponent={() => <Divider key="separator" />}
