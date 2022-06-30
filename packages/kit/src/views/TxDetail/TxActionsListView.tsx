@@ -35,7 +35,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
       const TxActionComponent = components[transformType];
 
       listItems.push(
-        <TxActionErrorBoundary>
+        <TxActionErrorBoundary key={`error-boundary-${index}`}>
           <TxActionComponent key={index} {...metaInfo.props} meta={meta} />
         </TxActionErrorBoundary>,
       );

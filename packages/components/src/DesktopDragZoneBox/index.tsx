@@ -1,8 +1,10 @@
-import React, { ComponentPropsWithoutRef, FC } from 'react';
+import React, { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
 
 import { Pressable } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import Box from '../Box';
 
 let lastTime: Date | undefined;
 let num = 0;
@@ -41,6 +43,7 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
         WebkitAppRegion: 'drag',
         WebkitUserSelect: 'none',
         cursor: 'default',
+
         ...(typeof style === 'object' ? style : {}),
       }}
     >
@@ -48,5 +51,34 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
     </Pressable>
   );
 };
+
+export function DesktopDragZoneAbsoluteBar(props: ComponentProps<typeof Box>) {
+  const { w = '100%', h = 8, ...others } = props;
+  if (!platformEnv.isDesktop) {
+    return null;
+  }
+  // const highlightDragZone = platformEnv.isDev;
+  const highlightDragZone = false;
+
+  return (
+    <Box
+      position="absolute"
+      zIndex={highlightDragZone ? 1 : -1}
+      left={0}
+      top={0}
+      w={w}
+      h={h}
+      {...others}
+    >
+      <DesktopDragZoneBox
+        style={{
+          width: '100%',
+          height: '100%',
+          backgroundColor: highlightDragZone ? 'rgba(0,0,0,0.3)' : undefined,
+        }}
+      />
+    </Box>
+  );
+}
 
 export default DesktopDragZoneBox;

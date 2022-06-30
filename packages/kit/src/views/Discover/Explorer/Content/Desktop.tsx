@@ -10,7 +10,13 @@ import React, {
 import { useIntl } from 'react-intl';
 import { TextInput } from 'react-native';
 
-import { Box, HStack, IconButton, Input } from '@onekeyhq/components';
+import {
+  Box,
+  DesktopDragZoneBox,
+  HStack,
+  IconButton,
+  Input,
+} from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components';
 
 import SearchView from '../Search/SearchView';
@@ -115,105 +121,107 @@ const Desktop: FC<ExplorerViewProps> = ({
   return (
     <Box flex="1" zIndex={3}>
       {!!showExplorerBar && (
-        <Box bg="surface-subdued" zIndex={5}>
-          <HStack
-            w="100%"
-            h="64px"
-            px={8}
-            space={3}
-            flexDirection="row"
-            alignItems="center"
-          >
-            <IconButton
-              type="plain"
-              name="ArrowLeftOutline"
-              disabled={!canGoBack}
-              onPress={onGoBack}
-            />
-            <IconButton
-              type="plain"
-              name="ArrowRightOutline"
-              disabled={!canGoForward}
-              onPress={onNext}
-            />
-            <IconButton
-              type="plain"
-              name={loading ? 'CloseOutline' : 'RefreshOutline'}
-              onPress={loading ? onStopLoading : onRefresh}
-            />
+        <DesktopDragZoneBox>
+          <Box bg="surface-subdued" zIndex={5}>
+            <HStack
+              w="100%"
+              h="64px"
+              px={8}
+              space={3}
+              flexDirection="row"
+              alignItems="center"
+            >
+              <IconButton
+                type="plain"
+                name="ArrowLeftOutline"
+                disabled={!canGoBack}
+                onPress={onGoBack}
+              />
+              <IconButton
+                type="plain"
+                name="ArrowRightOutline"
+                disabled={!canGoForward}
+                onPress={onNext}
+              />
+              <IconButton
+                type="plain"
+                name={loading ? 'CloseOutline' : 'RefreshOutline'}
+                onPress={loading ? onStopLoading : onRefresh}
+              />
 
-            <BrowserURLInput
-              ref={searchBar}
-              flex={1}
-              h="38px"
-              placeholder={intl.formatMessage({
-                id: 'content__search_or_enter_dapp_url',
-              })}
-              customLeftIcon={httpSafeState}
-              size="base"
-              value={searchContent?.searchContent}
-              onClear={() => onSearchContentChange?.({ searchContent: '' })}
-              onChangeText={(text) =>
-                onSearchContentChange?.({ searchContent: text })
-              }
-              onSubmitEditing={(event) => {
-                if (searchContent?.dapp) {
-                  onSearchSubmitEditing?.(searchContent.dapp);
-                } else {
-                  onSearchContentChange?.({
-                    searchContent: event.nativeEvent.text,
-                  });
-                  onSearchSubmitEditing?.(event.nativeEvent.text);
+              <BrowserURLInput
+                ref={searchBar}
+                flex={1}
+                h="38px"
+                placeholder={intl.formatMessage({
+                  id: 'content__search_or_enter_dapp_url',
+                })}
+                customLeftIcon={httpSafeState}
+                size="base"
+                value={searchContent?.searchContent}
+                onClear={() => onSearchContentChange?.({ searchContent: '' })}
+                onChangeText={(text) =>
+                  onSearchContentChange?.({ searchContent: text })
                 }
-              }}
-              onKeyPress={(event) => {
-                const { key } = event.nativeEvent;
-                if (key === 'ArrowUp' || key === 'ArrowDown') {
-                  onKeyEvent?.(key);
-                  // 阻断 上键、下键 事件传递
-                  event.preventDefault();
-                }
-              }}
-              onFocus={() => {
-                setHistoryVisible(true);
-              }}
-              onBlur={() => {
-                setHistoryVisible(false);
-              }}
-            />
+                onSubmitEditing={(event) => {
+                  if (searchContent?.dapp) {
+                    onSearchSubmitEditing?.(searchContent.dapp);
+                  } else {
+                    onSearchContentChange?.({
+                      searchContent: event.nativeEvent.text,
+                    });
+                    onSearchSubmitEditing?.(event.nativeEvent.text);
+                  }
+                }}
+                onKeyPress={(event) => {
+                  const { key } = event.nativeEvent;
+                  if (key === 'ArrowUp' || key === 'ArrowDown') {
+                    onKeyEvent?.(key);
+                    // 阻断 上键、下键 事件传递
+                    event.preventDefault();
+                  }
+                }}
+                onFocus={() => {
+                  setHistoryVisible(true);
+                }}
+                onBlur={() => {
+                  setHistoryVisible(false);
+                }}
+              />
 
-            {/* <IconButton
+              {/* <IconButton
             type="plain"
             name="DotsHorizontalOutline"
             onPress={onMore}
           /> */}
-          </HStack>
-          {moreView}
-          <SearchView
-            ref={searchView}
-            visible={historyVisible}
-            // onSearchContentChange={onSearchContentChange}
-            searchContent={searchContent}
-            onSelectorItem={(item: MatchDAppItemType) => {
-              onSearchSubmitEditing?.(item);
-              searchBar.current?.blur();
-            }}
-            onHoverItem={(item: MatchDAppItemType) => {
-              let url;
-              if (item.dapp) {
-                url = item.dapp.url;
-              } else if (item.webSite) {
-                url = item.webSite.url;
-              }
-              if (url)
-                onSearchContentChange?.({
-                  searchContent: url,
-                  dapp: item,
-                });
-            }}
-            relativeComponent={searchBar.current}
-          />
-        </Box>
+            </HStack>
+            {moreView}
+            <SearchView
+              ref={searchView}
+              visible={historyVisible}
+              // onSearchContentChange={onSearchContentChange}
+              searchContent={searchContent}
+              onSelectorItem={(item: MatchDAppItemType) => {
+                onSearchSubmitEditing?.(item);
+                searchBar.current?.blur();
+              }}
+              onHoverItem={(item: MatchDAppItemType) => {
+                let url;
+                if (item.dapp) {
+                  url = item.dapp.url;
+                } else if (item.webSite) {
+                  url = item.webSite.url;
+                }
+                if (url)
+                  onSearchContentChange?.({
+                    searchContent: url,
+                    dapp: item,
+                  });
+              }}
+              relativeComponent={searchBar.current}
+            />
+          </Box>
+        </DesktopDragZoneBox>
       )}
       <Box flex={1} zIndex={3}>
         {explorerContent}
