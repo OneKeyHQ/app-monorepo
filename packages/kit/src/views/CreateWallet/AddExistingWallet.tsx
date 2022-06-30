@@ -20,6 +20,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDebounce } from '../../hooks';
@@ -167,7 +168,7 @@ const AddExistingWallet = () => {
             </Center>
           )}
         </Form>
-        {platformEnv.isNative && mode === 'all' ? (
+        {supportedNFC && mode === 'all' ? (
           <Button
             size="xl"
             type="plain"

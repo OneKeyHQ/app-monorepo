@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Divider, Icon, Pressable, useTheme } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -28,7 +28,7 @@ export const DefaultSection = () => {
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
-        {platformEnv.isNative && (
+        {supportedNFC && (
           <>
             <Pressable
               display="flex"

@@ -21,7 +21,7 @@ import {
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
 export type BackupWalletViewProps = {
   walletId: string;
@@ -108,7 +108,7 @@ const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
               })}
               onPress={onManual}
             />
-            {platformEnv.isNative && (
+            {supportedNFC && (
               <BackupItem
                 imageSrc={OneKeyLite}
                 title={intl.formatMessage({ id: 'backup__onekey_lite_backup' })}
