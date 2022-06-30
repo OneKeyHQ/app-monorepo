@@ -107,6 +107,10 @@ class OnekeyLite {
     OKLiteManager.getLiteInfo(result);
   }
 
+  checkNFCPermission(result: Callback<boolean>) {
+    OKLiteManager.checkNFCPermission(result);
+  }
+
   setMnemonic(
     mnemonic: string,
     pwd: string,
