@@ -152,7 +152,6 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
                 case 'remove':
                   onDeleteWallet();
                   break;
-
                 default:
                   break;
               }
@@ -201,84 +200,96 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
           />
         ) : null}
         {['hw'].includes(selectedWallet?.type ?? '') ? (
-          <Select
-            onChange={(_value) => {
-              switch (_value) {
-                case 'rename':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.ManagerWallet,
-                    params: {
-                      screen:
-                        ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
+          <Box>
+            <Select
+              onChange={(_value) => {
+                switch (_value) {
+                  case 'rename':
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.ManagerWallet,
                       params: {
-                        walletId: selectedWallet?.id ?? '',
+                        screen:
+                          ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
+                        params: {
+                          walletId: selectedWallet?.id ?? '',
+                        },
                       },
-                    },
-                  });
-                  break;
-                case 'details':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.OnekeyHardware,
-                    params: {
-                      screen:
-                        OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
+                    });
+                    break;
+                  case 'details':
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.OnekeyHardware,
                       params: {
-                        walletId: selectedWallet?.id ?? '',
+                        screen:
+                          OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
+                        params: {
+                          walletId: selectedWallet?.id ?? '',
+                        },
                       },
-                    },
-                  });
-                  break;
-                case 'remove':
-                  onDeleteWallet();
-                  break;
-
-                default:
-                  break;
-              }
-            }}
-            dropdownPosition="right"
-            activatable={false}
-            options={[
-              // {
-              //   label: intl.formatMessage({ id: 'action__edit' }),
-              //   value: 'rename',
-              //   iconProps: {
-              //     name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
-              //   },
-              // },
-              {
-                label: intl.formatMessage({
-                  id: 'action__view_device_details',
-                }),
-                value: 'details',
-                iconProps: {
-                  name: isVerticalLayout
-                    ? 'DocumentTextOutline'
-                    : 'DocumentTextSolid',
+                    });
+                    break;
+                  case 'remove':
+                    onDeleteWallet();
+                    break;
+                  default:
+                    break;
+                }
+              }}
+              dropdownPosition="right"
+              activatable={false}
+              options={[
+                // {
+                //   label: intl.formatMessage({ id: 'action__edit' }),
+                //   value: 'rename',
+                //   iconProps: {
+                //     name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+                //   },
+                // },
+                {
+                  label: intl.formatMessage({
+                    id: 'action__view_device_details',
+                  }),
+                  value: 'details',
+                  iconProps: {
+                    name: isVerticalLayout
+                      ? 'DocumentTextOutline'
+                      : 'DocumentTextSolid',
+                  },
                 },
-              },
-              {
-                label: intl.formatMessage({ id: 'action__delete_wallet' }),
-                value: 'remove',
-                iconProps: {
-                  name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+                {
+                  label: intl.formatMessage({ id: 'action__delete_wallet' }),
+                  value: 'remove',
+                  iconProps: {
+                    name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+                  },
+                  destructive: true,
                 },
-                destructive: true,
-              },
-            ]}
-            headerShown={false}
-            footer={null}
-            containerProps={{ width: 'auto' }}
-            dropdownProps={{
-              width: 248,
-            }}
-            renderTrigger={(activeOption, isHovered, visible) => (
-              <CustomSelectTrigger
-                isTriggerHovered={isHovered}
-                isSelectVisible={visible}
-              />
-            )}
-          />
+              ]}
+              headerShown={false}
+              footer={null}
+              containerProps={{ width: 'auto' }}
+              dropdownProps={{
+                width: 248,
+              }}
+              renderTrigger={(activeOption, isHovered, visible) => (
+                <CustomSelectTrigger
+                  isTriggerHovered={isHovered}
+                  isSelectVisible={visible}
+                />
+              )}
+            />
+            {/* TODO: show notification indicator if connected hardware wallet update available */}
+            {/* <Box
+              position="absolute"
+              top={-2}
+              right={-2}
+              size={3}
+              bgColor="icon-warning"
+              borderWidth={2}
+              borderColor="surface-subdued"
+              rounded="full"
+            /> */}
+          </Box>
         ) : null}
       </HStack>
       <ManagerWalletDeleteDialog
