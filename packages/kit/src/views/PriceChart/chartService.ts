@@ -106,7 +106,7 @@ export function updateChartDom({
   bottomColor: string;
   data: MarketApiData[];
 }) {
-  const formatedData = (data as [UTCTimestamp, number][]).map(
+  const formattedData = (data as [UTCTimestamp, number][]).map(
     ([time, value]) => ({
       time,
       value,
@@ -123,13 +123,13 @@ export function updateChartDom({
       crosshairMarkerBorderColor: '#fff',
       crosshairMarkerRadius: 5,
     });
-    newSeries.setData(formatedData);
+    newSeries.setData(formattedData);
     chart._onekey_series = newSeries;
     return;
   }
   const series = chart._onekey_series;
   series.applyOptions({ lineColor, topColor, bottomColor });
-  series.setData(formatedData);
+  series.setData(formattedData);
 
   if (data.length > 2) {
     chart

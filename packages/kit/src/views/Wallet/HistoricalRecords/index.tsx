@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, Fragment, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -199,14 +199,12 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Box>
   );
 
-  const renderListHeader = hiddenHeader
-    ? null
-    : () => (
-        <>
-          {headerView}
-          {headerViewBar}
-        </>
-      );
+  const renderListHeader = hiddenHeader ? null : (
+    <>
+      {headerView}
+      {headerViewBar}
+    </>
+  );
 
   const renderEmpty = () => (
     <Box py={4} flexDirection="row" alignItems="center">
