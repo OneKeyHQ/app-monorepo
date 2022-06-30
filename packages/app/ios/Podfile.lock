@@ -544,7 +544,7 @@ PODS:
     - Firebase/Crashlytics (= 8.15.0)
     - React-Core
     - RNFBApp
-  - RNGestureHandler (2.4.2):
+  - RNGestureHandler (2.5.0):
     - React-Core
   - RNReanimated (2.8.0):
     - DoubleConversion
@@ -964,7 +964,7 @@ SPEC CHECKSUMS:
   RNFBAnalytics: 58d1a73d42514ddf3c4f43662db0f3ce9a85457b
   RNFBApp: ca5f49bbe21f663142320337eb39956b04de4d12
   RNFBCrashlytics: 97bf2b05e4a5523c57adc8f9e5bf6e1b17804482
-  RNGestureHandler: 61628a2c859172551aa2100d3e73d1e57878392f
+  RNGestureHandler: bad495418bcbd3ab47017a38d93d290ebd406f50
   RNReanimated: 64573e25e078ae6bec03b891586d50b9ec284393
   RNScreens: 4d83613b50b74ed277026375dc0810893b0c347f
   RNSVG: 302bfc9905bd8122f08966dc2ce2d07b7b52b9f8
@@ -975,6 +975,6 @@ SPEC CHECKSUMS:
   Yoga: 99652481fcd320aefa4a7ef90095b95acd181952
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: a2bc322b38fb3c0adfe91ed01a15181b25e605a5
+PODFILE CHECKSUM: 852f6ac61e5932d6c919cbbba9a83df57e185583
 
 COCOAPODS: 1.11.3

@@ -61,7 +61,9 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     <>
       <TokenInfo token={token} network={network} />
       <PriceChart
-        style={{ marginBottom: 20 }}
+        style={{
+          marginBottom: 20,
+        }}
         platform={network.shortCode}
         contract={token?.tokenIdOnNetwork}
       />
