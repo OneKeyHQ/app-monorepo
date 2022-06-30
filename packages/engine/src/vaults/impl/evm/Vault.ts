@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, no-param-reassign */
 
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { ethers } from '@onekeyfe/blockchain-libs';
@@ -13,21 +13,26 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { isNil, merge } from 'lodash';
+import { difference, isNil, isNumber, merge, toLower } from 'lodash';
 
+import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { HISTORY_CONSTS } from '../../../constants';
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   NotImplemented,
   OneKeyInternalError,
   PendingQueueTooLong,
 } from '../../../errors';
+import * as covalentApi from '../../../managers/covalent';
 import {
   extractResponseError,
   fillUnsignedTx,
   fillUnsignedTxObj,
 } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
+import { ICovalentHistoryListItem } from '../../../types/covalent';
 import { UserCreateInputCategory } from '../../../types/credential';
 import {
   HistoryEntry,
@@ -35,12 +40,15 @@ import {
   HistoryEntryTransaction,
 } from '../../../types/history';
 import { ETHMessage, ETHMessageTypes } from '../../../types/message';
-import { EIP1559Fee, EvmExtraInfo } from '../../../types/network';
+import { EIP1559Fee } from '../../../types/network';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
   IDecodedTxLegacy,
+  IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IEncodedTxUpdatePayloadTokenApprove,
@@ -48,6 +56,8 @@ import {
   IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
+  IHistoryTx,
+  IRawTx,
   ISignCredentialOptions,
   ITransferInfo,
   IUserInputGuessingResult,
@@ -56,7 +66,6 @@ import { VaultBase } from '../../VaultBase';
 
 import { Erc20MethodSelectors } from './decoder/abi';
 import {
-  EVMDecodedItem,
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
   EVMDecodedTxType,
@@ -70,6 +79,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { IRpcTxEvm } from './types';
 
 const PENDING_QUEUE_MAX_LENGTH = 10;
 const OPTIMISM_NETWORKS = ['evm--10', 'evm--69'];
@@ -173,13 +183,28 @@ export default class Vault extends VaultBase {
     return this.signAndSendTransaction(unsignedTx, options);
   }
 
-  // @ts-ignore
-  decodedTxToLegacy(decodedTx: IDecodedTxLegacy): Promise<IDecodedTxLegacy> {
-    return Promise.resolve(decodedTx);
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    throw new Error('decodedTxToLegacy in EVM not implemented.');
   }
 
-  // @ts-ignore
+  // TODO rewrite decodeTx EVM
+  //    build nativeTransfer action from contractCall with value>0
   override async decodeTx(
+    encodedTx: IEncodedTx,
+    payload?: any,
+    tokenIdOnNetwork?: string,
+  ): Promise<IDecodedTx> {
+    const decodedTxLegacy = await this.legacyDecodeTx(encodedTx, payload);
+    const decodedTx = await this.decodedTxLegacyToModern({
+      decodedTxLegacy,
+      encodedTx,
+      payload,
+      tokenIdOnNetwork,
+    });
+    return decodedTx;
+  }
+
+  async legacyDecodeTx(
     encodedTx: IEncodedTx,
     payload?: any,
   ): Promise<IDecodedTxLegacy> {
@@ -190,7 +215,141 @@ export default class Vault extends VaultBase {
     if (!Number.isFinite(ethersTx.chainId)) {
       ethersTx.chainId = Number(await this.getNetworkChainId());
     }
-    return EVMTxDecoder.getDecoder(this.engine).decode(ethersTx, payload);
+    return EVMTxDecoder.getDecoder(this.engine).decodeTx({
+      vault: this,
+      rawTx: ethersTx,
+      payload,
+    });
+  }
+
+  async decodedTxLegacyToModern({
+    decodedTxLegacy,
+    encodedTx,
+    payload,
+    tokenIdOnNetwork,
+  }: {
+    decodedTxLegacy: IDecodedTxLegacy;
+    encodedTx: IEncodedTx;
+    payload?: SendConfirmPayloadInfo;
+    tokenIdOnNetwork?: string;
+  }): Promise<IDecodedTx> {
+    const address = await this.getAccountAddress();
+    const network = await this.getNetwork();
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    const action: IDecodedTxAction = {
+      type: IDecodedTxActionType.TRANSACTION,
+      direction: await this.buildTxActionDirection({
+        from: decodedTxLegacy.fromAddress,
+        to: decodedTxLegacy.toAddress,
+        address,
+      }),
+      unknownAction: {
+        tokenIdOnNetwork,
+        extraInfo: {},
+      },
+    };
+    if (decodedTxLegacy.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
+      action.type = IDecodedTxActionType.NATIVE_TRANSFER;
+      action.nativeTransfer = {
+        tokenInfo: nativeToken,
+        from: decodedTxLegacy.fromAddress,
+        to: decodedTxLegacy.toAddress,
+        amount: decodedTxLegacy.amount,
+        amountValue: decodedTxLegacy.value,
+        extraInfo: null,
+      };
+    }
+    if (decodedTxLegacy.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
+      const info = decodedTxLegacy.info as EVMDecodedItemERC20Transfer;
+      action.type = IDecodedTxActionType.TOKEN_TRANSFER;
+      action.tokenTransfer = {
+        tokenInfo: info.token,
+        from: info.from ?? address,
+        to: info.recipient,
+        amount: info.amount,
+        amountValue: info.value,
+        extraInfo: null,
+      };
+    }
+    if (decodedTxLegacy.txType === EVMDecodedTxType.TOKEN_APPROVE) {
+      const info = decodedTxLegacy.info as EVMDecodedItemERC20Approve;
+      action.type = IDecodedTxActionType.TOKEN_APPROVE;
+      action.tokenApprove = {
+        tokenInfo: info.token,
+        spender: info.spender,
+        amount: info.amount,
+        amountValue: info.value,
+        isMax: info.isUInt256Max,
+        extraInfo: null,
+      };
+    }
+    if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
+      action.internalSwap = {
+        ...payload.swapInfo,
+        extraInfo: null,
+      };
+      // Only support same chain swap
+      if (
+        payload.swapInfo.send.networkId === payload.swapInfo.receive.networkId
+      ) {
+        action.type = IDecodedTxActionType.INTERNAL_SWAP;
+      }
+    }
+    const { gasInfo } = decodedTxLegacy;
+    let feeInfo: IFeeInfoUnit;
+    const limit = new BigNumber(gasInfo.gasLimit).toFixed();
+    if (gasInfo.maxFeePerGas) {
+      feeInfo = {
+        eip1559: true,
+        limit,
+        price: {
+          // TODO add baseFee in encodedTx
+          baseFee: '0',
+
+          // TODO fee decimals convert utils
+          maxPriorityFeePerGas: new BigNumber(gasInfo.maxPriorityFeePerGas)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          maxPriorityFeePerGasValue: gasInfo.maxPriorityFeePerGas,
+
+          maxFeePerGas: new BigNumber(gasInfo.maxFeePerGas)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          maxFeePerGasValue: gasInfo.maxFeePerGas,
+
+          gasPrice: new BigNumber(gasInfo.gasPrice || gasInfo.maxFeePerGas)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          gasPriceValue: gasInfo.gasPrice || gasInfo.maxFeePerGas,
+        },
+      };
+    } else {
+      feeInfo = {
+        limit,
+        price: new BigNumber(gasInfo.gasPrice)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed(),
+        priceValue: gasInfo.gasPrice,
+      };
+    }
+    const decodedTx: IDecodedTx = {
+      txid: decodedTxLegacy.txHash,
+      owner: address,
+      signer: decodedTxLegacy.fromAddress,
+      nonce: decodedTxLegacy.nonce || 0,
+      actions: [action],
+      status: IDecodedTxStatus.Pending,
+      network: await this.getNetwork(),
+      networkId: this.networkId,
+      encodedTx,
+      payload,
+      feeInfo,
+      // totalFeeInNative, // runtime calculate fee in UI
+      extraInfo: {
+        // decodedTxLegacy
+      },
+    };
+    return decodedTx;
   }
 
   async buildEncodedTxFromTransfer(
@@ -289,7 +448,7 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxEvm,
     payload: IEncodedTxUpdatePayloadTransfer,
   ): Promise<IEncodedTxEvm> {
-    const decodedTx = await this.decodeTx(encodedTx);
+    const decodedTx = await this.legacyDecodeTx(encodedTx);
     const { amount } = payload;
     const amountBN = new BigNumber(amount);
     if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
@@ -314,7 +473,7 @@ export default class Vault extends VaultBase {
     // keccak256(Buffer.from('approve(address,uint256)') => '0x095ea7b3...'
     const approveMethodID = Erc20MethodSelectors.tokenApprove;
 
-    const decodedTx = await this.decodeTx(encodedTx);
+    const decodedTx = await this.legacyDecodeTx(encodedTx);
     if (decodedTx.txType !== EVMDecodedTxType.TOKEN_APPROVE) {
       throw new Error('Not a approve transaction.');
     }
@@ -363,6 +522,9 @@ export default class Vault extends VaultBase {
       encodedTx,
     );
     const gasLimitFinal = gasLimit ?? gas;
+    const nextNonce = isNumber(nonce)
+      ? nonce
+      : await this.getNextNonce(network.id, dbAccount);
     // fillUnsignedTx in each impl
     const unsignedTxInfo = fillUnsignedTxObj({
       shiftFeeDecimals: false,
@@ -378,10 +540,7 @@ export default class Vault extends VaultBase {
         feePricePerUnit: !isNil(gasPrice) ? new BigNumber(gasPrice) : undefined,
         maxFeePerGas,
         maxPriorityFeePerGas,
-        nonce:
-          typeof nonce !== 'undefined'
-            ? nonce
-            : await this.getNextNonce(network.id, dbAccount),
+        nonce: nextNonce,
         ...others,
       },
     });
@@ -402,6 +561,9 @@ export default class Vault extends VaultBase {
       unsignedTx,
       decodeUnsignedTxFeeData(unsignedTx),
     );
+
+    // TODO remove side effect here
+    encodedTx.nonce = nextNonce;
 
     return unsignedTx;
   }
@@ -425,13 +587,11 @@ export default class Vault extends VaultBase {
     };
 
     const network = await this.getNetwork();
-    const decodedTx = await this.decodeTx(encodedTx);
+    const decodedTx = await this.legacyDecodeTx(encodedTx);
     if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
       // always use value=0 to calculate native transfer gas limit
       encodedTxWithFakePriceAndNonce.value = '0x0';
     }
-
-    // NOTE: gasPrice deleted in removeFeeInfoInTx() if encodedTx build by DAPP
 
     const [prices, unsignedTx] = await Promise.all([
       this.engine.getGasPrice(this.networkId),
@@ -473,11 +633,16 @@ export default class Vault extends VaultBase {
     const eip1559 = Boolean(
       prices?.length && prices?.every((price) => typeof price === 'object'),
     );
-    let priceInfo: string | EIP1559Fee | undefined = encodedTx.gasPrice
+
+    const gasLimitInTx = new BigNumber(
+      encodedTx.gas ?? encodedTx.gasLimit ?? 0,
+    ).toFixed();
+    // NOTE: gasPrice deleted in removeFeeInfoInTx() if encodedTx build by DAPP
+    let gasPriceInTx: string | EIP1559Fee | undefined = encodedTx.gasPrice
       ? this._toNormalAmount(encodedTx.gasPrice, network.feeDecimals)
       : undefined;
     if (eip1559) {
-      priceInfo = merge(
+      gasPriceInTx = merge(
         {
           ...(prices[0] as EIP1559Fee),
         },
@@ -505,8 +670,8 @@ export default class Vault extends VaultBase {
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
-      symbol: network.feeSymbol,
-      decimals: network.feeDecimals,
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
 
       eip1559,
       limit,
@@ -516,8 +681,8 @@ export default class Vault extends VaultBase {
       // feeInfo in original tx
       tx: {
         eip1559,
-        limit: encodedTx.gas ?? encodedTx.gasLimit,
-        price: priceInfo,
+        limit: gasLimitInTx,
+        price: gasPriceInTx,
       },
       baseFeeValue,
     };
@@ -579,18 +744,12 @@ export default class Vault extends VaultBase {
       undefined,
       false,
     );
-    const nextNonce = Math.max(
-      ...(await Promise.all(
-        historyItems
-          .filter((entry) => entry.status === HistoryEntryStatus.PENDING)
-          .map((historyItem) =>
-            EVMTxDecoder.getDecoder(this.engine)
-              .decode((historyItem as HistoryEntryTransaction).rawTx)
-              .then(({ nonce }) => (nonce ?? 0) + 1),
-          ),
-      )),
-      onChainNonce,
-    );
+    const maxPendingNonce =
+      (await simpleDb.history.getMaxPendingNonce({
+        accountId: this.accountId,
+        networkId,
+      })) || 0;
+    const nextNonce = Math.max(maxPendingNonce + 1, onChainNonce);
 
     if (nextNonce - onChainNonce >= PENDING_QUEUE_MAX_LENGTH) {
       throw new PendingQueueTooLong(PENDING_QUEUE_MAX_LENGTH);
@@ -731,6 +890,11 @@ export default class Vault extends VaultBase {
     );
   }
 
+  override async getAccountNonce(): Promise<number | null> {
+    const nonce = await getTxCount(await this.getAccountAddress(), this);
+    return nonce;
+  }
+
   override async updatePendingTxs(histories: Array<HistoryEntry>) {
     const decoder = EVMTxDecoder.getDecoder(this.engine);
     const decodedPendings = histories
@@ -785,5 +949,175 @@ export default class Vault extends VaultBase {
     }
 
     return updatedStatusMap;
+  }
+
+  // TODO mergeDecodedTx( { decodedTx, encodedTx, historyTx, rawTx }, extraTxMap: { covalentTx })
+  //    call at saveSendConfirmHistory
+  async mergeDecodedTx({
+    decodedTx,
+    encodedTx,
+    historyTx,
+    rawTx,
+    // extra tx
+    covalentTx,
+    rpcReceiptTx,
+  }: {
+    decodedTx: IDecodedTx;
+    encodedTx?: IEncodedTx;
+    historyTx?: IHistoryTx;
+    rawTx?: IRawTx;
+    covalentTx?: ICovalentHistoryListItem;
+    rpcReceiptTx?: any;
+  }): Promise<IDecodedTx> {
+    if (historyTx) {
+      // update local history tx info to decodedTx
+      decodedTx.createdAt =
+        historyTx.createdAt ?? historyTx.decodedTx.createdAt;
+      decodedTx.status = historyTx.decodedTx.status;
+      decodedTx.actions = historyTx.decodedTx.actions;
+    }
+    // TODO parse covalentTx log_events to decodedTx.actions, like tokenTransfer actions
+    if (covalentTx) {
+      // TODO update time and status by RPC
+      //    eth_getBlockByHash timestamp
+      //    eth_getTransactionReceipt status
+      const blockSignedAt = new Date(covalentTx.block_signed_at).getTime();
+      decodedTx.updatedAt = blockSignedAt;
+      decodedTx.createdAt = decodedTx.createdAt ?? blockSignedAt;
+      decodedTx.status = covalentTx.successful
+        ? IDecodedTxStatus.Confirmed
+        : IDecodedTxStatus.Failed;
+      decodedTx.signer = covalentTx.from_address || decodedTx.signer;
+      if (decodedTx && decodedTx.feeInfo) {
+        decodedTx.feeInfo.limitUsed = new BigNumber(
+          covalentTx.gas_spent,
+        ).toFixed();
+      }
+      decodedTx.isFinal = true;
+      // TODO update outputActions
+      // decodedTx.outputActions
+    }
+    // fetch by RPC:  eth_getTransactionReceipt
+    if (rpcReceiptTx) {
+      // TODO update status, limitUsed, updatedAt, isFinal, outputActions
+    }
+
+    if (decodedTx.status !== IDecodedTxStatus.Pending) {
+      if (
+        decodedTx.createdAt &&
+        Date.now() - decodedTx.createdAt >
+          HISTORY_CONSTS.SET_IS_FINAL_EXPIRED_IN
+      ) {
+        decodedTx.isFinal = true;
+      }
+    }
+    return Promise.resolve(decodedTx);
+  }
+
+  // TODO add limit here
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory?: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const { tokenIdOnNetwork, localHistory = [] } = options;
+    const localFinalHashes = localHistory
+      .filter((item) => item.decodedTx.isFinal)
+      .map((item) => item.decodedTx.txid);
+    const chainId = await this.getNetworkChainId();
+    const address = await this.getAccountAddress();
+    const client = await this.getJsonRPCClient();
+    /*
+    {
+      hash1: { covalentTx, alchemyTx, infStoneTx, explorerTx, rpcTx },
+      hash2: { covalentTx, alchemyTx, infStoneTx, explorerTx, rpcTx },
+    }
+
+    - fetch hashes
+    - filter hashes (not isFinal)
+    - parse result
+    - merge result
+     */
+
+    let hashes: string[] = [];
+    let covalentTxList: ICovalentHistoryListItem[] = [];
+    try {
+      // TODO covalentApi, AlchemyApi, InfStoneApi, blockExplorerApi, RPC api
+      const covalentHistory = await covalentApi.fetchCovalentHistoryRaw({
+        chainId,
+        address,
+        contract: tokenIdOnNetwork,
+      });
+      covalentTxList = covalentHistory.data.items;
+      hashes = covalentTxList.map((item) => item.tx_hash);
+    } catch (error) {
+      console.error(error);
+      // fallback localHistory which isLocalCreated to RPC query update gasUsed
+      //    if covalentApi if fail or NOT support on this chain
+      hashes = localHistory
+        .filter((item) => !!item.isLocalCreated)
+        .map((item) => item.decodedTx.txid);
+    }
+
+    // ignore localHistory isFinal
+    hashes = difference(hashes, localFinalHashes);
+    hashes = hashes.filter(Boolean);
+
+    /*
+   const batchCallParams2 = hashes.map(
+      (hash) => ['eth_getTransactionReceipt', [hash]] as [string, string[]],
+    );
+    // TODO batchCall one by one
+    await client.rpc.batchCall(batchCallParams2);
+    */
+
+    const batchCallParams = hashes.map(
+      // TODO eth_getTransactionByHash eth_getTransactionReceipt
+      (hash) => ['eth_getTransactionByHash', [hash]] as [string, string[]],
+    );
+    const rpcTxList: Array<IRpcTxEvm | null> = batchCallParams.length
+      ? await client.rpc.batchCall(batchCallParams)
+      : [];
+    const historyTxList = await Promise.all(
+      rpcTxList.map(async (encodedTx) => {
+        // pending tx rpc return null
+        if (!encodedTx) {
+          // TODO use historyTx.encodedTx
+          return null;
+        }
+        encodedTx.data = encodedTx.input;
+
+        const covalentTx = covalentTxList.find(
+          (covalentTxItem) => covalentTxItem.tx_hash === encodedTx.hash,
+        );
+        const historyTx = localHistory.find(
+          (item) => item.decodedTx.txid === encodedTx.hash,
+        );
+
+        // TODO encodedTx both transfer Native and Token
+        let decodedTx = await this.decodeTx(encodedTx, null, tokenIdOnNetwork);
+
+        decodedTx = await this.mergeDecodedTx({
+          decodedTx,
+          encodedTx,
+          historyTx,
+          covalentTx,
+        });
+
+        // TODO merge decodedTx info from local pending history
+
+        return this.buildHistoryTx({
+          decodedTx,
+          encodedTx,
+          historyTxToMerge: historyTx,
+        });
+      }),
+    );
+    return historyTxList.filter(Boolean);
+    // TODO batchCall not supported chain, fallback parse covalentTxList to decodedTx
+  }
+
+  override fixAddressCase(address: string) {
+    // TODO replace `engineUtils.fixAddressCase`
+    return Promise.resolve(toLower(address || ''));
   }
 }

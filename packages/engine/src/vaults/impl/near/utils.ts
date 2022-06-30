@@ -155,9 +155,9 @@ export function decodedTxToLegacy(tx: IDecodedTx): IDecodedTxLegacy {
       token: actionInfo.tokenTransfer.tokenInfo,
       amount: actionInfo.tokenTransfer.amount,
       value: actionInfo.tokenTransfer.amountValue,
-      recipient: actionInfo?.tokenTransfer.recipient,
+      recipient: actionInfo?.tokenTransfer.to,
     };
-    to = actionInfo.tokenTransfer.recipient;
+    to = actionInfo.tokenTransfer.to;
     info = infoLegacy;
   }
   return {

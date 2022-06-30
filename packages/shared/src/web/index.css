@@ -92,10 +92,3 @@ textarea {
 [data-testid='Segment_Button'] {
   width: 100%;
 }
-
-#AutoSizeTextContainer > textarea {
-  white-space: nowrap;
-  overflow: hidden;
-  /* not working for textarea */
-  text-overflow: ellipsis;
-}

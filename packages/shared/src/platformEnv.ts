@@ -13,11 +13,14 @@ export type IDistributionChannel =
   | 'desktop-linux'
   | 'native-ios'
   | 'native-ios-store'
-  | 'native-ios'
   | 'native-android'
   | 'native-android-google';
 
 export type IPlatformEnv = {
+  isLegacyHistory?: boolean;
+  isLegacySendConfirm?: boolean;
+  isMultipleHistoryTxActionsSim?: boolean;
+
   isDev?: boolean;
   isProduction?: boolean;
 
@@ -192,6 +195,10 @@ export const isManifestV3 = (): boolean =>
 export const canGetClipboard = (): boolean => !isWeb && !isExtension;
 
 const platformEnv: IPlatformEnv = {
+  isLegacyHistory: false, // TODO remove
+  isLegacySendConfirm: false, // TODO remove
+  isMultipleHistoryTxActionsSim: true,
+
   isDev,
   isProduction,
 

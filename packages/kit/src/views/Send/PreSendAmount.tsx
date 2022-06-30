@@ -23,8 +23,7 @@ import {
   FormatBalanceToken,
   FormatCurrencyToken,
 } from '../../components/Format';
-import { useManageTokens } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { AutoSizeText } from '../FiatPay/AmountInput/AutoSizeText';
 
@@ -60,14 +59,14 @@ export function PreSendAmountPreview({
         </Text>
       )}
 
-      <Center
-        nativeID="AutoSizeTextContainer"
-        flex={1}
-        maxH="64px"
-        mt={2}
-        mb={3}
-      >
-        <AutoSizeText text={text} onChangeText={onChangeText} placeholder="0" />
+      {/* placeholder={intl.formatMessage({ id: 'content__amount' })} */}
+      <Center flex={1} maxH="64px" mt={2} mb={3}>
+        <AutoSizeText
+          autoFocus
+          text={text}
+          onChangeText={onChangeText}
+          placeholder="0"
+        />
       </Center>
 
       {loading ? (
@@ -87,6 +86,7 @@ function PreSendAmount() {
   const intl = useIntl();
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
+  const [isLoading, setIsLoading] = useState(false);
   const shortScreen = height < 768;
   // const space = shortScreen ? '16px' : '24px';
   const navigation = useNavigation<NavigationProps>();
@@ -170,6 +170,7 @@ function PreSendAmount() {
       hideSecondaryAction
       primaryActionProps={{
         isDisabled: !!errorMsg || !minAmountValidationPassed,
+        isLoading,
       }}
       onPrimaryActionPress={async () => {
         if (!account || !network || !tokenInfo) {
@@ -180,30 +181,35 @@ function PreSendAmount() {
           transferInfo.from = account.address;
         }
 
-        const encodedTx = await engine.buildEncodedTxFromTransfer({
-          networkId,
-          accountId,
-          transferInfo,
-        });
+        try {
+          setIsLoading(true);
+          const encodedTx = await engine.buildEncodedTxFromTransfer({
+            networkId,
+            accountId,
+            transferInfo,
+          });
 
-        navigation.navigate(SendRoutes.SendConfirm, {
-          encodedTx,
-          feeInfoUseFeeInTx: false,
-          feeInfoEditable: true,
-          backRouteName: SendRoutes.PreSendAddress,
-          payload: {
-            payloadType: 'Transfer',
-            account,
-            network,
-            token: {
-              ...tokenInfo,
-              idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
+          navigation.navigate(SendRoutes.SendConfirm, {
+            encodedTx,
+            feeInfoUseFeeInTx: false,
+            feeInfoEditable: true,
+            backRouteName: SendRoutes.PreSendAddress,
+            payload: {
+              payloadType: 'Transfer',
+              account,
+              network,
+              token: {
+                ...tokenInfo,
+                idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
+              },
+              to: transferInfo.to,
+              value: amount,
+              isMax: false,
             },
-            to: transferInfo.to,
-            value: amount,
-            isMax: false,
-          },
-        });
+          });
+        } finally {
+          setIsLoading(false);
+        }
       }}
     >
       <Box
@@ -229,7 +235,7 @@ function PreSendAmount() {
           justifyContent="center"
         >
           <PreSendAmountPreview
-            title={tokenInfo?.symbol ?? ''}
+            title={tokenInfo?.symbol ?? '--'}
             text={amount}
             onChangeText={(text) => {
               // delete action

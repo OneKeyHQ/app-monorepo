@@ -3,11 +3,14 @@ import React from 'react';
 import { useIntl } from 'react-intl';
 
 import { Spinner } from '@onekeyhq/components';
+import { IDecodedTxLegacy } from '@onekeyhq/engine/src/vaults/types';
 
-import TxConfirmSwapDetail from '../../TxDetail/TxConfirmSwapDetail';
+import TxConfirmSwapDetail from '../../TxDetail/_legacy/TxConfirmSwapDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
-
-import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
+import {
+  ITxConfirmViewProps,
+  SendConfirmModal,
+} from '../SendConfirmViews/SendConfirmModal';
 
 function TxConfirmSwap(props: ITxConfirmViewProps) {
   const {
@@ -16,9 +19,11 @@ function TxConfirmSwap(props: ITxConfirmViewProps) {
     feeInfoEditable,
     encodedTx,
     sourceInfo,
-    decodedTx,
+    decodedTx: decodedTxLegacy,
     payload,
   } = props;
+  const decodedTx = decodedTxLegacy as IDecodedTxLegacy;
+
   const intl = useIntl();
 
   const feeInput = (

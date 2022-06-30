@@ -1,4 +1,5 @@
 /* eslint-disable react/destructuring-assignment, react/state-in-constructor */
+// eslint-disable-next-line max-classes-per-file
 import React from 'react';
 
 import { Box, Button, Typography } from '@onekeyhq/components';
@@ -9,10 +10,11 @@ type ErrorBoundaryProps = {
 };
 type ErrorBoundaryState = { error: Error | null };
 
-class ErrorBoundary extends React.PureComponent<
+class ErrorBoundaryBase extends React.PureComponent<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
+  // eslint-disable-next-line react/no-unused-state
   override state: { error: Error | null } = { error: null };
 
   override componentDidCatch(
@@ -22,9 +24,16 @@ class ErrorBoundary extends React.PureComponent<
     errorInfo?: { componentStack?: string | null },
   ) {
     this.props?.onError?.(error, errorInfo?.componentStack || null);
+    // eslint-disable-next-line react/no-unused-state
     this.setState({ error });
   }
 
+  override render() {
+    return this.props.children;
+  }
+}
+
+class ErrorBoundary extends ErrorBoundaryBase {
   override render() {
     if (platformEnv.isDev && this.state.error) {
       return (
@@ -54,4 +63,4 @@ class ErrorBoundary extends React.PureComponent<
   }
 }
 
-export { ErrorBoundary };
+export { ErrorBoundary, ErrorBoundaryBase };

@@ -3,18 +3,22 @@ import * as Linking from 'expo-linking';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getAppNavigation } from '../hooks/useAppNavigation';
-import { HomeRoutes, RootRoutes } from '../routes/types';
+import { HomeRoutes, RootRoutes } from '../routes/routesEnum';
+
+export const openUrlByWebview = (url: string, title?: string) => {
+  const navigation = getAppNavigation();
+  navigation.navigate(RootRoutes.Root, {
+    screen: HomeRoutes.SettingsWebviewScreen,
+    params: {
+      url,
+      title,
+    },
+  });
+};
 
 export const openUrl = (url: string, title?: string) => {
-  const navigation = getAppNavigation();
   if (platformEnv.isNative) {
-    navigation.navigate(RootRoutes.Root, {
-      screen: HomeRoutes.SettingsWebviewScreen,
-      params: {
-        url,
-        title,
-      },
-    });
+    openUrlByWebview(url, title);
   } else {
     window.open(url, '_blank');
   }

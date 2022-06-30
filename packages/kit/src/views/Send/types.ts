@@ -1,10 +1,11 @@
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
-  IDecodedTxLegacy,
+  IDecodedTx,
   IEncodedTx,
   IFeeInfoSelected,
   ISignedTx,
+  ISwapInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 
@@ -30,14 +31,15 @@ export type TokenApproveAmountEditParams = {
   tokenApproveAmount: string;
   isMaxAmount: boolean;
   sourceInfo?: IDappCallParams | undefined;
-  encodedTx?: IEncodedTx;
-  decodedTx?: IDecodedTxLegacy;
+  encodedTx?: IEncodedTx | null;
+  decodedTx?: IDecodedTx;
 };
 
 export type EditFeeParams = {
   encodedTx?: IEncodedTx;
   feeInfoSelected?: IFeeInfoSelected;
   autoConfirmAfterFeeSaved?: boolean;
+  resendActionInfo?: SendConfirmResendActionInfo;
 };
 
 export type PreSendParams = ITransferInfo;
@@ -73,19 +75,36 @@ export type SendConfirmFromDappParams = {
   query?: string;
 };
 export type SendConfirmActionType = 'speedUp' | 'cancel';
+export type SendConfirmResendActionInfo = {
+  type: SendConfirmActionType;
+  replaceHistoryId?: string;
+};
 export type SendConfirmPayloadBase = {
   payloadType: 'Transfer' | 'InternalSwap';
 };
 export type SendConfirmPayload =
   | SendConfirmPayloadBase
-  | TransferSendParamsPayload
+  | TransferSendParamsPayload // ITransferInfo
   | SwapQuoteTx;
+export type SendConfirmOnSuccessData = {
+  signedTx?: ISignedTx;
+  encodedTx?: IEncodedTx | null;
+  decodedTx?: IDecodedTx | null;
+};
+export type SendConfirmPayloadInfo = {
+  type: 'Transfer' | 'InternalSwap';
+  transferInfo?: ITransferInfo;
+  swapInfo?: ISwapInfo;
+};
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string; // TODO remove
-  payload?: SendConfirmPayload; // use payload.payloadType
-  onSuccess?: (tx: ISignedTx) => void;
+  payload?: SendConfirmPayload; // use payload.payloadType // TODO remove
+  payloadInfo?: SendConfirmPayloadInfo;
+  onSuccess?: (tx: ISignedTx, data?: SendConfirmOnSuccessData) => void;
   sourceInfo?: IDappCallParams;
-  actionType?: SendConfirmActionType;
+  // TODO remove, use resendActionInfo instead
+  actionType?: SendConfirmActionType; // 'speedUp' | 'cancel';
+  // resendActionInfo?: SendConfirmResendActionInfo;
   backRouteName?: keyof SendRoutesParams;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;

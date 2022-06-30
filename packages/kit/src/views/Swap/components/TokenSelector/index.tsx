@@ -105,6 +105,7 @@ const NetworkSelector: FC<NetworkSelectorProps> = ({
     <Box display="flex" flexDirection="row" mb="2" flexWrap="wrap">
       {enabledNetworks.map((item) => (
         <NetworkItem
+          key={item.id}
           network={item}
           active={activeNetworkId === item.id}
           onPress={onSelectNetwork}

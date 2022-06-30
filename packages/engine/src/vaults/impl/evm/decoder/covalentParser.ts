@@ -81,6 +81,7 @@ const paraseTokenTransferLog: TypeParser = (covalentTx) => {
       token,
       amount,
       value: tokenTx.delta,
+      from: tokenTx.fromAddress,
       recipient: tokenTx.toAddress,
     },
   };
@@ -99,6 +100,7 @@ const paraseTokenInteraction: TypeParser = (covalentTx) => {
     return null;
   }
 
+  // TODO filter events matched with name
   const event = logEvents.find((e) => !!e.decoded);
   if (!event) {
     return null;
@@ -121,6 +123,7 @@ const paraseTokenInteraction: TypeParser = (covalentTx) => {
   );
 
   if (name === 'Transfer') {
+    debugger;
     return {
       type: EVMDecodedTxType.TOKEN_TRANSFER,
       info: {
@@ -128,6 +131,7 @@ const paraseTokenInteraction: TypeParser = (covalentTx) => {
         token,
         amount,
         value: paramsMap.value,
+        from: paramsMap.from,
         recipient: paramsMap.to,
       },
     };

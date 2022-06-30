@@ -38,3 +38,27 @@ export enum RootRoutes {
   Tab = 'tab',
   Welcome = 'Welcome',
 }
+export enum HomeRoutes {
+  // InitialTab = 'overview',
+  InitialTab = 'home',
+  Dev = 'dev',
+  ScreenTokenDetail = 'TokenDetailScreen',
+  DebugScreen = 'Debug',
+  SettingsWebviewScreen = 'SettingsWebviewScreen',
+  ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
+  ExploreScreen = 'ExploreScreen',
+  DAppListScreen = 'DAppListScreen',
+  TransactionHistoryScreen = 'TransactionHistoryScreen',
+  FaceId = 'FaceId',
+  AddressBook = 'AddressBook',
+}
+export enum TabRoutes {
+  // Overview = 'overview',
+  Home = 'home',
+  Swap = 'swap',
+  Discover = 'discover',
+  Me = 'me',
+  Developer = 'developer',
+  Send = 'send',
+  Receive = 'receive',
+}

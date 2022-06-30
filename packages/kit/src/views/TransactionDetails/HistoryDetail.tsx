@@ -16,7 +16,7 @@ import {
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
-import TxHistoryDetail from '../TxDetail/TxHistoryDetail';
+import TxHistoryDetail from '../TxDetail/_legacy/TxHistoryDetail';
 
 type TransactionDetailRouteProp = RouteProp<
   TransactionDetailRoutesParams,
@@ -25,7 +25,7 @@ type TransactionDetailRouteProp = RouteProp<
 
 const getTransactionTypeStr = (
   intl: IntlShape,
-  decodedItem: EVMDecodedItem | null,
+  decodedItem: EVMDecodedItem | null | undefined,
 ): string => {
   let id: LocaleIds = 'action__send';
   if (!decodedItem) {
