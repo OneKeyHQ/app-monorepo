@@ -45,7 +45,7 @@ const WalletItem: FC<WalletItemProps> = ({ isSelected, ...rest }) => (
               : 'transparent'
           }
         />
-        <WalletAvatar {...rest} circular={isSelected} />
+        <WalletAvatar {...rest} circular={!isSelected} />
       </HStack>
     )}
   </Pressable>

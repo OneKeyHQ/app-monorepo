@@ -22,7 +22,6 @@ export type ContainerProps = IContainerProps;
 const Container: FC<ContainerProps> = ({ children, ...props }) => (
   <Box
     w="100%"
-    shadow="depth.2"
     flexDirection="column"
     bg="surface-default"
     borderRadius="12px"
