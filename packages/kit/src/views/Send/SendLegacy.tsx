@@ -203,7 +203,11 @@ const Transaction = () => {
     const from = (account as { address: string }).address;
     if (isMax && selectedToken?.tokenIdOnNetwork) {
       // max token transfer
-      value = getTokenBalance({ token: selectedToken, defaultValue: '' });
+      if (selectedToken?.tokenIdOnNetwork) {
+        value = getTokenBalance({ token: selectedToken, defaultValue: '' });
+      } else {
+        value = '0';
+      }
     }
 
     const info = {

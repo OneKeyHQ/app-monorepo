@@ -107,6 +107,7 @@ function AssetsList({
   onTokenPress,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
+  // const isSmallScreen = useIsVerticalLayout();
   const { accountTokens, prices, balances } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();

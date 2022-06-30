@@ -4,13 +4,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { cloneDeep, first, last } from 'lodash';
-import { Column, Row } from 'native-base';
 import { UseFormReturn } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Center,
   Form,
   Modal,
@@ -20,7 +18,6 @@ import {
   Typography,
   useForm,
   useIsVerticalLayout,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   OneKeyError,
@@ -39,12 +36,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { FormatCurrencyNative } from '../../components/Format';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
-import { SendRoutes, SendRoutesParams } from './types';
+import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
@@ -162,7 +159,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
   });
   const selectedFeeInfo = feeInfoPayload?.selected;
 
-  const feeSymbol = feeInfoPayload?.info?.symbol || '';
+  const feeSymbol = feeInfoPayload?.info?.feeSymbol || '';
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
   const lastPresetFeeInfo = last(feeInfoPayload?.info?.prices ?? []);
   const fistPresetFeeInfo = first(feeInfoPayload?.info?.prices ?? []);
@@ -645,7 +642,7 @@ function ScreenSendEditFee({ ...rest }) {
   const [feeType, setFeeType] = useState<FeeType>(FeeType.standard);
   const [radioValue, setRadioValue] = useState('');
 
-  const isSmallScreen = useIsVerticalLayout();
+  // const isSmallScreen = useIsVerticalLayout();
   const useFormReturn = useForm<FeeValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -680,14 +677,15 @@ function ScreenSendEditFee({ ...rest }) {
     const prevRouteName = routes[index - 1]?.name;
 
     if (autoConfirmAfterFeeSaved) {
-      return navigation.replace(SendRoutes.SendConfirm, {
+      const sendConfirmParams: SendConfirmParams = {
         encodedTx,
-        actionType: 'cancel',
+        resendActionInfo: route.params.resendActionInfo,
         feeInfoSelected,
         autoConfirmAfterFeeSaved,
         feeInfoUseFeeInTx: false,
         feeInfoEditable: true,
-      });
+      };
+      return navigation.replace(SendRoutes.SendConfirm, sendConfirmParams);
     }
 
     return navigation.navigate({
@@ -815,31 +813,6 @@ function ScreenSendEditFee({ ...rest }) {
     setValue,
   ]);
 
-  const { bottom } = useSafeAreaInsets();
-  const footer = (
-    <Column>
-      <Row
-        justifyContent="flex-end"
-        alignItems="center"
-        px={{ base: 4, md: 6 }}
-        pt={4}
-        pb={4 + bottom}
-        borderTopWidth={1}
-        borderTopColor="border-subdued"
-      >
-        <Button
-          flexGrow={isSmallScreen ? 1 : 0}
-          type="primary"
-          size={isSmallScreen ? 'xl' : 'base'}
-          isDisabled={false}
-          onPress={onSubmit}
-        >
-          {intl.formatMessage({ id: 'action__save' })}
-        </Button>
-      </Row>
-    </Column>
-  );
-
   let content = (
     <Center w="full" py={16}>
       <Spinner size="lg" />
@@ -893,10 +866,13 @@ function ScreenSendEditFee({ ...rest }) {
     <Modal
       height="598px"
       trigger={trigger}
-      primaryActionTranslationId="action__confirm"
-      secondaryActionTranslationId="action__reject"
+      primaryActionTranslationId="action__save"
+      primaryActionProps={{
+        isDisabled: feeInfoLoading,
+      }}
+      onPrimaryActionPress={() => onSubmit()}
+      hideSecondaryAction
       header={intl.formatMessage({ id: 'action__edit_fee' })}
-      footer={footer}
       scrollViewProps={{
         children: (
           <>

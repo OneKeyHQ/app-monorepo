@@ -5,9 +5,11 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { Center, Spinner } from '@onekeyhq/components';
 
 import { FeeInfoInputForSpeedUpOrCancel } from '../FeeInfoInput';
+import {
+  ITxConfirmViewProps,
+  SendConfirmModal,
+} from '../SendConfirmViews/SendConfirmModal';
 import { SendRoutes, SendRoutesParams } from '../types';
-
-import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 

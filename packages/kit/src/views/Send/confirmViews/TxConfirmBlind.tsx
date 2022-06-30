@@ -1,11 +1,14 @@
 import React from 'react';
 
 import { Spinner } from '@onekeyhq/components';
+import { IDecodedTxLegacy } from '@onekeyhq/engine/src/vaults/types';
 
-import TxConfirmBlindDetail from '../../TxDetail/TxConfirmBlindDetail';
+import TxConfirmBlindDetail from '../../TxDetail/_legacy/TxConfirmBlindDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
-
-import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
+import {
+  ITxConfirmViewProps,
+  SendConfirmModal,
+} from '../SendConfirmViews/SendConfirmModal';
 
 function TxConfirmBlind(props: ITxConfirmViewProps) {
   const {
@@ -14,8 +17,9 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
     feeInfoEditable,
     encodedTx,
     sourceInfo,
-    decodedTx,
+    decodedTx: decodedTxLegacy,
   } = props;
+  const decodedTx = decodedTxLegacy as IDecodedTxLegacy;
 
   const feeInput = (
     <FeeInfoInputForConfirm

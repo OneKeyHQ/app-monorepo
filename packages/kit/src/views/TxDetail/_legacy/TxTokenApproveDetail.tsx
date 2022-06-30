@@ -3,23 +3,25 @@ import React, { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import {
+  EVMDecodedItem,
+  EVMDecodedItemERC20Approve,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
-import { IDappCallParams } from '../../background/IBackgroundApi';
+import { IDappCallParams } from '../../../background/IBackgroundApi';
 
 import Address from './Address';
 import ContractData from './ContractData';
 import HeaderIcon from './HeaderIcon';
-import TotalFee from './TotalFee';
 
-const TxConfirmBlindDetail: FC<{
+const TxTokenApproveDetail: FC<{
   tx: EVMDecodedItem;
   sourceInfo?: IDappCallParams;
   feeInput?: any;
-  feeInfoPayload?: IFeeInfoPayload | null;
-}> = ({ tx, sourceInfo, feeInput, feeInfoPayload }) => {
+  approveAmountInput?: any;
+}> = ({ tx, sourceInfo, feeInput, approveAmountInput }) => {
   const intl = useIntl();
+  const info = tx.info as EVMDecodedItemERC20Approve;
 
   return (
     <Box
@@ -28,16 +30,13 @@ const TxConfirmBlindDetail: FC<{
       alignItems="center"
       mb={{ base: 4, md: 0 }}
     >
-      <HeaderIcon headerInfo={tx.network} />
+      <HeaderIcon headerInfo={info.token} />
 
+      {/* Token Approval Details */}
       <Container.Box mt={6}>
         <Address address={tx.fromAddress} isFromAddress />
-
-        {/* toAddress could be a null if it's a contract creation */}
-        {!!tx.toAddress && (
-          <Address address={tx.toAddress} isFromAddress={false} />
-        )}
-
+        <Address address={tx.toAddress} isFromAddress={false} />
+        {approveAmountInput}
         {!!sourceInfo && (
           <Container.Item
             title={intl.formatMessage({ id: 'content__interact_with' })}
@@ -52,13 +51,14 @@ const TxConfirmBlindDetail: FC<{
       </Typography.Subheading>
 
       <Container.Box mt={6}>
-        <Container.Item
-          title={intl.formatMessage({ id: 'content__amount' })}
-          describe={`${tx.amount} ${tx.symbol}`}
-        />
-        <Container.Item wrap={feeInput} />
-        {!!feeInfoPayload && parseInt(tx.value) !== 0 && (
-          <TotalFee tx={tx} feeInfoPayload={feeInfoPayload} />
+        {feeInput ? (
+          <Container.Item wrap={feeInput} />
+        ) : (
+          <Container.Item
+            title={intl.formatMessage({ id: 'form__fee_estimated' })}
+            describe={`${tx.gasInfo.maxFeeSpend} ${tx.symbol}`}
+            hasArrow
+          />
         )}
       </Container.Box>
 
@@ -66,7 +66,6 @@ const TxConfirmBlindDetail: FC<{
       <Typography.Subheading mt={6} w="100%" color="text-subdued">
         {intl.formatMessage({ id: 'content__more_details' })}
       </Typography.Subheading>
-
       <Container.Box mt={6}>
         <ContractData tx={tx} />
       </Container.Box>
@@ -74,4 +73,4 @@ const TxConfirmBlindDetail: FC<{
   );
 };
 
-export default TxConfirmBlindDetail;
+export default TxTokenApproveDetail;

@@ -178,20 +178,27 @@ export default class Vault extends VaultBase {
         .shiftedBy(-network.decimals)
         .toFixed(),
       amountValue: outputs[0].value,
-      extra: null,
+      extraInfo: null,
     };
     return {
       txid: '',
+      owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [{ type: IDecodedTxActionType.NATIVE_TRANSFER, nativeTransfer }],
+      actions: [
+        {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          direction:
+            outputs[0].address === dbAccount.address
+              ? IDecodedTxDirection.OUT
+              : IDecodedTxDirection.SELF,
+          nativeTransfer,
+        },
+      ],
       status: IDecodedTxStatus.Pending,
-      direction:
-        outputs[0].address === dbAccount.address
-          ? IDecodedTxDirection.OUT
-          : IDecodedTxDirection.SELF,
       network,
-      extra: null,
+      networkId: this.networkId,
+      extraInfo: null,
       totalFeeInNative: encodedTx.totalFeeInNative,
     };
   }
@@ -340,8 +347,8 @@ export default class Vault extends VaultBase {
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
       defaultPresetIndex: '0',
-      symbol: 'BTC',
-      decimals: network.feeDecimals,
+      feeSymbol: 'BTC',
+      feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       tx: null, // Must be null if network not support feeInTx

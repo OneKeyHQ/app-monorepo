@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getAppNavigation } from '../hooks/useAppNavigation';
-import { HomeRoutes, RootRoutes } from '../routes/types';
+import { HomeRoutes, RootRoutes } from '../routes/routesEnum';
 
 export const openUrl = (url: string, title?: string) => {
   const navigation = getAppNavigation();

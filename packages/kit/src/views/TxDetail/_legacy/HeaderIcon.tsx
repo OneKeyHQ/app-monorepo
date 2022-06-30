@@ -13,7 +13,7 @@ import { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
 import { TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
-import { Token } from '../../store/typings';
+import { Token } from '../../../store/typings';
 
 const getHeaderIconInfo = (
   headerInfo:

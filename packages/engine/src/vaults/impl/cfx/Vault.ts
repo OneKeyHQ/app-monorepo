@@ -79,7 +79,7 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  fetchFeeInfo(encodedTx: any): Promise<IFeeInfo> {
+  async fetchFeeInfo(encodedTx: any): Promise<IFeeInfo> {
     throw new Error('Method not implemented.');
   }
 

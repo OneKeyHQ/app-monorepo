@@ -1,3 +1,5 @@
+import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
+
 import type { Engine } from '../index';
 import type { UserCreateInputCategory } from '../types/credential';
 import type { EIP1559Fee, Network } from '../types/network';
@@ -88,11 +90,11 @@ export type IEncodedTxUpdatePayloadTransfer = {
 };
 
 // FeeInfo ----------------------------------------------
-export type IFeeInfoPrice = string | EIP1559Fee;
+export type IFeeInfoPrice = string | EIP1559Fee; // in GWEI
 // TODO rename to IFeeInfoValue, IFeeInfoData, IFeeInfoDetail
 export type IFeeInfoUnit = {
   eip1559?: boolean;
-  price?: IFeeInfoPrice;
+  price?: IFeeInfoPrice; // in GWEI
   limit?: string;
 };
 // TODO rename to IFeeInfoMeta
@@ -101,8 +103,8 @@ export type IFeeInfo = {
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
   defaultPresetIndex: string; // '0' | '1' | '2';
-  symbol?: string; // feeSymbol: GWEI
-  decimals?: number; // feeDecimals: 9
+  feeSymbol?: string; // feeSymbol: GWEI
+  feeDecimals?: number; // feeDecimals: 9
   nativeSymbol?: string; // ETH
   nativeDecimals?: number; // 18
   // TODO rename to feeInTx
@@ -110,6 +112,7 @@ export type IFeeInfo = {
   eip1559?: boolean;
   customDisabled?: boolean;
   baseFeeValue?: string; // A base fee: e.g. L1 fee for Layer 2 networks
+  extraInfo?: any | null;
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {
@@ -125,7 +128,7 @@ export type IFeeInfoPayload = {
     totalNative: string; // total fee in ETH
     value: IFeeInfoUnit;
   };
-  extraInfo?: any | null; // extra:
+  extraInfo?: any | null;
 };
 
 // PrepareAccounts ----------------------------------------------
@@ -162,12 +165,14 @@ export enum IDecodedTxDirection {
   IN = 'IN', // received
   OUT = 'OUT', // sent
   SELF = 'SELF', // sent to self
+  OTHER = 'OTHER',
 }
 export enum IDecodedTxStatus {
   Pending = 'Pending',
   Confirmed = 'Confirmed',
   Failed = 'Failed',
   Dropped = 'Dropped',
+  Removed = 'Removed',
 }
 export type IDecodedTxInteractWith = {
   // Dapp info
@@ -209,7 +214,7 @@ export type IDecodedTxActionBase = {
   nativeAmount?: string;
   nativeAmountValue?: string;
   // TODO rename to extraInfo
-  extra: any | null; // extra should be different in each network (eg. serialized from nativeTx actions)
+  extraInfo: any | null; // extra should be different in each network (eg. serialized from nativeTx actions)
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
@@ -230,19 +235,20 @@ export type IDecodedTxActionNativeTransfer = IDecodedTxActionBase & {
 };
 export type IDecodedTxActionTokenTransfer = IDecodedTxActionBase & {
   tokenInfo: Token;
-  // from: string;
-  // to: string;
-  recipient: string;
+  from: string;
+  to: string;
+  // recipient: string; // TODO rename to from/to
   amount: string;
   amountValue: string;
   // amountFiat: string;
 };
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
-  tokenInfo: Token;
+  tokenInfo: Token; // TODO tokenContract / tokenIdOnNetwork
   // from: string;
   // to: string;
+  // owner: string; // TODO owner
   spender: string;
-  amount: string;
+  amount: string; // TODO amount: "Infinite"
   amountValue: string;
   isMax: boolean;
 };
@@ -261,6 +267,7 @@ export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & {
 export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 export type IDecodedTxAction = {
   type: IDecodedTxActionType;
+  direction?: IDecodedTxDirection; // TODO move direction to UI side generate
   nativeTransfer?: IDecodedTxActionNativeTransfer;
   tokenTransfer?: IDecodedTxActionTokenTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
@@ -271,22 +278,37 @@ export type IDecodedTxAction = {
 };
 export type IDecodedTx = {
   txid: string; // blockHash
-  signer: string; // fromAddress
-  // receiver: string; // toAddress
+  owner: string; // receiver, sender
+  signer: string; // creator, sender, fromAddress
+  // receiver: string; // receiver, toAddress
+
   nonce: number;
-  actions: IDecodedTxAction[];
+  actions: IDecodedTxAction[]; // inputActions
+  outputActions?: IDecodedTxAction[];
 
+  // TODO move to IHistoryTx
   createdAt?: number;
-  finishedAt?: number;
-
+  updatedAt?: number; // finishedAt, signedAt, blockSignedAt
+  // createdAt: number;
+  // updatedAt: number;
   status: IDecodedTxStatus;
-  direction: IDecodedTxDirection;
-  network: Network;
-  feeInfo?: IFeeInfoUnit;
+  // isFinalData  data wont change anymore
+  isFinal?: boolean; // tx info is full completed, like covalentTx has parsed outputActions
+  isLocalCreated?: boolean;
+
+  networkId: string;
+  network: Network; // TODO networkId
+  feeInfo?: IFeeInfoUnit; // TODO totalFeeInNative
+  // TODO feeUsed
+
   interactWith?: IDecodedTxInteractWith;
 
   // TODO use nativeTx & decodedTx in frontend UI render
-  extra: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
+  extraInfo: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
+
+  // TODO remove all any type
+  encodedTx?: IEncodedTx;
+  payload?: any;
 
   // TODO remove
   totalFeeInNative?: string;
@@ -300,3 +322,27 @@ export type IDecodedTx = {
 
 // User input guessing----------------------------------------------
 export type IUserInputGuessingResult = Array<UserCreateInputCategory>;
+
+// History ----------------------------------------------
+// TODO merge historyTx to decodedTx
+export type IHistoryTx = {
+  networkId: string;
+  accountId: string;
+
+  id: string; // historyId
+  replacedPrevId?: string; // cancel speedUp replacedId
+  replacedNextId?: string;
+  replacedType?: SendConfirmActionType; // replacedActionType=cancel speedUp
+  historyLogs?: any[]; // cancel tx history log
+
+  encodedTx?: any; // TODO move to decodedTx
+  decodedTx: IDecodedTx;
+
+  isLocalCreated?: boolean;
+
+  // TODO remove
+  // just copy values from decodedTx by fixHistoryTx()
+  createdAt?: number;
+  status?: IDecodedTxStatus; // for realmDB?
+  isFinal?: boolean;
+};
