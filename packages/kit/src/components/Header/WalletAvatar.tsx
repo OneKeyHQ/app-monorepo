@@ -1,7 +1,7 @@
 /* eslint-disable no-nested-ternary */
 import React, { ComponentProps, FC } from 'react';
 
-import { Center, Icon, Image } from '@onekeyhq/components';
+import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
@@ -17,6 +17,7 @@ type WalletAvatarProps = {
   circular?: boolean;
   hwWalletType?: IOneKeyDeviceType;
   avatar?: Avatar;
+  status?: 'connected' | 'warning';
 } & ComponentProps<typeof Center>;
 
 const defaultProps: WalletAvatarProps = {
@@ -107,6 +108,19 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
   );
 };
 
+const WalletStatus: FC<Partial<WalletAvatarProps>> = ({ size, status }) => (
+  <Box
+    position="absolute"
+    right={-3}
+    top={-3}
+    borderWidth={2}
+    borderColor="surface-subdued"
+    rounded="full"
+    size={size === 'xl' || size === 'lg' ? '16px' : '12px'}
+    bgColor={status === 'connected' ? 'interactive-default' : 'icon-warning'}
+  />
+);
+
 const WalletAvatar: FC<WalletAvatarProps> = ({
   size,
   avatarBgColor,
@@ -114,6 +128,7 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
   circular,
   hwWalletType,
   avatar,
+  status,
   ...rest
 }) => {
   const hdAvatar = avatar ?? defaultAvatar;
@@ -142,6 +157,7 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
         hwWalletType={hwWalletType}
         avatar={hdAvatar}
       />
+      {status ? <WalletStatus size={size} status={status} /> : undefined}
     </Center>
   );
 };
