@@ -47,9 +47,16 @@ export default function useChartThrottledPoints({
   originData: MarketApiData[];
   fetchingCharts?: boolean;
 }) {
-  const [throttledPoints, setThrottledPoints] = useState(() =>
-    traverseData({ nativePoints: [], points: [] }, originData),
-  );
+  const [throttledPoints, setThrottledPoints] = useState(() => {
+    const initPoints = new Array(100)
+      .fill(0)
+      .map((_, index) => ({ x: index, y: 0 }));
+    const initData = {
+      nativePoints: initPoints,
+      points: initPoints,
+    };
+    return traverseData(initData, originData);
+  });
 
   useEffect(() => {
     // @ts-ignore

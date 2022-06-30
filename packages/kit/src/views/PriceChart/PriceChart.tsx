@@ -24,7 +24,6 @@ const PriceChart: React.FC<PriceChartProps> = ({
   style,
 }) => {
   const dataMap = useRef<MarketApiData[][]>();
-  const [data, setData] = useState<MarketApiData[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
@@ -45,26 +44,18 @@ const PriceChart: React.FC<PriceChartProps> = ({
           ),
         );
       }
-      // no need to refresh data, the smallest time span is 1 day
-      // const cacheData = dataMap.current[newTimeIndex];
-      // if (
-      //   !cacheData ||
-      //   // @ts-ignore
-      //   cacheData.__time < Date.now() - 1000 * 60
-      // ) {
-      //   setIsFetching(true);
-      //   const newData = await fetchHistoricalPrices({
-      //     contract,
-      //     platform,
-      //     days: TIMEOPTIONS_VALUE[newTimeIndex],
-      //     vs_currency: selectedFiatMoneySymbol,
-      //   });
-      //   // @ts-ignore
-      //   newData.__time = Date.now();
-      //   dataMap.current[newTimeIndex] = newData;
-      // }
+      const cacheData = dataMap.current[newTimeIndex];
+      if (!cacheData) {
+        setIsFetching(true);
+        const newData = await fetchHistoricalPrices({
+          contract,
+          platform,
+          days: TIMEOPTIONS_VALUE[newTimeIndex],
+          vs_currency: selectedFiatMoneySymbol,
+        });
+        dataMap.current[newTimeIndex] = newData;
+      }
       setSelectedTimeIndex(newTimeIndex);
-      setData(dataMap.current[newTimeIndex]);
       setIsFetching(false);
     },
     [contract, platform, selectedFiatMoneySymbol, dataMap],
@@ -76,7 +67,10 @@ const PriceChart: React.FC<PriceChartProps> = ({
 
   return (
     <Box style={style}>
-      <ChartWithLabel isFetching={isFetching} data={data}>
+      <ChartWithLabel
+        isFetching={isFetching}
+        data={dataMap.current?.[selectedTimeIndex] || []}
+      >
         <TimeControl
           selectedIndex={selectedTimeIndex}
           onTimeChange={refreshDataOnTimeChange}

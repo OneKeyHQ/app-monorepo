@@ -58,16 +58,12 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
     <>
       {priceLabel}
       <Box h="190px" mt="20px" justifyContent="center" alignItems="center">
-        {data.length ? (
-          <ChartView
-            isFetching={isFetching}
-            height={190}
-            data={data}
-            onHover={onHover}
-          />
-        ) : (
-          <Spinner />
-        )}
+        <ChartView
+          isFetching={isFetching}
+          height={190}
+          data={data}
+          onHover={onHover}
+        />
       </Box>
       {children}
     </>
