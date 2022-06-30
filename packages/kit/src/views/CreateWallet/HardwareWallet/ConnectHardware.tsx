@@ -134,18 +134,20 @@ const ConnectHardwareModal: FC = () => {
 
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
-        ToastManager.show({
-          title: intl.formatMessage({
-            id: 'msg__hardware_failed_to_search_devices',
-          }),
-        });
+        if (platformEnv.isNative) {
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'msg__hardware_failed_to_search_devices',
+            }),
+          });
+        }
         setIsSearching(false);
         return;
       }
 
       setSearchedDevices(response.payload);
     });
-  }, []);
+  }, [intl]);
 
   useEffect(() => {
     if (platformEnv.isRuntimeBrowser) handleScanDevice();
@@ -190,35 +192,29 @@ const ConnectHardwareModal: FC = () => {
           finishConnected(result);
         })
         .catch(async (err) => {
-          switch (err) {
-            case DeviceNotBonded: {
-              if (!checkBonded && platformEnv.isNativeAndroid) {
-                setCheckBonded(true);
-                const bonded = await deviceUtils.checkDeviceBonded(
-                  device.connectId ?? '',
-                );
-                if (bonded) {
-                  setCheckBonded(false);
-                  deviceUtils.connect(device.connectId ?? '').then((r) => {
-                    setTimeout(() => finishConnected(r), 1000);
-                  });
-                }
+          if (err instanceof DeviceNotBonded) {
+            if (!checkBonded && platformEnv.isNativeAndroid) {
+              setCheckBonded(true);
+              const bonded = await deviceUtils.checkDeviceBonded(
+                device.connectId ?? '',
+              );
+              if (bonded) {
+                setCheckBonded(false);
+                deviceUtils.connect(device.connectId ?? '').then((r) => {
+                  setTimeout(() => finishConnected(r), 1000);
+                });
               }
-              break;
             }
-            default:
-              if (err instanceof OneKeyHardwareError) {
-                ToastManager.show({
-                  title: intl.formatMessage({ id: err.key }),
-                });
-              } else {
-                ToastManager.show({
-                  title: intl.formatMessage({
-                    id: 'action__connection_timeout',
-                  }),
-                });
-              }
-              break;
+          } else if (err instanceof OneKeyHardwareError) {
+            ToastManager.show({
+              title: intl.formatMessage({ id: err.key }),
+            });
+          } else {
+            ToastManager.show({
+              title: intl.formatMessage({
+                id: 'action__connection_timeout',
+              }),
+            });
           }
         });
     },
