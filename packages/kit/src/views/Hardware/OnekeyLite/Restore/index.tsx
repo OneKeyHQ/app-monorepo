@@ -116,7 +116,6 @@ const Restore: FC = () => {
     OnekeyLite.getMnemonicWithPin(
       pinCode,
       (error: CallbackError, data: string | null, state: CardInfo) => {
-        console.log('state', state);
         if (data) {
           setRestoreData(data);
           stateNfcComplete();

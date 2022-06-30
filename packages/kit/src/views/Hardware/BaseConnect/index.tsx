@@ -11,7 +11,6 @@ import {
   ToastManager,
   Typography,
   ZStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import Button, { ButtonType } from '@onekeyhq/components/src/Button';
 import iconNFCScanHint from '@onekeyhq/kit/assets/hardware/ic_pair_hint_scan_lite.png';
@@ -19,6 +18,7 @@ import lottieNFCConnectComplete from '@onekeyhq/kit/assets/hardware/lottie_oneke
 import lottieNFCConnecting from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_connect.json';
 import lottieNFCTransferData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transfer.json';
 import lottieNFCTransmittingData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transmitting.json';
+import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type ConnectType = 'ble' | 'nfc';
@@ -53,7 +53,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
   actionPressContent,
 }) => {
   const intl = useIntl();
-  const isVerticalLayout = useIsVerticalLayout();
+
   const [visibleIosHint, setVisibleIosHint] = useState(false);
   const [lottieConnectingIcon, setLottieConnectingIcon] =
     useState<any>(lottieNFCConnecting);
@@ -111,7 +111,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
             mx={4}
             mb={platformEnv.isNativeIOS ? 12 : 4}
             onPress={() => {
-              if (platformEnv.isNativeIOS && !isVerticalLayout) {
+              if (!supportedNFC) {
                 ToastManager.show({
                   title: intl.formatMessage({ id: 'empty__not_supported' }),
                 });
