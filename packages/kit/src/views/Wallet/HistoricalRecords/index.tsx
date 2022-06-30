@@ -99,10 +99,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   });
 
   const { size } = useUserDevice();
-  const responsivePadding = () => {
-    if (['NORMAL', 'LARGE'].includes(size)) return 32;
-    return 16;
-  };
+  const responsivePadding = ['NORMAL', 'LARGE'].includes(size) ? 32 : 16;
 
   const { themeVariant } = useTheme();
 
@@ -203,7 +200,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Box>
   );
 
-  const header = hiddenHeader ? null : (
+  const renderListHeader = hiddenHeader ? null : (
     <>
       {headerView}
       {headerViewBar}
@@ -250,17 +247,17 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     <ListElementType
       bg="background-default"
       contentContainerStyle={{
-        paddingHorizontal: responsivePadding(),
+        paddingHorizontal: responsivePadding,
         marginTop: 24,
       }}
       sections={transactionRecords}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      ListHeaderComponent={header}
+      ListHeaderComponent={renderListHeader}
       ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
       ListFooterComponent={() => <Box key="footer" h="20px" />}
       ItemSeparatorComponent={() => <Divider key="separator" />}
-      keyExtractor={(_: Transaction, index: number) => String(index)}
+      keyExtractor={(tx: Transaction) => tx.txHash}
       showsVerticalScrollIndicator={false}
       stickySectionHeadersEnabled={false}
     />

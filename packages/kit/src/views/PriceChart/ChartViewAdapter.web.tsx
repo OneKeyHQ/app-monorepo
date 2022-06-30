@@ -2,8 +2,6 @@ import React, { useEffect, useRef } from 'react';
 
 import { createChart } from 'lightweight-charts';
 
-import { Box } from '@onekeyhq/components';
-
 import {
   ChartViewAdapterProps,
   createChartDom,
@@ -18,7 +16,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   bottomColor,
   height,
 }) => {
-  const chartContainerRef = useRef<HTMLElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) {
@@ -47,7 +45,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     });
   }, [bottomColor, topColor, data, lineColor]);
 
-  return <Box ref={chartContainerRef} />;
+  return <div style={{ width: '100%', height }} ref={chartContainerRef} />;
 };
 ChartViewAdapter.displayName = 'ChartViewAdapter';
 export default ChartViewAdapter;

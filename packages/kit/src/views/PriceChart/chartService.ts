@@ -4,7 +4,6 @@ import {
   ChartOptions,
   IChartApi,
   ISeriesApi,
-  SingleValueData,
   UTCTimestamp,
 } from 'lightweight-charts';
 
@@ -16,17 +15,22 @@ type DeepPartial<T> = {
     : DeepPartial<T[P]>;
 };
 
+type PriceNumber = number;
+type TimeNumber = number;
+export type MarketApiData = [TimeNumber, PriceNumber];
+
 export type OnHoverFunction = ({
   time,
   price,
 }: {
-  time?: UTCTimestamp | BusinessDay | Date;
-  price?: number;
+  time?: UTCTimestamp | BusinessDay | Date | string;
+  price?: number | string;
 }) => void;
 export interface ChartViewProps {
-  data: SingleValueData[];
+  data: MarketApiData[];
   onHover: OnHoverFunction;
   height: number;
+  isFetching: boolean;
 }
 
 export interface ChartViewAdapterProps extends ChartViewProps {
@@ -99,8 +103,14 @@ export function updateChartDom({
   lineColor: string;
   topColor: string;
   bottomColor: string;
-  data: any[];
+  data: MarketApiData[];
 }) {
+  const formattedData = (data as [UTCTimestamp, number][]).map(
+    ([time, value]) => ({
+      time,
+      value,
+    }),
+  );
   // @ts-ignore
   const chart = window._onekey_chart as IOnekeyChartApi;
   if (!chart._onekey_series) {
@@ -112,13 +122,13 @@ export function updateChartDom({
       crosshairMarkerBorderColor: '#fff',
       crosshairMarkerRadius: 5,
     });
-    newSeries.setData(data);
+    newSeries.setData(formattedData);
     chart._onekey_series = newSeries;
     return;
   }
   const series = chart._onekey_series;
   series.applyOptions({ lineColor, topColor, bottomColor });
-  series.setData(data);
+  series.setData(formattedData);
 
   if (data.length > 2) {
     chart
