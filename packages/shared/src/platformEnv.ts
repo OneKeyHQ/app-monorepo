@@ -14,30 +14,43 @@ export type IDistributionChannel =
   | 'native-ios'
   | 'native-ios-store'
   | 'native-android'
-  | 'native-android-google';
+  | 'native-android-google'
+  | 'native-ios-pad'
+  | 'native-ios-pad-store';
 
 export type IPlatformEnv = {
   isLegacyHistory?: boolean;
   isLegacySendConfirm?: boolean;
+  /** development mode */
   isDev?: boolean;
+  /** production mode */
   isProduction?: boolean;
 
+  /** running in the browsers */
   isWeb?: boolean;
+  /** running in the desktop system APP */
   isDesktop?: boolean;
+  /** running in the browser extension */
   isExtension?: boolean;
+  /** running in mobile APP */
   isNative?: boolean;
 
   isDesktopLinux?: boolean;
   isDesktopWin?: boolean;
+  /** macos arm64 & x86 */
   isDesktopMac?: boolean;
+  /** macos arm64 only */
   isDesktopMacArm64?: boolean;
 
   isExtFirefox?: boolean;
   isExtChrome?: boolean;
   isExtFirefoxUiPopup?: boolean;
 
+  /** ios, both tablet & iPhone */
   isNativeIOS?: boolean;
   isNativeIOSStore?: boolean;
+  /** ios, tablet only */
+  isNativeIOSPad?: boolean;
   isNativeAndroid?: boolean;
   isNativeAndroidGooglePlay?: boolean;
 
@@ -81,6 +94,8 @@ const isDesktopLinux = isDesktop && window?.desktopApi?.platform === 'linux';
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
+const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
+const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const isNativeAndroidGooglePlay =
   isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
@@ -101,6 +116,8 @@ const getDistributionChannel = (): IDistributionChannel | undefined => {
   if (isDesktopWin) return 'desktop-win';
   if (isDesktopLinux) return 'desktop-linux';
 
+  if (isNativeIOSPadStore) return 'native-ios-pad-store';
+  if (isNativeIOSPad) return 'native-ios-pad';
   if (isNativeIOSStore) return 'native-ios-store';
   if (isNativeIOS) return 'native-ios';
   if (isNativeAndroidGooglePlay) return 'native-android-google';
