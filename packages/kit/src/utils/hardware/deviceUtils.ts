@@ -77,7 +77,7 @@ class DeviceUtils {
       return searchResponse;
     };
 
-    const poll: IPollFn<void> = async (time = POLL_INTERVAL) => {
+    const poll: IPollFn<void> = async (time = 2000) => {
       if (!this.scanning) {
         return;
       }
