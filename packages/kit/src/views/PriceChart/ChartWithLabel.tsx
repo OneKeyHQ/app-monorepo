@@ -1,7 +1,5 @@
 import React, { useCallback, useState } from 'react';
 
-import { SingleValueData } from 'lightweight-charts';
-
 import { Box, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 
 import useFormatDate from '../../hooks/useFormatDate';

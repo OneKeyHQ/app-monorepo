@@ -4,7 +4,6 @@ import {
   ChartOptions,
   IChartApi,
   ISeriesApi,
-  SingleValueData,
   UTCTimestamp,
 } from 'lightweight-charts';
 

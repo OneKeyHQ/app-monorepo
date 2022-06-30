@@ -145,7 +145,7 @@ const ConnectHardwareModal: FC = () => {
 
       setSearchedDevices(response.payload);
     });
-  }, []);
+  }, [intl]);
 
   useEffect(() => {
     if (platformEnv.isRuntimeBrowser) handleScanDevice();

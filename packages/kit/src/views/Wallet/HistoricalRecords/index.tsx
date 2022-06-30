@@ -1,4 +1,4 @@
-import React, { FC, Fragment, useCallback, useEffect, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';

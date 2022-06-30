@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { monotoneCubicInterpolation } from '@onekeyfe/react-native-animated-charts';
-import { SingleValueData } from 'lightweight-charts';
 import { debounce } from 'lodash';
 
 import { MarketApiData } from '../chartService';
