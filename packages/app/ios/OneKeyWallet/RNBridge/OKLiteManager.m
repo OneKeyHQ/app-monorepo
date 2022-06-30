@@ -14,6 +14,14 @@
 
 RCT_EXPORT_MODULE();
 
+RCT_EXPORT_METHOD(checkNFCPermission:(RCTResponseSenderBlock)callback)
+{
+  BOOL permission = [NFCNDEFReaderSession readingAvailable];
+  if (![NFCNDEFReaderSession readingAvailable]) {
+    callback(@[[NSNull null],@(permission),[NSNull null]]);
+  }
+}
+
 RCT_EXPORT_METHOD(getCardName:(RCTResponseSenderBlock)callback)
 {
   if ([OKLiteManager checkSDKVaild:callback]) {

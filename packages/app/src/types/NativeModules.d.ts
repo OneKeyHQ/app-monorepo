@@ -11,6 +11,7 @@ export interface PermissionManagerInterface extends NativeModule {
 }
 
 export interface OKLiteManagerInterface extends NativeModule {
+  checkNFCPermission: (call: LiteCallback<boolean>) => void;
   getCardName: (call: LiteCallback<string>) => void;
   getLiteInfo: (call: LiteCallback<CardInfo>) => void;
   setMnemonic: (
