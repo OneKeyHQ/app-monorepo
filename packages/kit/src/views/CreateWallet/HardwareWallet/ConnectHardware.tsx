@@ -68,6 +68,11 @@ type SearchDeviceInfo = {
   wallet?: Wallet;
 } & SearchDevice;
 
+type ExistHwWallet = Wallet & {
+  connectId: string;
+  deviceId: string;
+};
+
 const ConnectHardwareModal: FC = () => {
   const intl = useIntl();
   const { engine } = backgroundApiProxy;
@@ -80,7 +85,7 @@ const ConnectHardwareModal: FC = () => {
   const [devices, setDevices] = useState<SearchDeviceInfo[]>([]);
 
   const { wallets } = useRuntime();
-  const [deviceWallets, setDeviceWallets] = useState<Record<string, Wallet>>();
+  const [existHwWallets, setExistHwWallets] = useState<ExistHwWallet[]>();
 
   useEffect(() => {
     (async () => {
@@ -88,17 +93,20 @@ const ConnectHardwareModal: FC = () => {
         Record<string, Device>
       >((acc, device) => ({ ...acc, [device.id ?? '']: device }), {});
 
-      const findWallets: Record<string, Wallet> = {};
+      const hwWallets = wallets
+        .filter(
+          (w) =>
+            w.type === 'hw' &&
+            w.accounts.length > 0 &&
+            !!localDevices[w.associatedDevice ?? ''],
+        )
+        .map((w) => ({
+          ...w,
+          deviceId: localDevices[w.associatedDevice ?? ''].deviceId,
+          connectId: localDevices[w.associatedDevice ?? ''].mac,
+        }));
 
-      wallets.forEach((wallet) => {
-        if (wallet.type !== 'hw') return;
-        if (wallet.accounts.length === 0) return;
-        const device = localDevices[wallet.associatedDevice ?? ''];
-        if (!device) return;
-        findWallets[device.mac] = wallet;
-      });
-
-      setDeviceWallets(findWallets);
+      setExistHwWallets(hwWallets);
     })();
   }, [engine, wallets]);
 
@@ -109,13 +117,16 @@ const ConnectHardwareModal: FC = () => {
 
   const convert = useCallback(
     (searchDevices: SearchDevice[]): SearchDeviceInfo[] => {
-      const convertDevices = searchDevices.flatMap((device) => ({
+      const convertDevices = searchDevices.map((device) => ({
         ...device,
-        wallet: deviceWallets?.[device?.connectId ?? ''],
+        wallet: existHwWallets?.find(
+          (w) =>
+            w.connectId === device.connectId && w.deviceId === device.deviceId,
+        ),
       }));
       return convertDevices;
     },
-    [deviceWallets],
+    [existHwWallets],
   );
 
   useEffect(() => {
