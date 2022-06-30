@@ -58,6 +58,8 @@ export class VaultContext extends VaultContextBase {
 
   _dbAccount!: DBAccount;
 
+  // TODO resetCache after dbAccount and network DB updated
+
   async getDbAccount(params?: { noCache?: boolean }) {
     const { noCache } = { noCache: false, ...params };
     if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {

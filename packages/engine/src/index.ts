@@ -11,6 +11,7 @@ import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
 import bs58check from 'bs58check';
+import { cloneDeep } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
@@ -113,6 +114,7 @@ import {
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type BTCVault from './vaults/impl/btc/Vault';
+import type VaultEvm from './vaults/impl/evm/Vault';
 import type { ITransferInfo } from './vaults/types';
 
 @backgroundClass()
@@ -1244,7 +1246,9 @@ class Engine {
   }) {
     const vault = await this.getVault({ networkId, accountId });
     // throw new Error('test fetch fee info error');
-    return vault.fetchFeeInfo(encodedTx);
+    // TODO move to vault.fetchFeeInfo and _fetchFeeInfo
+    // clone encodedTx to avoid side effects
+    return vault.fetchFeeInfo(cloneDeep(encodedTx));
   }
 
   @backgroundMethod()
@@ -1301,11 +1305,24 @@ class Engine {
     decodedTx: IDecodedTx;
   }> {
     const vault = await this.getVault({ networkId, accountId });
-    const decodedTx = await vault.decodeTx(encodedTx, payload);
-    const decodedTxLegacy = await vault.decodedTxToLegacy(decodedTx);
+    let decodedTx: IDecodedTx;
+    let decodedTxLegacy: IDecodedTxLegacy;
     if ((await vault.getNetworkImpl()) === IMPL_EVM) {
-      // do something in EVM
+      // @ts-ignore
+      const vaultEvm = vault as VaultEvm;
+      decodedTxLegacy = await vaultEvm.legacyDecodeTx(encodedTx, payload);
+      decodedTx = await vaultEvm.decodedTxLegacyToModern({
+        decodedTxLegacy,
+        encodedTx,
+      });
+    } else {
+      decodedTx = await vault.decodeTx(encodedTx, payload);
+      decodedTxLegacy = await vault.decodedTxToLegacy(decodedTx);
     }
+
+    // decodedTxLegacy.payload = payload;
+    decodedTx.payload = decodedTx.payload ?? payload;
+    decodedTx = await vault.fixDecodedTx(decodedTx);
     return {
       decodedTx,
       decodedTxLegacy,

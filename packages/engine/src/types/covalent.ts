@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 import type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
@@ -10,6 +11,7 @@ enum TxStatus {
   Confirmed = 'Confirmed',
   Failed = 'Failed',
   Dropped = 'Dropped',
+  Removed = 'Removed',
 }
 
 enum EVMTxFromType {
@@ -23,6 +25,23 @@ type HistoryDetailList = {
   error: boolean;
   errorMessage: string | null;
   errorCode: number | null;
+};
+
+export type ICovalentHistoryListItem = {
+  tx_hash: string;
+  log_events: any[];
+  block_signed_at: string; // "2022-06-14T01:52:10Z"
+  successful: boolean;
+  from_address: string;
+};
+export type ICovalentHistoryListData = {
+  items: ICovalentHistoryListItem[];
+};
+export type ICovalentHistoryList = {
+  data: ICovalentHistoryListData;
+  error: boolean;
+  error_code: number | null;
+  error_message: string | null;
 };
 
 type Pagination = {

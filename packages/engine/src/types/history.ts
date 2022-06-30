@@ -1,3 +1,5 @@
+import type { IDecodedTxStatus } from '../vaults/types';
+
 enum HistoryEntryType {
   TRANSFER = 'transfer',
   APPROVE = 'approve',
@@ -44,3 +46,12 @@ type HistoryEntry = HistoryEntryTransaction | HistoryEntryMessage;
 
 export { HistoryEntryType, HistoryEntryStatus };
 export type { HistoryEntry, HistoryEntryMeta, HistoryEntryTransaction };
+
+export type IGetHistoryTxOptions = {
+  limit: number;
+  networkId: string;
+  accountId: string;
+  before?: number;
+  status?: IDecodedTxStatus;
+  isPending?: boolean;
+};

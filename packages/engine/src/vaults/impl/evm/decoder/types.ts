@@ -30,6 +30,7 @@ interface EVMDecodedItemERC20Transfer {
   amount: string;
   value: string;
   recipient: string;
+  from?: string;
 }
 
 interface EVMDecodedItemERC20Approve {
@@ -102,6 +103,7 @@ interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
   interactWith?: string; // Dapp name or url
   fromType: 'IN' | 'OUT' | 'SELF';
   txStatus: TxStatus;
+  isFinal?: boolean;
 
   totalFeeInNative?: string;
   total: string; // in ether, gasSpend + value

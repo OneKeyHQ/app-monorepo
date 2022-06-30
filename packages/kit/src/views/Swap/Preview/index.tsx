@@ -61,7 +61,6 @@ const Preview = () => {
       activeNetwok: network,
       receivingAddress,
     });
-
     if (res?.data) {
       const encodedTx: IEncodedTxEvm = {
         ...res?.data,

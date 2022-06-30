@@ -8,7 +8,7 @@ import {
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
-import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
+import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 
 import Address from './Address';
 import Hash from './Hash';

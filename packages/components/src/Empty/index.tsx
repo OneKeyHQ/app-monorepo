@@ -21,6 +21,7 @@ type EmptyProps = {
   imageUrl?: number;
   actionProps?: ComponentProps<typeof Button>;
   handleAction?: () => void;
+  isLoading?: boolean;
 } & BoxProps;
 
 function renderIcon(icon: EmptyProps['icon']) {
@@ -49,6 +50,7 @@ const Empty: FC<EmptyProps> = ({
   imageUrl,
   handleAction,
   actionProps,
+  isLoading,
   ...rest
 }) => {
   const isSmallScreen = useIsVerticalLayout();
@@ -84,6 +86,7 @@ const Empty: FC<EmptyProps> = ({
         </Text>
         {!!handleAction && (
           <Button
+            isLoading={isLoading}
             mt={6}
             type="primary"
             onPress={handleAction}

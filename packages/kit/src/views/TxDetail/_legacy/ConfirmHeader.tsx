@@ -9,7 +9,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 
 export type ConfirmHeaderProps = {
   title: string;

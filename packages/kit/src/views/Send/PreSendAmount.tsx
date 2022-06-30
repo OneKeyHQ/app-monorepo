@@ -23,8 +23,7 @@ import {
   FormatBalanceToken,
   FormatCurrencyToken,
 } from '../../components/Format';
-import { useManageTokens } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { AutoSizeText } from '../FiatPay/AmountInput/AutoSizeText';
 
@@ -60,14 +59,14 @@ export function PreSendAmountPreview({
         </Text>
       )}
 
-      <Center
-        nativeID="AutoSizeTextContainer"
-        flex={1}
-        maxH="64px"
-        mt={2}
-        mb={3}
-      >
-        <AutoSizeText text={text} onChangeText={onChangeText} placeholder="0" />
+      {/* placeholder={intl.formatMessage({ id: 'content__amount' })} */}
+      <Center flex={1} maxH="64px" mt={2} mb={3}>
+        <AutoSizeText
+          autoFocus
+          text={text}
+          onChangeText={onChangeText}
+          placeholder="0"
+        />
       </Center>
 
       {loading ? (
@@ -229,7 +228,7 @@ function PreSendAmount() {
           justifyContent="center"
         >
           <PreSendAmountPreview
-            title={tokenInfo?.symbol ?? ''}
+            title={tokenInfo?.symbol ?? '--'}
             text={amount}
             onChangeText={(text) => {
               // delete action

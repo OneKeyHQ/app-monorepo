@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNative } from '../../components/Format';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks';
 
 import { FeeSpeedLabel } from './SendEditFee';
 import { TxTitleDetailView } from './TxTitleDetailView';
@@ -19,6 +19,7 @@ type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendConfirm
 >;
+type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 export type IFeeInfoInputProps = {
   encodedTx: any;
@@ -37,6 +38,8 @@ function FeeInfoInput({
   autoNavigateToEdit,
 }: IFeeInfoInputProps) {
   const navigation = useNavigation<NavigationProps>();
+  const route = useRoute<RouteProps>();
+
   const disabled = loading || !editable || !encodedTx;
   const navigateToEdit = useCallback(
     ({ replace = false }: { replace?: boolean } = {}) => {
@@ -48,6 +51,7 @@ function FeeInfoInput({
           encodedTx,
           feeInfoSelected: feeInfoPayload?.selected,
           autoConfirmAfterFeeSaved: autoNavigateToEdit,
+          resendActionInfo: route.params.resendActionInfo,
         });
       } else {
         navigation.navigate({
@@ -64,10 +68,11 @@ function FeeInfoInput({
     },
     [
       disabled,
+      navigation,
       encodedTx,
       feeInfoPayload?.selected,
       autoNavigateToEdit,
-      navigation,
+      route.params.resendActionInfo,
     ],
   );
 
@@ -256,6 +261,170 @@ function FeeInfoInputForTransfer({
   );
 }
 
+function FeeInfoInputForConfirmLite({
+  encodedTx,
+  feeInfoPayload,
+  loading,
+  editable,
+}: {
+  encodedTx: any;
+  feeInfoPayload: IFeeInfoPayload | null;
+  loading: boolean;
+  editable?: boolean;
+}) {
+  const intl = useIntl();
+  const isPreset = feeInfoPayload?.selected?.type === 'preset';
+  const networkFeeInfoEditable = useNetworkFeeInfoEditable();
+
+  let totalFeeInNative = feeInfoPayload?.current?.totalNative || '';
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (!editable && encodedTx.totalFeeInNative) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    totalFeeInNative = encodedTx.totalFeeInNative; // for BTC fee display
+  }
+
+  // edit and loading icon
+  const icon: React.ReactElement | null = useMemo(() => {
+    if (!encodedTx) {
+      return null;
+    }
+    if (loading) {
+      return <Spinner size="sm" />;
+    }
+    if (feeInfoPayload && editable && networkFeeInfoEditable) {
+      return <Icon size={20} name="PencilSolid" />;
+    }
+    return null;
+  }, [editable, encodedTx, feeInfoPayload, loading, networkFeeInfoEditable]);
+
+  const title = useMemo(() => {
+    if (!encodedTx || !feeInfoPayload) {
+      return null;
+    }
+    const totalNative = totalFeeInNative || '0';
+
+    const typography = {
+      sm: 'Body1Strong',
+      md: 'Body2Strong',
+    } as any;
+    return (
+      <Box flexDirection="row" alignItems="center">
+        <Text typography={typography}>
+          {`${totalNative} ${feeInfoPayload?.info?.nativeSymbol || ''}`}
+        </Text>
+        <Box w={2} />
+        {icon}
+      </Box>
+    );
+  }, [encodedTx, feeInfoPayload, icon, totalFeeInNative]);
+
+  const subTitle = useMemo(() => {
+    if (!encodedTx || !feeInfoPayload) {
+      return null;
+    }
+    const totalNative = totalFeeInNative || '0';
+    const color = 'text-subdued';
+    if (isPreset) {
+      return (
+        <>
+          <Text color={color}>
+            <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+            <FormatCurrencyNative
+              value={totalNative}
+              render={(ele) => <>(~ {ele})</>}
+            />
+          </Text>
+        </>
+      );
+    }
+    // TODO fallback to native value if fiat price is null
+    return (
+      <>
+        <Text color={color}>
+          <FormatCurrencyNative
+            value={totalNative}
+            render={(ele) => <>{ele}</>}
+          />
+        </Text>
+      </>
+    );
+  }, [encodedTx, feeInfoPayload, isPreset, totalFeeInNative]);
+
+  const hint = useMemo(() => {
+    if (!isPreset || !encodedTx || !feeInfoPayload) {
+      return null;
+    }
+    let feeSpeedTime = '';
+    if (feeInfoPayload?.selected?.type === 'preset') {
+      if (feeInfoPayload?.selected?.preset === '0')
+        feeSpeedTime = intl.formatMessage({
+          id: 'content__maybe_in_30s',
+        });
+      if (feeInfoPayload?.selected?.preset === '1')
+        feeSpeedTime = intl.formatMessage({
+          id: 'content__likely_less_than_15s',
+        });
+      if (feeInfoPayload?.selected?.preset === '2')
+        feeSpeedTime = intl.formatMessage({
+          id: 'content__very_likely_less_than_15s',
+        });
+    }
+
+    return (
+      <Text color="text-subdued" flex={1}>
+        {feeSpeedTime}
+      </Text>
+    );
+  }, [encodedTx, feeInfoPayload, intl, isPreset]);
+
+  const renderChildren = useCallback(
+    // ({ isHovered })
+    () => {
+      let content = null;
+      if (title) {
+        content = (
+          <Box flexDirection="column">
+            {title}
+            {subTitle}
+            {hint}
+          </Box>
+        );
+      } else {
+        content = (
+          <Box
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="flex-start"
+          >
+            <Text color="text-subdued" flex={1}>
+              {/* show static text: No Available Fee */}
+              {intl.formatMessage({ id: 'content__calculate_fee' })}
+            </Text>
+            <Box w={2} />
+            {loading ? <Spinner size="sm" /> : null}
+            <Box flex={1} />
+          </Box>
+        );
+      }
+
+      return (
+        // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
+        <Box>{content}</Box>
+      );
+    },
+    [hint, intl, loading, subTitle, title],
+  );
+  return (
+    <FeeInfoInputContainer
+      editable={editable}
+      encodedTx={encodedTx}
+      feeInfoPayload={feeInfoPayload}
+      loading={loading}
+      renderChildren={renderChildren}
+    />
+  );
+}
+
 function FeeInfoInputForConfirm({
   encodedTx,
   feeInfoPayload,
@@ -276,7 +445,7 @@ function FeeInfoInputForConfirm({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (!editable && encodedTx.totalFeeInNative) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        totalFeeInNative = encodedTx.totalFeeInNative;
+        totalFeeInNative = encodedTx.totalFeeInNative; // for BTC fee display
       }
       return (
         <TxTitleDetailView
@@ -300,7 +469,7 @@ function FeeInfoInputForConfirm({
     [
       editable,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      encodedTx.totalFeeInNative,
+      encodedTx.totalFeeInNative, // for BTC fee display
       feeInfoPayload,
       intl,
       loading,
@@ -348,5 +517,6 @@ export {
   FeeInfoInputContainer,
   FeeInfoInputForTransfer,
   FeeInfoInputForConfirm,
+  FeeInfoInputForConfirmLite,
   FeeInfoInputForSpeedUpOrCancel,
 };

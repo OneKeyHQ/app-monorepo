@@ -22,6 +22,7 @@ export type FormatDateOptions = {
   hideTheMonth?: boolean;
   hideYear?: boolean;
   hideMonth?: boolean;
+  hideTimeForever?: boolean;
 };
 
 export type FormatMonthOptions = {
@@ -72,6 +73,9 @@ export default function useFormatDate() {
         options?.hideMonth
       ) {
         formatTemplate = formatTemplate.replace('LLL ', '');
+      }
+      if (options?.hideTimeForever) {
+        formatTemplate = formatTemplate.replace(', HH:mm', '');
       }
 
       return format(parsedDate, formatTemplate) ?? '';

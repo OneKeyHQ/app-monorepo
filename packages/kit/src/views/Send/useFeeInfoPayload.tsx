@@ -22,7 +22,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 export const FEE_INFO_POLLING_INTERVAL = 5000;
 
 export function calculateTotalFeeNative({
-  amount,
+  amount, // in GWEI
   info,
 }: {
   amount: string;
@@ -30,7 +30,8 @@ export function calculateTotalFeeNative({
 }) {
   return new BigNumber(amount)
     .plus(info.baseFeeValue ?? 0)
-    .shiftedBy((info.decimals ?? 0) - (info.nativeDecimals ?? 0))
+    .shiftedBy(info.feeDecimals ?? 0) // GWEI -> Value
+    .shiftedBy(-(info.nativeDecimals ?? 0)) // Value -> Amount
     .toFixed();
 }
 
@@ -151,8 +152,8 @@ export function useFeeInfoPayload({
       let info: IFeeInfo = {
         nativeDecimals,
         nativeSymbol,
-        decimals: feeDecimals,
-        symbol: feeSymbol,
+        feeDecimals,
+        feeSymbol,
         prices: [],
         defaultPresetIndex: DEFAULT_PRESET_INDEX,
       };
@@ -220,6 +221,7 @@ export function useFeeInfoPayload({
         });
       }
 
+      // in GWEI
       const total = calculateTotalFeeRange(currentInfoUnit).max;
       const totalNative = calculateTotalFeeNative({
         amount: total,
@@ -251,7 +253,9 @@ export function useFeeInfoPayload({
       networkId,
       useFeeInTx,
     ]);
+
   useEffect(() => {
+    // first time loading only, Interval loading does not support yet.
     setLoading(true);
     fetchFeeInfo()
       .then((info) => {
