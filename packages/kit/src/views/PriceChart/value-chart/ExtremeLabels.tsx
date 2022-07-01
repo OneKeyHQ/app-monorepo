@@ -10,6 +10,7 @@ function trim(val: number) {
 function formatNative(value: number | string) {
   'worklet';
 
+  console.log({ value });
   let val;
   if (typeof value === 'string') {
     try {
@@ -17,6 +18,8 @@ function formatNative(value: number | string) {
     } catch (e) {
       return '';
     }
+  } else if (value === 0) {
+    return '';
   } else {
     val = value;
   }
