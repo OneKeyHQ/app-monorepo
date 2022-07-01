@@ -42,7 +42,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const { engine, serviceHardware } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings();
+  const { deviceUpdates } = useSettings() || {};
 
   const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
 

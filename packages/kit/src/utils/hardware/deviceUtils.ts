@@ -226,11 +226,16 @@ class DeviceUtils {
 
     let bleFirmware: BLEFirmwareInfo | undefined;
     let firmware: SYSFirmwareInfo | undefined;
+
+    let hasBleUpgrade = false;
+    let hasSysUpgrade = false;
+
     let hasFirmwareForce = false;
     let hasBleForce = false;
 
-    if (checkBleResult.success && checkBleResult.payload.status !== 'valid') {
+    if (checkBleResult.success) {
       bleFirmware = checkBleResult.payload.release;
+      if (checkBleResult.payload.status !== 'valid') hasBleUpgrade = true;
       if (checkBleResult.payload.status === 'required') {
         hasBleForce = true;
       }
@@ -238,8 +243,9 @@ class DeviceUtils {
 
     const checkResult = await sdk.checkFirmwareRelease(connectId);
 
-    if (checkResult.success && checkResult.payload.status !== 'valid') {
+    if (checkResult.success) {
       firmware = checkResult.payload.release;
+      if (checkResult.payload.status !== 'valid') hasSysUpgrade = true;
       if (checkResult.payload.status === 'required') {
         hasFirmwareForce = true;
       }
@@ -254,54 +260,24 @@ class DeviceUtils {
         value: {
           forceFirmware: hasFirmwareForce,
           forceBle: hasBleForce,
-          ble: bleFirmware,
-          firmware,
+          ble: hasBleUpgrade ? bleFirmware : undefined,
+          firmware: hasSysUpgrade ? firmware : undefined,
         },
       }),
     );
 
     // dev
-    const { updateDeviceBle, updateDeviceSys } =
+    const { enable, updateDeviceBle, updateDeviceSys } =
       store.getState().settings.devMode || {};
-    if (platformEnv.isDev) {
+    if (enable) {
       dispatch(
         setDeviceUpdates({
           key: connectId,
           value: {
             forceFirmware: hasFirmwareForce,
             forceBle: hasBleForce,
-            ble: updateDeviceBle
-              ? {
-                  'required': false,
-                  'version': [1, 2, 1],
-                  'url':
-                    'https://onekey-asset.com/onekey/ble/v1.2.1/App_Signed-2021-4-1_1.2.1.zip',
-                  'webUpdate':
-                    'https://onekey-asset.com/onekey/ble/v1.2.1/App_Signed-2021-4-1_1.2.1.bin',
-                  'fingerprint':
-                    'fbcb149427dd74c3fba48bcbe55799168f252a4e08c053aa2b98c78fba6ef8f7',
-                  'fingerprintWeb':
-                    'fbcb149427dd74c3fba48bcbe55799168f252a4e08c053aa2b98c78fba6ef8f7',
-                  'changelog': {
-                    'zh-CN': '修复已知问题',
-                    'en-US': 'minor fixes',
-                  },
-                }
-              : undefined,
-            firmware: updateDeviceSys
-              ? {
-                  'required': false,
-                  'version': [2, 2, 0],
-                  'url':
-                    'https://onekey-asset.com/onekey/hw/v2.2.0/classic.2.2.0-[Stable-0507-1].bin',
-                  'fingerprint':
-                    'fbcb149427dd74c3fba48bcbe55799168f252a4e08c053aa2b98c78fba6ef8f7',
-                  'changelog': {
-                    'zh-CN': '支持 signTypedData 方法',
-                    'en-US': 'support signTypedData method',
-                  },
-                }
-              : undefined,
+            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
+            firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
           },
         }),
       );

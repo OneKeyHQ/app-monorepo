@@ -4,15 +4,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
-import {
-  Box,
-  Center,
-  Image,
-  Modal,
-  Progress,
-  Text,
-  Typography,
-} from '@onekeyhq/components';
+import { Modal } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -20,141 +12,49 @@ import {
   HardwareUpdateRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-
-import { setDeviceDoneUpdate } from '../../../../store/reducers/settings';
-import { NotInBootLoaderMode } from '../../../../utils/hardware/errors';
+import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
+import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
+import { NotInBootLoaderMode } from '@onekeyhq/kit/src/utils/hardware/errors';
 import {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
-} from '../../../../utils/updates/type';
+} from '@onekeyhq/kit/src/utils/updates/type';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  downloadBleFirmware,
-  downloadSysFirmware,
-  installFirmware,
-  rebootToBootloader,
-} from './handle';
+import { installFirmware, rebootToBootloader } from './handle';
+import RunningView from './RunningView';
+import StateView from './StateView';
 
-import type { ImageSourcePropType } from 'react-native';
+import type { StateViewType } from './StateView';
 
 type ProgressStepType =
-  | 'downloading-ble'
+  | 'pre-check'
   | 'installing-ble'
-  | 'downloading-firmware'
   | 'reboot-bootloader'
   | 'installing-firmware'
   | 'done-step';
 
-type StateViewType =
-  | 'download-failure'
-  | 'device-not-found'
-  | 'device-connection-failure'
-  | 'device-not-response'
-  | 'reboot-bootloader-failure'
-  | 'success';
-
 type ProgressStateType = 'ready' | 'running' | 'done' | 'failure';
 
 type NavigationProps = ModalScreenProps<HardwareUpdateRoutesParams>;
-
-type RunningViewProps = {
-  progress: number;
-  hint: string;
-};
-
-const RunningView: FC<RunningViewProps> = ({ progress, hint }) => {
-  const intl = useIntl();
-  return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      h="100%"
-      justifyContent="space-between"
-    >
-      <Center flex={1} alignItems="center" w="100%" minHeight={260}>
-        <Typography.DisplayMedium>
-          {intl.formatMessage({ id: 'modal__updating' })}
-        </Typography.DisplayMedium>
-
-        <Box px={2} width="full" mt={8}>
-          <Progress value={progress} />
-        </Box>
-
-        <Typography.Body2 mt={3} textAlign="center">
-          {hint}
-        </Typography.Body2>
-      </Center>
-
-      <Typography.Body2 mb={3} px={8} textAlign="center" color="text-subdued">
-        {intl.formatMessage({
-          id: 'modal__updating_attention',
-        })}
-      </Typography.Body2>
-    </Box>
-  );
-};
-
-type StateViewProps = {
-  emoji?: string;
-  sourceSrc?: ImageSourcePropType;
-  title: string;
-  description?: string;
-  help?: string;
-};
-
-const StateView: FC<StateViewProps> = ({
-  emoji,
-  sourceSrc,
-  title,
-  description,
-  help,
-}) => (
-  <Box
-    flexDirection="column"
-    alignItems="center"
-    h="100%"
-    justifyContent="space-between"
-  >
-    <Center flex={1} paddingX={4} minHeight={240}>
-      <Box alignItems="center">
-        {!!sourceSrc && <Image size={56} source={sourceSrc} />}
-        {!!emoji && <Text fontSize={56}>{emoji}</Text>}
-
-        <Typography.DisplayMedium mt={4}>{title}</Typography.DisplayMedium>
-        {!!description && (
-          <Typography.Body1 color="text-subdued" mt={2}>
-            {description}
-          </Typography.Body1>
-        )}
-      </Box>
-    </Center>
-
-    {!!help && (
-      <Typography.Body2Underline px={8} textAlign="center" color="text-subdued">
-        {help}
-      </Typography.Body2Underline>
-    )}
-  </Box>
-);
 
 type RouteProps = RouteProp<
   HardwareUpdateRoutesParams,
   HardwareUpdateModalRoutes.HardwareUpdatingModal
 >;
 
+const InstalBaseProgress = 10;
+
 const UpdatingModal: FC = () => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
-  const { deviceUpdates } = useSettings();
+  const { deviceUpdates } = useSettings() || {};
 
   const [firmwareRelease, setFirmwareRelease] = useState<SYSFirmwareInfo>();
   const [bleFirmwareRelease, setBleFirmwareRelease] =
     useState<BLEFirmwareInfo>();
-
-  const [sysFirmwarePath, setSysFirmwarePath] = useState<any>();
-  const [bleFirmwarePath, setBleFirmwarePath] = useState<any>();
 
   const [suspendStep, setSuspendStep] = useState<ProgressStepType>();
   const [progressStep, setProgressStep] = useState<ProgressStepType>();
@@ -163,6 +63,17 @@ const UpdatingModal: FC = () => {
     () => progressState,
     [progressState],
   );
+
+  useEffect(() => {
+    const uiEvent = (e: any) => {
+      console.log('UpdatingModal HardwareSDK UI_EVENT', e);
+    };
+
+    HardwareSDK.on('UI_EVENT', uiEvent);
+    return () => {
+      HardwareSDK.off('UI_EVENT', uiEvent);
+    };
+  }, []);
 
   const connectId = useMemo(() => device?.mac ?? '', [device]);
 
@@ -180,15 +91,17 @@ const UpdatingModal: FC = () => {
   const generateProgressStepDesc = useCallback(
     (step: ProgressStepType | undefined) => {
       switch (step) {
-        case 'downloading-ble':
-          return intl.formatMessage(
-            { id: 'content__downloading_str' },
-            {
-              0: intl.formatMessage({
-                id: 'content__bluetooth_firmware_lowercase',
-              }),
-            },
-          );
+        case 'pre-check':
+          return 'Checking...';
+        // case 'downloading-ble':
+        //   return intl.formatMessage(
+        //     { id: 'content__downloading_str' },
+        //     {
+        //       0: intl.formatMessage({
+        //         id: 'content__bluetooth_firmware_lowercase',
+        //       }),
+        //     },
+        //   );
         case 'installing-ble':
           return intl.formatMessage(
             { id: 'content__installing_str' },
@@ -198,15 +111,15 @@ const UpdatingModal: FC = () => {
               }),
             },
           );
-        case 'downloading-firmware':
-          return intl.formatMessage(
-            { id: 'content__downloading_str' },
-            {
-              0: intl.formatMessage({
-                id: 'content__firmware_lowercase',
-              }),
-            },
-          );
+        // case 'downloading-firmware':
+        //   return intl.formatMessage(
+        //     { id: 'content__downloading_str' },
+        //     {
+        //       0: intl.formatMessage({
+        //         id: 'content__firmware_lowercase',
+        //       }),
+        //     },
+        //   );
         case 'reboot-bootloader':
           return '进入Bootloader模式...';
         case 'installing-firmware':
@@ -226,66 +139,6 @@ const UpdatingModal: FC = () => {
   );
 
   const [stateViewType, setStateViewType] = useState<StateViewType>();
-  const stateViewContent: StateViewProps = useMemo(() => {
-    switch (stateViewType) {
-      case 'download-failure':
-        return {
-          emoji: '😞',
-          title: intl.formatMessage({ id: 'modal__download_failed' }),
-          description: intl.formatMessage({
-            id: 'modal__download_failed_desc',
-          }),
-        };
-      case 'device-not-found':
-        return {
-          emoji: '😞',
-          title: intl.formatMessage({ id: 'modal__download_failed' }),
-          description: intl.formatMessage({
-            id: 'modal__download_failed_desc',
-          }),
-        };
-      case 'device-connection-failure':
-        return {
-          emoji: '🔗',
-          title: intl.formatMessage({
-            id: 'modal__disconnected_during_installation',
-          }),
-          description: intl.formatMessage({
-            id: 'modal__disconnected_during_installation_desc',
-          }),
-        };
-      case 'reboot-bootloader-failure':
-        return {
-          emoji: '🔗',
-          title: 'Reboot bootloader failed',
-          description: 'Please check the device and try again.',
-        };
-      case 'device-not-response':
-        return {
-          emoji: '⌛',
-          title: intl.formatMessage({
-            id: 'modal__no_response',
-          }),
-          description: intl.formatMessage({
-            id: 'modal__no_response_desc',
-          }),
-        };
-      case 'success':
-        return {
-          emoji: '🚀',
-          title: intl.formatMessage({
-            id: 'modal__firmware_updated',
-          }),
-        };
-      default:
-        return {
-          emoji: '💀',
-          title: intl.formatMessage({
-            id: 'msg__unknown_error',
-          }),
-        };
-    }
-  }, [intl, stateViewType]);
 
   const nextStep = (): boolean => {
     if (suspendStep) {
@@ -295,19 +148,15 @@ const UpdatingModal: FC = () => {
     }
 
     switch (progressStep) {
-      case 'downloading-ble':
-        setProgressStep('installing-ble');
-        break;
-
-      case 'installing-ble':
-        if (firmwareRelease) {
-          setProgressStep('downloading-firmware');
+      case 'pre-check':
+        if (bleFirmwareRelease) {
+          setProgressStep('installing-ble');
         } else {
-          setProgressStep('done-step');
+          setProgressStep('installing-firmware');
         }
         break;
 
-      case 'downloading-firmware':
+      case 'installing-ble':
         if (firmwareRelease) {
           setProgressStep('installing-firmware');
         } else {
@@ -324,37 +173,51 @@ const UpdatingModal: FC = () => {
         return false;
 
       default:
-        if (bleFirmwareRelease) {
-          setProgressStep('downloading-ble');
-        } else {
-          setProgressStep('downloading-firmware');
-        }
+        setProgressStep('pre-check');
         return false;
     }
     return true;
   };
 
   const executeStep = () => {
+    console.log('UpdatingModal executeStep', progressStep);
+
     switch (progressStep) {
-      case 'downloading-ble':
-        if (!bleFirmwareRelease) {
-          setProgressState('done');
-          return;
-        }
-        downloadBleFirmware({
-          url: bleFirmwareRelease?.url ?? '',
-          onProgress: (_progress) => {
-            setProgress(_progress);
-          },
-        })
-          .then((file) => {
-            console.log(
-              'downloadBleFirmware success: step:',
-              progressStep,
-              ' result:',
-              file,
-            );
-            setBleFirmwarePath(file);
+      case 'pre-check':
+        setProgress(0);
+        if (platformEnv.isNative) return setProgressState('done');
+        HardwareSDK.searchDevices()
+          .then((response) => {
+            if (response.success) {
+              const devices = response.payload;
+              const [searchDevice] = devices;
+              if (devices.length === 0) {
+                setStateViewType('device-not-found');
+                setProgressState('failure');
+              } else if (devices.length > 1) {
+                setStateViewType('device-not-only-ones');
+                setProgressState('failure');
+              } else if (searchDevice.connectId !== connectId) {
+                setStateViewType('device-mismatch');
+                setProgressState('failure');
+              } else {
+                setProgressState('done');
+              }
+              return;
+            }
+
+            setStateViewType('pre-check-failure');
+            setProgressState('failure');
+          })
+          .catch(() => {
+            setStateViewType('pre-check-failure');
+            setProgressState('failure');
+          });
+        break;
+
+      case 'reboot-bootloader':
+        rebootToBootloader(connectId)
+          .then(() => {
             setProgressState('done');
           })
           .catch(() => {
@@ -363,8 +226,9 @@ const UpdatingModal: FC = () => {
         break;
 
       case 'installing-ble':
-        installFirmware(connectId, bleFirmwarePath, 'ble', (_progress) => {
-          setProgress(_progress);
+        setProgress(InstalBaseProgress);
+        installFirmware(connectId, 'ble', (_progress) => {
+          setProgress(InstalBaseProgress + _progress * 0.8);
         })
           .then(() => {
             dispatch(
@@ -389,45 +253,10 @@ const UpdatingModal: FC = () => {
           });
         break;
 
-      case 'downloading-firmware':
-        if (!firmwareRelease) {
-          setProgressState('done');
-          return;
-        }
-        downloadSysFirmware({
-          url: firmwareRelease?.url ?? '',
-          onProgress: (_progress) => {
-            setProgress(_progress);
-          },
-        })
-          .then((file) => {
-            console.log(
-              'downloadSysFirmware success: step:',
-              progressStep,
-              ' result:',
-              file,
-            );
-            setSysFirmwarePath(file);
-            setProgressState('done');
-          })
-          .catch(() => {
-            setProgressState('failure');
-          });
-        break;
-
-      case 'reboot-bootloader':
-        rebootToBootloader(connectId)
-          .then(() => {
-            setProgressState('done');
-          })
-          .catch(() => {
-            setProgressState('failure');
-          });
-        break;
-
       case 'installing-firmware':
-        installFirmware(connectId, sysFirmwarePath, 'firmware', (_progress) => {
-          setProgress(_progress);
+        setProgress(InstalBaseProgress);
+        installFirmware(connectId, 'firmware', (_progress) => {
+          setProgress(InstalBaseProgress + _progress * 0.8);
         })
           .then(() => {
             dispatch(
@@ -453,6 +282,7 @@ const UpdatingModal: FC = () => {
         break;
 
       case 'done-step':
+        setProgress(100);
         setProgressState('done');
         setStateViewType('success');
         break;
@@ -470,7 +300,6 @@ const UpdatingModal: FC = () => {
   useEffect(() => {
     switch (progressStateMemo) {
       case 'ready':
-        setProgress(0);
         setProgressState('running');
         break;
       case 'running':
@@ -483,13 +312,6 @@ const UpdatingModal: FC = () => {
         }
         break;
       case 'failure':
-        // download failed
-        if (
-          progressStep === 'downloading-ble' ||
-          progressStep === 'downloading-firmware'
-        ) {
-          setStateViewType('download-failure');
-        }
         if (progressStep === 'reboot-bootloader') {
           setStateViewType('reboot-bootloader-failure');
         }
@@ -508,8 +330,11 @@ const UpdatingModal: FC = () => {
 
     const { ble, firmware } = deviceUpdates[device.mac] || {};
 
-    setFirmwareRelease(firmware);
-    setBleFirmwareRelease(ble);
+    if (ble) {
+      setBleFirmwareRelease(ble);
+    } else if (firmware) {
+      setFirmwareRelease(firmware);
+    }
 
     nextStep();
     retryStep();
@@ -541,7 +366,7 @@ const UpdatingModal: FC = () => {
       }}
     >
       {hasStepDone || hasFailure ? (
-        <StateView {...stateViewContent} />
+        <StateView stateViewType={stateViewType} />
       ) : (
         <RunningView progress={progress} hint={progressStepDesc} />
       )}

@@ -54,7 +54,7 @@ const AccountSelectorTrigger: FC<Props> = ({
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
 
   useEffect(() => {
-    if (wallet?.type === 'hw') {
+    if (wallet?.type === 'hw' && deviceUpdates) {
       engine.getHWDeviceByWalletId(wallet.id).then((device) => {
         if (!device) return;
         const { ble, firmware } = deviceUpdates[device.mac] || {};

@@ -115,7 +115,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const [hasAvailableUpdate, setHasAvailableUpdate] = useState(false);
 
   useEffect(() => {
-    if (selectedWallet?.type === 'hw') {
+    if (selectedWallet?.type === 'hw' && deviceUpdates) {
       engine.getHWDeviceByWalletId(selectedWallet.id).then((device) => {
         if (!device) return;
 

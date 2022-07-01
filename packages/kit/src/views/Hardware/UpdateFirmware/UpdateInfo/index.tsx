@@ -36,7 +36,7 @@ const UpdateInfoModal: FC = () => {
   const { walletId } = useRoute<RouteProps>().params;
 
   const { engine } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings();
+  const { deviceUpdates } = useSettings() || {};
 
   const [device, setDevice] = useState<Device>();
   const [bleFirmware, setBleFirmware] = useState<BLEFirmwareInfo>();
