@@ -13,16 +13,15 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import logo from '../../../assets/logo.png';
 import { useHelpLink, useNavigationActions } from '../../hooks';
+import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingFinished';
 import { CreateWalletModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
 import { openUrl } from '../../utils/openUrl';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingFinished';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,

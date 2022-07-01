@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -25,7 +24,7 @@ import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnbo
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
-} from '../../../routes/Modal/CreateWallet';
+} from '../../../routes';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { wait } from '../../../utils/helper';
 import { savePassword } from '../../../utils/localAuthentication';

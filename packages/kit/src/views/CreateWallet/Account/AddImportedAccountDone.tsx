@@ -13,12 +13,11 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigation, useNavigationActions } from '../../../hooks';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { savePassword } from '../../../utils/localAuthentication';
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
