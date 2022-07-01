@@ -60,7 +60,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHistory: ServiceHistory;
 }
 
-export type IDappCallParams = {
+export type IDappSourceInfo = {
   id: string | number;
   origin: string;
   scope: IInjectedProviderNamesStrings;

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { Box } from '@onekeyhq/components';
+import { Box, Center, Spinner } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
@@ -73,12 +73,19 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   return (
     <Box bg="background-default" flex={1}>
       <Box flex={1} marginX="auto" w="100%" maxW={MAX_PAGE_CONTAINER_WIDTH}>
-        <TxHistoryListView
-          accountId={accountId}
-          networkId={networkId}
-          tokenId={tokenId}
-          headerView={headerView}
-        />
+        {headerView ? (
+          <TxHistoryListView
+            accountId={accountId}
+            networkId={networkId}
+            tokenId={tokenId}
+            headerView={headerView}
+          />
+        ) : (
+          <Center flex={1}>
+            <Spinner />
+          </Center>
+        )}
+
         {/* <HistoricalRecords
           accountId={accountId}
           networkId={networkId}

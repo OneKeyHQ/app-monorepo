@@ -33,6 +33,15 @@ const SUPPORTED_IMPLS = new Set([
 
 const PRODUCTION_IMPLS = new Set([IMPL_EVM, IMPL_NEAR, IMPL_BTC, IMPL_STC]);
 
+export const HISTORY_CONSTS = {
+  GET_LOCAL_LIMIT: 100,
+  FETCH_ON_CHAIN_LIMIT: 50,
+  DISPLAY_TX_LIMIT: 50,
+  REFRESH_DROPPED_TX_IN: 5 * 60 * 1000,
+  SET_IS_FINAL_EXPIRED_IN: 24 * 60 * 60 * 1000,
+  PENDING_QUEUE_MAX_LENGTH: 10,
+};
+
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {
     return PRODUCTION_IMPLS;

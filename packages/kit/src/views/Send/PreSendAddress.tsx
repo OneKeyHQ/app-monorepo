@@ -38,9 +38,10 @@ function PreSendAddress() {
       to: transferInfo.to || '',
     },
   });
-  const { loadingRef, formValues } = useFormOnChangeDebounced<FormValues>({
-    useFormReturn,
-  });
+  const { isLoading, formValues, isValid } =
+    useFormOnChangeDebounced<FormValues>({
+      useFormReturn,
+    });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { control, watch, trigger, getValues, formState } = useFormReturn;
   const navigation = useNavigation<NavigationProps>();
@@ -48,11 +49,7 @@ function PreSendAddress() {
     networkId,
     tokenIdOnNetwork: transferInfo.token,
   });
-  const submitDisabled =
-    loadingRef.current ||
-    !formValues?.to ||
-    !formState.isValid ||
-    !!Object.keys(formState.errors).length;
+  const submitDisabled = isLoading || !formValues?.to || !isValid;
 
   return (
     <BaseSendModal

@@ -1,5 +1,8 @@
 import React, { ComponentProps, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
+
 import { Text } from '@onekeyhq/components';
 import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 
@@ -8,7 +11,7 @@ import { ITxActionAmountProps } from '../types';
 import { TxActionElementPressable } from './TxActionElementPressable';
 
 export function TxActionElementAmount(props: ITxActionAmountProps) {
-  const { direction, amount, symbol, onPress, ...others } = props;
+  const { direction, amount, symbol, onPress, decimals, ...others } = props;
   const directionMeta = useMemo(() => {
     let sign = '';
     let color: string | undefined = 'text-default';
@@ -29,14 +32,27 @@ export function TxActionElementAmount(props: ITxActionAmountProps) {
     };
   }, [direction]);
 
+  const amountText = useMemo(() => {
+    if (!isNil(decimals)) {
+      return new BigNumber(amount).toFixed(decimals);
+    }
+    return amount;
+  }, [amount, decimals]);
+
   return (
     <TxActionElementPressable onPress={onPress}>
       <Text color={directionMeta.color} {...others}>
         {directionMeta.sign}
-        {amount} {symbol}
+        {amountText} {symbol}
       </Text>
     </TxActionElementPressable>
   );
+}
+
+export function TxActionElementAmountSmall(
+  props: ComponentProps<typeof TxActionElementAmount>,
+) {
+  return <TxActionElementAmount typography="Body2" {...props} />;
 }
 
 export function TxActionElementAmountNormal(

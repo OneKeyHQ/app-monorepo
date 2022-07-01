@@ -2,7 +2,7 @@ import React from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { IntlShape, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
@@ -21,27 +21,44 @@ import {
   TxActionElementTitleHeading,
   TxActionElementTitleNormal,
 } from '../elements/TxActionElementTitle';
-import { ITxActionCardProps, ITxActionElementDetail } from '../types';
+import {
+  ITxActionCardProps,
+  ITxActionElementDetail,
+  ITxActionMetaIcon,
+  ITxActionMetaTitle,
+} from '../types';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
   SendRoutes.TokenApproveAmountEdit
 >;
 
-function getTxActionTokenApproveInfo(
-  props: ITxActionCardProps & {
-    intl: IntlShape;
-  },
-) {
+export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
   const { action, intl } = props;
   const { tokenApprove } = action;
   const amount = tokenApprove?.isMax
     ? intl.formatMessage({ id: 'form__unlimited' })
     : tokenApprove?.amount ?? '0';
   const symbol = tokenApprove?.tokenInfo.symbol ?? '';
+
+  const titleInfo: ITxActionMetaTitle = {
+    titleKey: 'title__approve',
+  };
+  const iconUrl = action.tokenApprove?.tokenInfo.logoURI;
+  let iconInfo: ITxActionMetaIcon | undefined;
+  if (iconUrl) {
+    iconInfo = {
+      icon: {
+        url: iconUrl,
+      },
+    };
+  }
+
   return {
     amount,
     symbol,
+    titleInfo,
+    iconInfo,
   };
 }
 

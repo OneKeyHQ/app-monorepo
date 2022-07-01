@@ -3,10 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
-import BigNumber from 'bignumber.js';
 
 import { useToast } from '@onekeyhq/components';
-import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import {
   IEncodedTx,
   IFeeInfo,
@@ -14,77 +12,16 @@ import {
   IFeeInfoSelected,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
+import {
+  calculateTotalFeeNative,
+  calculateTotalFeeRange,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks';
 
 export const FEE_INFO_POLLING_INTERVAL = 5000;
-
-export function calculateTotalFeeNative({
-  amount, // in GWEI
-  info,
-}: {
-  amount: string;
-  info: IFeeInfo;
-}) {
-  return new BigNumber(amount)
-    .plus(info.baseFeeValue ?? 0)
-    .shiftedBy(info.feeDecimals ?? 0) // GWEI -> Value
-    .shiftedBy(-(info.nativeDecimals ?? 0)) // Value -> Amount
-    .toFixed();
-}
-
-function nanToZeroString(value: string | number | unknown) {
-  if (value === 'NaN' || Number.isNaN(value)) {
-    return '0';
-  }
-  return value as string;
-}
-
-export function calculateTotalFeeRange(feeValue: IFeeInfoUnit) {
-  if (feeValue.eip1559) {
-    // MIN: (baseFee + maxPriorityFeePerGas) * limit
-    const priceInfo = feeValue.price as EIP1559Fee;
-    const min = new BigNumber(feeValue.limit as string)
-      .times(
-        new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
-      )
-      .toFixed();
-    // MAX: maxFeePerGas * limit
-    const max = new BigNumber(feeValue.limit as string)
-      .times(priceInfo.maxFeePerGas)
-      .toFixed();
-    return {
-      min: nanToZeroString(min),
-      max: nanToZeroString(max),
-    };
-  }
-
-  const max = new BigNumber(feeValue.limit as string)
-    .times(feeValue.price as string)
-    .toFixed();
-  return {
-    min: nanToZeroString(max),
-    max: nanToZeroString(max),
-  };
-}
-
-// TODO remove
-export function calculateTotalFee(feeValue: IFeeInfoUnit) {
-  if (feeValue.eip1559) {
-    // MIN: (baseFee + maxPriorityFeePerGas) * limit
-    // MAX: maxFeePerGas * limit
-    const priceInfo = feeValue.price as EIP1559Fee;
-    return new BigNumber(feeValue.limit as string)
-      .times(priceInfo.maxFeePerGas)
-      .toFixed();
-  }
-
-  return new BigNumber(feeValue.limit as string)
-    .times(feeValue.price as string)
-    .toFixed();
-}
 
 export function useFeeInfoPayload({
   encodedTx,
@@ -316,6 +253,5 @@ export function useFeeInfoPayload({
     feeInfoPayload,
     feeInfoLoading: loading,
     getSelectedFeeInfoUnit,
-    calculateTotalFee,
   };
 }

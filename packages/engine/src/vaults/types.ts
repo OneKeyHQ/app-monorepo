@@ -1,4 +1,5 @@
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
+import { SwapQuote } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
 import type { EIP1559Fee, Network } from '../types/network';
@@ -56,6 +57,22 @@ export type IApproveInfo = {
   amount: string; // amount
   spender: string; // spender to authorize
 };
+export type ISwapInfoSide = {
+  networkId: string;
+  // token?: string; // tokenIdOnNetwork
+  tokenInfo: Token;
+  amount: string;
+  amountValue: string;
+};
+export type ISwapInfo = {
+  send: ISwapInfoSide;
+  receive: ISwapInfoSide;
+
+  accountAddress: string;
+  slippagePercentage: string;
+  independentField: 'INPUT' | 'OUTPUT';
+  swapQuote: SwapQuote;
+};
 
 // EncodedTx\RawTx\SignedTx ----------------------------------------------
 export type IEncodedTx =
@@ -93,8 +110,10 @@ export type IFeeInfoPrice = string | EIP1559Fee; // in GWEI
 // TODO rename to IFeeInfoValue, IFeeInfoData, IFeeInfoDetail
 export type IFeeInfoUnit = {
   eip1559?: boolean;
+  priceValue?: string;
   price?: IFeeInfoPrice; // in GWEI
   limit?: string;
+  limitUsed?: string;
 };
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {
@@ -102,10 +121,12 @@ export type IFeeInfo = {
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
   defaultPresetIndex: string; // '0' | '1' | '2';
+
   feeSymbol?: string; // feeSymbol: GWEI
   feeDecimals?: number; // feeDecimals: 9
   nativeSymbol?: string; // ETH
   nativeDecimals?: number; // 18
+
   // TODO rename to feeInTx
   tx?: IFeeInfoUnit | null;
   eip1559?: boolean;
@@ -173,12 +194,13 @@ export enum IDecodedTxStatus {
   Dropped = 'Dropped',
   Removed = 'Removed',
 }
-export type IDecodedTxInteractWith = {
+export type IDecodedTxInteractInfo = {
   // Dapp info
   name: string;
   url: string;
   description: string;
   icons: string[];
+  provider?: string;
 };
 export type IUtxoAddressInfo = {
   address: string;
@@ -196,14 +218,14 @@ export enum IDecodedTxActionType {
   TOKEN_APPROVE = 'TOKEN_APPROVE',
 
   // NFT
-  NFT_TRANSFER = 'NFT_TRANSFER',
+  // NFT_TRANSFER = 'NFT_TRANSFER',
 
   // Swap
-  SWAP = 'SWAP',
   INTERNAL_SWAP = 'INTERNAL_SWAP',
+  // SWAP = 'SWAP',
 
   // Contract Interaction
-  FUNCTION_CALL = 'FUNCTION_CALL',
+  // FUNCTION_CALL = 'FUNCTION_CALL',
 
   // other
   TRANSACTION = 'TRANSACTION',
@@ -251,17 +273,7 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amountValue: string;
   isMax: boolean;
 };
-export type IDecodedTxActionInternalSwapInfo = {
-  tokenInfo: Token;
-  // token: string;
-  // symbol: string;
-  amount: string;
-  amountValue: string;
-};
-export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & {
-  buy: IDecodedTxActionInternalSwapInfo;
-  sell: IDecodedTxActionInternalSwapInfo;
-};
+export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
 // other Unknown Action
 export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 export type IDecodedTxAction = {
@@ -300,7 +312,7 @@ export type IDecodedTx = {
   feeInfo?: IFeeInfoUnit; // TODO totalFeeInNative
   // TODO feeUsed
 
-  interactWith?: IDecodedTxInteractWith;
+  interactInfo?: IDecodedTxInteractInfo;
 
   // TODO use nativeTx & decodedTx in frontend UI render
   extraInfo: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
@@ -311,6 +323,8 @@ export type IDecodedTx = {
 
   // TODO remove
   totalFeeInNative?: string;
+
+  tokenIdOnNetwork?: string; // indicates this tx belongs to which token
 
   // protocol?: 'erc20' | 'erc721';
   // txSource: 'raw' | 'ethersTx' | 'covalent';

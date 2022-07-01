@@ -12,15 +12,21 @@ import {
   VStack,
   useToast,
 } from '@onekeyhq/components';
+import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import {
   useActiveWalletAccount,
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
-import { SendRoutes } from '../../Send/types';
+import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { swapClient } from '../client';
 import ExchangeRate from '../ExchangeRate';
 import {
@@ -29,13 +35,55 @@ import {
   useSwapState,
 } from '../hooks/useSwap';
 import { useTransactionAdder } from '../hooks/useTransactions';
+import { QuoteParams, SwapQuote } from '../typings';
+import { TokenAmount } from '../utils';
 
 import { Timer } from './Timer';
+
+type NavigationProps = ModalScreenProps<SendRoutesParams>;
+
+function convertToSwapInfo(options: {
+  swapQuote: SwapQuote;
+  quoteParams: QuoteParams;
+  inputAmount: TokenAmount;
+  outputAmount: TokenAmount;
+  account: BaseAccount;
+}) {
+  const { swapQuote, quoteParams, inputAmount, outputAmount, account } =
+    options;
+  const {
+    networkIn,
+    networkOut,
+    tokenIn,
+    tokenOut,
+    slippagePercentage,
+    independentField,
+  } = quoteParams;
+  const swapInfo: ISwapInfo = {
+    accountAddress: account.address,
+    send: {
+      networkId: networkIn.id,
+      tokenInfo: tokenIn,
+      amount: inputAmount.typedValue,
+      amountValue: inputAmount.amount.toFixed(),
+    },
+    receive: {
+      networkId: networkOut.id,
+      tokenInfo: tokenOut,
+      amount: outputAmount.typedValue,
+      amountValue: outputAmount.amount.toFixed(),
+    },
+    slippagePercentage,
+    independentField,
+    swapQuote,
+  };
+  return swapInfo;
+}
 
 const Preview = () => {
   const intl = useIntl();
   const toast = useToast();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
@@ -51,10 +99,25 @@ const Preview = () => {
   } = useSwapState();
   const { inputAmount, outputAmount, swapQuote } = useSwap();
   const params = useSwapQuoteRequestParams();
+
   const onSubmit = useCallback(async () => {
-    if (!params || !account || !network) {
+    if (
+      !params ||
+      !account ||
+      !network ||
+      !inputAmount ||
+      !swapQuote ||
+      !outputAmount
+    ) {
       return;
     }
+    const swapInfo = convertToSwapInfo({
+      quoteParams: params,
+      inputAmount,
+      outputAmount,
+      swapQuote,
+      account,
+    });
     const res = await swapClient.encodeTx({
       ...params,
       activeAccount: account,
@@ -72,6 +135,10 @@ const Preview = () => {
         params: {
           screen: SendRoutes.SendConfirm,
           params: {
+            payloadInfo: {
+              type: 'InternalSwap',
+              swapInfo,
+            },
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
             encodedTx,

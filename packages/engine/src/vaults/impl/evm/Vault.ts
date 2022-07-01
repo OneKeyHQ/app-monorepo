@@ -15,8 +15,11 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { difference, isNil, isNumber, merge, toLower } from 'lodash';
 
+import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { HISTORY_CONSTS } from '../../../constants';
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -29,7 +32,7 @@ import {
   fillUnsignedTxObj,
 } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
-import { ICovalentHistoryListItem, TxStatus } from '../../../types/covalent';
+import { ICovalentHistoryListItem } from '../../../types/covalent';
 import {
   HistoryEntry,
   HistoryEntryStatus,
@@ -43,7 +46,7 @@ import {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,
-  IDecodedTxDirection,
+  IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
@@ -77,7 +80,6 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { IRpcTxEvm } from './types';
 
-const PENDING_QUEUE_MAX_LENGTH = 10;
 const OPTIMISM_NETWORKS = ['evm--10', 'evm--69'];
 
 export type IUnsignedMessageEvm = ETHMessage & {
@@ -89,12 +91,13 @@ export type IEncodedTxEvm = {
   to: string;
   value: string;
   data?: string;
+  nonce?: number | string; // rpc use 0x string
+
   gas?: string; // alias for gasLimit
   gasLimit?: string;
   gasPrice?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
-  nonce?: number;
 };
 
 export enum IDecodedTxEvmType {
@@ -220,10 +223,12 @@ export default class Vault extends VaultBase {
     decodedTxLegacy,
     encodedTx,
     payload,
+    interactInfo,
   }: {
     decodedTxLegacy: IDecodedTxLegacy;
     encodedTx: IEncodedTx;
-    payload?: any;
+    payload?: SendConfirmPayloadInfo;
+    interactInfo?: IDecodedTxInteractInfo;
   }): Promise<IDecodedTx> {
     const address = await this.getAccountAddress();
     const network = await this.getNetwork();
@@ -274,6 +279,18 @@ export default class Vault extends VaultBase {
         extraInfo: null,
       };
     }
+    if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
+      action.internalSwap = {
+        ...payload.swapInfo,
+        extraInfo: null,
+      };
+      // Only support same chain swap
+      if (
+        payload.swapInfo.send.networkId === payload.swapInfo.receive.networkId
+      ) {
+        action.type = IDecodedTxActionType.INTERNAL_SWAP;
+      }
+    }
     const { gasInfo } = decodedTxLegacy;
     let feeInfo: IFeeInfoUnit;
     const limit = new BigNumber(gasInfo.gasLimit).toFixed();
@@ -284,13 +301,22 @@ export default class Vault extends VaultBase {
         price: {
           // TODO add baseFee in encodedTx
           baseFee: '0',
+
           // TODO fee decimals convert utils
           maxPriorityFeePerGas: new BigNumber(gasInfo.maxPriorityFeePerGas)
             .shiftedBy(-network.feeDecimals)
             .toFixed(),
+          maxPriorityFeePerGasValue: gasInfo.maxPriorityFeePerGas,
+
           maxFeePerGas: new BigNumber(gasInfo.maxFeePerGas)
             .shiftedBy(-network.feeDecimals)
             .toFixed(),
+          maxFeePerGasValue: gasInfo.maxFeePerGas,
+
+          gasPrice: new BigNumber(gasInfo.gasPrice || gasInfo.maxFeePerGas)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          gasPriceValue: gasInfo.gasPrice || gasInfo.maxFeePerGas,
         },
       };
     } else {
@@ -299,6 +325,7 @@ export default class Vault extends VaultBase {
         price: new BigNumber(gasInfo.gasPrice)
           .shiftedBy(-network.feeDecimals)
           .toFixed(),
+        priceValue: gasInfo.gasPrice,
       };
     }
     const decodedTx: IDecodedTx = {
@@ -313,6 +340,8 @@ export default class Vault extends VaultBase {
       encodedTx,
       payload,
       feeInfo,
+      interactInfo,
+      // totalFeeInNative, // runtime calculate fee in UI
       extraInfo: {
         // decodedTxLegacy
       },
@@ -490,8 +519,9 @@ export default class Vault extends VaultBase {
       encodedTx,
     );
     const gasLimitFinal = gasLimit ?? gas;
-    const nextNonce = isNumber(nonce)
-      ? nonce
+    const nonceBN = new BigNumber(nonce ?? 'NaN');
+    const nextNonce: number = !nonceBN.isNaN()
+      ? nonceBN.toNumber()
       : await this.getNextNonce(network.id, dbAccount);
     // fillUnsignedTx in each impl
     const unsignedTxInfo = fillUnsignedTxObj({
@@ -712,21 +742,15 @@ export default class Vault extends VaultBase {
       undefined,
       false,
     );
-    const nextNonce = Math.max(
-      ...(await Promise.all(
-        historyItems
-          .filter((entry) => entry.status === HistoryEntryStatus.PENDING)
-          .map((historyItem) =>
-            EVMTxDecoder.getDecoder(this.engine)
-              .decode((historyItem as HistoryEntryTransaction).rawTx)
-              .then(({ nonce }) => (nonce ?? 0) + 1),
-          ),
-      )),
-      onChainNonce,
-    );
+    const maxPendingNonce =
+      (await simpleDb.history.getMaxPendingNonce({
+        accountId: this.accountId,
+        networkId,
+      })) || 0;
+    const nextNonce = Math.max(maxPendingNonce + 1, onChainNonce);
 
-    if (nextNonce - onChainNonce >= PENDING_QUEUE_MAX_LENGTH) {
-      throw new PendingQueueTooLong(PENDING_QUEUE_MAX_LENGTH);
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
     }
 
     return nextNonce;
@@ -917,17 +941,21 @@ export default class Vault extends VaultBase {
     rawTx,
     // extra tx
     covalentTx,
+    rpcReceiptTx,
   }: {
     decodedTx: IDecodedTx;
     encodedTx?: IEncodedTx;
     historyTx?: IHistoryTx;
     rawTx?: IRawTx;
     covalentTx?: ICovalentHistoryListItem;
+    rpcReceiptTx?: any;
   }): Promise<IDecodedTx> {
     if (historyTx) {
       // update local history tx info to decodedTx
-      decodedTx.createdAt =
-        historyTx.createdAt ?? historyTx.decodedTx.createdAt;
+      decodedTx = {
+        ...historyTx.decodedTx,
+        encodedTx: decodedTx.encodedTx,
+      };
     }
     // TODO parse covalentTx log_events to decodedTx.actions, like tokenTransfer actions
     if (covalentTx) {
@@ -941,11 +969,34 @@ export default class Vault extends VaultBase {
         ? IDecodedTxStatus.Confirmed
         : IDecodedTxStatus.Failed;
       decodedTx.signer = covalentTx.from_address || decodedTx.signer;
+      if (decodedTx && decodedTx.feeInfo) {
+        decodedTx.feeInfo.limitUsed = new BigNumber(
+          covalentTx.gas_spent,
+        ).toFixed();
+      }
       decodedTx.isFinal = true;
+      // TODO update outputActions
+      // decodedTx.outputActions
+    }
+    // fetch by RPC:  eth_getTransactionReceipt
+    if (rpcReceiptTx) {
+      // TODO update status, limitUsed, updatedAt, isFinal, outputActions
+    }
+
+    // status may be updated by refreshPendingHistory task
+    if (decodedTx.status !== IDecodedTxStatus.Pending) {
+      if (
+        decodedTx.createdAt &&
+        Date.now() - decodedTx.createdAt >
+          HISTORY_CONSTS.SET_IS_FINAL_EXPIRED_IN
+      ) {
+        decodedTx.isFinal = true;
+      }
     }
     return Promise.resolve(decodedTx);
   }
 
+  // TODO add limit here
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
@@ -969,16 +1020,29 @@ export default class Vault extends VaultBase {
     - merge result
      */
 
-    // TODO covalentApi, AlchemyApi, InfStoneApi, blockExplorerApi, RPC api
-    const covalentHistory = await covalentApi.fetchCovalentHistoryRaw({
-      chainId,
-      address,
-      contract: tokenIdOnNetwork,
-    });
-    const covalentTxList = covalentHistory.data.items;
-    let hashes = covalentTxList.map((item) => item.tx_hash);
+    let hashes: string[] = [];
+    let covalentTxList: ICovalentHistoryListItem[] = [];
+    try {
+      // TODO covalentApi, AlchemyApi, InfStoneApi, blockExplorerApi, RPC api
+      const covalentHistory = await covalentApi.fetchCovalentHistoryRaw({
+        chainId,
+        address,
+        contract: tokenIdOnNetwork,
+      });
+      covalentTxList = covalentHistory.data.items;
+      hashes = covalentTxList.map((item) => item.tx_hash);
+    } catch (error) {
+      console.error(error);
+      // fallback localHistory which isLocalCreated to RPC query update gasUsed
+      //    if covalentApi if fail or NOT support on this chain
+      hashes = localHistory
+        .filter((item) => !!item.isLocalCreated)
+        .map((item) => item.decodedTx.txid);
+    }
+
     // ignore localHistory isFinal
     hashes = difference(hashes, localFinalHashes);
+    hashes = hashes.filter(Boolean);
 
     /*
    const batchCallParams2 = hashes.map(
@@ -992,11 +1056,16 @@ export default class Vault extends VaultBase {
       // TODO eth_getTransactionByHash eth_getTransactionReceipt
       (hash) => ['eth_getTransactionByHash', [hash]] as [string, string[]],
     );
-    const rpcTxList: Array<IRpcTxEvm> = batchCallParams.length
+    const rpcTxList: Array<IRpcTxEvm | null> = batchCallParams.length
       ? await client.rpc.batchCall(batchCallParams)
       : [];
     const historyTxList = await Promise.all(
       rpcTxList.map(async (encodedTx) => {
+        // pending tx rpc return null
+        if (!encodedTx) {
+          // TODO use historyTx.encodedTx
+          return null;
+        }
         encodedTx.data = encodedTx.input;
 
         const covalentTx = covalentTxList.find(
@@ -1007,7 +1076,7 @@ export default class Vault extends VaultBase {
         );
 
         // TODO encodedTx both transfer Native and Token
-        let decodedTx = await this.decodeTx(encodedTx);
+        let decodedTx = await this.decodeTx(encodedTx, null);
 
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
@@ -1015,6 +1084,8 @@ export default class Vault extends VaultBase {
           historyTx,
           covalentTx,
         });
+
+        decodedTx.tokenIdOnNetwork = tokenIdOnNetwork;
 
         // TODO merge decodedTx info from local pending history
 
@@ -1025,7 +1096,7 @@ export default class Vault extends VaultBase {
         });
       }),
     );
-    return historyTxList;
+    return historyTxList.filter(Boolean);
     // TODO batchCall not supported chain, fallback parse covalentTxList to decodedTx
   }
 

@@ -21,6 +21,8 @@ export type IDistributionChannel =
 export type IPlatformEnv = {
   isLegacyHistory?: boolean;
   isLegacySendConfirm?: boolean;
+  isMultipleHistoryTxActionsSim?: boolean;
+
   /** development mode */
   isDev?: boolean;
   /** production mode */
@@ -212,6 +214,8 @@ export const canGetClipboard = (): boolean => !isWeb && !isExtension;
 const platformEnv: IPlatformEnv = {
   isLegacyHistory: false, // TODO remove
   isLegacySendConfirm: false, // TODO remove
+  isMultipleHistoryTxActionsSim: true,
+
   isDev,
   isProduction,
 

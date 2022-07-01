@@ -113,19 +113,23 @@ const Skeleton = ({
   size,
   shape,
   ...rest
-}: PropsWithChildren<SkeletonProps>) => (
-  <ContentLoader
-    speed={1}
-    width={shape ? renderShapeWidth(shape, size) : width}
-    height={shape ? renderShapeHeight(shape, size) : height}
-    viewBox={`0 0 ${String(width)} ${String(height)}`}
-    backgroundColor={useThemeValue('surface-neutral-default')}
-    foregroundColor={useThemeValue('surface-default')}
-    {...rest}
-  >
-    {shape ? renderShape(shape, width, size) : children}
-  </ContentLoader>
-);
+}: PropsWithChildren<SkeletonProps>) => {
+  const w = shape ? renderShapeWidth(shape, size) : width;
+  const h = shape ? renderShapeHeight(shape, size) : height;
+  return (
+    <ContentLoader
+      speed={1}
+      width={w}
+      height={h}
+      viewBox={`0 0 ${String(w)} ${String(h)}`}
+      backgroundColor={useThemeValue('surface-neutral-default')}
+      foregroundColor={useThemeValue('surface-default')}
+      {...rest}
+    >
+      {shape ? renderShape(shape, width, size) : children}
+    </ContentLoader>
+  );
+};
 
 export const CustomSkeleton: FC<ComponentProps<typeof Box>> = ({ ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();

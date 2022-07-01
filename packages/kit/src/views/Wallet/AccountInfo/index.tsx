@@ -14,6 +14,7 @@ import {
   useIsSmallLayout,
   useToast,
 } from '@onekeyhq/components';
+import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -270,18 +271,21 @@ const AccountInfo = () => {
     );
   }
   return (
-    <Box
-      h={FIXED_HORIZONTAL_HEDER_HEIGHT}
-      py={12}
-      px={{ sm: 8, lg: 4 }}
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      bgColor="background-default"
-    >
-      <AccountAmountInfo isCenter={isSmallView} />
-      <Box>
-        <AccountOption isSmallView={isSmallView} />
+    <Box>
+      <DesktopDragZoneAbsoluteBar h={8} />
+      <Box
+        h={FIXED_HORIZONTAL_HEDER_HEIGHT}
+        py={12}
+        px={{ sm: 8, lg: 4 }}
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        bgColor="background-default"
+      >
+        <AccountAmountInfo isCenter={isSmallView} />
+        <Box>
+          <AccountOption isSmallView={isSmallView} />
+        </Box>
       </Box>
     </Box>
   );

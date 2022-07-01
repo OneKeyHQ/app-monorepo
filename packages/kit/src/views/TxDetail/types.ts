@@ -1,11 +1,14 @@
 import { ComponentProps } from 'react';
 
+import { IntlShape } from 'react-intl';
+
 import { ICON_NAMES, Text } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxDirection,
+  IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
 
 export type ITxActionMetaTitle = {
@@ -34,12 +37,14 @@ export type ITxActionCardProps = {
   action: IDecodedTxAction;
   decodedTx: IDecodedTx;
   meta?: ITxActionMeta;
+  intl: IntlShape;
 };
 
 export type ITxActionAmountProps = ComponentProps<typeof Text> & {
   direction?: IDecodedTxDirection;
   amount: string;
   symbol?: string;
+  decimals?: number;
   onPress?: (() => void) | null;
 };
 
@@ -52,10 +57,11 @@ export type ITxActionCardViewProps = {
   title?: JSX.Element;
   icon?: JSX.Element;
   content?: JSX.Element;
-  details?: ITxActionElementDetail[];
+  details?: Array<ITxActionElementDetail | undefined | null>;
 };
 
 export type ITxActionListViewProps = {
+  historyTx?: IHistoryTx;
   decodedTx: IDecodedTx;
   space?: number;
   showDivider?: boolean;

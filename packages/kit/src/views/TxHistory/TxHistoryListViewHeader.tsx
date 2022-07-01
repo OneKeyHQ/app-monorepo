@@ -6,13 +6,14 @@ import { Box, IconButton, Typography } from '@onekeyhq/components';
 
 import { useActiveWalletAccount } from '../../hooks';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
+import { useTxDetailContext } from '../TxDetail/TxDetailContext';
 
-export function TxHistoryListViewHeader({
+export function TxHistoryListViewHeaderBar({
   isLoading,
   refresh,
 }: {
   isLoading?: boolean;
-  refresh: () => void;
+  refresh?: () => void;
 }) {
   const intl = useIntl();
   const { network, account } = useActiveWalletAccount();
@@ -30,9 +31,9 @@ export function TxHistoryListViewHeader({
       <Box flexDirection="row">
         <IconButton
           onPress={() => {
-            refresh();
+            refresh?.();
           }}
-          isLoading={isLoading}
+          isLoading={Boolean(isLoading)}
           p={2}
           size="sm"
           name="RefreshSolid"
@@ -53,6 +54,26 @@ export function TxHistoryListViewHeader({
           />
         ) : null}
       </Box>
+    </Box>
+  );
+}
+
+export function TxHistoryListViewHeader(props: {
+  isEmpty: boolean;
+  refresh?: () => void;
+}) {
+  const { isEmpty, refresh } = props;
+  const txDetailContext = useTxDetailContext();
+
+  return (
+    <Box key="header">
+      {txDetailContext?.context.headerView}
+      {isEmpty ? null : (
+        <TxHistoryListViewHeaderBar
+          refresh={txDetailContext?.context.refresh ?? refresh}
+          isLoading={txDetailContext?.context.isLoading}
+        />
+      )}
     </Box>
   );
 }

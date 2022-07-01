@@ -105,6 +105,7 @@ import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
   IDecodedTx,
+  IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
@@ -1295,11 +1296,13 @@ class Engine {
     accountId,
     encodedTx,
     payload,
+    interactInfo,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: IEncodedTx;
     payload?: any;
+    interactInfo?: IDecodedTxInteractInfo;
   }): Promise<{
     decodedTxLegacy: IDecodedTxLegacy;
     decodedTx: IDecodedTx;
@@ -1310,10 +1313,12 @@ class Engine {
     if ((await vault.getNetworkImpl()) === IMPL_EVM) {
       // @ts-ignore
       const vaultEvm = vault as VaultEvm;
-      decodedTxLegacy = await vaultEvm.legacyDecodeTx(encodedTx, payload);
+      decodedTxLegacy = await vaultEvm.legacyDecodeTx(encodedTx);
       decodedTx = await vaultEvm.decodedTxLegacyToModern({
         decodedTxLegacy,
         encodedTx,
+        payload,
+        interactInfo,
       });
     } else {
       decodedTx = await vault.decodeTx(encodedTx, payload);

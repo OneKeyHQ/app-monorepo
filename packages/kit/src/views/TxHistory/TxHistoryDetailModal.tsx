@@ -86,7 +86,7 @@ const TxHistoryDetailModal: FC = () => {
           <>
             <TxDetailStatusIcon decodedTx={decodedTx} />
             <Box h={4} />
-            <TxDetailView decodedTx={decodedTx} />
+            <TxDetailView decodedTx={decodedTx} historyTx={historyTx} />
 
             {openBlockBrowser.hasAvailable ? (
               <Button
