@@ -23,6 +23,8 @@ class BackgroundApiProxy
   extends BackgroundApiProxyBase
   implements IBackgroundApi
 {
+  _serviceCreatedNames = {} as any;
+
   _proxyServiceCache = {} as any;
 
   engine = this._createProxyService('engine') as Engine;
@@ -55,8 +57,6 @@ class BackgroundApiProxy
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
-
-  _serviceCreatedNames = {} as any;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {
