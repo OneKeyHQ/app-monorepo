@@ -10,14 +10,19 @@ function trim(val: number) {
 function formatNative(value: number | string) {
   'worklet';
 
-  if (!value || value === 'undefined') {
-    return '';
+  let val;
+  if (typeof value === 'string') {
+    try {
+      val = parseFloat(value);
+    } catch (e) {
+      return '';
+    }
+  } else {
+    val = value;
   }
   const decimals =
-    value < 1
-      ? Math.min(8, String(value).slice(2).slice('').search(/[^0]/g) + 3)
-      : 2;
-  return value.toFixed(decimals);
+    val < 1 ? Math.min(8, String(val).slice(2).slice().search(/[^0]/g) + 3) : 2;
+  return val.toFixed(decimals);
 }
 
 const CenteredLabel = ({
