@@ -86,10 +86,10 @@ const AddExistingWallet = () => {
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
       const { text } = values;
-      const results = await backgroundApiProxy.validator.validateCreateInput(
-        text,
-        inputCategory,
-      );
+      const results = await backgroundApiProxy.validator.validateCreateInput({
+        input: text,
+        onlyFor: inputCategory,
+      });
 
       if (results.length === 0) {
         // Check failed. Shouldn't happen.
@@ -247,10 +247,10 @@ const AddExistingWallet = () => {
                 }
                 if (
                   (
-                    await backgroundApiProxy.validator.validateCreateInput(
-                      text,
-                      inputCategory,
-                    )
+                    await backgroundApiProxy.validator.validateCreateInput({
+                      input: text,
+                      onlyFor: inputCategory,
+                    })
                   ).length > 0
                 ) {
                   return true;
