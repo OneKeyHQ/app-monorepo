@@ -21,6 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -179,9 +180,7 @@ const MnemonicContainer = () => {
     await wait(600);
     resetToRoot();
     await wait(600);
-    if (platformEnv.isExtensionUiStandaloneWindow) {
-      window?.close?.();
-    }
+    closeExtensionWindowIfOnboardingFinished();
   }, [
     mnemonic,
     password,

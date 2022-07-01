@@ -29,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useNavigationActions } from '../../hooks';
 import { setHaptics } from '../../hooks/setHaptics';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
+import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingFinished';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -154,9 +155,7 @@ const AddExistingWallet = () => {
           );
           closeDrawer();
           resetToRoot();
-          if (platformEnv.isExtensionUiStandaloneWindow) {
-            window?.close?.();
-          }
+          closeExtensionWindowIfOnboardingFinished();
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
           toast.show({

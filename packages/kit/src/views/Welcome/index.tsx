@@ -22,6 +22,7 @@ import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
 import { openUrl } from '../../utils/openUrl';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingFinished';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -77,9 +78,7 @@ const Welcome = () => {
 
   const onSkip = useCallback(() => {
     resetToRoot();
-    if (platformEnv.isExtensionUiStandaloneWindow) {
-      window?.close?.();
-    }
+    closeExtensionWindowIfOnboardingFinished();
   }, [resetToRoot]);
 
   return (

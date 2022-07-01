@@ -18,6 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useNavigation, useNavigationActions } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { savePassword } from '../../../utils/localAuthentication';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -63,9 +64,7 @@ const Done: FC<DoneProps> = ({
       }
       closeDrawer();
       resetToRoot();
-      if (platformEnv.isExtensionUiStandaloneWindow) {
-        window?.close?.();
-      }
+      closeExtensionWindowIfOnboardingFinished();
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
