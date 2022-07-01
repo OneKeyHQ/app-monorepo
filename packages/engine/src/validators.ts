@@ -108,7 +108,13 @@ class Validators {
   }
 
   @backgroundMethod()
-  validateCreateInput(input: string, onlyFor?: UserInputCategory) {
+  validateCreateInput({
+    input,
+    onlyFor,
+  }: {
+    input: string;
+    onlyFor?: UserInputCategory;
+  }) {
     return this.validateUserInput(
       input,
       typeof onlyFor !== 'undefined' ? [onlyFor] : [],
