@@ -67,7 +67,7 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
   return isVerticalLayout ? (
     <>
       {priceLabel}
-      <Box h="190px" mt="20px" justifyContent="center" alignItems="center">
+      <Box h="190px" mt="25px" justifyContent="center" alignItems="center">
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
       </Box>
       {children}
