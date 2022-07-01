@@ -23,6 +23,8 @@ class BackgroundApiProxy
   extends BackgroundApiProxyBase
   implements IBackgroundApi
 {
+  _serviceCreatedNames = {} as any;
+
   _proxyServiceCache = {} as any;
 
   engine = this._createProxyService('engine') as Engine;
@@ -57,6 +59,10 @@ class BackgroundApiProxy
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 
   _createProxyService(name = 'ROOT') {
+    if (this._serviceCreatedNames[name]) {
+      throw new Error(`_createProxyService name duplicated. name=${name}`);
+    }
+    this._serviceCreatedNames[name] = true;
     const NOOP = new Proxy(
       {},
       {
