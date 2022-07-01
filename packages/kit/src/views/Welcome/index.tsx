@@ -13,10 +13,10 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import logo from '../../../assets/logo.png';
 import { useHelpLink, useNavigationActions } from '../../hooks';
+import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingFinished';
 import { CreateWalletModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
 import { openUrl } from '../../utils/openUrl';
@@ -77,9 +77,7 @@ const Welcome = () => {
 
   const onSkip = useCallback(() => {
     resetToRoot();
-    if (platformEnv.isExtensionUiStandaloneWindow) {
-      window?.close?.();
-    }
+    closeExtensionWindowIfOnboardingFinished();
   }, [resetToRoot]);
 
   return (
