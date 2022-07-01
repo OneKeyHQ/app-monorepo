@@ -79,9 +79,12 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
   const submit = useCallback(async () => {
     try {
       if (submitted.current) {
-        throw new Error('SendAuth submitted already.');
+        return;
       }
       submitted.current = true;
+
+      // throw new Error('test error');
+
       let result: any;
       let signedTx: ISignedTx | undefined;
       if (encodedTx) {

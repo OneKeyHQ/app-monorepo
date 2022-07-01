@@ -76,7 +76,9 @@ async function prepareSendConfirmEncodedTx({
     throw new Error('prepareEncodedTx encodedTx should NOT be null');
   }
   if (networkImpl === IMPL_EVM) {
-    let tx = encodedTx as IEncodedTxEvm;
+    const encodedTxEvm = encodedTx as IEncodedTxEvm;
+    // routeParams is not editable, so should create new one
+    let tx = { ...encodedTxEvm };
     tx.from = address || tx.from;
     // remove gas price if encodedTx build by DAPP
     if (sendConfirmParams.sourceInfo) {
@@ -93,7 +95,7 @@ function useSendConfirmEncodedTx({
   address,
 }: {
   networkImpl: string;
-  sendConfirmParams: SendConfirmParams;
+  sendConfirmParams: SendConfirmParams; // routeParams
   address: string;
 }): { encodedTx: IEncodedTx | null } {
   const [encodedTx, setEncodedTx] = useState<IEncodedTx | null>(null);
