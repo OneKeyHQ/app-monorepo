@@ -14,10 +14,16 @@ if (process.env.EXT_CHANNEL === 'firefox') {
   // browserManifest = chromeManifestV3;
 }
 
-module.exports = lodash.merge(
+const mergedManifest = lodash.merge(
   {
     manifest_version: 2,
   },
   sharedManifest,
   browserManifest,
 );
+
+// lodash merge array may cause be some bugs, so reassign `web_accessible_resources`
+mergedManifest.web_accessible_resources =
+  browserManifest.web_accessible_resources;
+
+module.exports = mergedManifest;
