@@ -15,6 +15,7 @@ const TimeControl: React.FC<TimeControlProps> = ({
   onTimeChange,
 }) => (
   <SegmentedControl
+    style={{ marginTop: 5 }}
     values={TIMEOPTIONS}
     onValueChange={onTimeChange}
     selectedIndex={selectedIndex}

@@ -13,7 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OnHoverFunction } from '../chartService';
 
-// import ExtremeLabels from './ExtremeLabels';
+import ExtremeLabels from './ExtremeLabels';
 
 export const { width: WIDTH } = Dimensions.get('window');
 
@@ -50,7 +50,7 @@ export default function ChartWrapper({
   );
   return (
     <>
-      {/* <ExtremeLabels color={lineColor} width={WIDTH} /> */}
+      <ExtremeLabels color={lineColor} width={WIDTH} />
       <ChartPath
         fill="none"
         gestureEnabled={!isFetching}
