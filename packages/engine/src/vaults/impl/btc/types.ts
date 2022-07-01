@@ -8,6 +8,7 @@ export type IBtcUTXO = {
   path: string;
 };
 
+// TODO: this encodedTx structure could be applied to all UTXO model chains.
 export type IEncodedTxBtc = {
   inputs: Array<IBtcUTXO>;
   outputs: Array<{ address: string; value: string }>;

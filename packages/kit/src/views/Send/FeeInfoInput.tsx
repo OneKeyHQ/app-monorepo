@@ -278,9 +278,10 @@ function FeeInfoInputForConfirmLite({
 
   let totalFeeInNative = feeInfoPayload?.current?.totalNative || '';
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  if (!editable && encodedTx.totalFeeInNative) {
+  if (encodedTx.totalFeeInNative) {
+    // for UTXO model chains fee display
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    totalFeeInNative = encodedTx.totalFeeInNative; // for BTC fee display
+    totalFeeInNative = encodedTx.totalFeeInNative;
   }
 
   // edit and loading icon
@@ -443,9 +444,10 @@ function FeeInfoInputForConfirm({
     ({ isHovered }) => {
       let totalFeeInNative = feeInfoPayload?.current?.totalNative || '-';
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (!editable && encodedTx.totalFeeInNative) {
+      if (encodedTx.totalFeeInNative) {
+        // for UTXO model chains fee display
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        totalFeeInNative = encodedTx.totalFeeInNative; // for BTC fee display
+        totalFeeInNative = encodedTx.totalFeeInNative;
       }
       return (
         <TxTitleDetailView
@@ -469,7 +471,7 @@ function FeeInfoInputForConfirm({
     [
       editable,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      encodedTx.totalFeeInNative, // for BTC fee display
+      encodedTx.totalFeeInNative, // for UTXO model chains fee display
       feeInfoPayload,
       intl,
       loading,

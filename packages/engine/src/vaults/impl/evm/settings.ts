@@ -8,6 +8,8 @@ const settings: IVaultSettings = {
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   watchingAccountEnabled: true,
+
+  isUTXOModel: false,
 };
 
 export default settings;

@@ -10,6 +10,8 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   minTransferAmount: '0.00000546',
+
+  isUTXOModel: true,
 };
 
 export default settings;

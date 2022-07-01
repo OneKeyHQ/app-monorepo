@@ -50,6 +50,16 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       return '0';
     }
     if (isNativeMaxSend) {
+      const { type, nativeTransfer } = decodedTx.actions[0];
+      if (
+        type === 'NATIVE_TRANSFER' &&
+        typeof nativeTransfer !== 'undefined' &&
+        typeof nativeTransfer.utxoFrom !== 'undefined'
+      ) {
+        // For UTXO model, the decodedTx is updated with the new transfer amount.
+        // Use this instead of depending the incorrect feeInfoPayload results.
+        return nativeTransfer.amount;
+      }
       const balanceBN = new BigNumber(
         getTokenBalance({
           defaultValue: '0',
@@ -63,7 +73,13 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     }
 
     return transferPayload.value ?? '0';
-  }, [feeInfoPayload, getTokenBalance, isNativeMaxSend, transferPayload]);
+  }, [
+    decodedTx,
+    feeInfoPayload,
+    getTokenBalance,
+    isNativeMaxSend,
+    transferPayload,
+  ]);
 
   const isAmountNegative = useMemo(
     () => new BigNumber(transferAmount).lt(0),
