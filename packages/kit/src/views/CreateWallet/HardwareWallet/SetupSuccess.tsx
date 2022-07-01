@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
 import { useNavigationActions } from '../../../hooks';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -62,6 +63,9 @@ const SetupSuccessModal: FC = () => {
         px: { base: 4, md: 6 },
       }}
       hidePrimaryAction
+      onModalClose={() => {
+        closeExtensionWindowIfOnboardingFinished();
+      }}
     >
       {content}
     </Modal>

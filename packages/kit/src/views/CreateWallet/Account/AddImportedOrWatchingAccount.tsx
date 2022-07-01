@@ -21,7 +21,8 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -127,9 +128,7 @@ const AddImportedOrWatchingAccount = () => {
           );
           closeDrawer();
           resetToRoot();
-          if (platformEnv.isExtensionUiStandaloneWindow) {
-            window?.close?.();
-          }
+          closeExtensionWindowIfOnboardingFinished();
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
           toast.show({

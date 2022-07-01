@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   ModalScreenProps,
   RootRoutes,
@@ -10,6 +12,12 @@ import { useAppSelector } from './redux';
 import useNavigation from './useNavigation';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
+
+export function closeExtensionWindowIfOnboardingFinished() {
+  if (platformEnv.isExtensionUiStandaloneWindow) {
+    window?.close?.();
+  }
+}
 
 export const useOnboardingFinished = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
