@@ -1,8 +1,8 @@
-// @ts-nocheck
 import React, { useCallback, useMemo, useState } from 'react';
 
 import { useChartData } from '@onekeyfe/react-native-animated-charts';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
+
 function trim(val: number) {
   return Math.min(Math.max(val, 0.05), 0.95);
 }
@@ -20,7 +20,19 @@ function formatNative(value: number | string) {
   return value.toFixed(decimals);
 }
 
-const CenteredLabel = ({ position, style, width, ...props }) => {
+const CenteredLabel = ({
+  position,
+  style,
+  width,
+  children,
+  color,
+}: {
+  position: number;
+  style: Record<string, unknown>;
+  color: string;
+  width: number;
+  children: React.ReactNode;
+}) => {
   const [componentWidth, setWidth] = useState(0);
   const onLayout = useCallback(
     ({
@@ -59,12 +71,12 @@ const CenteredLabel = ({ position, style, width, ...props }) => {
       <Text
         style={{
           fontFamily: 'PlusJakartaSans-Bold',
-          color: props.color,
+          color,
           fontSize: 14,
           fontWeight: 'bold',
         }}
       >
-        {props.children}
+        {children}
       </Text>
     </View>
   );
@@ -74,7 +86,7 @@ const ExtremeLabels = React.memo(
   ({ color, width }: { color: string; width: number }) => {
     const { greatestX, greatestY, smallestX, smallestY } = useChartData();
 
-    if (!greatestX) {
+    if (!(greatestX && greatestY && smallestX && smallestY)) {
       return null;
     }
     const positionMin = trim(
