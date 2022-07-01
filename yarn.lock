@@ -3782,7 +3782,7 @@
 
 "@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git":
   version "1.0.0"
-  resolved "https://github.com/OneKeyHQ/react-native-animated-charts.git#1e1544bee3e7d44d240c56f0557e96a8a1b6386d"
+  resolved "https://github.com/OneKeyHQ/react-native-animated-charts.git#f2b637d09b4f25f0a55f181e9ef926e5372bf1b0"
   dependencies:
     d3-scale "^4.0.2"
     d3-shape "^3.0.1"
