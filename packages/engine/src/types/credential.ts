@@ -31,17 +31,17 @@ type CredentialSelector =
   | PrivateKeyCredential
   | WatchingCredential;
 
-enum UserCreateInputCategory {
-  INVALID,
-  MNEMONIC,
-  PRIVATE_KEY,
-  ADDRESS,
+enum UserInputCategory {
+  MNEMONIC = 'mnemonic',
+  IMPORTED = 'imported',
+  WATCHING = 'watching',
+  ADDRESS = 'address',
 }
 
-type UserCreateInput = {
-  category: UserCreateInputCategory;
+type UserInputCheckResult = {
+  category: UserInputCategory;
   possibleNetworks?: Array<string>;
 };
 
-export { CredentialType, UserCreateInputCategory };
-export type { CredentialSelector, UserCreateInput };
+export { CredentialType, UserInputCategory };
+export type { CredentialSelector, UserInputCheckResult };

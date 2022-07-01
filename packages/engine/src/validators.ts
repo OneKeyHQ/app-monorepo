@@ -10,7 +10,7 @@ import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
 import { DBUTXOAccount } from './types/account';
-import { UserCreateInput, UserCreateInputCategory } from './types/credential';
+import { UserInputCategory, UserInputCheckResult } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
 import type { Engine } from './index';
@@ -36,52 +36,94 @@ class Validators {
     this._dbApi = dbApi;
   }
 
-  @backgroundMethod()
-  async validateCreateInput(input: string): Promise<UserCreateInput> {
-    let category = UserCreateInputCategory.INVALID;
-    const possibleNetworks: Array<string> = [];
+  private async validateUserInput(
+    input: string,
+    forCategories: Array<UserInputCategory>,
+  ): Promise<Array<UserInputCheckResult>> {
+    const ret = [];
+    const filterCategories =
+      forCategories.length > 0
+        ? forCategories
+        : [
+            UserInputCategory.MNEMONIC,
+            UserInputCategory.IMPORTED,
+            UserInputCategory.WATCHING,
+          ];
 
-    if (/\s/g.test(input)) {
-      // white space in input, only try mnemonic
+    if (filterCategories.includes(UserInputCategory.MNEMONIC)) {
       try {
         await this.validateMnemonic(input);
-        category = UserCreateInputCategory.MNEMONIC;
+        // Don't branch if the input is a valid mnemonic.
+        return await Promise.resolve([
+          { category: UserInputCategory.MNEMONIC },
+        ]);
       } catch {
-        console.log('Invalid mnemonic', input);
-      }
-      return { category, possibleNetworks };
-    }
-
-    // Otherwise, iterate networks to check user input.
-    // TODO: return multiple types for user to choose.
-
-    const enabledNetworks = await this.engine.listNetworks(true);
-
-    // TODO: performance can be improved if only one EVM network is checked and
-    // use the result for all EVM compatible networks.
-    for (const network of enabledNetworks) {
-      const vault = await this.engine.getChainOnlyVault(network.id);
-      // TODO: only get the first possibility now.
-      let thisCategory: UserCreateInputCategory | undefined;
-      try {
-        [thisCategory] = await vault.guessUserCreateInput(input);
-      } catch (e) {
-        console.error(e);
-      }
-
-      if (typeof thisCategory !== 'undefined') {
-        if (category === UserCreateInputCategory.INVALID) {
-          // Not any category is selected, choose this one.
-          category = thisCategory;
-          possibleNetworks.push(network.id);
-        } else if (category === thisCategory) {
-          // Already selected a category, push the network if the same.
-          possibleNetworks.push(network.id);
-        }
+        // pass
       }
     }
 
-    return { category, possibleNetworks };
+    // For implemetations(btc/evm/near/stc) we have at the moment, address
+    // or watching input checking can be done with only one network and the
+    // result applies to all network with the same implementation.
+    // However, things would become complicated when we later introduce
+    // cosmos or polkadot networks. Address or watching input checking would
+    // have to be done per network/chain basis, instead of per implementation
+    // for now.
+
+    for (const [impl, networks] of Object.entries(
+      await this.engine.listEnabledNetworksGroupedByVault(),
+    )) {
+      const vault = await this.engine.getChainOnlyVault(networks[0].id);
+      const possibleNetworks = networks.map((network) => network.id);
+
+      let category = UserInputCategory.IMPORTED;
+      if (
+        filterCategories.includes(category) &&
+        (await vault.validateImportedCredential(input))
+      ) {
+        ret.push({ category, possibleNetworks });
+      }
+
+      category = UserInputCategory.WATCHING;
+      if (
+        filterCategories.includes(category) &&
+        (await vault.validateWatchingCredential(input))
+      ) {
+        ret.push({ category, possibleNetworks });
+      }
+
+      category = UserInputCategory.ADDRESS;
+      if (
+        filterCategories.includes(category) &&
+        (await vault.validateAddress(input).then(
+          () => true,
+          () => false,
+        ))
+      ) {
+        ret.push({ category, possibleNetworks });
+      }
+    }
+
+    return ret;
+  }
+
+  @backgroundMethod()
+  validateCreateInput(input: string, onlyFor?: UserInputCategory) {
+    return this.validateUserInput(
+      input,
+      typeof onlyFor !== 'undefined' ? [onlyFor] : [],
+    );
+  }
+
+  @backgroundMethod()
+  async validateAnyAddress(input: string): Promise<Array<string>> {
+    return (
+      await this.validateUserInput(input, [UserInputCategory.ADDRESS])
+    ).reduce(
+      (networks: Array<string>, { possibleNetworks }) =>
+        networks.concat(possibleNetworks || []),
+      [],
+    );
   }
 
   @backgroundMethod()

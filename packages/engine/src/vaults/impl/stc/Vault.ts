@@ -14,7 +14,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { DBSimpleAccount } from '../../../types/account';
-import { UserCreateInputCategory } from '../../../types/credential';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
@@ -30,7 +29,6 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
-  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
@@ -263,23 +261,6 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
-
-  async guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
-    const ret = [];
-    if (
-      this.settings.importedAccountEnabled &&
-      /^(0x)?[0-9a-zA-Z]{64}$/.test(input)
-    ) {
-      ret.push(UserCreateInputCategory.PRIVATE_KEY);
-    }
-    if (
-      this.settings.watchingAccountEnabled &&
-      (await this.engineProvider.verifyAddress(input)).isValid
-    ) {
-      ret.push(UserCreateInputCategory.ADDRESS);
-    }
-    return Promise.resolve(ret);
-  }
 
   createClientFromURL(url: string): StcClient {
     return new StcClient(url);

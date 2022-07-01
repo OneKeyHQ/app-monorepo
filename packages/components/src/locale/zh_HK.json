@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "添加到地址簿",
   "form__address": "地址",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "您可以“觀察”任意公開地址而無需洩露您的私鑰，這可以讓您查看餘額和交易，但不能發送。",
   "form__address_invalid": "地址不正確。",
   "form__address_type_label": "地址類型",

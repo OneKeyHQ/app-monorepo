@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "アドレス帳に追加する",
   "form__address": "住所",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "秘密鍵を漏らさずに、任意のパブリックアドレスを「ウォッチ」することができます。これにより、残高や取引の閲覧はできますが、取引の送信はできません。",
   "form__address_invalid": "アドレスが正しくありません。",
   "form__address_type_label": "アドレスタイプ",

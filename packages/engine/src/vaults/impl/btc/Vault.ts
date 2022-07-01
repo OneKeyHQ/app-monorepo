@@ -19,7 +19,6 @@ import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
-import { UserCreateInputCategory } from '../../../types/credential';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -34,7 +33,6 @@ import {
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
-  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
@@ -524,18 +522,30 @@ export default class Vault extends VaultBase {
 
   // Chain only functionalities below.
 
-  guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
-    // TODO: different network support.
-    if (/^[xyz]p/.test(input)) {
-      const provider = this.engineProvider as Provider;
-      if (this.settings.importedAccountEnabled && provider.isValidXprv(input)) {
-        return Promise.resolve([UserCreateInputCategory.PRIVATE_KEY]);
-      }
-      if (this.settings.watchingAccountEnabled && provider.isValidXpub(input)) {
-        return Promise.resolve([UserCreateInputCategory.ADDRESS]);
-      }
+  override validateImportedCredential(input: string): Promise<boolean> {
+    let ret = false;
+    try {
+      ret =
+        this.settings.importedAccountEnabled &&
+        /^[xyz]prv/.test(input) &&
+        (this.engineProvider as Provider).isValidXprv(input);
+    } catch {
+      // pass
     }
-    return Promise.resolve([]);
+    return Promise.resolve(ret);
+  }
+
+  override validateWatchingCredential(input: string): Promise<boolean> {
+    let ret = false;
+    try {
+      ret =
+        this.settings.watchingAccountEnabled &&
+        /^[xyz]pub/.test(input) &&
+        (this.engineProvider as Provider).isValidXpub(input);
+    } catch {
+      // pass
+    }
+    return Promise.resolve(ret);
   }
 
   createClientFromURL(url: string): BlockBook {

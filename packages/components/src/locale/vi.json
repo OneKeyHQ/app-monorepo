@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "Thêm vào sổ địa chỉ",
   "form__address": "Địa chỉ nhà",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "Bạn có thể \"xem\" bất kỳ địa chỉ công cộng nào mà không cần tiết lộ khóa riêng tư của mình. Điều này cho phép bạn xem số dư và giao dịch, nhưng không gửi giao dịch.",
   "form__address_invalid": "Địa chỉ không chính xác.",
   "form__address_type_label": "Loại địa chỉ",

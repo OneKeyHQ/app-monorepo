@@ -30,7 +30,6 @@ import {
 } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import { ICovalentHistoryListItem, TxStatus } from '../../../types/covalent';
-import { UserCreateInputCategory } from '../../../types/credential';
 import {
   HistoryEntry,
   HistoryEntryStatus,
@@ -58,7 +57,6 @@ import {
   IRawTx,
   ISignCredentialOptions,
   ITransferInfo,
-  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -823,23 +821,6 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
-
-  async guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
-    const ret = [];
-    if (
-      this.settings.importedAccountEnabled &&
-      /^(0x)?[0-9a-zA-Z]{64}$/.test(input)
-    ) {
-      ret.push(UserCreateInputCategory.PRIVATE_KEY);
-    }
-    if (
-      this.settings.watchingAccountEnabled &&
-      (await this.engineProvider.verifyAddress(input)).isValid
-    ) {
-      ret.push(UserCreateInputCategory.ADDRESS);
-    }
-    return Promise.resolve(ret);
-  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getJsonRPCClient();

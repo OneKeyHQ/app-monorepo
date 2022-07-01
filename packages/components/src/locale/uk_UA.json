@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "Додати до адресної книги",
   "form__address": "Адреса",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "Ви можете «спостерігати» за будь-якою публічною адресою, не розголошуючи свій особистий ключ. Це дозволяє переглядати баланс і трансакції, але не надсилати транзакції.",
   "form__address_invalid": "Неправильна адреса.",
   "form__address_type_label": "тип адреси",
