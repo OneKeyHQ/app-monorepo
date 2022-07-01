@@ -28,7 +28,6 @@ import {
   IFeeInfoUnit,
   IHistoryTx,
   ITransferInfo,
-  IUserInputGuessingResult,
 } from './types';
 import { VaultContext } from './VaultContext';
 
@@ -59,10 +58,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   // Methods not related to a single account, but implementation.
 
-  abstract guessUserCreateInput(
-    input: string,
-  ): Promise<IUserInputGuessingResult>;
-
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();
   }
@@ -89,6 +84,22 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       throw new InvalidAddress();
     }
     return Promise.resolve(normalizedAddress);
+  }
+
+  validateImportedCredential(input: string): Promise<boolean> {
+    // Generic private key test, override if needed.
+    return Promise.resolve(
+      this.settings.importedAccountEnabled &&
+        /^(0x)?[0-9a-zA-Z]{64}$/.test(input),
+    );
+  }
+
+  async validateWatchingCredential(input: string): Promise<boolean> {
+    // Generic address test, override if needed.
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled &&
+        (await this.engineProvider.verifyAddress(input)).isValid,
+    );
   }
 
   async validateTokenAddress(address: string): Promise<string> {

@@ -1538,6 +1538,20 @@ class Engine {
     );
   }
 
+  listEnabledNetworksGroupedByVault = memoizee(
+    async () => {
+      const networks = await this.listNetworks();
+      return networks.reduce((r: Record<string, Array<Network>>, network) => {
+        r[network.impl] = r[network.impl] || [];
+        r[network.impl].push(network);
+        return r;
+      }, {});
+    },
+    {
+      promise: true,
+    },
+  );
+
   async dbNetworkToNetwork(dbNetwork: DBNetwork) {
     const settings = await this.getVaultSettings(dbNetwork.id);
     const network = fromDBNetworkToNetwork(dbNetwork, settings);
@@ -1625,6 +1639,7 @@ class Engine {
     const dbObj = await this.dbApi.addNetwork(
       getEVMNetworkToCreate(`${impl}--${networkId}`, params),
     );
+    this.listEnabledNetworksGroupedByVault.clear();
     return this.dbNetworkToNetwork(dbObj);
   }
 
@@ -1647,6 +1662,7 @@ class Engine {
       }
     });
     await this.dbApi.updateNetworkList(networks);
+    this.listEnabledNetworksGroupedByVault.clear();
     return this.listNetworks(false);
   }
 
@@ -1685,10 +1701,11 @@ class Engine {
   }
 
   @backgroundMethod()
-  deleteNetwork(networkId: string): Promise<void> {
+  async deleteNetwork(networkId: string): Promise<void> {
     if (networkIsPreset(networkId)) {
       throw new OneKeyInternalError('Preset network cannot be deleted.');
     }
+    this.listEnabledNetworksGroupedByVault.clear();
     return this.dbApi.deleteNetwork(networkId);
   }
 

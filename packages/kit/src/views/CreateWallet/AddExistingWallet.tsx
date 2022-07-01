@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,10 +11,13 @@ import {
   Modal,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
+import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -23,8 +26,9 @@ import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useDebounce } from '../../hooks';
+import { useNavigationActions } from '../../hooks';
 import { setHaptics } from '../../hooks/setHaptics';
+import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -37,64 +41,149 @@ type AddExistingWalletValues = { text: string };
 
 const AddExistingWallet = () => {
   const intl = useIntl();
-  const [isOk, setOk] = useState(false);
+  const toast = useToast();
+
+  const { closeDrawer, resetToRoot } = useNavigationActions();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+
   const isSmallScreen = useIsVerticalLayout();
   const { params: { mode, presetText } = { mode: 'all', presetText: '' } } =
     useRoute<RouteProps>();
-  const navigation = useNavigation<NavigationProps['navigation']>();
-  const { control, handleSubmit, setValue, getValues, trigger, watch } =
-    useForm<AddExistingWalletValues>({
-      defaultValues: { text: presetText },
-      mode: 'onChange',
-    });
 
-  const watchedText = useDebounce(watch('text'), 400);
+  const useFormReturn = useForm<AddExistingWalletValues>({
+    defaultValues: { text: presetText },
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+  });
+  useFormOnChangeDebounced<AddExistingWalletValues>({
+    useFormReturn,
+  });
+  const { control, handleSubmit, setValue, trigger, formState } = useFormReturn;
 
-  useEffect(() => {
-    async function validate(text: string) {
-      if (!text) {
-        return false;
-      }
-      const { category } =
-        await backgroundApiProxy.validator.validateCreateInput(text);
-      if (mode === 'all') {
-        return category !== UserCreateInputCategory.INVALID;
-      }
-      if (mode === 'privatekey') {
-        return category === UserCreateInputCategory.PRIVATE_KEY;
-      }
-      if (mode === 'mnemonic') {
-        return category === UserCreateInputCategory.MNEMONIC;
-      }
-      if (mode === 'address') {
-        return category === UserCreateInputCategory.ADDRESS;
-      }
-      return false;
+  const { activeNetworkId } = useGeneral();
+  const { wallets } = useRuntime();
+
+  const inputCategory = useMemo(() => {
+    let onlyForcategory: UserInputCategory | undefined;
+    if (mode === 'mnemonic') {
+      onlyForcategory = UserInputCategory.MNEMONIC;
+    } else if (mode === 'imported') {
+      onlyForcategory = UserInputCategory.IMPORTED;
+    } else if (mode === 'watching') {
+      onlyForcategory = UserInputCategory.WATCHING;
     }
-    validate(watchedText).then(setOk);
-  }, [watchedText, mode]);
+    return onlyForcategory;
+  }, [mode]);
+  useEffect(() => {
+    if (presetText) {
+      trigger('text');
+    }
+  }, [presetText, trigger]);
+
+  const submitDisabled =
+    !formState.isValid || !!Object.keys(formState.errors).length;
 
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
-      const { category, possibleNetworks: selectableNetworks } =
-        await backgroundApiProxy.validator.validateCreateInput(values.text);
-      if (category === UserCreateInputCategory.MNEMONIC) {
+      const { text } = values;
+      const results = await backgroundApiProxy.validator.validateCreateInput(
+        text,
+        inputCategory,
+      );
+
+      if (results.length === 0) {
+        // Check failed. Shouldn't happen.
+        return;
+      }
+
+      if (results.length > 1) {
+        // Multiple choices.
+        navigation.navigate(
+          CreateWalletModalRoutes.AddImportedOrWatchingAccountModal,
+          {
+            text,
+            checkResults: results,
+          },
+        );
+        return;
+      }
+
+      // No branches, directly create with default name.
+      const [{ category, possibleNetworks = [] }] = results;
+      if (category === UserInputCategory.MNEMONIC) {
         navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal, {
-          mnemonic: values.text,
+          mnemonic: text,
         });
-      } else if (category === UserCreateInputCategory.PRIVATE_KEY) {
-        navigation.navigate(CreateWalletModalRoutes.AddImportedAccountModal, {
-          privatekey: values.text,
-          selectableNetworks,
+        return;
+      }
+
+      if (possibleNetworks.length < 1) {
+        // This shouldn't happen.
+        console.error('No possible networks found.');
+        toast.show({
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
         });
-      } else if (category === UserCreateInputCategory.ADDRESS) {
-        navigation.navigate(CreateWalletModalRoutes.AddWatchAccountModal, {
-          address: values.text,
-          selectableNetworks,
-        });
+        return;
+      }
+
+      if (
+        category !== UserInputCategory.WATCHING &&
+        category !== UserInputCategory.IMPORTED
+      ) {
+        // This shouldn't happen either.
+        return;
+      }
+
+      const networkId =
+        activeNetworkId && possibleNetworks.includes(activeNetworkId)
+          ? activeNetworkId
+          : possibleNetworks[0];
+      const [wallet] = wallets.filter(
+        (w) =>
+          w.type ===
+          (category === UserInputCategory.WATCHING ? 'watching' : 'imported'),
+      );
+      const id = wallet?.nextAccountIds?.global;
+      const accountName = id ? `Account #${id}` : '';
+      if (category === UserInputCategory.WATCHING) {
+        try {
+          await backgroundApiProxy.serviceAccount.addWatchAccount(
+            networkId,
+            text,
+            accountName,
+          );
+          closeDrawer();
+          resetToRoot();
+          if (platformEnv.isExtensionUiStandaloneWindow) {
+            window?.close?.();
+          }
+        } catch (e) {
+          const errorKey = (e as { key: LocaleIds }).key;
+          toast.show({
+            title: intl.formatMessage({ id: errorKey }),
+          });
+        }
+      } else {
+        navigation.navigate(
+          CreateWalletModalRoutes.AddImportedAccountDoneModal,
+          {
+            privatekey: text,
+            name: accountName,
+            networkId,
+          },
+        );
       }
     },
-    [navigation],
+    [
+      navigation,
+      inputCategory,
+      activeNetworkId,
+      closeDrawer,
+      intl,
+      resetToRoot,
+      toast,
+      wallets,
+    ],
   );
 
   const onPaste = useCallback(async () => {
@@ -112,12 +201,12 @@ const AddExistingWallet = () => {
           : ''
       }`,
       `${
-        mode === 'privatekey' || mode === 'all'
+        mode === 'imported' || mode === 'all'
           ? intl.formatMessage({ id: 'form__private_key' })
           : ''
       }`,
       `${
-        mode === 'address' || mode === 'all'
+        mode === 'watching' || mode === 'all'
           ? intl.formatMessage({ id: 'form__address' })
           : ''
       }`,
@@ -136,12 +225,8 @@ const AddExistingWallet = () => {
       header={intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
       primaryActionTranslationId="action__import"
       primaryActionProps={{
-        isDisabled: !(
-          !!watchedText &&
-          watchedText === getValues('text') &&
-          isOk
-        ),
-        onPress: handleSubmit(onSubmit),
+        onPromise: handleSubmit(onSubmit),
+        isDisabled: submitDisabled,
       }}
       hideSecondaryAction
     >
@@ -152,7 +237,42 @@ const AddExistingWallet = () => {
         h="full"
       >
         <Form>
-          <Form.Item control={control} name="text">
+          <Form.Item
+            control={control}
+            name="text"
+            rules={{
+              validate: async (text) => {
+                if (!text) {
+                  return false;
+                }
+                if (
+                  (
+                    await backgroundApiProxy.validator.validateCreateInput(
+                      text,
+                      inputCategory,
+                    )
+                  ).length > 0
+                ) {
+                  return true;
+                }
+                // Special treatment for BTC address.
+                try {
+                  await backgroundApiProxy.validator.validateAddress(
+                    'btc--0',
+                    text,
+                  );
+                  return intl.formatMessage({
+                    id: 'form__address_btc_as_wachted_account',
+                  });
+                } catch {
+                  // pass
+                }
+                return intl.formatMessage({
+                  id: 'form__add_exsting_wallet_invalid',
+                });
+              },
+            }}
+          >
             <Form.Textarea placeholder={placeholder} h="48" />
           </Form.Item>
           {!(platformEnv.isExtension || platformEnv.isWeb) && (

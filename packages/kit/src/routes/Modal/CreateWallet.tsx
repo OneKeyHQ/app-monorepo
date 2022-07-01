@@ -1,11 +1,11 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { UserInputCheckResult } from '@onekeyhq/engine/src/types/credential';
 import { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import CreateWallet from '@onekeyhq/kit/src/views/CreateWallet';
-import AddImportedAccount from '@onekeyhq/kit/src/views/CreateWallet/Account/AddImportedAccount';
 import AddImportedAccountDone from '@onekeyhq/kit/src/views/CreateWallet/Account/AddImportedAccountDone';
-import AddWatchAccount from '@onekeyhq/kit/src/views/CreateWallet/Account/AddWatchAccount';
+import AddImportedOrWatchingAccount from '@onekeyhq/kit/src/views/CreateWallet/Account/AddImportedOrWatchingAccount';
 import AddExistingWallet from '@onekeyhq/kit/src/views/CreateWallet/AddExistingWallet';
 import AttentionsView from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AttentionsView';
 import AppWalletDone from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Done';
@@ -56,9 +56,8 @@ export enum CreateWalletModalRoutes {
 
   AddExistingWalletModal = 'AddExistingWalletModal',
   GuideModal = 'GuideModal',
-  AddImportedAccountModal = 'AddImportedAccountModal',
+  AddImportedOrWatchingAccountModal = 'AddImportedOrWatchingAccountModal',
   AddImportedAccountDoneModal = 'AddImportedAccountDoneModal',
-  AddWatchAccountModal = 'AddWatchAccount',
   AttentionsModal = 'AttentionsModal',
   MnemonicModal = 'MnemonicModal',
   NewWalletModal = 'NewWalletModal',
@@ -96,21 +95,17 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.CreateImportedAccount]: undefined;
   [CreateWalletModalRoutes.CreateWatchedAccount]: undefined;
   [CreateWalletModalRoutes.AddExistingWalletModal]: {
-    mode: 'all' | 'mnemonic' | 'address' | 'privatekey';
+    mode: 'all' | 'mnemonic' | 'watching' | 'imported';
     presetText?: string;
   };
-  [CreateWalletModalRoutes.AddImportedAccountModal]: {
-    privatekey: string;
-    selectableNetworks?: Array<string>;
+  [CreateWalletModalRoutes.AddImportedOrWatchingAccountModal]: {
+    text: string;
+    checkResults: Array<UserInputCheckResult>;
   };
   [CreateWalletModalRoutes.AddImportedAccountDoneModal]: {
     privatekey: string;
     networkId: string;
     name: string;
-  };
-  [CreateWalletModalRoutes.AddWatchAccountModal]: {
-    address: string;
-    selectableNetworks?: Array<string>;
   };
   [CreateWalletModalRoutes.GuideModal]: undefined;
 
@@ -192,16 +187,12 @@ const modalRoutes = [
     component: Guide,
   },
   {
-    name: CreateWalletModalRoutes.AddImportedAccountModal,
-    component: AddImportedAccount,
+    name: CreateWalletModalRoutes.AddImportedOrWatchingAccountModal,
+    component: AddImportedOrWatchingAccount,
   },
   {
     name: CreateWalletModalRoutes.AddImportedAccountDoneModal,
     component: AddImportedAccountDone,
-  },
-  {
-    name: CreateWalletModalRoutes.AddWatchAccountModal,
-    component: AddWatchAccount,
   },
   {
     name: CreateWalletModalRoutes.AttentionsModal,

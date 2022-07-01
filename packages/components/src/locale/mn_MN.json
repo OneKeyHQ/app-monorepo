@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "Хаягийн дэвтэрт нэмнэ үү",
   "form__address": "Хаяг",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "Та хувийн түлхүүрээ задруулахгүйгээр дурын нийтийн хаягийг \"үзэх\" боломжтой. Энэ нь танд үлдэгдэл болон гүйлгээг харах боломжийг олгодог боловч гүйлгээ илгээхгүй.",
   "form__address_invalid": "Буруу хаяг.",
   "form__address_type_label": "Хаягийн төрөл",

@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "เพิ่มในสมุดที่อยู่",
   "form__address": "ที่อยู่",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "คุณสามารถ \"ดู\" ที่อยู่สาธารณะโดยไม่ต้องเปิดเผยคีย์ส่วนตัวของคุณ วิธีนี้ช่วยให้คุณดูยอดคงเหลือและธุรกรรมได้ แต่ไม่สามารถส่งธุรกรรมได้",
   "form__address_invalid": "ที่อยู่ไม่ถูกต้อง",
   "form__address_type_label": "ประเภทที่อยู่",

@@ -126,7 +126,7 @@ const SwapButton = () => {
         screen: ModalRoutes.CreateWallet,
         params: {
           screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'privatekey' },
+          params: { mode: 'imported' },
         },
       });
     }
@@ -135,7 +135,7 @@ const SwapButton = () => {
         screen: ModalRoutes.CreateWallet,
         params: {
           screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'address' },
+          params: { mode: 'watching' },
         },
       });
     }

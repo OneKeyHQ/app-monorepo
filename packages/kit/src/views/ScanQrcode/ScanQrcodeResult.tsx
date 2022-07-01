@@ -140,7 +140,7 @@ const ScanQrcodeResult: FC = () => {
               params: {
                 screen: CreateWalletModalRoutes.AddExistingWalletModal,
                 params: {
-                  mode: 'address',
+                  mode: 'watching',
                   presetText: data,
                 },
               },
