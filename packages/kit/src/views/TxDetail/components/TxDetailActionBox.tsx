@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { isNil } from 'lodash';
+
 import { Box, HStack, VStack } from '@onekeyhq/components';
 
 import { TxActionElementDetailCell } from '../elements/TxActionElementDetailCell';
@@ -18,9 +20,13 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
       )}
       {content}
       <VStack space={4}>
-        {(details ?? []).filter(Boolean).map((detail, index) => (
-          <TxActionElementDetailCell key={index} {...detail} />
-        ))}
+        {(details ?? [])
+          .filter(Boolean)
+          .map((detail, index) =>
+            !isNil(detail) ? (
+              <TxActionElementDetailCell key={index} {...detail} />
+            ) : null,
+          )}
       </VStack>
     </Box>
   );

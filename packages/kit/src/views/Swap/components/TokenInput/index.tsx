@@ -89,7 +89,6 @@ const TokenInput: FC<TokenInputProps> = ({
               _disabled={{ bg: 'transparent' }}
               _hover={{ bg: 'transparent' }}
               _focus={{ bg: 'transparent' }}
-              defaultValue=""
               value={inputValue}
               borderRadius={0}
               onChangeText={onChange}

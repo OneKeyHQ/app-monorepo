@@ -51,8 +51,8 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
         {icon}
         <Box flex={1} flexDirection="column">
           <HStack space={2} flexDirection="row" justifyContent="space-between">
-            <Box flex={1}>{titleView}</Box>
-            {!!contentView && <Box maxW="50%">{contentView}</Box>}
+            <Box maxW={contentView ? '50%' : '100%'}>{titleView}</Box>
+            {!!contentView && <Box flex={1}>{contentView}</Box>}
           </HStack>
           {Boolean(subTitleView || extraView) && (
             <HStack

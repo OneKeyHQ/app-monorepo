@@ -19,7 +19,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
 import { ValidationFields } from '../../../components/Protected';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useActiveWalletAccount } from '../../../hooks';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import AccountModifyNameDialog from '../ModifyAccount';

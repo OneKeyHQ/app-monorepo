@@ -17,7 +17,7 @@ import Sight from '@onekeyhq/kit/assets/connect_sight.png';
 import X from '@onekeyhq/kit/assets/connect_x.png';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 
-import { IDappCallParams } from '../../background/IBackgroundApi';
+import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -54,7 +54,7 @@ const Connection = () => {
   const { networkImpl, network, accountAddress, account } =
     useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
-  const { origin, scope, id } = sourceInfo ?? ({} as IDappCallParams);
+  const { origin, scope, id } = sourceInfo ?? ({} as IDappSourceInfo);
   const computedIsRug = isRug(origin);
 
   // TODO move to DappService

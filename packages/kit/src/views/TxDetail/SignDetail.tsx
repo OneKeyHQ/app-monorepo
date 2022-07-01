@@ -19,7 +19,7 @@ import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
 
-import { IDappCallParams } from '../../background/IBackgroundApi';
+import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import { useActiveWalletAccount } from '../../hooks/redux';
 
 import ConfirmHeader from './_legacy/ConfirmHeader';
@@ -152,7 +152,7 @@ const renderDataCard = (unsignedMessage: IUnsignedMessageEvm) => {
 
 const SignDetail: FC<{
   unsignedMessage: IUnsignedMessageEvm;
-  sourceInfo?: IDappCallParams;
+  sourceInfo?: IDappSourceInfo;
 }> = ({ unsignedMessage, sourceInfo }) => {
   const intl = useIntl();
   const { accountId } = useActiveWalletAccount();

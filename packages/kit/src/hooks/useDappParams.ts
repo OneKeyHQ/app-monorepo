@@ -3,14 +3,14 @@ import { useRoute } from '@react-navigation/core';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { IDappCallParams } from '../background/IBackgroundApi';
+import { IDappSourceInfo } from '../background/IBackgroundApi';
 
 // TODO rename useDappQuery
 function useDappParams() {
   const route = useRoute();
   const query = (route.params as { query: string })?.query;
   let queryInfo: {
-    sourceInfo?: IDappCallParams;
+    sourceInfo?: IDappSourceInfo;
     unsignedMessage?: IUnsignedMessageEvm;
   } = {};
 

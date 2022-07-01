@@ -47,6 +47,7 @@ export function useSendConfirmRouteParamsParsed() {
     feeInfoUseFeeInTx,
     isSpeedUpOrCancel,
     payload,
+    payloadInfo: routeParams.payloadInfo,
     resendActionInfo,
     isInternalSwapTx,
     isTransferTypeTx: false,

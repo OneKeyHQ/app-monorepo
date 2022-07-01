@@ -1,8 +1,14 @@
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
 import {
+  TxActionSwap,
+  TxActionSwapT0,
+  getTxActionSwapInfo,
+} from '../TxAction/TxActionSwap';
+import {
   TxActionTokenApprove,
   TxActionTokenApproveT0,
+  getTxActionTokenApproveInfo,
 } from '../TxAction/TxActionTokenApprove';
 import {
   TxActionTransactionEvm,
@@ -59,21 +65,23 @@ export function getTxActionMeta(
     };
   }
   if (action.type === IDecodedTxActionType.TOKEN_APPROVE) {
-    titleInfo = {
-      titleKey: 'title__approve',
-    };
-    const iconUrl = action.tokenApprove?.tokenInfo.logoURI;
-    if (iconUrl) {
-      iconInfo = {
-        icon: {
-          url: iconUrl,
-        },
-      };
-    }
+    const info = getTxActionTokenApproveInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
     components = {
       T0: TxActionTokenApproveT0,
       T1: TxActionTokenApprove,
       T2: TxActionTokenApprove,
+    };
+  }
+  if (action.type === IDecodedTxActionType.INTERNAL_SWAP) {
+    const info = getTxActionSwapInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionSwapT0,
+      T1: TxActionSwap,
+      T2: TxActionSwap,
     };
   }
   return {

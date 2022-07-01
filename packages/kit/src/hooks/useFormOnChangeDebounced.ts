@@ -14,7 +14,7 @@ function useFormOnChangeDebounced<T>({
   revalidate?: boolean;
   onChange?: WatchObserver<T>;
 }) {
-  const { watch, trigger } = useFormReturn;
+  const { watch, trigger, formState } = useFormReturn;
   const loadingRef = useRef<boolean>(false);
   const [values, setValues] = useState<T>();
 
@@ -43,6 +43,11 @@ function useFormOnChangeDebounced<T>({
     return () => subscription.unsubscribe();
   }, [onChange, revalidate, trigger, wait, watch]);
 
-  return { loadingRef, formValues: values };
+  return {
+    loadingRef,
+    isLoading: loadingRef.current,
+    formValues: values,
+    isValid: formState.isValid && !Object.keys(formState.errors).length,
+  };
 }
 export { useFormOnChangeDebounced };

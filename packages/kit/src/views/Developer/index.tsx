@@ -17,7 +17,10 @@ import {
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import {
   StackBasicRoutesParams,
   StackRoutes,
@@ -33,6 +36,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SendRoutes } from '../../routes';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import { refreshWebviewGlobalKey } from '../../store/reducers/status';
+import { openUrlByWebview } from '../../utils/openUrl';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -50,6 +54,7 @@ export const Debug = () => {
   const connections = useAppSelector((s) => s.dapp.connections);
   const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
   const { width, height } = useWindowDimensions();
+  const { network, account, wallet } = useActiveWalletAccount();
 
   const pressableProps = {
     p: '4',
@@ -173,6 +178,26 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>断开 WalletConnect</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                console.log({
+                  account,
+                  wallet,
+                  network,
+                });
+              }}
+            >
+              <Typography.Body1>Log current wallet</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                openUrlByWebview('https://dapp-example.test.onekey.so/');
+              }}
+            >
+              <Typography.Body1>Dapp Test</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}

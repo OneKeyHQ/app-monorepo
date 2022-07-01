@@ -10,13 +10,18 @@ import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks';
+import { useInteractWithInfo } from '../../hooks/useDecodedTx';
 
 function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
   const { accountId, networkId, networkImpl } = useActiveWalletAccount();
   const { engine } = backgroundApiProxy;
   const navigation = useNavigation();
   const route = useRoute();
+  const interactInfo = useInteractWithInfo({
+    // @ts-ignore
+    sourceInfo: route.params.sourceInfo,
+  });
   const decodeTxTest = useCallback(async () => {
     // call vaultHelper in UI (not recommend)
     const vaultHelper = createVaultHelperInstance({
@@ -47,7 +52,8 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
       networkId,
       encodedTx,
       // @ts-ignore
-      payload: route.params?.payload,
+      payload: route.params?.payloadInfo || route.params?.payload,
+      interactInfo,
     });
     console.log('decodeTxTest >>>> ', {
       routeParams: route.params,
@@ -57,7 +63,15 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
       decodedTxLegacy,
       _nativeTxFromRawTx: nativeTxFromRawTx,
     });
-  }, [networkId, accountId, engine, encodedTx, route.params, networkImpl]);
+  }, [
+    networkId,
+    accountId,
+    engine,
+    encodedTx,
+    route.params,
+    interactInfo,
+    networkImpl,
+  ]);
 
   if (!platformEnv.isDev) {
     return null;

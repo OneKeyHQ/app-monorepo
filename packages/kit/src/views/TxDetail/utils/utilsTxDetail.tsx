@@ -13,6 +13,9 @@ export function fallbackTextComponent(
   target: JSX.Element | string | undefined,
   ComponentClass: any,
 ): JSX.Element | undefined {
+  if (!target) {
+    return undefined;
+  }
   if (isString(target)) {
     return <ComponentClass>{target}</ComponentClass>;
   }

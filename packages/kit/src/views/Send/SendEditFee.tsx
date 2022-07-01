@@ -9,6 +9,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Center,
   Form,
   Modal,
@@ -32,8 +33,13 @@ import {
   IFeeInfoSelectedType,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
+import {
+  calculateTotalFeeNative,
+  calculateTotalFeeRange,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatCurrencyNative } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks';
@@ -42,11 +48,7 @@ import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
-import {
-  calculateTotalFeeNative,
-  calculateTotalFeeRange,
-  useFeeInfoPayload,
-} from './useFeeInfoPayload';
+import { useFeeInfoPayload } from './useFeeInfoPayload';
 
 import type { StackNavigationProp } from '@react-navigation/stack';
 
@@ -878,6 +880,21 @@ function ScreenSendEditFee({ ...rest }) {
           <>
             {content}
             <DecodeTxButtonTest encodedTx={encodedTx} />
+            {platformEnv.isDev && (
+              <Button
+                onPress={() => {
+                  useFormReturn.setValue(
+                    'maxPriorityFeePerGas',
+                    '0.000000000001',
+                  );
+                  useFormReturn.setValue('maxFeePerGas', '0.000000000001');
+                  useFormReturn.setValue('gasPrice', '0.000000000001');
+                  setFeeType(FeeType.advanced);
+                }}
+              >
+                Fill 0 Fee
+              </Button>
+            )}
           </>
         ),
       }}
