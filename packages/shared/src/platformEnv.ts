@@ -53,6 +53,7 @@ export type IPlatformEnv = {
   isNativeIOSStore?: boolean;
   /** ios, tablet only */
   isNativeIOSPad?: boolean;
+  isNativeIOSPadStore?: boolean;
   isNativeAndroid?: boolean;
   isNativeAndroidGooglePlay?: boolean;
 
@@ -234,6 +235,8 @@ const platformEnv: IPlatformEnv = {
 
   isNativeIOS,
   isNativeIOSStore,
+  isNativeIOSPad,
+  isNativeIOSPadStore,
   isNativeAndroid,
   isNativeAndroidGooglePlay,
 
