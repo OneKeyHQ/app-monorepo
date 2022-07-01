@@ -5,7 +5,7 @@ import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
-import { IDappCallParams } from '../../../background/IBackgroundApi';
+import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 
 export type ISignMessageConfirmViewPropsHandleConfirm = ({
@@ -20,7 +20,7 @@ export type ISignMessageConfirmViewPropsHandleConfirm = ({
 
 export type ISignMessageConfirmViewProps = ModalProps & {
   // TODO rename sourceInfo
-  sourceInfo?: IDappCallParams;
+  sourceInfo?: IDappSourceInfo;
   unsignedMessage: IUnsignedMessageEvm;
   confirmDisabled?: boolean;
   handleConfirm: ISignMessageConfirmViewPropsHandleConfirm;

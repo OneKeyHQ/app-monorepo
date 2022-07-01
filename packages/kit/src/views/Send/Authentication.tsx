@@ -13,7 +13,7 @@ import Protected, {
 } from '@onekeyhq/kit/src/components/Protected';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { useDecodedTx } from '../../hooks/useDecodedTx';
+import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
@@ -40,14 +40,17 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     onSuccess,
     encodedTx,
     unsignedMessage,
-    payload,
+    payloadInfo,
     backRouteName,
+    sourceInfo,
   } = route.params;
+  const payload = payloadInfo || route.params.payload;
 
   const { decodedTx } = useDecodedTx({
     encodedTx,
     payload,
   });
+  const interactInfo = useInteractWithInfo({ sourceInfo });
 
   const sendTx = useCallback(async () => {
     debugLogger.sendTx('Authentication sendTx:', route.params);
@@ -102,6 +105,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
                   accountId,
                   encodedTx,
                   payload,
+                  interactInfo,
                 })
               ).decodedTx
             : undefined,
@@ -161,6 +165,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     accountId,
     backRouteName,
     encodedTx,
+    interactInfo,
     intl,
     navigation,
     networkId,

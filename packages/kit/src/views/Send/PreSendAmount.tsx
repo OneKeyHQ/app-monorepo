@@ -86,6 +86,7 @@ function PreSendAmount() {
   const intl = useIntl();
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
+  const [isLoading, setIsLoading] = useState(false);
   const shortScreen = height < 768;
   // const space = shortScreen ? '16px' : '24px';
   const navigation = useNavigation<NavigationProps>();
@@ -169,6 +170,7 @@ function PreSendAmount() {
       hideSecondaryAction
       primaryActionProps={{
         isDisabled: !!errorMsg || !minAmountValidationPassed,
+        isLoading,
       }}
       onPrimaryActionPress={async () => {
         if (!account || !network || !tokenInfo) {
@@ -179,30 +181,35 @@ function PreSendAmount() {
           transferInfo.from = account.address;
         }
 
-        const encodedTx = await engine.buildEncodedTxFromTransfer({
-          networkId,
-          accountId,
-          transferInfo,
-        });
+        try {
+          setIsLoading(true);
+          const encodedTx = await engine.buildEncodedTxFromTransfer({
+            networkId,
+            accountId,
+            transferInfo,
+          });
 
-        navigation.navigate(SendRoutes.SendConfirm, {
-          encodedTx,
-          feeInfoUseFeeInTx: false,
-          feeInfoEditable: true,
-          backRouteName: SendRoutes.PreSendAddress,
-          payload: {
-            payloadType: 'Transfer',
-            account,
-            network,
-            token: {
-              ...tokenInfo,
-              idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
+          navigation.navigate(SendRoutes.SendConfirm, {
+            encodedTx,
+            feeInfoUseFeeInTx: false,
+            feeInfoEditable: true,
+            backRouteName: SendRoutes.PreSendAddress,
+            payload: {
+              payloadType: 'Transfer',
+              account,
+              network,
+              token: {
+                ...tokenInfo,
+                idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
+              },
+              to: transferInfo.to,
+              value: amount,
+              isMax: false,
             },
-            to: transferInfo.to,
-            value: amount,
-            isMax: false,
-          },
-        });
+          });
+        } finally {
+          setIsLoading(false);
+        }
       }}
     >
       <Box

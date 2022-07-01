@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { isNumber } from 'lodash';
+import { cloneDeep, isNil, isNumber } from 'lodash';
 
+import { HISTORY_CONSTS } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   IDecodedTxStatus,
@@ -25,10 +26,12 @@ class ServiceHistory extends ServiceBase {
     networkId,
     accountId,
     tokenIdOnNetwork,
+    limit,
   }: {
     networkId: string;
     accountId: string;
     tokenIdOnNetwork?: string;
+    limit?: number;
   }): Promise<IHistoryTx[]> {
     /*
     {
@@ -43,12 +46,11 @@ class ServiceHistory extends ServiceBase {
     }
      */
     const { items } = await simpleDb.history.getAccountHistory({
-      limit: 100,
+      limit: limit ?? HISTORY_CONSTS.GET_LOCAL_LIMIT,
       networkId,
       accountId,
       tokenIdOnNetwork,
     });
-    // TODO query limit=100, return limit=50
     return items;
   }
 
@@ -65,8 +67,8 @@ class ServiceHistory extends ServiceBase {
   }) {
     const { engine } = this.backgroundApi;
     const vault = await engine.getVault({ networkId, accountId });
-    // TODO limit=50
     return vault.fetchOnChainHistory({
+      // TODO limit=50
       localHistory,
       tokenIdOnNetwork,
     });
@@ -92,37 +94,67 @@ class ServiceHistory extends ServiceBase {
       networkId,
       items.map((item) => item.decodedTx.txid),
     );
-    let needsSaveUpdate = false;
-    const updateStatus = (tx: IHistoryTx, status: IDecodedTxStatus) => {
-      if (tx.decodedTx.status !== status) {
-        tx.decodedTx.status = status;
-        needsSaveUpdate = true;
+    const itemsToUpdate: IHistoryTx[] = [];
+    const updateHistoryTxFields = (
+      tx: IHistoryTx,
+      getCloneUpdateTx: () => IHistoryTx,
+      updateFields: {
+        status: IDecodedTxStatus;
+        isFinal?: boolean;
+      },
+    ) => {
+      if (tx.decodedTx.status !== updateFields.status) {
+        getCloneUpdateTx().decodedTx.status = updateFields.status;
+      }
+      if (!isNil(updateFields.isFinal)) {
+        if (tx.decodedTx.isFinal !== updateFields.isFinal) {
+          getCloneUpdateTx().decodedTx.isFinal = updateFields.isFinal;
+        }
       }
     };
     items.forEach((tx, index) => {
+      let newTx: IHistoryTx | undefined;
+      const getCloneUpdateTx = (): IHistoryTx => {
+        if (!newTx) {
+          newTx = cloneDeep(tx);
+        }
+        return newTx;
+      };
+
       const status = statusList[index];
       if (typeof status !== 'undefined') {
         if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
-          updateStatus(tx, IDecodedTxStatus.Confirmed);
+          updateHistoryTxFields(tx, getCloneUpdateTx, {
+            status: IDecodedTxStatus.Confirmed,
+          });
         }
         if (status === TransactionStatus.CONFIRM_BUT_FAILED) {
-          updateStatus(tx, IDecodedTxStatus.Failed);
+          updateHistoryTxFields(tx, getCloneUpdateTx, {
+            status: IDecodedTxStatus.Failed,
+          });
         }
         if (
           status === TransactionStatus.NOT_FOUND ||
           status === TransactionStatus.INVALID
         ) {
           if (isNumber(nonce) && tx.decodedTx.nonce < nonce) {
-            updateStatus(tx, IDecodedTxStatus.Dropped);
+            updateHistoryTxFields(tx, getCloneUpdateTx, {
+              status: IDecodedTxStatus.Dropped,
+              isFinal: true, // this TX won't broadcast forever, set isFinal=true
+            });
           }
         }
       }
+
+      if (newTx) {
+        itemsToUpdate.push(newTx);
+      }
     });
-    if (needsSaveUpdate) {
+    if (itemsToUpdate.length) {
       await this.saveHistoryTx({
         networkId,
         accountId,
-        items,
+        items: itemsToUpdate,
       });
     }
   }
@@ -138,14 +170,14 @@ class ServiceHistory extends ServiceBase {
   }) {
     const txList = await this.getLocalHistory({ networkId, accountId });
     const now = Date.now();
-    const fiveMin = 5 * 60 * 1000;
     const pendingTxList = txList.filter(
       (item) =>
         item.decodedTx.status === IDecodedTxStatus.Pending ||
         // both update Dropped tx status at TxHistoryDetailModal
         (item.decodedTx.status === IDecodedTxStatus.Dropped &&
           item.decodedTx.createdAt &&
-          item.decodedTx.createdAt > now - fiveMin),
+          item.decodedTx.createdAt >
+            now - HISTORY_CONSTS.REFRESH_DROPPED_TX_IN),
     );
     await this.updateHistoryStatus({
       networkId,
@@ -208,14 +240,6 @@ class ServiceHistory extends ServiceBase {
 
     // TODO retry getLocalHistory and update localPendingHistory TX status
     // TODO set pending tx to Dropped if nonce < max nonce onChain
-    const localHistory2 = await this.getLocalHistory({
-      networkId,
-      accountId,
-    });
-    const localPendingHistory = localHistory2.filter(
-      (item) => item.decodedTx.status === IDecodedTxStatus.Pending,
-    );
-    console.log('localPendingHistory', localPendingHistory);
 
     // TODO updatePendingHistory here
     // this.updatePendingHistory()
@@ -254,6 +278,28 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getOriginHistoryTxOfCancelTx(
+    cancelTx?: IHistoryTx,
+  ): Promise<IHistoryTx | undefined> {
+    if (!cancelTx || cancelTx?.replacedType !== 'cancel') {
+      return undefined;
+    }
+    let tx: IHistoryTx | undefined = cancelTx;
+    while (tx?.replacedPrevId) {
+      const id: string | undefined = tx?.replacedPrevId;
+      tx = await simpleDb.history.getHistoryById({
+        id,
+        accountId: cancelTx.accountId,
+        networkId: cancelTx.networkId,
+      });
+      if (tx?.replacedPrevId === id) {
+        break;
+      }
+    }
+    return tx;
+  }
+
+  @backgroundMethod()
   async saveSendConfirmHistory({
     networkId,
     accountId,
@@ -280,10 +326,11 @@ class ServiceHistory extends ServiceBase {
     });
     let prevTx: IHistoryTx | undefined;
     if (resendActionInfo && resendActionInfo.replaceHistoryId) {
-      const txList = await this.getLocalHistory({ networkId, accountId });
-      prevTx = txList.find(
-        (item) => item.id === resendActionInfo.replaceHistoryId,
-      );
+      prevTx = await simpleDb.history.getHistoryById({
+        id: resendActionInfo.replaceHistoryId,
+        networkId,
+        accountId,
+      });
       if (prevTx) {
         // TODO previous Tx Dropped or Removed
         prevTx.decodedTx.status = IDecodedTxStatus.Dropped;

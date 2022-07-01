@@ -27,15 +27,19 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
   const encodedTx = decodedTx.encodedTx as IEncodedTxEvm | undefined;
   const intl = useIntl();
 
-  const details: ITxActionElementDetail[] = [
+  const details: Array<ITxActionElementDetail | null> = [
     {
       title: intl.formatMessage({ id: 'content__from' }),
       content: <TxActionElementAddressNormal address={encodedTx?.from || ''} />,
     },
-    {
-      title: intl.formatMessage({ id: 'content__to' }),
-      content: <TxActionElementAddressNormal address={encodedTx?.to || ''} />,
-    },
+    encodedTx?.to
+      ? {
+          title: intl.formatMessage({ id: 'content__to' }),
+          content: (
+            <TxActionElementAddressNormal address={encodedTx?.to || ''} />
+          ),
+        }
+      : null,
     {
       title: intl.formatMessage({ id: 'form__data' }),
       content: (

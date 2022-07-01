@@ -8,15 +8,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import IconHistory from '../../../assets/3d_transaction_history.png';
 import { useActiveWalletAccount } from '../../hooks';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
+import { useTxDetailContext } from '../TxDetail/TxDetailContext';
 
 export function TxHistoryListViewEmpty({
   isLoading,
   refresh,
 }: {
   isLoading?: boolean;
-  refresh: () => void;
+  refresh?: () => void;
 }) {
   const intl = useIntl();
+  const txDetailContext = useTxDetailContext();
   const { network, account } = useActiveWalletAccount();
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
   return (
@@ -28,8 +30,8 @@ export function TxHistoryListViewEmpty({
           id: 'transaction__history_empty_desc',
         })}
         actionTitle={intl.formatMessage({ id: 'action__refresh' })}
-        handleAction={refresh}
-        isLoading={isLoading}
+        handleAction={txDetailContext?.context.refresh ?? refresh}
+        isLoading={Boolean(txDetailContext?.context.isLoading || isLoading)}
       />
       {!!platformEnv.isDev && hasAvailable && (
         <IconButton

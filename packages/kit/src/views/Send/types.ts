@@ -5,10 +5,11 @@ import {
   IEncodedTx,
   IFeeInfoSelected,
   ISignedTx,
+  ISwapInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappCallParams } from '../../background/IBackgroundApi';
+import { IDappSourceInfo } from '../../background/IBackgroundApi';
 
 import type { SwapQuoteTx } from '../Swap/typings';
 
@@ -29,7 +30,7 @@ export enum SendRoutes {
 export type TokenApproveAmountEditParams = {
   tokenApproveAmount: string;
   isMaxAmount: boolean;
-  sourceInfo?: IDappCallParams | undefined;
+  sourceInfo?: IDappSourceInfo | undefined;
   encodedTx?: IEncodedTx | null;
   decodedTx?: IDecodedTx;
 };
@@ -83,18 +84,24 @@ export type SendConfirmPayloadBase = {
 };
 export type SendConfirmPayload =
   | SendConfirmPayloadBase
-  | TransferSendParamsPayload
+  | TransferSendParamsPayload // ITransferInfo
   | SwapQuoteTx;
 export type SendConfirmOnSuccessData = {
   signedTx?: ISignedTx;
   encodedTx?: IEncodedTx | null;
   decodedTx?: IDecodedTx | null;
 };
+export type SendConfirmPayloadInfo = {
+  type: 'Transfer' | 'InternalSwap';
+  transferInfo?: ITransferInfo;
+  swapInfo?: ISwapInfo;
+};
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string; // TODO remove
-  payload?: SendConfirmPayload; // use payload.payloadType
+  payload?: SendConfirmPayload; // use payload.payloadType // TODO remove
+  payloadInfo?: SendConfirmPayloadInfo;
   onSuccess?: (tx: ISignedTx, data?: SendConfirmOnSuccessData) => void;
-  sourceInfo?: IDappCallParams;
+  sourceInfo?: IDappSourceInfo;
   // TODO remove, use resendActionInfo instead
   actionType?: SendConfirmActionType; // 'speedUp' | 'cancel';
   // resendActionInfo?: SendConfirmResendActionInfo;
@@ -115,7 +122,7 @@ export type SendAuthenticationParams = Omit<
 };
 
 export type SignMessageConfirmParams = {
-  sourceInfo?: IDappCallParams;
+  sourceInfo?: IDappSourceInfo;
   unsignedMessage: IUnsignedMessageEvm;
 };
 

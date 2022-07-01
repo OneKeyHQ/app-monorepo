@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { NavigationProp } from '@react-navigation/native';
+import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,10 +12,10 @@ import {
   Pressable,
   Text,
   VStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
-  IDecodedTx,
   IDecodedTxStatus,
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -43,13 +44,24 @@ function speedUpOrCancelTx(props: {
   navigation: NavigationProp<any>;
 }) {
   const { historyTx, actionType, navigation } = props;
-  const encodedTx = historyTx.decodedTx?.encodedTx ?? {};
-  // TODO currently only support EVM
-  const encodedTxEvm = { ...encodedTx } as IEncodedTxEvm;
+  const encodedTx = (historyTx.decodedTx?.encodedTx ?? {}) as IEncodedTxEvm;
+  if (!historyTx.decodedTx.nonce) {
+    console.error('speedUpOrCancelTx ERROR: nonce is missing!');
+    return;
+  }
+  // set only fields of IEncodedTxEvm
+  const encodedTxEvm: IEncodedTxEvm = {
+    from: encodedTx.from,
+    to: encodedTx.to,
+    value: encodedTx.value,
+    data: encodedTx.data,
+    nonce: historyTx.decodedTx.nonce, // must be number, 0x string will send new tx
+  };
   if (actionType === 'cancel') {
     encodedTxEvm.to = encodedTxEvm.from;
     encodedTxEvm.value = '0';
     encodedTxEvm.data = '0x';
+    console.log('cancel TX >>>>>> :', encodedTxEvm);
   }
   if (actionType === 'speedUp') {
     //
@@ -70,7 +82,7 @@ function speedUpOrCancelTx(props: {
     screen: ModalRoutes.Send,
     params: {
       screen: SendRoutes.SendConfirm,
-      params,
+      params: cloneDeep(params),
     },
   });
 }
@@ -114,13 +126,12 @@ function TxListItemViewResendButtons(props: { historyTx: IHistoryTx }) {
   );
 }
 
-function TxListItemView(props: {
-  decodedTx: IDecodedTx;
-  historyTx: IHistoryTx;
-}) {
-  const { decodedTx, historyTx } = props;
+function TxListItemView(props: { historyTx: IHistoryTx }) {
+  const { historyTx } = props;
+  const { decodedTx } = historyTx;
   const { status } = decodedTx;
   const intl = useIntl();
+  const { isLight } = useTheme();
   const navigation =
     useNavigation<HistoryListViewNavigationProp['navigation']>();
   const statusInfo = getTxStatusInfo({ decodedTx });
@@ -165,21 +176,24 @@ function TxListItemView(props: {
   return (
     <Pressable.Item
       borderRadius={12}
+      borderWidth={isLight ? 1 : 0}
+      borderColor="border-subdued"
       onPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.TransactionDetail,
           params: {
             screen: TransactionDetailModalRoutes.HistoryDetailModal,
-            params: {
+            params: cloneDeep({
               decodedTx,
               historyTx,
-            },
+            }),
           },
         });
       }}
     >
       <VStack>
         <TxActionsListView
+          historyTx={historyTx}
           decodedTx={decodedTx}
           transformType="T0"
           space={4}

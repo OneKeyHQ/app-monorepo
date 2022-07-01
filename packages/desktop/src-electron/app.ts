@@ -12,9 +12,21 @@ import {
   shell,
   systemPreferences,
 } from 'electron';
+import Config from 'electron-config';
 import isDev from 'electron-is-dev';
 
 import { PrefType } from './preload';
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call
+const config = new Config() as
+  | {
+      set: (key: string, data: any) => void;
+      get: (key: string) => any;
+    }
+  | undefined;
+const configKeys = {
+  winBounds: 'winBounds',
+};
 
 const APP_NAME = 'OneKey Wallet';
 let mainWindow: BrowserWindow | null;
@@ -30,6 +42,7 @@ function createMainWindow() {
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
+  const savedWinBounds = config?.get(configKeys.winBounds) || {};
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
@@ -52,6 +65,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
     icon: path.join(staticPath, 'images/icons/512x512.png'),
+    ...savedWinBounds,
   });
 
   // browserWindow.setAspectRatio(ratio);
@@ -78,6 +92,9 @@ function createMainWindow() {
     });
   });
 
+  browserWindow.on('resize', () => {
+    config?.set(configKeys.winBounds, browserWindow.getBounds());
+  });
   browserWindow.on('closed', () => {
     mainWindow = null;
   });

@@ -334,7 +334,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     isSigner?: boolean;
     isLocalCreated?: boolean;
   }): Promise<IHistoryTx> {
-    const txid: string = decodedTx.txid || signedTx?.txid || '';
+    const txid: string = signedTx?.txid || decodedTx?.txid || '';
     if (!txid) {
       throw new Error('buildHistoryTx txid not found');
     }
@@ -367,6 +367,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   // TODO abstract method
   async fetchOnChainHistory(options: {
+    // ""=NativeToken   "0x88836623"=Erc20Token    undefined=ALL
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {

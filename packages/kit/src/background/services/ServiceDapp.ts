@@ -21,7 +21,7 @@ import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
 import { ManageTokenRoutes } from '../../views/ManageTokens/types';
 import { SendRoutes } from '../../views/Send/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { IDappCallParams } from '../IBackgroundApi';
+import { IDappSourceInfo } from '../IBackgroundApi';
 import { ensureSerializable } from '../utils';
 
 import ServiceBase from './ServiceBase';
@@ -136,7 +136,7 @@ class ServiceDapp extends ServiceBase {
         origin: request.origin,
         scope: request.scope, // ethereum
         data: request.data,
-      } as IDappCallParams;
+      } as IDappSourceInfo;
       const routeParams = {
         // stringify required, nested object not working with Ext route linking
         query: JSON.stringify({

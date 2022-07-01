@@ -33,6 +33,7 @@ export type ICovalentHistoryListItem = {
   block_signed_at: string; // "2022-06-14T01:52:10Z"
   successful: boolean;
   from_address: string;
+  gas_spent: string;
 };
 export type ICovalentHistoryListData = {
   items: ICovalentHistoryListItem[];

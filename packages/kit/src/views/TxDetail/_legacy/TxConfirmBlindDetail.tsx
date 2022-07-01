@@ -6,7 +6,7 @@ import { Box, Container, Typography } from '@onekeyhq/components';
 import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappCallParams } from '../../../background/IBackgroundApi';
+import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 
 import Address from './Address';
 import ContractData from './ContractData';
@@ -15,7 +15,7 @@ import TotalFee from './TotalFee';
 
 const TxConfirmBlindDetail: FC<{
   tx: EVMDecodedItem;
-  sourceInfo?: IDappCallParams;
+  sourceInfo?: IDappSourceInfo;
   feeInput?: any;
   feeInfoPayload?: IFeeInfoPayload | null;
 }> = ({ tx, sourceInfo, feeInput, feeInfoPayload }) => {

@@ -14,7 +14,7 @@ import {
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappCallParams } from '../../../background/IBackgroundApi';
+import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmPayload } from '../types';
@@ -31,7 +31,7 @@ export type ITxConfirmViewPropsHandleConfirm = ({
 // TODO networkId, accountId, onSuccess
 export type ITxConfirmViewProps = ModalProps & {
   // TODO rename sourceInfo
-  sourceInfo?: IDappCallParams;
+  sourceInfo?: IDappSourceInfo;
   encodedTx: IEncodedTx | null;
   decodedTx?: IDecodedTx | IDecodedTxLegacy | null;
   payload?: SendConfirmPayload;

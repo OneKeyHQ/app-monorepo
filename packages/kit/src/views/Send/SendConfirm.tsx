@@ -123,6 +123,7 @@ function SendConfirm() {
     feeInfoUseFeeInTx,
     sourceInfo,
     payload,
+    payloadInfo,
     resendActionInfo,
     isSpeedUpOrCancel,
     isFromDapp,
@@ -143,7 +144,11 @@ function SendConfirm() {
     address: account?.address || '',
   });
 
-  const { decodedTx } = useDecodedTx({ encodedTx, payload });
+  const { decodedTx } = useDecodedTx({
+    encodedTx,
+    payload: payloadInfo || payload,
+    sourceInfo,
+  });
 
   const isInternalNativeTransferType = useMemo(() => {
     if (isFromDapp || !payload) {

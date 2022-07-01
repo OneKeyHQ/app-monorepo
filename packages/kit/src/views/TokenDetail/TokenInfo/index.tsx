@@ -100,7 +100,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
               balance={amount}
               suffix={token?.tokenIdOnNetwork ? token?.symbol : network?.symbol}
               formatOptions={{
-                fixed: network?.tokenDisplayDecimals ?? 4,
+                fixed:
+                  (token?.tokenIdOnNetwork
+                    ? network?.tokenDisplayDecimals
+                    : network?.nativeDisplayDecimals) ?? 4,
               }}
               as={Typography.DisplayXLarge}
               render={(ele) => (
@@ -129,6 +132,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       network?.logoURI,
       network?.symbol,
       network?.tokenDisplayDecimals,
+      network?.nativeDisplayDecimals,
       amount,
       tokenPrice,
     ],

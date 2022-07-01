@@ -25,6 +25,8 @@ export const useTheme = () => {
   return useMemo(
     () => ({
       themeVariant: context.themeVariant,
+      isLight: context.themeVariant === 'light',
+      isDark: context.themeVariant === 'dark',
     }),
     [context.themeVariant],
   );
