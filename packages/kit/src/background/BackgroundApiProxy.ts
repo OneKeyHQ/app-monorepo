@@ -56,7 +56,13 @@ class BackgroundApiProxy
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 
+  _serviceCreatedNames = {} as any;
+
   _createProxyService(name = 'ROOT') {
+    if (this._serviceCreatedNames[name]) {
+      throw new Error(`_createProxyService name duplicated. name=${name}`);
+    }
+    this._serviceCreatedNames[name] = true;
     const NOOP = new Proxy(
       {},
       {
