@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, memo, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,17 +13,11 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../hooks';
-import {
-  ModalRoutes,
-  ModalRoutesParams,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../routes/types';
+import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
 import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -126,4 +119,4 @@ const ChainSelector: FC = () => {
   );
 };
 
-export default ChainSelector;
+export default memo(ChainSelector);
