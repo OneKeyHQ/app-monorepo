@@ -275,7 +275,6 @@ export default class Vault extends VaultBase {
     const nativeTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as nearApiJs.transactions.Transaction;
-    const network = await this.getNetwork();
     const decodedTx: IDecodedTx = {
       txid: baseEncode(nativeTx.blockHash),
       owner: await this.getAccountAddress(),
@@ -284,8 +283,8 @@ export default class Vault extends VaultBase {
       actions: await this.nativeTxActionToEncodedTxAction(nativeTx),
 
       status: IDecodedTxStatus.Pending,
-      network,
       networkId: this.networkId,
+      accountId: this.accountId,
 
       extraInfo: null,
     };

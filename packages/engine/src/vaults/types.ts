@@ -2,14 +2,14 @@ import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import { SwapQuote } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
-import type { EIP1559Fee, Network } from '../types/network';
+import type { EIP1559Fee } from '../types/network';
 import type { Token } from '../types/token';
 import type {
   IDecodedTxExtraBtc,
   IEncodedTxBtc,
   INativeTxBtc,
 } from './impl/btc/types';
-import type { EVMDecodedItem } from './impl/evm/decoder/decoder';
+import type { EVMDecodedItem } from './impl/evm/decoder/types';
 import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type {
@@ -289,7 +289,8 @@ export type IDecodedTxAction = {
 };
 export type IDecodedTx = {
   txid: string; // blockHash
-  owner: string; // receiver, sender
+
+  owner: string; // tx belongs to both receiver and sender
   signer: string; // creator, sender, fromAddress
   // receiver: string; // receiver, toAddress
 
@@ -297,62 +298,39 @@ export type IDecodedTx = {
   actions: IDecodedTxAction[]; // inputActions
   outputActions?: IDecodedTxAction[];
 
-  // TODO move to IHistoryTx
   createdAt?: number;
   updatedAt?: number; // finishedAt, signedAt, blockSignedAt
-  // createdAt: number;
-  // updatedAt: number;
+
   status: IDecodedTxStatus;
   // isFinalData  data wont change anymore
   isFinal?: boolean; // tx info is full completed, like covalentTx has parsed outputActions
-  isLocalCreated?: boolean;
 
   networkId: string;
-  network: Network; // TODO networkId
-  feeInfo?: IFeeInfoUnit; // TODO totalFeeInNative
-  // TODO feeUsed
+  accountId: string;
+
+  feeInfo?: IFeeInfoUnit;
+  totalFeeInNative?: string;
 
   interactInfo?: IDecodedTxInteractInfo;
 
   // TODO use nativeTx & decodedTx in frontend UI render
   extraInfo: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
 
-  // TODO remove all any type
   encodedTx?: IEncodedTx;
   payload?: any;
 
-  // TODO remove
-  totalFeeInNative?: string;
-
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
-
-  // protocol?: 'erc20' | 'erc721';
-  // txSource: 'raw' | 'ethersTx' | 'covalent';
-  // rawTx?: string;
-  // nativeTx: ethers.Transaction;
-  // nativeTxDesc?: ethers.utils.TransactionDescription;
 };
 
 // History ----------------------------------------------
-// TODO merge historyTx to decodedTx
 export type IHistoryTx = {
-  networkId: string;
-  accountId: string;
-
   id: string; // historyId
-  replacedPrevId?: string; // cancel speedUp replacedId
-  replacedNextId?: string;
-  replacedType?: SendConfirmActionType; // replacedActionType=cancel speedUp
-  historyLogs?: any[]; // cancel tx history log
-
-  encodedTx?: any; // TODO move to decodedTx
-  decodedTx: IDecodedTx;
 
   isLocalCreated?: boolean;
 
-  // TODO remove
-  // just copy values from decodedTx by fixHistoryTx()
-  createdAt?: number;
-  status?: IDecodedTxStatus; // for realmDB?
-  isFinal?: boolean;
+  replacedPrevId?: string; // cancel speedUp replacedId
+  replacedNextId?: string;
+  replacedType?: SendConfirmActionType; // cancel speedUp
+
+  decodedTx: IDecodedTx;
 };
