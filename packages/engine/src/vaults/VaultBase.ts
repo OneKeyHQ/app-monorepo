@@ -312,10 +312,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async fixHistoryTx(historyTx: IHistoryTx): Promise<IHistoryTx> {
     historyTx.decodedTx = await this.fixDecodedTx(historyTx.decodedTx);
-    historyTx.createdAt = historyTx.decodedTx.createdAt;
-    historyTx.status = historyTx.decodedTx.status;
-    historyTx.isFinal = historyTx.decodedTx.isFinal;
-
     return Promise.resolve(historyTx);
   }
 
@@ -350,14 +346,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     let historyTx: IHistoryTx = {
       id: historyId,
 
-      networkId: this.networkId,
-      accountId: this.accountId,
-
       isLocalCreated: Boolean(isLocalCreated),
 
       ...historyTxToMerge,
 
-      encodedTx,
       decodedTx,
     };
     // TODO update encodedTx nonce from signedTx.rawTx

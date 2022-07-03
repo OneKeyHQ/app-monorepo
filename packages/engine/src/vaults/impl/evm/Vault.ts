@@ -335,8 +335,8 @@ export default class Vault extends VaultBase {
       nonce: decodedTxLegacy.nonce || 0,
       actions: [action],
       status: IDecodedTxStatus.Pending,
-      network: await this.getNetwork(),
       networkId: this.networkId,
+      accountId: this.accountId,
       encodedTx,
       payload,
       feeInfo,
@@ -954,7 +954,7 @@ export default class Vault extends VaultBase {
       // update local history tx info to decodedTx
       decodedTx = {
         ...historyTx.decodedTx,
-        encodedTx: decodedTx.encodedTx,
+        encodedTx: decodedTx.encodedTx ?? historyTx.decodedTx.encodedTx,
       };
     }
     // TODO parse covalentTx log_events to decodedTx.actions, like tokenTransfer actions

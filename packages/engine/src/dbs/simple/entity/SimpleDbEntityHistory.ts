@@ -9,7 +9,9 @@ import {
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
-export type ISimpleDbEntityHistoryData = IHistoryTx[];
+export type ISimpleDbEntityHistoryData = {
+  items: IHistoryTx[];
+};
 
 class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryData> {
   entityName = 'history';
@@ -50,9 +52,9 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
   }) {
     return allData.filter(
       (item) =>
-        item.status !== IDecodedTxStatus.Removed &&
-        item.accountId === accountId &&
-        item.networkId === networkId,
+        item.decodedTx.status !== IDecodedTxStatus.Removed &&
+        item.decodedTx.accountId === accountId &&
+        item.decodedTx.networkId === networkId,
     );
   }
 
@@ -99,7 +101,7 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
         })
       ).items;
     } else {
-      list = (await this.getRawData()) || [];
+      list = (await this.getRawData())?.items || [];
     }
     return list?.find((item) => item.id === id);
   }
@@ -128,7 +130,7 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
     ) {
       items = this.accountHistoryCache.items;
     } else {
-      const allData = (await this.getRawData()) || [];
+      const allData = (await this.getRawData())?.items || [];
       items = this._getAccountHistoryInList({
         allData,
         accountId,
@@ -186,7 +188,7 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
     if (!items || !items.length) {
       return;
     }
-    let allData = (await this.getRawData()) || [];
+    let allData = (await this.getRawData())?.items || [];
 
     // TODO uniqBy optimize and keep original order
     allData = uniqBy([...items, ...allData], (item) => item.id);
@@ -206,7 +208,9 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
     }
 
     // TODO auto remove items in same network and account > 100
-    return this.setRawData(allData);
+    return this.setRawData({
+      items: allData,
+    });
   }
 }
 

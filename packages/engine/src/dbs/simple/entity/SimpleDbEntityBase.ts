@@ -4,6 +4,10 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 const SIMPLE_DB_KEY_PREFIX = 'simple_db';
 
+type ISimpleDbEntitySavedData<T> = {
+  data: T;
+  updatedAt: number;
+};
 abstract class SimpleDbEntityBase<T> {
   abstract readonly entityName: string;
 
@@ -16,6 +20,8 @@ abstract class SimpleDbEntityBase<T> {
   // localStorage.getItem may return null if data not exists
   cachedRawData: T | undefined | null;
 
+  updatedAt = 0;
+
   clearRawDataCache() {
     this.cachedRawData = null;
   }
@@ -24,30 +30,42 @@ abstract class SimpleDbEntityBase<T> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
     }
-    const dataStr = await appStorage.getItem(this.entityKey);
+    const savedDataStr = await appStorage.getItem(this.entityKey);
+    let updatedAt = 0;
     // @ts-ignore
     let data: T | undefined | null;
-    if (isString(dataStr)) {
+    if (isString(savedDataStr)) {
       try {
-        data = JSON.parse(dataStr);
+        const savedData = JSON.parse(
+          savedDataStr,
+        ) as ISimpleDbEntitySavedData<T>;
+        data = savedData?.data;
+        updatedAt = savedData?.updatedAt;
       } catch (err) {
         console.error(err);
         data = null;
       }
     } else {
-      data = dataStr as any;
+      data = savedDataStr as any;
     }
     if (this.enableCache) {
       this.cachedRawData = data;
     }
+    this.updatedAt = updatedAt ?? 0;
     return data;
   }
 
   async setRawData(data: T) {
+    const updatedAt = Date.now();
     if (this.enableCache) {
       this.cachedRawData = data;
     }
-    await appStorage.setItem(this.entityKey, JSON.stringify(data));
+    const savedData: ISimpleDbEntitySavedData<T> = {
+      data,
+      updatedAt,
+    };
+    await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
+    this.updatedAt = updatedAt ?? 0;
     return data;
   }
 
