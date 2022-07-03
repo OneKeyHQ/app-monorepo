@@ -132,7 +132,6 @@ function getLegacyActionInfo(tx: IDecodedTx) {
 }
 
 export function decodedTxToLegacy(tx: IDecodedTx): IDecodedTxLegacy {
-  const { network } = tx;
   const { txType, actionInfo } = getLegacyActionInfo(tx);
   let amount = '0';
   let valueOnChain = '0';
@@ -167,10 +166,9 @@ export function decodedTxToLegacy(tx: IDecodedTx): IDecodedTxLegacy {
     txStatus: TxStatus.Pending,
     mainSource: 'raw',
 
-    symbol: network.symbol,
+    symbol: 'UNKNOWN',
     amount,
     value: valueOnChain,
-    network,
 
     fromAddress: tx.signer,
     toAddress: to,

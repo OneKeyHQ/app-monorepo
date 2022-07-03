@@ -58,7 +58,7 @@ const TxHistoryDetailModal: FC = () => {
     if (!historyTx) {
       return;
     }
-    const { accountId, networkId } = historyTx;
+    const { accountId, networkId } = historyTx.decodedTx;
     const timer = setTimeout(() => {
       backgroundApiProxy.serviceHistory.updateHistoryStatus({
         networkId,

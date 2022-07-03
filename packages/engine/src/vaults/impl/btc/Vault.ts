@@ -126,10 +126,9 @@ export default class Vault extends VaultBase {
     }
     return Promise.resolve({
       txType: EVMDecodedTxType.NATIVE_TRANSFER,
-      symbol: decodedTx.network.symbol,
+      symbol: 'UNKNOWN',
       amount: nativeTransfer.amount,
       value: nativeTransfer.amountValue,
-      network: decodedTx.network,
       fromAddress: nativeTransfer.from,
       toAddress: nativeTransfer.to,
       data: '',
@@ -194,8 +193,8 @@ export default class Vault extends VaultBase {
         },
       ],
       status: IDecodedTxStatus.Pending,
-      network,
       networkId: this.networkId,
+      accountId: this.accountId,
       extraInfo: null,
       totalFeeInNative: encodedTx.totalFeeInNative,
     };

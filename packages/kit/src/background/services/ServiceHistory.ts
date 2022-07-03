@@ -289,8 +289,8 @@ class ServiceHistory extends ServiceBase {
       const id: string | undefined = tx?.replacedPrevId;
       tx = await simpleDb.history.getHistoryById({
         id,
-        accountId: cancelTx.accountId,
-        networkId: cancelTx.networkId,
+        accountId: cancelTx.decodedTx.accountId,
+        networkId: cancelTx.decodedTx.networkId,
       });
       if (tx?.replacedPrevId === id) {
         break;

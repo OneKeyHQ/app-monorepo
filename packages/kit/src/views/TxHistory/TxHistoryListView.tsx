@@ -130,7 +130,7 @@ function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
         <Typography.Subheading color="text-subdued">
           {titleText}
         </Typography.Subheading>
-        {data[0] && data[0].status === IDecodedTxStatus.Pending && (
+        {data[0] && data[0].decodedTx.status === IDecodedTxStatus.Pending && (
           <Box ml={3}>
             <Badge title={data.length.toString()} type="default" size="sm" />
           </Box>
@@ -331,8 +331,8 @@ function TxHistoryListViewComponent({
     const firstHistoryTx: IHistoryTx | undefined = historyListData[0];
     return (
       firstHistoryTx &&
-      firstHistoryTx?.networkId === networkId &&
-      firstHistoryTx?.accountId === accountId
+      firstHistoryTx?.decodedTx.networkId === networkId &&
+      firstHistoryTx?.decodedTx.accountId === accountId
     );
   }, [accountId, historyListData, networkId]);
 
