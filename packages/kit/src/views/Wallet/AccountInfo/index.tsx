@@ -11,7 +11,7 @@ import {
   IconButton,
   Pressable,
   Typography,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
@@ -252,7 +252,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
 };
 
 const AccountInfo = () => {
-  const isSmallView = useIsSmallLayout();
+  const isSmallView = useIsVerticalLayout();
   if (isSmallView) {
     return (
       <Box

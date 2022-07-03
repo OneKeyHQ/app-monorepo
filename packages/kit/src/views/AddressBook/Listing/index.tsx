@@ -12,7 +12,7 @@ import {
   IconButton,
   Select,
   Typography,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useTheme,
   useToast,
 } from '@onekeyhq/components';
@@ -49,7 +49,7 @@ const ListingItem: FC<ListingItemValues> = ({
   const intl = useIntl();
   const toast = useToast();
   const { themeVariant } = useTheme();
-  const isSmall = useIsSmallLayout();
+  const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
   const onEdit = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -112,21 +112,21 @@ const ListingItem: FC<ListingItemValues> = ({
           label: intl.formatMessage({ id: 'action__edit' }),
           value: 'Edit',
           iconProps: {
-            name: isSmall ? 'PencilOutline' : 'PencilSolid',
+            name: isVertical ? 'PencilOutline' : 'PencilSolid',
           },
         },
         {
           label: intl.formatMessage({ id: 'action__copy_address' }),
           value: 'Duplicate',
           iconProps: {
-            name: isSmall ? 'DuplicateOutline' : 'DuplicateSolid',
+            name: isVertical ? 'DuplicateOutline' : 'DuplicateSolid',
           },
         },
         {
           label: intl.formatMessage({ id: 'action__delete' }),
           value: 'Delete',
           iconProps: {
-            name: isSmall ? 'TrashOutline' : 'TrashSolid',
+            name: isVertical ? 'TrashOutline' : 'TrashSolid',
           },
           destructive: true,
         },
