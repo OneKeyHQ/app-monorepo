@@ -18597,10 +18597,10 @@ react-native-codegen@^0.0.17:
     jscodeshift "^0.13.1"
     nullthrows "^1.1.1"
 
-react-native-collapsible-tab-view@4.4.0:
-  version "4.4.0"
-  resolved "https://registry.yarnpkg.com/react-native-collapsible-tab-view/-/react-native-collapsible-tab-view-4.4.0.tgz#5eebeb22e00458402a04c1ca1b29c34a1398eebc"
-  integrity sha512-mzb7HibauG0LpTREAKdDMBEDzEP/o8lRwYWpSY4NOoMUuAfpcrQK+/yPcmCD81W4gp0/InHgg+rc+D1qZzwf9g==
+react-native-collapsible-tab-view@4.5.2:
+  version "4.5.2"
+  resolved "https://registry.yarnpkg.com/react-native-collapsible-tab-view/-/react-native-collapsible-tab-view-4.5.2.tgz#e5fd7b81d76f3ee98cc0a0ea54439674591e9055"
+  integrity sha512-QXj4bMqfD+erREZNS51mqyPxJ8Xid4Kef/vqu1PqExNCAo30WjSKOpeNVHmXt4vcs/6ln+qFzLby4cbJ5AkoBw==
   dependencies:
     use-deep-compare "^1.1.0"
 
