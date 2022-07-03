@@ -13,7 +13,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { difference, isNil, isNumber, merge, toLower } from 'lodash';
+import { difference, isNil, isNumber, isString, merge, toLower } from 'lodash';
 
 import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -1067,6 +1067,10 @@ export default class Vault extends VaultBase {
           return null;
         }
         encodedTx.data = encodedTx.input;
+        // convert 0x string to number, chain-libs need number type
+        if (isString(encodedTx.nonce)) {
+          encodedTx.nonce = new BigNumber(encodedTx.nonce).toNumber() ?? 0;
+        }
 
         const covalentTx = covalentTxList.find(
           (covalentTxItem) => covalentTxItem.tx_hash === encodedTx.hash,
