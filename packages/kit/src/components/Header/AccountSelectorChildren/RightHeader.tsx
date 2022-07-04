@@ -14,8 +14,6 @@ import {
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectGroupItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
@@ -30,8 +28,12 @@ import ManagerWalletDeleteDialog, {
 } from '../../../views/ManagerWallet/DeleteWallet';
 import { ValidationFields } from '../../Protected';
 
+import type { DeviceStatusType } from '.';
+
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;
+  // eslint-disable-next-line react/no-unused-prop-types
+  deviceStatus?: DeviceStatusType;
 };
 
 type CustomSelectTriggerProps = {
@@ -99,12 +101,12 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   );
 };
 
-const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
+const RightHeader: FC<RightHeaderProps> = ({
+  selectedWallet,
+  deviceStatus,
+}) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { engine } = backgroundApiProxy;
-
-  const { deviceUpdates } = useSettings();
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -115,16 +117,8 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const [hasAvailableUpdate, setHasAvailableUpdate] = useState(false);
 
   useEffect(() => {
-    if (selectedWallet?.type === 'hw' && deviceUpdates) {
-      engine.getHWDeviceByWalletId(selectedWallet.id).then((device) => {
-        if (!device) return;
-
-        const { ble, firmware } = deviceUpdates[device.mac] || {};
-
-        setHasAvailableUpdate(!!ble || !!firmware);
-      });
-    }
-  }, [deviceUpdates, engine, selectedWallet]);
+    setHasAvailableUpdate(deviceStatus?.hasUpgrade ?? false);
+  }, [deviceStatus]);
 
   const onDeleteWallet = () => {
     if (selectedWallet?.type === 'hw') {

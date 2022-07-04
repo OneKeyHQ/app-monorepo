@@ -10,14 +10,24 @@ export type HardwarePopup = {
 
 type InitialState = {
   hardwarePopup: HardwarePopup;
+  connected: string[]; // connectId array
 };
 const initialState: InitialState = {
   hardwarePopup: {},
+  connected: [],
 };
 export const hardwareSlice = createSlice({
   name: 'hardware',
   initialState,
   reducers: {
+    addConnectedConnectId: (state, action: PayloadAction<string>) => {
+      if (state.connected.indexOf(action.payload) === -1) {
+        state.connected = [...state.connected, action.payload];
+      }
+    },
+    removeConnectedConnectId: (state, action: PayloadAction<string>) => {
+      state.connected = state.connected.filter((id) => id !== action.payload);
+    },
     cancelHardwarePopup(state) {
       state.hardwarePopup = {
         ...state.hardwarePopup,
@@ -42,6 +52,8 @@ export const hardwareSlice = createSlice({
 });
 
 export const {
+  addConnectedConnectId,
+  removeConnectedConnectId,
   setHardwarePopup,
   cancelHardwarePopup,
   visibleHardwarePopup,

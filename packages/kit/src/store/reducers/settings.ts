@@ -168,24 +168,24 @@ export const settingsSlice = createSlice({
     },
     setDeviceUpdates(
       state,
-      action: PayloadAction<{ key: string; value: FirmwareUpdate }>,
+      action: PayloadAction<{ connectId: string; value: FirmwareUpdate }>,
     ) {
       state.deviceUpdates = {
         ...state.deviceUpdates,
-        [action.payload.key]: action.payload.value,
+        [action.payload.connectId]: action.payload.value,
       };
     },
     setDeviceDoneUpdate(
       state,
-      action: PayloadAction<{ key: string; type: FirmwareType }>,
+      action: PayloadAction<{ connectId: string; type: FirmwareType }>,
     ) {
-      const { key, type } = action.payload;
+      const { connectId, type } = action.payload;
       if (type === 'firmware') {
-        state.deviceUpdates[key].forceFirmware = false;
-        state.deviceUpdates[key].firmware = undefined;
+        state.deviceUpdates[connectId].forceFirmware = false;
+        state.deviceUpdates[connectId].firmware = undefined;
       } else if (type === 'ble') {
-        state.deviceUpdates[key].forceBle = false;
-        state.deviceUpdates[key].ble = undefined;
+        state.deviceUpdates[connectId].forceBle = false;
+        state.deviceUpdates[connectId].ble = undefined;
       }
     },
   },

@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
+  useAppSelector,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -45,11 +46,13 @@ const AccountSelectorTrigger: FC<Props> = ({
   const intl = useIntl();
   const { engine } = backgroundApiProxy;
   const { deviceUpdates } = useSettings();
+  const { connected } = useAppSelector((s) => s.hardware);
   const isVerticalLayout = useIsVerticalLayout();
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [hasAvailableUpdate, setHasAvailableUpdate] = useState(false);
+  const [hasNotification, setHasNotification] = useState(false);
+  const [notificationColor, setNotificationColor] = useState<string>();
 
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
 
@@ -58,10 +61,16 @@ const AccountSelectorTrigger: FC<Props> = ({
       engine.getHWDeviceByWalletId(wallet.id).then((device) => {
         if (!device) return;
         const { ble, firmware } = deviceUpdates[device.mac] || {};
-        setHasAvailableUpdate(!!ble || !!firmware);
+        const hasConnected = connected.includes(device.mac);
+        setHasNotification(!!ble || !!firmware || !!hasConnected);
+        if (hasConnected) {
+          setNotificationColor('icon-success');
+        } else if (ble || firmware) {
+          setNotificationColor('icon-warning');
+        }
       });
     }
-  }, [deviceUpdates, engine, wallet]);
+  }, [connected, deviceUpdates, engine, wallet]);
 
   if (!wallet) {
     return (
@@ -120,10 +129,17 @@ const AccountSelectorTrigger: FC<Props> = ({
               size="sm"
               mr={3}
             />
-            {!!hasAvailableUpdate && (
-              <Box position="absolute" top={0} right={3}>
-                <Icon size={8} name="NotificationIndicatorSolid" />
-              </Box>
+            {!!hasNotification && (
+              <Box
+                position="absolute"
+                top={0}
+                right={3}
+                size={2}
+                bgColor={notificationColor}
+                borderWidth={1}
+                borderColor="surface-subdued"
+                rounded="full"
+              />
             )}
           </Box>
           <Typography.Body2Strong isTruncated numberOfLines={1} mr={1}>

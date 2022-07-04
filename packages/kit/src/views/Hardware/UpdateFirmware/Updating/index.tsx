@@ -266,7 +266,7 @@ const UpdatingModal: FC = () => {
           .then(() => {
             dispatch(
               setDeviceDoneUpdate({
-                key: connectId,
+                connectId,
                 type: 'ble',
               }),
             );
@@ -285,7 +285,7 @@ const UpdatingModal: FC = () => {
           .then(() => {
             dispatch(
               setDeviceDoneUpdate({
-                key: connectId,
+                connectId,
                 type: 'firmware',
               }),
             );

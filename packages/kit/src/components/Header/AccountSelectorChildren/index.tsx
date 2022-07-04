@@ -8,12 +8,15 @@ import React, {
 } from 'react';
 
 import { Box, VStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { Device } from '@onekeyhq/engine/src/types/device';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks';
 import {
   useActiveWalletAccount,
+  useAppSelector,
   useRuntime,
+  useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
@@ -26,6 +29,10 @@ import RightHeader from './RightHeader';
 import type { AccountGroup } from './RightAccountSection/ItemSection';
 
 export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
+export type DeviceStatusType = {
+  isConnected: boolean;
+  hasUpgrade: boolean;
+};
 
 const AccountSelectorChildren: FC<{
   isOpen?: boolean;
@@ -45,6 +52,11 @@ const AccountSelectorChildren: FC<{
     network: activeNetwork,
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
+  const { connected } = useAppSelector((s) => s.hardware);
+  const { deviceUpdates } = useSettings() || {};
+
+  const [deviceStatus, setDeviceStatus] =
+    useState<Record<string, DeviceStatusType | undefined>>();
 
   const previousIsOpen = usePrevious(isOpen);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(
@@ -126,6 +138,44 @@ const AccountSelectorChildren: FC<{
     [wallets, refreshAccounts],
   );
 
+  const getStatus = useCallback(
+    (connectId: string | undefined): DeviceStatusType | undefined => {
+      if (!connectId) return undefined;
+
+      return {
+        isConnected: connected.includes(connectId),
+        hasUpgrade:
+          !!deviceUpdates[connectId]?.ble ||
+          !!deviceUpdates[connectId]?.firmware,
+      };
+    },
+    [connected, deviceUpdates],
+  );
+
+  useEffect(() => {
+    (async () => {
+      const hardwareWallets = wallets.filter((w) => w.type === 'hw');
+      const hwDeviceRec = (
+        await backgroundApiProxy.engine.getHWDevices()
+      ).reduce((acc, device) => {
+        acc[device.id] = device;
+        return acc;
+      }, {} as Record<string, Device>);
+
+      setDeviceStatus(
+        hardwareWallets.reduce((acc, wallet) => {
+          if (!wallet.associatedDevice) return acc;
+
+          const device = hwDeviceRec[wallet.associatedDevice];
+          if (device) {
+            acc[wallet.associatedDevice] = getStatus(device.mac);
+          }
+          return acc;
+        }, {} as Record<string, DeviceStatusType | undefined>),
+      );
+    })();
+  }, [getStatus, wallets]);
+
   /** every time change active wallet */
   useEffect(() => {
     if (!isOpen) return;
@@ -154,9 +204,15 @@ const AccountSelectorChildren: FC<{
       <LeftSide
         selectedWallet={activeWallet}
         setSelectedWallet={setSelectedWallet}
+        deviceStatus={deviceStatus}
       />
       <VStack flex={1} pb={bottom}>
-        <RightHeader selectedWallet={activeWallet} />
+        <RightHeader
+          selectedWallet={activeWallet}
+          deviceStatus={
+            deviceStatus?.[activeWallet?.associatedDevice ?? ''] ?? undefined
+          }
+        />
         <Box m={2}>
           <RightChainSelector
             activeWallet={activeWallet}
