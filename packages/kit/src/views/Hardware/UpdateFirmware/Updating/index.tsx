@@ -371,6 +371,9 @@ const UpdatingModal: FC = () => {
         if (progressState === 'running') {
           HardwareSDK.cancel(connectId);
         }
+        if (hasStepDone) {
+          onSuccess?.();
+        }
         if (navigation.canGoBack()) navigation.getParent()?.goBack();
       }}
       onSecondaryActionPress={() => {

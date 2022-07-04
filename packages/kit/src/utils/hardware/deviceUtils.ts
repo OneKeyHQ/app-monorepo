@@ -1,19 +1,14 @@
 import {
-  CoreApi,
   IDeviceType,
   SearchDevice,
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import BleManager from 'react-native-ble-manager';
-import semVer from 'semver';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import store from '../../store';
-import { setDeviceUpdates } from '../../store/reducers/settings';
 
 import {
   DeviceNotBonded,
@@ -31,8 +26,6 @@ import {
   UserCancel,
 } from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
-
-import type { BLEFirmwareInfo, SYSFirmwareInfo } from '../updates/type';
 
 /**
  * will delete packages/kit/src/utils/device
@@ -203,87 +196,6 @@ class DeviceUtils {
       default:
         return new UnknownHardwareError();
     }
-  }
-
-  _getAvailableUpgradeVersion<
-    T extends { version: number[]; required: boolean },
-  >(
-    currentVersion: string,
-    data: T[],
-  ): {
-    upgradeVersions: T[];
-    hasForce: boolean;
-  } {
-    const upgradeVersions = data.filter((firmware) =>
-      semVer.gt(firmware.version.join('.'), currentVersion),
-    );
-    const forceVersion = upgradeVersions.find((firmware) => firmware.required);
-    return { upgradeVersions, hasForce: !!forceVersion };
-  }
-
-  async _checkDeviceUpdate(sdk: CoreApi, connectId: string): Promise<boolean> {
-    const checkBleResult = await sdk.checkBLEFirmwareRelease(connectId);
-
-    let bleFirmware: BLEFirmwareInfo | undefined;
-    let firmware: SYSFirmwareInfo | undefined;
-
-    let hasBleUpgrade = false;
-    let hasSysUpgrade = false;
-
-    let hasFirmwareForce = false;
-    let hasBleForce = false;
-
-    if (checkBleResult.success) {
-      bleFirmware = checkBleResult.payload.release;
-      if (checkBleResult.payload.status !== 'valid') hasBleUpgrade = true;
-      if (checkBleResult.payload.status === 'required') {
-        hasBleForce = true;
-      }
-    }
-
-    const checkResult = await sdk.checkFirmwareRelease(connectId);
-
-    if (checkResult.success) {
-      firmware = checkResult.payload.release;
-      if (checkResult.payload.status !== 'valid') hasSysUpgrade = true;
-      if (checkResult.payload.status === 'required') {
-        hasFirmwareForce = true;
-      }
-    }
-
-    console.log('_checkDeviceUpdate ble', bleFirmware, firmware);
-
-    const { dispatch } = backgroundApiProxy;
-    dispatch(
-      setDeviceUpdates({
-        key: connectId,
-        value: {
-          forceFirmware: hasFirmwareForce,
-          forceBle: hasBleForce,
-          ble: hasBleUpgrade ? bleFirmware : undefined,
-          firmware: hasSysUpgrade ? firmware : undefined,
-        },
-      }),
-    );
-
-    // dev
-    const { enable, updateDeviceBle, updateDeviceSys } =
-      store.getState().settings.devMode || {};
-    if (enable) {
-      dispatch(
-        setDeviceUpdates({
-          key: connectId,
-          value: {
-            forceFirmware: hasFirmwareForce,
-            forceBle: hasBleForce,
-            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
-            firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
-          },
-        }),
-      );
-    }
-
-    return Promise.resolve(hasFirmwareForce || hasBleForce);
   }
 }
 

@@ -1,16 +1,26 @@
-import { IDeviceType, UiResponseEvent, getDeviceType } from '@onekeyfe/hd-core';
+import {
+  CoreApi,
+  IDeviceType,
+  UiResponseEvent,
+  getDeviceType,
+} from '@onekeyfe/hd-core';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { setHardwarePopup } from '@onekeyhq/kit/src/store/reducers/hardware';
+import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   ConnectTimeout,
   NeedOneKeyBridge,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
+import {
+  BLEFirmwareInfo,
+  SYSFirmwareInfo,
+} from '@onekeyhq/kit/src/utils/updates/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { setHardwarePopup } from '../../store/reducers/hardware';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
@@ -67,10 +77,19 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getFeatures(connectId: string) {
-    const HardwareSDK = await this.getSDKInstance();
-    const response = await HardwareSDK?.getFeatures(connectId);
+    const hardwareSDK = await this.getSDKInstance();
+    const response = await hardwareSDK?.getFeatures(connectId);
 
     if (response.success) {
+      const existsFocused = await this._checkDeviceUpdate(
+        hardwareSDK,
+        connectId,
+      );
+
+      if (existsFocused) {
+        return null;
+      }
+
       this.connectedDeviceType = getDeviceType(response.payload);
       return response.payload;
     }
@@ -140,8 +159,8 @@ class ServiceHardware extends ServiceBase {
       return Promise.resolve(true);
     }
 
-    const HardwareSDK = await this.getSDKInstance();
-    const transportRelease = await HardwareSDK?.checkTransportRelease();
+    const hardwareSDK = await this.getSDKInstance();
+    const transportRelease = await hardwareSDK?.checkTransportRelease();
 
     if (!transportRelease.success) {
       switch (transportRelease.payload.error) {
@@ -160,6 +179,86 @@ class ServiceHardware extends ServiceBase {
     return (
       platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension
     );
+  }
+
+  async _checkDeviceUpdate(sdk: CoreApi, connectId: string): Promise<boolean> {
+    const checkBleResult = await sdk.checkBLEFirmwareRelease(connectId);
+
+    let bleFirmware: BLEFirmwareInfo | undefined;
+    let firmware: SYSFirmwareInfo | undefined;
+
+    let hasBleUpgrade = false;
+    let hasSysUpgrade = false;
+
+    let hasFirmwareForce = false;
+    let hasBleForce = false;
+
+    if (checkBleResult.success) {
+      bleFirmware = checkBleResult.payload.release;
+      switch (checkBleResult.payload.status) {
+        case 'required':
+          hasBleForce = true;
+          break;
+        case 'valid':
+        case 'none':
+          hasBleUpgrade = false;
+          break;
+        default:
+          hasBleUpgrade = true;
+          break;
+      }
+    }
+
+    const checkResult = await sdk.checkFirmwareRelease(connectId);
+
+    if (checkResult.success) {
+      firmware = checkResult.payload.release;
+      switch (checkResult.payload.status) {
+        case 'required':
+          hasFirmwareForce = true;
+          break;
+        case 'valid':
+        case 'none':
+          hasSysUpgrade = false;
+          break;
+        default:
+          hasSysUpgrade = true;
+          break;
+      }
+    }
+
+    const { dispatch } = this.backgroundApi;
+    dispatch(
+      setDeviceUpdates({
+        key: connectId,
+        value: {
+          forceFirmware: hasFirmwareForce,
+          forceBle: hasBleForce,
+          ble: hasBleUpgrade ? bleFirmware : undefined,
+          firmware: hasSysUpgrade ? firmware : undefined,
+        },
+      }),
+    );
+
+    // dev
+    const settings: { devMode: any } =
+      this.backgroundApi.appSelector((s) => s.settings) || {};
+    const { enable, updateDeviceBle, updateDeviceSys } = settings.devMode || {};
+    if (enable) {
+      dispatch(
+        setDeviceUpdates({
+          key: connectId,
+          value: {
+            forceFirmware: hasFirmwareForce,
+            forceBle: hasBleForce,
+            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
+            firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
+          },
+        }),
+      );
+    }
+
+    return Promise.resolve(hasFirmwareForce || hasBleForce);
   }
 }
 
