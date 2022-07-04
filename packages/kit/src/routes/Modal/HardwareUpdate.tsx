@@ -16,12 +16,17 @@ export enum HardwareUpdateModalRoutes {
 }
 
 export type HardwareUpdateRoutesParams = {
-  [HardwareUpdateModalRoutes.HardwareUpdateInfoModel]: { walletId: string };
+  [HardwareUpdateModalRoutes.HardwareUpdateInfoModel]: {
+    walletId: string;
+    onSuccess?: () => void;
+  };
   [HardwareUpdateModalRoutes.HardwareUpdateWarningModal]: {
     device?: Device;
+    onSuccess?: () => void;
   };
   [HardwareUpdateModalRoutes.HardwareUpdatingModal]: {
     device?: Device;
+    onSuccess?: () => void;
   };
 };
 

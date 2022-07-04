@@ -16,7 +16,7 @@ export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType => {
 export const getDeviceSerialNo = (
   features: IOneKeyDeviceFeatures | undefined,
 ) => {
-  if (!features) return '';
+  if (!features) return '-';
   return features.onekey_serial ?? features.serial_no ?? '';
 };
 

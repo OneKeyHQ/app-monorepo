@@ -13,19 +13,18 @@ import {
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import { useSettings } from '../../../hooks/redux';
 import {
   getDeviceFirmwareVersion,
   getDeviceSerialNo,
-} from '../../../utils/hardware/OneKeyHardware';
+} from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
@@ -45,15 +44,11 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const { deviceUpdates } = useSettings() || {};
 
   const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
-
-  const serialNo = useMemo(
-    () => getDeviceSerialNo(deviceFeatures),
-    [deviceFeatures],
-  );
+  const [deviceConnectId, setDeviceConnectId] = useState<string>();
 
   const updates = useMemo(
-    () => deviceUpdates?.[serialNo],
-    [deviceUpdates, serialNo],
+    () => deviceUpdates?.[deviceConnectId ?? ''],
+    [deviceUpdates, deviceConnectId],
   );
 
   useEffect(() => {
@@ -61,7 +56,8 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
         const features = await serviceHardware.getFeatures(device?.mac ?? '');
-        setDeviceFeatures(features ?? null);
+        setDeviceConnectId(device?.mac);
+        setDeviceFeatures(features ?? undefined);
       } catch (err) {
         if (navigation.canGoBack()) {
           navigation.goBack();
@@ -98,6 +94,15 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                   screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
                   params: {
                     walletId,
+                    onSuccess: () => {
+                      console.log(
+                        '===: HardwareUpdateInfoModel update onSuccess',
+                      );
+
+                      if (navigation.canGoBack()) {
+                        navigation.goBack();
+                      }
+                    },
                   },
                 },
               });
@@ -116,7 +121,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           titleColor="text-default"
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'content__serial_number' })}
-          describe={serialNo ?? '-'}
+          describe={getDeviceSerialNo(deviceFeatures) ?? '-'}
         />
 
         <Container.Item

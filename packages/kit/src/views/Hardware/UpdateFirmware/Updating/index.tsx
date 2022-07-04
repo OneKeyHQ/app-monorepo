@@ -1,10 +1,12 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { Modal } from '@onekeyhq/components';
+import { Modal, ToastManager } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -23,9 +25,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { installFirmware, rebootToBootloader } from './handle';
 import RunningView from './RunningView';
-import StateView from './StateView';
-
-import type { StateViewType } from './StateView';
+import StateView, { StateViewTypeInfo } from './StateView';
 
 type ProgressStepType =
   | 'pre-check'
@@ -49,7 +49,7 @@ const UpdatingModal: FC = () => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { device } = useRoute<RouteProps>().params;
+  const { device, onSuccess } = useRoute<RouteProps>().params;
   const { deviceUpdates } = useSettings() || {};
 
   const [firmwareRelease, setFirmwareRelease] = useState<SYSFirmwareInfo>();
@@ -63,6 +63,9 @@ const UpdatingModal: FC = () => {
     () => progressState,
     [progressState],
   );
+
+  // Prevents screen locking
+  useKeepAwake();
 
   useEffect(() => {
     const uiEvent = (e: any) => {
@@ -83,6 +86,12 @@ const UpdatingModal: FC = () => {
   );
   const hasStepDone = useMemo(
     () => progressStep === 'done-step',
+    [progressStep],
+  );
+  const hasUpdating = useMemo(
+    () =>
+      progressStep === 'installing-firmware' ||
+      progressStep === 'installing-ble',
     [progressStep],
   );
 
@@ -121,7 +130,7 @@ const UpdatingModal: FC = () => {
         //     },
         //   );
         case 'reboot-bootloader':
-          return '进入Bootloader模式...';
+          return '进入 Bootloader 模式...';
         case 'installing-firmware':
           return intl.formatMessage(
             { id: 'content__installing_str' },
@@ -138,7 +147,21 @@ const UpdatingModal: FC = () => {
     [intl],
   );
 
-  const [stateViewType, setStateViewType] = useState<StateViewType>();
+  const [stateViewInfo, setStateViewInfo] = useState<StateViewTypeInfo>();
+
+  const handleInstallError = (currentStep: ProgressStepType, error: Error) => {
+    console.log('install error:', currentStep, error);
+
+    if (error instanceof NotInBootLoaderMode) {
+      setSuspendStep(progressStep);
+      setProgressStep('reboot-bootloader');
+      setProgressState('ready');
+      return;
+    }
+
+    setStateViewInfo({ type: 'install-failure' });
+    setProgressState('failure');
+  };
 
   const nextStep = (): boolean => {
     if (suspendStep) {
@@ -190,27 +213,27 @@ const UpdatingModal: FC = () => {
           .then((response) => {
             if (response.success) {
               const devices = response.payload;
-              const [searchDevice] = devices;
+              // const [searchDevice] = devices;
               if (devices.length === 0) {
-                setStateViewType('device-not-found');
+                setStateViewInfo({ type: 'device-not-found' });
                 setProgressState('failure');
               } else if (devices.length > 1) {
-                setStateViewType('device-not-only-ones');
+                setStateViewInfo({ type: 'device-not-only-ones' });
                 setProgressState('failure');
-              } else if (searchDevice.connectId !== connectId) {
-                setStateViewType('device-mismatch');
-                setProgressState('failure');
+                // The bootloader mode cannot be upgraded
+                // } else if (searchDevice.connectId !== connectId) {
+                //   setStateViewType('device-mismatch');
+                //   setProgressState('failure');
               } else {
                 setProgressState('done');
               }
               return;
             }
-
-            setStateViewType('pre-check-failure');
+            setStateViewInfo({ type: 'pre-check-failure' });
             setProgressState('failure');
           })
           .catch(() => {
-            setStateViewType('pre-check-failure');
+            setStateViewInfo({ type: 'pre-check-failure' });
             setProgressState('failure');
           });
         break;
@@ -220,7 +243,17 @@ const UpdatingModal: FC = () => {
           .then(() => {
             setProgressState('done');
           })
-          .catch(() => {
+          .catch((e) => {
+            if (e instanceof OneKeyHardwareError) {
+              ToastManager.show(
+                {
+                  title: intl.formatMessage({ id: e.key }),
+                },
+                { type: 'error' },
+              );
+            }
+
+            setStateViewInfo({ type: 'reboot-bootloader-failure' });
             setProgressState('failure');
           });
         break;
@@ -240,16 +273,7 @@ const UpdatingModal: FC = () => {
             setProgressState('done');
           })
           .catch((e) => {
-            console.log('installFirmware error:', e);
-
-            if (e instanceof NotInBootLoaderMode) {
-              setSuspendStep(progressStep);
-              setProgressStep('reboot-bootloader');
-              setProgressState('ready');
-              return;
-            }
-
-            setProgressState('failure');
+            handleInstallError(progressStep, e);
           });
         break;
 
@@ -268,23 +292,14 @@ const UpdatingModal: FC = () => {
             setProgressState('done');
           })
           .catch((e) => {
-            console.log('installFirmware error:', e);
-
-            if (e instanceof NotInBootLoaderMode) {
-              setSuspendStep(progressStep);
-              setProgressStep('reboot-bootloader');
-              setProgressState('ready');
-              return;
-            }
-
-            setProgressState('failure');
+            handleInstallError(progressStep, e);
           });
         break;
 
       case 'done-step':
         setProgress(100);
         setProgressState('done');
-        setStateViewType('success');
+        setStateViewInfo({ type: 'success' });
         break;
 
       default:
@@ -312,9 +327,6 @@ const UpdatingModal: FC = () => {
         }
         break;
       case 'failure':
-        if (progressStep === 'reboot-bootloader') {
-          setStateViewType('reboot-bootloader-failure');
-        }
         break;
       default:
         break;
@@ -354,19 +366,27 @@ const UpdatingModal: FC = () => {
       primaryActionTranslationId={
         hasStepDone ? 'action__done' : 'action__retry'
       }
+      headerShown={!hasUpdating}
+      closeAction={() => {
+        if (progressState === 'running') {
+          HardwareSDK.cancel(connectId);
+        }
+        if (navigation.canGoBack()) navigation.getParent()?.goBack();
+      }}
       onSecondaryActionPress={() => {
         navigation.goBack();
       }}
       onPrimaryActionPress={() => {
         if (hasStepDone) {
-          navigation.goBack();
+          if (navigation.canGoBack()) navigation.getParent()?.goBack();
+          onSuccess?.();
         } else {
           retryStep();
         }
       }}
     >
       {hasStepDone || hasFailure ? (
-        <StateView stateViewType={stateViewType} />
+        <StateView stateInfo={stateViewInfo} />
       ) : (
         <RunningView progress={progress} hint={progressStepDesc} />
       )}

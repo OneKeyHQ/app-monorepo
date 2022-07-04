@@ -33,7 +33,7 @@ const UpdateInfoModal: FC = () => {
   const intl = useIntl();
   const local = useLocale();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { walletId } = useRoute<RouteProps>().params;
+  const { walletId, onSuccess } = useRoute<RouteProps>().params;
 
   const { engine } = backgroundApiProxy;
   const { deviceUpdates } = useSettings() || {};
@@ -54,9 +54,6 @@ const UpdateInfoModal: FC = () => {
       setDevice(deviceByWalletId);
 
       const { ble, firmware } = deviceUpdates[deviceByWalletId.mac] || {};
-
-      console.log('ble', ble);
-      console.log('firmware', firmware);
 
       if (ble) {
         setBleFirmware(ble);
@@ -86,6 +83,7 @@ const UpdateInfoModal: FC = () => {
           HardwareUpdateModalRoutes.HardwareUpdateWarningModal,
           {
             device,
+            onSuccess,
           },
         );
       }}

@@ -20,7 +20,7 @@ type RouteProps = RouteProp<
 const UpdateWarningModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const intl = useIntl();
-  const { device } = useRoute<RouteProps>().params;
+  const { device, onSuccess } = useRoute<RouteProps>().params;
 
   return (
     <Modal
@@ -31,6 +31,7 @@ const UpdateWarningModal: FC = () => {
         navigation.popToTop();
         navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
           device,
+          onSuccess,
         });
       }}
     >

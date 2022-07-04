@@ -9,6 +9,7 @@ import type { ImageSourcePropType } from 'react-native';
 export type StateViewType =
   | 'pre-check-failure'
   | 'download-failure'
+  | 'install-failure'
   | 'device-not-found'
   | 'device-mismatch'
   | 'device-not-only-ones'
@@ -17,60 +18,83 @@ export type StateViewType =
   | 'reboot-bootloader-failure'
   | 'success';
 
-type StateContentProps = {
+type StateContent = {
   emoji?: string;
   sourceSrc?: ImageSourcePropType;
-  title: string;
+  title?: string;
   description?: string;
   help?: string;
 };
 
-export type StateViewProps = {
-  stateViewType?: StateViewType;
+export type StateViewTypeInfo = {
+  type: StateViewType;
+  content?: StateContent;
 };
 
-const StateView: FC<StateViewProps> = ({ stateViewType }) => {
+export type StateViewProps = {
+  stateInfo?: StateViewTypeInfo;
+};
+
+const StateView: FC<StateViewProps> = ({ stateInfo }) => {
   const intl = useIntl();
 
-  const { sourceSrc, emoji, title, description, help }: StateContentProps =
+  const { sourceSrc, emoji, title, description, help }: StateContent =
     useMemo(() => {
-      switch (stateViewType) {
+      let stateContent: StateContent;
+      switch (stateInfo?.type) {
         case 'pre-check-failure':
-          return {
+          stateContent = {
             emoji: '😞',
             title: '环境检查失败',
             description: '环境检查失败，可以尝试重试',
           };
+          break;
+
         case 'download-failure':
-          return {
+          stateContent = {
             emoji: '😞',
             title: intl.formatMessage({ id: 'modal__download_failed' }),
             description: intl.formatMessage({
               id: 'modal__download_failed_desc',
             }),
           };
+          break;
+
+        case 'install-failure':
+          stateContent = {
+            emoji: '😞',
+            title: '固件安装失败',
+            description: '固件安装失败，可以尝试重试',
+          };
+          break;
+
         case 'device-not-found':
-          return {
+          stateContent = {
             emoji: '😞',
             title: '没有发现设备',
             description:
               '请检查设备是否连接, 以及设备保持正常开机，不在 Bootloader 模式下。',
           };
+          break;
+
         case 'device-mismatch':
-          return {
+          stateContent = {
             emoji: '😞',
             title: '连接的设备有误',
             description: '请检查连接的设备是否正确',
           };
+          break;
+
         case 'device-not-only-ones':
-          return {
+          stateContent = {
             emoji: '😞',
             title: '你只能连接一个设备',
             description: '为了保障升级成功，请确保只有一个设备在连接',
           };
+          break;
 
         case 'device-connection-failure':
-          return {
+          stateContent = {
             emoji: '🔗',
             title: intl.formatMessage({
               id: 'modal__disconnected_during_installation',
@@ -79,14 +103,18 @@ const StateView: FC<StateViewProps> = ({ stateViewType }) => {
               id: 'modal__disconnected_during_installation_desc',
             }),
           };
+          break;
+
         case 'reboot-bootloader-failure':
-          return {
+          stateContent = {
             emoji: '🔗',
             title: 'Reboot bootloader failed',
             description: 'Please check the device and try again.',
           };
+          break;
+
         case 'device-not-response':
-          return {
+          stateContent = {
             emoji: '⌛',
             title: intl.formatMessage({
               id: 'modal__no_response',
@@ -95,22 +123,30 @@ const StateView: FC<StateViewProps> = ({ stateViewType }) => {
               id: 'modal__no_response_desc',
             }),
           };
+          break;
+
         case 'success':
-          return {
+          stateContent = {
             emoji: '🚀',
             title: intl.formatMessage({
               id: 'modal__firmware_updated',
             }),
           };
+          break;
         default:
-          return {
+          stateContent = {
             emoji: '💀',
             title: intl.formatMessage({
               id: 'msg__unknown_error',
             }),
           };
+          break;
       }
-    }, [intl, stateViewType]);
+
+      return { ...stateContent, ...stateInfo?.content };
+    }, [intl, stateInfo]);
+
+  console.log('====:StateView', stateInfo);
 
   return (
     <Box

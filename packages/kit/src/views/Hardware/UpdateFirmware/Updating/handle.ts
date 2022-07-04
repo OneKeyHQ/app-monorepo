@@ -12,7 +12,7 @@ export type FirmwareType = 'firmware' | 'ble';
 export const rebootToBootloader = (connectId: string) =>
   HardwareSDK.deviceUpdateReboot(connectId).then((response) => {
     if (!response.success) {
-      throw new Error('deviceUpdateReboot failed');
+      throw deviceUtils.convertDeviceError(response.payload);
     }
     return response;
   });
