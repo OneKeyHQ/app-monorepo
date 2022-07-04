@@ -276,7 +276,7 @@ export default class Vault extends VaultBase {
       encodedTx,
     )) as nearApiJs.transactions.Transaction;
     const decodedTx: IDecodedTx = {
-      txid: baseEncode(nativeTx.blockHash),
+      txid: '',
       owner: await this.getAccountAddress(),
       signer: nativeTx.signerId,
       nonce: parseFloat(nativeTx.nonce.toString()),
