@@ -13,7 +13,6 @@ import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '../../../routes/Modal/HardwareOnekey';
-import { deviceUtils } from '../../../utils/hardware';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
@@ -29,7 +28,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceHardware } = backgroundApiProxy;
   const [deviceFeatures, setDeviceFeatures] =
     useState<IOneKeyDeviceFeatures | null>(null);
 
@@ -37,7 +36,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
-        const features = await deviceUtils.getFeatures(device?.mac ?? '');
+        const features = await serviceHardware.getFeatures(device?.mac ?? '');
         setDeviceFeatures(features ?? null);
       } catch (err) {
         if (navigation.canGoBack()) {
@@ -56,7 +55,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         }
       }
     })();
-  }, [engine, intl, navigation, walletId]);
+  }, [engine, intl, navigation, serviceHardware, walletId]);
 
   return (
     <Box

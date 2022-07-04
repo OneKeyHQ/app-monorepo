@@ -75,7 +75,7 @@ type ExistHwWallet = Wallet & {
 
 const ConnectHardwareModal: FC = () => {
   const intl = useIntl();
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const [isSearching, setIsSearching] = useState(false);
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
@@ -137,7 +137,7 @@ const ConnectHardwareModal: FC = () => {
     if (!deviceUtils) return;
     setIsSearching(true);
 
-    const checkBridge = await deviceUtils.checkBridge();
+    const checkBridge = await serviceHardware.checkBridge();
     if (!checkBridge) {
       DialogManager.show({ render: <NeedBridgeDialog /> });
       return;
@@ -158,7 +158,7 @@ const ConnectHardwareModal: FC = () => {
 
       setSearchedDevices(response.payload);
     });
-  }, [intl]);
+  }, [intl, serviceHardware]);
 
   useEffect(() => {
     if (platformEnv.isRuntimeBrowser) handleScanDevice();
@@ -197,7 +197,7 @@ const ConnectHardwareModal: FC = () => {
           },
         });
       };
-      deviceUtils
+      serviceHardware
         .connect(device.connectId)
         .then((result) => {
           finishConnected(result);
@@ -211,7 +211,7 @@ const ConnectHardwareModal: FC = () => {
               );
               if (bonded) {
                 setCheckBonded(false);
-                deviceUtils.connect(device.connectId ?? '').then((r) => {
+                serviceHardware.connect(device.connectId ?? '').then((r) => {
                   setTimeout(() => finishConnected(r), 1000);
                 });
               }
@@ -229,7 +229,7 @@ const ConnectHardwareModal: FC = () => {
           }
         });
     },
-    [navigation, intl, checkBonded],
+    [serviceHardware, navigation, intl, checkBonded],
   );
 
   const renderDevices = useCallback(() => {

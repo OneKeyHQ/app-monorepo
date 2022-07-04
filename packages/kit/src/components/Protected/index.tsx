@@ -14,7 +14,7 @@ import {
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { deviceUtils, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
+import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { NeedOneKeyBridge } from '../../utils/hardware/errors';
@@ -46,7 +46,7 @@ const Protected: FC<ProtectedProps> = ({
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
   const intl = useIntl();
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceHardware } = backgroundApiProxy;
   const [deviceCheckSuccess, setDeviceCheckSuccess] = useState(false);
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
@@ -105,7 +105,9 @@ const Protected: FC<ProtectedProps> = ({
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        features = await deviceUtils.ensureConnected(currentWalletDevice.mac);
+        features = await serviceHardware.ensureConnected(
+          currentWalletDevice.mac,
+        );
       } catch (e) {
         safeGoBack();
 
@@ -162,7 +164,7 @@ const Protected: FC<ProtectedProps> = ({
       setDeviceCheckSuccess(true);
     }
     loadDevices();
-  }, [isHardware, engine, walletDetail?.id, intl, safeGoBack]);
+  }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
 
   if (password) {
     return (
