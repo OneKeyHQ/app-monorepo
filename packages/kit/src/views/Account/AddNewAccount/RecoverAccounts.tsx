@@ -3,6 +3,7 @@ import React, {
   FC,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -110,7 +111,7 @@ const RecoverAccounts: FC = () => {
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
 
   const [isVaild, setIsVaild] = useState(false);
-  const [isFetchListData, setIsFetchListData] = useState(false);
+  const isFetchingData = useRef(false);
 
   const getActiveAccount = useCallback(async () => {
     let activeAccounts: Account[] = [];
@@ -125,7 +126,7 @@ const RecoverAccounts: FC = () => {
 
   const getData = useCallback(
     async (page: number, pageSize: number) => {
-      setIsFetchListData(true);
+      isFetchingData.current = true;
       const activeAccounts = await getActiveAccount();
       const limit = pageSize;
       const start = page * limit;
@@ -138,7 +139,7 @@ const RecoverAccounts: FC = () => {
           // For BIP-44 compliance, if number of accounts is less than that we
           // required, stop searching for more accounts.
           setSearchEnded(accounts.length < limit);
-          setIsFetchListData(false);
+          isFetchingData.current = false;
           updateFlatListData((prev) => [
             ...prev,
             ...accounts.map((item) => {
@@ -149,7 +150,7 @@ const RecoverAccounts: FC = () => {
           ]);
         })
         .catch((e) => {
-          setIsFetchListData(false);
+          isFetchingData.current = false;
           ToastManager.show({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             title: intl.formatMessage({ id: e?.message ?? '' }),
@@ -269,7 +270,7 @@ const RecoverAccounts: FC = () => {
                 /**
                  * Prevent duplicate loading to cause hardware error
                  */
-                if (isFetchListData) return;
+                if (isFetchingData.current) return;
                 setCurrentPage((p) => p + 1);
               },
             }
