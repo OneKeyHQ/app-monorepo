@@ -48,7 +48,7 @@ export const HDAccountAuthentication: FC = () => {
     navigation.setOptions({ gestureEnabled: false });
   }, []);
   return (
-    <Modal footer={null} headerShown={false}>
+    <Modal footer={null}>
       <Protected walletId={walletId} field={ValidationFields.Account}>
         {(password) => (
           <HDAccountAuthenticationDone

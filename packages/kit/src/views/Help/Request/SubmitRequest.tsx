@@ -32,7 +32,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SkipAppLock } from '../../../components/AppLock';
 import { useSettings } from '../../../hooks/redux';
-import { navigationGoBack } from '../../../hooks/useAppNavigation';
+import { useNavigationBack } from '../../../hooks/useAppNavigation';
 
 import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
 import { ImageModel, TicketType } from './types';
@@ -150,6 +150,7 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
 let selectOption = defaultOption();
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
+  const goBack = useNavigationBack();
   const [isHardware, setIsHardware] = useState(false);
   const { width } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
@@ -361,7 +362,7 @@ export const SubmitRequest: FC = () => {
             const data = response.data.data as TicketType;
             setTimeout(
               () => {
-                navigationGoBack();
+                goBack();
               },
               platformEnv.isExtension ? 1500 : 0,
             );
@@ -374,7 +375,7 @@ export const SubmitRequest: FC = () => {
           console.log(error);
         });
     },
-    [imageArr, instanceId, intl, isHardware, toast],
+    [imageArr, instanceId, intl, isHardware, toast, goBack],
   );
   const optionLab = (
     <Typography.Body2Strong mb="4px" color="text-subdued">
