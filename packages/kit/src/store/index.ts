@@ -35,6 +35,7 @@ import dataReducer from './reducers/data';
 import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
+import hardwareReducer from './reducers/hardware';
 import refresherReducer from './reducers/refresher';
 import runtimeReducer from './reducers/runtime';
 import settingsReducer from './reducers/settings';
@@ -58,6 +59,7 @@ const allReducers = combineReducers({
   tokens: tokensReducer,
   contacts: contactsReducer,
   refresher: refresherReducer,
+  hardware: hardwareReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

@@ -23,7 +23,6 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import NeedBridgeDialog from '../../../components/NeedBridgeDialog';
@@ -40,7 +39,7 @@ const DeviceStatusCheckModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
-  const { serviceAccount } = backgroundApiProxy;
+  const { serviceAccount, serviceHardware } = backgroundApiProxy;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const safeGoBack = useCallback(() => {
@@ -69,9 +68,9 @@ const DeviceStatusCheckModal: FC = () => {
     async function main() {
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        // 10s timeout for device connection
+        // 30s timeout for device connection
         const result = await Promise.race([
-          deviceUtils.getFeatures(device.connectId ?? ''),
+          serviceHardware.getFeatures(device.connectId ?? ''),
           new Promise((_, reject) => setTimeout(reject, 30 * 1000)),
         ]);
         features = result as IOneKeyDeviceFeatures;

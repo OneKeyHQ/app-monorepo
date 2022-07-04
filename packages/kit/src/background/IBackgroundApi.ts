@@ -11,6 +11,7 @@ import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
@@ -29,7 +30,6 @@ import type {
 export interface IBackgroundApiBridge {
   bridge: JsBridgeBase | null;
   connectBridge(bridge: JsBridgeBase): void;
-  initBackgroundSDK(): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   store: IStore;
@@ -58,6 +58,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceOnboarding: ServiceOnboarding;
   serviceToken: ServiceToken;
   serviceHistory: ServiceHistory;
+  serviceHardware: ServiceHardware;
 }
 
 export type IDappSourceInfo = {

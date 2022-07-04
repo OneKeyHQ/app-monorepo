@@ -1,16 +1,11 @@
 import React, { FC, useEffect, useState } from 'react';
 
-import { CoreApi } from '@onekeyfe/hd-core';
 import useSWR from 'swr';
 
 import { Box, Center, Spinner, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
-import {
-  UIResponse,
-  getHardwareSDKInstance,
-} from '@onekeyhq/kit/src/utils/hardware';
 
 import { useAppSelector } from '../hooks';
 import { fetchCurrencies } from '../views/FiatPay/Service';
@@ -59,17 +54,6 @@ const AppLoading: FC = ({ children }) => {
       await initService();
     }
     main();
-  }, []);
-
-  useEffect(() => {
-    let HardwareSDK: CoreApi;
-    getHardwareSDKInstance().then((instance) => {
-      HardwareSDK = instance;
-      HardwareSDK.on('UI_EVENT', UIResponse);
-    });
-    return () => {
-      HardwareSDK.off('UI_EVENT', UIResponse);
-    };
   }, []);
 
   const bg = useThemeValue('background-default');

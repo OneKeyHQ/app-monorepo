@@ -3,16 +3,14 @@ import {
   SearchDevice,
   Success,
   Unsuccessful,
-  getDeviceType,
 } from '@onekeyfe/hd-core';
 import BleManager from 'react-native-ble-manager';
 
+import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import {
-  ConnectTimeout,
   DeviceNotBonded,
   DeviceNotFind,
   FirmwareVersionTooLow,
@@ -21,7 +19,6 @@ import {
   InvalidPIN,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
-  NeedOneKeyBridge,
   OpenBlindSign,
   UnknownHardwareError,
   UnknownMethod,
@@ -37,7 +34,6 @@ import { getHardwareSDKInstance } from './hardwareInstance';
 type IPollFn<T> = (time?: number) => T;
 
 const MAX_SEARCH_TRY_COUNT = 15;
-const MAX_CONNECT_TRY_COUNT = 5;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
 
@@ -69,8 +65,8 @@ class DeviceUtils {
     callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
   ) {
     const searchDevices = async () => {
-      const HardwareSDK = await this.getSDKInstance();
-      const searchResponse = await HardwareSDK?.searchDevices();
+      const searchResponse =
+        await backgroundApiProxy.serviceHardware?.searchDevices();
       callback(searchResponse);
 
       this.tryCount += 1;
@@ -105,74 +101,6 @@ class DeviceUtils {
   stopScan() {
     this.scanning = false;
     this.tryCount = 0;
-  }
-
-  async connect(connectId: string) {
-    try {
-      const result = await this.getFeatures(connectId);
-      return result !== null;
-    } catch (e) {
-      if (e instanceof OneKeyHardwareError && !e.reconnect) {
-        return Promise.reject(e);
-      }
-    }
-  }
-
-  async getFeatures(connectId: string) {
-    const HardwareSDK = await this.getSDKInstance();
-    const response = await HardwareSDK?.getFeatures(connectId);
-
-    if (response.success) {
-      this.connectedDeviceType = getDeviceType(response.payload);
-      return response.payload;
-    }
-
-    const deviceError = this.convertDeviceError(response.payload);
-
-    return Promise.reject(deviceError);
-  }
-
-  async ensureConnected(connectId: string) {
-    let tryCount = 0;
-    let connected = false;
-    const poll: IPollFn<Promise<IOneKeyDeviceFeatures>> = async (
-      time = POLL_INTERVAL,
-    ) => {
-      if (connected) {
-        return Promise.resolve({} as IOneKeyDeviceFeatures);
-      }
-      tryCount += 1;
-      try {
-        const feature = await this.getFeatures(connectId);
-        if (feature) {
-          connected = true;
-          return await Promise.resolve(feature);
-        }
-      } catch (e) {
-        if (e instanceof OneKeyHardwareError && !e.reconnect) {
-          return Promise.reject(e);
-        }
-
-        if (tryCount > MAX_CONNECT_TRY_COUNT) {
-          return Promise.reject(e);
-        }
-      }
-
-      if (tryCount > MAX_CONNECT_TRY_COUNT) {
-        return Promise.reject(new ConnectTimeout());
-      }
-      return new Promise(
-        (resolve: (p: Promise<IOneKeyDeviceFeatures>) => void) =>
-          setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
-      );
-    };
-
-    const checkBridge = await this.checkBridge();
-    if (!checkBridge) {
-      return Promise.reject(new NeedOneKeyBridge());
-    }
-
-    return poll();
   }
 
   async checkDeviceBonded(connectId: string) {
@@ -213,33 +141,6 @@ class DeviceUtils {
 
   stopCheckBonded() {
     this.checkBonded = false;
-  }
-
-  async checkBridge() {
-    if (!this._hasUseBridge()) {
-      return Promise.resolve(true);
-    }
-
-    const HardwareSDK = await this.getSDKInstance();
-    const transportRelease = await HardwareSDK?.checkTransportRelease();
-
-    if (!transportRelease.success) {
-      switch (transportRelease.payload.error) {
-        case 'Init_IframeTimeout':
-        case 'Init_IframeLoadFail':
-          return Promise.resolve(true);
-        default:
-          return Promise.resolve(false);
-      }
-    }
-
-    return Promise.resolve(true);
-  }
-
-  _hasUseBridge() {
-    return (
-      platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension
-    );
   }
 
   convertDeviceError(payload: any): OneKeyHardwareError {
