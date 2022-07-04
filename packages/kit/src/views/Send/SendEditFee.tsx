@@ -19,6 +19,7 @@ import {
   Typography,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import {
   OneKeyError,
@@ -26,6 +27,7 @@ import {
   OneKeyValidatorError,
 } from '@onekeyhq/engine/src/errors';
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IFeeInfo,
@@ -610,10 +612,12 @@ function EditFeeTabs({ onChange, type }: IEditFeeTabsProps) {
 function ScreenSendEditFee({ ...rest }) {
   const { trigger } = rest;
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   // autoConfirmAfterFeeSaved=true   speedUp & cancel
   const { encodedTx, autoConfirmAfterFeeSaved } = route.params;
+  const { network, networkId, accountId } = useActiveWalletAccount();
 
   useDisableNavigationAnimation({
     condition: !!autoConfirmAfterFeeSaved,
@@ -650,7 +654,7 @@ function ScreenSendEditFee({ ...rest }) {
     reValidateMode: 'onBlur',
   });
   const { handleSubmit, setValue, trigger: formTrigger } = useFormReturn;
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = handleSubmit(async (data) => {
     let type: IFeeInfoSelectedType =
       feeType === FeeType.advanced ? 'custom' : 'preset';
     // const values = getValues();
@@ -690,13 +694,36 @@ function ScreenSendEditFee({ ...rest }) {
       return navigation.replace(SendRoutes.SendConfirm, sendConfirmParams);
     }
 
+    const params = { feeInfoSelected, autoConfirmAfterFeeSaved };
+    if (network?.settings?.isUTXOModel) {
+      try {
+        Object.assign(params, {
+          encodedTx: await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
+            networkId,
+            accountId,
+            encodedTx: encodedTx as IEncodedTxBtc,
+            feeInfoValue: feeInfoSelected.custom,
+          }),
+        });
+      } catch (e: any) {
+        console.error(e);
+        const { key: errorKey = '' } = e;
+        if (errorKey === 'form__amount_invalid') {
+          toast.show({
+            title: intl.formatMessage(
+              { id: 'form__amount_invalid' },
+              { 0: '' },
+            ),
+          });
+        }
+        return;
+      }
+    }
+
     return navigation.navigate({
       merge: true,
       name: prevRouteName || SendRoutes.SendConfirm,
-      params: {
-        feeInfoSelected,
-        autoConfirmAfterFeeSaved,
-      },
+      params,
     });
   });
 

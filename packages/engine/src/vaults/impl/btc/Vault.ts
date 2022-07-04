@@ -16,7 +16,11 @@ import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import {
+  InsufficientBalance,
+  NotImplemented,
+  OneKeyInternalError,
+} from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
@@ -260,8 +264,7 @@ export default class Vault extends VaultBase {
       parseInt(feeRate),
     );
     if (!inputs || !outputs) {
-      // TODO: balance not enough.
-      throw new OneKeyInternalError('Failed to select UTXOs');
+      throw new InsufficientBalance('Failed to select UTXOs');
     }
     const totalFee = fee.toString();
     const totalFeeInNative = new BigNumber(totalFee)

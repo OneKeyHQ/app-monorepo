@@ -14,6 +14,7 @@ import {
   Text,
   Typography,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -84,6 +85,7 @@ export function PreSendAmountPreview({
 
 function PreSendAmount() {
   const intl = useIntl();
+  const toast = useToast();
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
   const [isLoading, setIsLoading] = useState(false);
@@ -207,6 +209,17 @@ function PreSendAmount() {
               isMax: false,
             },
           });
+        } catch (e: any) {
+          console.error(e);
+          const { key: errorKey = '' } = e;
+          if (errorKey === 'form__amount_invalid') {
+            toast.show({
+              title: intl.formatMessage(
+                { id: 'form__amount_invalid' },
+                { 0: tokenInfo?.symbol ?? '' },
+              ),
+            });
+          }
         } finally {
           setIsLoading(false);
         }
