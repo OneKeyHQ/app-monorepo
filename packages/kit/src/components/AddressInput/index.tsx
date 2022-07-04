@@ -74,6 +74,10 @@ const AddressInput: FC<AddressInputProps> = ({
       },
     });
   }, [navigation, onChangeValue, networkId, onChangeAddressName]);
+
+  const onBlur = useCallback(() => {
+    setFocus(false);
+  }, []);
   return (
     <Box
       w="full"
@@ -92,8 +96,8 @@ const AddressInput: FC<AddressInputProps> = ({
         onFocus={() => {
           setFocus(true);
         }}
-        onBlur={() => setFocus(false)}
         {...rest}
+        onBlur={onBlur}
       />
 
       <Divider />

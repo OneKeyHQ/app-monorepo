@@ -29,9 +29,9 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/engine/src/types/token';
+import historyPNG from '@onekeyhq/kit/assets/3d_transaction_history.png';
+import boxPNG from '@onekeyhq/kit/assets/box.png';
 
-import historyPNG from '../../../../assets/3d_transaction_history.png';
-import boxPNG from '../../../../assets/box.png';
 import { setHaptics } from '../../../hooks';
 import { useActiveWalletAccount, useRuntime } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
@@ -177,7 +177,7 @@ const HistoryItem: FC<HistoryItemProps> = ({
         },
       },
     });
-  }, [navigation, tx]);
+  }, [navigation, tx.accountId, tx.networkId, tx.hash]);
   const formatTokenAmount = useCallback(
     ({ token, amount }: { token?: Token; amount?: string }) => {
       if (!token || !amount) return '-';
