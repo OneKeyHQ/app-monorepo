@@ -128,6 +128,11 @@ export class InvalidTransferValue extends OneKeyError {
   override key = 'msg__engine__incorrect_transfer_value';
 }
 
+export class InsufficientBalance extends OneKeyError {
+  // For situations that utxo selection failed.
+  override key = 'form__amount_invalid';
+}
+
 export class WalletNameLengthError extends StringLengthRequirement {
   override key = 'msg__engine__wallet_name_length_error';
 }

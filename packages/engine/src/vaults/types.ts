@@ -32,6 +32,8 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
 
   minTransferAmount?: string;
+
+  isUTXOModel: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
