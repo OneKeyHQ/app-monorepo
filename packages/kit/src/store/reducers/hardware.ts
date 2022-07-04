@@ -27,14 +27,11 @@ export const hardwareSlice = createSlice({
     setHardwarePopup(state, action: PayloadAction<HardwarePopup>) {
       state.hardwarePopup = action.payload;
     },
-    changePopupVisible(
-      state,
-      action: PayloadAction<{ key: string; visible: boolean }>,
-    ) {
-      if (state.hardwarePopup.uiRequest === action.payload.key) {
+    visibleHardwarePopup(state, action: PayloadAction<string>) {
+      if (state.hardwarePopup.uiRequest === action.payload) {
         state.hardwarePopup = {
           ...state.hardwarePopup,
-          visible: action.payload.visible,
+          visible: true,
         };
       }
     },
@@ -47,7 +44,7 @@ export const hardwareSlice = createSlice({
 export const {
   setHardwarePopup,
   cancelHardwarePopup,
-  changePopupVisible,
+  visibleHardwarePopup,
   closeHardwarePopup,
 } = hardwareSlice.actions;
 

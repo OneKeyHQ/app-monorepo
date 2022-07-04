@@ -11,8 +11,8 @@ import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import {
   cancelHardwarePopup,
-  changePopupVisible,
   closeHardwarePopup,
+  visibleHardwarePopup,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -47,7 +47,7 @@ const PopupHandle: FC = () => {
 
     if (uiRequest === UI_REQUEST.REQUEST_PIN) {
       if (visible) return;
-      dispatch(changePopupVisible({ key: uiRequest, visible: true }));
+      dispatch(visibleHardwarePopup(uiRequest));
       setCurrentPopupType(uiRequest);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -89,7 +89,7 @@ const PopupHandle: FC = () => {
 
     if (uiRequest === UI_REQUEST.REQUEST_BUTTON) {
       if (visible) return;
-      dispatch(changePopupVisible({ key: uiRequest, visible: true }));
+      dispatch(visibleHardwarePopup(uiRequest));
       setCurrentPopupType(uiRequest);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -97,16 +97,18 @@ const PopupHandle: FC = () => {
       const { deviceType } = device || {};
 
       DialogManager.hide();
-      DialogManager.show({
-        render: (
-          <RequestConfirmView
-            deviceType={deviceType}
-            onCancel={() => {
-              dispatch(cancelHardwarePopup());
-            }}
-          />
-        ),
-      });
+      setTimeout(() => {
+        DialogManager.show({
+          render: (
+            <RequestConfirmView
+              deviceType={deviceType}
+              onCancel={() => {
+                dispatch(cancelHardwarePopup());
+              }}
+            />
+          ),
+        });
+      }, 0);
     }
 
     if (uiRequest === UI_REQUEST.CLOSE_UI_WINDOW) {
@@ -141,7 +143,7 @@ const PopupHandle: FC = () => {
     ) {
       (async () => {
         if (visible) return;
-        dispatch(changePopupVisible({ key: uiRequest, visible: true }));
+        dispatch(visibleHardwarePopup(uiRequest));
 
         const check = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
