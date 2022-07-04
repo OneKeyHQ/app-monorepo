@@ -15,7 +15,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../hooks';
-import { useActiveWalletAccount, useGetNetwork } from '../../hooks/redux';
+import { useActiveWalletAccount, useNetwork } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -43,7 +43,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const [inputDisabled, setInputDisabled] = useState(false);
   const { account: activeAccount, network: defaultNetwork } =
     useActiveWalletAccount();
-  const activeNetwork = useGetNetwork(networkId ?? null) ?? defaultNetwork;
+  const activeNetwork = useNetwork(networkId ?? null) ?? defaultNetwork;
   const { accountTokensMap } = useManageTokens();
   const isSmallScreen = useIsVerticalLayout();
 
@@ -91,6 +91,10 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
               id: 'msg__token_added',
               defaultMessage: 'Token Added',
             }),
+          });
+          backgroundApiProxy.serviceToken.fetchTokenBalance({
+            activeAccountId: activeAccount.id,
+            activeNetworkId: activeNetwork.id,
           });
           if (navigation.canGoBack()) {
             navigation.goBack();
@@ -185,12 +189,6 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                 id: 'form__field_is_required',
               }),
               validate: (value) => {
-                // TODO validator.validateTokenAddress
-                // if (value.length !== 42) {
-                //   return intl.formatMessage({
-                //     id: 'msg__wrong_address_format',
-                //   });
-                // }
                 if (accountTokensMap.has(value.toLowerCase())) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',

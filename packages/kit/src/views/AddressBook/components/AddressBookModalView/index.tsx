@@ -143,11 +143,11 @@ const ModalView: FC<ModalViewProps> = ({
                   },
                   validate: (value) => {
                     const text = value?.toLowerCase();
-                    const defaultValue = defaultValues.address.toLowerCase();
-                    if (!text || (defaultValue && text === defaultValue)) {
+                    const defaultAddress = defaultValues.address.toLowerCase();
+                    if (!text) {
                       return;
                     }
-                    if (contactsMaps.get(text)) {
+                    if (contactsMaps.get(text) && text !== defaultAddress) {
                       return intl.formatMessage({
                         id: 'msg__this_address_already_exists',
                       });

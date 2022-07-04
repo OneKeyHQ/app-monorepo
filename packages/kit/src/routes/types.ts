@@ -62,8 +62,6 @@ export type TabRoutesParams = {
 };
 /** Tab */
 
-/** HomeStack */
-
 export type HomeRoutesParams = {
   [HomeRoutes.InitialTab]: undefined;
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
@@ -90,6 +88,7 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.FaceId]: undefined;
   [HomeRoutes.AddressBook]: undefined;
+  [HomeRoutes.SwapHistory]: undefined;
 };
 /** HomeStack */
 

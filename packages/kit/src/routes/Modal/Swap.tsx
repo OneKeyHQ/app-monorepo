@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import CustomToken from '../../views/ManageTokens/CustomToken';
+import Transaction from '../../views/Swap/Transaction';
+import Webview from '../../views/Swap/Webview';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -36,6 +38,14 @@ const modalRoutes = [
   {
     name: SwapRoutes.CustomToken,
     component: CustomToken,
+  },
+  {
+    name: SwapRoutes.Transaction,
+    component: Transaction,
+  },
+  {
+    name: SwapRoutes.Webview,
+    component: Webview,
   },
 ];
 

@@ -1,26 +1,19 @@
-import React, { FC, useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 
-import axios from 'axios';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Center } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { setHaptics } from '../../hooks/setHaptics';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
-import {
-  SerializableTransactionReceipt,
-  TransactionDetails,
-} from '../../store/reducers/swap';
+import { archiveTransaction } from '../../store/reducers/swapTransactions';
 
-import {
-  useAllTransactions,
-  useCleanFailedTransactions,
-  useCleanFulfilledTransactions,
-  useFinalizeTransaction,
-} from './hooks/useTransactions';
+import PendingTransaction from './components/PendingTransaction';
+import { useSummaryTx } from './hooks/useSwapUtils';
+import { useTransactions } from './hooks/useTransactions';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -29,81 +22,31 @@ type NavigationProps = NativeStackNavigationProp<
   HomeRoutes.DAppListScreen
 >;
 
-const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
-  const { networkId, accountId } = useActiveWalletAccount();
-  const finalizeTransaction = useFinalizeTransaction();
-  const onQuery = useCallback(async () => {
-    if (networkId) {
-      const result = (await backgroundApiProxy.serviceNetwork.rpcCall(
-        networkId,
-        { method: 'eth_getTransactionReceipt', params: [tx.hash] },
-      )) as SerializableTransactionReceipt | undefined;
-      if (result) {
-        finalizeTransaction(tx.hash, result);
-        backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          tokenIds: [],
-        });
-      }
-    }
-  }, [tx, networkId, accountId, finalizeTransaction]);
-  useEffect(() => {
-    onQuery();
-    const timer = setInterval(onQuery, 1000 * 5);
-    return () => {
-      clearInterval(timer);
-    };
-  }, [onQuery]);
-  return <></>;
-};
-
-const PendingCrossTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
-  const { networkId, accountId } = useActiveWalletAccount();
-  const finalizeTransaction = useFinalizeTransaction();
-  const onQuery = useCallback(async () => {
-    if (tx.orderId) {
-      const res = await axios.post(
-        'https://www.swftc.info/api/v2/queryOrderState',
-        {
-          equipmentNo: tx.from,
-          sourceType: 'H5',
-          orderId: tx.orderId,
-        },
-      );
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const data = res.data.data as { tradeState: string };
-      if (data.tradeState === 'complete') {
-        finalizeTransaction(tx.hash);
-        backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          tokenIds: [],
-        });
-      }
-    }
-  }, [tx, networkId, accountId, finalizeTransaction]);
-  useEffect(() => {
-    onQuery();
-    const timer = setInterval(onQuery, 1000 * 20);
-    return () => {
-      clearInterval(timer);
-    };
-  }, [onQuery]);
-  return <></>;
+const ApprovePendingTransactions = () => {
+  const { accountId, networkId } = useActiveWalletAccount();
+  const allTransactions = useTransactions(accountId, networkId, 'approve');
+  const pendings = allTransactions.filter((tx) => tx.status === 'pending');
+  return (
+    <>
+      {pendings.map((tx) => (
+        <PendingTransaction key={tx.hash} tx={tx} />
+      ))}
+    </>
+  );
 };
 
 const PendingTransactions = () => {
   const intl = useIntl();
-  const allTransactions = useAllTransactions();
-  const pendings = Object.values(allTransactions).filter(
-    (tx) => !tx.confirmedTime,
-  );
   const navigation = useNavigation<NavigationProps>();
+  const { accountId, networkId } = useActiveWalletAccount();
+  const allTransactions = useTransactions(accountId, networkId);
+  const pendings = allTransactions.filter((tx) => tx.status === 'pending');
+
   const onAction = useCallback(() => {
     setHaptics();
-    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
+    navigation.navigate(HomeRoutes.SwapHistory);
   }, [navigation]);
+
   return pendings.length ? (
     <Box mb="4">
       <Alert
@@ -121,32 +64,33 @@ const PendingTransactions = () => {
         action={intl.formatMessage({ id: 'action__view' })}
         onAction={onAction}
       />
-      {pendings.map((tx) =>
-        tx.orderId ? (
-          <PendingCrossTx key={tx.orderId} tx={tx} />
-        ) : (
-          <PendingTx key={tx.hash} tx={tx} />
-        ),
-      )}
+      {pendings.map((tx) => (
+        <PendingTransaction key={tx.hash} tx={tx} />
+      ))}
     </Box>
   ) : null;
 };
 
 const FulfilledTransactions = () => {
   const intl = useIntl();
-  const allTransactions = useAllTransactions();
-  const cleanFulfilledTransaction = useCleanFulfilledTransactions();
-  const confirmedTxs = Object.values(allTransactions).filter(
-    (tx) =>
-      (tx.receipt && Number(tx.receipt.status) === 1) ||
-      (tx.orderId && tx.confirmedTime),
+  const { accountId, networkId } = useActiveWalletAccount();
+  const summaryTx = useSummaryTx();
+  const allTransactions = useTransactions(accountId, networkId);
+  const confirmedTxs = allTransactions.filter(
+    (tx) => tx.status === 'sucesss' && !tx.archive,
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
     setHaptics();
-    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
-    cleanFulfilledTransaction();
-  }, [cleanFulfilledTransaction, navigation]);
+    backgroundApiProxy.dispatch(
+      archiveTransaction({
+        accountId,
+        networkId,
+        txs: confirmedTxs.map((tx) => tx.hash),
+      }),
+    );
+    navigation.navigate(HomeRoutes.SwapHistory);
+  }, [navigation, accountId, networkId, confirmedTxs]);
   if (confirmedTxs.length === 0) {
     return <></>;
   }
@@ -154,9 +98,8 @@ const FulfilledTransactions = () => {
     return (
       <Box mb="4">
         <Alert
-          title={confirmedTxs[0].summary || ''}
+          title={summaryTx(confirmedTxs[0])}
           alertType="success"
-          onDismiss={cleanFulfilledTransaction}
           actionType="right"
           dismiss={false}
           action={intl.formatMessage({ id: 'action__view' })}
@@ -179,7 +122,6 @@ const FulfilledTransactions = () => {
         alertType="success"
         actionType="right"
         dismiss={false}
-        onDismiss={cleanFulfilledTransaction}
         action={intl.formatMessage({ id: 'action__view' })}
         onAction={onAction}
       />
@@ -189,17 +131,24 @@ const FulfilledTransactions = () => {
 
 const FailedTransactions = () => {
   const intl = useIntl();
-  const allTransactions = useAllTransactions();
-  const cleanFailedTransactions = useCleanFailedTransactions();
-  const confirmedTxs = Object.values(allTransactions).filter(
-    (tx) => tx.receipt && Number(tx.receipt.status) !== 1,
+  const { accountId, networkId } = useActiveWalletAccount();
+  const summaryTx = useSummaryTx();
+  const allTransactions = useTransactions(accountId, networkId);
+  const confirmedTxs = allTransactions.filter(
+    (tx) => tx.status === 'failed' && !tx.archive,
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
     setHaptics();
-    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
-    cleanFailedTransactions();
-  }, [cleanFailedTransactions, navigation]);
+    backgroundApiProxy.dispatch(
+      archiveTransaction({
+        accountId,
+        networkId,
+        txs: confirmedTxs.map((tx) => tx.hash),
+      }),
+    );
+    navigation.navigate(HomeRoutes.SwapHistory);
+  }, [navigation, accountId, networkId, confirmedTxs]);
   if (confirmedTxs.length === 0) {
     return <></>;
   }
@@ -207,9 +156,8 @@ const FailedTransactions = () => {
     return (
       <Box mb="4">
         <Alert
-          title={confirmedTxs[0].summary || ''}
+          title={summaryTx(confirmedTxs[0])}
           alertType="error"
-          onDismiss={cleanFailedTransactions}
           actionType="right"
           dismiss={false}
           action={intl.formatMessage({ id: 'action__view' })}
@@ -232,7 +180,6 @@ const FailedTransactions = () => {
         alertType="error"
         actionType="right"
         dismiss={false}
-        onDismiss={cleanFailedTransactions}
         action={intl.formatMessage({ id: 'action__view' })}
         onAction={onAction}
       />
@@ -243,6 +190,7 @@ const FailedTransactions = () => {
 const SwapTransactions = () => (
   <Center px="4">
     <Box maxW="420" width="full">
+      <ApprovePendingTransactions />
       <PendingTransactions />
       <FulfilledTransactions />
       <FailedTransactions />

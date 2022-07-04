@@ -11,6 +11,8 @@ export enum SwapRoutes {
   Preview = 'Preview',
   Settings = 'Settings',
   CustomToken = 'CustomToken',
+  Transaction = 'Transaction',
+  Webview = 'Webview',
 }
 
 export type SwapRoutesParams = {
@@ -19,7 +21,13 @@ export type SwapRoutesParams = {
   [SwapRoutes.Output]: undefined;
   [SwapRoutes.Settings]: undefined;
   [SwapRoutes.Preview]: undefined;
+  [SwapRoutes.Webview]: { url: string };
   [SwapRoutes.CustomToken]: { address?: string } | undefined;
+  [SwapRoutes.Transaction]: {
+    accountId: string;
+    networkId: string;
+    txid: string;
+  };
 };
 
 export enum ApprovalState {
@@ -90,4 +98,58 @@ export interface Quoter {
   isSupported(networkA: Network, networkB: Network): boolean;
   getQuote(params: QuoteParams): Promise<SwapQuote | undefined>;
   encodeTx(params: TxParams): Promise<TxRes | undefined>;
+}
+
+export interface SerializableTransactionReceipt {
+  to: string;
+  from: string;
+  contractAddress: string;
+  transactionIndex: number;
+  blockHash: string;
+  transactionHash: string;
+  blockNumber: number;
+  status?: string;
+}
+
+export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
+export type TransactionType = 'approve' | 'swap';
+
+export type TransactionToken = {
+  networkId: string;
+  token: Token;
+  amount: string;
+};
+export interface TransactionDetails {
+  hash: string;
+  from: string;
+  addedTime: number;
+  networkId: string;
+  accountId: string;
+  type: TransactionType;
+  status: TransactionStatus;
+  archive?: boolean;
+  approval?: { tokenAddress: string; spender: string; token: Token };
+  tokens?: { from: TransactionToken; to: TransactionToken; rate: number };
+  receipt?: SerializableTransactionReceipt;
+  swftcReceipt?: SwftcTransactionReceipt;
+  confirmedTime?: number;
+  receivingAddress?: string;
+  thirdPartyOrderId?: string;
+  nonce?: number;
+}
+
+export interface SwftcTransactionReceipt {
+  orderId: string;
+  depositCoinCode: string;
+  receiveCoinCode: string;
+  platformAddr: string;
+  detailState:
+    | 'wait_deposit_send'
+    | 'timeout'
+    | 'wait_exchange_push'
+    | 'wait_receive_send'
+    | 'wait_receive_confirm'
+    | 'receive_complete';
+  tradeState: 'wait_deposits' | 'complete' | 'exchange';
+  instantRate: string;
 }

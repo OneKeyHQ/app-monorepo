@@ -1,17 +1,12 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  useAccountTokens,
-  useAppSelector,
-  useManageTokens,
-  useNetworkTokens,
-} from '../../hooks';
+import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import {
   reset,
-  setActiveNetwork,
   setNoSupportCoins,
+  setSelectedNetworkId,
   setSwftcSupportedTokens,
 } from '../../store/reducers/swap';
 
@@ -19,12 +14,11 @@ import { swapClient } from './client';
 import { useSwapActionHandlers, useSwapEnabled } from './hooks/useSwap';
 import { refs } from './refs';
 
-const AccountGuard = () => {
+const AccountListener = () => {
   const { account } = useActiveWalletAccount();
   useEffect(() => {
     backgroundApiProxy.dispatch(reset());
   }, [account]);
-
   return <></>;
 };
 
@@ -38,7 +32,7 @@ const NetworkListener = () => {
     if (!isSwapEnabled || !network) {
       return;
     }
-    backgroundApiProxy.dispatch(setActiveNetwork(network));
+    backgroundApiProxy.dispatch(setSelectedNetworkId(network.id));
     if (nativeToken) {
       onSelectToken(nativeToken, 'INPUT', network);
     } else {
@@ -62,48 +56,6 @@ const NetworkListener = () => {
   return <></>;
 };
 
-const SwapNetworkListener = () => {
-  const { network, accountId } = useActiveWalletAccount();
-
-  const activeNetwork = useAppSelector((s) => s.swap.activeNetwork);
-  const networkId = activeNetwork?.id ?? '';
-
-  const networkTokens = useNetworkTokens(networkId);
-  const accountTokens = useAccountTokens(networkId, accountId);
-
-  const { onSelectNetwork } = useSwapActionHandlers();
-
-  useEffect(() => {
-    if (!activeNetwork && network) {
-      onSelectNetwork(network);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const onNetworkChange = useCallback(() => {
-    if (networkId) {
-      if (!networkTokens.length) {
-        backgroundApiProxy.serviceToken.fetchTokens({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-        });
-      }
-      if (!accountTokens.length) {
-        backgroundApiProxy.serviceToken.fetchAccountTokens({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-        });
-      }
-    }
-  }, [accountId, networkId, accountTokens, networkTokens]);
-
-  useEffect(() => {
-    onNetworkChange();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeNetwork]);
-  return <></>;
-};
-
 const SwapTokensFetcher = () => {
   useEffect(() => {
     async function main() {
@@ -116,13 +68,12 @@ const SwapTokensFetcher = () => {
   return null;
 };
 
-const SwapGuard = () => (
+const SwapListener = () => (
   <>
-    <AccountGuard />
+    <AccountListener />
     <NetworkListener />
-    <SwapNetworkListener />
     <SwapTokensFetcher />
   </>
 );
 
-export default SwapGuard;
+export default SwapListener;

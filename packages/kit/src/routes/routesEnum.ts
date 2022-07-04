@@ -51,6 +51,7 @@ export enum HomeRoutes {
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   FaceId = 'FaceId',
   AddressBook = 'AddressBook',
+  SwapHistory = 'SwapHistory',
 }
 export enum TabRoutes {
   // Overview = 'overview',

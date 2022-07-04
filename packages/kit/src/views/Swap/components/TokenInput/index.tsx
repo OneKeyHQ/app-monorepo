@@ -8,7 +8,6 @@ import {
   Icon,
   NumberInput,
   Pressable,
-  Token,
   Typography,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -20,6 +19,8 @@ import {
 } from '../../../../hooks';
 import { Token as TokenType } from '../../../../store/typings';
 import { useSwapActionHandlers } from '../../hooks/useSwap';
+import { formatAmount } from '../../utils';
+import NetworkToken from '../NetworkToken';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -64,7 +65,7 @@ const TokenInput: FC<TokenInputProps> = ({
       }
     }
   }, [token, value, onUserInput, type]);
-  let text = Number(value).toFixed(6);
+  let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';
   }
@@ -113,27 +114,9 @@ const TokenInput: FC<TokenInputProps> = ({
             borderRadius={12}
             p={2}
           >
-            {token && (
-              <Box mr={3} position="relative">
-                <Token size="6" src={token.logoURI} />
-                {tokenNetwork ? (
-                  <Box
-                    position="absolute"
-                    right="-4"
-                    top="-4"
-                    w="18px"
-                    h="18px"
-                    bg="surface-subdued"
-                    display="flex"
-                    justifyContent="center"
-                    alignItems="center"
-                    borderRadius="full"
-                  >
-                    <Token size="4" src={tokenNetwork?.logoURI} />
-                  </Box>
-                ) : null}
-              </Box>
-            )}
+            <Box mr="3">
+              <NetworkToken token={token} networkId={tokenNetwork?.id} />
+            </Box>
             <Typography.Body1>
               {token
                 ? token.symbol

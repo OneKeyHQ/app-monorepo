@@ -18,7 +18,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import { setQuote } from '../../store/reducers/swap';
 
 import TokenInput from './components/TokenInput';
-import ExchangeRate from './ExchangeRate';
+import TransactionRate from './components/TransactionRate';
 import {
   useSwap,
   useSwapActionHandlers,
@@ -187,15 +187,14 @@ const SwapContent = () => {
           mt="2"
           mb="4"
         >
-          <Typography.Body2 color="text-subdued">
+          <Typography.Body2 color="text-subdued" mr="2">
             {intl.formatMessage({ id: 'Rate' })}
           </Typography.Body2>
           <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <ExchangeRate
+            <TransactionRate
               tokenA={inputToken}
               tokenB={outputToken}
-              quote={swapQuote}
-              independentField={independentField}
+              rate={swapQuote?.instantRate}
             />
           </Box>
         </Box>
