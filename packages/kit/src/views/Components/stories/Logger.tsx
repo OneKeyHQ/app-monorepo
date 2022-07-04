@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { navigationGoBack } from '../../../hooks/useAppNavigation';
+import { useNavigationBack } from '../../../hooks/useAppNavigation';
 
 function DebugLoggerSettings() {
   const [groupValue, setGroupValue] = React.useState<string[]>([]);
@@ -73,12 +73,14 @@ function InjectedSettings() {
   );
 }
 
-const LoggerGallery = () => (
-  // const navigation = useNavigation();
-  <ScrollView p={4} flex="1" bg="background-hovered">
-    <Button onPress={navigationGoBack}>Back to HOME</Button>
-    <DebugLoggerSettings />
-    <InjectedSettings />
-  </ScrollView>
-);
+const LoggerGallery = () => {
+  const goBack = useNavigationBack();
+  return (
+    <ScrollView p={4} flex="1" bg="background-hovered">
+      <Button onPress={goBack}>Back to HOME</Button>
+      <DebugLoggerSettings />
+      <InjectedSettings />
+    </ScrollView>
+  );
+};
 export default LoggerGallery;

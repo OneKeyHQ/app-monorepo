@@ -17,9 +17,7 @@ import {
   StackRoutes,
 } from '@onekeyhq/kit/src/routes/Dev';
 
-import useAppNavigation, {
-  navigationGoBack,
-} from '../../hooks/useAppNavigation';
+import { useNavigationBack } from '../../hooks/useAppNavigation';
 
 type StackRoutesType = typeof StackRoutes;
 
@@ -36,6 +34,7 @@ type RouteProps = RouteProp<
 const Index = () => {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
+  const goBack = useNavigationBack();
 
   console.log('route: ', route.params.ts);
 
@@ -47,9 +46,7 @@ const Index = () => {
     <FlatList
       data={componentsRoute}
       bg="background-hovered"
-      ListHeaderComponent={() => (
-        <Button onPress={navigationGoBack}>Back to HOME</Button>
-      )}
+      ListHeaderComponent={() => <Button onPress={goBack}>Back to HOME</Button>}
       renderItem={({ item, index }) => (
         <Pressable
           onPress={() => {
