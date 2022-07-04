@@ -70,7 +70,7 @@ const MobileModal: FC<ModalProps> = ({
           borderBottomColor="border-subdued"
           borderBottomWidth={header ? 1 : undefined}
         >
-          {currentStackIndex && navigation.canGoBack() ? (
+          {currentStackIndex && navigation?.canGoBack?.() ? (
             <IconButton
               size="xl"
               name="ChevronLeftOutline"
@@ -81,7 +81,7 @@ const MobileModal: FC<ModalProps> = ({
                   onBackActionPress();
                   return;
                 }
-                if (navigation.canGoBack()) {
+                if (navigation?.canGoBack?.()) {
                   navigation.goBack();
                 }
               }}

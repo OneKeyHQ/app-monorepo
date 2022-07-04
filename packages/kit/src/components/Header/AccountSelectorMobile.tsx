@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, memo } from 'react';
 
 import {
   DrawerContentComponentProps,
@@ -10,6 +10,7 @@ import AccountSelectorChildren from './AccountSelectorChildren';
 
 const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
   const status = useDrawerStatus();
+  const isOpen = status === 'open';
 
   return (
     <DrawerContentScrollView
@@ -17,9 +18,9 @@ const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
       scrollEnabled={false}
       contentContainerStyle={{ flexDirection: 'row', flex: 1 }}
     >
-      <AccountSelectorChildren isOpen={status === 'open'} />
+      <AccountSelectorChildren isOpen={isOpen} />
     </DrawerContentScrollView>
   );
 };
 
-export default AccountSelectorMobile;
+export default memo(AccountSelectorMobile);

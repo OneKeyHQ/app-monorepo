@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { ComponentProps, FC } from 'react';
+import React, { ComponentProps, FC, memo } from 'react';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
@@ -164,4 +164,4 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
 
 WalletAvatar.defaultProps = defaultProps;
 
-export default WalletAvatar;
+export default memo(WalletAvatar);

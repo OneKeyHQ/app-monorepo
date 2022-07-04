@@ -2,6 +2,7 @@
 import React, {
   FC,
   ReactNode,
+  memo,
   useCallback,
   useMemo,
   useRef,
@@ -101,4 +102,4 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   );
 };
 
-export default AccountSelector;
+export default memo(AccountSelector);

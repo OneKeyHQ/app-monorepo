@@ -1,0 +1,174 @@
+import React, { FC, memo, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  Box,
+  Icon,
+  Select,
+  Text,
+  Token,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
+import type { SelectItem } from '@onekeyhq/components/src/Select';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ManageNetworkRoutes } from '@onekeyhq/kit/src/routes';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+
+type Props = {
+  selectedNetworkId: string;
+  setSelectedNetworkId: (id: string) => void;
+  activeWallet: null | Wallet;
+};
+
+export const AllNetwork = 'all';
+
+const RightChainSelector: FC<Props> = ({
+  selectedNetworkId,
+  setSelectedNetworkId,
+  activeWallet,
+}) => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const isVerticalLayout = useIsVerticalLayout();
+  const { enabledNetworks } = useManageNetworks();
+
+  const options = useMemo(() => {
+    const availableNetworks =
+      activeWallet === null
+        ? enabledNetworks
+        : enabledNetworks.filter(({ settings }) => {
+            switch (activeWallet.type) {
+              case 'hw':
+                return settings.hardwareAccountEnabled;
+              case 'imported':
+                return settings.importedAccountEnabled;
+              case 'watching':
+                return settings.watchingAccountEnabled;
+              default:
+                return true; // HD accounts are always supported.
+            }
+          });
+    const selectNetworkExists = availableNetworks.find(
+      (network) => network.id === selectedNetworkId,
+    );
+    if (!selectNetworkExists)
+      setTimeout(() => setSelectedNetworkId(AllNetwork));
+
+    if (!availableNetworks) return [];
+
+    const networks: SelectItem<string>[] = availableNetworks.map((network) => ({
+      label: network.shortName,
+      value: network.id,
+      tokenProps: {
+        src: network.logoURI,
+        letter: network.shortName,
+      },
+      badge: network.impl === 'evm' ? 'EVM' : undefined,
+    }));
+    networks.unshift({
+      label: intl.formatMessage({ id: 'option__all' }),
+      value: AllNetwork,
+      iconProps: {
+        name: 'OptionListAllSolid',
+        size: isVerticalLayout ? 32 : 24,
+        color: 'surface-neutral-default',
+      },
+    });
+
+    return networks;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabledNetworks, isVerticalLayout, intl, activeWallet]);
+
+  return (
+    <Select
+      setPositionOnlyMounted
+      positionTranslateY={4}
+      dropdownPosition="right"
+      value={selectedNetworkId}
+      onChange={setSelectedNetworkId}
+      title={intl.formatMessage({ id: 'network__networks' })}
+      options={options}
+      isTriggerPlain
+      footerText={intl.formatMessage({ id: 'action__customize_network' })}
+      footerIcon="PencilSolid"
+      onPressFooter={() => {
+        setTimeout(() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageNetwork,
+            params: {
+              screen: ManageNetworkRoutes.Listing,
+              // params: { onEdited: refreshAccounts },
+            },
+          });
+        }, 500);
+      }}
+      renderTrigger={(activeOption, isHovered, visible) => (
+        <Box
+          display="flex"
+          flexDirection="row"
+          alignItems="center"
+          py={2}
+          pl="3"
+          pr="2.5"
+          borderWidth="1"
+          borderColor={
+            // eslint-disable-next-line no-nested-ternary
+            visible
+              ? 'focused-default'
+              : isHovered
+              ? 'border-hovered'
+              : 'border-default'
+          }
+          borderRadius="xl"
+          bg={
+            // eslint-disable-next-line no-nested-ternary
+            visible
+              ? 'surface-selected'
+              : // eslint-disable-next-line no-nested-ternary
+              isHovered
+              ? 'surface-hovered'
+              : 'surface-default'
+          }
+        >
+          <Box
+            display="flex"
+            flex={1}
+            flexDirection="row"
+            alignItems="center"
+            mr="1"
+          >
+            {!!activeOption.tokenProps && (
+              <Box mr="3">
+                <Token
+                  size={activeOption.description ? 8 : 6}
+                  {...activeOption.tokenProps}
+                />
+              </Box>
+            )}
+            {!!activeOption.iconProps && (
+              <Box mr="3">
+                <Icon {...activeOption.iconProps} size={24} />
+              </Box>
+            )}
+            <Box flex={1}>
+              <Text
+                typography={{ sm: 'Body1', md: 'Body2' }}
+                numberOfLines={1}
+                flex={1}
+                isTruncated
+              >
+                {activeOption.label ?? '-'}
+              </Text>
+            </Box>
+          </Box>
+          <Icon size={20} name="ChevronDownSolid" />
+        </Box>
+      )}
+    />
+  );
+};
+
+export default memo(RightChainSelector);
