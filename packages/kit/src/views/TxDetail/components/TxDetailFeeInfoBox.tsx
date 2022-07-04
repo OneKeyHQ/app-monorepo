@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
@@ -19,14 +19,20 @@ import { TxDetailActionBox } from './TxDetailActionBox';
 
 function getFeeInNativeText(options: {
   network?: Network;
-  feeInfo?: IFeeInfoUnit;
+  decodedTx: IDecodedTx;
 }) {
-  const { feeInfo, network } = options;
+  const {
+    decodedTx: { feeInfo, totalFeeInNative },
+    network,
+  } = options;
+  if (!!totalFeeInNative && !!network) {
+    return `${totalFeeInNative} ${network.symbol}`;
+  }
   if (!feeInfo || !network) {
     return '--';
   }
   const feeRange = calculateTotalFeeRange(feeInfo);
-  const totalFeeInNative = calculateTotalFeeNative({
+  const calculatedTotalFeeInNative = calculateTotalFeeNative({
     amount: feeRange.max,
     info: {
       defaultPresetIndex: '0',
@@ -38,7 +44,7 @@ function getFeeInNativeText(options: {
       nativeDecimals: network.decimals,
     },
   });
-  return `${totalFeeInNative} ${network.symbol}`;
+  return `${calculatedTotalFeeInNative} ${network.symbol}`;
 }
 
 // TODO rename ExtraInfoBox
@@ -80,7 +86,7 @@ export function TxDetailFeeInfoBox(props: ITxActionListViewProps) {
       feeInput ||
       getFeeInNativeText({
         network,
-        feeInfo: decodedTx.feeInfo,
+        decodedTx,
       }),
   });
   return <TxDetailActionBox details={details} />;

@@ -25,6 +25,7 @@ export type IVaultSettings = {
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
   tokenEnabled: boolean;
+  txCanBeReplaced: boolean;
 
   importedAccountEnabled: boolean;
   watchingAccountEnabled: boolean;

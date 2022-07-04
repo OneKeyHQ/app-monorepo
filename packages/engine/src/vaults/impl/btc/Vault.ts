@@ -31,6 +31,7 @@ import {
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
+  IHistoryTx,
   ISignCredentialOptions,
   ITransferInfo,
 } from '../../types';
@@ -44,7 +45,7 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { getAccountDefaultByPurpose } from './utils';
 
-import type { IBtcUTXO, IEncodedTxBtc } from './types';
+import type { IBlockBookTransaction, IBtcUTXO, IEncodedTxBtc } from './types';
 
 export default class Vault extends VaultBase {
   private getFeeRate = memoizee(
@@ -409,6 +410,121 @@ export default class Vault extends VaultBase {
     const { xpub } = (await this.getDbAccount()) as DBUTXOAccount;
     const [mainBalance] = await this.getBalances([{ address: xpub }]);
     return [mainBalance].concat(ret);
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory?: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const { localHistory = [] } = options;
+
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    let txs: Array<IBlockBookTransaction> = [];
+    try {
+      txs =
+        (
+          (await (this.engineProvider as Provider).getAccount({
+            type: 'history',
+            xpub: dbAccount.xpub,
+          })) as { transactions: Array<IBlockBookTransaction> }
+        ).transactions ?? [];
+    } catch (e) {
+      console.error(e);
+    }
+
+    const promises = txs.map((tx) => {
+      try {
+        const historyTxToMerge = localHistory.find(
+          (item) => item.decodedTx.txid === tx.txid,
+        );
+        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+          // No need to update.
+          return null;
+        }
+        const utxoFrom = tx.vin.map((input) => ({
+          address: input.isAddress ?? false ? input.addresses[0] : '',
+          balance: new BigNumber(input.value).shiftedBy(-decimals).toFixed(),
+          balanceValue: input.value,
+          symbol,
+          isMine: input.isOwn ?? false,
+        }));
+        const utxoTo = tx.vout.map((output) => ({
+          address: output.isAddress ?? false ? output.addresses[0] : '',
+          balance: new BigNumber(output.value).shiftedBy(-decimals).toFixed(),
+          balanceValue: output.value,
+          symbol,
+          isMine: output.isOwn ?? false,
+        }));
+
+        const totalOut = BigNumber.sum(
+          ...utxoFrom.map(({ balanceValue, isMine }) =>
+            isMine ? balanceValue : '0',
+          ),
+        );
+        const totalIn = BigNumber.sum(
+          ...utxoTo.map(({ balanceValue, isMine }) =>
+            isMine ? balanceValue : '0',
+          ),
+        );
+        let direction = IDecodedTxDirection.IN;
+        if (totalOut.gt(totalIn)) {
+          direction = utxoTo.every(({ isMine }) => isMine)
+            ? IDecodedTxDirection.SELF
+            : IDecodedTxDirection.OUT;
+        }
+        const amountValue = totalOut.minus(totalIn).abs();
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.txid,
+          owner: dbAccount.address,
+          signer: dbAccount.address,
+          nonce: 0,
+          actions: [
+            {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: token,
+                utxoFrom,
+                utxoTo,
+                from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
+                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
+                amount: amountValue.shiftedBy(-decimals).toFixed(),
+                amountValue: amountValue.toFixed(),
+                extraInfo: null,
+              },
+            },
+          ],
+          status:
+            (tx.confirmations ?? 0) > 0
+              ? IDecodedTxStatus.Confirmed
+              : IDecodedTxStatus.Pending,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(tx.fees)
+            .shiftedBy(-decimals)
+            .toFixed(),
+        };
+        decodedTx.updatedAt =
+          typeof tx.blockTime !== 'undefined'
+            ? tx.blockTime * 1000
+            : Date.now();
+        decodedTx.createdAt =
+          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+        return this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
+        console.error(e);
+        return Promise.resolve(null);
+      }
+    });
+    return (await Promise.all(promises)).filter(Boolean);
   }
 
   // TODO: BTC history type

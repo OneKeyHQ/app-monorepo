@@ -4,6 +4,7 @@ const settings: IVaultSettings = {
   feeInfoEditable: false,
   privateKeyExportEnabled: true,
   tokenEnabled: true,
+  txCanBeReplaced: false,
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: false,
