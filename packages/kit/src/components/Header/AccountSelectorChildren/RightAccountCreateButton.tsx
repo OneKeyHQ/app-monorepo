@@ -38,8 +38,12 @@ const RightAccountCreateButton: FC<Props> = ({
   const navigation = useNavigation();
   const intl = useIntl();
   const toast = useToast();
+
+  if (selectedNetworkId === AllNetwork) return null;
+
   return (
     <Pressable
+      disabled={selectedNetworkId === AllNetwork}
       onPress={() => {
         if (!activeWallet || isLoading) return;
         const networkSettings = activeNetwork?.settings;

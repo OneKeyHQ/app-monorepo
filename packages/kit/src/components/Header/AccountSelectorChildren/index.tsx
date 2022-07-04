@@ -10,6 +10,7 @@ import React, {
 import { Box, VStack, useSafeAreaInsets } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrevious } from '@onekeyhq/kit/src/hooks';
 import {
   useActiveWalletAccount,
   useRuntime,
@@ -28,8 +29,9 @@ export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
 
 const AccountSelectorChildren: FC<{
   isOpen?: boolean;
+  // eslint-disable-next-line react/no-unused-prop-types
   toggleOpen?: (...args: any) => any;
-}> = () => {
+}> = ({ isOpen }) => {
   const [loadingAccountWalletId, setLoadingAccountWalletId] =
     useState<string>('');
 
@@ -44,6 +46,7 @@ const AccountSelectorChildren: FC<{
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
 
+  const previousIsOpen = usePrevious(isOpen);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(
     defaultSelectedWallet,
   );
@@ -120,8 +123,28 @@ const AccountSelectorChildren: FC<{
 
   /** every time change active wallet */
   useEffect(() => {
+    if (!isOpen) return;
     refreshAccounts(activeWallet?.id);
-  }, [activeWallet?.id, refreshAccounts]);
+  }, [activeWallet?.id, refreshAccounts, isOpen]);
+
+  useEffect(() => {
+    if (previousIsOpen && !isOpen) {
+      setTimeout(() => {
+        const targetWallet =
+          wallets.find((wallet) => wallet.id === defaultSelectedWallet?.id) ??
+          null;
+        setSelectedWallet(targetWallet);
+        setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
+      }, 500);
+    }
+  }, [
+    previousIsOpen,
+    isOpen,
+    defaultSelectedWallet?.id,
+    refreshAccounts,
+    wallets,
+    activeNetwork?.id,
+  ]);
 
   return (
     <>

@@ -14,3 +14,4 @@ export {
   useNetworkTokensPrice,
 } from './useTokens';
 export { setHaptics } from './setHaptics';
+export { usePrevious } from './usePrevious';
