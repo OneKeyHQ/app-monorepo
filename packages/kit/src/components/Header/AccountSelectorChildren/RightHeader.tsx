@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC, memo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -338,4 +338,4 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   );
 };
 
-export default RightHeader;
+export default memo(RightHeader);

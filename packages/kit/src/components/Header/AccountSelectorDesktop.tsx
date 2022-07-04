@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 import {
   Box,
@@ -86,4 +86,4 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
 
 AccountSelectorDesktop.displayName = 'AccountSelectorDesktop';
 
-export default AccountSelectorDesktop;
+export default memo(AccountSelectorDesktop);

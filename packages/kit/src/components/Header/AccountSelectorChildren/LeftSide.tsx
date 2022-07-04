@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import React, { ComponentProps, FC, memo } from 'react';
 
 import {
   Box,
@@ -63,7 +63,6 @@ type LeftSideProps = {
 };
 
 const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
-  // const navigation = useNavigation<NavigationProps['navigation']>();
   const navigation = useAppNavigation();
 
   const { wallets } = useRuntime();
@@ -166,4 +165,4 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
   );
 };
 
-export default LeftSide;
+export default memo(LeftSide);

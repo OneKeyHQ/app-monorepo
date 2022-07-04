@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, memo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -114,4 +114,4 @@ const AccountSelectorTrigger: FC<Props> = ({
   );
 };
 
-export default AccountSelectorTrigger;
+export default memo(AccountSelectorTrigger);

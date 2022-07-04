@@ -142,7 +142,7 @@ const DesktopModal = ({
                     onBackActionPress();
                     return;
                   }
-                  if (navigation.canGoBack()) {
+                  if (navigation?.canGoBack?.()) {
                     navigation.goBack();
                   }
                 }}

@@ -16,7 +16,7 @@ import {
   SectionList,
   SegmentedControl,
   Typography,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   utils,
 } from '@onekeyhq/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
@@ -248,7 +248,7 @@ const MyWallet = () => {
 
 const PickAddress = () => {
   const intl = useIntl();
-  const isSmall = useIsSmallLayout();
+  const isSmall = useIsVerticalLayout();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const navigation = useNavigation<NavigationProps>();
   const onPrimaryPress = useCallback(() => {

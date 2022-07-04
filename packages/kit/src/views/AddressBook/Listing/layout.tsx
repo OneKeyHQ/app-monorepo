@@ -7,7 +7,7 @@ import {
   Button,
   ScrollView,
   Typography,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 
@@ -70,8 +70,8 @@ const LaptopLayout: FC<LayoutProps> = ({ children, onNew }) => {
 };
 
 const Layout: FC<LayoutProps> = ({ children, onNew }) => {
-  const isSmall = useIsSmallLayout();
-  return isSmall ? (
+  const isVertical = useIsVerticalLayout();
+  return isVertical ? (
     <MobileLayout onNew={onNew}>{children}</MobileLayout>
   ) : (
     <LaptopLayout onNew={onNew}>{children}</LaptopLayout>

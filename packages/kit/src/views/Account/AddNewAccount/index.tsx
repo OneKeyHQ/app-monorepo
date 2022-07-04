@@ -177,7 +177,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     (password: string) => {
       const network = getValues('network');
       const name = getValues('name');
-      onLoadingAccount?.(network);
+      onLoadingAccount?.(selectedWalletId, network);
       setTimeout(() => {
         serviceAccount
           .addHDAccounts(
@@ -196,7 +196,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             });
           })
           .finally(() => {
-            onLoadingAccount?.();
+            onLoadingAccount?.(selectedWalletId);
           });
       }, 10);
       navigation.getParent()?.goBack?.();
