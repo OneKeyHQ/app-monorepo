@@ -21,3 +21,22 @@ export type IDecodedTxExtraBtc = {
   feeRate: string;
   confirmations: number;
 };
+
+export type IBlockBookTransaction = {
+  txid: string;
+  vin: Array<{
+    isAddress?: boolean;
+    addresses: Array<string>;
+    value: string;
+    isOwn?: boolean;
+  }>;
+  vout: Array<{
+    isAddress?: boolean;
+    addresses: Array<string>;
+    value: string;
+    isOwn?: boolean;
+  }>;
+  confirmations: number;
+  fees: string;
+  blockTime?: number;
+};

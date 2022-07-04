@@ -114,7 +114,6 @@ import {
 } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
-import type BTCVault from './vaults/impl/btc/Vault';
 import type VaultEvm from './vaults/impl/evm/Vault';
 import type { ITransferInfo } from './vaults/types';
 
@@ -1745,11 +1744,6 @@ class Engine {
       this.dbApi.getAccount(accountId),
       this.getNetwork(networkId),
     ]);
-
-    if (network.impl === IMPL_BTC) {
-      const vault = (await this.getVault({ networkId, accountId })) as BTCVault;
-      return vault.getHistory();
-    }
 
     // TODO filter EVM history only
     if (network.impl !== IMPL_EVM) {

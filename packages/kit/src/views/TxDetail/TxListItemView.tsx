@@ -20,7 +20,7 @@ import {
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { useNavigation } from '../../hooks';
+import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import {
   SendRoutes,
   TransactionDetailModalRoutes,
@@ -131,6 +131,7 @@ function TxListItemView(props: { historyTx: IHistoryTx }) {
   const { decodedTx } = historyTx;
   const { status } = decodedTx;
   const intl = useIntl();
+  const { network } = useActiveWalletAccount();
   const { isLight } = useTheme();
   const navigation =
     useNavigation<HistoryListViewNavigationProp['navigation']>();
@@ -165,6 +166,9 @@ function TxListItemView(props: { historyTx: IHistoryTx }) {
       </Text>
     );
   }
+  const speedUpOrCancelView = network?.settings?.txCanBeReplaced ? (
+    <TxListItemViewResendButtons historyTx={historyTx} />
+  ) : undefined;
   const timeView = (
     <TxActionElementTime
       typography="Body2"
@@ -206,11 +210,9 @@ function TxListItemView(props: { historyTx: IHistoryTx }) {
           {txStatusTextView}
           {replacedTextView}
           <Box flex={1} />
-          {decodedTx.status === IDecodedTxStatus.Pending ? (
-            <TxListItemViewResendButtons historyTx={historyTx} />
-          ) : (
-            timeView
-          )}
+          {decodedTx.status === IDecodedTxStatus.Pending
+            ? speedUpOrCancelView
+            : timeView}
         </HStack>
       </VStack>
     </Pressable.Item>
