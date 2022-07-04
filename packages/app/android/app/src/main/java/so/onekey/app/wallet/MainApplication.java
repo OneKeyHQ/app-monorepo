@@ -7,6 +7,7 @@ import android.util.Log;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
+import android.database.CursorWindow;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
 
@@ -27,6 +28,7 @@ import expo.modules.ReactNativeHostWrapper;
 import so.onekey.app.wallet.newarchitecture.MainApplicationReactNativeHost;
 import so.onekey.app.wallet.utils.Utils;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import android.webkit.WebView;
@@ -97,6 +99,14 @@ public class MainApplication extends Application implements ReactApplication , V
   @Override
   public void onCreate() {
     super.onCreate();
+    try {
+      Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
+      field.setAccessible(true);
+      field.set(null, 20 * 1024 * 1024);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
     // If you opted-in for the New Architecture, we enable the TurboModule system
     ReactFeatureFlags.useTurboModules = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
     Utils.init(this);
