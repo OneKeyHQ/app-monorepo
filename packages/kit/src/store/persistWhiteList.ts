@@ -6,4 +6,5 @@ export const persistWhiteList = [
   'discover',
   'tokens',
   'contacts',
+  'swapTransactions',
 ];

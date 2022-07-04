@@ -40,6 +40,7 @@ import runtimeReducer from './reducers/runtime';
 import settingsReducer from './reducers/settings';
 import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
+import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
 
 const allReducers = combineReducers({
@@ -53,6 +54,7 @@ const allReducers = combineReducers({
   data: dataReducer,
   discover: discoverReducer,
   swap: swapReducer,
+  swapTransactions: swapTransactionsReducer,
   tokens: tokensReducer,
   contacts: contactsReducer,
   refresher: refresherReducer,

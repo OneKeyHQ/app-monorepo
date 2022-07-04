@@ -117,9 +117,16 @@ export const useFiatPay = (networkId: string) => {
 export const useMoonpayPayCurrency = (code?: string) =>
   useAppSelector((s) => s.data.currencyList).find((item) => item.code === code);
 
-export const useGetNetwork = (networkId: string | null) => {
+export const useNetwork = (networkId?: string | null) => {
   const network = useAppSelector((s) =>
     s.runtime.networks?.find((n) => n.id === networkId),
   );
   return network ?? null;
+};
+
+export const useAccount = (accountId: string | null) => {
+  const account = useAppSelector((s) =>
+    s.runtime.accounts?.find((n) => n.id === accountId),
+  );
+  return account ?? null;
 };

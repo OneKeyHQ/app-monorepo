@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 import {
   ModalRoutes,
@@ -29,6 +30,7 @@ import {
 
 import { FormatBalance, FormatCurrency } from '../../../../components/Format';
 import {
+  setHaptics,
   useAccountTokens,
   useAccountTokensBalance,
   useActiveWalletAccount,
@@ -37,14 +39,14 @@ import {
   useNetworkTokens,
   useNetworkTokensPrice,
 } from '../../../../hooks';
-import { TokenBalanceValue } from '../../../../store/reducers/tokens';
 import { useSwftcTokens } from '../../hooks/useSwap';
 import { SwapRoutes } from '../../typings';
-import { enabledChainIds, getChainIdFromNetwork } from '../../utils';
+import { isNetworkEnabled } from '../../utils';
 
+import { NetworkSelectorContext } from './context';
 import { useSearchTokens } from './hooks';
+import { TokenSelectorListeners } from './Listeners';
 
-import type { Token } from '../../../../store/typings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -55,61 +57,56 @@ type NavigationProps = NativeStackNavigationProp<
 const isValidateAddr = (addr: string) => addr.length === 42;
 
 type NetworkItemProps = {
-  active: boolean;
   network: Network;
-  onPress?: (network: Network) => void;
 };
-const NetworkItem: FC<NetworkItemProps> = ({ network, onPress, active }) => (
-  <Pressable
-    mr="2"
-    py="1"
-    pl="1"
-    pr="2"
-    bg={active ? 'surface-neutral-hovered' : 'surface-neutral-subdued'}
-    borderRadius="full"
-    display="flex"
-    flexDirection="row"
-    mb="2"
-    onPress={() => onPress?.(network)}
-  >
-    <TokenImage size="5" src={network.logoURI} />
-    <Typography.Body2Strong ml="1">{network.shortName}</Typography.Body2Strong>
-  </Pressable>
-);
-
-type NetworkSelectorProps = {
-  activeNetworkId?: string;
-  onSelectNetwork?: (network: Network) => void;
+const NetworkItem: FC<NetworkItemProps> = ({ network }) => {
+  const { networkId, setNetworkId } = useContext(NetworkSelectorContext);
+  const onPress = useCallback(() => {
+    setHaptics();
+    setNetworkId?.(network.id);
+  }, [setNetworkId, network]);
+  return (
+    <Pressable
+      mr="2"
+      py="1.5"
+      pl="1.5"
+      pr="2.5"
+      bg={
+        network.id === networkId
+          ? 'surface-neutral-hovered'
+          : 'surface-neutral-subdued'
+      }
+      borderRadius="full"
+      display="flex"
+      flexDirection="row"
+      mb="2"
+      onPress={onPress}
+    >
+      <TokenImage size="5" src={network.logoURI} />
+      <Typography.Body2Strong ml="1">
+        {network.shortName}
+      </Typography.Body2Strong>
+    </Pressable>
+  );
 };
 
-const NetworkSelector: FC<NetworkSelectorProps> = ({
-  activeNetworkId,
-  onSelectNetwork,
-}) => {
+const NetworkSelector: FC = () => {
   const networks = useAppSelector((s) => s.runtime.networks);
   const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
   const enabledNetworks = useMemo(() => {
-    const evmNetworks = networks.filter(
-      (network) => network.impl === 'evm' && network.enabled,
+    const evmNetworks = networks.filter((network) =>
+      isNetworkEnabled(
+        network,
+        inputTokenNetwork ? [inputTokenNetwork.id] : undefined,
+      ),
     );
-    return evmNetworks.filter((network) => {
-      if (network === inputTokenNetwork) {
-        return true;
-      }
-      const chainId = getChainIdFromNetwork(network);
-      return enabledChainIds.includes(chainId);
-    });
+    return evmNetworks;
   }, [networks, inputTokenNetwork]);
 
   return (
     <Box display="flex" flexDirection="row" mb="2" flexWrap="wrap">
       {enabledNetworks.map((item) => (
-        <NetworkItem
-          key={item.id}
-          network={item}
-          active={activeNetworkId === item.id}
-          onPress={onSelectNetwork}
-        />
+        <NetworkItem network={item} key={item.id} />
       ))}
     </Box>
   );
@@ -118,19 +115,19 @@ const NetworkSelector: FC<NetworkSelectorProps> = ({
 type HeaderTokensProps = {
   tokens: Token[];
   showTop50Label?: boolean;
-  onPress?: (token: Token) => void;
-  prices: Record<string, string>;
-  balances: Record<string, TokenBalanceValue>;
+  onSelect?: (token: Token) => void;
 };
 
 const HeaderTokens: FC<HeaderTokensProps> = ({
   tokens,
   showTop50Label,
-  onPress,
-  prices,
-  balances,
+  onSelect,
 }) => {
   const intl = useIntl();
+  const { accountId } = useActiveWalletAccount();
+  const { networkId } = useContext(NetworkSelectorContext);
+  const prices = useNetworkTokensPrice(networkId);
+  const balances = useAccountTokensBalance(networkId, accountId);
   return (
     <Box>
       {tokens.length ? (
@@ -157,7 +154,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 bg="surface-default"
                 borderTopColor="divider"
                 borderTopWidth={index !== 0 ? '1' : undefined}
-                onPress={() => onPress?.(item)}
+                onPress={() => onSelect?.(item)}
               >
                 <Box
                   display="flex"
@@ -247,13 +244,8 @@ type HeaderProps = {
   keyword: string;
   terms?: string;
   showTop50Label?: boolean;
-  prices: Record<string, string>;
-  balances: Record<string, TokenBalanceValue>;
-  activeNetworkId?: string;
-  showNetworkSelector?: boolean;
   onChange: (keyword: string) => void;
-  onPress?: (token: Token) => void;
-  onSelectNetwork?: (network: Network) => void;
+  onSelect?: (token: Token) => void;
 };
 
 const Header: FC<HeaderProps> = ({
@@ -261,23 +253,14 @@ const Header: FC<HeaderProps> = ({
   showTop50Label,
   keyword,
   terms,
-  activeNetworkId,
-  balances,
-  prices,
-  showNetworkSelector,
-  onSelectNetwork,
   onChange,
-  onPress,
+  onSelect,
 }) => {
   const intl = useIntl();
+  const { showNetworkSelector } = useContext(NetworkSelectorContext);
   return (
     <Box>
-      {showNetworkSelector ? (
-        <NetworkSelector
-          activeNetworkId={activeNetworkId}
-          onSelectNetwork={onSelectNetwork}
-        />
-      ) : null}
+      {showNetworkSelector ? <NetworkSelector /> : null}
       <Searchbar
         w="full"
         placeholder={intl.formatMessage({
@@ -293,9 +276,7 @@ const Header: FC<HeaderProps> = ({
         <HeaderTokens
           tokens={tokens}
           showTop50Label={showTop50Label}
-          balances={balances}
-          prices={prices}
-          onPress={onPress}
+          onSelect={onSelect}
         />
       )}
     </Box>
@@ -305,15 +286,14 @@ const Header: FC<HeaderProps> = ({
 type ListEmptyComponentProps = {
   isLoading: boolean;
   terms: string;
-  networkId?: string;
 };
 
 const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   isLoading,
   terms,
-  networkId,
 }) => {
   const intl = useIntl();
+  const { networkId } = useContext(NetworkSelectorContext);
   const navigation = useNavigation<NavigationProps>();
   if (isLoading) {
     return (
@@ -342,7 +322,6 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
         if (isValidateAddr(terms)) {
           params.address = terms;
         }
-        console.log('params', params);
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Swap,
           params: {
@@ -357,110 +336,112 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 
 type ListingTokenProps = {
   item: Token;
-  borderTopRadius?: string;
-  borderBottomRadius?: string;
-  prices: Record<string, string>;
-  balances: Record<string, TokenBalanceValue>;
-  onPress?: (item: Token) => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onSelect?: (item: Token) => void;
 };
 
 const ListRenderToken: FC<ListingTokenProps> = ({
   item,
-  borderTopRadius,
-  borderBottomRadius,
-  onPress,
-  balances,
-  prices,
-}) => (
-  <Pressable
-    borderTopRadius={borderTopRadius}
-    borderBottomRadius={borderBottomRadius}
-    display="flex"
-    flexDirection="row"
-    justifyContent="space-between"
-    p={4}
-    alignItems="center"
-    bg="surface-default"
-    overflow="hidden"
-    key={item.tokenIdOnNetwork}
-    onPress={() => onPress?.(item)}
-    width="full"
-  >
-    <Box display="flex" alignItems="center" flexDirection="row">
-      <Image
-        source={{ uri: item.logoURI }}
-        alt="logoURI"
-        size="8"
-        borderRadius="full"
-        fallbackElement={
-          <Center w={8} h={8} rounded="full" bgColor="surface-neutral-default">
-            <Icon size={20} name="QuestionMarkOutline" />
-          </Center>
-        }
-      />
-      <Box ml="3">
-        <Text
-          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-          maxW="56"
-          numberOfLines={2}
-          color="text-default"
-        >
-          {item.symbol}
-        </Text>
-        <Typography.Body2 numberOfLines={1} color="text-subdued">
-          {item.name}
+  isFirst,
+  isLast,
+  onSelect,
+}) => {
+  const { accountId } = useActiveWalletAccount();
+  const { networkId } = useContext(NetworkSelectorContext);
+  const balances = useAccountTokensBalance(networkId, accountId);
+  const prices = useNetworkTokensPrice(networkId);
+  const onPress = useCallback(() => {
+    onSelect?.(item);
+  }, [onSelect, item]);
+  return (
+    <Pressable
+      borderTopRadius={isFirst ? '12' : undefined}
+      borderBottomRadius={isLast ? '12' : undefined}
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      p={4}
+      alignItems="center"
+      bg="surface-default"
+      overflow="hidden"
+      key={item.tokenIdOnNetwork}
+      onPress={onPress}
+      width="full"
+    >
+      <Box display="flex" alignItems="center" flexDirection="row">
+        <Image
+          source={{ uri: item.logoURI }}
+          alt="logoURI"
+          size="8"
+          borderRadius="full"
+          fallbackElement={
+            <Center
+              w={8}
+              h={8}
+              rounded="full"
+              bgColor="surface-neutral-default"
+            >
+              <Icon size={20} name="QuestionMarkOutline" />
+            </Center>
+          }
+        />
+        <Box ml="3">
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            maxW="56"
+            numberOfLines={2}
+            color="text-default"
+          >
+            {item.symbol}
+          </Text>
+          <Typography.Body2 numberOfLines={1} color="text-subdued">
+            {item.name}
+          </Typography.Body2>
+        </Box>
+      </Box>
+      <Box display="flex" flexDirection="column" alignItems="flex-end">
+        <Typography.Body1 numberOfLines={1} color="text-default">
+          <FormatBalance
+            balance={balances[item.tokenIdOnNetwork] ?? '0'}
+            formatOptions={{ fixed: 6 }}
+          />
+        </Typography.Body1>
+        <Typography.Body2 color="text-subdued" numberOfLines={2}>
+          <FormatCurrency
+            numbers={[
+              prices?.[item.tokenIdOnNetwork || 'main'],
+              balances?.[item.tokenIdOnNetwork || 'main'],
+            ]}
+            render={(ele) => (
+              <Typography.Body2Strong ml={3} color="text-subdued">
+                {prices?.[item.tokenIdOnNetwork || 'main'] ? ele : '-'}
+              </Typography.Body2Strong>
+            )}
+          />
         </Typography.Body2>
       </Box>
-    </Box>
-    <Box display="flex" flexDirection="column" alignItems="flex-end">
-      <Typography.Body1 numberOfLines={1} color="text-default">
-        <FormatBalance
-          balance={balances[item.tokenIdOnNetwork] ?? '0'}
-          formatOptions={{ fixed: 6 }}
-        />
-      </Typography.Body1>
-      <Typography.Body2 color="text-subdued" numberOfLines={2}>
-        <FormatCurrency
-          numbers={[
-            prices?.[item.tokenIdOnNetwork || 'main'],
-            balances?.[item.tokenIdOnNetwork || 'main'],
-          ]}
-          render={(ele) => (
-            <Typography.Body2Strong ml={3} color="text-subdued">
-              {prices?.[item.tokenIdOnNetwork || 'main'] ? ele : '-'}
-            </Typography.Body2Strong>
-          )}
-        />
-      </Typography.Body2>
-    </Box>
-  </Pressable>
-);
+    </Pressable>
+  );
+};
 
 type TokenSelectorProps = {
-  activeNetworkId: string;
   excluded?: string[];
   included?: string[];
-  showNetworkSelector?: boolean;
-  onSelectToken?: (token: Token) => void;
-  onSelectNetwork?: (network: Network) => void;
+  onSelect?: (token: Token) => void;
 };
 
 const TokenSelector: FC<TokenSelectorProps> = ({
   excluded,
   included,
-  activeNetworkId,
-  showNetworkSelector,
-  onSelectNetwork,
-  onSelectToken: onPress,
+  onSelect,
 }) => {
   const intl = useIntl();
   const { accountId: activeAccountId } = useActiveWalletAccount();
-  const prices = useNetworkTokensPrice(activeNetworkId);
-  const balances = useAccountTokensBalance(activeNetworkId, activeAccountId);
+  const { networkId: activeNetworkId } = useContext(NetworkSelectorContext);
 
   const preNetworkTokens = useNetworkTokens(activeNetworkId);
   const preAccountTokens = useAccountTokens(activeNetworkId, activeAccountId);
-
   const networkTokens = useSwftcTokens(preNetworkTokens, included, excluded);
   const accountTokens = useSwftcTokens(preAccountTokens, included, excluded);
 
@@ -497,15 +478,12 @@ const TokenSelector: FC<TokenSelectorProps> = ({
     ({ item, index }) => (
       <ListRenderToken
         item={item}
-        onPress={onPress}
-        borderTopRadius={index === 0 ? '12' : undefined}
-        borderBottomRadius={index === listItems.length - 1 ? '12' : undefined}
-        prices={prices}
-        balances={balances}
+        onSelect={onSelect}
+        isFirst={index === 0}
+        isLast={index === listItems.length - 1}
       />
     ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [listItems.length, onPress],
+    [listItems.length, onSelect],
   );
 
   return (
@@ -523,29 +501,21 @@ const TokenSelector: FC<TokenSelectorProps> = ({
           keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
-            <ListEmptyComponent
-              isLoading={loading}
-              terms={terms}
-              networkId={activeNetworkId}
-            />
+            <ListEmptyComponent isLoading={loading} terms={terms} />
           ),
           ListHeaderComponent: (
             <Header
-              activeNetworkId={activeNetworkId}
               showTop50Label={listTokens.length > 0}
               tokens={headerTokens}
               keyword={keyword}
               terms={terms}
-              prices={prices}
-              balances={balances}
-              showNetworkSelector={showNetworkSelector}
               onChange={setKeyword}
-              onPress={onPress}
-              onSelectNetwork={onSelectNetwork}
+              onSelect={onSelect}
             />
           ),
         }}
       />
+      <TokenSelectorListeners />
     </>
   );
 };

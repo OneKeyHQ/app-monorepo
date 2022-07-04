@@ -1,92 +1,75 @@
 import React, { useCallback, useMemo } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  setHaptics,
   useActiveWalletAccount,
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
+import { useRuntime } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
+import { NetworkSelectorContext } from '../components/TokenSelector/context';
 import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
 import { getChainIdFromNetworkId } from '../utils';
 
-import type { Token } from '../../../store/typings';
-
 const Output = () => {
   const navigation = useNavigation();
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { networks } = useRuntime();
+  const { networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
-  const { onSelectToken, onSelectNetwork } = useSwapActionHandlers();
+  const { onSelectToken, onSelectNetworkId } = useSwapActionHandlers();
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
-  const activeNetwork = useAppSelector((s) => s.swap.activeNetwork);
-  const onPress = useCallback(
+  const selectedNetworkId = useAppSelector((s) => s.swap.selectedNetworkId);
+  const onSelect = useCallback(
     (token: Token) => {
-      if (activeNetwork) {
-        onSelectToken(token, 'OUTPUT', activeNetwork);
+      const network = networks.filter((n) => n.id === token.networkId)[0];
+      if (network) {
+        onSelectToken(token, 'OUTPUT', network);
       }
       navigation.goBack();
     },
-    [navigation, onSelectToken, activeNetwork],
-  );
-  const onSelect = useCallback(
-    (network: Network) => {
-      setHaptics();
-      onSelectNetwork(network);
-    },
-    [onSelectNetwork],
+    [navigation, onSelectToken, networks],
   );
 
   const included = useMemo(() => {
-    if (activeNetwork?.id && activeNetwork?.id !== networkId) {
-      const chainId = getChainIdFromNetworkId(activeNetwork.id);
+    if (selectedNetworkId && selectedNetworkId !== networkId) {
+      const chainId = getChainIdFromNetworkId(selectedNetworkId);
       return swftcSupportedTokens[chainId];
     }
     return undefined;
-  }, [activeNetwork, swftcSupportedTokens, networkId]);
+  }, [selectedNetworkId, swftcSupportedTokens, networkId]);
 
   const excluded = useMemo(() => {
-    if (networkId === activeNetwork?.id && inputToken) {
+    if (networkId === selectedNetworkId && inputToken) {
       return [inputToken.tokenIdOnNetwork];
     }
     return undefined;
-  }, [activeNetwork, inputToken, networkId]);
+  }, [selectedNetworkId, inputToken, networkId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      backgroundApiProxy.serviceToken.fetchTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
+  const value = useMemo(
+    () => ({
+      showNetworkSelector: true,
+      networkId: selectedNetworkId ?? '',
+      setNetworkId: onSelectNetworkId,
+    }),
+    [selectedNetworkId, onSelectNetworkId],
   );
 
-  if (!activeNetwork) {
+  if (!selectedNetworkId) {
     return <></>;
   }
 
   return (
-    <TokenSelector
-      showNetworkSelector
-      activeNetworkId={activeNetwork.id}
-      included={included}
-      excluded={excluded}
-      onSelectToken={onPress}
-      onSelectNetwork={onSelect}
-    />
+    <NetworkSelectorContext.Provider value={value}>
+      <TokenSelector
+        included={included}
+        excluded={excluded}
+        onSelect={onSelect}
+      />
+    </NetworkSelectorContext.Provider>
   );
 };
 

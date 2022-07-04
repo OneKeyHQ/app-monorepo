@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -15,12 +15,12 @@ import {
 import {
   refresh,
   reset,
-  setActiveNetwork,
   setError,
   setInputToken,
   setLoading,
   setOutputToken,
   setQuote,
+  setSelectedNetworkId,
   setTypedValue,
   switchTokens,
 } from '../../../store/reducers/swap';
@@ -138,8 +138,8 @@ export function useSwapActionHandlers() {
     backgroundApiProxy.dispatch(reset());
   }, []);
 
-  const onSelectNetwork = useCallback((network: Network) => {
-    backgroundApiProxy.dispatch(setActiveNetwork(network));
+  const onSelectNetworkId = useCallback((networkId?: string) => {
+    backgroundApiProxy.dispatch(setSelectedNetworkId(networkId));
   }, []);
 
   return {
@@ -148,7 +148,7 @@ export function useSwapActionHandlers() {
     onSwitchTokens,
     onRefresh,
     onReset,
-    onSelectNetwork,
+    onSelectNetworkId,
   };
 }
 
@@ -228,7 +228,15 @@ export const useSwapQuoteCallback = function (
 ) {
   const { silent } = options;
   const requestParams = useSwapQuoteRequestParams();
+  const { accountId, networkId } = useActiveWalletAccount();
+  const refs = useRef({ accountId, networkId });
   const params = useDebounce(requestParams, 500);
+
+  useEffect(() => {
+    refs.current.accountId = accountId;
+    refs.current.networkId = networkId;
+  }, [accountId, networkId]);
+
   const onSwapQuote = useCallback(async () => {
     if (!params) {
       backgroundApiProxy.dispatch(setQuote(undefined));
@@ -239,21 +247,27 @@ export const useSwapQuoteCallback = function (
     }
     backgroundApiProxy.dispatch(setError(undefined));
     try {
+      refs.current.accountId = accountId;
+      refs.current.networkId = networkId;
       const data = await swapClient.getQuote(params);
-      if (data) {
-        backgroundApiProxy.dispatch(setQuote(data));
-      } else {
-        backgroundApiProxy.dispatch(setError(SwapError.NotSupport));
+      if (
+        refs.current.accountId === accountId &&
+        refs.current.networkId === networkId
+      ) {
+        if (data) {
+          backgroundApiProxy.dispatch(setQuote(data));
+        } else {
+          backgroundApiProxy.dispatch(setError(SwapError.NotSupport));
+        }
       }
     } catch (e) {
-      console.warn('swap error', e);
       backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
     } finally {
       if (!silent) {
         backgroundApiProxy.dispatch(setLoading(false));
       }
     }
-  }, [params, silent]);
+  }, [params, silent, accountId, networkId]);
   return onSwapQuote;
 };
 
@@ -292,8 +306,11 @@ export function useApproveState(
   spender?: string,
   target?: string,
 ) {
+  const { networkId, accountId } = useActiveWalletAccount();
   const allowance = useTokenAllowance(token, spender);
   const pendingApproval = useHasPendingApproval(
+    accountId,
+    networkId,
     token?.tokenIdOnNetwork,
     spender,
   );

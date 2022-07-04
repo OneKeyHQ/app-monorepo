@@ -6,12 +6,6 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 export const feeRecipient = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
 export const affiliateAddress = '0x4F5FC02bE49Bea15229041b87908148b04c14717';
-
-export function getChainIdFromNetwork(network?: Network): string {
-  const chainId = network?.extraInfo?.chainId;
-  return network ? String(+chainId) : '';
-}
-
 export class TokenAmount {
   amount: BigNumber;
 
@@ -104,8 +98,15 @@ export function greaterThanZeroOrUndefined(value?: string) {
   return num > 0 ? value : undefined;
 }
 
-export function getChainIdFromNetworkId(networdId: string) {
-  return networdId.split('--')[1] ?? '';
+export function formatAmount(value?: BigNumber.Value, precision = 4) {
+  if (!value) {
+    return '';
+  }
+  const bn = new BigNumber(value);
+  if (bn.isNaN()) {
+    return '';
+  }
+  return bn.decimalPlaces(precision).toFixed();
 }
 
 export const enabledChainIds = [
@@ -118,3 +119,27 @@ export const enabledChainIds = [
   '42161',
   '42220',
 ];
+
+export function getChainIdFromNetwork(network?: Network): string {
+  const chainId = network?.extraInfo?.chainId;
+  return network ? String(+chainId) : '';
+}
+
+export function getChainIdFromNetworkId(networdId: string) {
+  return networdId.split('--')[1] ?? '';
+}
+
+export function isNetworkEnabled(
+  network: Network,
+  whitelist: string[] = [],
+): boolean {
+  if (whitelist.includes(network.id)) {
+    return true;
+  }
+  const chainId = getChainIdFromNetworkId(network.id);
+  return (
+    network.impl === 'evm' &&
+    network.enabled &&
+    enabledChainIds.includes(chainId)
+  );
+}

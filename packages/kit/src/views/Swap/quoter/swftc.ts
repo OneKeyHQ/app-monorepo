@@ -135,7 +135,7 @@ export class SwftcQuoter implements Quoter {
   private networkAddrRecordsLastUpdate = 0;
 
   constructor() {
-    this.client = axios.create({ timeout: 10 * 1000 });
+    this.client = axios.create({ timeout: 30 * 1000 });
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
@@ -373,7 +373,10 @@ export class SwftcQuoter implements Quoter {
                 amount: depositCoinAmt,
               },
             });
-          return { data: txdata as unknown as TxData };
+          return {
+            data: txdata as unknown as TxData,
+            orderId: orderData.data.orderId,
+          };
         }
         const txdata =
           await backgroundApiProxy.engine.buildEncodedTxFromTransfer({

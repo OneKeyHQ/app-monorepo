@@ -13,6 +13,7 @@ import {
   CreateWalletModalRoutes,
 } from '../../routes';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
+import { addTransaction } from '../../store/reducers/swapTransactions';
 import { SendRoutes } from '../Send/types';
 
 import {
@@ -22,7 +23,6 @@ import {
   useSwapQuoteCallback,
   useSwapState,
 } from './hooks/useSwap';
-import { useTransactionAdder } from './hooks/useTransactions';
 import { ApprovalState, SwapError } from './typings';
 
 const RetryQuoteButton = () => {
@@ -42,7 +42,6 @@ const SwapButton = () => {
   const { inputToken } = useSwapState();
   const { limited } = useDepositLimit();
   const { account, network, wallet } = useActiveWalletAccount();
-  const addTransaction = useTransactionAdder();
   const { swapQuote, isSwapLoading, error, approveState, inputAmount } =
     useSwap();
 
@@ -72,30 +71,33 @@ const SwapButton = () => {
             feeInfoUseFeeInTx: false,
             encodedTx: { ...encodedTx, from: account?.address },
             onSuccess(tx) {
-              addTransaction({
-                hash: tx.txid,
-                approval: {
-                  tokenAddress: inputAmount.token.tokenIdOnNetwork,
-                  spender: allowanceTarget,
-                },
-                summary: `${intl.formatMessage({
-                  id: 'title__approve',
-                })} ${inputAmount.token.symbol.toUpperCase()}`,
-              });
+              backgroundApiProxy.dispatch(
+                addTransaction({
+                  accountId: account.id,
+                  networkId: network.id,
+                  transaction: {
+                    from: account.address,
+                    accountId: account.id,
+                    networkId: network.id,
+                    type: 'approve',
+                    archive: true,
+                    hash: tx.txid,
+                    addedTime: Date.now(),
+                    status: 'pending',
+                    approval: {
+                      token: inputAmount.token,
+                      tokenAddress: inputAmount.token.tokenIdOnNetwork,
+                      spender: allowanceTarget,
+                    },
+                  },
+                }),
+              );
             },
           },
         },
       });
     }
-  }, [
-    account,
-    network,
-    inputAmount,
-    swapQuote,
-    navigation,
-    addTransaction,
-    intl,
-  ]);
+  }, [account, network, inputAmount, swapQuote, navigation]);
 
   const onSubmit = useCallback(() => {
     if (swapQuote && account) {

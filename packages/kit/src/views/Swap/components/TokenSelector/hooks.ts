@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { setAccountTokensBalances } from '../../../../store/reducers/tokens';
 
 import type { Token } from '../../../../store/typings';
 
 export const useSearchTokens = (
   terms: string,
   keyword: string,
-  networkid?: string | null,
+  networkId?: string | null,
   accountId?: string | null,
 ) => {
   const [loading, setLoading] = useState(false);
@@ -20,33 +19,26 @@ export const useSearchTokens = (
   }, [terms, keyword]);
   useEffect(() => {
     async function main() {
-      if (terms.length === 0 || !networkid || !accountId) {
+      if (terms.length === 0 || !networkId || !accountId) {
         return;
       }
       setLoading(true);
       setTokens([]);
       let tokens = [];
       try {
-        tokens = await backgroundApiProxy.engine.searchTokens(networkid, terms);
+        tokens = await backgroundApiProxy.engine.searchTokens(networkId, terms);
         setTokens(tokens);
       } finally {
         setLoading(false);
       }
-      const balances = await backgroundApiProxy.engine.getAccountBalance(
-        accountId,
-        networkid,
-        tokens.map((i) => i.tokenIdOnNetwork),
-      );
-      backgroundApiProxy.dispatch(
-        setAccountTokensBalances({
-          activeAccountId: accountId,
-          activeNetworkId: networkid,
-          tokensBalance: balances,
-        }),
-      );
+      backgroundApiProxy.serviceToken.fetchTokenBalance({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        tokenIds: tokens.map((i) => i.tokenIdOnNetwork),
+      });
     }
     main();
-  }, [terms, networkid, accountId]);
+  }, [terms, networkId, accountId]);
   return {
     loading,
     searchedTokens,
