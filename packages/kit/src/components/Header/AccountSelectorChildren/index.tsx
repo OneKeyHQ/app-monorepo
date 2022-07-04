@@ -100,7 +100,8 @@ const AccountSelectorChildren: FC<{
         ];
       }
 
-      setAccountsMap(() => ({
+      setAccountsMap((prev) => ({
+        ...prev,
         [walletId]: accountsGroup,
       }));
     },
@@ -135,7 +136,8 @@ const AccountSelectorChildren: FC<{
           null;
         setSelectedWallet(targetWallet);
         setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
-      }, 500);
+        /** after drawer transition end */
+      }, 300);
     }
   }, [
     previousIsOpen,
