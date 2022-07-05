@@ -35,6 +35,7 @@ import {
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
+import lru from 'tiny-lru';
 
 import {
   IMPL_ALGO,
@@ -615,10 +616,28 @@ class ProviderController extends BaseProviderController {
 class PriceController {
   endpoint = 'https://fiat.onekey.so';
 
+  CACHE_DURATION = 1000 * 30;
+
+  cache = lru(100);
+
   req = new RestfulRequest(this.endpoint);
 
-  fetchApi<T>(path: string, params?: Record<string, any>) {
-    return this.req.get(path, params).then((res) => res.json()) as Promise<T>;
+  async fetchApi<T>(path: string, params?: Record<string, string>) {
+    const paramsCacheKey = params
+      ? Object.values(params).reduce((a, b) => `${a}_${b}`, '')
+      : '';
+    const cacheKey = `${path.substring(1)}_${paramsCacheKey}`;
+    let cacheData: { data: any; expiry: number } = this.cache.get(cacheKey);
+    let result: T;
+    if (cacheData && cacheData.expiry > Date.now()) {
+      result = cacheData.data;
+    } else {
+      result = (await this.req
+        .get(path, params)
+        .then((res) => res.json())) as T;
+      cacheData = { data: result, expiry: Date.now() + this.CACHE_DURATION };
+    }
+    return result;
   }
 
   async getFiats(fiats: Set<string>): Promise<Record<string, BigNumber>> {
