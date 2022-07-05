@@ -25,7 +25,11 @@ type Props = {
   isLoading: boolean;
   selectedNetworkId: string;
   activeNetwork: null | Network;
-  onLoadingAccount: (walletId: string, networkId?: string) => void;
+  onLoadingAccount: (
+    walletId: string,
+    networkId: string,
+    ready?: boolean,
+  ) => void;
 };
 
 const RightAccountCreateButton: FC<Props> = ({

@@ -21,7 +21,11 @@ export enum CreateAccountModalRoutes {
 export type CreateAccountRoutesParams = {
   [CreateAccountModalRoutes.CreateAccountForm]: {
     walletId: string;
-    onLoadingAccount?: (walletId: string, networkId?: string) => void;
+    onLoadingAccount?: (
+      walletId: string,
+      networkId: string,
+      ready?: boolean,
+    ) => void;
     selectedNetworkId?: string;
   };
   [CreateAccountModalRoutes.CreateAccountAuthentication]: {
@@ -30,12 +34,22 @@ export type CreateAccountRoutesParams = {
   };
   [CreateAccountModalRoutes.RecoveryAccountForm]: undefined;
   [CreateAccountModalRoutes.RecoverAccountsList]: {
+    onLoadingAccount?: (
+      walletId: string,
+      networkId: string,
+      ready?: boolean,
+    ) => void;
     walletId: string;
     network: string;
     password: string;
     purpose: number;
   };
   [CreateAccountModalRoutes.RecoverAccountsConfirm]: {
+    onLoadingAccount?: (
+      walletId: string,
+      networkId: string,
+      ready?: boolean,
+    ) => void;
     accounts: (ImportableHDAccount & {
       selected: boolean;
       isDisabled: boolean;
