@@ -626,16 +626,20 @@ class PriceController {
     const paramsCacheKey = params
       ? Object.values(params).reduce((a, b) => `${a}_${b}`, '')
       : '';
-    const cacheKey = `${path.substring(1)}_${paramsCacheKey}`;
+    const cacheKey = `${path.substring(1)}${paramsCacheKey}`;
     let cacheData: { data: any; expiry: number } = this.cache.get(cacheKey);
     let result: T;
     if (cacheData && cacheData.expiry > Date.now()) {
+      // console.log('cache hit', cacheKey);
       result = cacheData.data;
     } else {
+      // console.log('cache miss', cacheKey);
       result = (await this.req
         .get(path, params)
         .then((res) => res.json())) as T;
       cacheData = { data: result, expiry: Date.now() + this.CACHE_DURATION };
+      this.cache.set(cacheKey, cacheData);
+      // console.log('cache set', cacheKey);
     }
     return result;
   }
