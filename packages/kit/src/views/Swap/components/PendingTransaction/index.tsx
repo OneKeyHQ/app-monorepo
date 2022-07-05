@@ -108,19 +108,6 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
             activeNetworkId: networkId,
             tokenIds: [],
           });
-        } else if (data.tradeState !== tx?.swftcReceipt?.tradeState) {
-          console.log('data.tradeState', data.tradeState);
-          backgroundApiProxy.dispatch(
-            updateTransaction({
-              accountId,
-              networkId,
-              hash: tx.hash,
-              transaction: {
-                status: 'pending',
-                swftcReceipt: data,
-              },
-            }),
-          );
         } else if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
           backgroundApiProxy.dispatch(
             updateTransaction({
@@ -131,6 +118,18 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
                 status: 'failed',
                 swftcReceipt: data,
                 confirmedTime: Date.now(),
+              },
+            }),
+          );
+        } else {
+          backgroundApiProxy.dispatch(
+            updateTransaction({
+              accountId,
+              networkId,
+              hash: tx.hash,
+              transaction: {
+                status: 'pending',
+                swftcReceipt: data,
               },
             }),
           );

@@ -32,7 +32,12 @@ import TransactionRate from '../components/TransactionRate';
 import TransactionStatus from '../components/TransactionStatus';
 import { swftcCustomerSupportUrl } from '../config';
 import { useTransactions } from '../hooks/useTransactions';
-import { SwapRoutes, SwapRoutesParams, TransactionDetails } from '../typings';
+import {
+  SwapRoutes,
+  SwapRoutesParams,
+  SwftcTradeState,
+  TransactionDetails,
+} from '../typings';
 import { formatAmount } from '../utils';
 
 type TransactionProps = {
@@ -41,6 +46,25 @@ type TransactionProps = {
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
 type NavigationProps = NavigationProp<SwapRoutesParams, SwapRoutes.Transaction>;
+
+const TransactionReceiptStatus: FC<{ tx: TransactionDetails }> = ({ tx }) => {
+  const intl = useIntl();
+  if (!tx.swftcReceipt) {
+    return null;
+  }
+  const records: Record<SwftcTradeState, string> = {
+    'wait_deposits': intl.formatMessage({ id: 'transaction__swap_deposit' }),
+    'exchange': intl.formatMessage({ id: 'transaction__swap_exchange' }),
+    'complete': intl.formatMessage({ id: 'transaction__swap_completed' }),
+  };
+  const { tradeState } = tx.swftcReceipt;
+  const title = records[tradeState] ?? records.exchange;
+  return (
+    <Box mb="6">
+      <Alert title={title} alertType="info" dismiss={false} />
+    </Box>
+  );
+};
 
 const Transaction: FC<TransactionProps> = ({ tx }) => {
   const intl = useIntl();
@@ -104,6 +128,7 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
           </Box>
         </Box>
       </Box>
+      <TransactionReceiptStatus tx={tx} />
       <Box
         mb="4"
         borderColor="border-subdued"
@@ -129,7 +154,7 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
             </Box>
           </Box>
           <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <Typography.DisplayMedium>
+            <Typography.DisplayMedium maxW="full" textAlign="right">
               {formatAmount(tx.tokens?.from.amount, 4)}
             </Typography.DisplayMedium>
           </Box>
@@ -163,7 +188,11 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
             </Box>
           </Box>
           <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <Typography.DisplayMedium color="text-success">
+            <Typography.DisplayMedium
+              color="text-success"
+              maxW="full"
+              textAlign="right"
+            >
               +{formatAmount(tx.tokens?.to.amount, 4)}
             </Typography.DisplayMedium>
           </Box>
@@ -172,7 +201,9 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
       <Box borderRadius={12} bg="surface-default" p="4">
         <Box mb="4">
           <Typography.Body1Strong color="text-subdued">
-            {intl.formatMessage({ id: 'form__account' })}
+            {tx.thirdPartyOrderId
+              ? intl.formatMessage({ id: 'form__account' })
+              : intl.formatMessage({ id: 'content__from' })}
           </Typography.Body1Strong>
           <Box flexDirection="row" alignItems="center">
             <Typography.Body1Strong>
@@ -188,7 +219,7 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
         {tx.receivingAddress ? (
           <Box mb="4">
             <Typography.Body1Strong color="text-subdued">
-              {intl.formatMessage({ id: 'form__account' })}
+              {intl.formatMessage({ id: 'content__to' })}
             </Typography.Body1Strong>
             <Box flexDirection="row" alignItems="center">
               <Typography.Body1Strong>
@@ -235,7 +266,7 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
         {tx.thirdPartyOrderId ? (
           <Box>
             <Typography.Body1Strong color="text-subdued">
-              OrderId
+              {intl.formatMessage({ id: 'title__order_id' })}
             </Typography.Body1Strong>
             <Box flexDirection="row" alignItems="center">
               <Typography.Body1Strong>
@@ -255,8 +286,12 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
           <Alert
             alertType="info"
             dismiss={false}
-            title="This is a cross-chain Swap transaction."
-            description="This kind of transaction information will be displayed as many different transactions in the transaction history of your account."
+            title={intl.formatMessage({
+              id: 'msg__this_is_a_cross_chain_swap_transaction',
+            })}
+            description={intl.formatMessage({
+              id: 'msg__this_is_a_cross_chain_swap_transaction_desc',
+            })}
           />
           <Button
             size="lg"
@@ -265,7 +300,7 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
             type="plain"
             onPress={onOpenCustomerSupport}
           >
-            Contact Provider
+            {intl.formatMessage({ id: 'action__contact_third_party_provider' })}
           </Button>
         </Box>
       ) : null}
