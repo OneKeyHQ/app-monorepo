@@ -42,7 +42,8 @@ const RecoverConfirm: FC = () => {
   const { serviceAccount } = backgroundApiProxy;
 
   const route = useRoute<RouteProps>();
-  const { accounts, walletId, network, purpose } = route.params;
+  const { accounts, walletId, network, purpose, onLoadingAccount } =
+    route.params;
   const [flatListData, updateFlatListData] = useState<FlatDataType[]>(accounts);
   const [isVaild, setIsVaild] = useState(true);
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -52,6 +53,7 @@ const RecoverConfirm: FC = () => {
       const selectedIndexes = flatListData
         .filter((i) => i.selected)
         .map((i) => i.index);
+      onLoadingAccount?.(walletId, network, false);
       await serviceAccount.addHDAccounts(
         password,
         walletId,
@@ -70,6 +72,8 @@ const RecoverConfirm: FC = () => {
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
         });
       }
+    } finally {
+      onLoadingAccount?.(walletId, network, true);
     }
 
     if (navigation.canGoBack()) {

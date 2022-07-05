@@ -99,7 +99,8 @@ const RecoverAccounts: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<RouteProps>();
-  const { password, walletId, network, purpose } = route.params;
+  const { password, walletId, network, purpose, onLoadingAccount } =
+    route.params;
   const [currentPage, setCurrentPage] = useState(0);
   const [searchEnded, setSearchEnded] = useState(false);
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
@@ -243,6 +244,7 @@ const RecoverAccounts: FC = () => {
           walletId,
           network,
           purpose,
+          onLoadingAccount,
         });
       }}
       primaryActionProps={{
