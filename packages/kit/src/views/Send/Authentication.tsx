@@ -181,10 +181,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
   ]);
 
   useEffect(() => {
-    if (decodedTx) {
+    if (decodedTx || unsignedMessage) {
       submit();
     }
-  }, [decodedTx, submit]);
+  }, [decodedTx, unsignedMessage, submit]);
   return (
     <Center h="full" w="full">
       <Spinner size="lg" />

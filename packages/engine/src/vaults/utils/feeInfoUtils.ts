@@ -1,7 +1,51 @@
 import BigNumber from 'bignumber.js';
 
-import { EIP1559Fee } from '../../types/network';
+import { EIP1559Fee, Network } from '../../types/network';
 import { IFeeInfo, IFeeInfoUnit } from '../types';
+
+// onChainValue -> GWEI
+export function convertFeeValueToGwei({
+  value,
+  network,
+}: {
+  value: string;
+  network: Network;
+}) {
+  return new BigNumber(value).shiftedBy(-network.feeDecimals ?? 0).toFixed();
+}
+
+// GWEI -> onChainValue
+export function convertFeeGweiToValue({
+  value,
+  network,
+}: {
+  value: string;
+  network: Network;
+}) {
+  return new BigNumber(value).shiftedBy(network.feeDecimals ?? 0).toFixed();
+}
+
+// onChainValue -> nativeAmount
+export function convertFeeValueToNative({
+  value,
+  network,
+}: {
+  value: string;
+  network: Network;
+}) {
+  return new BigNumber(value).shiftedBy(-network.decimals ?? 0).toFixed();
+}
+
+// nativeAmount -> onChainValue
+export function convertFeeNativeToValue({
+  value,
+  network,
+}: {
+  value: string;
+  network: Network;
+}) {
+  return new BigNumber(value).shiftedBy(network.decimals ?? 0).toFixed();
+}
 
 export function calculateTotalFeeNative({
   amount, // in GWEI
@@ -12,8 +56,8 @@ export function calculateTotalFeeNative({
 }) {
   return new BigNumber(amount)
     .plus(info.baseFeeValue ?? 0)
-    .shiftedBy(info.feeDecimals ?? 0) // GWEI -> Value
-    .shiftedBy(-(info.nativeDecimals ?? 0)) // Value -> Amount
+    .shiftedBy(info.feeDecimals ?? 0) // GWEI -> onChainValue
+    .shiftedBy(-(info.nativeDecimals ?? 0)) // onChainValue -> nativeAmount
     .toFixed();
 }
 
