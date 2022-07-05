@@ -79,7 +79,7 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
                   {intl.formatMessage(
                     { id: 'title__switch_to_str' },
                     {
-                      0: network.name,
+                      0: network.shortName,
                     },
                   )}
                 </Typography.PageHeading>

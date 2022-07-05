@@ -264,7 +264,7 @@ const SignDetail: FC<{
         <VStack flex="1">
           {renderDataCard(unsignedMessage)}
           <Typography.Subheading mt="24px" color="text-subdued">
-            {intl.formatMessage({ id: 'form__method_type_uppercase' as any })}
+            {intl.formatMessage({ id: 'form__sign_method_type_uppercase' })}
           </Typography.Subheading>
           <Typography.Body2 mt="6px">
             {getSignTypeString(type)}

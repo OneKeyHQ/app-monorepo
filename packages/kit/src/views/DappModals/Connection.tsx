@@ -14,12 +14,13 @@ import {
 } from '@onekeyhq/components';
 import Check from '@onekeyhq/kit/assets/connect_check.png';
 import Sight from '@onekeyhq/kit/assets/connect_sight.png';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import X from '@onekeyhq/kit/assets/connect_x.png';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 
@@ -35,10 +36,10 @@ const MockData = {
       text: 'content__send_transactions_and_signature_request',
       icon: Check,
     },
-    {
-      text: 'content__send_transactions_and_signature_request',
-      icon: X,
-    },
+    // {
+    //   text: 'content__send_transactions_and_signature_request',
+    //   icon: X,
+    // },
   ] as const,
 };
 

@@ -1,4 +1,6 @@
 /* eslint-disable camelcase */
+import { IDecodedTx } from '../vaults/types';
+
 import type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
@@ -27,13 +29,50 @@ type HistoryDetailList = {
   errorCode: number | null;
 };
 
+export type ICovalentHistoryListItemLogEvent = {
+  sender_name: string; // Tether USD
+  sender_contract_ticker_symbol: string; // USDT.e
+  sender_contract_decimals: number;
+  sender_address: string; // erc20 contract address
+  sender_logo_url: string;
+  raw_log_data?: string;
+  decoded?: {
+    name: 'Transfer' | 'Approval'; // "Transfer"
+    signature: string; // "Transfer(indexed address from, indexed address to, uint256 value)"
+    params: Array<{
+      decoded: boolean;
+      indexed: boolean;
+      name: 'from' | 'to' | 'value' | 'owner' | 'spender'; // "from" "to" "value"
+      type: string; // "address"   "uint256"
+      value: string; // "0xa9b4d559a98ff47c83b74522b7986146538cd4df" "1200"
+    }>;
+  };
+};
+export type ICovalentHistoryListItemTokenTransfer = {
+  contract_address: string; // "0x19860ccb0a68fd4213ab9d8266f7bbf05a8dde98"
+  delta: string; // "508158240015539130"
+  from_address: string; // "0xdb6f1920a889355780af7570773609bd8cb1f498"
+  to_address: string; // "0x76f3f64cb3cd19debee51436df630a342b736c24"
+
+  contract_decimals: number;
+  contract_name: string; // "Binance USD"
+  contract_ticker_symbol: string; // "BUSD.e"
+  // method_calls: null;
+  transfer_type: 'IN';
+};
 export type ICovalentHistoryListItem = {
   tx_hash: string;
-  log_events: any[];
+  transfers?: Array<ICovalentHistoryListItemTokenTransfer>;
+  log_events?: Array<ICovalentHistoryListItemLogEvent>;
   block_signed_at: string; // "2022-06-14T01:52:10Z"
   successful: boolean;
   from_address: string;
-  gas_spent: string;
+  to_address: string;
+  value: string;
+  gas_offered: number; // gasLimit
+  gas_spent: number; // gasUsed
+  gas_price: number;
+  parsedDecodedTx?: IDecodedTx;
 };
 export type ICovalentHistoryListData = {
   items: ICovalentHistoryListItem[];

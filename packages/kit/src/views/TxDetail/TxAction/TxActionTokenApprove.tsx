@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/core';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
+import { shortenAddress } from '@onekeyhq/components/src/utils';
+
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
@@ -36,6 +38,7 @@ type NavigationProps = NativeStackNavigationProp<
 export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
   const { action, intl } = props;
   const { tokenApprove } = action;
+  const spender = tokenApprove?.spender || '';
   const amount = tokenApprove?.isMax
     ? intl.formatMessage({ id: 'form__unlimited' })
     : tokenApprove?.amount ?? '0';
@@ -57,6 +60,7 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
   return {
     amount,
     symbol,
+    spender,
     titleInfo,
     iconInfo,
   };
@@ -106,8 +110,13 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
       content: amountView,
     },
     {
-      // @ts-ignore
-      title: intl.formatMessage({ id: 'content__token_spender' }),
+      title: intl.formatMessage({ id: 'content__token_approve_owner' }),
+      content: (
+        <TxActionElementAddressNormal address={tokenApprove?.owner ?? ''} />
+      ),
+    },
+    {
+      title: intl.formatMessage({ id: 'content__token_approve_spender' }),
       content: (
         <TxActionElementAddressNormal address={tokenApprove?.spender ?? ''} />
       ),
@@ -136,7 +145,7 @@ export function TxActionTokenApproveT0(props: ITxActionCardProps) {
   const title = <TxActionElementTitleNormal {...meta} />;
 
   const intl = useIntl();
-  const { amount, symbol } = getTxActionTokenApproveInfo({
+  const { amount, symbol, spender } = getTxActionTokenApproveInfo({
     ...props,
     intl,
   });
@@ -145,6 +154,7 @@ export function TxActionTokenApproveT0(props: ITxActionCardProps) {
     <TxListActionBox
       icon={icon}
       title={title}
+      subTitle={shortenAddress(spender)}
       content={
         <TxListActionBoxContentText>
           {amount} {symbol}
