@@ -85,6 +85,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
     return listItems;
   }, [
     decodedTx,
+    historyTx,
     intl,
     network,
     originTx,

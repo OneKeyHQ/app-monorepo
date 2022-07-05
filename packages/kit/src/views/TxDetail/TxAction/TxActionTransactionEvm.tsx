@@ -71,12 +71,13 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
 }
 
 export function TxActionTransactionEvmT0(props: ITxActionCardProps) {
-  const { decodedTx, meta } = props;
+  const { decodedTx, meta, historyTx } = props;
   const icon = <TxActionElementIconLarge {...meta} />;
   const title = <TxActionElementTitleNormal {...meta} />;
 
   return (
     <TxListActionBox
+      historyTx={historyTx}
       decodedTx={decodedTx}
       icon={icon}
       title={title}

@@ -2,15 +2,12 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyToken } from '../../../components/Format';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import {
@@ -36,7 +33,6 @@ import {
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
-import { getTxStatusInfo } from '../utils/utilsTxDetail';
 
 export function getTxActionTransferInfo(props: ITxActionCardProps) {
   const { action, meta, network } = props;

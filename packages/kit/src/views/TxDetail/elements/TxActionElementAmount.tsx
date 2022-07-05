@@ -1,6 +1,5 @@
 import React, { ComponentProps, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { Text } from '@onekeyhq/components';

@@ -12,8 +12,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../hooks/useNetwork';
-import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { TxDetailStatusIcon } from '../TxDetail/components/TxDetailStatusIcon';
 import { TxActionElementTime } from '../TxDetail/elements/TxActionElementTime';
 import { TxDetailView } from '../TxDetail/TxDetailView';

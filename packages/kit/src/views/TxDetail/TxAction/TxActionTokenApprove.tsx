@@ -9,10 +9,7 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
-import {
-  TxListActionBox,
-  TxListActionBoxContentText,
-} from '../components/TxListActionBox';
+import { TxListActionBox } from '../components/TxListActionBox';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import {
@@ -142,7 +139,7 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
 }
 
 export function TxActionTokenApproveT0(props: ITxActionCardProps) {
-  const { meta, decodedTx } = props;
+  const { meta, decodedTx, historyTx } = props;
   const icon = <TxActionElementIconLarge {...meta} />;
   const title = <TxActionElementTitleNormal {...meta} />;
 
@@ -155,6 +152,7 @@ export function TxActionTokenApproveT0(props: ITxActionCardProps) {
 
   return (
     <TxListActionBox
+      historyTx={historyTx}
       decodedTx={decodedTx}
       icon={icon}
       title={title}

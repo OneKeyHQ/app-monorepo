@@ -2,7 +2,7 @@ import React, { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Divider, HStack, Text } from '@onekeyhq/components';
+import { Box, HStack, Text } from '@onekeyhq/components';
 import {
   IDecodedTx,
   IDecodedTxStatus,

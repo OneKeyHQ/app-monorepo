@@ -8,7 +8,6 @@ import {
   Address,
   Box,
   Button,
-  Divider,
   HStack,
   Pressable,
   Text,
@@ -204,6 +203,7 @@ function TxListItemView(props: {
       borderBottomWidth={index === section.data.length - 1 ? 1 : 0}
       mb={index === section.data.length - 1 ? 6 : undefined}
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const extraFooterInDev = platformEnv.isDev ? (
     <HStack space={2} mt={2}>
       {/* <Box w={8} /> */}

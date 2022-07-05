@@ -109,7 +109,7 @@ export function TxActionSwap(props: ITxActionCardProps) {
 }
 
 export function TxActionSwapT0(props: ITxActionCardProps) {
-  const { meta, decodedTx } = props;
+  const { meta, decodedTx, historyTx } = props;
   const icon = <TxActionElementIconLarge {...meta} />;
   const title = <TxActionElementTitleNormal {...meta} />;
   const { swapInfo } = getTxActionSwapInfo(props);
@@ -117,6 +117,7 @@ export function TxActionSwapT0(props: ITxActionCardProps) {
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   return (
     <TxListActionBox
+      historyTx={historyTx}
       decodedTx={decodedTx}
       icon={icon}
       title={title}
