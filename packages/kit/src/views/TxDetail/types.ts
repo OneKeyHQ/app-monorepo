@@ -4,6 +4,7 @@ import { IntlShape } from 'react-intl';
 
 import { ICON_NAMES, Text } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import {
   IDecodedTx,
   IDecodedTxAction,
@@ -36,8 +37,10 @@ export type ITxActionMeta = {
 export type ITxActionCardProps = {
   action: IDecodedTxAction;
   decodedTx: IDecodedTx;
+  historyTx: IHistoryTx | undefined;
   meta?: ITxActionMeta;
   intl: IntlShape;
+  network?: Network | null;
 };
 
 export type ITxActionAmountProps = ComponentProps<typeof Text> & {
@@ -63,7 +66,7 @@ export type ITxActionCardViewProps = {
 export type ITxActionListViewProps = {
   historyTx?: IHistoryTx;
   decodedTx: IDecodedTx;
-  space?: number;
+  space?: number | string;
   showDivider?: boolean;
   transformType?: ITxActionTransformTypes;
   // TODO useContext instead

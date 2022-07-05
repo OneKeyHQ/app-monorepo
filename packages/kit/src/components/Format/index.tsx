@@ -81,10 +81,10 @@ export function formatNumber(val: BigNumber.Value, opts: FormatOptions) {
 }
 
 export function formatBalanceDisplay(
-  balance?: BigNumber.Value,
+  balance?: BigNumber.Value | string,
   suffix?: string | null,
   formatOptions?: FormatOptions,
-) {
+): { amount?: string; unit?: string } {
   const { unit, fixed, fullPrecision } = formatOptions || {};
 
   let newUnit = suffix ? suffix.toUpperCase().trim() : undefined;

@@ -13,8 +13,8 @@ import {
   TxListActionBox,
   TxListActionBoxContentText,
 } from '../components/TxListActionBox';
+import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementHashText';
 import {
   TxActionElementIconLarge,
   TxActionElementIconNormal,
@@ -36,13 +36,14 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
-  const { action, intl } = props;
+  const { action, intl, network } = props;
   const { tokenApprove } = action;
   const spender = tokenApprove?.spender || '';
   const amount = tokenApprove?.isMax
     ? intl.formatMessage({ id: 'form__unlimited' })
     : tokenApprove?.amount ?? '0';
   const symbol = tokenApprove?.tokenInfo.symbol ?? '';
+  const displayDecimals = network?.tokenDisplayDecimals;
 
   const titleInfo: ITxActionMetaTitle = {
     titleKey: 'title__approve',
@@ -58,6 +59,7 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
   }
 
   return {
+    displayDecimals,
     amount,
     symbol,
     spender,
@@ -140,25 +142,32 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
 }
 
 export function TxActionTokenApproveT0(props: ITxActionCardProps) {
-  const { meta } = props;
+  const { meta, decodedTx } = props;
   const icon = <TxActionElementIconLarge {...meta} />;
   const title = <TxActionElementTitleNormal {...meta} />;
 
   const intl = useIntl();
-  const { amount, symbol, spender } = getTxActionTokenApproveInfo({
-    ...props,
-    intl,
-  });
+  const { amount, symbol, spender, displayDecimals } =
+    getTxActionTokenApproveInfo({
+      ...props,
+      intl,
+    });
 
   return (
     <TxListActionBox
+      decodedTx={decodedTx}
       icon={icon}
       title={title}
       subTitle={shortenAddress(spender)}
       content={
-        <TxListActionBoxContentText>
-          {amount} {symbol}
-        </TxListActionBoxContentText>
+        <TxActionElementAmountNormal
+          textAlign="right"
+          justifyContent="flex-end"
+          amount={amount}
+          symbol={symbol}
+          decimals={displayDecimals}
+          direction={undefined}
+        />
       }
     />
   );

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, {
   ComponentProps,
   useCallback,
@@ -14,6 +15,7 @@ import useSWR from 'swr';
 import {
   Badge,
   Box,
+  Divider,
   SectionList,
   Typography,
   useUserDevice,
@@ -167,9 +169,13 @@ function TxHistoryListSectionList(props: {
 
   // TODO open detail modal cause re-render
   const renderItem: SectionListProps<IHistoryTx>['renderItem'] = useCallback(
-    ({ item }) => (
+    ({ item, index, section }) => (
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      <TxListItemView historyTx={item} />
+      <TxListItemView
+        historyTx={item}
+        isFirst={index === 0}
+        isLast={index === section?.data?.length - 1}
+      />
     ),
     [],
   );
@@ -200,8 +206,9 @@ function TxHistoryListSectionList(props: {
     ),
     ListEmptyComponent: <TxHistoryListViewEmpty key="empty" />,
     ListFooterComponent: <Box key="footer" h="20px" />,
-    // ItemSeparatorComponent: () => <Divider key="separator" />,
-    ItemSeparatorComponent: () => <Box key="separator" h={4} />,
+    ItemSeparatorComponent: () => <Divider key="separator" />,
+    // ItemSeparatorComponent: () => <Box key="separator" h={4} />,
+    // ItemSeparatorComponent: null,
     keyExtractor: (tx: IHistoryTx, index: number) =>
       tx.id || index.toString(10),
     showsVerticalScrollIndicator: false,
