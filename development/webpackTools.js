@@ -76,7 +76,9 @@ function normalizeConfig({ platform, config, env }) {
 
     config.plugins = [
       ...config.plugins,
-      new BuildDoneNotifyPlugin(),
+      process.env.NODE_ENV === 'production'
+        ? null
+        : new BuildDoneNotifyPlugin(),
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
         'process.env.ONEKEY_BUILD_TYPE': JSON.stringify(platform),
@@ -85,7 +87,7 @@ function normalizeConfig({ platform, config, env }) {
         ),
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
-    ];
+    ].filter(Boolean);
   }
   config.resolve.extensions = lodash.uniq(
     config.resolve.extensions.concat(resolveExtensions),

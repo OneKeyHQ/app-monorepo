@@ -185,6 +185,11 @@ function createConfig() {
       minimizer: [
         new TerserPlugin({
           extractComments: false,
+          terserOptions: {
+            compress: {
+              drop_console: true,
+            },
+          },
         }),
       ],
     };
