@@ -143,24 +143,27 @@ const PopupHandle: FC = () => {
     ) {
       (async () => {
         if (visible) return;
-        dispatch(visibleHardwarePopup(uiRequest));
+        setCurrentPopupType(uiRequest);
 
         const check = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         );
 
         if (check || platformEnv.isNativeIOS) {
-          DialogManager.show({
-            render: (
-              <PermissionDialog
-                type="bluetooth"
-                onClose={() => {
-                  navigationRef.current?.goBack?.();
-                  dispatch(closeHardwarePopup());
-                }}
-              />
-            ),
-          });
+          setTimeout(() => {
+            dispatch(visibleHardwarePopup(uiRequest));
+            DialogManager.show({
+              render: (
+                <PermissionDialog
+                  type="bluetooth"
+                  onClose={() => {
+                    navigationRef.current?.goBack?.();
+                    dispatch(closeHardwarePopup());
+                  }}
+                />
+              ),
+            });
+          }, 0);
           return;
         }
 
@@ -168,18 +171,24 @@ const PopupHandle: FC = () => {
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         );
 
-        if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-          DialogManager.show({
-            render: (
-              <PermissionDialog
-                type="location"
-                onClose={() => {
-                  navigationRef.current?.goBack?.();
-                  dispatch(closeHardwarePopup());
-                }}
-              />
-            ),
-          });
+        if (
+          result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
+          result === PermissionsAndroid.RESULTS.DENIED
+        ) {
+          setTimeout(() => {
+            dispatch(visibleHardwarePopup(uiRequest));
+            DialogManager.show({
+              render: (
+                <PermissionDialog
+                  type="location"
+                  onClose={() => {
+                    navigationRef.current?.goBack?.();
+                    dispatch(closeHardwarePopup());
+                  }}
+                />
+              ),
+            });
+          }, 0);
         } else {
           dispatch(closeHardwarePopup());
         }

@@ -44,7 +44,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Wallet } from '../../../../../engine/src/types/wallet';
-import { DeviceNotBonded } from '../../../utils/hardware/errors';
+import {
+  DeviceNotBonded,
+  NeedBluetoothPermissions,
+  NeedBluetoothTurnedOn,
+} from '../../../utils/hardware/errors';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
@@ -146,11 +150,17 @@ const ConnectHardwareModal: FC = () => {
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
         if (platformEnv.isNative) {
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'msg__hardware_failed_to_search_devices',
-            }),
-          });
+          const error = deviceUtils.convertDeviceError(response.payload);
+          if (
+            !(error instanceof NeedBluetoothTurnedOn) &&
+            !(error instanceof NeedBluetoothPermissions)
+          ) {
+            ToastManager.show({
+              title: intl.formatMessage({
+                id: error.key,
+              }),
+            });
+          }
         }
         setIsSearching(false);
         return;
