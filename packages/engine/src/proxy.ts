@@ -9,7 +9,6 @@ import {
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
-import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
 import {
   BaseClient,
@@ -614,20 +613,22 @@ class ProviderController extends BaseProviderController {
 }
 
 class PriceController {
-  private cgk: Coingecko;
+  endpoint = 'https://fiat.onekey.so';
 
-  constructor() {
-    this.cgk = new Coingecko();
+  req = new RestfulRequest(this.endpoint);
+
+  fetchApi<T>(path: string, params?: Record<string, any>) {
+    return this.req.get(path, params).then((res) => res.json()) as Promise<T>;
   }
 
   async getFiats(fiats: Set<string>): Promise<Record<string, BigNumber>> {
     const ret: Record<string, BigNumber> = { 'usd': new BigNumber('1') };
     let rates: Record<string, { value: number }>;
     try {
-      const response = await this.cgk.fetchApi('/api/v3/exchange_rates');
-      rates = (
-        (await response.json()) as { rates: Record<string, { value: number }> }
-      ).rates;
+      const res = await this.fetchApi<{
+        rates: Record<string, { value: number }>;
+      }>('/exchange_rates');
+      rates = res.rates;
     } catch (e) {
       console.error(e);
       return Promise.reject(new Error('Failed to get fiat rates.'));
@@ -656,14 +657,13 @@ class PriceController {
     }
     const ret: Record<string, BigNumber> = {};
     try {
-      const response = await this.cgk.fetchApi(
-        `/api/v3/simple/token_price/${platform}`,
+      const prices = await this.fetchApi<Record<string, { usd: number }>>(
+        `/simple/token_price/${platform}`,
         {
           contract_addresses: addresses.join(','),
           vs_currencies: 'usd',
         },
       );
-      const prices = (await response.json()) as Record<string, { usd: number }>;
       for (const [address, value] of Object.entries(prices)) {
         if (typeof value.usd === 'number') {
           ret[address] = new BigNumber(value.usd);
@@ -697,15 +697,14 @@ class PriceController {
 
     if (withMain && typeof cgkChannel.native !== 'undefined') {
       try {
-        const response = await this.cgk.fetchApi('/api/v3/simple/price', {
-          ids: cgkChannel.native,
-          vs_currencies: 'usd',
-        });
-        ret.main = new BigNumber(
-          ((await response.json()) as Record<string, { usd: number }>)[
-            cgkChannel.native
-          ].usd,
+        const response = await this.fetchApi<Record<string, { usd: number }>>(
+          '/simple/price',
+          {
+            ids: cgkChannel.native,
+            vs_currencies: 'usd',
+          },
         );
+        ret.main = new BigNumber(response[cgkChannel.native].usd);
       } catch (e) {
         console.error(e);
       }
