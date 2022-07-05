@@ -49,7 +49,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
       footerButtonProps={{
         primaryActionProps: {
           type: 'destructive',
-          children: intl.formatMessage({ id: 'action__delete' }),
+          children: intl.formatMessage({ id: 'action__remove' }),
           isLoading,
         },
         onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
