@@ -215,7 +215,7 @@ export const canGetClipboard = (): boolean => !isWeb && !isExtension;
 const platformEnv: IPlatformEnv = {
   isLegacyHistory: false, // TODO remove
   isLegacySendConfirm: false, // TODO remove
-  isMultipleHistoryTxActionsSim: true,
+  isMultipleHistoryTxActionsSim: false,
 
   isDev,
   isProduction,

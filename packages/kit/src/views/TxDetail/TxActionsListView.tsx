@@ -43,14 +43,16 @@ export function TxActionsListView(props: ITxActionListViewProps) {
       finalDecodedTx.actions = originTx.decodedTx.actions;
       finalDecodedTx.outputActions = originTx.decodedTx.outputActions;
     }
-    let { actions = [] } = finalDecodedTx;
-    if (platformEnv.isMultipleHistoryTxActionsSim) {
+    let { actions = [], outputActions } = finalDecodedTx;
+    if (platformEnv.isDev && platformEnv.isMultipleHistoryTxActionsSim) {
       if (Math.round(Math.random() * 1000) % 2 === 0) {
         actions = actions.concat(finalDecodedTx.actions).filter(Boolean);
       }
     }
+    const displayedActions =
+      outputActions && outputActions.length ? outputActions : actions;
     const listItems: JSX.Element[] = [];
-    actions.forEach((action, index) => {
+    displayedActions.forEach((action, index) => {
       // TODO async function
       const metaInfo = getTxActionMeta({
         action,
@@ -67,7 +69,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
           <TxActionComponent key={index} {...metaInfo.props} meta={meta} />
         </TxActionErrorBoundary>,
       );
-      if (showDivider && index !== actions.length - 1) {
+      if (showDivider && index !== displayedActions.length - 1) {
         listItems.push(<Divider key={`${index}-divider`} />);
       }
     });

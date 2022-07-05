@@ -1,4 +1,5 @@
 import axios from 'axios';
+import BigNumber from 'bignumber.js';
 import camelcase from 'camelcase-keys';
 
 import { COVALENT_API_KEY } from '@onekeyhq/kit/src/config';
@@ -9,6 +10,9 @@ import {
   EVMTxFromType,
   HistoryDetailList,
   ICovalentHistoryList,
+  ICovalentHistoryListItem,
+  ICovalentHistoryListItemLogEvent,
+  ICovalentHistoryListItemTokenTransfer,
   LogEvent,
   NftDetail,
   NftMetadata,
@@ -17,7 +21,18 @@ import {
   TransferEvent,
   TxStatus,
 } from '../types/covalent';
-import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/decoder';
+import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/types';
+import { isEvmNativeTransferType } from '../vaults/impl/evm/decoder/util';
+import {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
+  IDecodedTxStatus,
+} from '../vaults/types';
+import { convertTokenOnChainValueToAmount } from '../vaults/utils/tokenUtils';
+import { VaultBase } from '../vaults/VaultBase';
+
+import type { IEncodedTxEvm } from '../vaults/impl/evm/Vault';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
 
@@ -432,6 +447,270 @@ function getTxHistories(
     });
 }
 
+async function createOutputActionFromCovalent({
+  vault,
+  covalentTx,
+  encodedTx,
+}: ICovalentTxToDecodedTxParseOptions) {
+  let nativeTransferAction: IDecodedTxAction | undefined;
+  // polygon also has log_events in nativeTransfer
+  let isContractCall =
+    Boolean(covalentTx?.log_events?.length) &&
+    Boolean(covalentTx?.log_events?.find((item) => !!item.decoded));
+  if (encodedTx) {
+    const isNativeTransfer = isEvmNativeTransferType({
+      data: encodedTx.data || '',
+      to: encodedTx.to,
+    });
+    isContractCall = !isNativeTransfer;
+  }
+  const isTokenQuery = !!covalentTx?.transfers?.length;
+  if (parseFloat(covalentTx.value) > 0 || !isContractCall) {
+    const tokenInfo = await vault.engine.getNativeTokenInfo(vault.networkId);
+    if (tokenInfo) {
+      const { value } = covalentTx;
+      nativeTransferAction = {
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        nativeTransfer: {
+          tokenInfo,
+          from: covalentTx.from_address,
+          to: covalentTx.to_address,
+          amount: convertTokenOnChainValueToAmount({ tokenInfo, value }),
+          amountValue: value,
+          extraInfo: null,
+        },
+      };
+    }
+  }
+  const commonAction = {
+    type: IDecodedTxActionType.TRANSACTION,
+    evmInfo: {
+      from: covalentTx.from_address,
+      to: covalentTx.to_address,
+      value: covalentTx.value,
+    },
+  };
+
+  return {
+    isContractCall,
+    isTokenQuery,
+    commonAction,
+    nativeTransferAction,
+  };
+}
+
+async function createOutputActionFromCovalentTransferInfo({
+  transfer,
+  vault,
+  address,
+}: {
+  transfer: ICovalentHistoryListItemTokenTransfer;
+  vault: VaultBase;
+  address: string;
+}) {
+  const from = transfer.from_address;
+  const to = transfer.to_address;
+  const value = transfer.delta;
+  const tokenInfo = await vault.engine.getOrAddToken(
+    vault.networkId,
+    transfer.contract_address,
+  );
+  let action: IDecodedTxAction | undefined;
+  if (tokenInfo) {
+    action = {
+      type: IDecodedTxActionType.TOKEN_TRANSFER,
+      hidden: !(from === address || to === address),
+      tokenTransfer: {
+        tokenInfo,
+        from,
+        to,
+        amount: convertTokenOnChainValueToAmount({ tokenInfo, value }),
+        amountValue: value,
+        extraInfo: null,
+      },
+    };
+  }
+  return action;
+}
+
+async function createOutputActionFromCovalentLogEvent({
+  event,
+  vault,
+  address,
+}: {
+  event: ICovalentHistoryListItemLogEvent;
+  vault: VaultBase;
+  address: string;
+}): Promise<IDecodedTxAction | null> {
+  if (event.decoded) {
+    const { name, signature, params } = event.decoded;
+    let action: IDecodedTxAction = {
+      type: IDecodedTxActionType.FUNCTION_CALL,
+      hidden: true,
+      functionCall: {
+        target: event.sender_address,
+        functionName: name,
+        functionHash: '',
+        functionSignature: signature,
+        args: params,
+        extraInfo: null,
+      },
+    };
+    if (name === 'Transfer') {
+      const tokenInfo = await vault.engine.getOrAddToken(
+        vault.networkId,
+        event.sender_address,
+      );
+      if (tokenInfo) {
+        const value = params.find((p) => p.name === 'value')?.value || '0';
+        const from = (
+          params.find((p) => p.name === 'from')?.value || ''
+        ).toLowerCase();
+        const to = (
+          params.find((p) => p.name === 'to')?.value || ''
+        ).toLowerCase();
+        action = {
+          type: IDecodedTxActionType.TOKEN_TRANSFER,
+          hidden: !(from === address || to === address),
+          tokenTransfer: {
+            tokenInfo,
+            from,
+            to,
+            amount: convertTokenOnChainValueToAmount({ tokenInfo, value }),
+            amountValue: value,
+            extraInfo: null,
+          },
+        };
+      }
+    }
+    if (name === 'Approval') {
+      const tokenInfo = await vault.engine.getOrAddToken(
+        vault.networkId,
+        event.sender_address,
+      );
+      if (tokenInfo) {
+        const value = params.find((p) => p.name === 'value')?.value || '0';
+        const owner = (
+          params.find((p) => p.name === 'owner')?.value || ''
+        ).toLowerCase();
+        const amount = convertTokenOnChainValueToAmount({ tokenInfo, value });
+        action = {
+          type: IDecodedTxActionType.TOKEN_APPROVE,
+          hidden: owner !== address,
+          tokenApprove: {
+            tokenInfo,
+            owner,
+            spender: params.find((p) => p.name === 'spender')?.value || '',
+            amount,
+            amountValue: value,
+            isMax:
+              event.raw_log_data ===
+                '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' ||
+              new BigNumber(amount).gte(10 ** 55),
+            extraInfo: null,
+          },
+        };
+      }
+    }
+
+    return action;
+  }
+  return null;
+}
+export type ICovalentTxToDecodedTxParseOptions = {
+  covalentTx: ICovalentHistoryListItem;
+  address: string;
+  vault: VaultBase;
+  encodedTx?: IEncodedTxEvm | undefined;
+};
+export async function parseCovalentTxToDecodedTx(
+  options: ICovalentTxToDecodedTxParseOptions,
+) {
+  const { covalentTx, address, vault } = options;
+  const { networkId, accountId } = vault;
+  const { nativeTransferAction, commonAction, isContractCall, isTokenQuery } =
+    await createOutputActionFromCovalent(options);
+  const parsedDecodedTx: IDecodedTx | undefined = {
+    txid: covalentTx.tx_hash,
+    owner: address,
+    signer: covalentTx.from_address,
+
+    nonce: 0, // TODO covalentTx lack of nonce
+    actions: [],
+    outputActions: [nativeTransferAction].filter(Boolean),
+
+    status: covalentTx.successful
+      ? IDecodedTxStatus.Confirmed
+      : IDecodedTxStatus.Failed,
+
+    networkId,
+    accountId,
+
+    extraInfo: null,
+  };
+
+  if (isTokenQuery && covalentTx.transfers) {
+    const actions = await Promise.all(
+      covalentTx.transfers.map((transfer) =>
+        createOutputActionFromCovalentTransferInfo({
+          transfer,
+          vault,
+          address,
+        }),
+      ),
+    );
+    parsedDecodedTx.outputActions = [
+      parseFloat(nativeTransferAction?.nativeTransfer?.amount ?? '0') > 0
+        ? nativeTransferAction
+        : null,
+      ...actions,
+    ].filter(Boolean);
+  } else if (
+    isContractCall &&
+    covalentTx.log_events &&
+    covalentTx.log_events.length
+  ) {
+    const outputActions = (
+      await Promise.all(
+        covalentTx.log_events.map((event) =>
+          createOutputActionFromCovalentLogEvent({
+            event,
+            vault,
+            address,
+          }),
+        ),
+      )
+    )
+      .filter((item) => item && !item.hidden)
+      .filter(Boolean);
+    parsedDecodedTx.outputActions = [
+      ...(parsedDecodedTx.outputActions || []),
+      ...(outputActions || []),
+    ].filter(Boolean);
+  }
+
+  if (
+    !parsedDecodedTx.outputActions ||
+    !parsedDecodedTx.outputActions?.length
+  ) {
+    // TODO nativeTransfer > 0
+    // TODO [ nativeTransferAction, commonAction, ...others ]
+    // TODO [ nativeTransferAction, ...others ]
+    // TODO [ commonAction ]
+    parsedDecodedTx.outputActions = [commonAction];
+  }
+  parsedDecodedTx.outputActions.filter((item) => item && !item.hidden);
+
+  covalentTx.parsedDecodedTx = parsedDecodedTx;
+  if (
+    covalentTx.tx_hash ===
+    '0x427986efc3934e37ad16a8cd69bff01b8b8456d4ad66a704e510cf0953883fac'
+  ) {
+    console.log('covalentTx ******* ', covalentTx);
+  }
+  return covalentTx;
+}
+
 async function fetchCovalentHistoryRaw({
   chainId,
   address,
@@ -450,7 +729,9 @@ async function fetchCovalentHistoryRaw({
   // eslint-disable-next-line no-param-reassign
   pageSize = pageSize ?? HISTORY_CONSTS.FETCH_ON_CHAIN_LIMIT;
 
+  // https://www.covalenthq.com/docs/api/#/0/Get%20ERC20%20token%20transfers%20for%20address/USD/1
   const tokenRequestUrl = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transfers_v2/`;
+  // https://www.covalenthq.com/docs/api/#/0/Get%20transactions%20for%20address/USD/1
   const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/`;
 
   const response = await axios.get<ICovalentHistoryList>(

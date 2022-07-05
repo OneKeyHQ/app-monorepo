@@ -228,7 +228,7 @@ export enum IDecodedTxActionType {
   // SWAP = 'SWAP',
 
   // Contract Interaction
-  // FUNCTION_CALL = 'FUNCTION_CALL',
+  FUNCTION_CALL = 'FUNCTION_CALL',
 
   // other
   TRANSACTION = 'TRANSACTION',
@@ -243,8 +243,9 @@ export type IDecodedTxActionBase = {
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
   target: string; // contractAddress
-  functionName: string;
-  functionHash: string; // functionSignature
+  functionName: string; // approve
+  functionHash?: string; // 0x095ea7b3
+  functionSignature?: string; //
   args: any[];
 };
 
@@ -270,11 +271,17 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   tokenInfo: Token; // TODO tokenContract / tokenIdOnNetwork
   // from: string;
   // to: string;
-  // owner: string; // TODO owner
+  owner: string;
   spender: string;
   amount: string; // TODO amount: "Infinite"
   amountValue: string;
   isMax: boolean;
+};
+export type IDecodedTxActionEvmInfo = {
+  from: string;
+  to: string;
+  value: string;
+  data?: string;
 };
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
 // other Unknown Action
@@ -282,6 +289,7 @@ export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 export type IDecodedTxAction = {
   type: IDecodedTxActionType;
   direction?: IDecodedTxDirection; // TODO move direction to UI side generate
+  hidden?: boolean;
   nativeTransfer?: IDecodedTxActionNativeTransfer;
   tokenTransfer?: IDecodedTxActionTokenTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
@@ -289,6 +297,7 @@ export type IDecodedTxAction = {
   functionCall?: IDecodedTxActionFunctionCall;
   // other Unknown Action
   unknownAction?: IDecodedTxActionUnknown;
+  evmInfo?: IDecodedTxActionEvmInfo;
 };
 export type IDecodedTx = {
   txid: string; // blockHash

@@ -20,6 +20,7 @@ import { WalletType } from '../types/wallet';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxLegacy,
@@ -284,30 +285,53 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(null);
   }
 
+  async fixActionDirection({
+    action,
+    accountAddress,
+  }: {
+    action: IDecodedTxAction;
+    accountAddress: string;
+  }) {
+    action.direction = IDecodedTxDirection.OTHER;
+    if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
+      action.direction = await this.buildTxActionDirection({
+        from: action.nativeTransfer?.from || '',
+        to: action.nativeTransfer?.to || '',
+        address: accountAddress,
+      });
+    }
+    if (action.type === IDecodedTxActionType.TOKEN_TRANSFER) {
+      action.direction = await this.buildTxActionDirection({
+        from: action.tokenTransfer?.from || '',
+        to: action.tokenTransfer?.to || '',
+        address: accountAddress,
+      });
+    }
+    return action;
+  }
+
   async fixDecodedTx(decodedTx: IDecodedTx): Promise<IDecodedTx> {
     decodedTx.createdAt = decodedTx.createdAt ?? Date.now();
 
     // TODO fix tx action direction both at SendConfirm
     const accountAddress = decodedTx.owner;
-    // eslint-disable-next-line no-plusplus
-    for (let i = 0; i < decodedTx.actions.length; i++) {
+    for (let i = 0; i < decodedTx.actions.length; i += 1) {
       const action = decodedTx.actions[i];
-      action.direction = IDecodedTxDirection.OTHER;
-      if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
-        action.direction = await this.buildTxActionDirection({
-          from: action.nativeTransfer?.from || '',
-          to: action.nativeTransfer?.to || '',
-          address: accountAddress,
-        });
-      }
-      if (action.type === IDecodedTxActionType.TOKEN_TRANSFER) {
-        action.direction = await this.buildTxActionDirection({
-          from: action.tokenTransfer?.from || '',
-          to: action.tokenTransfer?.to || '',
-          address: accountAddress,
+      await this.fixActionDirection({
+        action,
+        accountAddress,
+      });
+    }
+    if (decodedTx.outputActions) {
+      for (let i = 0; i < decodedTx.outputActions.length; i += 1) {
+        const action = decodedTx.outputActions[i];
+        await this.fixActionDirection({
+          action,
+          accountAddress,
         });
       }
     }
+
     return Promise.resolve(decodedTx);
   }
 
@@ -348,7 +372,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       throw new Error('buildHistoryTx txid not found');
     }
     const address = await this.getAccountAddress();
-    decodedTx.txid = decodedTx.txid || txid;
+    decodedTx.txid = txid || decodedTx.txid;
     decodedTx.owner = address;
     if (isSigner) {
       decodedTx.signer = address;

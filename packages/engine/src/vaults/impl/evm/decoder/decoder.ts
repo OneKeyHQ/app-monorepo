@@ -15,7 +15,7 @@ import {
   EVMDecodedItemInternalSwap,
   EVMDecodedTxType,
 } from './types';
-import { jsonToEthersTx } from './util';
+import { isEvmNativeTransferType, jsonToEthersTx } from './util';
 
 import type { Engine } from '../../../..';
 import type VaultEvm from '../Vault';
@@ -264,9 +264,13 @@ class EVMTxDecoder {
       itemBuilder.mainSource = 'ethersTx';
     }
     itemBuilder.tx = tx;
-    const { data } = tx;
 
-    if (!data || data === '0x' || data === '0x0') {
+    if (
+      isEvmNativeTransferType({
+        data: tx.data || '',
+        to: tx.to || '',
+      })
+    ) {
       itemBuilder.txType = EVMDecodedTxType.NATIVE_TRANSFER;
       return itemBuilder;
     }

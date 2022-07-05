@@ -21,10 +21,11 @@ import {
 import { ITxActionCardProps, ITxActionElementDetail } from '../types';
 
 export function TxActionTransactionEvm(props: ITxActionCardProps) {
-  const { decodedTx, meta } = props;
+  const { decodedTx, action, meta } = props;
   const icon = <TxActionElementIconNormal {...meta} />;
   const title = <TxActionElementTitleHeading {...meta} mb={4} />;
-  const encodedTx = decodedTx.encodedTx as IEncodedTxEvm | undefined;
+  const encodedTx =
+    (decodedTx.encodedTx as IEncodedTxEvm | undefined) || action.evmInfo;
   const intl = useIntl();
 
   const details: Array<ITxActionElementDetail | null> = [
@@ -40,16 +41,18 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
           ),
         }
       : null,
-    {
-      title: intl.formatMessage({ id: 'form__data' }),
-      content: (
-        <TxActionElementPressable onPress={() => console.log(decodedTx)}>
-          <TxActionElementDetailCellContentText numberOfLines={3}>
-            {encodedTx?.data || ''}
-          </TxActionElementDetailCellContentText>
-        </TxActionElementPressable>
-      ),
-    },
+    encodedTx?.data
+      ? {
+          title: intl.formatMessage({ id: 'form__data' }),
+          content: (
+            <TxActionElementPressable onPress={() => console.log(decodedTx)}>
+              <TxActionElementDetailCellContentText numberOfLines={3}>
+                {encodedTx?.data || ''}
+              </TxActionElementDetailCellContentText>
+            </TxActionElementPressable>
+          ),
+        }
+      : null,
   ];
   return (
     <TxDetailActionBox
