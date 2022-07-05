@@ -477,7 +477,16 @@ export default class Vault extends VaultBase {
             ? IDecodedTxDirection.SELF
             : IDecodedTxDirection.OUT;
         }
-        const amountValue = totalOut.minus(totalIn).abs();
+        let amountValue = totalOut.minus(totalIn).abs();
+        if (
+          direction === IDecodedTxDirection.OUT &&
+          utxoFrom.every(({ isMine }) => isMine)
+        ) {
+          // IF the transaction's direction is out and all inputs are from
+          // current account, substract the fees from the net output amount
+          // to give an exact sending amount value.
+          amountValue = amountValue.minus(tx.fees);
+        }
 
         const decodedTx: IDecodedTx = {
           txid: tx.txid,
