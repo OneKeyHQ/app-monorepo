@@ -12,7 +12,7 @@ import uuid from 'react-native-uuid';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
+import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IEncodedTxEvm,
@@ -85,6 +85,20 @@ export type AddEthereumChainParameter = {
 export type SwitchEthereumChainParameter = {
   chainId: string;
 };
+
+function convertToEthereumChainResult(result: Network | undefined | null) {
+  return {
+    id: result?.id,
+    impl: result?.impl,
+    symbol: result?.symbol,
+    decimals: result?.decimals,
+    logoURI: result?.logoURI,
+    shortName: result?.shortName,
+    shortCode: result?.shortCode,
+    chainId: result?.extraInfo?.chainId,
+    networkVersion: result?.extraInfo?.networkVersion,
+  };
+}
 
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
@@ -483,7 +497,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       request,
       params,
     );
-    return result;
+    // Metamask return null
+    return convertToEthereumChainResult(result as any);
   }
 
   /**
@@ -508,7 +523,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       request,
       params,
     );
-    return result;
+    // Metamask return null
+    return convertToEthereumChainResult(result as any);
   }
 
   // ----------------------------------------------

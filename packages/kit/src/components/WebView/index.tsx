@@ -34,7 +34,11 @@ function WebView({
   allowpopups?: boolean;
   containerProps?: ComponentProps<typeof Box>;
 }): JSX.Element {
-  const isFocused = useIsFocused();
+  // TODO some dapps will call method when Dapp Modal opened, and isFocused will be false
+  //    https://app.1inch.io/#/1/swap/ETH/DAI
+  // const isFocused = useIsFocused();
+  const isFocused = true; // TODO webview isFocused or Dapp Modal isFocused
+
   const { jsBridge, webviewRef, setWebViewRef } = useWebViewBridge();
   const [webviewVisible, setWebViewVisible] = useState(true);
   const webviewGlobalKey = useAppSelector((s) => s.status.webviewGlobalKey);

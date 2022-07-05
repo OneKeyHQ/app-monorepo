@@ -39,6 +39,7 @@ class ProviderApiSolana extends ProviderApiBase {
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = () => {
       const result = {
+        // TODO do not emit events to EVM Dapps, injected provider check scope
         method: 'accountsChanged',
         params: { accounts: [] },
       };
