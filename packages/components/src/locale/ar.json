@@ -377,6 +377,7 @@
   "form__24h_volume": "حجم 24H",
   "form___7d_volume": "7D Volume",
   "form__about_uppercase": "حول",
+  "form__accelerated_transaction": "🚀 Accelerated transaction",
   "form__account": "الحساب",
   "form__account_name": "إسم الحساب",
   "form__account_name_invalid_characters_limit": "ما يصل إلى {0} من الأحرف.",
@@ -416,6 +417,7 @@
   "form__blockchain_explorer_url_invalid": "يتطلب URL البادئة http أو https.",
   "form__buy_int_max_purchase": "{0} الحد الأقصى للشراء",
   "form__buy_int_min_purchase": "{0} الحد الأدنى للشراء",
+  "form__cancelled_transaction": "💨 Cancelled transaction",
   "form__chain_id": "معرف السلسلة",
   "form__chain_id_invalid": "معرف السلسلة غير صالح!",
   "form__change_password": "غير كلمة السر",
@@ -428,6 +430,7 @@
   "form__contract_data": "بيانات العقد",
   "form__create_delete_accounts": "إنشاء / حذف الحسابات",
   "form__create_delete_wallets": "إنشاء / حذف محافظ",
+  "form__cross_chain": "Cross chain",
   "form__dark": "داكن",
   "form__data": "البيانات",
   "form__data_tab": "البيانات",
@@ -630,7 +633,6 @@
   "modal__follow_the_instructions_on_your_device_screen": "اتبع التعليمات التي تظهر على شاشة جهازك",
   "modal__for_your_eyes_only": "فقط لاجل عينيك",
   "modal__for_your_eyes_only_desc": "لا تشارك عبارة الاسترداد. سيتمكن أي شخص لديه هذه الكلمات من الوصول الكامل إلى محفظتك.",
-  "modal__incorrect_device": "Incorrect Device",
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
@@ -650,6 +652,8 @@
   "modal__onekey_lite_has_been_reset_desc": "تم إدخال رقم التعريف الشخصي الحالي بشكل غير صحيح أكثر من 10 مرات ، وتم مسح بيانات هذا الجهاز لمنع تصدع بيانات النسخ الاحتياطي بالقوة الغاشمة",
   "modal__onekey_wants_to_use_nfc": "يريد مفتاح \"OneKey\" استخدام NFC",
   "modal__onekey_wants_to_use_nfc_desc": "أذونات NFC مطلوبة للاتصال بـ OneKey Lite.",
+  "modal__only_one_device_can_be_connected": "Only one device can be connected",
+  "modal__only_one_device_can_be_connected_desc": "Please connect only one device to upgrade.",
   "modal__pin_change_failed": "فشل تغيير رقم التعريف الشخصي",
   "modal__pin_change_failed_desc": "ليست هناك حاجة لتغيير رقم التعريف الشخصي على بطاقة OneKey Lite الجديدة هذه",
   "modal__preview": "معاينة",
@@ -827,11 +831,13 @@
   "title__help_center": "Help Center",
   "title__home": "مسكن",
   "title__invest": "استثمار",
+  "title__leaderboard": "LeaderBoard",
   "title__manage_cryptos": "إدارة التشفير",
   "title__manage_tokens": "إدارة الرموز",
   "title__market": "سوق",
   "title__me": "أنا",
   "title__menu": "قائمة",
+  "title__newly_added": "Newly Added",
   "title__news": "أخبار",
   "title__nfc_data_has_been_read": "الانتعاش جاهز",
   "title__nfc_data_has_been_read_desc": "أدخل كلمة مرور التطبيق لإكمال استعادة المحفظة",
