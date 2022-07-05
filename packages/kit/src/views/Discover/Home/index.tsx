@@ -201,7 +201,7 @@ export const Discover: FC<DiscoverProps> = ({
     ) => {
       const listData: SectionDataType[] = [];
       const { increment, banners } = syncResponceData;
-      const { tags } = rankResponceData;
+      const { tags, special } = rankResponceData;
       if (increment) {
         if (banners) {
           const dAppItems = banners.map((item) => {
@@ -210,22 +210,32 @@ export const Discover: FC<DiscoverProps> = ({
           });
           listData.push({ type: 'banner', title: 'Explore', data: dAppItems });
         }
-        if (tags.length > 0) {
-          tags.forEach((item) => {
-            const { dapps } = item;
-            const dAppItems = dapps.map((key) => ({
-              ...increment[key],
-              id: key,
-            }));
-            if (dAppItems.length > 0) {
-              listData.push({
-                type: listData.length % 2 === 1 ? 'card' : 'list',
-                title: item.name,
-                data: dAppItems,
-              });
-            }
-          });
-        }
+        const newTags = [
+          {
+            name: intl.formatMessage({ id: 'title__leaderboard' }),
+            dapps: special.daily,
+          },
+          {
+            name: intl.formatMessage({ id: 'title__newly_added' }),
+            dapps: special.new,
+          },
+          ...tags,
+        ];
+
+        newTags.forEach((item) => {
+          const { dapps } = item;
+          const dAppItems = dapps.map((key) => ({
+            ...increment[key],
+            id: key,
+          }));
+          if (dAppItems.length > 0) {
+            listData.push({
+              type: listData.length % 2 === 1 ? 'card' : 'list',
+              title: item.name,
+              data: dAppItems,
+            });
+          }
+        });
       }
       return listData;
     },
