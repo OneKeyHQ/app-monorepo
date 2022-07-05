@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
+import { getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -20,10 +21,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import {
-  getDeviceFirmwareVersion,
-  getDeviceSerialNo,
-} from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
+import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type RouteProps = RouteProp<
@@ -95,10 +93,6 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                   params: {
                     walletId,
                     onSuccess: () => {
-                      console.log(
-                        '===: HardwareUpdateInfoModel update onSuccess',
-                      );
-
                       if (navigation.canGoBack()) {
                         navigation.goBack();
                       }
@@ -121,14 +115,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           titleColor="text-default"
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'content__serial_number' })}
-          describe={getDeviceSerialNo(deviceFeatures) ?? '-'}
-        />
-
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title={intl.formatMessage({ id: 'content__bluetooth_name' })}
-          describe={deviceFeatures?.ble_name ?? '-'}
+          describe={deviceFeatures ? getDeviceUUID(deviceFeatures) : '-'}
         />
 
         <Container.Item
@@ -136,6 +123,13 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'content__firmware_version' })}
           describe={getDeviceFirmwareVersion(deviceFeatures).join('.')}
+        />
+
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title={intl.formatMessage({ id: 'content__bluetooth_name' })}
+          describe={deviceFeatures?.ble_name ?? '-'}
         />
 
         <Container.Item

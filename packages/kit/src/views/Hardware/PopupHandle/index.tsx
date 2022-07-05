@@ -45,7 +45,8 @@ const PopupHandle: FC = () => {
   const { uiRequest, payload, visible } = hardwarePopup;
 
   useEffect(() => {
-    console.log('PopupHandle:', uiRequest, payload, visible);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    console.log('PopupHandle:', uiRequest, payload?.type ?? undefined, visible);
 
     if (uiRequest === UI_REQUEST.REQUEST_PIN) {
       if (visible) return;
@@ -114,7 +115,9 @@ const PopupHandle: FC = () => {
     }
 
     if (uiRequest === UI_REQUEST.CLOSE_UI_WINDOW) {
-      dispatch(closeHardwarePopup());
+      setTimeout(() => {
+        dispatch(closeHardwarePopup());
+      }, 0);
       if (
         currentPopupType === UI_REQUEST.BLUETOOTH_PERMISSION ||
         currentPopupType === UI_REQUEST.LOCATION_PERMISSION
@@ -160,7 +163,6 @@ const PopupHandle: FC = () => {
                   type="bluetooth"
                   onClose={() => {
                     navigationRef.current?.goBack?.();
-                    setCurrentPopupType(undefined);
                     dispatch(closeHardwarePopup());
                   }}
                 />
@@ -186,7 +188,6 @@ const PopupHandle: FC = () => {
                   type="location"
                   onClose={() => {
                     navigationRef.current?.goBack?.();
-                    setCurrentPopupType(undefined);
                     dispatch(closeHardwarePopup());
                   }}
                 />

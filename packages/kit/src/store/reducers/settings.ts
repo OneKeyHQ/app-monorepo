@@ -4,10 +4,10 @@ import uuid from 'react-native-uuid';
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ValidationFields } from '../../components/Protected/types';
-import { FirmwareType } from '../../views/Hardware/UpdateFirmware/Updating/handle';
 
 import type {
   BLEFirmwareInfo,

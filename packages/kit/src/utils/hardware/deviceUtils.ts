@@ -4,27 +4,14 @@ import {
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  DeviceNotBonded,
-  DeviceNotFind,
-  FirmwareVersionTooLow,
-  InitIframeLoadFail,
-  InitIframeTimeout,
-  InvalidPIN,
-  NeedBluetoothPermissions,
-  NeedBluetoothTurnedOn,
-  NotInBootLoaderMode,
-  OpenBlindSign,
-  UnknownHardwareError,
-  UnknownMethod,
-  UserCancel,
-} from './errors';
+import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
 /**
@@ -145,56 +132,47 @@ class DeviceUtils {
   }
 
   convertDeviceError(payload: any): OneKeyHardwareError {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const error = payload?.error ?? payload;
-    if (error === null) return new UnknownHardwareError();
-    if (typeof error !== 'string') return new UnknownHardwareError();
+    const { code, error } = payload;
+    console.log('Device Utils Convert Device Error:', code, error);
 
-    if (error.includes('device is not bonded')) {
-      return new DeviceNotBonded();
-    }
-
-    if (error.includes('Device firmware version is too low')) {
-      return new FirmwareVersionTooLow();
-    }
-
-    switch (error) {
-      case 'Error: Bluetooth required to be turned on':
-        return new NeedBluetoothTurnedOn();
-
-      case 'BleError: Device is not authorized to use BluetoothLE':
-        return new NeedBluetoothPermissions();
-
-      case 'PIN cancelled':
-        return new UserCancel();
-
-      case 'Action cancelled by user':
-        return new UserCancel();
-
-      case 'Unknown message':
-        return new UnknownMethod();
-
-      case 'Device Not Found':
-        return new DeviceNotFind();
-
-      case 'Init_IframeLoadFail':
-        return new InitIframeTimeout();
-
-      case 'Init_IframeTimeout':
-        return new InitIframeLoadFail();
-
-      case 'PIN码错误':
-      case 'PIN invalid':
-        return new InvalidPIN();
-
-      case 'EIP712 blind sign is disabled':
-        return new OpenBlindSign();
-
-      case 'ui-device_not_in_bootloader_mode':
-        return new NotInBootLoaderMode();
-
+    switch (code) {
+      case HardwareErrorCode.UnknownError:
+        return new Error.UnknownHardwareError();
+      case HardwareErrorCode.DeviceFwException:
+        return new Error.FirmwareVersionTooLow();
+      case HardwareErrorCode.DeviceNotFound:
+        return new Error.DeviceNotFind();
+      case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
+        return new Error.NotInBootLoaderMode();
+      case HardwareErrorCode.IFrameLoadFail:
+        return new Error.InitIframeLoadFail();
+      case HardwareErrorCode.IframeTimeout:
+        return new Error.InitIframeTimeout();
+      case HardwareErrorCode.FirmwareUpdateDownloadFailed:
+        return new Error.FirmwareDownloadFailed();
+      case HardwareErrorCode.NetworkError:
+        return new Error.NetworkError();
+      case HardwareErrorCode.BlePermissionError:
+        return new Error.NeedBluetoothTurnedOn();
+      case HardwareErrorCode.BleLocationError:
+        return new Error.NeedBluetoothPermissions();
+      case HardwareErrorCode.BleDeviceNotBonded:
+        return new Error.DeviceNotBonded();
+      case HardwareErrorCode.RuntimeError:
+        if (error === 'EIP712 blind sign is disabled') {
+          return new Error.OpenBlindSign();
+        }
+        if (error === 'Unknown message') {
+          return new Error.UnknownMethod();
+        }
+        return new Error.UnknownHardwareError(error);
+      case HardwareErrorCode.PinInvalid:
+        return new Error.InvalidPIN();
+      case HardwareErrorCode.PinCancelled:
+      case HardwareErrorCode.ActionCancelled:
+        return new Error.UserCancel();
       default:
-        return new UnknownHardwareError();
+        return new Error.UnknownHardwareError(error);
     }
   }
 }

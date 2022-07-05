@@ -16,7 +16,9 @@ export type StateViewType =
   | 'device-connection-failure'
   | 'device-not-response'
   | 'reboot-bootloader-failure'
-  | 'success';
+  | 'success'
+  | 'bluetooth-turned-off'
+  | 'check-update-failure';
 
 type StateContent = {
   emoji?: string;
@@ -45,14 +47,18 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
         case 'pre-check-failure':
           stateContent = {
             emoji: '😞',
-            title: '环境检查失败',
-            description: '环境检查失败，可以尝试重试',
+            title: intl.formatMessage({
+              id: 'modal__device_check_failed',
+            }),
+            description: intl.formatMessage({
+              id: 'modal__device_check_failed_desc',
+            }),
           };
           break;
 
         case 'download-failure':
           stateContent = {
-            emoji: '😞',
+            emoji: '📶',
             title: intl.formatMessage({ id: 'modal__download_failed' }),
             description: intl.formatMessage({
               id: 'modal__download_failed_desc',
@@ -63,33 +69,46 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
         case 'install-failure':
           stateContent = {
             emoji: '😞',
-            title: '固件安装失败',
-            description: '固件安装失败，可以尝试重试',
+            title: intl.formatMessage({
+              id: 'modal__firmware_installation_failed',
+            }),
+            description: intl.formatMessage({
+              id: 'modal__firmware_installation_failed_desc',
+            }),
           };
           break;
 
         case 'device-not-found':
           stateContent = {
-            emoji: '😞',
-            title: '没有发现设备',
-            description:
-              '请检查设备是否连接, 以及设备保持正常开机，不在 Bootloader 模式下。',
-          };
-          break;
-
-        case 'device-mismatch':
-          stateContent = {
-            emoji: '😞',
-            title: '连接的设备有误',
-            description: '请检查连接的设备是否正确',
+            emoji: '🔌',
+            title: intl.formatMessage({ id: 'modal__no_device_found' }),
+            description: intl.formatMessage({
+              id: 'modal__no_device_found_desc',
+            }),
           };
           break;
 
         case 'device-not-only-ones':
           stateContent = {
-            emoji: '😞',
-            title: '你只能连接一个设备',
-            description: '为了保障升级成功，请确保只有一个设备在连接',
+            emoji: '🔌',
+            title: intl.formatMessage({
+              id: 'modal__only_one_device_can_be_connected',
+            }),
+            description: intl.formatMessage({
+              id: 'modal__only_one_device_can_be_connected_desc',
+            }),
+          };
+          break;
+
+        case 'check-update-failure':
+          stateContent = {
+            emoji: '🔌',
+            title: intl.formatMessage({
+              id: 'modal__check_firmware_update_failure',
+            }),
+            description: intl.formatMessage({
+              id: 'modal__check_firmware_update_failure_desc',
+            }),
           };
           break;
 
@@ -133,6 +152,17 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
             }),
           };
           break;
+
+        case 'bluetooth-turned-off':
+          stateContent = {
+            emoji: '📡',
+            title: intl.formatMessage({
+              id: 'msg__hardware_bluetooth_need_turned_on_error',
+            }),
+            description: 'Turn on bluetooth and try again.',
+          };
+          break;
+
         default:
           stateContent = {
             emoji: '💀',
@@ -145,8 +175,6 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
 
       return { ...stateContent, ...stateInfo?.content };
     }, [intl, stateInfo]);
-
-  console.log('====:StateView', stateInfo);
 
   return (
     <Box

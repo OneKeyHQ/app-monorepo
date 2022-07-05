@@ -47,6 +47,12 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
 
 export class NotInBootLoaderMode extends OneKeyHardwareError {}
 
+export class FirmwareDownloadFailed extends OneKeyHardwareError {
+  override reconnect = true;
+
+  override key: LocaleIds = 'msg__hardware_firmware_download_error';
+}
+
 export class DeviceNotFind extends OneKeyHardwareError {
   override reconnect = true;
 
@@ -63,6 +69,11 @@ export class InitIframeTimeout extends OneKeyHardwareError {
   override reconnect = true;
 
   override key: LocaleIds = 'msg__hardware_init_iframe_load_error';
+}
+export class NetworkError extends OneKeyHardwareError {
+  override reconnect = true;
+
+  override key: LocaleIds = 'title__no_connection_desc';
 }
 
 // 未知错误

@@ -13,13 +13,6 @@ export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType => {
   return 'classic';
 };
 
-export const getDeviceSerialNo = (
-  features: IOneKeyDeviceFeatures | undefined,
-) => {
-  if (!features) return '-';
-  return features.onekey_serial ?? features.serial_no ?? '';
-};
-
 export const getDeviceFirmwareVersion = (
   features: IOneKeyDeviceFeatures | undefined,
 ): IVersionArray => {

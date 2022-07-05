@@ -12,6 +12,7 @@ import createStackNavigator from './createStackNavigator';
 export enum HardwareUpdateModalRoutes {
   HardwareUpdateInfoModel = 'HardwareUpdateInfoModel',
   HardwareUpdateWarningModal = 'HardwareUpdateWarningModal',
+  HardwareUpdateWarningPowerModal = 'HardwareUpdateWarningPowerModal',
   HardwareUpdatingModal = 'HardwareUpdatingModal',
 }
 
@@ -21,6 +22,10 @@ export type HardwareUpdateRoutesParams = {
     onSuccess?: () => void;
   };
   [HardwareUpdateModalRoutes.HardwareUpdateWarningModal]: {
+    device?: Device;
+    onSuccess?: () => void;
+  };
+  [HardwareUpdateModalRoutes.HardwareUpdateWarningPowerModal]: {
     device?: Device;
     onSuccess?: () => void;
   };

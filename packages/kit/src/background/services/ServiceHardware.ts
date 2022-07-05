@@ -18,6 +18,7 @@ import {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
+import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -43,12 +44,14 @@ class ServiceHardware extends ServiceBase {
       instance.on('UI_EVENT', (e) => {
         const { type, payload } = e;
 
-        this.backgroundApi.dispatch(
-          setHardwarePopup({
-            uiRequest: type,
-            payload: payload ?? undefined,
-          }),
-        );
+        setTimeout(() => {
+          this.backgroundApi.dispatch(
+            setHardwarePopup({
+              uiRequest: type,
+              payload: payload ?? undefined,
+            }),
+          );
+        }, 0);
       });
     });
   }
@@ -153,6 +156,43 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
     return (await this.getSDKInstance()).uiResponse(response);
+  }
+
+  @backgroundMethod()
+  async rebootToBootloader(connectId: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK?.deviceUpdateReboot(connectId).then((response) => {
+      if (!response.success) {
+        throw deviceUtils.convertDeviceError(response.payload);
+      }
+      return response;
+    });
+  }
+
+  @backgroundMethod()
+  async installFirmware(connectId: string, firmwareType: FirmwareType) {
+    const hardwareSDK = await this.getSDKInstance();
+    console.log('installFirmware', connectId, firmwareType);
+
+    // @ts-expect-error
+    return hardwareSDK
+      .firmwareUpdate(platformEnv.isNative ? connectId : undefined, {
+        updateType: firmwareType,
+      })
+      .then((response) => {
+        if (!response.success) {
+          throw deviceUtils.convertDeviceError(response.payload);
+        }
+        if (firmwareType === 'firmware') {
+          return response.payload;
+        }
+
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(response.payload);
+          }, 10 * 1000);
+        });
+      });
   }
 
   @backgroundMethod()

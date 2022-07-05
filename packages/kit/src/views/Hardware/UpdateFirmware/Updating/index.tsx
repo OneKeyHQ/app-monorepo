@@ -3,6 +3,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
+import semver from 'semver';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Modal, ToastManager } from '@onekeyhq/components';
@@ -15,26 +16,27 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
-import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
-import { NotInBootLoaderMode } from '@onekeyhq/kit/src/utils/hardware/errors';
 import {
-  BLEFirmwareInfo,
-  SYSFirmwareInfo,
-} from '@onekeyhq/kit/src/utils/updates/type';
+  FirmwareDownloadFailed,
+  NeedBluetoothTurnedOn,
+  NotInBootLoaderMode,
+} from '@onekeyhq/kit/src/utils/hardware/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { installFirmware, rebootToBootloader } from './handle';
 import RunningView from './RunningView';
 import StateView, { StateViewTypeInfo } from './StateView';
 
 type ProgressStepType =
   | 'pre-check'
-  | 'installing-ble'
+  | 'get-device-info'
   | 'reboot-bootloader'
-  | 'installing-firmware'
+  | 'installing'
+  | 'wait-for-reboot'
   | 'done-step';
 
 type ProgressStateType = 'ready' | 'running' | 'done' | 'failure';
+export type FirmwareType = 'firmware' | 'ble';
 
 type NavigationProps = ModalScreenProps<HardwareUpdateRoutesParams>;
 
@@ -43,18 +45,18 @@ type RouteProps = RouteProp<
   HardwareUpdateModalRoutes.HardwareUpdatingModal
 >;
 
-const InstalBaseProgress = 10;
-
 const UpdatingModal: FC = () => {
   const intl = useIntl();
-  const { dispatch } = backgroundApiProxy;
+  const { dispatch, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device, onSuccess } = useRoute<RouteProps>().params;
   const { deviceUpdates } = useSettings() || {};
+  const { ble: bleFirmware, firmware } = deviceUpdates[device?.mac ?? ''] || {};
 
-  const [firmwareRelease, setFirmwareRelease] = useState<SYSFirmwareInfo>();
-  const [bleFirmwareRelease, setBleFirmwareRelease] =
-    useState<BLEFirmwareInfo>();
+  const [updateDeviceFeature, setUpdateDeviceFeature] =
+    useState<IOneKeyDeviceFeatures>();
+
+  const [firmwareType, setFirmwareType] = useState<FirmwareType>('firmware');
 
   const [suspendStep, setSuspendStep] = useState<ProgressStepType>();
   const [progressStep, setProgressStep] = useState<ProgressStepType>();
@@ -67,17 +69,6 @@ const UpdatingModal: FC = () => {
   // Prevents screen locking
   useKeepAwake();
 
-  useEffect(() => {
-    const uiEvent = (e: any) => {
-      console.log('UpdatingModal HardwareSDK UI_EVENT', e);
-    };
-
-    HardwareSDK.on('UI_EVENT', uiEvent);
-    return () => {
-      HardwareSDK.off('UI_EVENT', uiEvent);
-    };
-  }, []);
-
   const connectId = useMemo(() => device?.mac ?? '', [device]);
 
   const hasFailure = useMemo(
@@ -88,50 +79,35 @@ const UpdatingModal: FC = () => {
     () => progressStep === 'done-step',
     [progressStep],
   );
-  const hasUpdating = useMemo(
-    () =>
-      progressStep === 'installing-firmware' ||
-      progressStep === 'installing-ble',
-    [progressStep],
-  );
 
   const [progress, setProgress] = useState(0);
+  const progressMemo = useDeepCompareMemo(() => progress, [progress]);
+  const [maxProgress, setMaxProgress] = useState(0);
   const [progressStepDesc, setProgressStepDesc] = useState('Updating...');
+
   const generateProgressStepDesc = useCallback(
     (step: ProgressStepType | undefined) => {
       switch (step) {
         case 'pre-check':
-          return 'Checking...';
-        // case 'downloading-ble':
-        //   return intl.formatMessage(
-        //     { id: 'content__downloading_str' },
-        //     {
-        //       0: intl.formatMessage({
-        //         id: 'content__bluetooth_firmware_lowercase',
-        //       }),
-        //     },
-        //   );
-        case 'installing-ble':
-          return intl.formatMessage(
-            { id: 'content__installing_str' },
-            {
-              0: intl.formatMessage({
-                id: 'content__bluetooth_firmware_lowercase',
-              }),
-            },
-          );
-        // case 'downloading-firmware':
-        //   return intl.formatMessage(
-        //     { id: 'content__downloading_str' },
-        //     {
-        //       0: intl.formatMessage({
-        //         id: 'content__firmware_lowercase',
-        //       }),
-        //     },
-        //   );
+        case 'get-device-info':
+          return intl.formatMessage({
+            id: 'action__checking',
+          });
         case 'reboot-bootloader':
-          return '进入 Bootloader 模式...';
-        case 'installing-firmware':
+          return intl.formatMessage({
+            id: 'content__enter_bootloader_mode',
+          });
+        case 'installing':
+          if (firmwareType === 'ble') {
+            return intl.formatMessage(
+              { id: 'content__installing_str' },
+              {
+                0: intl.formatMessage({
+                  id: 'content__bluetooth_firmware_lowercase',
+                }),
+              },
+            );
+          }
           return intl.formatMessage(
             { id: 'content__installing_str' },
             {
@@ -140,17 +116,42 @@ const UpdatingModal: FC = () => {
               }),
             },
           );
+
+        case 'wait-for-reboot':
+          return intl.formatMessage({
+            id: 'content__wait_reboot_device_check_update_fireware',
+          });
+
         default:
           return '';
       }
     },
-    [intl],
+    [firmwareType, intl],
   );
 
   const [stateViewInfo, setStateViewInfo] = useState<StateViewTypeInfo>();
 
-  const handleInstallError = (currentStep: ProgressStepType, error: Error) => {
-    console.log('install error:', currentStep, error);
+  useEffect(() => {
+    let interval = 10;
+    if (firmwareType === 'firmware') {
+      interval = 50;
+    } else {
+      interval = 10;
+    }
+
+    const timer = setInterval(() => {
+      if (progress < maxProgress) {
+        setProgress(progress + 0.1);
+      }
+    }, interval);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [firmwareType, maxProgress, progress]);
+
+  const handleErrors = (currentStep: ProgressStepType, error: Error) => {
+    console.log('handle error:', currentStep, error);
 
     if (error instanceof NotInBootLoaderMode) {
       setSuspendStep(progressStep);
@@ -159,7 +160,50 @@ const UpdatingModal: FC = () => {
       return;
     }
 
-    setStateViewInfo({ type: 'install-failure' });
+    if (error instanceof FirmwareDownloadFailed) {
+      let typeContent = '';
+      if (firmwareType === 'ble') {
+        typeContent = intl.formatMessage({
+          id: 'content__bluetooth_firmware_lowercase',
+        });
+      } else if (firmwareType === 'firmware') {
+        typeContent = intl.formatMessage({
+          id: 'content__firmware_lowercase',
+        });
+      }
+
+      setStateViewInfo({
+        type: 'download-failure',
+        content: {
+          title: intl.formatMessage(
+            { id: 'content__downloading_str' },
+            {
+              0: typeContent,
+            },
+          ),
+        },
+      });
+    } else if (error instanceof NeedBluetoothTurnedOn) {
+      setStateViewInfo({ type: 'bluetooth-turned-off' });
+    } else if (currentStep === 'get-device-info') {
+      setStateViewInfo({ type: 'pre-check-failure' });
+    } else if (currentStep === 'installing') {
+      setStateViewInfo({ type: 'install-failure' });
+    } else if (currentStep === 'reboot-bootloader') {
+      setStateViewInfo({ type: 'reboot-bootloader-failure' });
+    } else if (currentStep === 'wait-for-reboot') {
+      setStateViewInfo({ type: 'check-update-failure' });
+    }
+
+    if (error instanceof OneKeyHardwareError) {
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: error.key }),
+        },
+        { type: 'error' },
+      );
+    }
+
     setProgressState('failure');
   };
 
@@ -172,22 +216,18 @@ const UpdatingModal: FC = () => {
 
     switch (progressStep) {
       case 'pre-check':
-        if (bleFirmwareRelease) {
-          setProgressStep('installing-ble');
-        } else {
-          setProgressStep('installing-firmware');
-        }
+        setProgressStep('get-device-info');
         break;
 
-      case 'installing-ble':
-        if (firmwareRelease) {
-          setProgressStep('installing-firmware');
-        } else {
-          setProgressStep('done-step');
-        }
+      case 'get-device-info':
+        setProgressStep('installing');
         break;
 
-      case 'installing-firmware':
+      case 'installing':
+        setProgressStep('wait-for-reboot');
+        break;
+
+      case 'wait-for-reboot':
         setProgressStep('done-step');
         break;
 
@@ -207,23 +247,19 @@ const UpdatingModal: FC = () => {
 
     switch (progressStep) {
       case 'pre-check':
-        setProgress(0);
+        setMaxProgress(5);
         if (platformEnv.isNative) return setProgressState('done');
-        HardwareSDK.searchDevices()
+        serviceHardware
+          .searchDevices()
           .then((response) => {
             if (response.success) {
               const devices = response.payload;
-              // const [searchDevice] = devices;
               if (devices.length === 0) {
                 setStateViewInfo({ type: 'device-not-found' });
                 setProgressState('failure');
               } else if (devices.length > 1) {
                 setStateViewInfo({ type: 'device-not-only-ones' });
                 setProgressState('failure');
-                // The bootloader mode cannot be upgraded
-                // } else if (searchDevice.connectId !== connectId) {
-                //   setStateViewType('device-mismatch');
-                //   setProgressState('failure');
               } else {
                 setProgressState('done');
               }
@@ -238,65 +274,94 @@ const UpdatingModal: FC = () => {
           });
         break;
 
+      case 'get-device-info':
+        setMaxProgress(10);
+        serviceHardware
+          .getFeatures(platformEnv.isNative ? connectId : '')
+          .then((feature) => {
+            setUpdateDeviceFeature(feature ?? undefined);
+            setTimeout(() => {
+              setProgressState('done');
+            });
+          })
+          .catch((e) => {
+            handleErrors(progressStep, e);
+          });
+        break;
+
       case 'reboot-bootloader':
-        rebootToBootloader(connectId)
+        setMaxProgress(10);
+        serviceHardware
+          .rebootToBootloader(connectId)
           .then(() => {
             setProgressState('done');
           })
           .catch((e) => {
-            if (e instanceof OneKeyHardwareError) {
-              ToastManager.show(
-                {
-                  title: intl.formatMessage({ id: e.key }),
-                },
-                { type: 'error' },
-              );
+            handleErrors(progressStep, e);
+          });
+        break;
+
+      case 'installing':
+        setMaxProgress(95);
+        setProgress(10);
+        serviceHardware
+          .installFirmware(connectId, firmwareType)
+          .then(() => {
+            // clear the upgrade status
+            dispatch(
+              setDeviceDoneUpdate({
+                connectId,
+                type: firmwareType,
+              }),
+            );
+            if (firmwareType === 'ble') {
+              setProgressState('done');
+            } else {
+              setProgressStep('done-step');
+              setProgressState('ready');
+            }
+          })
+          .catch((e) => {
+            handleErrors(progressStep, e);
+          });
+        break;
+
+      case 'wait-for-reboot':
+        serviceHardware
+          .ensureConnected(platformEnv.isNative ? connectId : '')
+          .then((feature) => {
+            if (
+              firmwareType === 'ble' &&
+              semver.gte(
+                feature.ble_ver,
+                updateDeviceFeature?.ble_ver ?? '0.0.0',
+              )
+            ) {
+              setProgressState('done');
+              return;
             }
 
-            setStateViewInfo({ type: 'reboot-bootloader-failure' });
+            if (
+              firmwareType === 'firmware' &&
+              semver.gte(
+                feature.onekey_version,
+                updateDeviceFeature?.onekey_version ?? '0.0.0',
+              )
+            ) {
+              setProgressState('done');
+              return;
+            }
+
+            setStateViewInfo({ type: 'check-update-failure' });
             setProgressState('failure');
-          });
-        break;
-
-      case 'installing-ble':
-        setProgress(InstalBaseProgress);
-        installFirmware(connectId, 'ble', (_progress) => {
-          setProgress(InstalBaseProgress + _progress * 0.8);
-        })
-          .then(() => {
-            dispatch(
-              setDeviceDoneUpdate({
-                connectId,
-                type: 'ble',
-              }),
-            );
-            setProgressState('done');
           })
           .catch((e) => {
-            handleInstallError(progressStep, e);
-          });
-        break;
-
-      case 'installing-firmware':
-        setProgress(InstalBaseProgress);
-        installFirmware(connectId, 'firmware', (_progress) => {
-          setProgress(InstalBaseProgress + _progress * 0.8);
-        })
-          .then(() => {
-            dispatch(
-              setDeviceDoneUpdate({
-                connectId,
-                type: 'firmware',
-              }),
-            );
-            setProgressState('done');
-          })
-          .catch((e) => {
-            handleInstallError(progressStep, e);
+            handleErrors(progressStep, e);
           });
         break;
 
       case 'done-step':
+        setMaxProgress(100);
         setProgress(100);
         setProgressState('done');
         setStateViewInfo({ type: 'success' });
@@ -340,12 +405,10 @@ const UpdatingModal: FC = () => {
       return;
     }
 
-    const { ble, firmware } = deviceUpdates[device.mac] || {};
-
-    if (ble) {
-      setBleFirmwareRelease(ble);
+    if (bleFirmware) {
+      setFirmwareType('ble');
     } else if (firmware) {
-      setFirmwareRelease(firmware);
+      setFirmwareType('firmware');
     }
 
     nextStep();
@@ -366,10 +429,10 @@ const UpdatingModal: FC = () => {
       primaryActionTranslationId={
         hasStepDone ? 'action__done' : 'action__retry'
       }
-      headerShown={!hasUpdating}
+      headerShown={false}
       closeAction={() => {
         if (progressState === 'running') {
-          HardwareSDK.cancel(connectId);
+          serviceHardware.cancel(connectId);
         }
         if (hasStepDone) {
           onSuccess?.();
@@ -391,7 +454,7 @@ const UpdatingModal: FC = () => {
       {hasStepDone || hasFailure ? (
         <StateView stateInfo={stateViewInfo} />
       ) : (
-        <RunningView progress={progress} hint={progressStepDesc} />
+        <RunningView progress={progressMemo} hint={progressStepDesc} />
       )}
     </Modal>
   );
