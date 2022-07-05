@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { AVPlaybackStatus, Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +11,7 @@ import {
   Spinner,
   ZStack,
 } from '@onekeyhq/components';
+import { getCloudinaryObject } from '@onekeyhq/engine/src/managers/moralis';
 
 import NFTImage from './NFTImage';
 import { NFTProps } from './type';
@@ -19,10 +20,7 @@ const NFTAudio: FC<NFTProps> = ({ asset, width, height }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [status, setStatus] = useState<AVPlaybackStatus>();
   const [isPlaying, setIsPlaying] = useState<boolean | null>(null);
-  const url = useMemo(
-    () => asset.animationUrl ?? asset.imageUrl,
-    [asset.animationUrl, asset.imageUrl],
-  );
+  const url = getCloudinaryObject(asset, 'audio')?.secureUrl;
 
   async function play() {
     if (asset.animationUrl) {

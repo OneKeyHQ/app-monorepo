@@ -12,14 +12,19 @@ import { NFTProps } from './type';
 import useUniqueToken from './useUniqueToken';
 
 const CollectibleContent: FC<NFTProps> = ({ asset }) => {
-  const { supportsVideo, supportsAudio, supportsSVG } = useUniqueToken(asset);
+  const {
+    asset: assetDetail,
+    supportsVideo,
+    supportsAudio,
+    supportsSVG,
+  } = useUniqueToken(asset);
   const isSmallScreen = useIsVerticalLayout();
   const { width } = useWindowDimensions();
   const imageWidth = isSmallScreen ? width - 32 : 358;
   const shareProps: NFTProps = {
     width: imageWidth,
     height: imageWidth,
-    asset,
+    asset: assetDetail,
   };
 
   if (supportsSVG) {

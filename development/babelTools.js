@@ -68,7 +68,7 @@ function normalizeConfig({ platform, config }) {
           'ONEKEY_PLATFORM',
           'EXT_CHANNEL',
           'ANDROID_CHANNEL',
-          'OPENSEA_KEY',
+          'CLOUNDINARY_NAME',
           'COVALENT_KEY',
           'MOONPAY_KEY',
           'HARDWARE_SDK_CONNECT_SRC',

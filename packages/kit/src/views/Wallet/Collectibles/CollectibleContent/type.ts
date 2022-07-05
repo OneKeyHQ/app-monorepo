@@ -1,7 +1,7 @@
-import { OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
+import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 
 export type NFTProps = {
-  asset: OpenSeaAsset;
+  asset: MoralisNFT;
   width?: number;
   height?: number;
 };

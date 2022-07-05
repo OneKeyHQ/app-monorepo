@@ -1,16 +1,26 @@
-import { isSVG as isSVGImage } from '@onekeyhq/kit/src/utils/uriUtils';
+import { PixelRatio } from 'react-native';
 
-const ProxyURL = 'https://fiat.onekey.so/image/svg2png?url=';
+import { CLOUNDINARY_NAME_KEY } from '../config';
 
-function svgToPng(url: string) {
-  const encoded = encodeURI(url);
-  return `${ProxyURL}${encoded}`;
-}
+const cloudName = CLOUNDINARY_NAME_KEY ?? 'dqesnqoqj';
+const pixelRatio = PixelRatio.get();
+const Folder = 'NFT/';
 
-export function svgToPngIfNeeded(url?: string | null) {
-  if (!url) {
-    return '';
-  }
-  const isSVG = isSVGImage(url);
-  return isSVG ? svgToPng(url) : url;
+export function cloudinaryImageWithPublidId(
+  publicID: string,
+  type: string,
+  size?: number,
+) {
+  // const url = cloudinary.url(Folder + publicID, {
+  //   width: (size ?? 150) * pixelRatio,
+  //   crop: 'scale',
+  //   resource_type: type,
+  //   transformation: [{ format: 'png', fetchFormat: 'png' }],
+  // });
+  // return `${url}.png`;
+
+  const id = Folder + publicID;
+  const width = (size ?? 150) * pixelRatio;
+  const image = `https://res.cloudinary.com/${cloudName}/${type}/upload/c_scale,w_${width}/${id}.png`;
+  return image;
 }
