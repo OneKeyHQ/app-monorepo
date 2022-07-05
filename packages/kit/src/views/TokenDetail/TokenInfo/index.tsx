@@ -305,7 +305,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
         <Box
           mt={isVertical ? 8 : 0}
           flex={isVertical ? undefined : 1}
-          alignItems={isVertical ? 'center' : 'flex-end'}
+          alignItems={isVertical ? undefined : 'flex-end'}
         >
           {accountOption}
         </Box>
