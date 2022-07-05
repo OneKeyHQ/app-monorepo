@@ -5,8 +5,9 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-import { backgroundClass } from '../decorators';
+import { PROVIDER_API_METHOD_PREFIX, backgroundClass } from '../decorators';
 import { IBackgroundApi } from '../IBackgroundApi';
+import { throwMethodNotFound } from '../utils';
 
 export type IProviderBaseBackgroundNotifyInfo = {
   send: (data: any) => void;
@@ -37,8 +38,18 @@ abstract class ProviderApiBase {
     const request = data as IJsonRpcRequest;
     const { method, params = [] } = request;
     const paramsArr = [].concat(params as any);
+    const methodName = `${PROVIDER_API_METHOD_PREFIX}${method}`;
 
-    const methodFunc = (this as any)[method];
+    const methodFunc = (this as any)[methodName];
+    const originMethodFunc = (this as any)[method];
+
+    if (originMethodFunc && !methodFunc) {
+      return throwMethodNotFound(
+        'ProviderApi',
+        payload.scope || '',
+        methodName,
+      );
+    }
     if (methodFunc) {
       return methodFunc.call(this, payload, ...paramsArr);
     }

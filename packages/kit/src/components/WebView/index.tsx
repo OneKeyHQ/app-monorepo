@@ -12,7 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks';
 import extUtils from '../../utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';

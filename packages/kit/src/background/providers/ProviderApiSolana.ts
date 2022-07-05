@@ -7,7 +7,7 @@ import {
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
-import { backgroundClass } from '../decorators';
+import { backgroundClass, providerApiMethod } from '../decorators';
 import { delay } from '../utils';
 
 import ProviderApiBase, {
@@ -54,10 +54,18 @@ class ProviderApiSolana extends ProviderApiBase {
     console.log(info);
   }
 
+  public rpcCall() {
+    throw web3Errors.rpc.methodNotFound();
+  }
+
+  // ----------------------------------------------
+
+  @providerApiMethod()
   public disconnect() {
     console.log('disconnect');
   }
 
+  @providerApiMethod()
   public signTransaction(
     payload: IJsBridgeMessagePayload,
     params: { message: string },
@@ -70,6 +78,7 @@ class ProviderApiSolana extends ProviderApiBase {
     return Mocks.tx;
   }
 
+  @providerApiMethod()
   public signAllTransactions(
     payload: IJsBridgeMessagePayload,
     params: { message: string[] },
@@ -85,6 +94,7 @@ class ProviderApiSolana extends ProviderApiBase {
     return message.map(() => Mocks.tx);
   }
 
+  @providerApiMethod()
   public signAndSendTransaction(
     payload: IJsBridgeMessagePayload,
     params: { message: string; options?: SolanaSendOptions },
@@ -103,6 +113,7 @@ class ProviderApiSolana extends ProviderApiBase {
     };
   }
 
+  @providerApiMethod()
   public signMessage(
     payload: IJsBridgeMessagePayload,
     params: {
@@ -123,6 +134,7 @@ class ProviderApiSolana extends ProviderApiBase {
     };
   }
 
+  @providerApiMethod()
   public async connect(
     _: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
@@ -139,10 +151,6 @@ class ProviderApiSolana extends ProviderApiBase {
     return {
       publicKey: Mocks.publicKey,
     };
-  }
-
-  public rpcCall() {
-    throw web3Errors.rpc.methodNotFound();
   }
 }
 

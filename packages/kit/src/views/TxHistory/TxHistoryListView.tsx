@@ -347,7 +347,6 @@ function TxHistoryListViewComponent({
     (async () => {
       if (shouldDoRefresh && !isTxMatchedToAccount) {
         const result = await getLocalHistory();
-        console.log('TxHistoryListView mutate 1>>>>', result);
         setHistoryListData(result || []);
       }
     })();
@@ -361,9 +360,7 @@ function TxHistoryListViewComponent({
 
   useEffect(() => {
     if (shouldDoRefresh) {
-      console.log('TxHistoryListView mutate 2>>>>');
       mutate();
-      console.log('TxHistoryListView mutate 3>>>>');
     }
   }, [refreshHistoryTs, accountId, networkId, mutate, shouldDoRefresh]);
 

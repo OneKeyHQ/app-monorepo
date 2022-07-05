@@ -1046,7 +1046,6 @@ export default class Vault extends VaultBase {
         contract: tokenIdOnNetwork,
       });
       covalentTxList = covalentHistory.data.items;
-      console.log('covalentTxList>>>>', covalentTxList);
       hashes = covalentTxList.map((item) => item.tx_hash);
     } catch (error) {
       console.error(error);
