@@ -112,7 +112,6 @@ const PopupHandle: FC = () => {
     }
 
     if (uiRequest === UI_REQUEST.CLOSE_UI_WINDOW) {
-      setCurrentPopupType(undefined);
       dispatch(closeHardwarePopup());
       if (
         currentPopupType === UI_REQUEST.BLUETOOTH_PERMISSION ||
@@ -123,6 +122,7 @@ const PopupHandle: FC = () => {
       }
 
       DialogManager.hide();
+      setCurrentPopupType(undefined);
     }
 
     if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_CANCEL) {
@@ -158,6 +158,7 @@ const PopupHandle: FC = () => {
                   type="bluetooth"
                   onClose={() => {
                     navigationRef.current?.goBack?.();
+                    setCurrentPopupType(undefined);
                     dispatch(closeHardwarePopup());
                   }}
                 />
@@ -183,6 +184,7 @@ const PopupHandle: FC = () => {
                   type="location"
                   onClose={() => {
                     navigationRef.current?.goBack?.();
+                    setCurrentPopupType(undefined);
                     dispatch(closeHardwarePopup());
                   }}
                 />
