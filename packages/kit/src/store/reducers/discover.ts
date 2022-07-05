@@ -24,7 +24,7 @@ const initialState: InitialState = {
   history: {},
   syncData: { timestamp: 0, banners: [], increment: {} },
   firstRemindDAPP: true,
-  rankData: { tags: [] },
+  rankData: { tags: [], special: { daily: [], new: [], weekly: [] } },
 };
 
 function getUrlHostName(urlStr: string | undefined): string | undefined {
