@@ -67,6 +67,7 @@ export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 export { default as DesktopDragZoneBox } from './DesktopDragZoneBox';
 export { default as Popover } from './Popover';
 export { default as ModalOverlay } from './ModalOverlay';
+export { Progress } from './Progress';
 
 export {
   default as RecyclerListView,

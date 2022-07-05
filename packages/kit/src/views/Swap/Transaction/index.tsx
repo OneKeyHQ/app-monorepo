@@ -24,7 +24,7 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useAccount, useNetwork } from '../../../hooks/redux';
+import { useAccount, useAddressName, useNetwork } from '../../../hooks';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import TokenPair from '../components/TokenPair';
@@ -32,12 +32,7 @@ import TransactionRate from '../components/TransactionRate';
 import TransactionStatus from '../components/TransactionStatus';
 import { swftcCustomerSupportUrl } from '../config';
 import { useTransactions } from '../hooks/useTransactions';
-import {
-  SwapRoutes,
-  SwapRoutesParams,
-  SwftcTradeState,
-  TransactionDetails,
-} from '../typings';
+import { SwapRoutes, SwapRoutesParams, TransactionDetails } from '../typings';
 import { formatAmount } from '../utils';
 
 type TransactionProps = {
@@ -47,23 +42,11 @@ type TransactionProps = {
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
 type NavigationProps = NavigationProp<SwapRoutesParams, SwapRoutes.Transaction>;
 
-const TransactionReceiptStatus: FC<{ tx: TransactionDetails }> = ({ tx }) => {
-  const intl = useIntl();
-  if (!tx.swftcReceipt) {
-    return null;
+const formatTransactionAccount = (address: string, name?: string) => {
+  if (!name) {
+    return `${utils.shortenAddress(address)}`;
   }
-  const records: Record<SwftcTradeState, string> = {
-    'wait_deposits': intl.formatMessage({ id: 'transaction__swap_deposit' }),
-    'exchange': intl.formatMessage({ id: 'transaction__swap_exchange' }),
-    'complete': intl.formatMessage({ id: 'transaction__swap_completed' }),
-  };
-  const { tradeState } = tx.swftcReceipt;
-  const title = records[tradeState] ?? records.exchange;
-  return (
-    <Box mb="6">
-      <Alert title={title} alertType="info" dismiss={false} />
-    </Box>
-  );
+  return `${name}(${address.slice(-4)})`;
 };
 
 const Transaction: FC<TransactionProps> = ({ tx }) => {
@@ -75,6 +58,7 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
   const network = useNetwork(tx.networkId);
   const fromNetwork = useNetwork(tx.tokens?.from.networkId);
   const toNetwork = useNetwork(tx.tokens?.to.networkId);
+  const receivingName = useAddressName({ address: tx.receivingAddress });
 
   const onCopy = useCallback(
     (text: string) => {
@@ -128,15 +112,7 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
           </Box>
         </Box>
       </Box>
-      <TransactionReceiptStatus tx={tx} />
-      <Box
-        mb="4"
-        borderColor="border-subdued"
-        borderWidth="0.5"
-        borderRadius="12"
-        background="surface-neutral-subdued"
-        p="4"
-      >
+      <Box mb="4" borderRadius="12" background="surface-default" p="4">
         <Box
           flexDirection="row"
           alignItems="center"
@@ -201,13 +177,13 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
       <Box borderRadius={12} bg="surface-default" p="4">
         <Box mb="4">
           <Typography.Body1Strong color="text-subdued">
-            {tx.thirdPartyOrderId
-              ? intl.formatMessage({ id: 'form__account' })
-              : intl.formatMessage({ id: 'content__from' })}
+            {tx.receivingAddress && tx.receivingAddress !== account.address
+              ? intl.formatMessage({ id: 'content__from' })
+              : intl.formatMessage({ id: 'form__account' })}
           </Typography.Body1Strong>
           <Box flexDirection="row" alignItems="center">
             <Typography.Body1Strong>
-              {account.name}({account.address.slice(-4)})
+              {formatTransactionAccount(account.address, account.name)}
             </Typography.Body1Strong>
             <IconButton
               name="DuplicateOutline"
@@ -216,14 +192,14 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
             />
           </Box>
         </Box>
-        {tx.receivingAddress ? (
+        {tx.receivingAddress && tx.receivingAddress !== account.address ? (
           <Box mb="4">
             <Typography.Body1Strong color="text-subdued">
               {intl.formatMessage({ id: 'content__to' })}
             </Typography.Body1Strong>
             <Box flexDirection="row" alignItems="center">
               <Typography.Body1Strong>
-                ({utils.shortenAddress(tx.receivingAddress)})
+                {formatTransactionAccount(tx.receivingAddress, receivingName)}
               </Typography.Body1Strong>
               <IconButton
                 name="DuplicateOutline"

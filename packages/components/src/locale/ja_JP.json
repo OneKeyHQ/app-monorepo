@@ -318,11 +318,7 @@
   "content__the_decentralized_web_awaits": "非中央集権的なウェブが待っている",
   "content__these_information_may_be_found": "この情報は、ハードウェアデバイスのアバウトページに記載されている場合があります。",
   "content__to": "への",
-<<<<<<< HEAD
   "content__today": "今日",
-=======
-  "content__today": "Today",
->>>>>>> e311e95d (fix: update locale)
   "content__token_approve_owner": "オーナー",
   "content__token_approve_spender": "承認された支出者",
   "content__total": "合計",
@@ -731,13 +727,8 @@
   "msg__hardware_device_not_find_error": "デバイスが見つかりません",
   "msg__hardware_failed_to_search_devices": "デバイスの検索に失敗しました",
   "msg__hardware_firmware_download_error": "ファームウェアのダウンロードに失敗した",
-<<<<<<< HEAD
   "msg__hardware_init_iframe_load_error": "ハードウェア通信に失敗しました。再試行してください",
   "msg__hardware_invalid_pin_error": "PINコードエラー",
-=======
-  "msg__hardware_init_iframe_load_error": "通信の初期化に失敗しました。再試行してください。",
-  "msg__hardware_invalid_pin_error": "入力されたPINが無効である",
->>>>>>> e311e95d (fix: update locale)
   "msg__hardware_not_same": "ハードウェアが一致しません。正しいハードウェアデバイスを接続してください",
   "msg__hardware_open_blind_sign_error": "ハードウェアの設定」→「セキュリティメニュー」から「ブラインドサイン」を有効にしください。",
   "msg__hardware_unknown_message_error": "現在のファームウェアはサポートされていませんので、アップグレードをお試しください。",
