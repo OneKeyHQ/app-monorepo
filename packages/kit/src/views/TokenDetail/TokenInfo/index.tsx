@@ -294,7 +294,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       <Box
         w="100%"
         py={isVertical ? 8 : 12}
-        px={isVertical ? 0 : 4}
         flexDirection={isVertical ? 'column' : 'row'}
         justifyContent={isVertical ? 'flex-start' : 'space-between'}
         alignItems={isVertical ? 'stretch' : 'center'}
