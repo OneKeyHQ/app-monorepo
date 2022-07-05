@@ -157,6 +157,15 @@ class Validators {
   }
 
   @backgroundMethod()
+  async isContractAddress(
+    networkId: string,
+    address: string,
+  ): Promise<boolean> {
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    return vault.isContractAddress(address);
+  }
+
+  @backgroundMethod()
   async validateTokenAddress(
     networkId: string,
     address: string,
