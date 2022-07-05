@@ -40,7 +40,8 @@
     "fake-indexeddb": "^3.1.7",
     "natsort": "^2.0.3",
     "near-api-js": "^0.44.2",
-    "@metamask/eth-sig-util": "^4.0.0"
+    "@metamask/eth-sig-util": "^4.0.0",
+    "tiny-lru": "^8.0.2"
   },
   "react-native": {
     "./src/dbs/indexed": "./src/dbs/realms",

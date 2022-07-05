@@ -31,6 +31,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
+      let latestPriceData;
       if (!dataMap.current) {
         setIsFetching(true);
         dataMap.current = await Promise.all(
@@ -43,6 +44,11 @@ const PriceChart: React.FC<PriceChartProps> = ({
             }),
           ),
         );
+        const dayData = dataMap.current[0];
+        latestPriceData = dayData[dayData.length - 1];
+        for (let i = 1; i < dataMap.current.length; i += 1) {
+          dataMap.current[i].push(latestPriceData);
+        }
       }
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
@@ -53,6 +59,9 @@ const PriceChart: React.FC<PriceChartProps> = ({
           days: TIMEOPTIONS_VALUE[newTimeIndex],
           vs_currency: selectedFiatMoneySymbol,
         });
+        const dayData = dataMap.current[0];
+        latestPriceData = dayData[dayData.length - 1];
+        newData.push(latestPriceData);
         dataMap.current[newTimeIndex] = newData;
       }
       setSelectedTimeIndex(newTimeIndex);
