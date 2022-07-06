@@ -129,6 +129,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       })),
     );
   }
+
+  async isContractAddress(address: string): Promise<boolean> {
+    return false;
+  }
 }
 
 /*
