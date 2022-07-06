@@ -38,8 +38,8 @@ const ApprovePendingTransactions = () => {
 const PendingTransactions = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { accountId, networkId } = useActiveWalletAccount();
-  const allTransactions = useTransactions(accountId, networkId);
+  const { accountId } = useActiveWalletAccount();
+  const allTransactions = useTransactions(accountId);
   const pendings = allTransactions.filter((tx) => tx.status === 'pending');
 
   const onAction = useCallback(() => {
@@ -73,9 +73,9 @@ const PendingTransactions = () => {
 
 const FulfilledTransactions = () => {
   const intl = useIntl();
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { accountId } = useActiveWalletAccount();
   const summaryTx = useSummaryTx();
-  const allTransactions = useTransactions(accountId, networkId);
+  const allTransactions = useTransactions(accountId);
   const confirmedTxs = allTransactions.filter(
     (tx) => tx.status === 'sucesss' && !tx.archive,
   );
@@ -85,12 +85,11 @@ const FulfilledTransactions = () => {
     backgroundApiProxy.dispatch(
       archiveTransaction({
         accountId,
-        networkId,
         txs: confirmedTxs.map((tx) => tx.hash),
       }),
     );
     navigation.navigate(HomeRoutes.SwapHistory);
-  }, [navigation, accountId, networkId, confirmedTxs]);
+  }, [navigation, accountId, confirmedTxs]);
   if (confirmedTxs.length === 0) {
     return <></>;
   }
@@ -131,9 +130,9 @@ const FulfilledTransactions = () => {
 
 const FailedTransactions = () => {
   const intl = useIntl();
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { accountId } = useActiveWalletAccount();
   const summaryTx = useSummaryTx();
-  const allTransactions = useTransactions(accountId, networkId);
+  const allTransactions = useTransactions(accountId);
   const confirmedTxs = allTransactions.filter(
     (tx) => tx.status === 'failed' && !tx.archive,
   );
@@ -143,12 +142,11 @@ const FailedTransactions = () => {
     backgroundApiProxy.dispatch(
       archiveTransaction({
         accountId,
-        networkId,
         txs: confirmedTxs.map((tx) => tx.hash),
       }),
     );
     navigation.navigate(HomeRoutes.SwapHistory);
-  }, [navigation, accountId, networkId, confirmedTxs]);
+  }, [navigation, accountId, confirmedTxs]);
   if (confirmedTxs.length === 0) {
     return <></>;
   }

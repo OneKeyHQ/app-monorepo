@@ -2,11 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useNavigation,
-} from '../../../hooks';
+import { useAppSelector, useNavigation } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { NetworkSelectorContext } from '../components/TokenSelector/context';
@@ -16,7 +12,6 @@ import { getChainIdFromNetworkId } from '../utils';
 const Output = () => {
   const navigation = useNavigation();
   const { networks } = useRuntime();
-  const { networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
   const { onSelectToken, onSelectNetworkId } = useSwapActionHandlers();
   const swftcSupportedTokens = useAppSelector(
@@ -35,19 +30,23 @@ const Output = () => {
   );
 
   const included = useMemo(() => {
-    if (selectedNetworkId && selectedNetworkId !== networkId) {
+    if (
+      selectedNetworkId &&
+      inputToken &&
+      selectedNetworkId !== inputToken.networkId
+    ) {
       const chainId = getChainIdFromNetworkId(selectedNetworkId);
       return swftcSupportedTokens[chainId];
     }
     return undefined;
-  }, [selectedNetworkId, swftcSupportedTokens, networkId]);
+  }, [selectedNetworkId, swftcSupportedTokens, inputToken]);
 
   const excluded = useMemo(() => {
-    if (networkId === selectedNetworkId && inputToken) {
+    if (inputToken && inputToken.networkId === selectedNetworkId) {
       return [inputToken.tokenIdOnNetwork];
     }
     return undefined;
-  }, [selectedNetworkId, inputToken, networkId]);
+  }, [selectedNetworkId, inputToken]);
 
   const value = useMemo(
     () => ({

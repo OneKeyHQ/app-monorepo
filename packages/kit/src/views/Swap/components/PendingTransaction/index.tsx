@@ -26,12 +26,12 @@ function slimSwftcReceipt(receipt: any): SwftcTransactionReceipt {
 /* eslint-enable @typescript-eslint/no-unsafe-member-access */
 
 const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
-  const { networkId, accountId } = useActiveWalletAccount();
+  const { accountId } = useActiveWalletAccount();
   const onQuery = useCallback(async () => {
     if (tx.nonce) {
       const status =
         await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
-          networkId,
+          networkId: tx.networkId,
           accountId,
           nonce: tx.nonce,
         });
@@ -39,7 +39,7 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
         backgroundApiProxy.dispatch(
           updateTransaction({
             accountId,
-            networkId,
+            networkId: tx.networkId,
             hash: tx.hash,
             transaction: {
               confirmedTime: Date.now(),
@@ -49,12 +49,12 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
         );
         backgroundApiProxy.serviceToken.fetchTokenBalance({
           activeAccountId: accountId,
-          activeNetworkId: networkId,
+          activeNetworkId: tx.networkId,
         });
       }
     } else {
       const result = (await backgroundApiProxy.serviceNetwork.rpcCall(
-        networkId,
+        tx.networkId,
         {
           method: 'eth_getTransactionReceipt',
           params: [tx.hash],
@@ -65,18 +65,18 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
         backgroundApiProxy.dispatch(
           updateTransaction({
             accountId,
-            networkId,
+            networkId: tx.networkId,
             hash: tx.hash,
             transaction: { status, receipt: result, confirmedTime: Date.now() },
           }),
         );
         backgroundApiProxy.serviceToken.fetchTokenBalance({
           activeAccountId: accountId,
-          activeNetworkId: networkId,
+          activeNetworkId: tx.networkId,
         });
       }
     }
-  }, [tx, networkId, accountId]);
+  }, [tx.networkId, tx.nonce, tx.hash, accountId]);
 
   useEffect(() => {
     onQuery();
@@ -90,7 +90,7 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
 };
 
 const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
-  const { networkId, accountId } = useActiveWalletAccount();
+  const { accountId } = useActiveWalletAccount();
   const onQuery = useCallback(async () => {
     if (tx.thirdPartyOrderId) {
       const res = await axios.post(
@@ -108,7 +108,7 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
           backgroundApiProxy.dispatch(
             updateTransaction({
               accountId,
-              networkId,
+              networkId: tx.networkId,
               hash: tx.hash,
               transaction: {
                 status: 'sucesss',
@@ -119,14 +119,14 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
           );
           backgroundApiProxy.serviceToken.fetchTokenBalance({
             activeAccountId: accountId,
-            activeNetworkId: networkId,
+            activeNetworkId: tx.networkId,
             tokenIds: [],
           });
         } else if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
           backgroundApiProxy.dispatch(
             updateTransaction({
               accountId,
-              networkId,
+              networkId: tx.networkId,
               hash: tx.hash,
               transaction: {
                 status: 'failed',
@@ -139,7 +139,7 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
           backgroundApiProxy.dispatch(
             updateTransaction({
               accountId,
-              networkId,
+              networkId: tx.networkId,
               hash: tx.hash,
               transaction: {
                 status: 'pending',
@@ -151,12 +151,12 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
         if (tx.nonce) {
           const status =
             await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus(
-              { networkId, accountId, nonce: tx.nonce },
+              { networkId: tx.networkId, accountId, nonce: tx.nonce },
             );
           if (status === 'canceled' || status === 'failed') {
             backgroundApiProxy.dispatch(
               updateTransaction({
-                networkId,
+                networkId: tx.networkId,
                 accountId,
                 hash: tx.hash,
                 transaction: {
@@ -169,7 +169,15 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
         }
       }
     }
-  }, [tx, networkId, accountId]);
+  }, [
+    tx.nonce,
+    tx.networkId,
+    tx.hash,
+    tx.from,
+    tx.thirdPartyOrderId,
+    tx.addedTime,
+    accountId,
+  ]);
   useEffect(() => {
     onQuery();
     const timer = setInterval(onQuery, 1000 * 20);

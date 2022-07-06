@@ -337,9 +337,8 @@ const HistorySectionList = () => {
 };
 
 const History = () => {
-  const { networkId } = useActiveWalletAccount();
   const [selectedNetwordId, setSelectNetworkId] = useState<string | undefined>(
-    networkId,
+    undefined,
   );
   return (
     <Box bg="background-default" w="full" h="full">

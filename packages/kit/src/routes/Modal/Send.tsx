@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import SendAuthentication from '@onekeyhq/kit/src/views/Send/Authentication';
@@ -8,7 +8,6 @@ import { PreSendAmount } from '@onekeyhq/kit/src/views/Send/PreSendAmount';
 import { PreSendToken } from '@onekeyhq/kit/src/views/Send/PreSendToken';
 import SendConfirmModern from '@onekeyhq/kit/src/views/Send/SendConfirm';
 import { SendConfirmFromDapp } from '@onekeyhq/kit/src/views/Send/SendConfirmFromDapp';
-import SendConfirmLegacy from '@onekeyhq/kit/src/views/Send/SendConfirmLegacy';
 import SendEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
 import SendLegacy from '@onekeyhq/kit/src/views/Send/SendLegacy';
 import {
@@ -16,6 +15,8 @@ import {
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { setPrimaryNetworkId } from '../../store/reducers/data';
 import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenApproveAmountEdit';
 import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
 import SwapPreiview from '../../views/Swap/Preview/index';
@@ -77,6 +78,12 @@ const modalRoutes = [
 const TransactionStack = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isVerticalLayout = useIsVerticalLayout();
+  useEffect(
+    () => () => {
+      backgroundApiProxy.dispatch(setPrimaryNetworkId(undefined));
+    },
+    [],
+  );
   return (
     <SendNavigator.Navigator
       screenOptions={{

@@ -26,8 +26,10 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
+import { setPrimaryNetworkId } from '../../../store/reducers/data';
 import { setReceiving } from '../../../store/reducers/swap';
 import { addTransaction } from '../../../store/reducers/swapTransactions';
+import { wait } from '../../../utils/helper';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { swapClient } from '../client';
 import NetworkToken from '../components/NetworkToken';
@@ -91,7 +93,7 @@ const Preview = () => {
     (s) => s.settings.swapSlippagePercent,
   );
   const { address: receivingAddress } = useReceivingAddress();
-  const { account, network } = useActiveWalletAccount();
+  const { account } = useActiveWalletAccount();
   const { inputToken, outputToken, inputTokenNetwork, outputTokenNetwork } =
     useSwapState();
   const { inputAmount, outputAmount, swapQuote } = useSwap();
@@ -101,10 +103,10 @@ const Preview = () => {
     if (
       !params ||
       !account ||
-      !network ||
       !inputAmount ||
       !swapQuote ||
-      !outputAmount
+      !outputAmount ||
+      !inputTokenNetwork
     ) {
       return;
     }
@@ -118,7 +120,7 @@ const Preview = () => {
     const res = await swapClient.encodeTx({
       ...params,
       activeAccount: account,
-      activeNetwok: network,
+      activeNetwok: inputTokenNetwork,
       receivingAddress,
     });
     if (res?.data) {
@@ -126,6 +128,8 @@ const Preview = () => {
         ...res?.data,
         from: account.address,
       };
+      backgroundApiProxy.dispatch(setPrimaryNetworkId(inputTokenNetwork?.id));
+      await wait(100);
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -148,7 +152,7 @@ const Preview = () => {
                 backgroundApiProxy.dispatch(
                   addTransaction({
                     accountId: account.id,
-                    networkId: network.id,
+                    networkId: inputTokenNetwork.id,
                     transaction: {
                       hash: tx.txid,
                       from: account.address,
@@ -156,7 +160,7 @@ const Preview = () => {
                       status: 'pending',
                       type: 'swap',
                       accountId: account.id,
-                      networkId: network.id,
+                      networkId: inputTokenNetwork.id,
                       nonce: data?.decodedTx?.nonce,
                       thirdPartyOrderId: res.orderId,
                       receivingAddress: res.orderId
@@ -192,7 +196,7 @@ const Preview = () => {
       toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, account, network, swapQuote, addTransaction]);
+  }, [params, account, swapQuote, addTransaction]);
   return (
     <Modal
       header={intl.formatMessage({ id: 'modal__preview' })}

@@ -62,12 +62,20 @@ export const swapTransactionsSlice = createSlice({
       state,
       action: PayloadAction<{
         accountId: string;
-        networkId: string;
+        networkId?: string;
         txs: string[];
       }>,
     ) {
       const { accountId, networkId, txs } = action.payload;
-      const transactions = state.transactions[accountId]?.[networkId];
+      let transactions: TransactionDetails[] = [];
+      if (networkId) {
+        transactions = state.transactions[accountId]?.[networkId] ?? [];
+      } else {
+        transactions = Object.values(state.transactions[accountId]).reduce(
+          (a, b) => a.concat(b),
+          [],
+        );
+      }
       transactions.forEach((tx) => {
         if (txs.includes(tx.hash)) {
           tx.archive = true;

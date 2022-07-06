@@ -10,6 +10,7 @@ export type DataInitialState = {
   isPasswordSet: boolean;
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
+  primaryNetworkId?: string;
 };
 
 const initialState: DataInitialState = {
@@ -43,10 +44,18 @@ export const dataSlice = createSlice({
       state.onekeySupportList = action.payload.onekeySupportList;
       state.currencyList = action.payload.currencyList;
     },
+    setPrimaryNetworkId(state, action: PayloadAction<string | undefined>) {
+      state.primaryNetworkId = action.payload;
+    },
   },
 });
 
-export const { release, passwordSet, currenciesSet, setAppRenderReady } =
-  dataSlice.actions;
+export const {
+  release,
+  passwordSet,
+  currenciesSet,
+  setAppRenderReady,
+  setPrimaryNetworkId,
+} = dataSlice.actions;
 
 export default dataSlice.reducer;

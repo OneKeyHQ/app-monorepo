@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo } from 'react';
 
 import { useAppSelector, useNavigation } from '../../../hooks';
-import { useActiveWalletAccount, useRuntime } from '../../../hooks/redux';
+import { useRuntime } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { NetworkSelectorContext } from '../components/TokenSelector/context';
 import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
-import { getChainIdFromNetworkId, nativeTokenAddress } from '../utils';
+import { getChainIdFromNetworkId } from '../utils';
 
 import type { Token } from '../../../store/typings';
 
@@ -13,13 +13,11 @@ const Input = () => {
   const navigation = useNavigation();
   const { networks } = useRuntime();
   const { outputToken } = useSwapState();
-  const { networkId } = useActiveWalletAccount();
   const selectedNetworkId = useAppSelector((s) => s.swap.selectedNetworkId);
-  const noSupportCoins = useAppSelector((s) => s.swap.noSupportCoins);
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
-  const { onSelectToken } = useSwapActionHandlers();
+  const { onSelectToken, onSelectNetworkId } = useSwapActionHandlers();
 
   const onSelect = useCallback(
     (token: Token) => {
@@ -33,30 +31,31 @@ const Input = () => {
   );
 
   const included = useMemo(() => {
-    if (outputToken && outputToken.networkId !== networkId) {
-      const chainId = getChainIdFromNetworkId(networkId);
+    if (
+      outputToken &&
+      selectedNetworkId &&
+      outputToken.networkId !== selectedNetworkId
+    ) {
+      const chainId = getChainIdFromNetworkId(selectedNetworkId);
       return swftcSupportedTokens[chainId];
     }
     return undefined;
-  }, [outputToken, networkId, swftcSupportedTokens]);
+  }, [outputToken, selectedNetworkId, swftcSupportedTokens]);
 
   const excluded = useMemo(() => {
-    if (selectedNetworkId === networkId && outputToken) {
+    if (outputToken && outputToken.networkId === selectedNetworkId) {
       return [outputToken.tokenIdOnNetwork];
     }
-    if (selectedNetworkId && selectedNetworkId !== networkId && outputToken) {
-      const outputTokenNetworkId = outputToken.networkId;
-      const inputChainId = getChainIdFromNetworkId(networkId);
-      const outputChainId = getChainIdFromNetworkId(outputTokenNetworkId);
-      const address = outputToken.tokenIdOnNetwork || nativeTokenAddress;
-      return noSupportCoins[outputChainId]?.[address]?.[inputChainId];
-    }
     return undefined;
-  }, [networkId, selectedNetworkId, outputToken, noSupportCoins]);
+  }, [selectedNetworkId, outputToken]);
 
   const value = useMemo(
-    () => ({ showNetworkSelector: false, networkId }),
-    [networkId],
+    () => ({
+      showNetworkSelector: true,
+      networkId: selectedNetworkId ?? '',
+      setNetworkId: onSelectNetworkId,
+    }),
+    [selectedNetworkId, onSelectNetworkId],
   );
 
   return (

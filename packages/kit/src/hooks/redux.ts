@@ -69,12 +69,16 @@ export type IActiveWalletAccount = {
 
 export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
   makeSelector<IActiveWalletAccount>((selector) => {
-    const { activeAccountId, activeWalletId, activeNetworkId } = selector(
-      (s) => s.general,
-    );
+    const {
+      activeAccountId,
+      activeWalletId,
+      activeNetworkId: defaultNetworkId,
+    } = selector((s) => s.general);
 
-    // TODO init runtime data from background
     const { wallets, networks, accounts } = selector((s) => s.runtime);
+    const primaryNetworkId = selector((s) => s.data.primaryNetworkId);
+
+    const activeNetworkId = primaryNetworkId ?? defaultNetworkId;
 
     const activeWallet =
       wallets.find((wallet) => wallet.id === activeWalletId) ?? null;

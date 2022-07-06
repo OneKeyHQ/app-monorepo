@@ -44,7 +44,7 @@ const SwapContent = () => {
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
-  const { account, wallet, network } = useActiveWalletAccount();
+  const { account, wallet } = useActiveWalletAccount();
   const { themeVariant } = useTheme();
 
   const isDisabled = !isSwapEnabled || !wallet || !account;
@@ -94,10 +94,6 @@ const SwapContent = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSwapQuoteCallback]);
 
-  const disableSwitchTokens =
-    (outputTokenNetwork && outputTokenNetwork.id !== network?.id) ||
-    (inputTokenNetwork && inputTokenNetwork.id !== network?.id);
-
   return (
     <Center px="4">
       <Box
@@ -142,7 +138,6 @@ const SwapContent = () => {
                 borderRadius="full"
                 borderColor="border-disabled"
                 borderWidth="0.5"
-                disabled={disableSwitchTokens}
                 bg="surface-default"
                 onPress={onSwitchTokens}
                 size="lg"
