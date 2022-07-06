@@ -48,14 +48,6 @@ class ServiceHardware extends ServiceBase {
           const { device, type: eventType } = payload || {};
           const { deviceType, connectId } = device || {};
 
-          console.log(
-            '===: ServiceHardware UI_EVENT',
-            type,
-            deviceType,
-            eventType,
-            connectId,
-          );
-
           this.backgroundApi.dispatch(
             setHardwarePopup({
               uiRequest: type,
