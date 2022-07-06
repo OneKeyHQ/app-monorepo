@@ -138,18 +138,22 @@ export interface TransactionDetails {
   nonce?: number;
 }
 
+export type SwftcTransactionState =
+  | 'wait_deposit_send'
+  | 'timeout'
+  | 'wait_exchange_push'
+  | 'wait_receive_send'
+  | 'wait_receive_confirm'
+  | 'receive_complete';
+
+export type SwftcTradeState = 'wait_deposits' | 'complete' | 'exchange';
+
 export interface SwftcTransactionReceipt {
   orderId: string;
   depositCoinCode: string;
   receiveCoinCode: string;
   platformAddr: string;
-  detailState:
-    | 'wait_deposit_send'
-    | 'timeout'
-    | 'wait_exchange_push'
-    | 'wait_receive_send'
-    | 'wait_receive_confirm'
-    | 'receive_complete';
-  tradeState: 'wait_deposits' | 'complete' | 'exchange';
+  detailState: SwftcTransactionState;
+  tradeState: SwftcTradeState;
   instantRate: string;
 }

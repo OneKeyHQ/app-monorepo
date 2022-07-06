@@ -19,11 +19,14 @@ export function useAllTransactions(
     if (!records) {
       return [];
     }
+    let txs: TransactionDetails[] = [];
     if (!networkId) {
       const values = Object.values(records);
-      return values.reduce((a, b) => a.concat(b), []);
+      txs = values.reduce((a, b) => a.concat(b), []);
+    } else {
+      txs = records?.[networkId] ?? [];
     }
-    return records?.[networkId] ?? [];
+    return [...txs].sort((a, b) => (a.addedTime > b.addedTime ? -1 : 1));
   }, [transactions, networkId, accountId]);
 }
 

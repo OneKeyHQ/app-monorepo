@@ -79,10 +79,8 @@ const AddressBook = () => {
         flexDirection="row"
         alignItems="center"
         bg="surface-default"
-        borderTopLeftRadius={index === 0 ? '12' : undefined}
-        borderTopRightRadius={index === 0 ? '12' : undefined}
-        borderBottomLeftRadius={index === items.length - 1 ? '12' : undefined}
-        borderBottomRightRadius={index === items.length - 1 ? '12' : undefined}
+        borderTopRadius={index === 0 ? '12' : undefined}
+        borderBottomRadius={index === items.length - 1 ? '12' : undefined}
         onPress={() => onPress(item)}
       >
         <Box
@@ -99,11 +97,9 @@ const AddressBook = () => {
         </Box>
         <Box flex="1" ml="4">
           <Box flexDirection="row">
-            <Box flex="1">
-              <Typography.Body1Strong mr="2" numberOfLines={1}>
-                {item.name}
-              </Typography.Body1Strong>
-            </Box>
+            <Typography.Body1Strong mr="2" numberOfLines={1} maxWidth="80%">
+              {item.name}
+            </Typography.Body1Strong>
             <Badge size="sm" title={item.badge.toUpperCase()} />
           </Box>
           <Box>

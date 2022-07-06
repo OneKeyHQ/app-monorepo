@@ -55,6 +55,7 @@ export const swapTransactionsSlice = createSlice({
         }
         tx.receipt = transaction.receipt;
         tx.confirmedTime = transaction.confirmedTime;
+        tx.swftcReceipt = transaction.swftcReceipt;
       }
     },
     archiveTransaction(
