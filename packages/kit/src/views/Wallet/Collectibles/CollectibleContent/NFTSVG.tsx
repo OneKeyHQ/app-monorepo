@@ -1,9 +1,8 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { WebView } from 'react-native-webview';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
-import { getCloudinaryObject } from '@onekeyhq/engine/src/managers/moralis';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NFTProps } from './type';
@@ -47,8 +46,10 @@ const getHTML = (svgContent: string, size: number) =>
 </html>`;
 
 const SVGImage: FC<NFTProps> = ({ asset, width }) => {
-  const object = getCloudinaryObject(asset, 'svg');
-
+  const object = useMemo(
+    () => asset.animationUrl ?? asset.imageUrl,
+    [asset.animationUrl, asset.imageUrl],
+  );
   const fallbackElement = (
     <Center
       width={width}
@@ -82,13 +83,15 @@ const SVGImage: FC<NFTProps> = ({ asset, width }) => {
 
 const Native: FC<NFTProps> = ({ asset, width }) => {
   const [svgContent, setSvgContent] = useState<string>();
-  const uri = getCloudinaryObject(asset, 'svg')?.secureUrl;
-
+  const object = useMemo(
+    () => asset.animationUrl ?? asset.imageUrl,
+    [asset.animationUrl, asset.imageUrl],
+  );
   useEffect(() => {
     (async () => {
-      if (uri) {
+      if (object?.secureUrl) {
         try {
-          const res = await fetch(uri);
+          const res = await fetch(object?.secureUrl);
           const text = await res.text();
           if (text.toLowerCase().indexOf('<svg') !== -1) {
             setSvgContent(text);

@@ -1,13 +1,14 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
-import { getCloudinaryObject } from '@onekeyhq/engine/src/managers/moralis';
 
 import { NFTProps } from './type';
 
 const NFTImage: FC<NFTProps> = ({ asset, width, height }) => {
-  const imageUrl = getCloudinaryObject(asset, 'image')?.secureUrl;
-  console.log('imageUrl = ', imageUrl);
+  const object = useMemo(
+    () => asset.animationUrl ?? asset.imageUrl,
+    [asset.animationUrl, asset.imageUrl],
+  );
 
   const fallbackElement = (
     <Center
@@ -21,7 +22,7 @@ const NFTImage: FC<NFTProps> = ({ asset, width, height }) => {
   );
   return (
     <Box size={width}>
-      {imageUrl ? (
+      {object ? (
         <Image
           flex="1"
           alt={`image of ${
@@ -30,7 +31,7 @@ const NFTImage: FC<NFTProps> = ({ asset, width, height }) => {
           height={width}
           width={height}
           borderRadius="20px"
-          src={imageUrl}
+          src={object.secureUrl}
           fallbackElement={fallbackElement}
         />
       ) : (

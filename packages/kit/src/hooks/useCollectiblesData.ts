@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import camelcaseKeys from 'camelcase-keys';
-
 import { getUserAssets } from '@onekeyhq/engine/src/managers/moralis';
 import {
   Collectible,
@@ -74,25 +72,6 @@ export const useCollectibleCache = (
   return cache;
 };
 
-const parseMetadata = (asset: MoralisNFT, chain: string): MoralisNFT => {
-  if (asset.metadata) {
-    const json: MoralisMetadata = camelcaseKeys(JSON.parse(asset.metadata), {
-      deep: true,
-    });
-    asset.assetName = json.name ?? json.title;
-    asset.description = json.description;
-    asset.attributes = json.attributes;
-    // if (!asset.assetName || !asset.description || !asset.attributes) {
-    //   const result = await getMetaDataWithTokenUrl(asset);
-    //   asset.assetName = result.name ?? result.title;
-    //   asset.description = result.description;
-    //   asset.attributes = result.attributes;
-    // }
-  }
-  asset.chain = chain;
-  return asset;
-};
-
 export const parseCollectiblesData = (
   nftsResp: MoralisNFTsResp,
   mainKey: string,
@@ -114,13 +93,13 @@ export const parseCollectiblesData = (
                 item.tokenId === asset.tokenId,
             )
           ) {
-            collectible.assets.push(parseMetadata(asset, nftsResp.chain));
+            collectible.assets.push(asset);
           }
         } else {
           collectibles.set(uniqueName, {
             id: uniqueName,
             chain: nftsResp.chain,
-            assets: [parseMetadata(asset, nftsResp.chain)],
+            assets: [asset],
             collection: {
               name: asset.name,
             },
@@ -181,8 +160,8 @@ export const useCollectiblesData = ({
         if (result.success === false || result.cursor === '') {
           updateCursor(mainKey, '');
         } else if (result.cursor) {
-          updateCursor(mainKey, result.cursor);
           parseCollectiblesData(result, mainKey);
+          updateCursor(mainKey, result.cursor);
         }
       }
     }
@@ -206,11 +185,9 @@ export const useCollectiblesData = ({
         collectibles: [],
       };
     }
-
     const collectibles = getCollectibleCache(mainKey);
-
     return {
-      isLoading: cursor === 'begin',
+      isLoading: cursor === 'begin' || cursor === undefined,
       fetchData,
       collectibles,
     };

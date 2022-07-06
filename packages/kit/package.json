@@ -4,6 +4,7 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@cloudinary/url-gen": "^1.8.0",
     "@gorhom/bottom-sheet": "^4",
     "@onekeyfe/hd-ble-sdk": "0.1.5",
     "@onekeyfe/hd-core": "0.1.5",

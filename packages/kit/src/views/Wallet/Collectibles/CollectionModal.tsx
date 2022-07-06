@@ -2,6 +2,7 @@ import React, { FC } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp, useNavigation } from '@react-navigation/native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -33,6 +34,7 @@ type CollectionModalProps = {
 const CollectionModal: FC<CollectionModalProps> = () => {
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const dimensions = useWindowDimensions();
 
   const route =
     useRoute<
@@ -59,8 +61,11 @@ const CollectionModal: FC<CollectionModalProps> = () => {
     },
     [navigation, network],
   );
+
   const numofColumn = isSmallScreen ? 2 : 4;
-  const cardWidth = isSmallScreen ? undefined : (800 - 96) / 4;
+  const cardWidth = isSmallScreen
+    ? Math.floor((dimensions.width - 16 * 3) / 2)
+    : (800 - 96) / 4;
   return (
     <Modal
       size="2xl"
@@ -78,8 +83,9 @@ const CollectionModal: FC<CollectionModalProps> = () => {
             {/* <Typography.Body2 my="6" color="text-subdued">
               {collectible.collection.description}
             </Typography.Body2> */}
-            <HStack flexWrap="wrap" mt="24px">
+            <HStack flexWrap="wrap">
               {collectible.assets.map((asset, itemIndex) => {
+                // const marginRight = itemIndex % 2 === 0 ? 0 : 16;
                 const marginRight =
                   itemIndex % numofColumn < numofColumn - 1 ? 16 : 0;
                 return (

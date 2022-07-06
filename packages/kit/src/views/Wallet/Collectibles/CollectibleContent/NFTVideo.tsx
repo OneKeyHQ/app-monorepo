@@ -1,18 +1,28 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
 
 import { Box } from '@onekeyhq/components';
-import { getCloudinaryObject } from '@onekeyhq/engine/src/managers/moralis';
+
+import { cloudinaryVideoWithPublidId } from '../../../../utils/imageUtils';
 
 import { NFTProps } from './type';
 
 const NFTVideo: FC<NFTProps> = ({ asset, width, height }) => {
-  const object = getCloudinaryObject(asset, 'video');
+  const uri = useMemo(() => {
+    const object = asset.animationUrl ?? asset.imageUrl;
+    if (object) {
+      return cloudinaryVideoWithPublidId(object.publicId);
+    }
+    return '';
+  }, [asset.animationUrl, asset.imageUrl]);
 
+  console.log('====================================');
+  console.log('video = ', uri);
+  console.log('====================================');
   const video = React.useRef<Video | null>(null);
   return (
-    <Box>
+    <Box size={width}>
       <Video
         ref={video}
         style={{
@@ -21,7 +31,7 @@ const NFTVideo: FC<NFTProps> = ({ asset, width, height }) => {
           height,
         }}
         source={{
-          uri: object?.secureUrl as string,
+          uri,
         }}
         useNativeControls
         usePoster

@@ -1,26 +1,47 @@
+import { Cloudinary } from '@cloudinary/url-gen';
+import { scale } from '@cloudinary/url-gen/actions/resize';
 import { PixelRatio } from 'react-native';
 
 import { CLOUNDINARY_NAME_KEY } from '../config';
 
-const cloudName = CLOUNDINARY_NAME_KEY ?? 'dqesnqoqj';
+const cloudName = CLOUNDINARY_NAME_KEY;
 const pixelRatio = PixelRatio.get();
-const Folder = 'NFT/';
+
+const cld = new Cloudinary({
+  cloud: {
+    cloudName,
+  },
+});
 
 export function cloudinaryImageWithPublidId(
   publicID: string,
   type: string,
+  format: string,
   size?: number,
 ) {
-  // const url = cloudinary.url(Folder + publicID, {
-  //   width: (size ?? 150) * pixelRatio,
-  //   crop: 'scale',
-  //   resource_type: type,
-  //   transformation: [{ format: 'png', fetchFormat: 'png' }],
-  // });
-  // return `${url}.png`;
+  if (!cloudName) {
+    return '';
+  }
+  if (type === 'image') {
+    return cld
+      .image(publicID)
+      .resize(scale().width((size ?? 150) * pixelRatio))
+      .format('png')
+      .toURL();
+  }
+  return cld
+    .video(publicID)
+    .resize(scale().width((size ?? 150) * pixelRatio))
+    .format('png')
+    .toURL();
+}
 
-  const id = Folder + publicID;
-  const width = (size ?? 150) * pixelRatio;
-  const image = `https://res.cloudinary.com/${cloudName}/${type}/upload/c_scale,w_${width}/${id}.png`;
-  return image;
+export function cloudinaryVideoWithPublidId(publicID: string, size?: number) {
+  if (!cloudName) {
+    return '';
+  }
+  return cld
+    .video(publicID)
+    .resize(scale().width(size ?? 500))
+    .toURL();
 }

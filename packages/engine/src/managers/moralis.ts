@@ -3,16 +3,9 @@ import camelcaseKeys from 'camelcase-keys';
 
 import {
   MoralisChainMap,
-  MoralisMetadata,
   MoralisNFT,
 } from '@onekeyhq/engine/src/types/moralis';
 import { cloudinaryImageWithPublidId } from '@onekeyhq/kit/src/utils/imageUtils';
-import {
-  isAudio,
-  isImage,
-  isSVG,
-  isVideo,
-} from '@onekeyhq/kit/src/utils/uriUtils';
 
 import { MoralisNFTsResp } from '../types/moralis';
 import { Network } from '../types/network';
@@ -35,9 +28,16 @@ export function publicIdWithAsset(
 }
 
 export function getImageWithAsset(asset: MoralisNFT, size?: number): string {
-  const publicId = publicIdWithAsset(asset, 'image');
-  const url = cloudinaryImageWithPublidId(publicId, 'image', size);
-  return url;
+  const object = asset.imageUrl ?? asset.animationUrl;
+  if (object) {
+    return cloudinaryImageWithPublidId(
+      object?.publicId,
+      object.resourceType,
+      object.format,
+      size,
+    );
+  }
+  return '';
 }
 
 // const NFTsURL = 'https://fiat.onekey.so/NFT/NFTs?';
@@ -63,27 +63,6 @@ export const getUserAssets = async (params: {
   return camelcaseKeys(result.data, { deep: true });
 };
 
-export async function getMetaDataWithTokenUrl(
-  asset: MoralisNFT,
-): Promise<MoralisMetadata> {
-  const url = asset.tokenUri;
-  if (!url) {
-    return {};
-  }
-  const prefix = 'data:application/json;utf8,';
-  if (url.startsWith(prefix)) {
-    const jsonString = url.substring(prefix.length, url.length);
-    return JSON.parse(jsonString) as MoralisMetadata;
-  }
-  if (url.startsWith('http')) {
-    const apiUrl = `${HostURL}/NFT/metadata?tokenUri=${url}`;
-
-    const { data } = await axios.get<MoralisMetadata>(apiUrl);
-    return camelcaseKeys(data, { deep: true });
-  }
-  return {};
-}
-
 export async function getAssetDetail(
   tokenAddress: string,
   tokenId: string,
@@ -91,26 +70,48 @@ export async function getAssetDetail(
 ): Promise<MoralisNFT> {
   const apiUrl = `${HostURL}/NFT/detail?address=${tokenAddress}&tokenId=${tokenId}&chain=${chain}`;
   const { data } = await axios.get<MoralisNFT>(apiUrl);
-  return camelcaseKeys(data, { deep: true });
+  const result = camelcaseKeys(data, { deep: true });
+  return result;
 }
 
-export function getCloudinaryObject(
-  asset: MoralisNFT,
-  type: 'image' | 'svg' | 'audio' | 'video',
-) {
-  if (asset.image && asset.image.length > 0) {
-    if (type === 'image') {
-      return asset.image.find((cloudItem) => isImage([cloudItem.format]));
-    }
-    if (type === 'svg') {
-      return asset.image.find((cloudItem) => isSVG([cloudItem.format]));
-    }
-    if (type === 'audio') {
-      return asset.image.find((cloudItem) => isAudio([cloudItem.format]));
-    }
-    if (type === 'video') {
-      return asset.image.find((cloudItem) => isVideo([cloudItem.format]));
-    }
-  }
-  return undefined;
-}
+// export async function getMetaDataWithTokenUrl(
+//   asset: MoralisNFT,
+// ): Promise<MoralisMetadata> {
+//   const url = asset.tokenUri;
+//   if (!url) {
+//     return {};
+//   }
+//   const prefix = 'data:application/json;utf8,';
+//   if (url.startsWith(prefix)) {
+//     const jsonString = url.substring(prefix.length, url.length);
+//     return JSON.parse(jsonString) as MoralisMetadata;
+//   }
+//   if (url.startsWith('http')) {
+//     const apiUrl = `${HostURL}/NFT/metadata?tokenUri=${url}`;
+
+//     const { data } = await axios.get<MoralisMetadata>(apiUrl);
+//     return camelcaseKeys(data, { deep: true });
+//   }
+//   return {};
+// }
+
+// export function getCloudinaryObject(
+//   asset: MoralisNFT,
+//   type: 'image' | 'svg' | 'audio' | 'video',
+// ) {
+//   if (asset.image && asset.image.length > 0) {
+//     if (type === 'image') {
+//       return asset.image.find((cloudItem) => isImage([cloudItem.format]));
+//     }
+//     if (type === 'svg') {
+//       return asset.image.find((cloudItem) => isSVG([cloudItem.format]));
+//     }
+//     if (type === 'audio') {
+//       return asset.image.find((cloudItem) => isAudio([cloudItem.format]));
+//     }
+//     if (type === 'video') {
+//       return asset.image.find((cloudItem) => isVideo([cloudItem.format]));
+//     }
+//   }
+//   return undefined;
+// }

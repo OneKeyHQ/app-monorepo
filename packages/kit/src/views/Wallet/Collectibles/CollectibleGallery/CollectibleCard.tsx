@@ -1,10 +1,9 @@
-import React, { ComponentProps, memo, useEffect, useState } from 'react';
+import React, { ComponentProps, memo } from 'react';
 import type { FC } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
 import { Box, Text, useUserDevice } from '@onekeyhq/components';
-import { getMetaDataWithTokenUrl } from '@onekeyhq/engine/src/managers/moralis';
 import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 
 import CollectibleListImage from './CollectibleListImage';
@@ -21,18 +20,6 @@ const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
   const width = isSmallScreen
     ? Math.floor((dimensions.width - MARGIN * 3) / 2)
     : 177;
-
-  const [name, setName] = useState(asset.assetName);
-  useEffect(() => {
-    if (!asset.assetName) {
-      getMetaDataWithTokenUrl(asset).then((metaData) => {
-        // update Cache
-        if (metaData.name) {
-          setName(metaData.name);
-        }
-      });
-    }
-  }, [asset]);
 
   return (
     <Box
@@ -57,7 +44,7 @@ const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
         mt={`${padding}px`}
         numberOfLines={1}
       >
-        {name}
+        {asset.assetName}
       </Text>
       <Text typography="Body2" height="20px" />
       {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}

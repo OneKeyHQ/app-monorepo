@@ -28,6 +28,7 @@ export type CloudinaryObject = {
   publicId: string;
   resourceType: string;
   secureUrl: string;
+  eager?: { url: string; secureUrl: string }[];
 };
 
 export type MoralisNFT = {
@@ -44,11 +45,11 @@ export type MoralisNFT = {
   tokenUri: string | null;
   metadata: string | null;
 
-  animationUrl?: string | null;
   assetName?: string | null;
   description?: string | null;
   attributes?: Traits[] | null;
-  image?: CloudinaryObject[];
+  imageUrl?: CloudinaryObject;
+  animationUrl?: CloudinaryObject;
   chain: string;
 };
 
