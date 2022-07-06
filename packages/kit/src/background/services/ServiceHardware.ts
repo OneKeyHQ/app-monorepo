@@ -45,10 +45,25 @@ class ServiceHardware extends ServiceBase {
         const { type, payload } = e;
 
         setTimeout(() => {
+          const { device, type: eventType } = payload || {};
+          const { deviceType, connectId } = device || {};
+
+          console.log(
+            '===: ServiceHardware UI_EVENT',
+            type,
+            deviceType,
+            eventType,
+            connectId,
+          );
+
           this.backgroundApi.dispatch(
             setHardwarePopup({
               uiRequest: type,
-              payload: payload ?? undefined,
+              payload: {
+                type: eventType,
+                deviceType,
+                deviceConnectId: connectId,
+              },
             }),
           );
         }, 0);
@@ -269,36 +284,39 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
-    const { dispatch } = this.backgroundApi;
-    dispatch(
-      setDeviceUpdates({
-        connectId,
-        value: {
-          forceFirmware: hasFirmwareForce,
-          forceBle: hasBleForce,
-          ble: hasBleUpgrade ? bleFirmware : undefined,
-          firmware: hasSysUpgrade ? firmware : undefined,
-        },
-      }),
-    );
-
-    // dev
-    const settings: { devMode: any } =
-      this.backgroundApi.appSelector((s) => s.settings) || {};
-    const { enable, updateDeviceBle, updateDeviceSys } = settings.devMode || {};
-    if (enable) {
+    setTimeout(() => {
+      const { dispatch } = this.backgroundApi;
       dispatch(
         setDeviceUpdates({
           connectId,
           value: {
             forceFirmware: hasFirmwareForce,
             forceBle: hasBleForce,
-            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
-            firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
+            ble: hasBleUpgrade ? bleFirmware : undefined,
+            firmware: hasSysUpgrade ? firmware : undefined,
           },
         }),
       );
-    }
+
+      // dev
+      const settings: { devMode: any } =
+        this.backgroundApi.appSelector((s) => s.settings) || {};
+      const { enable, updateDeviceBle, updateDeviceSys } =
+        settings.devMode || {};
+      if (enable) {
+        dispatch(
+          setDeviceUpdates({
+            connectId,
+            value: {
+              forceFirmware: hasFirmwareForce,
+              forceBle: hasBleForce,
+              ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
+              firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
+            },
+          }),
+        );
+      }
+    }, 3000);
 
     return Promise.resolve(hasFirmwareForce || hasBleForce);
   }

@@ -1,11 +1,16 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+
 import { CUSTOM_UI_RESPONSE } from '../../views/Hardware/PopupHandle';
 
 export type HardwarePopup = {
   uiRequest?: string;
-  visible?: boolean;
-  payload?: any;
+  payload?: {
+    type: string;
+    deviceType: IOneKeyDeviceType;
+    deviceConnectId: string;
+  };
 };
 
 type InitialState = {
@@ -37,14 +42,6 @@ export const hardwareSlice = createSlice({
     setHardwarePopup(state, action: PayloadAction<HardwarePopup>) {
       state.hardwarePopup = action.payload;
     },
-    visibleHardwarePopup(state, action: PayloadAction<string>) {
-      if (state.hardwarePopup.uiRequest === action.payload) {
-        state.hardwarePopup = {
-          ...state.hardwarePopup,
-          visible: true,
-        };
-      }
-    },
     closeHardwarePopup(state) {
       state.hardwarePopup = {};
     },
@@ -56,7 +53,6 @@ export const {
   removeConnectedConnectId,
   setHardwarePopup,
   cancelHardwarePopup,
-  visibleHardwarePopup,
   closeHardwarePopup,
 } = hardwareSlice.actions;
 

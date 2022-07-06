@@ -12,7 +12,6 @@ import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import {
   cancelHardwarePopup,
   closeHardwarePopup,
-  visibleHardwarePopup,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -40,22 +39,19 @@ export const UI_REQUEST = {
 const PopupHandle: FC = () => {
   const { hardwarePopup } = useAppSelector((s) => s.hardware) || {};
   const { dispatch, serviceHardware } = backgroundApiProxy;
-  const [currentPopupType, setCurrentPopupType] = useState<string>();
+  const [visiblePopup, setVisiblePopup] = useState<string>();
 
-  const { uiRequest, payload, visible } = hardwarePopup;
+  const { uiRequest, payload } = hardwarePopup;
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    console.log('PopupHandle:', uiRequest, payload?.type ?? undefined, visible);
+    console.log('PopupHandle:', uiRequest, payload, visiblePopup);
 
     if (uiRequest === UI_REQUEST.REQUEST_PIN) {
-      if (visible) return;
-      dispatch(visibleHardwarePopup(uiRequest));
-      setCurrentPopupType(uiRequest);
+      if (visiblePopup === uiRequest) return;
+      setVisiblePopup(uiRequest);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const device = payload?.device || {};
-      const { deviceType } = device || {};
+      const deviceType = payload?.deviceType ?? 'classic';
       const onDeviceInput = true;
 
       if (onDeviceInput) {
@@ -80,6 +76,9 @@ const PopupHandle: FC = () => {
                 payload: pin,
               });
             }}
+            onClose={() => {
+              setVisiblePopup(undefined);
+            }}
           />
         ),
       });
@@ -91,13 +90,11 @@ const PopupHandle: FC = () => {
     }
 
     if (uiRequest === UI_REQUEST.REQUEST_BUTTON) {
-      if (visible) return;
-      dispatch(visibleHardwarePopup(uiRequest));
-      setCurrentPopupType(uiRequest);
+      if (visiblePopup === uiRequest) return;
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const device = payload?.device || {};
-      const { deviceType } = device || {};
+      setVisiblePopup(uiRequest);
+
+      const deviceType = payload?.deviceType ?? 'classic';
 
       DialogManager.hide();
       setTimeout(() => {
@@ -107,6 +104,9 @@ const PopupHandle: FC = () => {
               deviceType={deviceType}
               onCancel={() => {
                 dispatch(cancelHardwarePopup());
+              }}
+              onClose={() => {
+                setVisiblePopup(undefined);
               }}
             />
           ),
@@ -119,25 +119,24 @@ const PopupHandle: FC = () => {
         dispatch(closeHardwarePopup());
       }, 0);
       if (
-        currentPopupType === UI_REQUEST.BLUETOOTH_PERMISSION ||
-        currentPopupType === UI_REQUEST.LOCATION_PERMISSION
+        visiblePopup === UI_REQUEST.BLUETOOTH_PERMISSION ||
+        visiblePopup === UI_REQUEST.LOCATION_PERMISSION
       ) {
         // Users manually shut it down
         return;
       }
 
+      setVisiblePopup(undefined);
       DialogManager.hide();
-      setCurrentPopupType(undefined);
     }
 
     if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_CANCEL) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const device = payload?.device || {};
-      const { connectId } = device || {};
+      const connectId = payload?.deviceConnectId ?? '';
 
       serviceHardware.cancel(connectId);
       serviceHardware.getFeatures(connectId);
 
+      setVisiblePopup(undefined);
       dispatch(closeHardwarePopup());
       DialogManager.hide();
     }
@@ -147,8 +146,7 @@ const PopupHandle: FC = () => {
       uiRequest === UI_REQUEST.BLUETOOTH_PERMISSION
     ) {
       (async () => {
-        if (visible) return;
-        setCurrentPopupType(uiRequest);
+        if (visiblePopup === uiRequest) return;
 
         const check = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
@@ -156,13 +154,14 @@ const PopupHandle: FC = () => {
 
         if (check || platformEnv.isNativeIOS) {
           setTimeout(() => {
-            dispatch(visibleHardwarePopup(uiRequest));
+            setVisiblePopup(uiRequest);
             DialogManager.show({
               render: (
                 <PermissionDialog
                   type="bluetooth"
                   onClose={() => {
                     navigationRef.current?.goBack?.();
+                    setVisiblePopup(undefined);
                     dispatch(closeHardwarePopup());
                   }}
                 />
@@ -181,13 +180,14 @@ const PopupHandle: FC = () => {
           result === PermissionsAndroid.RESULTS.DENIED
         ) {
           setTimeout(() => {
-            dispatch(visibleHardwarePopup(uiRequest));
+            setVisiblePopup(uiRequest);
             DialogManager.show({
               render: (
                 <PermissionDialog
                   type="location"
                   onClose={() => {
                     navigationRef.current?.goBack?.();
+                    setVisiblePopup(undefined);
                     dispatch(closeHardwarePopup());
                   }}
                 />
@@ -195,12 +195,13 @@ const PopupHandle: FC = () => {
             });
           }, 0);
         } else {
+          setVisiblePopup(undefined);
           dispatch(closeHardwarePopup());
         }
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uiRequest, visible]);
+  }, [uiRequest, visiblePopup]);
 
   return null;
 };
