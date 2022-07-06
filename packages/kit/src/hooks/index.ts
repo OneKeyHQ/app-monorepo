@@ -6,7 +6,12 @@ export { useDebounce } from './useDebounce';
 export { useHelpLink } from './useHelpLink';
 export { useNavigationActions } from './useNavigationActions';
 export { default as useNavigation } from './useNavigation';
-export { useAppSelector, useActiveWalletAccount } from './redux';
+export {
+  useAppSelector,
+  useActiveWalletAccount,
+  useAccount,
+  useNetwork,
+} from './redux';
 export {
   useAccountTokens,
   useAccountTokensBalance,
@@ -15,3 +20,4 @@ export {
 } from './useTokens';
 export { setHaptics } from './setHaptics';
 export { usePrevious } from './usePrevious';
+export { useAddressName } from './useAddressName';

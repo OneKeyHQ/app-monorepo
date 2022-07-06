@@ -19,7 +19,6 @@ import {
 
 import {
   Box,
-  Button,
   Divider,
   Empty,
   Image,
@@ -33,7 +32,11 @@ import historyPNG from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import boxPNG from '@onekeyhq/kit/assets/box.png';
 
 import { setHaptics } from '../../../hooks';
-import { useActiveWalletAccount, useRuntime } from '../../../hooks/redux';
+import {
+  useActiveWalletAccount,
+  useNetwork,
+  useRuntime,
+} from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import PendingTransaction from '../components/PendingTransaction';
@@ -152,19 +155,14 @@ const ListEmptyComponent = () => {
 type HistoryItemProps = {
   isFirst?: boolean;
   isLast?: boolean;
-  isPending?: boolean;
   tx: TransactionDetails;
 };
 
-const HistoryItem: FC<HistoryItemProps> = ({
-  isFirst,
-  isLast,
-  isPending,
-  tx,
-}) => {
+const HistoryItem: FC<HistoryItemProps> = ({ isFirst, isLast, tx }) => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const navigation = useNavigation();
+  const network = useNetwork(tx.networkId);
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -185,6 +183,7 @@ const HistoryItem: FC<HistoryItemProps> = ({
     },
     [],
   );
+
   return (
     <Box px="4">
       <Pressable
@@ -209,51 +208,48 @@ const HistoryItem: FC<HistoryItemProps> = ({
         </Box>
         <Box flex="1">
           <Box>
-            <Box flexDirection="row" justifyContent="space-between">
-              <Typography.Body1Strong>
-                {tx.tokens
-                  ? `${tx.tokens.from.token.symbol} → ${tx.tokens.to.token.symbol}`
-                  : intl.formatMessage({ id: 'title__swap' })}
-              </Typography.Body1Strong>
-              <Typography.Body1Strong color="text-success">{`+ ${formatTokenAmount(
-                {
-                  token: tx.tokens?.to.token,
-                  amount: tx.tokens?.to.amount,
-                },
-              )}`}</Typography.Body1Strong>
-            </Box>
-            <Box flexDirection="row" justifyContent="space-between">
-              <TransactionStatus tx={tx} />
-              <Typography.Body1Strong color="text-subdued">{`- ${formatTokenAmount(
-                {
-                  token: tx.tokens?.from.token,
-                  amount: tx.tokens?.from.amount,
-                },
-              )}`}</Typography.Body1Strong>
-            </Box>
-          </Box>
-          {isPending ? (
             <Box
               flexDirection="row"
               justifyContent="space-between"
               alignItems="center"
-              mt="4"
             >
-              <Box>
-                <Typography.Caption color="text-subdued">
-                  {intl.formatMessage({ id: 'transaction__not_confirmed' })}
-                </Typography.Caption>
-              </Box>
-              <Box flexDirection="row">
-                <Button size="xs" mr="2">
-                  {intl.formatMessage({ id: 'action__cancel' })}
-                </Button>
-                <Button size="xs" type="primary">
-                  {intl.formatMessage({ id: 'action__speed_up' })}
-                </Button>
+              <Typography.Body1Strong mr="1">
+                {tx.tokens
+                  ? `${tx.tokens.from.token.symbol} → ${tx.tokens.to.token.symbol}`
+                  : intl.formatMessage({ id: 'title__swap' })}
+              </Typography.Body1Strong>
+              <Box flex="1">
+                <Typography.Body1Strong
+                  color="text-success"
+                  textAlign="right"
+                >{`+${formatTokenAmount({
+                  token: tx.tokens?.to.token,
+                  amount: tx.tokens?.to.amount,
+                })}`}</Typography.Body1Strong>
               </Box>
             </Box>
-          ) : null}
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Typography.Body1Strong color="text-subdued" mr="1" maxW="70%">
+                {network?.shortName ?? ''}
+              </Typography.Body1Strong>
+              <Box flex="1">
+                <Typography.Body1Strong
+                  color="text-subdued"
+                  textAlign="right"
+                >{`-${formatTokenAmount({
+                  token: tx.tokens?.from.token,
+                  amount: tx.tokens?.from.amount,
+                })}`}</Typography.Body1Strong>
+              </Box>
+            </Box>
+            <Box>
+              <TransactionStatus tx={tx} />
+            </Box>
+          </Box>
         </Box>
       </Pressable>
       {tx.status === 'pending' ? <PendingTransaction tx={tx} /> : null}

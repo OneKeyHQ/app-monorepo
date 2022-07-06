@@ -171,11 +171,13 @@ const SwapContent = () => {
             alignItems="center"
             mt="2"
           >
-            <Typography.Body2 color="text-subdued">
+            <Typography.Body2 color="text-subdued" mr="2">
               {intl.formatMessage({ id: 'form__receiving_address' })}
             </Typography.Body2>
             <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <SwapReceiving />
+              <Box maxW="full">
+                <SwapReceiving />
+              </Box>
             </Box>
           </Box>
         ) : null}
@@ -191,11 +193,13 @@ const SwapContent = () => {
             {intl.formatMessage({ id: 'Rate' })}
           </Typography.Body2>
           <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <TransactionRate
-              tokenA={inputToken}
-              tokenB={outputToken}
-              rate={swapQuote?.instantRate}
-            />
+            <Box maxW="full">
+              <TransactionRate
+                tokenA={inputToken}
+                tokenB={outputToken}
+                rate={swapQuote?.instantRate}
+              />
+            </Box>
           </Box>
         </Box>
         <SwapAlert />

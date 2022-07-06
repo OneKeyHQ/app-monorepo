@@ -26,12 +26,14 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
+import { setReceiving } from '../../../store/reducers/swap';
 import { addTransaction } from '../../../store/reducers/swapTransactions';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { swapClient } from '../client';
 import NetworkToken from '../components/NetworkToken';
 import TransactionRate from '../components/TransactionRate';
 import {
+  useReceivingAddress,
   useSwap,
   useSwapQuoteRequestParams,
   useSwapState,
@@ -88,7 +90,7 @@ const Preview = () => {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
-  const receivingAddress = useAppSelector((s) => s.swap.receivingAddress);
+  const { address: receivingAddress } = useReceivingAddress();
   const { account, network } = useActiveWalletAccount();
   const { inputToken, outputToken, inputTokenNetwork, outputTokenNetwork } =
     useSwapState();
@@ -175,6 +177,9 @@ const Preview = () => {
                       },
                     },
                   }),
+                );
+                backgroundApiProxy.dispatch(
+                  setReceiving({ address: undefined, name: undefined }),
                 );
               }
             },
@@ -270,11 +275,13 @@ const Preview = () => {
               {intl.formatMessage({ id: 'form__rate' })}
             </Typography.Body2>
             <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <TransactionRate
-                tokenA={inputToken}
-                tokenB={outputToken}
-                rate={swapQuote?.instantRate}
-              />
+              <Box maxW="full">
+                <TransactionRate
+                  tokenA={inputToken}
+                  tokenB={outputToken}
+                  rate={swapQuote?.instantRate}
+                />
+              </Box>
             </Box>
           </Box>
           <Box

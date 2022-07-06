@@ -1,9 +1,9 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
 import { SwapError, SwapQuote } from '../../views/Swap/typings';
-import { Token } from '../typings';
 
 type SwapState = {
   inputTokenNetwork?: Network | null;
@@ -110,7 +110,7 @@ export const swapSlice = createSlice({
     },
     setReceiving(
       state,
-      action: PayloadAction<{ address: string; name?: string } | undefined>,
+      action: PayloadAction<{ address?: string; name?: string } | undefined>,
     ) {
       state.receivingAddress = action.payload?.address;
       state.receivingName = action.payload?.name;

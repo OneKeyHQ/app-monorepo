@@ -11,6 +11,20 @@ import {
   TransactionDetails,
 } from '../../typings';
 
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+function slimSwftcReceipt(receipt: any): SwftcTransactionReceipt {
+  return {
+    orderId: receipt.orderId,
+    depositCoinCode: receipt.depositCoinCode,
+    receiveCoinCode: receipt.receiveCoinCode,
+    platformAddr: receipt.platformAddr,
+    detailState: receipt.detailState,
+    tradeState: receipt.tradeState,
+    instantRate: receipt.instantRate,
+  };
+}
+/* eslint-enable @typescript-eslint/no-unsafe-member-access */
+
 const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
   const { networkId, accountId } = useActiveWalletAccount();
   const onQuery = useCallback(async () => {
@@ -88,7 +102,7 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
         },
       );
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const data = res.data.data as SwftcTransactionReceipt;
+      const data = slimSwftcReceipt(res.data.data);
       if (data) {
         if (data.tradeState === 'complete') {
           backgroundApiProxy.dispatch(
@@ -108,19 +122,6 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
             activeNetworkId: networkId,
             tokenIds: [],
           });
-        } else if (data.tradeState !== tx?.swftcReceipt?.tradeState) {
-          console.log('data.tradeState', data.tradeState);
-          backgroundApiProxy.dispatch(
-            updateTransaction({
-              accountId,
-              networkId,
-              hash: tx.hash,
-              transaction: {
-                status: 'pending',
-                swftcReceipt: data,
-              },
-            }),
-          );
         } else if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
           backgroundApiProxy.dispatch(
             updateTransaction({
@@ -134,20 +135,32 @@ const SwftcPendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
               },
             }),
           );
+        } else {
+          backgroundApiProxy.dispatch(
+            updateTransaction({
+              accountId,
+              networkId,
+              hash: tx.hash,
+              transaction: {
+                status: 'pending',
+                swftcReceipt: data,
+              },
+            }),
+          );
         }
         if (tx.nonce) {
           const status =
             await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus(
               { networkId, accountId, nonce: tx.nonce },
             );
-          if (status === 'canceled') {
+          if (status === 'canceled' || status === 'failed') {
             backgroundApiProxy.dispatch(
               updateTransaction({
                 networkId,
                 accountId,
                 hash: tx.hash,
                 transaction: {
-                  status: 'canceled',
+                  status,
                   confirmedTime: Date.now(),
                 },
               }),
