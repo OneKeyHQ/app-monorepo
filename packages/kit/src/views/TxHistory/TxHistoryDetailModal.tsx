@@ -12,8 +12,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../hooks/useNetwork';
-import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { TxDetailStatusIcon } from '../TxDetail/components/TxDetailStatusIcon';
 import { TxActionElementTime } from '../TxDetail/elements/TxActionElementTime';
 import { TxDetailView } from '../TxDetail/TxDetailView';
@@ -52,8 +50,6 @@ const TxHistoryDetailModal: FC = () => {
 
   const route = useRoute<TransactionDetailRouteProp>();
   const { decodedTx, historyTx } = route.params;
-  const { network } = useNetwork({ networkId: decodedTx?.networkId });
-  const openBlockBrowser = useOpenBlockBrowser(network);
   useEffect(() => {
     if (!historyTx) {
       return;
@@ -87,20 +83,6 @@ const TxHistoryDetailModal: FC = () => {
             <TxDetailStatusIcon decodedTx={decodedTx} />
             <Box h={4} />
             <TxDetailView decodedTx={decodedTx} historyTx={historyTx} />
-
-            {openBlockBrowser.hasAvailable ? (
-              <Button
-                w="100%"
-                mt={6}
-                size="lg"
-                onPress={() => {
-                  openBlockBrowser.openTransactionDetails(decodedTx.txid);
-                }}
-                rightIconName="ArrowNarrowRightSolid"
-              >
-                {intl.formatMessage({ id: 'action__view_in_explorer' })}
-              </Button>
-            ) : undefined}
 
             {platformEnv.isDev && (
               <Button

@@ -76,6 +76,8 @@ export const useManageTokens = ({
       backgroundApiProxy.serviceToken.fetchAccountTokens({
         activeAccountId: accountId,
         activeNetworkId: networkId,
+        withBalance: true,
+        withPrice: true,
       });
     }
     // eslint-disable-next-line

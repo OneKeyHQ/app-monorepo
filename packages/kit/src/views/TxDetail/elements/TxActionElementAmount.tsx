@@ -1,11 +1,11 @@
 import React, { ComponentProps, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { Text } from '@onekeyhq/components';
 import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 
+import { formatBalanceDisplay } from '../../../components/Format';
 import { ITxActionAmountProps } from '../types';
 
 import { TxActionElementPressable } from './TxActionElementPressable';
@@ -32,20 +32,29 @@ export function TxActionElementAmount(props: ITxActionAmountProps) {
     };
   }, [direction]);
 
-  const amountText = useMemo(() => {
+  const amountText = useMemo((): string => {
     if (!isNil(decimals)) {
-      return new BigNumber(amount).toFixed(decimals);
+      return (
+        formatBalanceDisplay(amount, '', {
+          fixed: decimals,
+        })?.amount || amount
+      );
     }
     return amount;
   }, [amount, decimals]);
 
-  return (
+  const content = (
+    <Text color={directionMeta.color} {...others}>
+      {directionMeta.sign}
+      {amountText} {symbol}
+    </Text>
+  );
+  return onPress ? (
     <TxActionElementPressable onPress={onPress}>
-      <Text color={directionMeta.color} {...others}>
-        {directionMeta.sign}
-        {amountText} {symbol}
-      </Text>
+      {content}
     </TxActionElementPressable>
+  ) : (
+    content
   );
 }
 

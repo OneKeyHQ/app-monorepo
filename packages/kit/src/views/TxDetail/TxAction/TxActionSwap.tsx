@@ -8,12 +8,12 @@ import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 import { useNetwork } from '../../../hooks/useNetwork';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
+import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import {
   TxActionElementAmountLarge,
   TxActionElementAmountNormal,
   TxActionElementAmountSmall,
 } from '../elements/TxActionElementAmount';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementHashText';
 import {
   TxActionElementIconLarge,
   TxActionElementIconNormal,
@@ -109,7 +109,7 @@ export function TxActionSwap(props: ITxActionCardProps) {
 }
 
 export function TxActionSwapT0(props: ITxActionCardProps) {
-  const { meta, decodedTx } = props;
+  const { meta, decodedTx, historyTx } = props;
   const icon = <TxActionElementIconLarge {...meta} />;
   const title = <TxActionElementTitleNormal {...meta} />;
   const { swapInfo } = getTxActionSwapInfo(props);
@@ -117,6 +117,8 @@ export function TxActionSwapT0(props: ITxActionCardProps) {
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   return (
     <TxListActionBox
+      historyTx={historyTx}
+      decodedTx={decodedTx}
       icon={icon}
       title={title}
       content={

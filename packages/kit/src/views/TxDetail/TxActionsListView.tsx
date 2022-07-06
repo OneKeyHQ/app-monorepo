@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Divider, VStack } from '@onekeyhq/components';
+import { Box, Divider, VStack } from '@onekeyhq/components';
 import { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useNetwork } from '../../hooks/redux';
 
 import { TxActionErrorBoundary } from './components/TxActionErrorBoundary';
 import { ITxActionListViewProps } from './types';
@@ -37,6 +38,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
   } = props;
   const intl = useIntl();
   const originTx = useOriginHistoryTxOfCancelTx(historyTx);
+  const network = useNetwork(decodedTx.networkId);
   const items = useMemo(() => {
     const finalDecodedTx = { ...decodedTx };
     if (originTx) {
@@ -58,6 +60,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
         action,
         decodedTx: finalDecodedTx,
         intl,
+        historyTx,
       });
       metaInfo.meta.transferAmount = transferAmount;
 
@@ -66,15 +69,48 @@ export function TxActionsListView(props: ITxActionListViewProps) {
 
       listItems.push(
         <TxActionErrorBoundary key={`error-boundary-${index}`}>
-          <TxActionComponent key={index} {...metaInfo.props} meta={meta} />
+          <TxActionComponent
+            key={index}
+            {...metaInfo.props}
+            meta={meta}
+            network={network}
+          />
         </TxActionErrorBoundary>,
       );
       if (showDivider && index !== displayedActions.length - 1) {
-        listItems.push(<Divider key={`${index}-divider`} />);
+        // actions in same tx do not need divider anymore
+        // listItems.push(<Divider key={`${index}-divider`} />);
       }
     });
     return listItems;
-  }, [decodedTx, intl, originTx, showDivider, transferAmount, transformType]);
+  }, [
+    decodedTx,
+    historyTx,
+    intl,
+    network,
+    originTx,
+    showDivider,
+    transferAmount,
+    transformType,
+  ]);
 
-  return <VStack space={space}>{items}</VStack>;
+  const connectionLine =
+    items.length > 1 ? (
+      <Divider
+        orientation="vertical"
+        position="absolute"
+        left={4}
+        top={6}
+        bottom={7}
+        height="auto"
+        thickness={2}
+      />
+    ) : null;
+
+  return (
+    <Box>
+      {connectionLine}
+      <VStack space={space}>{items}</VStack>
+    </Box>
+  );
 }

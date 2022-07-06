@@ -1,12 +1,12 @@
-// TODO TxActionElementHashText
 import React, { ComponentProps, useEffect, useState } from 'react';
 
 import { Icon, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useClipboard } from '../../../hooks/useClipboard';
 
-import { TxActionElementWithIcon } from './TxActionElementPressable';
+import { TxActionElementPressable } from './TxActionElementPressable';
 
 export function useAddressLabel({ address }: { address: string }) {
   const [label, setLabel] = useState('');
@@ -38,19 +38,25 @@ export function TxActionElementAddress(
     isCopy = true,
     ...others
   } = props;
+  const { copyText } = useClipboard();
   const label = useAddressLabel({ address });
   let text = isShorten ? shortenAddress(address) : address;
   if (label && isLabelShow) {
     text += ` (${label})`;
   }
-  // TODO copy button
-  //    copyContentToClipboard()
   return (
-    <TxActionElementWithIcon
+    <TxActionElementPressable
+      onPress={
+        isCopy
+          ? () => {
+              copyText(address);
+            }
+          : undefined
+      }
       icon={isCopy ? <Icon name="DuplicateSolid" size={20} /> : undefined}
     >
       <Text {...others}>{text}</Text>
-    </TxActionElementWithIcon>
+    </TxActionElementPressable>
   );
 }
 
