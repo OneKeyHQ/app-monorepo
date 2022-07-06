@@ -13,7 +13,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../utils/extUtils';
-import { backgroundClass } from '../decorators';
+import { backgroundClass, providerApiMethod } from '../decorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
@@ -25,12 +25,30 @@ import type ProviderApiEthereum from './ProviderApiEthereum';
 class ProviderApiPrivate extends ProviderApiBase {
   public providerName = IInjectedProviderNames.$private;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
+    // noop
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
+    // noop
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public rpcCall(request: IJsonRpcRequest): any {
+    // noop
+  }
+
+  // ----------------------------------------------
+
   /*
     window.$onekey.$private.request({
       method: 'wallet_openUrl',
       params: { url: 'https://www.baidu.com' },
     });
   */
+  @providerApiMethod()
   wallet_openUrl(request: IJsonRpcRequest, { url }: { url: string }) {
     console.log('wallet_openUrl', request, url);
 
@@ -48,12 +66,14 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // $onekey.$private.request({method:'wallet_sendSiteMetadata'})
+  @providerApiMethod()
   wallet_sendSiteMetadata() {
     // TODO save to DB
     return { success: 'wallet_sendSiteMetadata: save to DB' };
   }
 
   // $onekey.$private.request({method:'wallet_getConnectWalletInfo'})
+  @providerApiMethod()
   async wallet_getConnectWalletInfo(
     req: IJsBridgeMessagePayload,
     { time = 0 }: { time?: number } = {},
@@ -82,21 +102,6 @@ class ProviderApiPrivate extends ProviderApiBase {
       },
       providerState: await ethereum.metamask_getProviderState(req),
     };
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    // noop
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    // noop
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public rpcCall(request: IJsonRpcRequest): any {
-    // noop
   }
 }
 

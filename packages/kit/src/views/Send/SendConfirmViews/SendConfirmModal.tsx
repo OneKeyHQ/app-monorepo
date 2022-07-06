@@ -66,7 +66,9 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     autoConfirm,
     ...others
   } = props;
-  const { nativeToken, getTokenBalance } = useManageTokens();
+  const { nativeToken, getTokenBalance } = useManageTokens({
+    fetchTokensOnMount: true,
+  });
   const modalClose = useModalClose();
 
   // TODO move to validator

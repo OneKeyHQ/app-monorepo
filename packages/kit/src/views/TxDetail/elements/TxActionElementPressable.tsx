@@ -2,8 +2,7 @@ import React from 'react';
 
 import { Box, Icon, Pressable } from '@onekeyhq/components';
 
-// TODO merge TxActionElementWithIcon & TxActionElementPressable
-export function TxActionElementWithIcon(props: {
+function TxActionElementWithIcon(props: {
   children?: any;
   flex?: number;
   icon?: JSX.Element;
@@ -19,13 +18,17 @@ export function TxActionElementWithIcon(props: {
 export function TxActionElementPressable(props: {
   onPress?: (() => void) | null;
   children?: any;
+  icon?: JSX.Element;
+  flex?: number;
 }) {
-  const { onPress, children } = props;
+  const {
+    flex,
+    onPress,
+    children,
+    icon = <Icon name="ChevronRightSolid" size={20} />,
+  } = props;
   const contentView = (
-    <TxActionElementWithIcon
-      flex={1}
-      icon={onPress ? <Icon name="ChevronRightSolid" size={20} /> : undefined}
-    >
+    <TxActionElementWithIcon flex={flex} icon={onPress ? icon : undefined}>
       {children}
     </TxActionElementWithIcon>
   );

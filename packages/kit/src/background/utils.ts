@@ -87,7 +87,7 @@ export function ensurePromiseObject(
 export function throwMethodNotFound(...methods: string[]) {
   const msg = `DApp Provider or Background method not support (method=${methods.join(
     '.',
-  )}), try to add method decorators @backgroundMethod() or @providerMethod()`;
+  )}), try to add method decorators @backgroundMethod() or @providerApiMethod()`;
   // @backgroundMethod() in background internal methods
   // @providerMethod() in background provider methods
   throwCrossError(msg);

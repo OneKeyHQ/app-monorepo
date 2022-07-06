@@ -2,13 +2,15 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Icon } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
+import { useClipboard } from '../../../hooks/useClipboard';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
+import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementDetailCellContentText } from '../elements/TxActionElementDetailCell';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementHashText';
 import {
   TxActionElementIconLarge,
   TxActionElementIconNormal,
@@ -27,6 +29,7 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
   const encodedTx =
     (decodedTx.encodedTx as IEncodedTxEvm | undefined) || action.evmInfo;
   const intl = useIntl();
+  const { copyText } = useClipboard();
 
   const details: Array<ITxActionElementDetail | null> = [
     {
@@ -45,7 +48,11 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
       ? {
           title: intl.formatMessage({ id: 'form__data' }),
           content: (
-            <TxActionElementPressable onPress={() => console.log(decodedTx)}>
+            <TxActionElementPressable
+              icon={<Icon name="DuplicateSolid" size={20} />}
+              flex={1}
+              onPress={() => copyText(encodedTx.data ?? '')}
+            >
               <TxActionElementDetailCellContentText numberOfLines={3}>
                 {encodedTx?.data || ''}
               </TxActionElementDetailCellContentText>
@@ -64,12 +71,14 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
 }
 
 export function TxActionTransactionEvmT0(props: ITxActionCardProps) {
-  const { decodedTx, meta } = props;
+  const { decodedTx, meta, historyTx } = props;
   const icon = <TxActionElementIconLarge {...meta} />;
   const title = <TxActionElementTitleNormal {...meta} />;
 
   return (
     <TxListActionBox
+      historyTx={historyTx}
+      decodedTx={decodedTx}
       icon={icon}
       title={title}
       content=""

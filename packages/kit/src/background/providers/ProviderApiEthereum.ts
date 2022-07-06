@@ -12,7 +12,7 @@ import uuid from 'react-native-uuid';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
+import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IEncodedTxEvm,
@@ -24,7 +24,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getActiveWalletAccount } from '../../hooks/redux';
 import { ModalRoutes } from '../../routes/routesEnum';
 import { SendRoutes } from '../../views/Send/types';
-import { backgroundClass, permissionRequired } from '../decorators';
+import {
+  backgroundClass,
+  permissionRequired,
+  providerApiMethod,
+} from '../decorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
@@ -86,6 +90,20 @@ export type SwitchEthereumChainParameter = {
   chainId: string;
 };
 
+function convertToEthereumChainResult(result: Network | undefined | null) {
+  return {
+    id: result?.id,
+    impl: result?.impl,
+    symbol: result?.symbol,
+    decimals: result?.decimals,
+    logoURI: result?.logoURI,
+    shortName: result?.shortName,
+    shortCode: result?.shortCode,
+    chainId: result?.extraInfo?.chainId,
+    networkVersion: result?.extraInfo?.networkVersion,
+  };
+}
+
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
@@ -105,6 +123,61 @@ class ProviderApiEthereum extends ProviderApiBase {
       networkInfo = network.extraInfo as EvmExtraInfo;
     }
     return networkInfo;
+  }
+
+  async _showSignMessageModal(
+    request: IJsBridgeMessagePayload,
+    unsignedMessage: IUnsignedMessageEvm,
+  ) {
+    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
+      request,
+      {
+        unsignedMessage,
+      },
+    );
+    return result;
+  }
+
+  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
+    const { networkId } = getActiveWalletAccount();
+    debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
+    // TODO error if networkId empty, or networkImpl not EVM
+    const result = await this.backgroundApi.engine.proxyJsonRPCCall(
+      networkId,
+      request,
+    );
+    debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
+      networkId,
+      result,
+    });
+    return result;
+  }
+
+  notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
+    const data = async ({ origin }: { origin: string }) => {
+      const result = {
+        method: 'metamask_accountsChanged',
+        params: await this.eth_accounts({ origin }),
+      };
+      return result;
+    };
+    // debugLogger.ethereum('notifyDappAccountsChanged', data);
+    info.send(data);
+  }
+
+  notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
+    const data = async () => {
+      const result = {
+        method: 'metamask_chainChanged',
+        params: {
+          chainId: await this.eth_chainId(),
+          networkVersion: await this.net_version(),
+        },
+      };
+      return result;
+    };
+
+    info.send(data);
   }
 
   // ----------------------------------------------
@@ -130,6 +203,7 @@ class ProviderApiEthereum extends ProviderApiBase {
    *  });
    */
   @permissionRequired()
+  @providerApiMethod()
   async eth_sendTransaction(
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
@@ -172,6 +246,7 @@ class ProviderApiEthereum extends ProviderApiBase {
    * });
    */
   @permissionRequired()
+  @providerApiMethod()
   async wallet_watchAsset(
     request: IJsBridgeMessagePayload,
     params: WatchAssetParameters,
@@ -189,6 +264,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // Not gonna do in this schedule but this method allow us to open ConnectionModal when connected account has cached
   // Select permitted accounts, update permissions and return accounts as result to DApp
+  @providerApiMethod()
   async wallet_requestPermissions(
     request: IJsBridgeMessagePayload,
     permissions: Record<string, unknown>,
@@ -241,6 +317,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     return result;
   }
 
+  @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
     debugLogger.backgroundApi(
       'ProviderApiEthereum.eth_requestAccounts',
@@ -258,11 +335,13 @@ class ProviderApiEthereum extends ProviderApiBase {
     // TODO show approval confirmation, skip in whitelist domain
   }
 
+  @providerApiMethod()
   eth_coinbase(request: IJsBridgeMessagePayload) {
     // TODO some different with eth_accounts, check metamask code source
     return this.eth_accounts(request);
   }
 
+  @providerApiMethod()
   async eth_accounts(request: IJsBridgeMessagePayload) {
     const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
       origin: request.origin as string,
@@ -273,9 +352,11 @@ class ProviderApiEthereum extends ProviderApiBase {
     const accountAddresses = accounts.map((account) => account.address);
     return Promise.resolve(accountAddresses);
   }
+
   /** Sign transaction
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
    */
+  @providerApiMethod()
   eth_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
     if (params[1].length === 66 || params[1].length === 67) {
       // const rawSignature = await addUnapprovedMessage({
@@ -295,23 +376,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
   }
 
-  async showSignMessageModal(
-    request: IJsBridgeMessagePayload,
-    unsignedMessage: IUnsignedMessageEvm,
-  ) {
-    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
-      request,
-      {
-        unsignedMessage,
-      },
-    );
-    return result;
-  }
-
+  @providerApiMethod()
   eth_subscribe() {
     throw web3Errors.rpc.methodNotSupported();
   }
 
+  @providerApiMethod()
   eth_unsubscribe() {
     throw web3Errors.rpc.methodNotSupported();
   }
@@ -320,15 +390,17 @@ class ProviderApiEthereum extends ProviderApiBase {
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
    * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]
    */
+  @providerApiMethod()
   eth_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     console.log('eth_sign', messages, req);
-    return this.showSignMessageModal(req, {
+    return this._showSignMessageModal(req, {
       type: ETHMessageTypes.ETH_SIGN,
       message: messages[1],
       payload: messages,
     });
   }
 
+  @providerApiMethod()
   async personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     let message = messages[0] as string;
 
@@ -349,13 +421,14 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     console.log('personal_sign', message, messages, req);
-    return this.showSignMessageModal(req, {
+    return this._showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
       message,
       payload: messages,
     });
   }
 
+  @providerApiMethod()
   async personal_ecRecover(
     req: IJsBridgeMessagePayload,
     ...messages: string[]
@@ -387,49 +460,55 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
   }
 
+  @providerApiMethod()
   eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
     console.log('eth_signTypedData', messages, req);
-    return this.showSignMessageModal(req, {
+    return this._showSignMessageModal(req, {
       type: ETHMessageTypes.TYPED_DATA_V1,
       message: JSON.stringify(messages[0]),
       payload: messages,
     });
   }
 
+  @providerApiMethod()
   eth_signTypedData_v1(req: IJsBridgeMessagePayload, ...messages: any[]) {
     // @ts-ignore
     return this.eth_signTypedData(req, ...messages);
   }
 
+  @providerApiMethod()
   eth_signTypedData_v3(req: IJsBridgeMessagePayload, ...messages: any[]) {
     console.log('eth_signTypedData_v3', messages, req);
-    return this.showSignMessageModal(req, {
+    return this._showSignMessageModal(req, {
       type: ETHMessageTypes.TYPED_DATA_V3,
       message: messages[1],
       payload: messages,
     });
   }
 
+  @providerApiMethod()
   eth_signTypedData_v4(req: IJsBridgeMessagePayload, ...messages: any[]) {
     console.log('eth_signTypedData_v4', messages, req);
-    return this.showSignMessageModal(req, {
+    return this._showSignMessageModal(req, {
       type: ETHMessageTypes.TYPED_DATA_V4,
       message: messages[1],
       payload: messages,
     });
   }
 
+  @providerApiMethod()
   async eth_chainId() {
     const networkExtraInfo = this._getCurrentNetworkExtraInfo();
     return Promise.resolve(networkExtraInfo.chainId);
   }
 
+  @providerApiMethod()
   async net_version() {
     const networkExtraInfo = this._getCurrentNetworkExtraInfo();
     return Promise.resolve(networkExtraInfo.networkVersion);
   }
 
-  // TODO @publicMethod()
+  @providerApiMethod()
   async metamask_getProviderState(request: IJsBridgeMessagePayload) {
     return {
       accounts: await this.eth_accounts(request),
@@ -440,16 +519,19 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   // get and save Dapp site icon & title
+  @providerApiMethod()
   metamask_sendDomainMetadata() {
     // TODO
     return {};
   }
 
+  @providerApiMethod()
   metamask_logWeb3ShimUsage() {
     // TODO
     return {};
   }
 
+  @providerApiMethod()
   eth_subscription() {
     // TODO
     return {};
@@ -466,6 +548,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       rpcUrls,
     },
    */
+  @providerApiMethod()
   async wallet_addEthereumChain(
     request: IJsBridgeMessagePayload,
     params: AddEthereumChainParameter,
@@ -483,13 +566,15 @@ class ProviderApiEthereum extends ProviderApiBase {
       request,
       params,
     );
-    return result;
+    // Metamask return null
+    return convertToEthereumChainResult(result as any);
   }
 
   /**
    * Add switch to a chain, we also need a request modal UI
    * req: IJsBridgeMessagePayload, { chainId }
    */
+  @providerApiMethod()
   async wallet_switchEthereumChain(
     request: IJsBridgeMessagePayload,
     params: SwitchEthereumChainParameter,
@@ -508,51 +593,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       request,
       params,
     );
-    return result;
-  }
-
-  // ----------------------------------------------
-
-  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    const { networkId } = getActiveWalletAccount();
-    debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
-    // TODO error if networkId empty, or networkImpl not EVM
-    const result = await this.backgroundApi.engine.proxyJsonRPCCall(
-      networkId,
-      request,
-    );
-    debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
-      networkId,
-      result,
-    });
-    return result;
-  }
-
-  notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = async ({ origin }: { origin: string }) => {
-      const result = {
-        method: 'metamask_accountsChanged',
-        params: await this.eth_accounts({ origin }),
-      };
-      return result;
-    };
-    // debugLogger.ethereum('notifyDappAccountsChanged', data);
-    info.send(data);
-  }
-
-  notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = async () => {
-      const result = {
-        method: 'metamask_chainChanged',
-        params: {
-          chainId: await this.eth_chainId(),
-          networkVersion: await this.net_version(),
-        },
-      };
-      return result;
-    };
-
-    info.send(data);
+    // Metamask return null
+    return convertToEthereumChainResult(result as any);
   }
 
   // TODO metamask_unlockStateChanged

@@ -153,6 +153,7 @@ function SendConfirm() {
   });
 
   const isInternalNativeTransferType = useMemo(() => {
+    // TODO also check payloadInfo.type===NativeTransfer
     if (isFromDapp || !payload) {
       return false;
     }

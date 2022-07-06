@@ -239,7 +239,7 @@ export const Discover: FC<DiscoverProps> = ({
       }
       return listData;
     },
-    [],
+    [intl],
   );
 
   const getData = useCallback(() => {

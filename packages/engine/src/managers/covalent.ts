@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import camelcase from 'camelcase-keys';
 
 import { COVALENT_API_KEY } from '@onekeyhq/kit/src/config';
+import debugCodes from '@onekeyhq/shared/src/debug/debugCodes';
 
 import { HISTORY_CONSTS } from '../constants';
 import {
@@ -21,6 +22,7 @@ import {
   TransferEvent,
   TxStatus,
 } from '../types/covalent';
+import { Token } from '../types/token';
 import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/types';
 import { isEvmNativeTransferType } from '../vaults/impl/evm/decoder/util';
 import {
@@ -511,11 +513,23 @@ async function createOutputActionFromCovalentTransferInfo({
   const from = transfer.from_address;
   const to = transfer.to_address;
   const value = transfer.delta;
-  const tokenInfo = await vault.engine.getOrAddToken(
+  let tokenInfo = await vault.engine.getOrAddToken(
     vault.networkId,
     transfer.contract_address,
   );
   let action: IDecodedTxAction | undefined;
+  if (!tokenInfo) {
+    const token: Token = {
+      id: '',
+      networkId: vault.networkId,
+      tokenIdOnNetwork: transfer.contract_address || '',
+      decimals: transfer.contract_decimals ?? undefined,
+      symbol: transfer.contract_ticker_symbol || '',
+      name: transfer.contract_name || '',
+      logoURI: transfer.logo_url || '',
+    };
+    tokenInfo = token;
+  }
   if (tokenInfo) {
     action = {
       type: IDecodedTxActionType.TOKEN_TRANSFER,
@@ -531,6 +545,33 @@ async function createOutputActionFromCovalentTransferInfo({
     };
   }
   return action;
+}
+
+async function getTokenInfoFromEvent({
+  event,
+  vault,
+}: {
+  event: ICovalentHistoryListItemLogEvent;
+  vault: VaultBase;
+}) {
+  let tokenInfo = await vault.engine.getOrAddToken(
+    vault.networkId,
+    event.sender_address,
+  );
+  debugCodes.breakpointCovalentTx({ txHash: event.tx_hash });
+  if (!tokenInfo) {
+    const token: Token = {
+      id: '',
+      networkId: vault.networkId,
+      tokenIdOnNetwork: event.sender_address || '',
+      decimals: event.sender_contract_decimals ?? undefined,
+      symbol: event.sender_contract_ticker_symbol || '',
+      name: event.sender_name || '',
+      logoURI: event.sender_logo_url || '',
+    };
+    tokenInfo = token;
+  }
+  return tokenInfo;
 }
 
 async function createOutputActionFromCovalentLogEvent({
@@ -557,11 +598,15 @@ async function createOutputActionFromCovalentLogEvent({
       },
     };
     if (name === 'Transfer') {
-      const tokenInfo = await vault.engine.getOrAddToken(
-        vault.networkId,
-        event.sender_address,
-      );
+      const tokenInfo = await getTokenInfoFromEvent({
+        vault,
+        event,
+      });
+
+      debugCodes.breakpointCovalentTx({ txHash: event.tx_hash });
+
       if (tokenInfo) {
+        // TODO valueInfo decoded=false
         const value = params.find((p) => p.name === 'value')?.value || '0';
         const from = (
           params.find((p) => p.name === 'from')?.value || ''
@@ -584,10 +629,10 @@ async function createOutputActionFromCovalentLogEvent({
       }
     }
     if (name === 'Approval') {
-      const tokenInfo = await vault.engine.getOrAddToken(
-        vault.networkId,
-        event.sender_address,
-      );
+      const tokenInfo = await getTokenInfoFromEvent({
+        vault,
+        event,
+      });
       if (tokenInfo) {
         const value = params.find((p) => p.name === 'value')?.value || '0';
         const owner = (
@@ -670,19 +715,25 @@ export async function parseCovalentTxToDecodedTx(
     covalentTx.log_events &&
     covalentTx.log_events.length
   ) {
-    const outputActions = (
-      await Promise.all(
-        covalentTx.log_events.map((event) =>
-          createOutputActionFromCovalentLogEvent({
-            event,
-            vault,
-            address,
-          }),
-        ),
-      )
-    )
+    let outputActions = await Promise.all(
+      covalentTx.log_events.map((event) =>
+        createOutputActionFromCovalentLogEvent({
+          event,
+          vault,
+          address,
+        }),
+      ),
+    );
+
+    debugCodes.breakpointCovalentTx({ txHash: covalentTx.tx_hash });
+
+    outputActions = outputActions
       .filter((item) => item && !item.hidden)
       .filter(Boolean);
+
+    if (isContractCall && !outputActions.length) {
+      outputActions = [commonAction];
+    }
     parsedDecodedTx.outputActions = [
       ...(parsedDecodedTx.outputActions || []),
       ...(outputActions || []),
@@ -702,12 +753,7 @@ export async function parseCovalentTxToDecodedTx(
   parsedDecodedTx.outputActions.filter((item) => item && !item.hidden);
 
   covalentTx.parsedDecodedTx = parsedDecodedTx;
-  if (
-    covalentTx.tx_hash ===
-    '0x427986efc3934e37ad16a8cd69bff01b8b8456d4ad66a704e510cf0953883fac'
-  ) {
-    console.log('covalentTx ******* ', covalentTx);
-  }
+  debugCodes.breakpointCovalentTx({ txHash: covalentTx.tx_hash });
   return covalentTx;
 }
 

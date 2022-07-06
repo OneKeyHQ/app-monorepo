@@ -173,8 +173,8 @@ const Connection = () => {
               </Center>
 
               <VStack space={6} ml="12px" mt="24px">
-                {MockData.permissions.map((permission) => (
-                  <HStack>
+                {MockData.permissions.map((permission, index) => (
+                  <HStack key={index}>
                     <Image size="36px" source={permission.icon} />
                     <Typography.Body1 ml="16px" alignSelf="center">
                       {intl.formatMessage({
