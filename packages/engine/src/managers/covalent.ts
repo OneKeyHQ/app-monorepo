@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import camelcase from 'camelcase-keys';
 
 import { COVALENT_API_KEY } from '@onekeyhq/kit/src/config';
+import debugCodes from '@onekeyhq/shared/src/debug/debugCodes';
 
 import { HISTORY_CONSTS } from '../constants';
 import {
@@ -34,9 +35,6 @@ import { convertTokenOnChainValueToAmount } from '../vaults/utils/tokenUtils';
 import { VaultBase } from '../vaults/VaultBase';
 
 import type { IEncodedTxEvm } from '../vaults/impl/evm/Vault';
-
-const DEBUG_TX_HASH =
-  '0x309bba6352410b5497d82d584e92ebb63984a14504956ee886c1fbf43e208901';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
 
@@ -560,9 +558,7 @@ async function getTokenInfoFromEvent({
     vault.networkId,
     event.sender_address,
   );
-  if (event.tx_hash === DEBUG_TX_HASH) {
-    debugger;
-  }
+  debugCodes.breakpointCovalentTx({ txHash: event.tx_hash });
   if (!tokenInfo) {
     const token: Token = {
       id: '',
@@ -606,9 +602,9 @@ async function createOutputActionFromCovalentLogEvent({
         vault,
         event,
       });
-      if (event.tx_hash === DEBUG_TX_HASH) {
-        debugger;
-      }
+
+      debugCodes.breakpointCovalentTx({ txHash: event.tx_hash });
+
       if (tokenInfo) {
         // TODO valueInfo decoded=false
         const value = params.find((p) => p.name === 'value')?.value || '0';
@@ -728,9 +724,9 @@ export async function parseCovalentTxToDecodedTx(
         }),
       ),
     );
-    if (covalentTx.tx_hash === DEBUG_TX_HASH) {
-      debugger;
-    }
+
+    debugCodes.breakpointCovalentTx({ txHash: covalentTx.tx_hash });
+
     outputActions = outputActions
       .filter((item) => item && !item.hidden)
       .filter(Boolean);
@@ -757,9 +753,7 @@ export async function parseCovalentTxToDecodedTx(
   parsedDecodedTx.outputActions.filter((item) => item && !item.hidden);
 
   covalentTx.parsedDecodedTx = parsedDecodedTx;
-  if (covalentTx.tx_hash === DEBUG_TX_HASH) {
-    debugger;
-  }
+  debugCodes.breakpointCovalentTx({ txHash: covalentTx.tx_hash });
   return covalentTx;
 }
 
