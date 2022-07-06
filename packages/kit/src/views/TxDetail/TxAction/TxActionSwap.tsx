@@ -7,12 +7,10 @@ import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 
 import { useNetwork } from '../../../hooks/useNetwork';
 import {
-  TxDetailActionBox,
   TxDetailActionBoxAutoTransform,
 } from '../components/TxDetailActionBox';
-import {
-  TxListActionBox,
-} from '../components/TxListActionBox';
+import { TxListActionBox } from '../components/TxListActionBox';
+import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import {
   TxActionElementAmountLarge,
@@ -20,20 +18,11 @@ import {
   TxActionElementAmountSmall,
 } from '../elements/TxActionElementAmount';
 import {
-  TxActionElementIconLarge,
-  TxActionElementIconNormal,
-} from '../elements/TxActionElementIcon';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from '../elements/TxActionElementTitle';
-import {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
-import { TxStatusBarInList } from '../components/TxStatusBar';
 
 export function getTxActionSwapInfo(props: ITxActionCardProps) {
   const { action } = props;
@@ -69,7 +58,7 @@ export function getTxActionSwapInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionSwap(props: ITxActionCardProps) {
-  const { meta,decodedTx } = props;
+  const { meta, decodedTx } = props;
   const { swapInfo } = getTxActionSwapInfo(props);
   const { send, receive, accountAddress } = swapInfo;
   const intl = useIntl();

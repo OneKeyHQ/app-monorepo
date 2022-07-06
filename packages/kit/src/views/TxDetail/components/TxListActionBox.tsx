@@ -1,20 +1,11 @@
 import React, { ComponentProps } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Box, HStack, Text } from '@onekeyhq/components';
-import {
-  IDecodedTx,
-  IDecodedTxStatus,
-  IHistoryTx,
-} from '@onekeyhq/engine/src/vaults/types';
 
 import { TxActionElementIconLarge } from '../elements/TxActionElementIcon';
-import { TxActionElementReplacedTxText } from '../elements/TxActionElementReplacedTxText';
-import { TxActionElementStatusText } from '../elements/TxActionElementStatusText';
 import { TxActionElementTitleNormal } from '../elements/TxActionElementTitle';
 import { ITxActionMetaIcon, ITxActionMetaTitle } from '../types';
-import { fallbackTextComponent, getTxStatusInfo } from '../utils/utilsTxDetail';
+import { fallbackTextComponent } from '../utils/utilsTxDetail';
 
 export type ITxListActionBoxProps = {
   icon?: JSX.Element;

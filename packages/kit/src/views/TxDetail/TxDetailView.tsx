@@ -2,26 +2,11 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, HStack, Text } from '@onekeyhq/components';
-import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
+import { Alert, Box } from '@onekeyhq/components';
 
 import { TxDetailFeeInfoBox } from './components/TxDetailFeeInfoBox';
 import { TxDetailTopHeader } from './components/TxDetailTopHeader';
-import { TxListActionBox } from './components/TxListActionBox';
-import {
-  TxActionElementIconNormal,
-  TxActionElementIconXLarge,
-} from './elements/TxActionElementIcon';
-import {
-  getReplacedTxAlertTextKeys,
-  getReplacedTxTextKey,
-} from './elements/TxActionElementReplacedTxText';
-import { TxActionElementStatusText } from './elements/TxActionElementStatusText';
-import { TxActionElementTime } from './elements/TxActionElementTime';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from './elements/TxActionElementTitle';
+import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
 import { ITxActionListViewProps } from './types';

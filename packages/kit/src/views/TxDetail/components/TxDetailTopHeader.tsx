@@ -1,16 +1,10 @@
 import React from 'react';
 
-import { HStack } from '@onekeyhq/components';
-import {
-  IDecodedTx,
-  IDecodedTxStatus,
-  IHistoryTx,
-} from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { TxActionElementIconXLarge } from '../elements/TxActionElementIcon';
-import { TxActionElementStatusText } from '../elements/TxActionElementStatusText';
-import { TxActionElementTime } from '../elements/TxActionElementTime';
 import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
+import { UNKNOWN_ACTION_ICON_NAME } from '../utils/getTxActionMeta';
 
 import { TxListActionBox } from './TxListActionBox';
 import { TxStatusBarInDetail } from './TxStatusBar';
@@ -31,7 +25,7 @@ export function TxDetailTopHeader(props: {
     <TxActionElementIconXLarge
       iconInfo={{
         icon: {
-          name: 'ClipboardListSolid',
+          name: UNKNOWN_ACTION_ICON_NAME,
         },
       }}
     />

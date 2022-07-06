@@ -8,25 +8,17 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
-import { TxDetailActionBox, TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
+import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
+import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
-import {
-  TxActionElementIconLarge,
-  TxActionElementIconNormal,
-} from '../elements/TxActionElementIcon';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from '../elements/TxActionElementTitle';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
-import { TxStatusBarInList } from '../components/TxStatusBar';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,

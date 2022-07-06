@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Modal } from '@onekeyhq/components';
-import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {

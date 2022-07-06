@@ -413,7 +413,7 @@ function FeeInfoInputForConfirmLite({
         <Box>{content}</Box>
       );
     },
-    [hint, intl, loading, subTitle, title],
+    [intl, loading, subTitle, title],
   );
   return (
     <FeeInfoInputContainer

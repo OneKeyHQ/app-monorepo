@@ -1,17 +1,12 @@
 import React, { useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
-  Divider,
   Form,
   Modal,
   useForm,
-  useIsVerticalLayout,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
@@ -40,7 +35,7 @@ function TokenApproveAmountEdit({ ...rest }) {
   const { trigger } = rest;
   const { engine } = backgroundApiProxy;
   const intl = useIntl();
-  const isSmallScreen = useIsVerticalLayout();
+  // const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { networkId, accountId, network } = useActiveWalletAccount();
@@ -62,9 +57,8 @@ function TokenApproveAmountEdit({ ...rest }) {
     control,
     handleSubmit,
     trigger: formTrigger,
-    formState,
   } = useFormReturn;
-  const { isValid, formValues } = useFormOnChangeDebounced({
+  const { isValid } = useFormOnChangeDebounced({
     useFormReturn,
   });
   const onSubmit = handleSubmit(async (data) => {

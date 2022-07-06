@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import IconHistory from '../../../assets/3d_transaction_history.png';
 import { useActiveWalletAccount } from '../../hooks';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
+
 import { useTxHistoryContext } from './TxHistoryContext';
 
 export function TxHistoryListViewEmpty({

@@ -2,9 +2,8 @@ import React, { FC, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
-import { Box, Button, Modal, Spinner } from '@onekeyhq/components';
+import { Button, Modal, Spinner } from '@onekeyhq/components';
 import {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
@@ -12,7 +11,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { TxDetailStatusIcon } from '../TxDetail/components/TxDetailStatusIcon';
 import { TxActionElementTime } from '../TxDetail/elements/TxActionElementTime';
 import { TxDetailView } from '../TxDetail/TxDetailView';
 
@@ -46,8 +44,6 @@ type TransactionDetailRouteProp = RouteProp<
  */
 
 const TxHistoryDetailModal: FC = () => {
-  const intl = useIntl();
-
   const route = useRoute<TransactionDetailRouteProp>();
   const { decodedTx, historyTx } = route.params;
   useEffect(() => {
@@ -67,6 +63,7 @@ const TxHistoryDetailModal: FC = () => {
     };
   }, [historyTx]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const headerDescription = (
     <TxActionElementTime
       timestamp={decodedTx?.updatedAt ?? decodedTx?.createdAt}

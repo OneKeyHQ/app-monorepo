@@ -32,13 +32,13 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { delay } from '../../background/utils';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
+import { TxListItemView } from '../TxDetail/TxListItemView';
+import { WalletHomeTabEnum } from '../Wallet/type';
+
 import {
   TxHistoryContextProvider,
   useTxHistoryContext,
 } from './TxHistoryContext';
-import { TxListItemView } from '../TxDetail/TxListItemView';
-import { WalletHomeTabEnum } from '../Wallet/type';
-
 import { TxHistoryListViewEmpty } from './TxHistoryListViewEmpty';
 import { TxHistoryListViewHeader } from './TxHistoryListViewHeader';
 

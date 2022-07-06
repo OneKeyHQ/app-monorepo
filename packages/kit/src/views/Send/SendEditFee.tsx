@@ -51,7 +51,6 @@ import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import {
-  SendConfirmActionType,
   SendConfirmParams,
   SendRoutes,
   SendRoutesParams,

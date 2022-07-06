@@ -9,28 +9,14 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyToken } from '../../../components/Format';
-import {
-  TxDetailActionBox,
-  TxDetailActionBoxAutoTransform,
-} from '../components/TxDetailActionBox';
+import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
 import {
   TxListActionBox,
   TxListActionBoxExtraText,
 } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
-import {
-  TxActionElementAmountLarge,
-  TxActionElementAmountNormal,
-} from '../elements/TxActionElementAmount';
-import {
-  TxActionElementIconLarge,
-  TxActionElementIconNormal,
-} from '../elements/TxActionElementIcon';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from '../elements/TxActionElementTitle';
+import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,

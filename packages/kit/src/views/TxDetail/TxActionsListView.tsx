@@ -4,10 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Box, Divider, VStack } from '@onekeyhq/components';
 import { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../hooks/redux';
+import { useNetwork } from '../../hooks';
 
 import { TxActionErrorBoundary } from './components/TxActionErrorBoundary';
 import { ITxActionListViewProps } from './types';
@@ -45,12 +44,6 @@ export function TxActionsListView(props: ITxActionListViewProps) {
     if (originTx) {
       finalDecodedTx.actions = originTx.decodedTx.actions;
       finalDecodedTx.outputActions = originTx.decodedTx.outputActions;
-    }
-    let { actions = [], outputActions } = finalDecodedTx;
-    if (platformEnv.isDev && platformEnv.isMultipleHistoryTxActionsSim) {
-      if (Math.round(Math.random() * 1000) % 2 === 0) {
-        actions = actions.concat(finalDecodedTx.actions).filter(Boolean);
-      }
     }
     const displayedActions = getDisplayedActions({ decodedTx: finalDecodedTx });
     const listItems: JSX.Element[] = [];
