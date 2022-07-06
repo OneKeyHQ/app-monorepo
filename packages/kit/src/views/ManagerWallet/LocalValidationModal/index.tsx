@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
@@ -18,10 +18,9 @@ type RouteProps = RouteProp<
 
 const ManagerWalletLocalValidationView: FC = () => {
   const navigation = useNavigation();
-  const { requestId, onSuccess, onCancel, field } =
+  const { requestId, onSuccess, onCancel, field, walletId } =
     useRoute<RouteProps>().params;
   const [inputPwd, setInputPwd] = useState('');
-
   type PasswordViewProps = {
     password: string;
   };
@@ -42,6 +41,19 @@ const ManagerWalletLocalValidationView: FC = () => {
     );
   };
 
+  const ConfirmHwWalletView: FC<PasswordViewProps> = ({ password }) => {
+    useEffect(() => {
+      navigation.goBack();
+      onSuccess(password, requestId);
+    }, [password]);
+
+    return (
+      <Center w="full" h="full">
+        <Spinner size="lg" />
+      </Center>
+    );
+  };
+
   return (
     <Modal
       footer={null}
@@ -49,8 +61,10 @@ const ManagerWalletLocalValidationView: FC = () => {
         if (!inputPwd) onCancel?.();
       }}
     >
-      <Protected walletId={null} field={field}>
-        {(password) => <PasswordView password={password} />}
+      <Protected walletId={walletId ?? null} field={field}>
+        {walletId
+          ? (password) => <ConfirmHwWalletView password={password} />
+          : (password) => <PasswordView password={password} />}
       </Protected>
     </Modal>
   );

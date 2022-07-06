@@ -13,6 +13,7 @@ export default function useLocalAuthenticationModal() {
     onCancel: () => void,
     requestId?: string | null,
     field?: ValidationFields,
+    walletId?: string,
   ) => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManagerWallet,
@@ -23,6 +24,7 @@ export default function useLocalAuthenticationModal() {
           requestId: requestId ?? '',
           onSuccess,
           onCancel,
+          walletId,
         },
       },
     });

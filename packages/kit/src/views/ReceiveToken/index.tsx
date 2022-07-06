@@ -17,8 +17,10 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
+import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
@@ -36,10 +38,22 @@ const ReceiveToken = () => {
   const { address, name } = route.params ?? {};
 
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network } = useActiveWalletAccount();
+  const { account, network, walletId, accountId, networkId } =
+    useActiveWalletAccount();
 
   const shownAddress = address ?? account?.address ?? '';
   const shownName = name ?? account?.name ?? '';
+
+  const { engine } = backgroundApiProxy;
+
+  const getAddress = useCallback(async () => {
+    const hwAddress = await engine.getHWAddress(accountId, networkId, walletId);
+    if (hwAddress === shownAddress) {
+      console.log('confirm address');
+    }
+  }, [engine, accountId, networkId, walletId, shownAddress]);
+
+  const { showVerify } = useLocalAuthenticationModal();
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);
@@ -145,6 +159,27 @@ const ReceiveToken = () => {
                   {intl.formatMessage({
                     id: 'action__copy_address',
                   })}
+                </Button>
+                <Button
+                  width={isVerticalLayout ? '188px' : '154px'}
+                  height={isVerticalLayout ? '48px' : '36px'}
+                  mt={isVerticalLayout ? '32px' : '24px'}
+                  type="plain"
+                  size={isVerticalLayout ? 'xl' : 'base'}
+                  leftIconName="DuplicateSolid"
+                  onPress={() => {
+                    showVerify(
+                      () => {
+                        getAddress();
+                      },
+                      () => {},
+                      null,
+                      undefined,
+                      walletId,
+                    );
+                  }}
+                >
+                  请在硬件上确认
                 </Button>
               </Box>
             </Box>
