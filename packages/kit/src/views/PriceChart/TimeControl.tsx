@@ -8,13 +8,16 @@ export const TIMEOPTIONS_VALUE = ['1', '7', '30', '365', 'max'];
 type TimeControlProps = {
   selectedIndex: number;
   onTimeChange(time: string): void;
+  enabled?: boolean;
 };
 
 const TimeControl: React.FC<TimeControlProps> = ({
   selectedIndex,
   onTimeChange,
+  enabled,
 }) => (
   <SegmentedControl
+    enabled={enabled}
     style={{ marginTop: 5 }}
     values={TIMEOPTIONS}
     onValueChange={onTimeChange}
