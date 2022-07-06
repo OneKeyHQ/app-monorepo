@@ -7,7 +7,7 @@ import Typography from '../Typography';
 
 type FormControlMessageProps = {
   message?: string;
-  type?: 'error' | 'success';
+  type?: 'error' | 'success' | 'warning';
 };
 
 const FormControlMessagePropsDefaultProps = {
@@ -16,8 +16,11 @@ const FormControlMessagePropsDefaultProps = {
 
 const FormControlMessage: FC<FormControlMessageProps> = ({ message, type }) => {
   const [iconName, iconColor, textColor]: [ICON_NAMES, ThemeToken, ThemeToken] =
+    // eslint-disable-next-line no-nested-ternary
     type === 'error'
       ? ['ExclamationCircleSolid', 'icon-critical', 'text-critical']
+      : type === 'warning'
+      ? ['ExclamationCircleSolid', 'icon-warning', 'text-warning']
       : ['CheckCircleSolid', 'icon-success', 'text-success'];
 
   if (!message) {

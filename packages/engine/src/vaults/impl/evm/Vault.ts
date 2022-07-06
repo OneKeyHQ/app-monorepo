@@ -14,6 +14,7 @@ import {
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { difference, isNil, isNumber, isString, merge, toLower } from 'lodash';
+import memoizee from 'memoizee';
 
 import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -1157,4 +1158,20 @@ export default class Vault extends VaultBase {
     // TODO replace `engineUtils.fixAddressCase`
     return Promise.resolve(toLower(address || ''));
   }
+
+  override isContractAddress = memoizee(
+    async (address: string): Promise<boolean> => {
+      try {
+        this.validateAddress(address);
+        const client = await this.getJsonRPCClient();
+        return await client.isContract(address);
+      } catch {
+        return Promise.resolve(false);
+      }
+    },
+    {
+      promise: true,
+      max: 50,
+    },
+  );
 }
