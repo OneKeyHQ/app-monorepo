@@ -50,11 +50,7 @@ import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationA
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
-import {
-  SendConfirmParams,
-  SendRoutes,
-  SendRoutesParams,
-} from './types';
+import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
 
 import type { StackNavigationProp } from '@react-navigation/stack';

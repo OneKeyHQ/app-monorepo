@@ -3,11 +3,7 @@ import React, { useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  Form,
-  Modal,
-  useForm,
-} from '@onekeyhq/components';
+import { Form, Modal, useForm } from '@onekeyhq/components';
 import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -53,11 +49,7 @@ function TokenApproveAmountEdit({ ...rest }) {
       amount: isMaxAmount ? '' : tokenApproveAmount,
     },
   });
-  const {
-    control,
-    handleSubmit,
-    trigger: formTrigger,
-  } = useFormReturn;
+  const { control, handleSubmit, trigger: formTrigger } = useFormReturn;
   const { isValid } = useFormOnChangeDebounced({
     useFormReturn,
   });

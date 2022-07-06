@@ -351,6 +351,7 @@ function FeeInfoInputForConfirmLite({
     );
   }, [encodedTx, feeInfoPayload, isPreset, totalFeeInNative]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hint = useMemo(() => {
     if (!isPreset || !encodedTx || !feeInfoPayload) {
       return null;
