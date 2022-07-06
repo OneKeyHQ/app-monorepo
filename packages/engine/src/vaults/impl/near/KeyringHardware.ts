@@ -1,6 +1,6 @@
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-import { OneKeyInternalError } from '../../../errors';
+import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -19,5 +19,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   prepareAccounts(params: any): Promise<Array<any>> {
     throw new OneKeyInternalError('prepareAccounts is not implemented');
+  }
+
+  override getAddress(): Promise<string> {
+    throw new NotImplemented();
   }
 }

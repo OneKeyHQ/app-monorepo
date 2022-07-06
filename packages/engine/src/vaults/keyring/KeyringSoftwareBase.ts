@@ -71,4 +71,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       ),
     );
   }
+
+  override getAddress(): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
 }

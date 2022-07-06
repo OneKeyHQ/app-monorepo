@@ -17,6 +17,7 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type {
+  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
@@ -219,4 +220,16 @@ export class KeyringHardware extends KeyringHardwareBase {
       lock_time: tx.locktime,
     };
   };
+
+  async getAddress(params: IGetAddressParams): Promise<string> {
+    const connectId = await this.getHardwareConnectId();
+    const response = await HardwareSDK.btcGetAddress(connectId, {
+      path: params.path,
+      showOnOneKey: params.showOnOneKey,
+    });
+    if (response.success) {
+      return response.payload.address;
+    }
+    return '';
+  }
 }
