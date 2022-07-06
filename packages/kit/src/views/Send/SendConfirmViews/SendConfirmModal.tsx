@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 
+import {
+  IInjectedProviderNames,
+  IInjectedProviderNamesStrings,
+} from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -65,6 +69,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     handleConfirm,
     updateEncodedTxBeforeConfirm,
     autoConfirm,
+    sourceInfo,
     ...others
   } = props;
   const { nativeToken, getTokenBalance } = useManageTokens({
@@ -81,10 +86,20 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     });
     return new BigNumber(nativeBalance).lt(new BigNumber(fee));
   }, [feeInfoPayload, getTokenBalance, nativeToken]);
+
   const isWatchingAccount = useMemo(
     () => !!(accountId && accountId.startsWith('watching-')),
     [accountId],
   );
+
+  const isNetworkNotMatched = useMemo(() => {
+    if (!sourceInfo) {
+      return false;
+    }
+    // dapp tx should check scope matched
+    // TODO add injectedProviderName to vault settings
+    return sourceInfo.scope !== IInjectedProviderNames.ethereum; // network.settings.injectedProviderName
+  }, [sourceInfo]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -111,10 +126,11 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled:
+          isNetworkNotMatched ||
           isWatchingAccount ||
+          balanceInsufficient ||
           feeInfoLoading ||
           !feeInfoPayload ||
-          balanceInsufficient ||
           !encodedTx ||
           !decodedTx ||
           confirmDisabled,
@@ -133,6 +149,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
                 nativeToken={nativeToken}
                 isWatchingAccount={isWatchingAccount}
                 balanceInsufficient={balanceInsufficient}
+                isNetworkNotMatched={isNetworkNotMatched}
               />
             )}
 

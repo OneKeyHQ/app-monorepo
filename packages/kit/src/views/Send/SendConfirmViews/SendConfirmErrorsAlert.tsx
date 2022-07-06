@@ -10,19 +10,31 @@ export function SendConfirmErrorsAlert({
   nativeToken,
   isWatchingAccount,
   balanceInsufficient,
+  isNetworkNotMatched,
 }: {
   nativeToken: Token;
   isWatchingAccount: boolean;
   balanceInsufficient: boolean;
+  isNetworkNotMatched: boolean;
 }) {
   const errors = [];
   const intl = useIntl();
+  if (isNetworkNotMatched) {
+    errors.push(
+      <FormErrorMessage
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'msg__wrong_network_desc',
+        })}
+      />,
+    );
+  }
   if (isWatchingAccount) {
     errors.push(
       <FormErrorMessage
         isAlertStyle
         message={intl.formatMessage({
-          id: 'form__error_trade_with_watched_acocunt' as any,
+          id: 'form__error_trade_with_watched_acocunt',
         })}
       />,
     );
