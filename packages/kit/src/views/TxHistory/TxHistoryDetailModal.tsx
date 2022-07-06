@@ -67,23 +67,25 @@ const TxHistoryDetailModal: FC = () => {
     };
   }, [historyTx]);
 
+  const headerDescription = (
+    <TxActionElementTime
+      timestamp={decodedTx?.updatedAt ?? decodedTx?.createdAt}
+    />
+  );
   return (
     <Modal
-      header={intl.formatMessage({ id: 'transaction__transaction_details' })}
-      headerDescription={
-        <TxActionElementTime
-          timestamp={decodedTx?.updatedAt ?? decodedTx?.createdAt}
-        />
-      }
+      // header={intl.formatMessage({ id: 'transaction__transaction_details' })}
+      // headerDescription={headerDescription}
       footer={null}
       height="560px"
       scrollViewProps={{
         children: decodedTx ? (
           <>
-            <TxDetailStatusIcon decodedTx={decodedTx} />
-            <Box h={4} />
-            <TxDetailView decodedTx={decodedTx} historyTx={historyTx} />
-
+            <TxDetailView
+              isHistoryDetail
+              decodedTx={decodedTx}
+              historyTx={historyTx}
+            />
             {platformEnv.isDev && (
               <Button
                 mt={6}

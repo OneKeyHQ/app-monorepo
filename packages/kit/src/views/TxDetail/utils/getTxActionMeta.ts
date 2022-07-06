@@ -41,7 +41,7 @@ export function getTxActionMeta(
   };
   let iconInfo: ITxActionMetaIcon | undefined = {
     icon: {
-      name: 'ActivityOutline',
+      name: 'ClipboardListSolid', // ClipboardListOutline, ActivityOutline
     },
   };
   let components: ITxActionMetaComponents = {

@@ -33,9 +33,9 @@ import { delay } from '../../background/utils';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
 import {
-  TxDetailContextProvider,
-  useTxDetailContext,
-} from '../TxDetail/TxDetailContext';
+  TxHistoryContextProvider,
+  useTxHistoryContext,
+} from './TxHistoryContext';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
 
@@ -236,7 +236,7 @@ function TxHistoryListViewComponent({
   isHomeTab,
 }: ITxHistoryListViewProps) {
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
-  const txDetailContext = useTxDetailContext();
+  const txDetailContext = useTxHistoryContext();
 
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const { serviceHistory } = backgroundApiProxy;
@@ -389,9 +389,9 @@ function TxHistoryListViewComponent({
 function TxHistoryListView(props: ITxHistoryListViewProps) {
   const { headerView, isHomeTab } = props;
   return (
-    <TxDetailContextProvider headerView={headerView} isHomeTab={isHomeTab}>
+    <TxHistoryContextProvider headerView={headerView} isHomeTab={isHomeTab}>
       <TxHistoryListViewComponent {...props} />
-    </TxDetailContextProvider>
+    </TxHistoryContextProvider>
   );
 }
 

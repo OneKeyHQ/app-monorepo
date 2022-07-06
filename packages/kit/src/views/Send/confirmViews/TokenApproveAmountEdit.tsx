@@ -17,6 +17,7 @@ import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
+import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { SendRoutes, SendRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -50,16 +51,21 @@ function TokenApproveAmountEdit({ ...rest }) {
   const token = info?.tokenInfo;
   const symbol = token?.symbol;
 
-  const {
-    control,
-    handleSubmit,
-    trigger: formTrigger,
-  } = useForm<FeeValues>({
+  const useFormReturn = useForm<FeeValues>({
     mode: 'onChange',
     reValidateMode: 'onChange',
     defaultValues: {
       amount: isMaxAmount ? '' : tokenApproveAmount,
     },
+  });
+  const {
+    control,
+    handleSubmit,
+    trigger: formTrigger,
+    formState,
+  } = useFormReturn;
+  const { isValid, formValues } = useFormOnChangeDebounced({
+    useFormReturn,
   });
   const onSubmit = handleSubmit(async (data) => {
     if (!navigation.canGoBack()) {
@@ -88,30 +94,6 @@ function TokenApproveAmountEdit({ ...rest }) {
     });
   });
 
-  const { bottom } = useSafeAreaInsets();
-  const footer = (
-    <Column>
-      <Divider />
-      <Row
-        justifyContent="flex-end"
-        alignItems="center"
-        px={{ base: 4, md: 6 }}
-        pt={4}
-        pb={4 + bottom}
-      >
-        <Button
-          flexGrow={isSmallScreen ? 1 : 0}
-          type="primary"
-          size={isSmallScreen ? 'lg' : 'base'}
-          isDisabled={false}
-          onPress={onSubmit}
-        >
-          {intl.formatMessage({ id: 'action__save' })}
-        </Button>
-      </Row>
-    </Column>
-  );
-
   const validateRules = {
     required: intl.formatMessage({ id: 'form__max_spend_limit_validateRules' }),
   };
@@ -122,10 +104,15 @@ function TokenApproveAmountEdit({ ...rest }) {
   return (
     <Modal
       trigger={trigger}
-      primaryActionTranslationId="action__confirm"
+      primaryActionTranslationId="action__save"
+      onPrimaryActionPress={() => onSubmit()}
+      primaryActionProps={{
+        isDisabled: !isValid,
+      }}
+      hideSecondaryAction
       secondaryActionTranslationId="action__reject"
       header={intl.formatMessage({ id: 'content__spend_limit_amount' })}
-      footer={footer}
+      headerDescription={network?.name || network?.shortName || undefined}
       scrollViewProps={{
         children: (
           <Form>

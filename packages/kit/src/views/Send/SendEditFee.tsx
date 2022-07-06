@@ -21,6 +21,7 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   OneKeyError,
   OneKeyErrorClassNames,
@@ -49,7 +50,12 @@ import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationA
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
-import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
+import {
+  SendConfirmActionType,
+  SendConfirmParams,
+  SendRoutes,
+  SendRoutesParams,
+} from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
 
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -615,9 +621,22 @@ function ScreenSendEditFee({ ...rest }) {
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
-  // autoConfirmAfterFeeSaved=true   speedUp & cancel
-  const { encodedTx, autoConfirmAfterFeeSaved } = route.params;
+  // autoConfirmAfterFeeSaved=true speedUp & cancel
+  const { encodedTx, autoConfirmAfterFeeSaved, resendActionInfo } =
+    route.params;
   const { network, networkId, accountId } = useActiveWalletAccount();
+
+  const title = useMemo(() => {
+    let key: LocaleIds = 'action__edit_fee';
+
+    if (resendActionInfo?.type === 'speedUp') {
+      key = 'form__accelerated_transaction';
+    }
+    if (resendActionInfo?.type === 'cancel') {
+      key = 'form__cancelled_transaction';
+    }
+    return intl.formatMessage({ id: key });
+  }, [intl, resendActionInfo?.type]);
 
   useDisableNavigationAnimation({
     condition: !!autoConfirmAfterFeeSaved,
@@ -901,7 +920,8 @@ function ScreenSendEditFee({ ...rest }) {
       }}
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
-      header={intl.formatMessage({ id: 'action__edit_fee' })}
+      header={title}
+      headerDescription={network?.name || network?.shortName || undefined}
       scrollViewProps={{
         children: (
           <>

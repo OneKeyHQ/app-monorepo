@@ -9,11 +9,15 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyToken } from '../../../components/Format';
-import { TxDetailActionBox } from '../components/TxDetailActionBox';
+import {
+  TxDetailActionBox,
+  TxDetailActionBoxAutoTransform,
+} from '../components/TxDetailActionBox';
 import {
   TxListActionBox,
   TxListActionBoxExtraText,
 } from '../components/TxListActionBox';
+import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import {
   TxActionElementAmountLarge,
@@ -89,11 +93,11 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionTransfer(props: ITxActionCardProps) {
-  const { action, meta } = props;
-  const icon = <TxActionElementIconNormal {...meta} />;
-  const title = <TxActionElementTitleHeading {...meta} />;
-  const { amount, symbol, from, to } = getTxActionTransferInfo(props);
+  const { action, meta, decodedTx } = props;
   const intl = useIntl();
+
+  const { amount, symbol, from, to } = getTxActionTransferInfo(props);
+
   const details: ITxActionElementDetail[] = [
     {
       title: intl.formatMessage({ id: 'content__from' }),
@@ -104,19 +108,17 @@ export function TxActionTransfer(props: ITxActionCardProps) {
       content: <TxActionElementAddressNormal address={to} />,
     },
   ];
-  const amountView = (
-    <TxActionElementAmountLarge
-      direction={action.direction}
-      amount={amount}
-      symbol={symbol}
-      mb={4}
-    />
-  );
+
   return (
-    <TxDetailActionBox
-      icon={icon}
-      title={title}
-      content={amountView}
+    <TxDetailActionBoxAutoTransform
+      decodedTx={decodedTx}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
+      amountInfo={{
+        direction: action.direction,
+        amount,
+        symbol,
+      }}
       details={details}
     />
   );
@@ -124,17 +126,16 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 
 export function TxActionTransferT0(props: ITxActionCardProps) {
   const { action, meta, decodedTx, historyTx } = props;
-  const icon = <TxActionElementIconLarge {...meta} />;
-  const title = <TxActionElementTitleNormal {...meta} />;
   const { amount, symbol, from, to, isOut, displayDecimals } =
     getTxActionTransferInfo(props);
-
+  const statusBar = (
+    <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
+  );
   return (
     <TxListActionBox
-      decodedTx={decodedTx}
-      historyTx={historyTx}
-      icon={icon}
-      title={title}
+      footer={statusBar}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       content={
         <TxActionElementAmountNormal
           textAlign="right"

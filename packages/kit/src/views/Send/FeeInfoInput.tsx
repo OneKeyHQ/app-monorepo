@@ -387,7 +387,7 @@ function FeeInfoInputForConfirmLite({
           <Box flexDirection="column">
             {title}
             {subTitle}
-            {hint}
+            {/* {hint} */}
           </Box>
         );
       } else {

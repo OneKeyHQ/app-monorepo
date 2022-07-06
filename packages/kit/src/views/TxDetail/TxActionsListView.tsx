@@ -12,6 +12,7 @@ import { useNetwork } from '../../hooks/redux';
 import { TxActionErrorBoundary } from './components/TxActionErrorBoundary';
 import { ITxActionListViewProps } from './types';
 import { getTxActionMeta } from './utils/getTxActionMeta';
+import { getDisplayedActions } from './utils/utilsTxDetail';
 
 function useOriginHistoryTxOfCancelTx(cancelTx?: IHistoryTx) {
   const [originTx, setOriginTx] = useState<IHistoryTx | undefined>();
@@ -51,8 +52,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
         actions = actions.concat(finalDecodedTx.actions).filter(Boolean);
       }
     }
-    const displayedActions =
-      outputActions && outputActions.length ? outputActions : actions;
+    const displayedActions = getDisplayedActions({ decodedTx: finalDecodedTx });
     const listItems: JSX.Element[] = [];
     displayedActions.forEach((action, index) => {
       // TODO async function

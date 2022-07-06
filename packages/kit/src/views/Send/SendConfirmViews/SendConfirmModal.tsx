@@ -19,6 +19,8 @@ import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmPayload } from '../types';
 
+import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
+
 export type ITxConfirmViewPropsHandleConfirm = ({
   onClose,
   close,
@@ -81,7 +83,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     return new BigNumber(nativeBalance).lt(new BigNumber(fee));
   }, [feeInfoPayload, getTokenBalance, nativeToken]);
   const isWatchingAccount = useMemo(
-    () => accountId && accountId.startsWith('watching-'),
+    () => !!(accountId && accountId.startsWith('watching-')),
     [accountId],
   );
 
@@ -112,6 +114,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
         isDisabled:
           isWatchingAccount ||
           feeInfoLoading ||
+          !feeInfoPayload ||
           balanceInsufficient ||
           !encodedTx ||
           !decodedTx ||
@@ -126,28 +129,16 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       scrollViewProps={{
         children: (
           <>
-            {children}
             {!autoConfirm && (
-              <>
-                {isWatchingAccount ? (
-                  <FormErrorMessage
-                    message={intl.formatMessage({
-                      id: 'form__error_trade_with_watched_acocunt' as any,
-                    })}
-                  />
-                ) : null}
-                {balanceInsufficient ? (
-                  <FormErrorMessage
-                    message={intl.formatMessage(
-                      { id: 'form__amount_invalid' },
-                      {
-                        0: nativeToken?.symbol ?? '',
-                      },
-                    )}
-                  />
-                ) : null}
-              </>
+              <SendConfirmErrorsAlert
+                nativeToken={nativeToken}
+                isWatchingAccount={isWatchingAccount}
+                balanceInsufficient={balanceInsufficient}
+              />
             )}
+
+            {children}
+
             <DecodeTxButtonTest encodedTx={encodedTx} />
           </>
         ),

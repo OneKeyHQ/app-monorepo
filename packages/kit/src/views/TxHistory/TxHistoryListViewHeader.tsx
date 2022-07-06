@@ -6,7 +6,8 @@ import { Box, IconButton, Typography } from '@onekeyhq/components';
 
 import { useActiveWalletAccount } from '../../hooks';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
-import { useTxDetailContext } from '../TxDetail/TxDetailContext';
+
+import { useTxHistoryContext } from './TxHistoryContext';
 
 export function TxHistoryListViewHeaderBar({
   isLoading,
@@ -62,18 +63,17 @@ export function TxHistoryListViewHeader(props: {
   isEmpty: boolean;
   refresh?: () => void;
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { isEmpty, refresh } = props;
-  const txDetailContext = useTxDetailContext();
+  const txDetailContext = useTxHistoryContext();
 
   return (
     <Box key="header">
-      {txDetailContext?.context.headerView}
-      {isEmpty ? null : (
-        <TxHistoryListViewHeaderBar
-          refresh={txDetailContext?.context.refresh ?? refresh}
-          isLoading={txDetailContext?.context.isLoading}
-        />
-      )}
+      {txDetailContext?.context?.headerView}
+      <TxHistoryListViewHeaderBar
+        refresh={txDetailContext?.context.refresh ?? refresh}
+        isLoading={txDetailContext?.context.isLoading}
+      />
     </Box>
   );
 }

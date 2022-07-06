@@ -8,7 +8,7 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
-import { TxDetailActionBox } from '../components/TxDetailActionBox';
+import { TxDetailActionBox, TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
@@ -26,6 +26,7 @@ import {
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
+import { TxStatusBarInList } from '../components/TxStatusBar';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -67,8 +68,6 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
 
 export function TxActionTokenApprove(props: ITxActionCardProps) {
   const { action, decodedTx, meta } = props;
-  const icon = <TxActionElementIconNormal {...meta} />;
-  const title = <TxActionElementTitleHeading {...meta} />;
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const { amount, symbol } = getTxActionTokenApproveInfo({
@@ -129,9 +128,10 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
   }
 
   return (
-    <TxDetailActionBox
-      icon={icon}
-      title={title}
+    <TxDetailActionBoxAutoTransform
+      decodedTx={decodedTx}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       // content={<Box mb={4}>{amountView}</Box>}
       details={details}
     />
@@ -140,8 +140,6 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
 
 export function TxActionTokenApproveT0(props: ITxActionCardProps) {
   const { meta, decodedTx, historyTx } = props;
-  const icon = <TxActionElementIconLarge {...meta} />;
-  const title = <TxActionElementTitleNormal {...meta} />;
 
   const intl = useIntl();
   const { amount, symbol, spender, displayDecimals } =
@@ -149,13 +147,14 @@ export function TxActionTokenApproveT0(props: ITxActionCardProps) {
       ...props,
       intl,
     });
-
+  const statusBar = (
+    <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
+  );
   return (
     <TxListActionBox
-      historyTx={historyTx}
-      decodedTx={decodedTx}
-      icon={icon}
-      title={title}
+      footer={statusBar}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       subTitle={shortenAddress(spender)}
       content={
         <TxActionElementAmountNormal
