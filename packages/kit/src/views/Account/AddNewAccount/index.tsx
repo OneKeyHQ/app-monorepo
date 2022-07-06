@@ -264,7 +264,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                     onPress={onAddressTypeHelpLinkPressed}
                   >
                     <Typography.Body2Strong underline>
-                      Learn More
+                      {intl.formatMessage({ id: 'action__learn_more' })}
                     </Typography.Body2Strong>
                   </Pressable>
                 }
