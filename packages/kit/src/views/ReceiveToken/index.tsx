@@ -20,7 +20,7 @@ import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
-import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
+import { useEnsureConnected } from '@onekeyhq/kit/src/hooks/useEnsureConnected';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
@@ -48,12 +48,31 @@ const ReceiveToken = () => {
 
   const getAddress = useCallback(async () => {
     const hwAddress = await engine.getHWAddress(accountId, networkId, walletId);
-    if (hwAddress === shownAddress) {
-      console.log('confirm address');
-    }
-  }, [engine, accountId, networkId, walletId, shownAddress]);
+    return hwAddress;
+  }, [engine, accountId, networkId, walletId]);
 
-  const { showVerify } = useLocalAuthenticationModal();
+  const { ensureConnected } = useEnsureConnected();
+
+  const confirmOnDevice = useCallback(
+    async () =>
+      // eslint-disable-next-line no-async-promise-executor
+      new Promise(async (resolve) => {
+        try {
+          const isConnected = await ensureConnected(walletId);
+          if (isConnected) {
+            const accountAddress = await getAddress();
+            if (accountAddress === shownAddress) {
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          }
+        } catch {
+          resolve(false);
+        }
+      }),
+    [ensureConnected, getAddress, walletId, shownAddress],
+  );
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);
@@ -167,16 +186,8 @@ const ReceiveToken = () => {
                   type="plain"
                   size={isVerticalLayout ? 'xl' : 'base'}
                   leftIconName="DuplicateSolid"
-                  onPress={() => {
-                    showVerify(
-                      () => {
-                        getAddress();
-                      },
-                      () => {},
-                      null,
-                      undefined,
-                      walletId,
-                    );
+                  onPress={async () => {
+                    await confirmOnDevice();
                   }}
                 >
                   请在硬件上确认
