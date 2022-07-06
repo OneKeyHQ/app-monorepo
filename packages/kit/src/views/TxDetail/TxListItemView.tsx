@@ -19,6 +19,7 @@ import {
   IDecodedTxStatus,
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import {
@@ -93,31 +94,44 @@ function TxListItemViewResendButtons(props: { historyTx: IHistoryTx }) {
     useNavigation<HistoryListViewNavigationProp['navigation']>();
   const intl = useIntl();
 
+  const isCancel = historyTx.replacedType === 'cancel';
+
   return (
     <>
-      <Button
-        size="xs"
-        ml={2}
-        onPress={() => {
-          speedUpOrCancelTx({
-            historyTx,
-            actionType: 'cancel',
-            navigation,
-          });
-        }}
-      >
-        {intl.formatMessage({ id: 'action__cancel' })}
-      </Button>
+      {!isCancel ? (
+        <Button
+          size="xs"
+          ml={2}
+          onPress={() => {
+            speedUpOrCancelTx({
+              historyTx,
+              actionType: 'cancel',
+              navigation,
+            });
+          }}
+        >
+          {intl.formatMessage({ id: 'action__cancel' })}
+        </Button>
+      ) : null}
+
       <Button
         type="primary"
         size="xs"
         ml={2}
         onPress={() => {
-          speedUpOrCancelTx({
-            historyTx,
-            actionType: 'speedUp',
-            navigation,
-          });
+          if (isCancel) {
+            speedUpOrCancelTx({
+              historyTx,
+              actionType: 'cancel',
+              navigation,
+            });
+          } else {
+            speedUpOrCancelTx({
+              historyTx,
+              actionType: 'speedUp',
+              navigation,
+            });
+          }
         }}
       >
         {intl.formatMessage({ id: 'action__speed_up' })}
@@ -126,8 +140,12 @@ function TxListItemViewResendButtons(props: { historyTx: IHistoryTx }) {
   );
 }
 
-function TxListItemView(props: { historyTx: IHistoryTx }) {
-  const { historyTx } = props;
+function TxListItemView(props: {
+  historyTx: IHistoryTx;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
+  const { historyTx, isFirst, isLast } = props;
   const { decodedTx } = historyTx;
   const { status } = decodedTx;
   const intl = useIntl();
@@ -136,7 +154,6 @@ function TxListItemView(props: { historyTx: IHistoryTx }) {
   const navigation =
     useNavigation<HistoryListViewNavigationProp['navigation']>();
   const statusInfo = getTxStatusInfo({ decodedTx });
-
   const txHashView = status !== IDecodedTxStatus.Pending && (
     <Address
       typography="Body2"
@@ -177,11 +194,38 @@ function TxListItemView(props: { historyTx: IHistoryTx }) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
     />
   );
+  /*
+      borderTopRadius={index === 0 ? '12px' : '0px'}
+      borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
+      borderWidth={1}
+      borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
+      borderTopWidth={index === 0 ? 1 : 0}
+      borderBottomWidth={index === section.data.length - 1 ? 1 : 0}
+      mb={index === section.data.length - 1 ? 6 : undefined}
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const extraFooterInDev = platformEnv.isDev ? (
+    <HStack space={2} mt={2}>
+      {/* <Box w={8} /> */}
+      {txHashView}
+      {/* Confirmed TX do not show status text */}
+      {txStatusTextView}
+      {replacedTextView}
+      <Box flex={1} />
+      {timeView}
+    </HStack>
+  ) : null;
+  const paddingY = 16; // should convert to px string
   return (
     <Pressable.Item
-      borderRadius={12}
+      borderTopRadius={isFirst ? 12 : 0}
+      borderBottomRadius={isLast ? 12 : 0}
       borderWidth={isLight ? 1 : 0}
+      borderBottomWidth={isLast && isLight ? 1 : 0}
+      borderTopWidth={isFirst && isLight ? 1 : 0}
       borderColor="border-subdued"
+      px={{ base: '4', lg: '6' }}
+      py={`${paddingY}px`}
       onPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.TransactionDetail,
@@ -200,20 +244,16 @@ function TxListItemView(props: { historyTx: IHistoryTx }) {
           historyTx={historyTx}
           decodedTx={decodedTx}
           transformType="T0"
-          space={4}
+          space={`${paddingY * 2 - 1}px`}
           showDivider
         />
-        <HStack space={2} mt={2}>
-          {/* <Box w={8} /> */}
-          {txHashView}
-          {/* Confirmed TX do not show status text */}
-          {txStatusTextView}
-          {replacedTextView}
-          <Box flex={1} />
-          {decodedTx.status === IDecodedTxStatus.Pending
-            ? speedUpOrCancelView
-            : timeView}
-        </HStack>
+        {decodedTx.status === IDecodedTxStatus.Pending ? (
+          <HStack space={2} mt={2}>
+            <Box flex={1} />
+            {speedUpOrCancelView}
+          </HStack>
+        ) : null}
+        {/* {extraFooterInDev} */}
       </VStack>
     </Pressable.Item>
   );

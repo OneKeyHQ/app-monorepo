@@ -20,5 +20,10 @@ export type SyncRequestPayload = {
 };
 
 export type RankingsPayload = {
+  special: {
+    daily: string[];
+    new: string[];
+    weekly: string[];
+  };
   tags: DAppTagsType[];
 };

@@ -110,16 +110,20 @@ const AccountSelectorChildren: FC<{
   );
 
   const onLoadingAccount = useCallback(
-    (walletId: string, networkId?: string) => {
-      if (networkId) {
+    (walletId: string, networkId: string, ready?: boolean) => {
+      if (!ready) {
         setSelectedNetworkId(networkId);
         setLoadingAccountWalletId(walletId ?? '');
       } else {
         setLoadingAccountWalletId('');
-        refreshAccounts(walletId);
+        const targetWallet =
+          wallets.find((wallet) => wallet.id === walletId) ?? null;
+        setSelectedWallet(targetWallet);
+        setSelectedNetworkId(networkId);
+        refreshAccounts(targetWallet?.id);
       }
     },
-    [refreshAccounts],
+    [wallets, refreshAccounts],
   );
 
   /** every time change active wallet */
@@ -129,15 +133,12 @@ const AccountSelectorChildren: FC<{
   }, [activeWallet?.id, refreshAccounts, isOpen]);
 
   useEffect(() => {
-    if (previousIsOpen && !isOpen) {
-      setTimeout(() => {
-        const targetWallet =
-          wallets.find((wallet) => wallet.id === defaultSelectedWallet?.id) ??
-          null;
-        setSelectedWallet(targetWallet);
-        setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
-        /** after drawer transition end */
-      }, 300);
+    if (!previousIsOpen && isOpen) {
+      const targetWallet =
+        wallets.find((wallet) => wallet.id === defaultSelectedWallet?.id) ??
+        null;
+      setSelectedWallet(targetWallet);
+      setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
     }
   }, [
     previousIsOpen,

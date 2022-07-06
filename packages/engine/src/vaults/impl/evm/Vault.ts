@@ -14,6 +14,7 @@ import {
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { difference, isNil, isNumber, isString, merge, toLower } from 'lodash';
+import memoizee from 'memoizee';
 
 import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -26,6 +27,7 @@ import {
   PendingQueueTooLong,
 } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
+import { parseCovalentTxToDecodedTx } from '../../../managers/covalent';
 import {
   extractResponseError,
   fillUnsignedTx,
@@ -61,6 +63,7 @@ import {
   ISignCredentialOptions,
   ITransferInfo,
 } from '../../types';
+import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { Erc20MethodSelectors } from './decoder/abi';
@@ -189,7 +192,7 @@ export default class Vault extends VaultBase {
   // TODO rewrite decodeTx EVM
   //    build nativeTransfer action from contractCall with value>0
   override async decodeTx(
-    encodedTx: IEncodedTx,
+    encodedTx: IEncodedTxEvm,
     payload?: any,
   ): Promise<IDecodedTx> {
     const decodedTxLegacy = await this.legacyDecodeTx(encodedTx, payload);
@@ -226,7 +229,7 @@ export default class Vault extends VaultBase {
     interactInfo,
   }: {
     decodedTxLegacy: IDecodedTxLegacy;
-    encodedTx: IEncodedTx;
+    encodedTx: IEncodedTxEvm;
     payload?: SendConfirmPayloadInfo;
     interactInfo?: IDecodedTxInteractInfo;
   }): Promise<IDecodedTx> {
@@ -272,6 +275,7 @@ export default class Vault extends VaultBase {
       action.type = IDecodedTxActionType.TOKEN_APPROVE;
       action.tokenApprove = {
         tokenInfo: info.token,
+        owner: encodedTx.from ?? address,
         spender: info.spender,
         amount: info.amount,
         amountValue: info.value,
@@ -950,6 +954,7 @@ export default class Vault extends VaultBase {
     covalentTx?: ICovalentHistoryListItem;
     rpcReceiptTx?: any;
   }): Promise<IDecodedTx> {
+    const network = await this.getNetwork();
     if (historyTx) {
       // update local history tx info to decodedTx
       decodedTx = {
@@ -969,6 +974,18 @@ export default class Vault extends VaultBase {
         ? IDecodedTxStatus.Confirmed
         : IDecodedTxStatus.Failed;
       decodedTx.signer = covalentTx.from_address || decodedTx.signer;
+      decodedTx.outputActions =
+        covalentTx.parsedDecodedTx?.outputActions || decodedTx.outputActions;
+      const priceValue = new BigNumber(covalentTx.gas_price).toFixed();
+      const defaultGasInfo: IFeeInfoUnit = {
+        priceValue,
+        price: convertFeeValueToGwei({
+          value: priceValue,
+          network,
+        }),
+        limit: new BigNumber(covalentTx.gas_offered).toFixed(),
+      };
+      decodedTx.feeInfo = decodedTx.feeInfo || defaultGasInfo;
       if (decodedTx && decodedTx.feeInfo) {
         decodedTx.feeInfo.limitUsed = new BigNumber(
           covalentTx.gas_spent,
@@ -980,7 +997,7 @@ export default class Vault extends VaultBase {
     }
     // fetch by RPC:  eth_getTransactionReceipt
     if (rpcReceiptTx) {
-      // TODO update status, limitUsed, updatedAt, isFinal, outputActions
+      // TODO update status, limitUsed, updatedAt, isFinal, outputActions, nonce
     }
 
     // status may be updated by refreshPendingHistory task
@@ -1056,31 +1073,63 @@ export default class Vault extends VaultBase {
       // TODO eth_getTransactionByHash eth_getTransactionReceipt
       (hash) => ['eth_getTransactionByHash', [hash]] as [string, string[]],
     );
-    const rpcTxList: Array<IRpcTxEvm | null> = batchCallParams.length
-      ? await client.rpc.batchCall(batchCallParams)
-      : [];
+    let rpcTxList: Array<IRpcTxEvm | null> = [];
+
+    if (batchCallParams.length) {
+      try {
+        rpcTxList = await client.rpc.batchCall(batchCallParams);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     const historyTxList = await Promise.all(
-      rpcTxList.map(async (encodedTx) => {
+      hashes.map(async (hash, index) => {
         // pending tx rpc return null
-        if (!encodedTx) {
-          // TODO use historyTx.encodedTx
+        let encodedTx = rpcTxList.find((item) => item?.hash === hash);
+
+        const historyTx = localHistory.find(
+          (item) => item.decodedTx.txid === hash,
+        );
+        if (historyTx?.decodedTx?.isFinal) {
           return null;
         }
-        encodedTx.data = encodedTx.input;
-        // convert 0x string to number, chain-libs need number type
-        if (isString(encodedTx.nonce)) {
-          encodedTx.nonce = new BigNumber(encodedTx.nonce).toNumber() ?? 0;
+
+        encodedTx =
+          encodedTx ||
+          (historyTx?.decodedTx?.encodedTx as IEncodedTxEvm | undefined);
+        if (encodedTx) {
+          encodedTx.data = encodedTx.input;
+          // convert 0x string to number, chain-libs need number type
+          if (isString(encodedTx.nonce)) {
+            encodedTx.nonce = new BigNumber(encodedTx.nonce).toNumber() ?? 0;
+          }
         }
 
-        const covalentTx = covalentTxList.find(
-          (covalentTxItem) => covalentTxItem.tx_hash === encodedTx.hash,
+        let covalentTx = covalentTxList.find(
+          (covalentTxItem) => covalentTxItem.tx_hash === hash,
         );
-        const historyTx = localHistory.find(
-          (item) => item.decodedTx.txid === encodedTx.hash,
-        );
+        if (covalentTx) {
+          covalentTx = await covalentApi.parseCovalentTxToDecodedTx({
+            covalentTx,
+            address,
+            vault: this,
+            encodedTx,
+          });
+        }
 
-        // TODO encodedTx both transfer Native and Token
-        let decodedTx = await this.decodeTx(encodedTx, null);
+        let decodedTx: IDecodedTx | undefined;
+
+        if (encodedTx) {
+          // TODO encodedTx both transfer Native and Token
+          decodedTx = await this.decodeTx(encodedTx, null);
+        } else {
+          decodedTx = covalentTx?.parsedDecodedTx;
+        }
+
+        if (!decodedTx) {
+          return null;
+        }
 
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
@@ -1108,4 +1157,20 @@ export default class Vault extends VaultBase {
     // TODO replace `engineUtils.fixAddressCase`
     return Promise.resolve(toLower(address || ''));
   }
+
+  override isContractAddress = memoizee(
+    async (address: string): Promise<boolean> => {
+      try {
+        this.validateAddress(address);
+        const client = await this.getJsonRPCClient();
+        return await client.isContract(address);
+      } catch {
+        return Promise.resolve(false);
+      }
+    },
+    {
+      promise: true,
+      max: 50,
+    },
+  );
 }

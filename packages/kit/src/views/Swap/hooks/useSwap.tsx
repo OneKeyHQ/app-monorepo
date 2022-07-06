@@ -450,3 +450,21 @@ export function useSwftcTokens(
     return result;
   }, [tokens, included, excluded]);
 }
+
+export function useReceivingAddress() {
+  const receivingAddress = useAppSelector((s) => s.swap.receivingAddress);
+  const receivingName = useAppSelector((s) => s.swap.receivingName);
+  const { account } = useActiveWalletAccount();
+  return useMemo(() => {
+    let address: string | undefined;
+    let name: string | undefined;
+    if (receivingAddress) {
+      address = receivingAddress;
+      name = receivingName;
+    } else {
+      address = account?.address;
+      name = account?.name;
+    }
+    return { address, name };
+  }, [receivingAddress, receivingName, account]);
+}

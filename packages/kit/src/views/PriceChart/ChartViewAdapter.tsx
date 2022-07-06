@@ -2,7 +2,7 @@ import React from 'react';
 
 import { ChartPathProvider } from '@onekeyfe/react-native-animated-charts';
 
-import { Box, useUserDevice } from '@onekeyhq/components';
+import { Box } from '@onekeyhq/components';
 
 import { ChartViewAdapterProps } from './chartService';
 import ChartWrapper from './value-chart/Chart';
@@ -15,10 +15,6 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   height,
   isFetching,
 }) => {
-  const { size } = useUserDevice();
-  // should be the same with responsivePadding in HistoricalRecords.tsx
-  const responsivePadding = ['NORMAL', 'LARGE'].includes(size) ? 32 : 16;
-
   const { throttledData } = useChartThrottledPoints({
     originData: data,
     fetchingCharts: isFetching,
@@ -27,7 +23,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   return (
     // @ts-ignore
     <ChartPathProvider data={throttledData}>
-      <Box style={{ marginLeft: -responsivePadding }}>
+      <Box>
         <ChartWrapper
           lineColor={lineColor}
           isFetching={isFetching}

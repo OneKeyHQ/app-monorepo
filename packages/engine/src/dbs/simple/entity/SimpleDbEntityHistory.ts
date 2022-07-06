@@ -81,7 +81,8 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
       tokenApprove?.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
       internalSwap?.send.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
       internalSwap?.receive.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
-      historyTx.decodedTx?.tokenIdOnNetwork === tokenIdOnNetwork
+      (historyTx.decodedTx?.tokenIdOnNetwork === tokenIdOnNetwork &&
+        tokenIdOnNetwork)
     );
   }
 
@@ -161,13 +162,18 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
     if (tokenIdOnNetwork || tokenIdOnNetwork === '') {
       items = items.filter(
         (item) =>
-          item.decodedTx.actions.filter((action) =>
-            this._isActionIncludesToken({
-              historyTx: item,
-              action,
-              tokenIdOnNetwork,
-            }),
-          ).length > 0,
+          ([] as IDecodedTxAction[])
+            .concat(item.decodedTx.actions)
+            .concat(item.decodedTx.outputActions || [])
+            .filter(
+              (action) =>
+                action &&
+                this._isActionIncludesToken({
+                  historyTx: item,
+                  action,
+                  tokenIdOnNetwork,
+                }),
+            ).length > 0,
       );
     }
 

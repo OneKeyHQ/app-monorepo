@@ -31,6 +31,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
+      let latestPriceData: MarketApiData;
       if (!dataMap.current) {
         setIsFetching(true);
         dataMap.current = await Promise.all(
@@ -43,17 +44,36 @@ const PriceChart: React.FC<PriceChartProps> = ({
             }),
           ),
         );
+        const dayData = dataMap.current[0];
+        if (dayData.length) {
+          latestPriceData = dayData[dayData.length - 1];
+          for (let i = 1; i < dataMap.current.length; i += 1) {
+            let otherData = dataMap.current[i];
+            if (otherData.length) {
+              // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
+              otherData = otherData.filter((d) => d[0] < latestPriceData[0]);
+              otherData.push(latestPriceData);
+              dataMap.current[i] = otherData;
+            }
+          }
+        }
       }
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
         setIsFetching(true);
-        const newData = await fetchHistoricalPrices({
+        let newData = await fetchHistoricalPrices({
           contract,
           platform,
           days: TIMEOPTIONS_VALUE[newTimeIndex],
           vs_currency: selectedFiatMoneySymbol,
         });
-        dataMap.current[newTimeIndex] = newData;
+        const dayData = dataMap.current[0];
+        if (dayData.length && newData.length) {
+          latestPriceData = dayData[dayData.length - 1];
+          newData = newData.filter((d) => d[0] < latestPriceData[0]);
+          newData.push(latestPriceData);
+          dataMap.current[newTimeIndex] = newData;
+        }
       }
       setSelectedTimeIndex(newTimeIndex);
       setIsFetching(false);
@@ -72,6 +92,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
         data={dataMap.current?.[selectedTimeIndex] || []}
       >
         <TimeControl
+          enabled={!isFetching}
           selectedIndex={selectedTimeIndex}
           onTimeChange={refreshDataOnTimeChange}
         />

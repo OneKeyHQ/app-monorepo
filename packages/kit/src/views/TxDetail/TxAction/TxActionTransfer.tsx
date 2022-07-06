@@ -14,11 +14,11 @@ import {
   TxListActionBox,
   TxListActionBoxExtraText,
 } from '../components/TxListActionBox';
+import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import {
   TxActionElementAmountLarge,
   TxActionElementAmountNormal,
 } from '../elements/TxActionElementAmount';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementHashText';
 import {
   TxActionElementIconLarge,
   TxActionElementIconNormal,
@@ -35,23 +35,26 @@ import {
 } from '../types';
 
 export function getTxActionTransferInfo(props: ITxActionCardProps) {
-  const { action, meta } = props;
+  const { action, meta, network } = props;
 
   let amount = '0';
   let symbol = '';
   let from = '';
   let to = '';
+  let displayDecimals: number | undefined;
   if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
     amount = meta?.transferAmount ?? action.nativeTransfer?.amount ?? '0';
     symbol = action.nativeTransfer?.tokenInfo.symbol ?? '';
     from = action.nativeTransfer?.from ?? '';
     to = action.nativeTransfer?.to ?? '';
+    displayDecimals = network?.nativeDisplayDecimals;
   }
   if (action.type === IDecodedTxActionType.TOKEN_TRANSFER) {
     amount = action.tokenTransfer?.amount ?? '0';
     symbol = action.tokenTransfer?.tokenInfo.symbol ?? '';
     from = action.tokenTransfer?.from ?? '';
     to = action.tokenTransfer?.to ?? '';
+    displayDecimals = network?.tokenDisplayDecimals;
   }
 
   const isOut =
@@ -78,6 +81,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
     iconInfo,
     amount,
     symbol,
+    displayDecimals,
     from,
     to,
     isOut,
@@ -119,20 +123,25 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 }
 
 export function TxActionTransferT0(props: ITxActionCardProps) {
-  const { action, meta } = props;
+  const { action, meta, decodedTx, historyTx } = props;
   const icon = <TxActionElementIconLarge {...meta} />;
   const title = <TxActionElementTitleNormal {...meta} />;
-  const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
+  const { amount, symbol, from, to, isOut, displayDecimals } =
+    getTxActionTransferInfo(props);
 
   return (
     <TxListActionBox
+      decodedTx={decodedTx}
+      historyTx={historyTx}
       icon={icon}
       title={title}
       content={
         <TxActionElementAmountNormal
           textAlign="right"
+          justifyContent="flex-end"
           amount={amount}
           symbol={symbol}
+          decimals={displayDecimals}
           direction={action.direction}
         />
       }

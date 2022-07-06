@@ -102,7 +102,7 @@ import { Wallet } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
-import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
+import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
   IDecodedTx,
   IDecodedTxInteractInfo,
@@ -1315,7 +1315,7 @@ class Engine {
       decodedTxLegacy = await vaultEvm.legacyDecodeTx(encodedTx);
       decodedTx = await vaultEvm.decodedTxLegacyToModern({
         decodedTxLegacy,
-        encodedTx,
+        encodedTx: encodedTx as IEncodedTxEvm,
         payload,
         interactInfo,
       });

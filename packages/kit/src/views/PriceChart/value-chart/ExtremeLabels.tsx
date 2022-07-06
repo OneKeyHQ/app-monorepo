@@ -10,7 +10,6 @@ function trim(val: number) {
 function formatNative(value: number | string) {
   'worklet';
 
-  console.log({ value });
   let val;
   if (typeof value === 'string') {
     try {

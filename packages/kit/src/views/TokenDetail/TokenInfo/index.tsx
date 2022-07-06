@@ -294,7 +294,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       <Box
         w="100%"
         py={isVertical ? 8 : 12}
-        px={isVertical ? 0 : 4}
         flexDirection={isVertical ? 'column' : 'row'}
         justifyContent={isVertical ? 'flex-start' : 'space-between'}
         alignItems={isVertical ? 'stretch' : 'center'}
@@ -303,7 +302,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
         <Box w="100%" flex={1}>
           {renderAccountAmountInfo}
         </Box>
-        <Box mt={isVertical ? 8 : 0} flex={isVertical ? undefined : 1}>
+        <Box
+          mt={isVertical ? 8 : 0}
+          flex={isVertical ? undefined : 1}
+          alignItems={isVertical ? undefined : 'flex-end'}
+        >
           {accountOption}
         </Box>
       </Box>

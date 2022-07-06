@@ -27,7 +27,7 @@ export function useSendConfirmRouteParamsParsed() {
     routeParams.resendActionInfo?.type === 'speedUp';
   const payload = useMemo(
     // TODO refactor SendConfirmPayloadBase type like decodedTxAction
-    () => (routeParams.payload || {}) as SendConfirmPayloadBase,
+    () => routeParams.payload as SendConfirmPayloadBase | undefined,
     [routeParams.payload],
   );
 

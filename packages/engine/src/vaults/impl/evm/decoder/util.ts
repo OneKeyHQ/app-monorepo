@@ -2,6 +2,12 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 
 import type Vault from '../Vault';
 
+export function isEvmNativeTransferType(options: { data: string; to: string }) {
+  const { data } = options;
+  // TODO check encodedTx.to is contract address
+  return !data || data === '0x' || data === '0x0' || data === '0';
+}
+
 const ethersTxToJson = (nativeTx: ethers.Transaction): Promise<string> => {
   const json = JSON.stringify(nativeTx);
   return Promise.resolve(json);
