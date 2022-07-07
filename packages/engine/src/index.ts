@@ -907,14 +907,63 @@ class Engine {
     return !!token;
   }
 
+  findToken = memoizee(
+    async (params: { networkId: string; tokenIdOnNetwork: string }) => {
+      const { networkId, tokenIdOnNetwork } = params;
+      if (!tokenIdOnNetwork) {
+        return this.getNativeTokenInfo(networkId);
+      }
+
+      const tokenId = `${networkId}--${tokenIdOnNetwork}`;
+      const token = await this.dbApi.getToken(tokenId);
+      if (typeof token !== 'undefined') {
+        // Already exists in db.
+        return token;
+      }
+
+      const presetToken = getPresetToken(networkId, tokenIdOnNetwork);
+      if (typeof presetToken !== 'undefined') {
+        // Loose mode for history parsing, use only preset info, don't need to
+        // strictly fetch token info from blockchain.
+        return { ...presetToken, id: tokenId };
+      }
+
+      // Token is not preset, get its info from blockchain.
+      const vault = await this.getChainOnlyVault(networkId);
+      let tokenInfo;
+      try {
+        [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
+      } catch (e) {
+        console.error(e);
+      }
+      if (typeof tokenInfo === 'undefined') {
+        return;
+      }
+      return {
+        id: tokenId,
+        name: tokenInfo.name,
+        networkId,
+        tokenIdOnNetwork,
+        symbol: tokenInfo.symbol,
+        decimals: tokenInfo.decimals,
+        logoURI: '',
+      };
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 200,
+      maxAge: 1000 * 60 * 10,
+      normalizer: (args) => JSON.stringify(args),
+    },
+  );
+
   @backgroundMethod()
-  public async getOrAddToken(
+  public async ensureTokenInDB(
     networkId: string,
     tokenIdOnNetwork: string,
-    requireAlreadyAdded = false, // TODO remove
   ): Promise<Token | undefined> {
-    let noThisToken: undefined;
-
+    // This method ensures token info is correctly added into DB.
     if (!tokenIdOnNetwork) {
       return this.getNativeTokenInfo(networkId);
     }
@@ -926,30 +975,42 @@ class Engine {
       return token;
     }
 
-    if (requireAlreadyAdded) {
-      // DO Not throw error here, may cause workflow crash.
-      //    if you need check token exists, please use `isTokenExistsInDb()`
-      // throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
+    const presetToken = getPresetToken(networkId, tokenIdOnNetwork);
+    const vault = await this.getChainOnlyVault(networkId);
+    let tokenInfo;
+    try {
+      [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
+    } catch (e) {
+      console.error(e);
+    }
+    if (typeof tokenInfo === 'undefined') {
+      return;
     }
 
-    const vault = await this.getChainOnlyVault(networkId);
-    const toAdd = getPresetToken(networkId, tokenIdOnNetwork);
-    const [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
-    if (typeof tokenInfo === 'undefined') {
-      console.error('fetch tokenInfo ERROR: ', networkId, tokenIdOnNetwork);
-      return noThisToken;
-    }
-    const overwrite: Partial<Token> = {
+    // If the token is not preset or it is not on solana, use the name and
+    // symbol retrieved from the network.
+    const useOnChainInfo =
+      typeof presetToken === 'undefined' ||
+      getImplFromNetworkId(networkId) !== IMPL_SOL;
+
+    return this.dbApi.addToken({
+      // Default values
+      logoURI: '',
+      networkId,
+      tokenIdOnNetwork,
+      // Override with preset if any
+      ...presetToken,
+      // Override with on-chain info
+      ...(useOnChainInfo
+        ? {
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+          }
+        : {}),
+      // Important properties
       id: tokenId,
       decimals: tokenInfo.decimals,
-    };
-    if (toAdd.decimals === -1 || getImplFromNetworkId(networkId) !== IMPL_SOL) {
-      // If the token is not preset or it is not on solana, use the name and
-      // symbol retrieved from the network.
-      overwrite.name = tokenInfo.name;
-      overwrite.symbol = tokenInfo.symbol;
-    }
-    return this.dbApi.addToken({ ...toAdd, ...overwrite });
+    } as Token);
   }
 
   private async addDefaultToken(
@@ -971,7 +1032,7 @@ class Engine {
           waitingList.concat(
             tokens[networkId].map(async (tokenIdOnNetwork) => {
               try {
-                const token = await this.getOrAddToken(
+                const token = await this.ensureTokenInDB(
                   networkId,
                   tokenIdOnNetwork,
                 );
@@ -1052,7 +1113,7 @@ class Engine {
         `account ${accountId} and network ${networkId} isn't compatible.`,
       );
     }
-    const token = await this.getOrAddToken(networkId, normalizedAddress);
+    const token = await this.ensureTokenInDB(networkId, normalizedAddress);
     if (typeof token === 'undefined') {
       return undefined;
     }
@@ -1143,7 +1204,7 @@ class Engine {
       addressesToTry.forEach((address) => {
         if (typeof token === 'undefined') {
           const presetToken = getPresetToken(networkId, address);
-          if (presetToken.decimals !== -1) {
+          if (typeof presetToken !== 'undefined') {
             token = presetToken;
           }
         }

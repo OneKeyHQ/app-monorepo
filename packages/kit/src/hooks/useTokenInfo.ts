@@ -14,7 +14,7 @@ function useTokenInfo({
   const [tokenInfo, setTokenInfo] = useState<Token>();
   useEffect(() => {
     (async () => {
-      const token = await backgroundApiProxy.engine.getOrAddToken(
+      const token = await backgroundApiProxy.engine.ensureTokenInDB(
         networkId,
         tokenIdOnNetwork ?? '',
       );
