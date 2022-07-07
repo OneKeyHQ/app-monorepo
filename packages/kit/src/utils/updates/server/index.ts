@@ -1,142 +1,168 @@
 import axios from 'axios';
-import semver from 'semver';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PackageInfo, PackagesInfo } from '../type';
 
-import { PackageInfo, PackagesInfo, ReleasesInfo } from '../type';
+import { AppReleases, Changelog } from './type';
 
-import { ReleasesVersion } from './GithubReleases';
-import { getIosAppStoreCurrentVersion } from './IOSAppStoreVersion';
-
-async function handleReleaseInfo(
-  releasesVersion: ReleasesVersion,
-): Promise<ReleasesInfo> {
+function handleReleaseInfo(
+  releasesVersion: AppReleases | undefined,
+): PackagesInfo {
   const androidPackages: PackageInfo[] = [];
   const extPackages: PackageInfo[] = [];
   const desktopPackages: PackageInfo[] = [];
   const iosPackages: PackageInfo[] = [];
 
-  if (platformEnv.isNativeIOS) {
-    // iOS check AppStore
-    const iosVersion = await getIosAppStoreCurrentVersion();
-    if (
-      iosVersion &&
-      // iosVersion >= releasesVersion
-      semver.gte(iosVersion.version, releasesVersion.tag_name)
-    ) {
-      iosPackages.push({
-        os: 'ios',
-        channel: 'AppStore',
-        download: iosVersion.trackViewUrl,
+  if (releasesVersion?.ios) {
+    iosPackages.push({
+      os: 'ios',
+      channel: 'AppStore',
+      download: releasesVersion.ios.url,
+      version: releasesVersion.ios.version.join('.'),
+      forceVersion: '0.0.0',
+    });
+  }
+
+  if (releasesVersion?.android) {
+    if (releasesVersion.android.googlePlay) {
+      androidPackages.push({
+        os: 'android',
+        channel: 'GooglePlay',
+        download: releasesVersion.android.googlePlay,
+        version: releasesVersion.android.version.join('.'),
+        forceVersion: '0.0.0',
+      });
+    }
+    if (releasesVersion.android.url) {
+      androidPackages.push({
+        os: 'android',
+        channel: 'Direct',
+        download: releasesVersion.android.url,
+        version: releasesVersion.android.version.join('.'),
+        forceVersion: '0.0.0',
       });
     }
   }
 
-  androidPackages.push({
-    os: 'android',
-    channel: 'GooglePlay',
-    download:
-      'https://play.google.com/store/apps/details?id=so.onekey.app.wallet',
-  });
-
-  releasesVersion.assets.forEach((x) => {
-    // android
-    if (x.name.indexOf('android.apk') !== -1) {
-      androidPackages.push({
-        os: 'android',
-        channel: 'Direct',
-        download: x.browser_download_url,
-      });
-    }
-
-    // extension
-    if (x.name.indexOf('firefox-addon.zip') !== -1) {
-      extPackages.push({
-        os: 'firefox',
-        channel: 'MozillaAddOns',
-        download: x.browser_download_url,
-      });
-    }
-
-    if (x.name.indexOf('chrome-extension.zip') !== -1) {
-      extPackages.push({
-        os: 'chrome',
-        channel: 'ChromeWebStore',
-        download: x.browser_download_url,
-      });
-    }
-
-    // desktop
-    if (x.name.indexOf('linux-x86_64.AppImage') !== -1) {
+  if (releasesVersion?.desktop) {
+    if (releasesVersion.desktop.linux) {
       desktopPackages.push({
         os: 'linux',
         channel: 'Direct',
-        download: x.browser_download_url,
+        download: releasesVersion.desktop.linux,
+        version: releasesVersion.desktop.version.join('.'),
+        forceVersion: '0.0.0',
       });
     }
-    if (x.name.indexOf('mac-arm64.dmg') !== -1) {
-      desktopPackages.push({
-        os: 'macos-arm64',
-        channel: 'Direct',
-        download: x.browser_download_url,
-      });
-    }
-    if (x.name.indexOf('mac-x64.dmg') !== -1) {
+    if (releasesVersion.desktop.macX64) {
       desktopPackages.push({
         os: 'macos-x64',
         channel: 'Direct',
-        download: x.browser_download_url,
+        download: releasesVersion.desktop.macX64,
+        version: releasesVersion.desktop.version.join('.'),
+        forceVersion: '0.0.0',
       });
     }
-
-    if (x.name.indexOf('win-x64.exe') !== -1) {
+    if (releasesVersion.desktop.macARM) {
+      desktopPackages.push({
+        os: 'macos-arm64',
+        channel: 'Direct',
+        download: releasesVersion.desktop.macARM,
+        version: releasesVersion.desktop.version.join('.'),
+        forceVersion: '0.0.0',
+      });
+    }
+    if (releasesVersion.desktop.win) {
       desktopPackages.push({
         os: 'win',
         channel: 'Direct',
-        download: x.browser_download_url,
+        download: releasesVersion.desktop.win,
+        version: releasesVersion.desktop.version.join('.'),
+        forceVersion: '0.0.0',
       });
     }
-  });
+  }
 
-  const packagesInfo: PackagesInfo = {
+  if (releasesVersion?.ext) {
+    if (releasesVersion.ext.chrome) {
+      extPackages.push({
+        os: 'chrome',
+        channel: 'ChromeWebStore',
+        download: releasesVersion.ext.chrome,
+        version: '0.0.0',
+        forceVersion: '0.0.0',
+      });
+    }
+    if (releasesVersion.ext.firefox) {
+      extPackages.push({
+        os: 'firefox',
+        channel: 'MozillaAddOns',
+        download: releasesVersion.ext.firefox,
+        version: '0.0.0',
+        forceVersion: '0.0.0',
+      });
+    }
+    if (releasesVersion.ext.edge) {
+      extPackages.push({
+        os: 'edge',
+        channel: 'Direct',
+        download: releasesVersion.ext.edge,
+        version: '0.0.0',
+        forceVersion: '0.0.0',
+      });
+    }
+  }
+
+  return {
     ios: iosPackages,
     android: androidPackages,
     extension: extPackages,
     desktop: desktopPackages,
   };
-
-  return {
-    version: releasesVersion.tag_name,
-    forceVersion: '0',
-    buildNumber: '1',
-    changeLog: releasesVersion.body,
-    packages: packagesInfo,
-  };
 }
 
-export async function getPreReleaseInfo(): Promise<ReleasesInfo | null> {
+export async function getReleaseInfo(): Promise<PackagesInfo | null> {
   return axios
-    .get<ReleasesVersion[]>(
-      'https://api.github.com/repos/onekeyhq/app-monorepo/releases',
-    )
-    .then((res) => {
-      const releasesVersions = res.data;
-      const releasesVersion = releasesVersions.find((x) => x.prerelease);
-
-      if (releasesVersion) return handleReleaseInfo(releasesVersion);
-      return null;
-    })
-    .catch(() => null);
-}
-
-export async function getReleaseInfo(): Promise<ReleasesInfo | null> {
-  return axios
-    .get<ReleasesVersion>(
-      'https://api.github.com/repos/onekeyhq/app-monorepo/releases/latest',
-    )
+    .get<AppReleases>('https://data.onekey.so/config.json')
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
       return handleReleaseInfo(releasesVersion);
     })
     .catch(() => null);
+}
+
+export async function getPreReleaseInfo(): Promise<PackagesInfo | null> {
+  return getReleaseInfo()
+    .then((packagesInfo) => {
+      // modify version to 99.99.99
+      packagesInfo?.ios?.forEach((packageInfo) => {
+        packageInfo.version = '99.99.99';
+      });
+      packagesInfo?.android?.forEach((packageInfo) => {
+        packageInfo.version = '99.99.99';
+      });
+      packagesInfo?.extension?.forEach((packageInfo) => {
+        packageInfo.version = '99.99.99';
+      });
+      packagesInfo?.desktop?.forEach((packageInfo) => {
+        packageInfo.version = '99.99.99';
+      });
+      return packagesInfo;
+    })
+    .catch(() => null);
+}
+
+export async function getChangeLog(
+  oldVersion: string,
+  newVersion: string,
+): Promise<Changelog | undefined> {
+  return axios
+    .get<AppReleases>('https://data.onekey.so/config.json')
+    .then((releasesVersionResponse) => {
+      const changeLogs = releasesVersionResponse.data.changelog;
+      return (
+        changeLogs.find((log) => log.version === newVersion)?.locale ??
+        undefined
+      );
+    })
+    .catch(() => undefined);
 }
