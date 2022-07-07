@@ -24,8 +24,8 @@ export const useManageTokens = ({
 } = {}) => {
   const isFocused = useIsFocused();
   const { accountId, networkId } = useActiveWalletAccount();
-  const allTokens = useNetworkTokens(networkId);
-  const accountTokens = useAccountTokens(networkId, accountId);
+  const allTokens: Token[] = useNetworkTokens(networkId);
+  const accountTokens: Token[] = useAccountTokens(networkId, accountId);
   const balances = useAccountTokensBalance(networkId, accountId);
   const prices = useNetworkTokensPrice(networkId);
 
@@ -39,7 +39,7 @@ export const useManageTokens = ({
     return map;
   }, [accountTokens]);
 
-  const nativeToken = useMemo(
+  const nativeToken: Token = useMemo(
     () => accountTokens.filter((token) => !token.tokenIdOnNetwork),
     [accountTokens],
   )[0];

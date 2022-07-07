@@ -287,7 +287,7 @@ function SendConfirm() {
   }
   sharedProps.children = (
     <>
-      <TxDetailView decodedTx={decodedTx} feeInput={feeInput} />
+      <TxDetailView isSendConfirm decodedTx={decodedTx} feeInput={feeInput} />
     </>
   );
 

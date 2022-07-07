@@ -6,7 +6,8 @@ export type OS =
   | 'macos-arm64'
   | 'linux'
   | 'firefox'
-  | 'chrome';
+  | 'chrome'
+  | 'edge';
 
 export type Channel =
   | 'AppStore'
@@ -19,6 +20,8 @@ export interface PackageInfo {
   os: OS;
   channel: Channel;
   download: string;
+  version: string;
+  forceVersion: string;
 }
 
 export interface PackagesInfo {
@@ -29,17 +32,9 @@ export interface PackagesInfo {
 }
 
 export interface ReleasesInfo {
-  version: string;
-  forceVersion: string;
-  buildNumber: string;
-  changeLog: string;
   packages: PackagesInfo | undefined;
 }
 
 export interface VersionInfo {
-  version: string;
-  forceVersion: string;
-  buildNumber: string;
-  changeLog: string;
   package: PackageInfo;
 }

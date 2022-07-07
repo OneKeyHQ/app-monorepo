@@ -116,6 +116,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       }}
     >
       <TxDetailView
+        isSendConfirm
         decodedTx={decodedTx}
         feeInput={feeInput}
         transferAmount={transferAmountToUpdate}

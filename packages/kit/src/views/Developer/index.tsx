@@ -237,7 +237,7 @@ export const Debug = () => {
           "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
           "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
           "data": "0x",
-          "value": "0"
+          "value": "0x18abedda5a37000"
         }
       ],
       "jsonrpc": "2.0"
@@ -247,7 +247,7 @@ export const Debug = () => {
     "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
     "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
     "data": "0x",
-    "value": "0"
+    "value": "0x18abedda5a37000"
   }
 }`,
                     },

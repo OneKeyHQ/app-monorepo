@@ -12,6 +12,8 @@ import {
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
 
+import { ITxDetailContextData } from './TxDetailContext';
+
 export type ITxActionMetaTitle = {
   title?: string;
   titleKey?: LocaleIds;
@@ -58,9 +60,12 @@ export type ITxActionElementDetail = {
 
 export type ITxActionCardViewProps = {
   title?: JSX.Element;
+  subTitle?: JSX.Element;
   icon?: JSX.Element;
   content?: JSX.Element;
   details?: Array<ITxActionElementDetail | undefined | null>;
+  isSingleTransformMode?: boolean;
+  showTitleDivider?: boolean;
 };
 
 export type ITxActionListViewProps = {
@@ -72,4 +77,4 @@ export type ITxActionListViewProps = {
   // TODO useContext instead
   transferAmount?: string;
   feeInput?: JSX.Element;
-};
+} & ITxDetailContextData;

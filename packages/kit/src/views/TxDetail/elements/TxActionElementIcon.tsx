@@ -65,3 +65,9 @@ export function TxActionElementIconLarge(
 ) {
   return <TxActionElementIcon size={32} {...props} />;
 }
+
+export function TxActionElementIconXLarge(
+  props: ComponentProps<typeof TxActionElementIcon>,
+) {
+  return <TxActionElementIcon size={40} {...props} />;
+}

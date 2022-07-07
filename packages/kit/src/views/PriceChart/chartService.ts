@@ -138,12 +138,10 @@ export function updateChartDom({
   }
 }
 
-const marketApi = 'https://fiat.onekey.so/market';
+const marketApi = 'https://fiat.onekey.so/market/chart';
 
 interface MarketData {
-  data: {
-    prices: [number, number][];
-  };
+  prices: [number, number][];
 }
 
 export type PriceApiProps = {
@@ -172,7 +170,7 @@ export const fetchHistoricalPrices = async ({
     const res = await axios.get<MarketData>(
       `${marketApi}?${params.toString()}`,
     );
-    result = res.data.data.prices;
+    result = res.data.prices;
     // eslint-disable-next-line no-empty
   } catch (e) {}
   return result;

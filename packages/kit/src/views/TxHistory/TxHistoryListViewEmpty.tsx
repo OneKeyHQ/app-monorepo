@@ -8,7 +8,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import IconHistory from '../../../assets/3d_transaction_history.png';
 import { useActiveWalletAccount } from '../../hooks';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
-import { useTxDetailContext } from '../TxDetail/TxDetailContext';
+
+import { useTxHistoryContext } from './TxHistoryContext';
 
 export function TxHistoryListViewEmpty({
   isLoading,
@@ -18,7 +19,7 @@ export function TxHistoryListViewEmpty({
   refresh?: () => void;
 }) {
   const intl = useIntl();
-  const txDetailContext = useTxDetailContext();
+  const txDetailContext = useTxHistoryContext();
   const { network, account } = useActiveWalletAccount();
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
   return (

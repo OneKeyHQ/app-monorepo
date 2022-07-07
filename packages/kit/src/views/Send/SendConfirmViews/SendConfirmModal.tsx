@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 
+import {
+  IInjectedProviderNames,
+  IInjectedProviderNamesStrings,
+} from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Modal } from '@onekeyhq/components';
-import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
@@ -18,6 +21,8 @@ import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmPayload } from '../types';
+
+import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 export type ITxConfirmViewPropsHandleConfirm = ({
   onClose,
@@ -64,6 +69,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     handleConfirm,
     updateEncodedTxBeforeConfirm,
     autoConfirm,
+    sourceInfo,
     ...others
   } = props;
   const { nativeToken, getTokenBalance } = useManageTokens({
@@ -80,10 +86,20 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     });
     return new BigNumber(nativeBalance).lt(new BigNumber(fee));
   }, [feeInfoPayload, getTokenBalance, nativeToken]);
+
   const isWatchingAccount = useMemo(
-    () => accountId && accountId.startsWith('watching-'),
+    () => !!(accountId && accountId.startsWith('watching-')),
     [accountId],
   );
+
+  const isNetworkNotMatched = useMemo(() => {
+    if (!sourceInfo) {
+      return false;
+    }
+    // dapp tx should check scope matched
+    // TODO add injectedProviderName to vault settings
+    return sourceInfo.scope !== IInjectedProviderNames.ethereum; // network.settings.injectedProviderName
+  }, [sourceInfo]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -110,9 +126,11 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled:
+          isNetworkNotMatched ||
           isWatchingAccount ||
-          feeInfoLoading ||
           balanceInsufficient ||
+          feeInfoLoading ||
+          !feeInfoPayload ||
           !encodedTx ||
           !decodedTx ||
           confirmDisabled,
@@ -126,28 +144,17 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       scrollViewProps={{
         children: (
           <>
-            {children}
             {!autoConfirm && (
-              <>
-                {isWatchingAccount ? (
-                  <FormErrorMessage
-                    message={intl.formatMessage({
-                      id: 'form__error_trade_with_watched_acocunt' as any,
-                    })}
-                  />
-                ) : null}
-                {balanceInsufficient ? (
-                  <FormErrorMessage
-                    message={intl.formatMessage(
-                      { id: 'form__amount_invalid' },
-                      {
-                        0: nativeToken?.symbol ?? '',
-                      },
-                    )}
-                  />
-                ) : null}
-              </>
+              <SendConfirmErrorsAlert
+                nativeToken={nativeToken}
+                isWatchingAccount={isWatchingAccount}
+                balanceInsufficient={balanceInsufficient}
+                isNetworkNotMatched={isNetworkNotMatched}
+              />
             )}
+
+            {children}
+
             <DecodeTxButtonTest encodedTx={encodedTx} />
           </>
         ),

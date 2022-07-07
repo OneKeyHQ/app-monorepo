@@ -18,8 +18,10 @@ import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxActionNativeTransfer,
   IDecodedTxActionType,
+  IDecodedTxDirection,
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
@@ -28,6 +30,7 @@ import {
   IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
+  IHistoryTx,
   ITransferInfo,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
@@ -38,6 +41,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { extractTransactionInfo, getAddressHistoryFromExplorer } from './utils';
 
 import type { IEncodedTxSTC } from './types';
 
@@ -165,6 +169,7 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxSTC,
   ): Promise<UnsignedTx> {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const network = await this.getNetwork();
     const value = new BigNumber(encodedTx.value);
 
     const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
@@ -176,7 +181,9 @@ export default class Vault extends VaultBase {
         outputs: [{ address: encodedTx.to, value }],
         // TODO: pending support
         // nonce: encodedTx.nonce !== 'undefined' ? decodedTx.nonce : await this.getNextNonce(this.networkId, dbAccount),
-        feePricePerUnit: new BigNumber(encodedTx.gasPrice || '1'),
+        feePricePerUnit: new BigNumber(
+          encodedTx.gasPrice || '0.000000001',
+        ).shiftedBy(network.decimals),
         payload: {},
         ...(typeof encodedTx.gasLimit !== 'undefined'
           ? {
@@ -234,12 +241,9 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid fee limit');
     }
 
-    const network = await this.getNetwork();
     const encodedTxWithFee = {
       ...params.encodedTx,
-      gasPrice: new BigNumber(price || '0.000000001')
-        .shiftedBy(network.feeDecimals)
-        .toFixed(),
+      gasPrice: new BigNumber(price || '0.000000001').toFixed(),
       gasLimit: limit,
     };
     return Promise.resolve(encodedTxWithFee);
@@ -257,6 +261,109 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory?: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const { localHistory = [], tokenIdOnNetwork } = options;
+    if (tokenIdOnNetwork) {
+      // No token support now.
+      return Promise.resolve([]);
+    }
+
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const { decimals } = await this.engine.getNetwork(this.networkId);
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+
+    const explorerTxs = await getAddressHistoryFromExplorer(
+      this.networkId,
+      dbAccount.address,
+    );
+    const promises = explorerTxs.map((tx) => {
+      const historyTxToMerge = localHistory.find(
+        (item) => item.decodedTx.txid === tx.transaction_hash,
+      );
+      if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        // No need to update.
+        return Promise.resolve(null);
+      }
+
+      try {
+        const transactionInfo = extractTransactionInfo(tx);
+        if (transactionInfo) {
+          const { from, to, mainTokenAmountValue, feeValue } = transactionInfo;
+          const encodedTx = {
+            from,
+            to: '',
+            value: '',
+            data: tx.user_transaction.raw_txn.payload,
+          };
+
+          let action: IDecodedTxAction = {
+            type: IDecodedTxActionType.TRANSACTION,
+          };
+          if (mainTokenAmountValue) {
+            let direction = IDecodedTxDirection.IN;
+            if (from === dbAccount.address) {
+              direction =
+                to === dbAccount.address
+                  ? IDecodedTxDirection.SELF
+                  : IDecodedTxDirection.OUT;
+            }
+            encodedTx.to = to;
+            encodedTx.value = mainTokenAmountValue;
+            action = {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: token,
+                from,
+                to,
+                amount: new BigNumber(mainTokenAmountValue)
+                  .shiftedBy(-decimals)
+                  .toFixed(),
+                amountValue: mainTokenAmountValue,
+                extraInfo: null,
+              },
+            };
+          }
+          const decodedTx: IDecodedTx = {
+            txid: tx.transaction_hash,
+            owner: dbAccount.address,
+            signer: from,
+            nonce: 0,
+            actions: [action],
+            status:
+              tx.status === 'Executed'
+                ? IDecodedTxStatus.Confirmed
+                : IDecodedTxStatus.Pending,
+            networkId: this.networkId,
+            accountId: this.accountId,
+            encodedTx,
+            extraInfo: null,
+            totalFeeInNative: new BigNumber(feeValue)
+              .shiftedBy(-decimals)
+              .toFixed(),
+          };
+          decodedTx.updatedAt = tx.timestamp;
+          decodedTx.createdAt =
+            historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+          decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+          return this.buildHistoryTx({
+            decodedTx,
+            historyTxToMerge,
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      return Promise.resolve(null);
+    });
+
+    return (await Promise.all(promises)).filter(Boolean);
   }
 
   // Chain only functionalities below.
