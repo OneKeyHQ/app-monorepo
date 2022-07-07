@@ -124,7 +124,8 @@ function PreSendAddress() {
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
-                  validate: async (toAddress) => {
+                  validate: async () => {
+                    const toAddress = formValues?.to;
                     if (!toAddress) {
                       return undefined;
                       // return intl.formatMessage({
