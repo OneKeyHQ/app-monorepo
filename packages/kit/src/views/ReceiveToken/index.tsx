@@ -57,10 +57,6 @@ const ReceiveToken = () => {
     });
   }, [engine, walletId]);
 
-  useEffect(() => {
-    console.log('isHwWallet: ======== ', isHwWallet);
-  }, [isHwWallet]);
-
   const getAddress = useCallback(async () => {
     const hwAddress = await engine.getHWAddress(accountId, networkId, walletId);
     return hwAddress;

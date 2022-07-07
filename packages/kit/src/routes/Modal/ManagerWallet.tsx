@@ -29,7 +29,6 @@ export type ManagerWalletRoutesParams = {
     onSuccess: (requestId: string, password: string) => void;
     onCancel: () => void;
     field?: ValidationFields;
-    walletId?: string;
   };
   [ManagerWalletModalRoutes.ManagerWalletModifyEmojiModal]: {
     avatar: Avatar;
