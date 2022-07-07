@@ -45,7 +45,7 @@ export async function getAddressHistoryFromExplorer(
 
 // Codes based on starcoin-explorer,
 // ref to https://github.com/starcoinorg/starcoin-explorer/blob/406da89d6af2d9d261aebe9fd4d85b23ba6ca2a8/src/modules/Transactions/components/TransactionSummary/TransferTransactionSummary.tsx#L69
-export function extractMainTokenTransactionInfo(tx: ISTCExplorerTransaction) {
+export function extractTransactionInfo(tx: ISTCExplorerTransaction) {
   try {
     const decodedPayload = encoding.decodeTransactionPayload(
       tx.user_transaction.raw_txn.payload,
@@ -69,30 +69,29 @@ export function extractMainTokenTransactionInfo(tx: ISTCExplorerTransaction) {
       },
     } = decodedPayload as IDecodedSTCPayload;
     if (
-      functionAddress !== '0x00000000000000000000000000000001' ||
-      functionModule !== 'TransferScripts'
+      functionAddress === '0x00000000000000000000000000000001' ||
+      functionModule === 'TransferScripts'
     ) {
-      return null;
-    }
-    if (functionName === 'peer_to_peer_v2') {
-      [, amountString] = functionArgs;
-    } else if (functionName === 'peer_to_peer') {
-      [, , amountString] = functionArgs;
-    }
-    if (typeof amountString === 'undefined') {
-      return null;
+      if (functionName === 'peer_to_peer_v2') {
+        [, amountString] = functionArgs;
+      } else if (functionName === 'peer_to_peer') {
+        [, , amountString] = functionArgs;
+      }
     }
 
-    const amountValue = new BigNumber(
-      new bcs.BcsDeserializer(arrayify(amountString))
-        .deserializeU128()
-        .toString(),
-    ).toFixed();
+    let mainTokenAmountValue;
+    if (amountString) {
+      mainTokenAmountValue = new BigNumber(
+        new bcs.BcsDeserializer(arrayify(amountString))
+          .deserializeU128()
+          .toString(),
+      ).toFixed();
+    }
     return {
       from: tx.user_transaction.raw_txn.sender,
       to: functionArgs[0],
       symbol,
-      amountValue,
+      mainTokenAmountValue,
       feeValue: new BigNumber(tx.user_transaction.raw_txn.gas_unit_price)
         .times(tx.gas_used)
         .toFixed(),
