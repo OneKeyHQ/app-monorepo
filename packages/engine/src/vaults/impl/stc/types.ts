@@ -8,6 +8,7 @@ export type IEncodedTxSTC = {
   gasPrice?: string;
   gasLimit?: string;
   nonce?: number;
+  data?: string;
 };
 
 // For decode history powered by stc explorer
