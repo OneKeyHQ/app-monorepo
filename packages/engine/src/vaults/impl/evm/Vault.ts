@@ -1176,7 +1176,7 @@ export default class Vault extends VaultBase {
   override isContractAddress = memoizee(
     async (address: string): Promise<boolean> => {
       try {
-        this.validateAddress(address);
+        await this.validateAddress(address);
         const client = await this.getJsonRPCClient();
         return await client.isContract(address);
       } catch {
