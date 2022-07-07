@@ -946,6 +946,7 @@ export default class Vault extends VaultBase {
     // extra tx
     covalentTx,
     rpcReceiptTx,
+    isCovalentApiAvailable,
   }: {
     decodedTx: IDecodedTx;
     encodedTx?: IEncodedTx;
@@ -953,6 +954,7 @@ export default class Vault extends VaultBase {
     rawTx?: IRawTx;
     covalentTx?: ICovalentHistoryListItem;
     rpcReceiptTx?: any;
+    isCovalentApiAvailable?: boolean;
   }): Promise<IDecodedTx> {
     const network = await this.getNetwork();
     if (historyTx) {
@@ -977,19 +979,27 @@ export default class Vault extends VaultBase {
       decodedTx.outputActions =
         covalentTx.parsedDecodedTx?.outputActions || decodedTx.outputActions;
       const priceValue = new BigNumber(covalentTx.gas_price).toFixed();
+      const priceGwei = convertFeeValueToGwei({
+        value: priceValue,
+        network,
+      });
+      const limit = new BigNumber(covalentTx.gas_offered).toFixed();
+      const limitUsed = new BigNumber(covalentTx.gas_spent).toFixed();
       const defaultGasInfo: IFeeInfoUnit = {
         priceValue,
-        price: convertFeeValueToGwei({
-          value: priceValue,
-          network,
-        }),
-        limit: new BigNumber(covalentTx.gas_offered).toFixed(),
+        price: priceGwei,
+        limit,
+        limitUsed,
       };
       decodedTx.feeInfo = decodedTx.feeInfo || defaultGasInfo;
       if (decodedTx && decodedTx.feeInfo) {
-        decodedTx.feeInfo.limitUsed = new BigNumber(
-          covalentTx.gas_spent,
-        ).toFixed();
+        decodedTx.feeInfo.limitUsed = limitUsed;
+        decodedTx.feeInfo.limit = limit;
+        if (decodedTx.feeInfo.eip1559) {
+          const eip1559Fee = decodedTx.feeInfo.price as EIP1559Fee;
+          eip1559Fee.gasPrice = priceGwei;
+          eip1559Fee.gasPriceValue = priceValue;
+        }
       }
       decodedTx.isFinal = true;
       // TODO update outputActions
@@ -1000,14 +1010,16 @@ export default class Vault extends VaultBase {
       // TODO update status, limitUsed, updatedAt, isFinal, outputActions, nonce
     }
 
-    // status may be updated by refreshPendingHistory task
+    // status may be updated by refreshPendingHistory task, so ignore pending here
     if (decodedTx.status !== IDecodedTxStatus.Pending) {
-      if (
-        decodedTx.createdAt &&
-        Date.now() - decodedTx.createdAt >
-          HISTORY_CONSTS.SET_IS_FINAL_EXPIRED_IN
-      ) {
-        decodedTx.isFinal = true;
+      if (!isCovalentApiAvailable) {
+        if (
+          decodedTx.createdAt &&
+          Date.now() - decodedTx.createdAt >
+            HISTORY_CONSTS.SET_IS_FINAL_EXPIRED_IN
+        ) {
+          decodedTx.isFinal = true;
+        }
       }
     }
     return Promise.resolve(decodedTx);
@@ -1039,6 +1051,7 @@ export default class Vault extends VaultBase {
 
     let hashes: string[] = [];
     let covalentTxList: ICovalentHistoryListItem[] = [];
+    let isCovalentApiAvailable = false;
     try {
       // TODO covalentApi, AlchemyApi, InfStoneApi, blockExplorerApi, RPC api
       const covalentHistory = await covalentApi.fetchCovalentHistoryRaw({
@@ -1046,6 +1059,7 @@ export default class Vault extends VaultBase {
         address,
         contract: tokenIdOnNetwork,
       });
+      isCovalentApiAvailable = true;
       covalentTxList = covalentHistory.data.items;
       hashes = covalentTxList.map((item) => item.tx_hash);
     } catch (error) {
@@ -1136,6 +1150,7 @@ export default class Vault extends VaultBase {
           encodedTx,
           historyTx,
           covalentTx,
+          isCovalentApiAvailable,
         });
 
         decodedTx.tokenIdOnNetwork = tokenIdOnNetwork;
