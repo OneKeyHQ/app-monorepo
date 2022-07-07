@@ -4,9 +4,10 @@ import semver from 'semver';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import store from '../../store';
+import { getDefaultLocale } from '../locale';
 
-import { getPreReleaseInfo, getReleaseInfo } from './server';
-import { PackageInfo, ReleasesInfo, VersionInfo } from './type.d';
+import { getChangeLog, getPreReleaseInfo, getReleaseInfo } from './server';
+import { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
 
 class AppUpdates {
   async checkAppUpdate(): Promise<VersionInfo | undefined> {
@@ -15,50 +16,36 @@ class AppUpdates {
 
     const preUpdateMode = enable && preReleaseUpdate;
 
-    let releaseInfo: ReleasesInfo | null;
+    let releasePackages: PackagesInfo | null;
     if (preUpdateMode) {
-      releaseInfo = await getPreReleaseInfo();
+      releasePackages = await getPreReleaseInfo();
     } else {
-      releaseInfo = await getReleaseInfo();
-    }
-
-    if (
-      !releaseInfo ||
-      // localVersion >= releaseVersion
-      semver.gte(
-        store.getState().settings.version ?? '0.0.0',
-        releaseInfo.version,
-      )
-    ) {
-      //  没有更新
-      return;
+      releasePackages = await getReleaseInfo();
     }
 
     let packageInfo: PackageInfo | undefined;
     if (platformEnv.isNativeAndroid) {
       if (platformEnv.isNativeAndroidGooglePlay) {
-        packageInfo = releaseInfo.packages?.android?.find(
+        packageInfo = releasePackages?.android?.find(
           (x) => x.os === 'android' && x.channel === 'GooglePlay',
         );
       } else {
-        packageInfo = releaseInfo.packages?.android?.find(
+        packageInfo = releasePackages?.android?.find(
           (x) => x.os === 'android' && x.channel === 'Direct',
         );
       }
     }
 
     if (platformEnv.isNativeIOS) {
-      packageInfo = releaseInfo.packages?.ios?.find((x) => x.os === 'ios');
+      packageInfo = releasePackages?.ios?.find((x) => x.os === 'ios');
     }
 
     if (platformEnv.isDesktop) {
       if (platformEnv.isDesktopLinux) {
-        packageInfo = releaseInfo.packages?.desktop?.find(
-          (x) => x.os === 'linux',
-        );
+        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
       }
       if (platformEnv.isDesktopMac) {
-        packageInfo = releaseInfo.packages?.desktop?.find((x) => {
+        packageInfo = releasePackages?.desktop?.find((x) => {
           if (platformEnv.isDesktopMacArm64) {
             return x.os === 'macos-arm64';
           }
@@ -67,34 +54,42 @@ class AppUpdates {
         });
       }
       if (platformEnv.isDesktopWin) {
-        packageInfo = releaseInfo.packages?.desktop?.find(
-          (x) => x.os === 'win',
-        );
+        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
       }
     }
 
     if (platformEnv.isExtension) {
       if (platformEnv.isExtChrome) {
-        packageInfo = releaseInfo.packages?.extension?.find(
+        packageInfo = releasePackages?.extension?.find(
           (x) => x.os === 'chrome',
         );
       }
       if (platformEnv.isExtFirefox) {
-        packageInfo = releaseInfo.packages?.extension?.find(
+        packageInfo = releasePackages?.extension?.find(
           (x) => x.os === 'firefox',
         );
       }
     }
 
     if (packageInfo) {
+      if (
+        !packageInfo ||
+        // localVersion >= releaseVersion
+        semver.gte(
+          store.getState().settings.version ?? '0.0.0',
+          packageInfo.version,
+        )
+      ) {
+        //  没有更新
+        return undefined;
+      }
+
       return {
-        version: releaseInfo.version,
-        forceVersion: releaseInfo.forceVersion,
-        buildNumber: releaseInfo.buildNumber,
-        changeLog: releaseInfo.changeLog,
         package: packageInfo,
       };
     }
+
+    return undefined;
   }
 
   openAppUpdate(versionInfo: VersionInfo): void {
@@ -126,13 +121,17 @@ class AppUpdates {
   }
 
   async getChangeLog(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     oldVersion: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     newVersion: string,
   ): Promise<string | undefined> {
-    const releaseInfo = await getReleaseInfo();
-    return releaseInfo?.changeLog;
+    const releaseInfo = await getChangeLog(oldVersion, newVersion);
+
+    let locale = store.getState().settings.locale ?? 'en-US';
+    if (locale === 'system') {
+      locale = getDefaultLocale();
+    }
+
+    return releaseInfo?.[locale];
   }
 
   _openUrl(url: string) {
