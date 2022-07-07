@@ -40,9 +40,7 @@ export function getImageWithAsset(asset: MoralisNFT, size?: number): string {
   return '';
 }
 
-// const NFTsURL = 'https://fiat.onekey.so/NFT/NFTs?';
-const HostURL = 'http://192.168.2.6:9000';
-// const NFTsURL = 'http://127.0.0.1:9000/NFT/NFTs?wait=1&';
+const HostURL = 'https://fiat.onekey.so';
 
 export const getUserAssets = async (params: {
   address?: string | null;
@@ -55,9 +53,9 @@ export const getUserAssets = async (params: {
     return { chain: '', result: [] };
   }
   const chain = getMoralisChainWithNetWork(network);
-  let apiUrl = `${HostURL}/NFT/NFTs?address=${address}&chain=${chain}`;
+  let apiUrl = `${HostURL}/NFT/list?address=${address}&chain=${chain}`;
   if (cursor) {
-    apiUrl = `${HostURL}/NFT/NFTs?address=${address}&chain=${chain}&cursor=${cursor}`;
+    apiUrl = `${HostURL}/NFT/list?address=${address}&chain=${chain}&cursor=${cursor}`;
   }
   const result = await axios.get<MoralisNFTsResp>(apiUrl);
   return camelcaseKeys(result.data, { deep: true });

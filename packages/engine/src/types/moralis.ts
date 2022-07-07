@@ -2,7 +2,6 @@ export const MoralisChainMap: Record<string, string> = {
   'evm--1': 'eth',
   'evm--56': 'bsc',
   'evm--137': 'polygon',
-  'evm--250': 'fantom',
 };
 
 export type Traits = {
