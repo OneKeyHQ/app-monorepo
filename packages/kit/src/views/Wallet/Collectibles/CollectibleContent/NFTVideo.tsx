@@ -4,16 +4,23 @@ import { ResizeMode, Video } from 'expo-av';
 
 import { Box } from '@onekeyhq/components';
 
+import { cloudinaryVideoWithPublidId } from '../../../../utils/imageUtils';
+
 import { NFTProps } from './type';
 
 const NFTVideo: FC<NFTProps> = ({ asset, width, height }) => {
-  const url = useMemo(
-    () => asset.animationUrl ?? asset.imageUrl,
-    [asset.animationUrl, asset.imageUrl],
-  );
+  const uri = useMemo(() => {
+    const source = asset.animationUrl ?? asset.imageUrl;
+    if (source) {
+      return cloudinaryVideoWithPublidId(source.publicId);
+    }
+    return '';
+  }, [asset.animationUrl, asset.imageUrl]);
+
+  console.log('video = ', uri);
   const video = React.useRef<Video | null>(null);
   return (
-    <Box>
+    <Box size={width}>
       <Video
         ref={video}
         style={{
@@ -22,11 +29,10 @@ const NFTVideo: FC<NFTProps> = ({ asset, width, height }) => {
           height,
         }}
         source={{
-          uri: url as string,
+          uri,
         }}
         useNativeControls
         usePoster
-        posterSource={{ uri: asset.imageUrl as string }}
         posterStyle={{ width, height }}
         resizeMode={ResizeMode.CONTAIN}
         isLooping

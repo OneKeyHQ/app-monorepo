@@ -1,16 +1,47 @@
-import { isSVG as isSVGImage } from '@onekeyhq/kit/src/utils/uriUtils';
+import { Cloudinary } from '@cloudinary/url-gen';
+import { scale } from '@cloudinary/url-gen/actions/resize';
+import { PixelRatio } from 'react-native';
 
-const ProxyURL = 'https://fiat.onekey.so/image/svg2png?url=';
+import { CLOUNDINARY_NAME_KEY } from '../config';
 
-function svgToPng(url: string) {
-  const encoded = encodeURI(url);
-  return `${ProxyURL}${encoded}`;
-}
+const cloudName = CLOUNDINARY_NAME_KEY;
+const pixelRatio = PixelRatio.get();
 
-export function svgToPngIfNeeded(url?: string | null) {
-  if (!url) {
+const cld = new Cloudinary({
+  cloud: {
+    cloudName,
+  },
+});
+
+export function cloudinaryImageWithPublidId(
+  publicID: string,
+  type: string,
+  format: string,
+  size?: number,
+) {
+  if (!cloudName) {
     return '';
   }
-  const isSVG = isSVGImage(url);
-  return isSVG ? svgToPng(url) : url;
+  if (type === 'image') {
+    return cld
+      .image(publicID)
+      .resize(scale().width((size ?? 150) * pixelRatio))
+      .format('png')
+      .toURL();
+  }
+  return cld
+    .video(publicID)
+    .resize(scale().width((size ?? 150) * pixelRatio))
+    .format('png')
+    .toURL();
+}
+
+export function cloudinaryVideoWithPublidId(publicID: string, size?: number) {
+  if (!cloudName) {
+    return '';
+  }
+  return cld
+    .video(publicID)
+    .resize(scale().width(size ?? 500))
+    .toURL();
 }

@@ -19,17 +19,16 @@ const NFTAudio: FC<NFTProps> = ({ asset, width, height }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [status, setStatus] = useState<AVPlaybackStatus>();
   const [isPlaying, setIsPlaying] = useState<boolean | null>(null);
-  const url = useMemo(
+  const source = useMemo(
     () => asset.animationUrl ?? asset.imageUrl,
     [asset.animationUrl, asset.imageUrl],
   );
-
   async function play() {
-    if (asset.animationUrl) {
+    if (source) {
       if (sound === null) {
         const { sound: playObject, status: playStatus } =
           await Audio.Sound.createAsync({
-            uri: url as string,
+            uri: source.secureUrl,
           });
         setSound(playObject);
         setStatus(playStatus);
@@ -50,16 +49,16 @@ const NFTAudio: FC<NFTProps> = ({ asset, width, height }) => {
   }
 
   const createSound = useCallback(async () => {
-    if (sound === null) {
+    if (sound === null && source) {
       const { sound: playObject, status: playStatus } =
         await Audio.Sound.createAsync({
-          uri: url as string,
+          uri: source.secureUrl,
         });
       setSound(playObject);
       setStatus(playStatus);
       setIsPlaying(false);
     }
-  }, [sound, url]);
+  }, [source, sound]);
 
   useEffect(() => {
     createSound();

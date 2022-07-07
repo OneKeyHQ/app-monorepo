@@ -2,9 +2,12 @@ import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/opensea';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/moralis';
+import type {
+  Collectible,
+  MoralisNFT,
+} from '@onekeyhq/engine/src/types/moralis';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import type { Collectible } from '@onekeyhq/engine/src/types/opensea';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -19,8 +22,6 @@ import { useCollectiblesData } from '../../../hooks/useCollectiblesData';
 
 import CollectibleGallery from './CollectibleGallery';
 
-import type { SelectedAsset } from './types';
-
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 export type CollectiblesProps = {
@@ -30,50 +31,44 @@ export type CollectiblesProps = {
 
 const Collectibles = ({ address, network }: CollectiblesProps) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const isCollectibleSupported = isCollectibleSupportedChainId(
-    network?.extraInfo.networkVersion,
-  );
-  const { collectibles, isLoading, loadMore, fetchData } = useCollectiblesData({
+  const isCollectibleSupported = isCollectibleSupportedChainId(network?.id);
+
+  const { collectibles, isLoading, fetchData } = useCollectiblesData({
     network,
     address,
     isCollectibleSupported,
   });
 
-  // Open Asset detail modal
-  const handleSelectAsset = useCallback(
-    (asset: SelectedAsset) => {
-      if (!asset.tokenId || !asset.contractAddress) return;
+  // console.log('collectibles = ', collectibles);
 
+  const handleSelectAsset = useCallback(
+    (asset: MoralisNFT) => {
+      if (!network) return;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
           screen: CollectiblesModalRoutes.CollectibleDetailModal,
           params: {
-            tokenId: asset.tokenId,
-            contractAddress: asset.contractAddress,
-            name: asset.name,
+            asset,
+            network,
           },
         },
       });
     },
-    [navigation],
+    [navigation, network],
   );
   // Open Collection modal
   const handleSelectCollectible = useCallback(
     (collectible: Collectible) => {
-      if (!address || !network || !collectible?.collection?.name) {
-        return;
-      }
+      if (!address || !network) return;
 
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
           screen: CollectiblesModalRoutes.CollectionModal,
           params: {
-            userAddress: address,
-            collectionName: collectible.collection.name,
-            chainId: network.extraInfo.networkVersion,
-            chainName: network.shortName,
+            collectible,
+            network,
           },
         },
       });
@@ -87,7 +82,6 @@ const Collectibles = ({ address, network }: CollectiblesProps) => {
       fetchData={fetchData}
       isLoading={isLoading}
       isSupported={isCollectibleSupported}
-      onReachEnd={loadMore}
       onSelectCollectible={handleSelectCollectible}
       onSelectAsset={handleSelectAsset}
     />
