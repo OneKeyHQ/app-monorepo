@@ -11,7 +11,7 @@ import {
   Modal,
   ToastManager,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -56,13 +56,15 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         const features = await serviceHardware.getFeatures(device?.mac ?? '');
         setDeviceConnectId(device?.mac);
         setDeviceFeatures(features ?? undefined);
-      } catch (err) {
+      } catch (err: any) {
         if (navigation.canGoBack()) {
           navigation.goBack();
         }
-        if (err instanceof OneKeyHardwareError) {
+
+        const { className, key } = err || {};
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
           ToastManager.show({
-            title: intl.formatMessage({ id: err.key }),
+            title: intl.formatMessage({ id: key }),
           });
         } else {
           ToastManager.show({

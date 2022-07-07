@@ -12,6 +12,8 @@ import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   ConnectTimeout,
+  InitIframeLoadFail,
+  InitIframeTimeout,
   NeedOneKeyBridge,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
@@ -81,7 +83,7 @@ class ServiceHardware extends ServiceBase {
       const result = await this.getFeatures(connectId);
       return result !== null;
     } catch (e) {
-      if (e instanceof OneKeyHardwareError && !e.reconnect) {
+      if (e instanceof OneKeyHardwareError && !e.data.reconnect) {
         return Promise.reject(e);
       }
     }
@@ -131,7 +133,7 @@ class ServiceHardware extends ServiceBase {
           return await Promise.resolve(feature);
         }
       } catch (e) {
-        if (e instanceof OneKeyHardwareError && !e.reconnect) {
+        if (e instanceof OneKeyHardwareError && !e.data.reconnect) {
           return Promise.reject(e);
         }
 
@@ -247,13 +249,14 @@ class ServiceHardware extends ServiceBase {
     const transportRelease = await hardwareSDK?.checkTransportRelease();
 
     if (!transportRelease.success) {
-      switch (transportRelease.payload.error) {
-        case 'Init_IframeTimeout':
-        case 'Init_IframeLoadFail':
-          return Promise.resolve(true);
-        default:
-          return Promise.resolve(false);
+      const error = deviceUtils.convertDeviceError(transportRelease.payload);
+      if (
+        error instanceof InitIframeLoadFail ||
+        error instanceof InitIframeTimeout
+      ) {
+        return Promise.resolve(true);
       }
+      return Promise.resolve(false);
     }
 
     return Promise.resolve(true);

@@ -1,12 +1,13 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Modal, ToastManager } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -15,11 +16,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
-import {
-  FirmwareDownloadFailed,
-  NeedBluetoothTurnedOn,
-  NotInBootLoaderMode,
-} from '@onekeyhq/kit/src/utils/hardware/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import RunningView from './RunningView';
@@ -163,17 +159,17 @@ const UpdatingModal: FC = () => {
     };
   }, [firmwareType, maxProgress, progress]);
 
-  const handleErrors = (currentStep: ProgressStepType, error: Error) => {
-    console.log('handle error:', currentStep, error);
+  const handleErrors = (currentStep: ProgressStepType, error: OneKeyError) => {
+    const { className, key, code } = error || {};
 
-    if (error instanceof NotInBootLoaderMode) {
+    if (code === HardwareErrorCode.DeviceUnexpectedBootloaderMode) {
       setSuspendStep(progressStep);
       setProgressStep('reboot-bootloader');
       setProgressState('ready');
       return;
     }
 
-    if (error instanceof FirmwareDownloadFailed) {
+    if (code === HardwareErrorCode.FirmwareUpdateDownloadFailed) {
       // Download failed. Download again
       setProgressStep('download-firmware');
 
@@ -199,7 +195,7 @@ const UpdatingModal: FC = () => {
           ),
         },
       });
-    } else if (error instanceof NeedBluetoothTurnedOn) {
+    } else if (code === HardwareErrorCode.BlePermissionError) {
       setStateViewInfo({ type: 'bluetooth-turned-off' });
     } else if (currentStep === 'installing') {
       setStateViewInfo({ type: 'install-failure' });
@@ -209,10 +205,14 @@ const UpdatingModal: FC = () => {
       setStateViewInfo({ type: 'check-update-failure' });
     }
 
-    if (error instanceof OneKeyHardwareError) {
+    if (className === 'OneKeyHardwareError') {
       ToastManager.show(
         {
-          title: intl.formatMessage({ id: error.key }),
+          title: intl.formatMessage({
+            // @ts-expect-error
+            id: key,
+            defaultMessage: error.message,
+          }),
         },
         { type: 'error' },
       );
@@ -295,7 +295,7 @@ const UpdatingModal: FC = () => {
             setDownloadedFirmware(response);
             setProgressState('done');
           })
-          .catch((e) => {
+          .catch(() => {
             setStateViewInfo({ type: 'download-failure' });
             setProgressState('failure');
           });
@@ -333,8 +333,6 @@ const UpdatingModal: FC = () => {
             setProgressState('done');
           })
           .catch((e) => {
-            console.log('===: installing error:', e);
-
             handleErrors(progressStep, e);
           });
         break;

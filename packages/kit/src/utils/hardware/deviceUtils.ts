@@ -132,47 +132,53 @@ class DeviceUtils {
   }
 
   convertDeviceError(payload: any): OneKeyHardwareError {
-    const { code, error } = payload;
-    console.log('Device Utils Convert Device Error:', code, error);
+    // handle ext error
+    const { code, error, message } = payload;
+
+    const msg = message || error || 'Unknown error';
+
+    console.log('Device Utils Convert Device Error:', code, msg);
 
     switch (code) {
       case HardwareErrorCode.UnknownError:
-        return new Error.UnknownHardwareError();
+        return new Error.UnknownHardwareError(msg);
       case HardwareErrorCode.DeviceFwException:
-        return new Error.FirmwareVersionTooLow();
+        return new Error.FirmwareVersionTooLow(msg);
       case HardwareErrorCode.DeviceNotFound:
-        return new Error.DeviceNotFind();
+        return new Error.DeviceNotFind(msg);
       case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
-        return new Error.NotInBootLoaderMode();
+        return new Error.NotInBootLoaderMode(msg);
       case HardwareErrorCode.IFrameLoadFail:
-        return new Error.InitIframeLoadFail();
+        return new Error.InitIframeLoadFail(msg);
       case HardwareErrorCode.IframeTimeout:
-        return new Error.InitIframeTimeout();
+        return new Error.InitIframeTimeout(msg);
       case HardwareErrorCode.FirmwareUpdateDownloadFailed:
-        return new Error.FirmwareDownloadFailed();
+        return new Error.FirmwareDownloadFailed(msg);
       case HardwareErrorCode.NetworkError:
-        return new Error.NetworkError();
+        return new Error.NetworkError(msg);
       case HardwareErrorCode.BlePermissionError:
-        return new Error.NeedBluetoothTurnedOn();
+        return new Error.NeedBluetoothTurnedOn(msg);
       case HardwareErrorCode.BleLocationError:
-        return new Error.NeedBluetoothPermissions();
+        return new Error.NeedBluetoothPermissions(msg);
       case HardwareErrorCode.BleDeviceNotBonded:
-        return new Error.DeviceNotBonded();
+        return new Error.DeviceNotBonded(msg);
       case HardwareErrorCode.RuntimeError:
-        if (error === 'EIP712 blind sign is disabled') {
-          return new Error.OpenBlindSign();
+        if (msg === 'EIP712 blind sign is disabled') {
+          return new Error.OpenBlindSign(msg);
         }
-        if (error === 'Unknown message') {
-          return new Error.UnknownMethod();
+        if (msg === 'Unknown message') {
+          return new Error.UnknownMethod(msg);
         }
-        return new Error.UnknownHardwareError(error);
+        return new Error.UnknownHardwareError(msg);
       case HardwareErrorCode.PinInvalid:
-        return new Error.InvalidPIN();
+        return new Error.InvalidPIN(msg);
       case HardwareErrorCode.PinCancelled:
       case HardwareErrorCode.ActionCancelled:
-        return new Error.UserCancel();
+        return new Error.UserCancel(msg);
+      case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
+        return new Error.NeedOneKeyBridge(msg);
       default:
-        return new Error.UnknownHardwareError(error);
+        return new Error.UnknownHardwareError(msg);
     }
   }
 }
