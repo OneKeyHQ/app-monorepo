@@ -29,6 +29,7 @@ export function TxActionElementAddress(
     isShorten?: boolean;
     isLabelShow?: boolean;
     isCopy?: boolean;
+    flex?: number;
   } & ComponentProps<typeof Text>,
 ) {
   const {
@@ -36,6 +37,7 @@ export function TxActionElementAddress(
     isShorten = true,
     isLabelShow = true,
     isCopy = true,
+    flex,
     ...others
   } = props;
   const { copyText } = useClipboard();
@@ -46,6 +48,7 @@ export function TxActionElementAddress(
   }
   return (
     <TxActionElementPressable
+      flex={flex}
       onPress={
         isCopy
           ? () => {

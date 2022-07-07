@@ -2,34 +2,20 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
-import { useClipboard } from '../../../hooks/useClipboard';
-import { TxDetailActionBox } from '../components/TxDetailActionBox';
+import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
+import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
-import { TxActionElementDetailCellContentText } from '../elements/TxActionElementDetailCell';
-import {
-  TxActionElementIconLarge,
-  TxActionElementIconNormal,
-} from '../elements/TxActionElementIcon';
-import { TxActionElementPressable } from '../elements/TxActionElementPressable';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from '../elements/TxActionElementTitle';
 import { ITxActionCardProps, ITxActionElementDetail } from '../types';
 
 export function TxActionTransactionEvm(props: ITxActionCardProps) {
   const { decodedTx, action, meta } = props;
-  const icon = <TxActionElementIconNormal {...meta} />;
-  const title = <TxActionElementTitleHeading {...meta} mb={4} />;
   const encodedTx =
     (decodedTx.encodedTx as IEncodedTxEvm | undefined) || action.evmInfo;
   const intl = useIntl();
-  const { copyText } = useClipboard();
 
   const details: Array<ITxActionElementDetail | null> = [
     {
@@ -48,23 +34,21 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
       ? {
           title: intl.formatMessage({ id: 'form__data' }),
           content: (
-            <TxActionElementPressable
-              icon={<Icon name="DuplicateSolid" size={20} />}
+            <TxActionElementAddressNormal
+              address={encodedTx.data ?? ''}
+              numberOfLines={3}
+              isShorten={false}
               flex={1}
-              onPress={() => copyText(encodedTx.data ?? '')}
-            >
-              <TxActionElementDetailCellContentText numberOfLines={3}>
-                {encodedTx?.data || ''}
-              </TxActionElementDetailCellContentText>
-            </TxActionElementPressable>
+            />
           ),
         }
       : null,
   ];
   return (
-    <TxDetailActionBox
-      icon={meta?.iconInfo ? icon : undefined}
-      title={title}
+    <TxDetailActionBoxAutoTransform
+      decodedTx={decodedTx}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       details={details}
     />
   );
@@ -72,17 +56,16 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
 
 export function TxActionTransactionEvmT0(props: ITxActionCardProps) {
   const { decodedTx, meta, historyTx } = props;
-  const icon = <TxActionElementIconLarge {...meta} />;
-  const title = <TxActionElementTitleNormal {...meta} />;
-
+  const statusBar = (
+    <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
+  );
   return (
     <TxListActionBox
-      historyTx={historyTx}
-      decodedTx={decodedTx}
-      icon={icon}
-      title={title}
-      content=""
+      footer={statusBar}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       subTitle={shortenAddress(decodedTx?.txid ?? '')}
+      content=""
       extra=""
     />
   );

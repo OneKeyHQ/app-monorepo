@@ -351,6 +351,7 @@ function FeeInfoInputForConfirmLite({
     );
   }, [encodedTx, feeInfoPayload, isPreset, totalFeeInNative]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hint = useMemo(() => {
     if (!isPreset || !encodedTx || !feeInfoPayload) {
       return null;
@@ -387,7 +388,7 @@ function FeeInfoInputForConfirmLite({
           <Box flexDirection="column">
             {title}
             {subTitle}
-            {hint}
+            {/* {hint} */}
           </Box>
         );
       } else {
@@ -413,7 +414,7 @@ function FeeInfoInputForConfirmLite({
         <Box>{content}</Box>
       );
     },
-    [hint, intl, loading, subTitle, title],
+    [intl, loading, subTitle, title],
   );
   return (
     <FeeInfoInputContainer

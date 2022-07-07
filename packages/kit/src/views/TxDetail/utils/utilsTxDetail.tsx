@@ -68,3 +68,10 @@ export function getTxStatusInfo({ decodedTx }: { decodedTx: IDecodedTx }) {
     iconContainerColor,
   };
 }
+
+export function getDisplayedActions({ decodedTx }: { decodedTx: IDecodedTx }) {
+  const { outputActions, actions } = decodedTx;
+  return (
+    (outputActions && outputActions.length ? outputActions : actions) || []
+  );
+}

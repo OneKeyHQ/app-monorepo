@@ -338,6 +338,8 @@ class ServiceHistory extends ServiceBase {
 
         newHistoryTx.replacedPrevId = prevTx.id;
         newHistoryTx.replacedType = resendActionInfo.type;
+        newHistoryTx.decodedTx.interactInfo =
+          newHistoryTx.decodedTx.interactInfo || prevTx.decodedTx.interactInfo;
       }
     }
 

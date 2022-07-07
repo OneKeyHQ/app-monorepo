@@ -1,10 +1,9 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 export type ITxDetailContextData = {
-  refresh?: () => void;
-  isLoading?: boolean;
-  isHomeTab?: boolean;
-  headerView?: JSX.Element | null;
+  isSendConfirm?: boolean;
+  isHistoryDetail?: boolean;
+  isMultipleActions?: boolean;
 };
 
 export type ITxDetailContext = {
@@ -19,13 +18,20 @@ function TxDetailContextProvider(
     children: JSX.Element;
   },
 ) {
-  const { children, isHomeTab, headerView, refresh } = props;
+  const { children, isHistoryDetail, isMultipleActions, isSendConfirm } = props;
   const [context, setContext] = useState<ITxDetailContextData>({
-    isLoading: false,
-    isHomeTab,
-    headerView,
-    refresh,
+    isHistoryDetail,
+    isMultipleActions,
+    isSendConfirm,
   });
+  useEffect(() => {
+    setContext((ctx) => ({
+      ...ctx,
+      isHistoryDetail,
+      isMultipleActions,
+      isSendConfirm,
+    }));
+  }, [isHistoryDetail, isMultipleActions, isSendConfirm]);
   return (
     <TxDetailContext.Provider value={{ context, setContext }}>
       {children}

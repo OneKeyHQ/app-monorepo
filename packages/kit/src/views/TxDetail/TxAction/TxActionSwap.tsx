@@ -6,22 +6,15 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 
 import { useNetwork } from '../../../hooks/useNetwork';
-import { TxDetailActionBox } from '../components/TxDetailActionBox';
+import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
+import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import {
   TxActionElementAmountLarge,
   TxActionElementAmountNormal,
   TxActionElementAmountSmall,
 } from '../elements/TxActionElementAmount';
-import {
-  TxActionElementIconLarge,
-  TxActionElementIconNormal,
-} from '../elements/TxActionElementIcon';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from '../elements/TxActionElementTitle';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,
@@ -63,9 +56,7 @@ export function getTxActionSwapInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionSwap(props: ITxActionCardProps) {
-  const { meta } = props;
-  const icon = <TxActionElementIconNormal {...meta} />;
-  const title = <TxActionElementTitleHeading {...meta} />;
+  const { meta, decodedTx } = props;
   const { swapInfo } = getTxActionSwapInfo(props);
   const { send, receive, accountAddress } = swapInfo;
   const intl = useIntl();
@@ -99,9 +90,10 @@ export function TxActionSwap(props: ITxActionCardProps) {
   ];
 
   return (
-    <TxDetailActionBox
-      icon={icon}
-      title={title}
+    <TxDetailActionBoxAutoTransform
+      decodedTx={decodedTx}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       // content={amountView}
       details={details}
     />
@@ -110,17 +102,17 @@ export function TxActionSwap(props: ITxActionCardProps) {
 
 export function TxActionSwapT0(props: ITxActionCardProps) {
   const { meta, decodedTx, historyTx } = props;
-  const icon = <TxActionElementIconLarge {...meta} />;
-  const title = <TxActionElementTitleNormal {...meta} />;
   const { swapInfo } = getTxActionSwapInfo(props);
   const { accountAddress } = swapInfo;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
+  const statusBar = (
+    <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
+  );
   return (
     <TxListActionBox
-      historyTx={historyTx}
-      decodedTx={decodedTx}
-      icon={icon}
-      title={title}
+      footer={statusBar}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       content={
         <TxActionElementAmountNormal
           textAlign="right"
