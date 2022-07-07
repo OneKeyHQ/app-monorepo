@@ -54,7 +54,6 @@ const ReceiveToken = () => {
   const { ensureConnected, confirmConnected, loading } = useEnsureConnected();
 
   useEffect(() => {
-    console.log('ReceiveToken: useEffect');
     if (confirmConnected) {
       getAddress().then((res) => {
         if (res === shownAddress) {

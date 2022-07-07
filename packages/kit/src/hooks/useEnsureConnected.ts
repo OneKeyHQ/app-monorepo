@@ -26,6 +26,8 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
   }
 
   async function ensureConnected(walletId: string) {
+    setConfirmConnected(false);
+
     if (!walletId) return false;
 
     setLoading(true);
