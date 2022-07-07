@@ -1,10 +1,16 @@
 import React, { FC, useMemo } from 'react';
 
+import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Image, Text, Typography } from '@onekeyhq/components';
-
-import type { ImageSourcePropType } from 'react-native';
+import {
+  Box,
+  Center,
+  Image,
+  LottieView,
+  Text,
+  Typography,
+} from '@onekeyhq/components';
 
 export type StateViewType =
   | 'pre-check-failure'
@@ -18,13 +24,14 @@ export type StateViewType =
   | 'reboot-bootloader-failure'
   | 'success'
   | 'bluetooth-turned-off'
-  | 'check-update-failure';
+  | 'manually-enter-bootloader';
 
 type StateContent = {
   emoji?: string;
-  sourceSrc?: ImageSourcePropType;
+  sourceSrc?: any;
   title?: string;
   description?: string;
+  deviceType?: IDeviceType;
   help?: string;
 };
 
@@ -100,18 +107,6 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
           };
           break;
 
-        case 'check-update-failure':
-          stateContent = {
-            emoji: '🔌',
-            title: intl.formatMessage({
-              id: 'modal__check_firmware_update_failure',
-            }),
-            description: intl.formatMessage({
-              id: 'modal__check_firmware_update_failure_desc',
-            }),
-          };
-          break;
-
         case 'device-connection-failure':
           stateContent = {
             emoji: '🔗',
@@ -163,6 +158,22 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
           };
           break;
 
+        case 'manually-enter-bootloader':
+          stateContent = {
+            title: '需要手动进入 BootLoader 模式',
+          };
+
+          if (stateInfo?.content?.deviceType === 'mini') {
+            // eslint-disable-next-line global-require
+            stateContent.sourceSrc = require('@onekeyhq/kit/assets/wallet/lottie-onekey-mini-in-bootloader-mode.json');
+            stateContent.description =
+              '1. 断开设备连接\n2. 按住 MINI 顶部按键的同时，重新插入 USB 线连接\n3. 此时设备显示 bootloader 字样，松开顶部按键即可';
+          } else if (stateInfo?.content?.deviceType === 'touch') {
+            stateContent.description =
+              '1. 将设备关机\n2. 按住 TOUCH 开关按键的同时，滑动屏幕\n3. 此时设备显示 Download Mode 字样即可';
+          }
+          break;
+
         default:
           stateContent = {
             emoji: '💀',
@@ -185,7 +196,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
     >
       <Center flex={1} paddingX={4} minHeight={240}>
         <Box alignItems="center">
-          {!!sourceSrc && <Image size={56} source={sourceSrc} />}
+          {!!sourceSrc && <LottieView source={sourceSrc} autoPlay loop />}
           {!!emoji && <Text fontSize={56}>{emoji}</Text>}
 
           <Typography.DisplayMedium mt={4}>{title}</Typography.DisplayMedium>

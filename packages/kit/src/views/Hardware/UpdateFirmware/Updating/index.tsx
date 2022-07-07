@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { getDeviceType } from '@onekeyfe/hd-core';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -16,6 +17,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
+import { sleep } from '@onekeyhq/kit/src/utils/promiseUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import RunningView from './RunningView';
@@ -23,10 +25,10 @@ import StateView, { StateViewTypeInfo } from './StateView';
 
 type ProgressStepType =
   | 'pre-check'
+  | 'check-device-status'
   | 'reboot-bootloader'
   | 'download-firmware'
   | 'installing'
-  | 'wait-for-reboot'
   | 'done-step';
 
 type ProgressStateType = 'ready' | 'running' | 'done' | 'failure';
@@ -82,6 +84,7 @@ const UpdatingModal: FC = () => {
     (step: ProgressStepType | undefined) => {
       switch (step) {
         case 'pre-check':
+        case 'check-device-status':
           return intl.formatMessage({
             id: 'action__checking',
           });
@@ -125,11 +128,6 @@ const UpdatingModal: FC = () => {
               }),
             },
           );
-
-        case 'wait-for-reboot':
-          return intl.formatMessage({
-            id: 'content__wait_reboot_device_check_update_fireware',
-          });
 
         default:
           return '';
@@ -201,8 +199,6 @@ const UpdatingModal: FC = () => {
       setStateViewInfo({ type: 'install-failure' });
     } else if (currentStep === 'reboot-bootloader') {
       setStateViewInfo({ type: 'reboot-bootloader-failure' });
-    } else if (currentStep === 'wait-for-reboot') {
-      setStateViewInfo({ type: 'check-update-failure' });
     }
 
     if (className === 'OneKeyHardwareError') {
@@ -230,6 +226,10 @@ const UpdatingModal: FC = () => {
 
     switch (progressStep) {
       case 'pre-check':
+        setProgressStep('check-device-status');
+        break;
+
+      case 'check-device-status':
         setProgressStep('download-firmware');
         break;
 
@@ -284,6 +284,51 @@ const UpdatingModal: FC = () => {
           });
         break;
 
+      case 'check-device-status':
+        setMaxProgress(5);
+        if (platformEnv.isNative) return setProgressState('done');
+        serviceHardware
+          .getFeatures(platformEnv.isNative ? connectId : '')
+          .then((response) => {
+            if (response) {
+              console.log('===: getFeatures', response);
+
+              const deviceType = getDeviceType(response);
+              if (
+                !response.bootloader_mode &&
+                (deviceType === 'mini' || deviceType === 'touch')
+              ) {
+                setStateViewInfo({
+                  type: 'manually-enter-bootloader',
+                  content: { deviceType },
+                });
+                setProgressState('failure');
+                return;
+              }
+
+              // Prevents incorrect firmware brushing
+              if (deviceType !== device?.deviceType) {
+                setStateViewInfo({
+                  type: 'device-mismatch',
+                });
+                setProgressState('failure');
+                return;
+              }
+
+              setTimeout(() => {
+                setProgressState('done');
+              });
+              return;
+            }
+            setStateViewInfo({ type: 'pre-check-failure' });
+            setProgressState('failure');
+          })
+          .catch(() => {
+            setStateViewInfo({ type: 'pre-check-failure' });
+            setProgressState('failure');
+          });
+        break;
+
       case 'download-firmware':
         setMaxProgress(15);
         setProgress(5);
@@ -306,11 +351,10 @@ const UpdatingModal: FC = () => {
         setProgress(15);
         serviceHardware
           .rebootToBootloader(connectId)
-          .then(() => {
+          .then(async () => {
             // Waiting for the device to restart
-            setTimeout(() => {
-              setProgressState('done');
-            }, 1000);
+            await sleep(1000);
+            setProgressState('done');
           })
           .catch((e) => {
             handleErrors(progressStep, e);

@@ -73,6 +73,8 @@ class DeviceUtils {
       const response = await searchDevices();
 
       if (!response.success) {
+        console.log('Device Utils Start Device Scan:', response);
+
         return Promise.reject(this.convertDeviceError(response.payload));
       }
 
@@ -133,9 +135,9 @@ class DeviceUtils {
 
   convertDeviceError(payload: any): OneKeyHardwareError {
     // handle ext error
-    const { code, error, message } = payload;
+    const { code, error, message } = payload || {};
 
-    const msg = message || error || 'Unknown error';
+    const msg = error ?? message ?? 'Unknown error';
 
     console.log('Device Utils Convert Device Error:', code, msg);
 
@@ -144,6 +146,14 @@ class DeviceUtils {
         return new Error.UnknownHardwareError(msg);
       case HardwareErrorCode.DeviceFwException:
         return new Error.FirmwareVersionTooLow(msg);
+      case HardwareErrorCode.DeviceUnexpectedMode:
+        if (
+          typeof msg === 'string' &&
+          msg.indexOf('ui-device_bootloader_mode') !== -1
+        ) {
+          return new Error.NotInBootLoaderMode();
+        }
+        return new Error.UnknownHardwareError(msg);
       case HardwareErrorCode.DeviceNotFound:
         return new Error.DeviceNotFind(msg);
       case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
