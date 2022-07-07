@@ -74,8 +74,10 @@ class DeviceUtils {
 
       if (!response.success) {
         console.log('Device Utils Start Device Scan:', response);
-
-        return Promise.reject(this.convertDeviceError(response.payload));
+        const error = this.convertDeviceError(response.payload);
+        if (!error.data.reconnect) {
+          return Promise.reject(this.convertDeviceError(response.payload));
+        }
       }
 
       return new Promise((resolve: (p: void) => void) =>
@@ -135,7 +137,11 @@ class DeviceUtils {
 
   convertDeviceError(payload: any): OneKeyHardwareError {
     // handle ext error
-    const { code, error, message } = payload || {};
+    const {
+      code,
+      error,
+      message,
+    }: { code: number; error?: string; message?: string } = payload || {};
 
     const msg = error ?? message ?? 'Unknown error';
 
@@ -143,9 +149,9 @@ class DeviceUtils {
 
     switch (code) {
       case HardwareErrorCode.UnknownError:
-        return new Error.UnknownHardwareError(msg);
+        return new Error.UnknownHardwareError({ message: msg });
       case HardwareErrorCode.DeviceFwException:
-        return new Error.FirmwareVersionTooLow(msg);
+        return new Error.FirmwareVersionTooLow({ message: msg });
       case HardwareErrorCode.DeviceUnexpectedMode:
         if (
           typeof msg === 'string' &&
@@ -153,42 +159,42 @@ class DeviceUtils {
         ) {
           return new Error.NotInBootLoaderMode();
         }
-        return new Error.UnknownHardwareError(msg);
+        return new Error.UnknownHardwareError({ message: msg });
       case HardwareErrorCode.DeviceNotFound:
-        return new Error.DeviceNotFind(msg);
+        return new Error.DeviceNotFind({ message: msg });
       case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
-        return new Error.NotInBootLoaderMode(msg);
+        return new Error.NotInBootLoaderMode({ message: msg });
       case HardwareErrorCode.IFrameLoadFail:
-        return new Error.InitIframeLoadFail(msg);
+        return new Error.InitIframeLoadFail({ message: msg });
       case HardwareErrorCode.IframeTimeout:
-        return new Error.InitIframeTimeout(msg);
+        return new Error.InitIframeTimeout({ message: msg });
       case HardwareErrorCode.FirmwareUpdateDownloadFailed:
-        return new Error.FirmwareDownloadFailed(msg);
+        return new Error.FirmwareDownloadFailed({ message: msg });
       case HardwareErrorCode.NetworkError:
-        return new Error.NetworkError(msg);
+        return new Error.NetworkError({ message: msg });
       case HardwareErrorCode.BlePermissionError:
-        return new Error.NeedBluetoothTurnedOn(msg);
+        return new Error.NeedBluetoothTurnedOn({ message: msg });
       case HardwareErrorCode.BleLocationError:
-        return new Error.NeedBluetoothPermissions(msg);
+        return new Error.NeedBluetoothPermissions({ message: msg });
       case HardwareErrorCode.BleDeviceNotBonded:
-        return new Error.DeviceNotBonded(msg);
+        return new Error.DeviceNotBonded({ message: msg });
       case HardwareErrorCode.RuntimeError:
-        if (msg === 'EIP712 blind sign is disabled') {
-          return new Error.OpenBlindSign(msg);
+        if (msg.indexOf('EIP712 blind sign is disabled') !== -1) {
+          return new Error.OpenBlindSign({ message: msg });
         }
-        if (msg === 'Unknown message') {
-          return new Error.UnknownMethod(msg);
+        if (msg.indexOf('Unknown message') !== -1) {
+          return new Error.UnknownMethod({ message: msg });
         }
-        return new Error.UnknownHardwareError(msg);
+        return new Error.UnknownHardwareError({ message: msg });
       case HardwareErrorCode.PinInvalid:
-        return new Error.InvalidPIN(msg);
+        return new Error.InvalidPIN({ message: msg });
       case HardwareErrorCode.PinCancelled:
       case HardwareErrorCode.ActionCancelled:
-        return new Error.UserCancel(msg);
+        return new Error.UserCancel({ message: msg });
       case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
-        return new Error.NeedOneKeyBridge(msg);
+        return new Error.NeedOneKeyBridge({ message: msg });
       default:
-        return new Error.UnknownHardwareError(msg);
+        return new Error.UnknownHardwareError({ message: msg });
     }
   }
 }
