@@ -18,6 +18,7 @@ import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxActionNativeTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -40,10 +41,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import {
-  extractMainTokenTransactionInfo,
-  getAddressHistoryFromExplorer,
-} from './utils';
+import { extractTransactionInfo, getAddressHistoryFromExplorer } from './utils';
 
 import type { IEncodedTxSTC } from './types';
 
@@ -293,43 +291,57 @@ export default class Vault extends VaultBase {
       }
 
       try {
-        const mainTokenTransactionInfo = extractMainTokenTransactionInfo(tx);
-        if (mainTokenTransactionInfo) {
-          const { from, to, amountValue, feeValue } = mainTokenTransactionInfo;
-          let direction = IDecodedTxDirection.IN;
-          if (from === dbAccount.address) {
-            direction =
-              to === dbAccount.address
-                ? IDecodedTxDirection.SELF
-                : IDecodedTxDirection.OUT;
+        const transactionInfo = extractTransactionInfo(tx);
+        if (transactionInfo) {
+          const { from, to, mainTokenAmountValue, feeValue } = transactionInfo;
+          const encodedTx = {
+            from,
+            to: '',
+            value: '',
+            data: tx.user_transaction.raw_txn.payload,
+          };
+
+          let action: IDecodedTxAction = {
+            type: IDecodedTxActionType.TRANSACTION,
+          };
+          if (mainTokenAmountValue) {
+            let direction = IDecodedTxDirection.IN;
+            if (from === dbAccount.address) {
+              direction =
+                to === dbAccount.address
+                  ? IDecodedTxDirection.SELF
+                  : IDecodedTxDirection.OUT;
+            }
+            encodedTx.to = to;
+            encodedTx.value = mainTokenAmountValue;
+            action = {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: token,
+                from,
+                to,
+                amount: new BigNumber(mainTokenAmountValue)
+                  .shiftedBy(-decimals)
+                  .toFixed(),
+                amountValue: mainTokenAmountValue,
+                extraInfo: null,
+              },
+            };
           }
           const decodedTx: IDecodedTx = {
             txid: tx.transaction_hash,
             owner: dbAccount.address,
             signer: from,
             nonce: 0,
-            actions: [
-              {
-                type: IDecodedTxActionType.NATIVE_TRANSFER,
-                direction,
-                nativeTransfer: {
-                  tokenInfo: token,
-                  from,
-                  to,
-                  amount: new BigNumber(amountValue)
-                    .shiftedBy(-decimals)
-                    .toFixed(),
-                  amountValue,
-                  extraInfo: null,
-                },
-              },
-            ],
+            actions: [action],
             status:
               tx.status === 'Executed'
                 ? IDecodedTxStatus.Confirmed
                 : IDecodedTxStatus.Pending,
             networkId: this.networkId,
             accountId: this.accountId,
+            encodedTx,
             extraInfo: null,
             totalFeeInNative: new BigNumber(feeValue)
               .shiftedBy(-decimals)
