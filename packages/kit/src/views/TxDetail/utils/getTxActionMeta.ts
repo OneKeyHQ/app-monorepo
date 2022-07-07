@@ -27,6 +27,9 @@ import {
   ITxActionMetaTitle,
 } from '../types';
 
+// ClipboardListSolid, ClipboardListOutline, ActivityOutline
+export const UNKNOWN_ACTION_ICON_NAME = 'ClipboardListOutline';
+
 export type IGetTxActionMetaReturn = {
   meta: ITxActionMeta;
   props: ITxActionCardProps;
@@ -41,7 +44,7 @@ export function getTxActionMeta(
   };
   let iconInfo: ITxActionMetaIcon | undefined = {
     icon: {
-      name: 'ActivityOutline',
+      name: UNKNOWN_ACTION_ICON_NAME,
     },
   };
   let components: ITxActionMetaComponents = {

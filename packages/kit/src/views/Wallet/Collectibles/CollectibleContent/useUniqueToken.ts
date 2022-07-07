@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
+import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 import { isAudio, isSVG, isVideo } from '@onekeyhq/kit/src/utils/uriUtils';
 
 type UniqueTokenResult = {
@@ -10,12 +10,14 @@ type UniqueTokenResult = {
 };
 
 export default function useUniqueToken(
-  maybeUniqueToken: OpenSeaAsset | null,
+  maybeUniqueToken: MoralisNFT,
 ): UniqueTokenResult {
   return React.useMemo((): UniqueTokenResult => {
     if (typeof maybeUniqueToken === 'object' && !!maybeUniqueToken) {
       const { animationUrl, imageUrl } = maybeUniqueToken;
-      const assetUrl = animationUrl || imageUrl;
+      const assetUrl = animationUrl?.secureUrl || imageUrl?.secureUrl;
+      console.log('assetUrl = ', assetUrl);
+
       const supportsAudio = isAudio(assetUrl);
       const supportsVideo = isVideo(assetUrl);
       const supportsSVG = isSVG(assetUrl);

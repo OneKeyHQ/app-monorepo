@@ -47,6 +47,7 @@ export type ICovalentHistoryListItemLogEvent = {
       value: string; // "0xa9b4d559a98ff47c83b74522b7986146538cd4df" "1200"
     }>;
   };
+  tx_hash: string;
 };
 export type ICovalentHistoryListItemTokenTransfer = {
   contract_address: string; // "0x19860ccb0a68fd4213ab9d8266f7bbf05a8dde98"
@@ -55,6 +56,7 @@ export type ICovalentHistoryListItemTokenTransfer = {
   to_address: string; // "0x76f3f64cb3cd19debee51436df630a342b736c24"
 
   contract_decimals: number;
+  logo_url: string;
   contract_name: string; // "Binance USD"
   contract_ticker_symbol: string; // "BUSD.e"
   // method_calls: null;

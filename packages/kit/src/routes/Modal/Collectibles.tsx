@@ -1,6 +1,8 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { Collectible, MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import CollectibleDetail from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectibleDetailModal';
 import Collection from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectionModal';
 
@@ -13,17 +15,13 @@ export enum CollectiblesModalRoutes {
 
 export type CollectiblesRoutesParams = {
   [CollectiblesModalRoutes.CollectionModal]: {
-    chainId?: string | null;
-    chainName?: string | null;
-    userAddress: string;
-    collectionName: string;
+    collectible: Collectible;
+    network: Network;
   };
   [CollectiblesModalRoutes.CollectibleDetailModal]: {
-    tokenId: string | number;
-    chainId?: string | null;
-    chainName?: string | null;
-    contractAddress: string;
-    name?: string | null;
+    asset: MoralisNFT;
+    network: Network;
+    // address?: string | null;
   };
 };
 

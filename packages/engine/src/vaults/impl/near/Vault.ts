@@ -210,7 +210,8 @@ export default class Vault extends VaultBase {
           direction: IDecodedTxDirection.SELF,
           unknownAction: {
             // TODO other actions parse
-            extraInfo: JSON.stringify(nativeAction),
+            // extraInfo: JSON.stringify(nativeAction),
+            extraInfo: null,
           },
         };
         if (nativeAction.enum === 'transfer') {
@@ -230,6 +231,7 @@ export default class Vault extends VaultBase {
           };
         }
         if (nativeAction.enum === 'functionCall') {
+          // TODO functionCall action type support
           if (nativeAction?.functionCall?.methodName === 'ft_transfer') {
             action.type = IDecodedTxActionType.TOKEN_TRANSFER;
             const tokenInfo = await this.engine.getOrAddToken(

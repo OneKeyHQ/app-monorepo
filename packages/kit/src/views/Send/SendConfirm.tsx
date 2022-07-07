@@ -153,6 +153,7 @@ function SendConfirm() {
   });
 
   const isInternalNativeTransferType = useMemo(() => {
+    // TODO also check payloadInfo.type===NativeTransfer
     if (isFromDapp || !payload) {
       return false;
     }
@@ -286,7 +287,7 @@ function SendConfirm() {
   }
   sharedProps.children = (
     <>
-      <TxDetailView decodedTx={decodedTx} feeInput={feeInput} />
+      <TxDetailView isSendConfirm decodedTx={decodedTx} feeInput={feeInput} />
     </>
   );
 

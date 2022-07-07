@@ -90,11 +90,11 @@ jobs:
 
       - name: Inject Environment Variables
         env:
-          OPENSEA_KEY: ${{ secrets.OPENSEA_KEY }}
+          CLOUNDINARY_NAME: ${{ secrets.CLOUNDINARY_NAME }}
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           MOONPAY_KEY: ${{ secrets.MOONPAY_KEY }}
         run: |
-          echo "OPENSEA_KEY=${{ env.OPENSEA_KEY }}" >> .env
+          echo "CLOUNDINARY_NAME=${{ env.CLOUNDINARY_NAME }}" >> .env
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
 

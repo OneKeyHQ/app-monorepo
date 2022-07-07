@@ -5,9 +5,9 @@ import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import { NFTProps } from './type';
 
 const NFTImage: FC<NFTProps> = ({ asset, width, height }) => {
-  const uri = useMemo(
-    () => asset.imageUrl ?? asset.imagePreviewUrl ?? asset.imageOriginalUrl,
-    [asset.imageOriginalUrl, asset.imagePreviewUrl, asset.imageUrl],
+  const object = useMemo(
+    () => asset.animationUrl ?? asset.imageUrl,
+    [asset.animationUrl, asset.imageUrl],
   );
 
   const fallbackElement = (
@@ -22,7 +22,7 @@ const NFTImage: FC<NFTProps> = ({ asset, width, height }) => {
   );
   return (
     <Box size={width}>
-      {uri ? (
+      {object ? (
         <Image
           flex="1"
           alt={`image of ${
@@ -31,7 +31,7 @@ const NFTImage: FC<NFTProps> = ({ asset, width, height }) => {
           height={width}
           width={height}
           borderRadius="20px"
-          src={uri}
+          src={object.secureUrl}
           fallbackElement={fallbackElement}
         />
       ) : (

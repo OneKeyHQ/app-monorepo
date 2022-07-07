@@ -3,6 +3,7 @@ import React from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { Icon } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -12,7 +13,9 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNetwork } from '../../../hooks/useNetwork';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementHashText';
+import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
+import { TxActionElementPressable } from '../elements/TxActionElementPressable';
 import { ITxActionElementDetail, ITxActionListViewProps } from '../types';
 
 import { TxDetailActionBox } from './TxDetailActionBox';
@@ -53,6 +56,8 @@ export function TxDetailFeeInfoBox(props: ITxActionListViewProps) {
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
+  const openBlockBrowser = useOpenBlockBrowser(network);
+
   details.push({
     title: intl.formatMessage({ id: 'network__network' }),
     content: network?.name ?? '',
@@ -72,7 +77,20 @@ export function TxDetailFeeInfoBox(props: ITxActionListViewProps) {
   if (decodedTx.txid) {
     details.push({
       title: intl.formatMessage({ id: 'content__hash' }),
-      content: (
+      content: openBlockBrowser.hasAvailable ? (
+        <TxActionElementPressable
+          icon={<Icon name="ExternalLinkSolid" size={20} />}
+          onPress={() => {
+            openBlockBrowser.openTransactionDetails(decodedTx.txid);
+          }}
+        >
+          <TxActionElementAddressNormal
+            address={decodedTx.txid}
+            isCopy={false}
+            isLabelShow={false}
+          />
+        </TxActionElementPressable>
+      ) : (
         <TxActionElementAddressNormal
           address={decodedTx.txid}
           isLabelShow={false}

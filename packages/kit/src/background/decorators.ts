@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/restrict-template-expressions */
 import { throwCrossError, warningIfNotRunInBackground } from './utils';
 
-const INTERNAL_METHOD_PREFIX = 'internal_';
+const INTERNAL_METHOD_PREFIX = 'INTERNAL_';
+const PROVIDER_API_METHOD_PREFIX = 'PROVIDER_API_';
 
 // Is a any record, but namely use `PropertyDescriptor['value']`
 export type UnknownTarget = Record<string, PropertyDescriptor['value']>;
@@ -31,7 +32,7 @@ function backgroundClass() {
   };
 }
 
-function backgroundMethod() {
+function createBackgroundMethodDecorator({ prefix }: { prefix: string }) {
   return function (
     target: UnknownTarget,
     methodName: string,
@@ -39,13 +40,27 @@ function backgroundMethod() {
   ) {
     if (typeof descriptor.value !== 'function') {
       throwCrossError(
-        '@backgroundMethod() only available for method or function.',
+        '@backgroundMethod() / providerApiMethod only available for method or function.',
         methodName,
       );
     }
-    target[`${INTERNAL_METHOD_PREFIX}${methodName}`] = descriptor.value;
+    target[`${prefix}${methodName}`] = descriptor.value;
+    // return PropertyDescriptor
+    // descriptor.value.$isBackgroundMethod = true;
     return descriptor;
   };
+}
+
+function backgroundMethod() {
+  return createBackgroundMethodDecorator({
+    prefix: INTERNAL_METHOD_PREFIX,
+  });
+}
+
+function providerApiMethod() {
+  return createBackgroundMethodDecorator({
+    prefix: PROVIDER_API_METHOD_PREFIX,
+  });
 }
 
 function permissionRequired() {
@@ -85,6 +100,7 @@ function bindThis() {
       );
     }
 
+    // return PropertyDescriptor
     return {
       configurable: true,
       get(this: T): T {
@@ -107,5 +123,7 @@ export {
   backgroundClass,
   permissionRequired,
   backgroundMethod,
+  providerApiMethod,
   INTERNAL_METHOD_PREFIX,
+  PROVIDER_API_METHOD_PREFIX,
 };

@@ -56,24 +56,14 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
 
   useEffect(() => {
     if (!enableLocalAuthentication) {
-      // https://stackoverflow.com/questions/42456069/how-to-open-keyboard-automatically-in-react-native
-      // use setTimeout hack android platform
-      if (platformEnv.isNativeAndroid) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        setTimeout(() => ref.current?.focus(), 100);
-      } else {
-        ref.current?.focus();
-      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      setTimeout(() => ref.current?.focus(), 100);
       return;
     }
     hasHardwareSupported().then((isOk) => {
       if (!isOk || !field || validationState[field] === false) {
-        if (platformEnv.isNativeAndroid) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          setTimeout(() => ref.current?.focus(), 100);
-        } else {
-          ref.current?.focus();
-        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        setTimeout(() => ref.current?.focus(), 100);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2,9 +2,8 @@ import React, { FC, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
-import { Box, Button, Modal, Spinner } from '@onekeyhq/components';
+import { Button, Modal, Spinner } from '@onekeyhq/components';
 import {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
@@ -12,9 +11,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../hooks/useNetwork';
-import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
-import { TxDetailStatusIcon } from '../TxDetail/components/TxDetailStatusIcon';
 import { TxActionElementTime } from '../TxDetail/elements/TxActionElementTime';
 import { TxDetailView } from '../TxDetail/TxDetailView';
 
@@ -48,12 +44,8 @@ type TransactionDetailRouteProp = RouteProp<
  */
 
 const TxHistoryDetailModal: FC = () => {
-  const intl = useIntl();
-
   const route = useRoute<TransactionDetailRouteProp>();
   const { decodedTx, historyTx } = route.params;
-  const { network } = useNetwork({ networkId: decodedTx?.networkId });
-  const openBlockBrowser = useOpenBlockBrowser(network);
   useEffect(() => {
     if (!historyTx) {
       return;
@@ -71,37 +63,26 @@ const TxHistoryDetailModal: FC = () => {
     };
   }, [historyTx]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const headerDescription = (
+    <TxActionElementTime
+      timestamp={decodedTx?.updatedAt ?? decodedTx?.createdAt}
+    />
+  );
   return (
     <Modal
-      header={intl.formatMessage({ id: 'transaction__transaction_details' })}
-      headerDescription={
-        <TxActionElementTime
-          timestamp={decodedTx?.updatedAt ?? decodedTx?.createdAt}
-        />
-      }
+      // header={intl.formatMessage({ id: 'transaction__transaction_details' })}
+      // headerDescription={headerDescription}
       footer={null}
       height="560px"
       scrollViewProps={{
         children: decodedTx ? (
           <>
-            <TxDetailStatusIcon decodedTx={decodedTx} />
-            <Box h={4} />
-            <TxDetailView decodedTx={decodedTx} historyTx={historyTx} />
-
-            {openBlockBrowser.hasAvailable ? (
-              <Button
-                w="100%"
-                mt={6}
-                size="lg"
-                onPress={() => {
-                  openBlockBrowser.openTransactionDetails(decodedTx.txid);
-                }}
-                rightIconName="ArrowNarrowRightSolid"
-              >
-                {intl.formatMessage({ id: 'action__view_in_explorer' })}
-              </Button>
-            ) : undefined}
-
+            <TxDetailView
+              isHistoryDetail
+              decodedTx={decodedTx}
+              historyTx={historyTx}
+            />
             {platformEnv.isDev && (
               <Button
                 mt={6}

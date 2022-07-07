@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -51,6 +51,44 @@ function PreSendAddress() {
   });
   const submitDisabled = isLoading || !formValues?.to || !isValid;
 
+  const [warningMessage, setWarningMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  useEffect(() => {
+    async function retrieveMessages() {
+      if (submitDisabled) {
+        setWarningMessage('');
+        setSuccessMessage('');
+      } else if (
+        formValues?.to &&
+        (await backgroundApiProxy.validator.isContractAddress(
+          networkId,
+          formValues.to,
+        ))
+      ) {
+        setWarningMessage(
+          intl.formatMessage({
+            id: 'msg__the_recipient_address_is_a_contract_address',
+          }),
+        );
+        setSuccessMessage('');
+      } else {
+        setSuccessMessage(
+          intl.formatMessage({ id: 'form__enter_recipient_address_valid' }),
+        );
+        setWarningMessage('');
+      }
+    }
+
+    retrieveMessages();
+  }, [
+    intl,
+    submitDisabled,
+    setWarningMessage,
+    setSuccessMessage,
+    networkId,
+    formValues?.to,
+  ]);
+
   return (
     <BaseSendModal
       height="auto"
@@ -79,19 +117,15 @@ function PreSendAddress() {
               </Box>
               <Form.Item
                 control={control}
-                successMessage={
-                  submitDisabled
-                    ? ''
-                    : intl.formatMessage({
-                        id: 'form__enter_recipient_address_valid',
-                      })
-                }
+                warningMessage={warningMessage}
+                successMessage={successMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
-                  validate: async (toAddress) => {
+                  validate: async () => {
+                    const toAddress = formValues?.to;
                     if (!toAddress) {
                       return undefined;
                       // return intl.formatMessage({

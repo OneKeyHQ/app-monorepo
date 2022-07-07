@@ -8,21 +8,11 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
-import { TxDetailActionBox } from '../components/TxDetailActionBox';
-import {
-  TxListActionBox,
-  TxListActionBoxContentText,
-} from '../components/TxListActionBox';
+import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
+import { TxListActionBox } from '../components/TxListActionBox';
+import { TxStatusBarInList } from '../components/TxStatusBar';
+import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementHashText';
-import {
-  TxActionElementIconLarge,
-  TxActionElementIconNormal,
-} from '../elements/TxActionElementIcon';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from '../elements/TxActionElementTitle';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,
@@ -36,13 +26,14 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
-  const { action, intl } = props;
+  const { action, intl, network } = props;
   const { tokenApprove } = action;
   const spender = tokenApprove?.spender || '';
   const amount = tokenApprove?.isMax
     ? intl.formatMessage({ id: 'form__unlimited' })
     : tokenApprove?.amount ?? '0';
   const symbol = tokenApprove?.tokenInfo.symbol ?? '';
+  const displayDecimals = network?.tokenDisplayDecimals;
 
   const titleInfo: ITxActionMetaTitle = {
     titleKey: 'title__approve',
@@ -58,6 +49,7 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
   }
 
   return {
+    displayDecimals,
     amount,
     symbol,
     spender,
@@ -68,8 +60,6 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
 
 export function TxActionTokenApprove(props: ITxActionCardProps) {
   const { action, decodedTx, meta } = props;
-  const icon = <TxActionElementIconNormal {...meta} />;
-  const title = <TxActionElementTitleHeading {...meta} />;
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const { amount, symbol } = getTxActionTokenApproveInfo({
@@ -130,9 +120,10 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
   }
 
   return (
-    <TxDetailActionBox
-      icon={icon}
-      title={title}
+    <TxDetailActionBoxAutoTransform
+      decodedTx={decodedTx}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       // content={<Box mb={4}>{amountView}</Box>}
       details={details}
     />
@@ -140,25 +131,32 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
 }
 
 export function TxActionTokenApproveT0(props: ITxActionCardProps) {
-  const { meta } = props;
-  const icon = <TxActionElementIconLarge {...meta} />;
-  const title = <TxActionElementTitleNormal {...meta} />;
+  const { meta, decodedTx, historyTx } = props;
 
   const intl = useIntl();
-  const { amount, symbol, spender } = getTxActionTokenApproveInfo({
-    ...props,
-    intl,
-  });
-
+  const { amount, symbol, spender, displayDecimals } =
+    getTxActionTokenApproveInfo({
+      ...props,
+      intl,
+    });
+  const statusBar = (
+    <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
+  );
   return (
     <TxListActionBox
-      icon={icon}
-      title={title}
+      footer={statusBar}
+      iconInfo={meta?.iconInfo}
+      titleInfo={meta?.titleInfo}
       subTitle={shortenAddress(spender)}
       content={
-        <TxListActionBoxContentText>
-          {amount} {symbol}
-        </TxListActionBoxContentText>
+        <TxActionElementAmountNormal
+          textAlign="right"
+          justifyContent="flex-end"
+          amount={amount}
+          symbol={symbol}
+          decimals={displayDecimals}
+          direction={undefined}
+        />
       }
     />
   );
