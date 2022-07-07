@@ -48,6 +48,7 @@ import TextareaGallery from '@onekeyhq/kit/src/views/Components/stories/Textarea
 import ThemeGallery from '@onekeyhq/kit/src/views/Components/stories/Theme';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
+import TypeWriter from '@onekeyhq/kit/src/views/Components/stories/TypeWriter';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
@@ -106,6 +107,7 @@ export enum StackRoutes {
   ComponentSkeleton = 'component/Skeleton',
   ComponentPopover = 'component/Popover',
   ComponentPriceChart = 'component/PriceChart',
+  ComponentTypeWriter = 'component/TypeWriter',
 }
 
 export type StackBasicRoutesParams = {
@@ -160,6 +162,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentKeyboard]: undefined;
   [StackRoutes.ComponentPopover]: undefined;
   [StackRoutes.ComponentPriceChart]: undefined;
+  [StackRoutes.ComponentTypeWriter]: undefined;
 };
 
 export const stackScreenList = [
@@ -234,6 +237,7 @@ export const stackScreenList = [
     component: PopoverGallery,
   },
   { name: StackRoutes.ComponentPriceChart, component: PriceChart },
+  { name: StackRoutes.ComponentTypeWriter, component: TypeWriter },
 ];
 
 const DevStack = createNativeStackNavigator();

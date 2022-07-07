@@ -68,6 +68,7 @@ export { default as DesktopDragZoneBox } from './DesktopDragZoneBox';
 export { default as Popover } from './Popover';
 export { default as ModalOverlay } from './ModalOverlay';
 export { Progress } from './Progress';
+export { default as TypeWriter } from './TypeWriter';
 
 export {
   default as RecyclerListView,
