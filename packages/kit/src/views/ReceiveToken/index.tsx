@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -51,27 +51,22 @@ const ReceiveToken = () => {
     return hwAddress;
   }, [engine, accountId, networkId, walletId]);
 
-  const { ensureConnected } = useEnsureConnected();
+  const { ensureConnected, confirmConnected, loading } = useEnsureConnected();
+
+  useEffect(() => {
+    console.log('ReceiveToken: useEffect');
+    if (confirmConnected) {
+      getAddress().then((res) => {
+        if (res === shownAddress) {
+          // TODO: show address after confirm address
+        }
+      });
+    }
+  }, [confirmConnected, getAddress, shownAddress]);
 
   const confirmOnDevice = useCallback(
-    async () =>
-      // eslint-disable-next-line no-async-promise-executor
-      new Promise(async (resolve) => {
-        try {
-          const isConnected = await ensureConnected(walletId);
-          if (isConnected) {
-            const accountAddress = await getAddress();
-            if (accountAddress === shownAddress) {
-              resolve(true);
-            } else {
-              resolve(false);
-            }
-          }
-        } catch {
-          resolve(false);
-        }
-      }),
-    [ensureConnected, getAddress, walletId, shownAddress],
+    async () => ensureConnected(walletId),
+    [ensureConnected, walletId],
   );
 
   const copyAddressToClipboard = useCallback(() => {
@@ -186,9 +181,8 @@ const ReceiveToken = () => {
                   type="plain"
                   size={isVerticalLayout ? 'xl' : 'base'}
                   leftIconName="DuplicateSolid"
-                  onPress={async () => {
-                    await confirmOnDevice();
-                  }}
+                  isLoading={loading}
+                  onPress={() => confirmOnDevice()}
                 >
                   请在硬件上确认
                 </Button>

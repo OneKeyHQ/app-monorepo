@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
@@ -13,6 +15,8 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
   const { silent = false } = params ?? {};
   const { engine, serviceHardware } = backgroundApiProxy;
   const intl = useIntl();
+  const [loading, setLoading] = useState(false);
+  const [confirmConnected, setConfirmConnected] = useState(false);
 
   function showMessage(key = 'action__connection_timeout') {
     if (silent) return;
@@ -24,21 +28,30 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
   async function ensureConnected(walletId: string) {
     if (!walletId) return false;
 
+    setLoading(true);
     const wallet = await engine.getWallet(walletId);
     const device = await engine.getHWDeviceByWalletId(walletId);
 
-    if (!wallet || !device) return false;
+    if (!wallet || !device) {
+      setLoading(false);
+      setConfirmConnected(false);
+      return false;
+    }
 
     let features: IOneKeyDeviceFeatures | null = null;
     try {
       features = await serviceHardware.ensureConnected(device.mac);
     } catch (e) {
       showMessage();
+      setLoading(false);
+      setConfirmConnected(false);
       return false;
     }
 
     if (!features) {
       showMessage();
+      setLoading(false);
+      setConfirmConnected(false);
       return false;
     }
 
@@ -56,13 +69,19 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
 
     if (diffDeviceIdAndUUID || diffDeviceUUIDWithoutDeviceId) {
       showMessage('msg__hardware_not_same');
+      setLoading(false);
+      setConfirmConnected(false);
       return false;
     }
 
+    setLoading(false);
+    setConfirmConnected(true);
     return true;
   }
 
   return {
     ensureConnected,
+    loading,
+    confirmConnected,
   };
 }
