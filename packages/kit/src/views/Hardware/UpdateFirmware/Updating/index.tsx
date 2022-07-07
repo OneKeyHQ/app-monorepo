@@ -28,6 +28,7 @@ import StateView, { StateViewTypeInfo } from './StateView';
 type ProgressStepType =
   | 'pre-check'
   | 'reboot-bootloader'
+  | 'download-firmware'
   | 'installing'
   | 'wait-for-reboot'
   | 'done-step';
@@ -74,6 +75,8 @@ const UpdatingModal: FC = () => {
     [progressStep],
   );
 
+  const [downloadedFirmware, setDownloadedFirmware] = useState<string>();
+
   const [progress, setProgress] = useState(0);
   const progressMemo = useDeepCompareMemo(() => progress, [progress]);
   const [maxProgress, setMaxProgress] = useState(0);
@@ -86,6 +89,26 @@ const UpdatingModal: FC = () => {
           return intl.formatMessage({
             id: 'action__checking',
           });
+        case 'download-firmware':
+          if (firmwareType === 'ble') {
+            return intl.formatMessage(
+              { id: 'content__downloading_str' },
+              {
+                0: intl.formatMessage({
+                  id: 'content__bluetooth_firmware_lowercase',
+                }),
+              },
+            );
+          }
+          return intl.formatMessage(
+            { id: 'content__downloading_str' },
+            {
+              0: intl.formatMessage({
+                id: 'content__firmware_lowercase',
+              }),
+            },
+          );
+
         case 'reboot-bootloader':
         case 'installing':
           if (firmwareType === 'ble') {
@@ -151,6 +174,9 @@ const UpdatingModal: FC = () => {
     }
 
     if (error instanceof FirmwareDownloadFailed) {
+      // Download failed. Download again
+      setProgressStep('download-firmware');
+
       let typeContent = '';
       if (firmwareType === 'ble') {
         typeContent = intl.formatMessage({
@@ -204,6 +230,10 @@ const UpdatingModal: FC = () => {
 
     switch (progressStep) {
       case 'pre-check':
+        setProgressStep('download-firmware');
+        break;
+
+      case 'download-firmware':
         setProgressStep('installing');
         break;
 
@@ -254,8 +284,26 @@ const UpdatingModal: FC = () => {
           });
         break;
 
+      case 'download-firmware':
+        setMaxProgress(15);
+        setProgress(5);
+        serviceHardware
+          .downloadFirmware(
+            firmwareType === 'ble' ? bleFirmware?.webUpdate : firmware?.url,
+          )
+          .then((response) => {
+            setDownloadedFirmware(response);
+            setProgressState('done');
+          })
+          .catch((e) => {
+            setStateViewInfo({ type: 'download-failure' });
+            setProgressState('failure');
+          });
+        break;
+
       case 'reboot-bootloader':
-        setMaxProgress(10);
+        setMaxProgress(20);
+        setProgress(15);
         serviceHardware
           .rebootToBootloader(connectId)
           .then(() => {
@@ -271,9 +319,9 @@ const UpdatingModal: FC = () => {
 
       case 'installing':
         setMaxProgress(95);
-        setProgress(10);
+        setProgress(20);
         serviceHardware
-          .installFirmware(connectId, firmwareType)
+          .installFirmware(connectId, firmwareType, downloadedFirmware)
           .then(() => {
             // clear the upgrade status
             dispatch(
@@ -285,6 +333,8 @@ const UpdatingModal: FC = () => {
             setProgressState('done');
           })
           .catch((e) => {
+            console.log('===: installing error:', e);
+
             handleErrors(progressStep, e);
           });
         break;
