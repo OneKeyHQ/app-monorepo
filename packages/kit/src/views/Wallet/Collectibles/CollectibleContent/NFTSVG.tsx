@@ -2,10 +2,9 @@ import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { WebView } from 'react-native-webview';
 
-import { Box } from '@onekeyhq/components';
+import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import NFTImage from './NFTImage';
 import { NFTProps } from './type';
 
 const getHTML = (svgContent: string, size: number) =>
@@ -46,17 +45,53 @@ const getHTML = (svgContent: string, size: number) =>
   </body>
 </html>`;
 
+const SVGImage: FC<NFTProps> = ({ asset, width }) => {
+  const object = useMemo(
+    () => asset.animationUrl ?? asset.imageUrl,
+    [asset.animationUrl, asset.imageUrl],
+  );
+  const fallbackElement = (
+    <Center
+      width={width}
+      height="333px"
+      bgColor="surface-default"
+      borderRadius="20px"
+    >
+      <Icon name="QuestionMarkCircleOutline" size={166} />
+    </Center>
+  );
+  return (
+    <Center width={width} height={object?.height}>
+      {object ? (
+        <Image
+          flex="1"
+          alt={`image of ${
+            typeof asset.name === 'string' ? asset.name : 'nft'
+          }`}
+          width={object?.width}
+          height={object?.height}
+          borderRadius="20px"
+          src={object.secureUrl}
+          fallbackElement={fallbackElement}
+        />
+      ) : (
+        fallbackElement
+      )}
+    </Center>
+  );
+};
+
 const Native: FC<NFTProps> = ({ asset, width }) => {
   const [svgContent, setSvgContent] = useState<string>();
-  const uri = useMemo(
+  const object = useMemo(
     () => asset.animationUrl ?? asset.imageUrl,
     [asset.animationUrl, asset.imageUrl],
   );
   useEffect(() => {
     (async () => {
-      if (uri) {
+      if (object?.secureUrl) {
         try {
-          const res = await fetch(uri);
+          const res = await fetch(object?.secureUrl);
           const text = await res.text();
           if (text.toLowerCase().indexOf('<svg') !== -1) {
             setSvgContent(text);
@@ -90,7 +125,7 @@ const NFTSVG: FC<NFTProps> = ({ ...rest }) => {
   if (platformEnv.isNative) {
     return <Native {...rest} />;
   }
-  return <NFTImage {...rest} />;
+  return <SVGImage {...rest} />;
 };
 
 export default NFTSVG;

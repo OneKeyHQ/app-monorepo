@@ -10,6 +10,7 @@ export type DataInitialState = {
   isPasswordSet: boolean;
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
+  cursorMap: Record<string, string>;
 };
 
 const initialState: DataInitialState = {
@@ -18,6 +19,7 @@ const initialState: DataInitialState = {
   onekeySupportList: [],
   currencyList: [],
   isAppRenderReady: false,
+  cursorMap: {},
 };
 
 export const dataSlice = createSlice({
@@ -43,10 +45,24 @@ export const dataSlice = createSlice({
       state.onekeySupportList = action.payload.onekeySupportList;
       state.currencyList = action.payload.currencyList;
     },
+    cursorMapSet(
+      state,
+      action: PayloadAction<{
+        key: string;
+        cursor: string;
+      }>,
+    ) {
+      state.cursorMap[action.payload.key] = action.payload.cursor;
+    },
   },
 });
 
-export const { release, passwordSet, currenciesSet, setAppRenderReady } =
-  dataSlice.actions;
+export const {
+  release,
+  passwordSet,
+  currenciesSet,
+  setAppRenderReady,
+  cursorMapSet,
+} = dataSlice.actions;
 
 export default dataSlice.reducer;

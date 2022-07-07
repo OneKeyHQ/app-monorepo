@@ -1,137 +1,195 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import { pick } from 'lodash';
-import useSWRInfinite, { SWRInfiniteResponse } from 'swr/infinite';
-
-import { getUserAssets } from '@onekeyhq/engine/src/managers/opensea';
+import { getUserAssets } from '@onekeyhq/engine/src/managers/moralis';
+import {
+  Collectible,
+  MoralisMetadata,
+  MoralisNFT,
+  MoralisNFTsResp,
+} from '@onekeyhq/engine/src/types/moralis';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collectible, OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
 
-// userAddress -> collectionName -> Collectible
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { cursorMapSet } from '../store/reducers/data';
+
+import { useAppSelector } from './redux';
+
+const cacheMainKey = (address: string, network: Network) =>
+  `${address.toLowerCase()}-${network.id}`.toLowerCase();
+
+// userAddress-networkId -> collectionName -> Collectible
 const USER_COLLECTIBLE_CACHE = new Map<string, Map<string, Collectible>>();
+
+export const getCollectibleCache = (key: string) => {
+  const collectibles =
+    USER_COLLECTIBLE_CACHE.get(key) ?? new Map<string, Collectible>();
+  return Array.from(collectibles.values());
+};
+
+export const updateAssetDateToCache = (
+  address: string,
+  network: Network,
+  asset: MoralisNFT,
+  metadata: MoralisMetadata,
+) => {
+  if (asset.name) {
+    const mainKey = cacheMainKey(address, network);
+    const mainKeyData = USER_COLLECTIBLE_CACHE.get(mainKey);
+    if (mainKeyData) {
+      const collectionData = mainKeyData.get(asset.name);
+      if (collectionData) {
+        const { assets } = collectionData;
+        if (assets && assets?.length > 0) {
+          collectionData.assets = assets.map((item) => {
+            if (
+              item.tokenHash === asset.tokenHash &&
+              item.tokenAddress === asset.tokenAddress
+            ) {
+              item.assetName = metadata.name ?? metadata.title;
+              item.description = metadata.description;
+              item.attributes = metadata.attributes;
+            }
+            return item;
+          });
+          mainKeyData.set(asset.name, collectionData);
+          USER_COLLECTIBLE_CACHE.set(mainKey, mainKeyData);
+        }
+      }
+    }
+  }
+};
 
 export const useCollectibleCache = (
   userAddress: string,
+  network: Network,
   collectionAddress: string,
 ) => {
+  const mainKey = `${userAddress.toLowerCase()}-${network.id}`.toLowerCase();
   const cache = useMemo(
-    () => USER_COLLECTIBLE_CACHE.get(userAddress)?.get(collectionAddress),
-    [collectionAddress, userAddress],
+    () => USER_COLLECTIBLE_CACHE.get(mainKey)?.get(collectionAddress),
+    [collectionAddress, mainKey],
   );
   return cache;
 };
 
 export const parseCollectiblesData = (
-  assets: OpenSeaAsset[],
-  address: string,
+  nftsResp: MoralisNFTsResp,
+  mainKey: string,
 ): Collectible[] => {
-  const collectibles = new Map<string, Collectible>();
+  const assets = nftsResp.result;
+  const collectibles =
+    USER_COLLECTIBLE_CACHE.get(mainKey) ?? new Map<string, Collectible>();
 
-  for (const asset of assets) {
-    // Ignore video and audio by now
-    // Use lowercase address in case of case-insensitive address
-    const uniqueName = asset.collection.name;
-    // Skip if the unique name is undefined
-    if (uniqueName) {
-      const collectible = collectibles.get(uniqueName);
-      if (collectible) {
-        collectible.assets.push(asset);
-      } else {
-        collectibles.set(uniqueName, {
-          id: uniqueName,
-          chain: asset.chain,
-          contract: asset.assetContract,
-          assets: [asset],
-          collection: pick(asset.collection, [
-            'name',
-            'slug',
-            'description',
-            'imageUrl',
-            'bannerImageUrl',
-            'largeImageUrl',
-          ]),
-        });
+  if (assets) {
+    assets.forEach((asset) => {
+      const uniqueName = asset.name;
+      if (uniqueName) {
+        const collectible = collectibles.get(uniqueName);
+        if (collectible) {
+          if (
+            !collectible.assets.find(
+              (item) =>
+                item.tokenAddress === asset.tokenAddress &&
+                item.tokenId === asset.tokenId,
+            )
+          ) {
+            collectible.assets.push(asset);
+          }
+        } else {
+          collectibles.set(uniqueName, {
+            id: uniqueName,
+            chain: nftsResp.chain,
+            assets: [asset],
+            collection: {
+              name: asset.name,
+            },
+          });
+        }
       }
-    }
+    });
   }
   // Use lowercase address in case of case-insensitive address
-  USER_COLLECTIBLE_CACHE.set(address.toLowerCase(), collectibles);
+  USER_COLLECTIBLE_CACHE.set(mainKey, collectibles);
   return Array.from(collectibles.values());
 };
 
-// Type made for swr infinite request
-type OpenSeaResponse = OpenSeaAsset[];
-type CollectibleRequestParams = Parameters<typeof getUserAssets>[0];
 type UseCollectiblesDataArgs = {
   address?: string | null;
   network?: Network | null;
   isCollectibleSupported?: boolean;
 };
+
 type UseCollectiblesDataReturn = {
-  error?: SWRInfiniteResponse['error'];
-  isLoading: boolean;
   collectibles: Collectible[];
+  isLoading: boolean;
   fetchData: () => void;
-  loadMore?: () => void;
 };
-const ONEKEY_COLLECTIBLES_PAGE_SIZE = 50;
+
+const updateCursor = (key: string, cursor: string) => {
+  backgroundApiProxy.dispatch(cursorMapSet({ key, cursor }));
+};
+
+const useCursorStatus = (key: string) => {
+  const cursorMap = useAppSelector((s) => s.data.cursorMap);
+  return cursorMap[key];
+};
 
 export const useCollectiblesData = ({
   address,
   network,
   isCollectibleSupported,
 }: UseCollectiblesDataArgs): UseCollectiblesDataReturn => {
-  const hasNoParams = !address || !network?.extraInfo?.networkVersion;
-
-  // Collectibles data fetching
-  const getKey = (size: number, previousPageData: OpenSeaResponse) => {
-    if (!isCollectibleSupported) {
-      return null;
+  const mainKey = useMemo(() => {
+    if (!address || !network) {
+      return '';
     }
-    // reached the end
-    const isEndOfData = previousPageData && !previousPageData.length;
-    if (isEndOfData || hasNoParams) return null;
-    const params: CollectibleRequestParams = {
-      account: address,
-      chainId: network.extraInfo.networkVersion,
-      offset: size * ONEKEY_COLLECTIBLES_PAGE_SIZE,
-      limit: ONEKEY_COLLECTIBLES_PAGE_SIZE,
-    };
-    return params;
-  };
-  const assetsSwr = useSWRInfinite(getKey, (params: CollectibleRequestParams) =>
-    getUserAssets(params),
-  );
+    return cacheMainKey(address, network);
+  }, [address, network]);
+
+  const cursor = useCursorStatus(mainKey);
+
+  const getData = useCallback(async () => {
+    if (isCollectibleSupported && mainKey) {
+      if (cursor !== '') {
+        const result = await getUserAssets({
+          address,
+          network,
+          cursor: cursor !== 'begin' ? cursor : undefined,
+        });
+
+        if (result.success === false || result.cursor === '') {
+          updateCursor(mainKey, '');
+        } else if (result.cursor) {
+          parseCollectiblesData(result, mainKey);
+          updateCursor(mainKey, result.cursor);
+        }
+      }
+    }
+  }, [address, cursor, isCollectibleSupported, mainKey, network]);
+
+  const fetchData = useCallback(() => {
+    if (mainKey) {
+      updateCursor(mainKey, 'begin');
+    }
+  }, [mainKey]);
+
+  useEffect(() => {
+    getData();
+  }, [getData, isCollectibleSupported, mainKey]);
 
   return useMemo(() => {
-    if (hasNoParams) {
+    if (!isCollectibleSupported || !mainKey) {
       return {
+        fetchData,
         isLoading: false,
-        fetchData: assetsSwr.mutate,
         collectibles: [],
       };
     }
-
-    const assets = assetsSwr.data?.flat(1) ?? [];
-    const collectibles = parseCollectiblesData(assets, address);
-    const loadMore = () => {
-      const isEmpty = !assetsSwr.data?.length;
-      const isReachingEnd =
-        isEmpty ||
-        (assetsSwr.data &&
-          assetsSwr.data[assetsSwr.data.length - 1].length <
-            ONEKEY_COLLECTIBLES_PAGE_SIZE);
-
-      if (!assetsSwr.isValidating && !isReachingEnd) {
-        assetsSwr.setSize((preSize) => preSize + 1);
-      }
-    };
-
+    const collectibles = getCollectibleCache(mainKey);
     return {
-      loadMore,
+      isLoading: cursor === 'begin' || cursor === undefined,
+      fetchData,
       collectibles,
-      fetchData: assetsSwr.mutate,
-      isLoading: assetsSwr.isValidating,
     };
-  }, [address, assetsSwr, hasNoParams]);
+  }, [cursor, fetchData, isCollectibleSupported, mainKey]);
 };

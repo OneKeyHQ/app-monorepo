@@ -1,11 +1,16 @@
-import { OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
+import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import type { Collectible } from '@onekeyhq/engine/src/types/moralis';
 
 export enum CollectibleView {
-  Flat = 'Flat',
-  Grid = 'Grid',
+  Expand = 'Expand',
+  Packup = 'Packup',
 }
 
-export type SelectedAsset = OpenSeaAsset & {
-  chain?: string | null;
-  contractAddress?: string | null;
+export type CollectibleGalleryProps = {
+  isLoading: boolean;
+  isSupported: boolean;
+  collectibles: Collectible[];
+  fetchData: () => void;
+  onSelectCollectible?: (cols: Collectible) => void;
+  onSelectAsset?: (asset: MoralisNFT) => void;
 };
