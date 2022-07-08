@@ -32,6 +32,7 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
     encodedTx,
     sourceInfo,
     decodedTx: decodedTxLegacy,
+    sendConfirmParams,
   } = props;
   const decodedTx = decodedTxLegacy as IDecodedTxLegacy;
 
@@ -43,6 +44,7 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
   const isMaxAmount = approveAmount === InfiniteAmountText;
   const feeInput = (
     <FeeInfoInputForConfirm
+      sendConfirmParams={sendConfirmParams}
       editable={feeInfoEditable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -64,6 +66,7 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
           return;
         }
         navigation.navigate(SendRoutes.TokenApproveAmountEdit, {
+          sendConfirmParams,
           tokenApproveAmount: approveAmount,
           isMaxAmount,
           sourceInfo,

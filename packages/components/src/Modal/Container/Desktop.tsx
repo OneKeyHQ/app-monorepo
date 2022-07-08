@@ -59,6 +59,7 @@ const DesktopModal = ({
   headerDescription,
   closeAction,
   closeOnOverlayClick,
+  hideBackButton,
 }: ModalProps) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -136,6 +137,7 @@ const DesktopModal = ({
                 size="base"
                 name="ArrowLeftSolid"
                 type="plain"
+                opacity={hideBackButton ? 0 : 1}
                 circle
                 onPress={() => {
                   if (onBackActionPress) {
