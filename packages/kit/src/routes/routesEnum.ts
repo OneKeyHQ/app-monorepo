@@ -23,6 +23,7 @@ export enum ModalRoutes {
   EnableLocalAuthentication = ' EnableLocalAuthentication',
   ManageNetwork = 'ManageNetwork',
   OnekeyHardware = 'OnekeyHardware',
+  HardwareUpdate = 'HardwareUpdate',
   Discover = 'Discover',
   Swap = 'Swap',
   ScanQrcode = 'ScanQrcode',

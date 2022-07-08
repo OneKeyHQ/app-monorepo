@@ -4,26 +4,14 @@ import {
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  DeviceNotBonded,
-  DeviceNotFind,
-  FirmwareVersionTooLow,
-  InitIframeLoadFail,
-  InitIframeTimeout,
-  InvalidPIN,
-  NeedBluetoothPermissions,
-  NeedBluetoothTurnedOn,
-  OpenBlindSign,
-  UnknownHardwareError,
-  UnknownMethod,
-  UserCancel,
-} from './errors';
+import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
 /**
@@ -85,7 +73,10 @@ class DeviceUtils {
       const response = await searchDevices();
 
       if (!response.success) {
-        return Promise.reject(this.convertDeviceError(response.payload));
+        const error = this.convertDeviceError(response.payload);
+        if (!error.data.reconnect) {
+          return Promise.reject(this.convertDeviceError(response.payload));
+        }
       }
 
       return new Promise((resolve: (p: void) => void) =>
@@ -144,53 +135,65 @@ class DeviceUtils {
   }
 
   convertDeviceError(payload: any): OneKeyHardwareError {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const error = payload?.error ?? payload;
-    if (error === null) return new UnknownHardwareError();
-    if (typeof error !== 'string') return new UnknownHardwareError();
+    // handle ext error
+    const {
+      code,
+      error,
+      message,
+    }: { code: number; error?: string; message?: string } = payload || {};
 
-    if (error.includes('device is not bonded')) {
-      return new DeviceNotBonded();
-    }
+    const msg = error ?? message ?? 'Unknown error';
 
-    if (error.includes('Device firmware version is too low')) {
-      return new FirmwareVersionTooLow();
-    }
+    console.log('Device Utils Convert Device Error:', code, msg);
 
-    switch (error) {
-      case 'Error: Bluetooth required to be turned on':
-        return new NeedBluetoothTurnedOn();
-
-      case 'BleError: Device is not authorized to use BluetoothLE':
-        return new NeedBluetoothPermissions();
-
-      case 'PIN cancelled':
-        return new UserCancel();
-
-      case 'Action cancelled by user':
-        return new UserCancel();
-
-      case 'Unknown message':
-        return new UnknownMethod();
-
-      case 'Device Not Found':
-        return new DeviceNotFind();
-
-      case 'Init_IframeLoadFail':
-        return new InitIframeTimeout();
-
-      case 'Init_IframeTimeout':
-        return new InitIframeLoadFail();
-
-      case 'PIN码错误':
-      case 'PIN invalid':
-        return new InvalidPIN();
-
-      case 'EIP712 blind sign is disabled':
-        return new OpenBlindSign();
-
+    switch (code) {
+      case HardwareErrorCode.UnknownError:
+        return new Error.UnknownHardwareError({ message: msg });
+      case HardwareErrorCode.DeviceFwException:
+        return new Error.FirmwareVersionTooLow({ message: msg });
+      case HardwareErrorCode.DeviceUnexpectedMode:
+        if (
+          typeof msg === 'string' &&
+          msg.indexOf('ui-device_bootloader_mode') !== -1
+        ) {
+          return new Error.NotInBootLoaderMode();
+        }
+        return new Error.UnknownHardwareError({ message: msg });
+      case HardwareErrorCode.DeviceNotFound:
+        return new Error.DeviceNotFind({ message: msg });
+      case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
+        return new Error.NotInBootLoaderMode({ message: msg });
+      case HardwareErrorCode.IFrameLoadFail:
+        return new Error.InitIframeLoadFail({ message: msg });
+      case HardwareErrorCode.IframeTimeout:
+        return new Error.InitIframeTimeout({ message: msg });
+      case HardwareErrorCode.FirmwareUpdateDownloadFailed:
+        return new Error.FirmwareDownloadFailed({ message: msg });
+      case HardwareErrorCode.NetworkError:
+        return new Error.NetworkError({ message: msg });
+      case HardwareErrorCode.BlePermissionError:
+        return new Error.NeedBluetoothTurnedOn({ message: msg });
+      case HardwareErrorCode.BleLocationError:
+        return new Error.NeedBluetoothPermissions({ message: msg });
+      case HardwareErrorCode.BleDeviceNotBonded:
+        return new Error.DeviceNotBonded({ message: msg });
+      case HardwareErrorCode.RuntimeError:
+        if (msg.indexOf('EIP712 blind sign is disabled') !== -1) {
+          return new Error.OpenBlindSign({ message: msg });
+        }
+        if (msg.indexOf('Unknown message') !== -1) {
+          return new Error.UnknownMethod({ message: msg });
+        }
+        return new Error.UnknownHardwareError({ message: msg });
+      case HardwareErrorCode.PinInvalid:
+        return new Error.InvalidPIN({ message: msg });
+      case HardwareErrorCode.PinCancelled:
+      case HardwareErrorCode.ActionCancelled:
+        return new Error.UserCancel({ message: msg });
+      case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
+        return new Error.NeedOneKeyBridge({ message: msg });
       default:
-        return new UnknownHardwareError();
+        return new Error.UnknownHardwareError({ message: msg });
     }
   }
 }
