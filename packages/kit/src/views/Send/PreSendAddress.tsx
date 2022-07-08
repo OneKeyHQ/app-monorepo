@@ -52,14 +52,10 @@ function PreSendAddress() {
   const submitDisabled = isLoading || !formValues?.to || !isValid;
 
   const [warningMessage, setWarningMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   useEffect(() => {
     async function retrieveMessages() {
-      if (submitDisabled) {
-        setWarningMessage('');
-        setSuccessMessage('');
-      } else if (
-        formValues?.to &&
+      if (
+        !submitDisabled &&
         (await backgroundApiProxy.validator.isContractAddress(
           networkId,
           formValues.to,
@@ -70,24 +66,13 @@ function PreSendAddress() {
             id: 'msg__the_recipient_address_is_a_contract_address',
           }),
         );
-        setSuccessMessage('');
       } else {
-        setSuccessMessage(
-          intl.formatMessage({ id: 'form__enter_recipient_address_valid' }),
-        );
         setWarningMessage('');
       }
     }
 
     retrieveMessages();
-  }, [
-    intl,
-    submitDisabled,
-    setWarningMessage,
-    setSuccessMessage,
-    networkId,
-    formValues?.to,
-  ]);
+  }, [intl, submitDisabled, setWarningMessage, networkId, formValues?.to]);
 
   return (
     <BaseSendModal
@@ -117,8 +102,14 @@ function PreSendAddress() {
               </Box>
               <Form.Item
                 control={control}
-                warningMessage={warningMessage}
-                successMessage={successMessage}
+                warningMessage={submitDisabled ? '' : warningMessage}
+                successMessage={
+                  submitDisabled || !!warningMessage
+                    ? ''
+                    : intl.formatMessage({
+                        id: 'form__enter_recipient_address_valid',
+                      })
+                }
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
