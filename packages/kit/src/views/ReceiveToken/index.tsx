@@ -85,18 +85,13 @@ const ReceiveToken = () => {
   }, [toast, shownAddress, intl]);
 
   const renderHiddenAddress = () => (
-    <Box
-      testID="hidden-address"
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-    >
+    <Box flexDirection="column" alignItems="center" justifyContent="center">
       <Box
         borderRadius="24px"
         alignItems="center"
         justifyContent="center"
-        w={{ base: 296 }}
-        h={{ base: 296 }}
+        w={{ base: 296, md: 208 }}
+        h={{ base: 296, md: 208 }}
         bgColor="surface-default"
         borderColor="border-subdued"
         borderWidth="1px"
@@ -182,7 +177,6 @@ const ReceiveToken = () => {
                   bgColor="surface-default"
                   w={{ base: 296, md: 'auto' }}
                   mx="auto"
-                  testID="receive-token-address-container"
                 >
                   <Text
                     typography="Body2"
