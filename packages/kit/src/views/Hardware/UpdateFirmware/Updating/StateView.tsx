@@ -125,8 +125,12 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
         case 'reboot-bootloader-failure':
           stateContent = {
             emoji: '🔗',
-            title: 'Reboot bootloader failed',
-            description: 'Please check the device and try again.',
+            title: intl.formatMessage({
+              id: 'modal__enter_bootloader_mode_error',
+            }),
+            description: intl.formatMessage({
+              id: 'modal__enter_bootloader_mode_error_desc',
+            }),
           };
           break;
 
