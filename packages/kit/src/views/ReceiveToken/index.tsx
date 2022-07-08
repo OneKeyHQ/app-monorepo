@@ -12,6 +12,7 @@ import {
   Modal,
   QRCode,
   Text,
+  ToastManager,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
@@ -50,6 +51,7 @@ const ReceiveToken = () => {
 
   const [isHwWallet, setIsHwWallet] = useState(false);
   const [onHardwareConfirmed, setOnHardwareConfirmed] = useState(false);
+  const [isLoadingForHardware, setIsLoadingForHardware] = useState(false);
 
   useEffect(() => {
     engine.getHWDeviceByWalletId(walletId).then((device) => {
@@ -62,22 +64,33 @@ const ReceiveToken = () => {
     return hwAddress;
   }, [engine, accountId, networkId, walletId]);
 
-  const { ensureConnected, abortConnect, confirmConnected, loading } =
+  const { ensureConnected, abortConnect, confirmConnected } =
     useEnsureConnected();
 
   useEffect(() => {
     if (confirmConnected) {
+      setIsLoadingForHardware(true);
       getAddress()
         .then((res) => setOnHardwareConfirmed(res === shownAddress))
-        .catch(() => {});
+        .catch((e: Error) => {
+          ToastManager.show({
+            title: e.message,
+          });
+        })
+        .finally(() => setIsLoadingForHardware(false));
     }
-    return () => abortConnect();
-  }, [confirmConnected, getAddress, shownAddress, abortConnect]);
+  }, [confirmConnected, getAddress, shownAddress]);
 
-  const confirmOnDevice = useCallback(
-    async () => ensureConnected(walletId),
-    [ensureConnected, walletId],
-  );
+  useEffect(() => () => abortConnect(), [abortConnect]);
+
+  const confirmOnDevice = useCallback(async () => {
+    setIsLoadingForHardware(true);
+    try {
+      await ensureConnected(walletId);
+    } finally {
+      setIsLoadingForHardware(false);
+    }
+  }, [ensureConnected, walletId]);
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);
@@ -127,7 +140,7 @@ const ReceiveToken = () => {
           mt={isVerticalLayout ? '32px' : '24px'}
           type="primary"
           size={isVerticalLayout ? 'xl' : 'base'}
-          isLoading={loading}
+          isLoading={isLoadingForHardware}
           onPress={() => confirmOnDevice()}
         >
           {intl.formatMessage({

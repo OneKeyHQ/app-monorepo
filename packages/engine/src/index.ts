@@ -589,7 +589,7 @@ class Engine {
       return address;
     } catch (e) {
       throw new OneKeyHardwareError({
-        message: 'Get Address Failed',
+        message: 'Failed to get address',
       });
     }
   }

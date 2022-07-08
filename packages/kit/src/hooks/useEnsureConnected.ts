@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -83,9 +83,9 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
     return true;
   }
 
-  const abortConnect = () => {
+  const abortConnect = useCallback(() => {
     serviceHardware.stopPolling();
-  };
+  }, [serviceHardware]);
 
   return {
     ensureConnected,
