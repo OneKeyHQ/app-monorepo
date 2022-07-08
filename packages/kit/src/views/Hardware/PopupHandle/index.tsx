@@ -44,8 +44,12 @@ const PopupHandle: FC = () => {
   const { uiRequest, payload } = hardwarePopup;
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    console.log('PopupHandle:', uiRequest, payload, visiblePopup);
+    console.log(
+      `PopupHandle: uiRequest:${uiRequest ?? 'undefined'}  visiblePopup:${
+        visiblePopup ?? 'undefined'
+      }`,
+      payload,
+    );
 
     if (uiRequest === UI_REQUEST.REQUEST_PIN) {
       if (visiblePopup === uiRequest) return;
@@ -90,9 +94,12 @@ const PopupHandle: FC = () => {
     }
 
     if (uiRequest === UI_REQUEST.REQUEST_BUTTON) {
-      if (visiblePopup === uiRequest) return;
+      const formatUiRequest = `${uiRequest}-${
+        payload?.deviceBootLoaderMode ? 'bootloader' : ''
+      }`;
 
-      setVisiblePopup(uiRequest);
+      if (visiblePopup === formatUiRequest) return;
+      setVisiblePopup(formatUiRequest);
 
       const deviceType = payload?.deviceType ?? 'classic';
 
@@ -102,6 +109,7 @@ const PopupHandle: FC = () => {
           render: (
             <RequestConfirmView
               deviceType={deviceType}
+              bootLoader={payload?.deviceBootLoaderMode}
               onCancel={() => {
                 dispatch(cancelHardwarePopup());
               }}

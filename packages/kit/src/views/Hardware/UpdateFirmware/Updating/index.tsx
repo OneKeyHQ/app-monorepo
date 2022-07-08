@@ -299,14 +299,28 @@ const UpdatingModal: FC = () => {
                 (deviceType === 'mini' || deviceType === 'touch')
               ) {
                 setStateViewInfo({
-                  type: 'manually-enter-bootloader',
-                  content: { deviceType },
+                  type: 'manually-enter-bootloader-one',
+                  content: {
+                    deviceType,
+                    primaryActionTranslationId:
+                      deviceType === 'touch' ? 'action__continue' : undefined,
+                    nextState:
+                      deviceType === 'mini'
+                        ? {
+                            type: 'manually-enter-bootloader-two',
+                            content: {
+                              deviceType,
+                              primaryActionTranslationId: 'action__continue',
+                            },
+                          }
+                        : undefined,
+                  },
                 });
+                // TODO check OneKey mini bootloader_mode exceptional case
                 setProgressState('failure');
                 return;
               }
 
-              // Prevents incorrect firmware brushing
               if (deviceType !== device?.deviceType) {
                 setStateViewInfo({
                   type: 'device-mismatch',
@@ -442,15 +456,25 @@ const UpdatingModal: FC = () => {
     setProgressStepDesc(hint);
   }, [generateProgressStepDesc, progressStep]);
 
+  const primaryActionContent = useMemo(() => {
+    if (hasStepDone) return 'action__done';
+    if (stateViewInfo?.content?.primaryActionTranslationId)
+      return stateViewInfo.content.primaryActionTranslationId;
+    if (stateViewInfo?.content?.nextState) return 'action__next';
+    return 'action__retry';
+  }, [
+    hasStepDone,
+    stateViewInfo?.content?.nextState,
+    stateViewInfo?.content?.primaryActionTranslationId,
+  ]);
+
   return (
     <Modal
       closeOnOverlayClick={false}
       footer={hasFailure || hasStepDone ? undefined : null}
       maxHeight={560}
       hideSecondaryAction={hasStepDone}
-      primaryActionTranslationId={
-        hasStepDone ? 'action__done' : 'action__retry'
-      }
+      primaryActionTranslationId={primaryActionContent}
       headerShown={false}
       closeAction={() => {
         if (progressState === 'running') {
@@ -468,6 +492,8 @@ const UpdatingModal: FC = () => {
         if (hasStepDone) {
           if (navigation.canGoBack()) navigation.getParent()?.goBack();
           onSuccess?.();
+        } else if (stateViewInfo?.content?.nextState) {
+          setStateViewInfo(stateViewInfo.content.nextState);
         } else {
           retryStep();
         }

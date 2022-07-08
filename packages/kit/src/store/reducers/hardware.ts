@@ -10,6 +10,7 @@ export type HardwarePopup = {
     type: string;
     deviceType: IOneKeyDeviceType;
     deviceConnectId: string;
+    deviceBootLoaderMode: boolean;
   };
 };
 

@@ -60,7 +60,12 @@ export const DevSettingSection = () => {
               onToggle={onToggleTestVersionUpdate}
             />
           </Container.Item>
-          <Container.Item title="updateDeviceBle" titleColor="text-default">
+          <Container.Item
+            title={intl.formatMessage({
+              id: 'action__test_update_ble_firmware',
+            })}
+            titleColor="text-default"
+          >
             <Switch
               labelType="false"
               isChecked={updateDeviceBle}
@@ -69,7 +74,10 @@ export const DevSettingSection = () => {
               }}
             />
           </Container.Item>
-          <Container.Item title="updateDeviceSys" titleColor="text-default">
+          <Container.Item
+            title={intl.formatMessage({ id: 'action__test_update_firmware' })}
+            titleColor="text-default"
+          >
             <Switch
               labelType="false"
               isChecked={updateDeviceSys}

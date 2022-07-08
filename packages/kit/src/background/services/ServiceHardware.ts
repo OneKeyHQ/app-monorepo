@@ -50,7 +50,8 @@ class ServiceHardware extends ServiceBase {
 
         setTimeout(() => {
           const { device, type: eventType } = payload || {};
-          const { deviceType, connectId } = device || {};
+          const { deviceType, connectId, features } = device || {};
+          const { bootloader_mode: bootLoaderMode } = features || {};
 
           this.backgroundApi.dispatch(
             setHardwarePopup({
@@ -59,6 +60,7 @@ class ServiceHardware extends ServiceBase {
                 type: eventType,
                 deviceType,
                 deviceConnectId: connectId,
+                deviceBootLoaderMode: !!bootLoaderMode,
               },
             }),
           );

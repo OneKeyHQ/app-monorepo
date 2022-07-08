@@ -6,11 +6,11 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
-  Image,
   LottieView,
   Text,
   Typography,
 } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 
 export type StateViewType =
   | 'pre-check-failure'
@@ -24,7 +24,8 @@ export type StateViewType =
   | 'reboot-bootloader-failure'
   | 'success'
   | 'bluetooth-turned-off'
-  | 'manually-enter-bootloader';
+  | 'manually-enter-bootloader-one'
+  | 'manually-enter-bootloader-two';
 
 type StateContent = {
   emoji?: string;
@@ -33,6 +34,8 @@ type StateContent = {
   description?: string;
   deviceType?: IDeviceType;
   help?: string;
+  nextState?: StateViewTypeInfo;
+  primaryActionTranslationId?: LocaleIds;
 };
 
 export type StateViewTypeInfo = {
@@ -158,19 +161,36 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
           };
           break;
 
-        case 'manually-enter-bootloader':
+        case 'manually-enter-bootloader-one':
           stateContent = {
-            title: '需要手动进入 BootLoader 模式',
+            title: intl.formatMessage({ id: 'modal__enter_bootloader_mode' }),
+          };
+
+          if (stateInfo?.content?.deviceType === 'mini') {
+            // eslint-disable-next-line global-require
+            stateContent.sourceSrc = require('@onekeyhq/kit/assets/wallet/lottie-onekey-mini-in-bootloader-mode-disconnect-your-device.json');
+            stateContent.description = intl.formatMessage({
+              id: 'modal__disconnecting_device',
+            });
+          } else if (stateInfo?.content?.deviceType === 'touch') {
+            stateContent.emoji = '📱';
+            stateContent.description = intl.formatMessage({
+              id: 'modal__enter_bootloader_mode_touch',
+            });
+          }
+          break;
+
+        case 'manually-enter-bootloader-two':
+          stateContent = {
+            title: intl.formatMessage({ id: 'modal__enter_bootloader_mode' }),
           };
 
           if (stateInfo?.content?.deviceType === 'mini') {
             // eslint-disable-next-line global-require
             stateContent.sourceSrc = require('@onekeyhq/kit/assets/wallet/lottie-onekey-mini-in-bootloader-mode.json');
-            stateContent.description =
-              '1. 断开设备连接\n2. 按住 MINI 顶部按键的同时，重新插入 USB 线连接\n3. 此时设备显示 bootloader 字样，松开顶部按键即可';
-          } else if (stateInfo?.content?.deviceType === 'touch') {
-            stateContent.description =
-              '1. 将设备关机\n2. 按住 TOUCH 开关按键的同时，滑动屏幕\n3. 此时设备显示 Download Mode 字样即可';
+            stateContent.description = intl.formatMessage({
+              id: 'modal__enter_bootloader_mode_mini_step_1',
+            });
           }
           break;
 
@@ -201,7 +221,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
 
           <Typography.DisplayMedium mt={4}>{title}</Typography.DisplayMedium>
           {!!description && (
-            <Typography.Body1 color="text-subdued" mt={2}>
+            <Typography.Body1 color="text-subdued" mt={2} textAlign="center">
               {description}
             </Typography.Body1>
           )}

@@ -4,6 +4,8 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
+  Box,
   Markdown,
   Modal,
   ToastManager,
@@ -93,6 +95,17 @@ const UpdateInfoModal: FC = () => {
             <Typography.DisplayMedium textAlign="center">
               {intl.formatMessage({ id: 'modal__firmware_update' })}
             </Typography.DisplayMedium>
+
+            <Box mt={4}>
+              <Alert
+                dismiss={false}
+                alertType="info"
+                customIconName="LightningBoltSolid"
+                title={intl.formatMessage({
+                  id: 'modal__firmware_update_hint',
+                })}
+              />
+            </Box>
 
             {!!bleFirmware && (
               <>
