@@ -11,13 +11,13 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { NeedOneKeyBridge } from '../../utils/hardware/errors';
+import { CustomOneKeyHardwareError } from '../../utils/hardware/errors';
 import NeedBridgeDialog from '../NeedBridgeDialog';
 
 import Setup from './Setup';
@@ -108,17 +108,19 @@ const Protected: FC<ProtectedProps> = ({
         features = await serviceHardware.ensureConnected(
           currentWalletDevice.mac,
         );
-      } catch (e) {
+      } catch (e: any) {
         safeGoBack();
 
-        if (e instanceof NeedOneKeyBridge) {
+        const { className, key, code } = e || {};
+
+        if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
           DialogManager.show({ render: <NeedBridgeDialog /> });
           return;
         }
 
-        if (e instanceof OneKeyHardwareError) {
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
           ToastManager.show({
-            title: intl.formatMessage({ id: e.key }),
+            title: intl.formatMessage({ id: key }),
           });
         } else {
           ToastManager.show({

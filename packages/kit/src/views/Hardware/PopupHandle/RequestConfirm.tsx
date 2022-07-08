@@ -23,10 +23,12 @@ const getConfirmAnimation = (type: string) => {
 
 type RequestConfirmViewProps = {
   deviceType: IDeviceType;
+  bootLoader?: boolean;
 } & Omit<BaseRequestViewProps, 'children'>;
 
 const RequestConfirmView: FC<RequestConfirmViewProps> = ({
   deviceType,
+  bootLoader,
   ...props
 }) => {
   const intl = useIntl();
@@ -39,13 +41,16 @@ const RequestConfirmView: FC<RequestConfirmViewProps> = ({
         loop
         style={{ width: '100%' }}
       />
+
       <Text
         typography="DisplayMedium"
         mt={6}
         textAlign="center"
         color="text-default"
       >
-        {intl.formatMessage({ id: 'modal__confirm_on_device' })}
+        {bootLoader
+          ? intl.formatMessage({ id: 'msg__firmware_is_being_upgraded' })
+          : intl.formatMessage({ id: 'modal__confirm_on_device' })}
       </Text>
     </BaseRequestView>
   );

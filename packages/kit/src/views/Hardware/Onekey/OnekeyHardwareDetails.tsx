@@ -1,18 +1,28 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
+import { getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Container, Modal, ToastManager } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import Protected from '../../../components/Protected';
+import {
+  Box,
+  Container,
+  Icon,
+  Modal,
+  ToastManager,
+} from '@onekeyhq/components';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import Protected from '@onekeyhq/kit/src/components/Protected';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
-} from '../../../routes/Modal/HardwareOnekey';
+} from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
@@ -29,22 +39,32 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const { engine, serviceHardware } = backgroundApiProxy;
-  const [deviceFeatures, setDeviceFeatures] =
-    useState<IOneKeyDeviceFeatures | null>(null);
+  const { deviceUpdates } = useSettings() || {};
+
+  const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
+  const [deviceConnectId, setDeviceConnectId] = useState<string>();
+
+  const updates = useMemo(
+    () => deviceUpdates?.[deviceConnectId ?? ''],
+    [deviceUpdates, deviceConnectId],
+  );
 
   useEffect(() => {
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
         const features = await serviceHardware.getFeatures(device?.mac ?? '');
-        setDeviceFeatures(features ?? null);
-      } catch (err) {
+        setDeviceConnectId(device?.mac);
+        setDeviceFeatures(features ?? undefined);
+      } catch (err: any) {
         if (navigation.canGoBack()) {
           navigation.goBack();
         }
-        if (err instanceof OneKeyHardwareError) {
+
+        const { className, key } = err || {};
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
           ToastManager.show({
-            title: intl.formatMessage({ id: err.key }),
+            title: intl.formatMessage({ id: key }),
           });
         } else {
           ToastManager.show({
@@ -64,42 +84,62 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
       alignItems="center"
       mb={{ base: 4, md: 0 }}
     >
-      {/* <Container.Box mt={6}>
-              <Container.Item
-                onPress={() => {}}
-                titleColor="text-default"
-                title="Update Available"
-                subDescribeCustom={
-                  <Icon name="InformationCircleSolid" color="icon-success" />
-                }
-              />
-            </Container.Box> */}
+      {(updates?.ble || updates?.firmware) && (
+        <Container.Box mb={4}>
+          <Container.Item
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.HardwareUpdate,
+                params: {
+                  screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
+                  params: {
+                    walletId,
+                    onSuccess: () => {
+                      if (navigation.canGoBack()) {
+                        navigation.goBack();
+                      }
+                    },
+                  },
+                },
+              });
+            }}
+            titleColor="text-default"
+            title={intl.formatMessage({ id: 'action__update_available' })}
+            subDescribeCustom={
+              <Icon name="InformationCircleSolid" color="icon-success" />
+            }
+          />
+        </Container.Box>
+      )}
 
       <Container.Box>
         <Container.Item
           titleColor="text-default"
           describeColor="text-subdued"
-          title="Serial Number"
-          describe={deviceFeatures?.onekey_serial ?? '-'}
+          title={intl.formatMessage({ id: 'content__serial_number' })}
+          describe={deviceFeatures ? getDeviceUUID(deviceFeatures) : '-'}
         />
 
         <Container.Item
           titleColor="text-default"
           describeColor="text-subdued"
-          title="Bluetooth Name"
+          title={intl.formatMessage({ id: 'content__firmware_version' })}
+          describe={getDeviceFirmwareVersion(deviceFeatures).join('.')}
+        />
+
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title={intl.formatMessage({ id: 'content__bluetooth_name' })}
           describe={deviceFeatures?.ble_name ?? '-'}
         />
 
         <Container.Item
           titleColor="text-default"
           describeColor="text-subdued"
-          title="Firmware Version"
-          describe={deviceFeatures?.onekey_version ?? '-'}
-        />
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title="Bluetooth Firmware Version"
+          title={intl.formatMessage({
+            id: 'content__bluetooth_firmware_version',
+          })}
           describe={deviceFeatures?.ble_ver ?? '-'}
         />
       </Container.Box>

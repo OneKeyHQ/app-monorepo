@@ -107,6 +107,24 @@ const TabNavigator = () => {
     [activeNetwork?.id, intl, wallet?.type],
   );
 
+  const tabRoutesList = useMemo(
+    () =>
+      tabRoutes.map((tab) => (
+        <Tab.Screen
+          key={tab.name}
+          name={tab.name}
+          component={
+            isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
+          }
+          options={{
+            tabBarIcon: tab.tabBarIcon,
+            tabBarLabel: intl.formatMessage({ id: tab.translationId }),
+          }}
+        />
+      )),
+    [intl, isVerticalLayout],
+  );
+
   return useMemo(
     () => (
       <Tab.Navigator
@@ -117,22 +135,10 @@ const TabNavigator = () => {
           foldableList,
         }}
       >
-        {tabRoutes.map((tab) => (
-          <Tab.Screen
-            key={tab.name}
-            name={tab.name}
-            component={
-              isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
-            }
-            options={{
-              tabBarIcon: tab.tabBarIcon,
-              tabBarLabel: intl.formatMessage({ id: tab.translationId }),
-            }}
-          />
-        ))}
+        {tabRoutesList}
       </Tab.Navigator>
     ),
-    [renderHeader, intl, isVerticalLayout, foldableList],
+    [foldableList, renderHeader, tabRoutesList],
   );
 };
 

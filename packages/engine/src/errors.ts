@@ -5,13 +5,14 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 
 export enum OneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
+  OneKeyHardwareError = 'OneKeyHardwareError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
-export class OneKeyError extends Web3RpcError<Error> {
+export class OneKeyError<T = Error> extends Web3RpcError<T> {
   className = OneKeyErrorClassNames.OneKeyError;
 
   info: IOneKeyErrorInfo;
@@ -63,8 +64,12 @@ export class OneKeyInternalError extends OneKeyError {
   override key = 'msg__engine__internal_error';
 }
 
-export class OneKeyHardwareError extends OneKeyError {
-  reconnect = false;
+export class OneKeyHardwareError extends OneKeyError<{ reconnect: boolean }> {
+  override className = OneKeyErrorClassNames.OneKeyHardwareError;
+
+  override data: { reconnect: boolean } = {
+    reconnect: false,
+  };
 
   codeHardware?: string;
 

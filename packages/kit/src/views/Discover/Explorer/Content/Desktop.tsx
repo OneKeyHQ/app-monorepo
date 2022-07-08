@@ -16,6 +16,7 @@ import {
   HStack,
   IconButton,
   Input,
+  Pressable,
 } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components';
 
@@ -149,45 +150,53 @@ const Desktop: FC<ExplorerViewProps> = ({
                 onPress={loading ? onStopLoading : onRefresh}
               />
 
-              <BrowserURLInput
-                ref={searchBar}
+              <Pressable
                 flex={1}
-                h="38px"
-                placeholder={intl.formatMessage({
-                  id: 'content__search_or_enter_dapp_url',
-                })}
-                customLeftIcon={httpSafeState}
-                size="base"
-                value={searchContent?.searchContent}
-                onClear={() => onSearchContentChange?.({ searchContent: '' })}
-                onChangeText={(text) =>
-                  onSearchContentChange?.({ searchContent: text })
-                }
-                onSubmitEditing={(event) => {
-                  if (searchContent?.dapp) {
-                    onSearchSubmitEditing?.(searchContent.dapp);
-                  } else {
-                    onSearchContentChange?.({
-                      searchContent: event.nativeEvent.text,
-                    });
-                    onSearchSubmitEditing?.(event.nativeEvent.text);
+                style={{
+                  // @ts-expect-error
+                  WebkitAppRegion: 'no-drag',
+                }}
+              >
+                <BrowserURLInput
+                  ref={searchBar}
+                  w="100%"
+                  h="38px"
+                  placeholder={intl.formatMessage({
+                    id: 'content__search_or_enter_dapp_url',
+                  })}
+                  customLeftIcon={httpSafeState}
+                  size="base"
+                  value={searchContent?.searchContent}
+                  onClear={() => onSearchContentChange?.({ searchContent: '' })}
+                  onChangeText={(text) =>
+                    onSearchContentChange?.({ searchContent: text })
                   }
-                }}
-                onKeyPress={(event) => {
-                  const { key } = event.nativeEvent;
-                  if (key === 'ArrowUp' || key === 'ArrowDown') {
-                    onKeyEvent?.(key);
-                    // 阻断 上键、下键 事件传递
-                    event.preventDefault();
-                  }
-                }}
-                onFocus={() => {
-                  setHistoryVisible(true);
-                }}
-                onBlur={() => {
-                  setHistoryVisible(false);
-                }}
-              />
+                  onSubmitEditing={(event) => {
+                    if (searchContent?.dapp) {
+                      onSearchSubmitEditing?.(searchContent.dapp);
+                    } else {
+                      onSearchContentChange?.({
+                        searchContent: event.nativeEvent.text,
+                      });
+                      onSearchSubmitEditing?.(event.nativeEvent.text);
+                    }
+                  }}
+                  onKeyPress={(event) => {
+                    const { key } = event.nativeEvent;
+                    if (key === 'ArrowUp' || key === 'ArrowDown') {
+                      onKeyEvent?.(key);
+                      // 阻断 上键、下键 事件传递
+                      event.preventDefault();
+                    }
+                  }}
+                  onFocus={() => {
+                    setHistoryVisible(true);
+                  }}
+                  onBlur={() => {
+                    setHistoryVisible(false);
+                  }}
+                />
+              </Pressable>
 
               {/* <IconButton
             type="plain"

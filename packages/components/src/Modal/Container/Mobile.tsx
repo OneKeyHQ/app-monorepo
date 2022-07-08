@@ -38,6 +38,7 @@ const MobileModal: FC<ModalProps> = ({
   headerShown,
   headerDescription,
   closeAction,
+  hideBackButton,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -75,6 +76,7 @@ const MobileModal: FC<ModalProps> = ({
               size="xl"
               name="ChevronLeftOutline"
               type="plain"
+              opacity={hideBackButton ? 0 : 1}
               circle
               onPress={() => {
                 if (onBackActionPress) {

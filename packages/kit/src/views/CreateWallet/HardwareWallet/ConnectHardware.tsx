@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -23,7 +24,7 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -45,7 +46,6 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Wallet } from '../../../../../engine/src/types/wallet';
 import {
-  DeviceNotBonded,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '../../../utils/hardware/errors';
@@ -212,8 +212,9 @@ const ConnectHardwareModal: FC = () => {
         .then((result) => {
           finishConnected(result);
         })
-        .catch(async (err) => {
-          if (err instanceof DeviceNotBonded) {
+        .catch(async (err: any) => {
+          const { className, key, code } = err || {};
+          if (code === HardwareErrorCode.BleDeviceNotBonded) {
             if (!checkBonded && platformEnv.isNativeAndroid) {
               setCheckBonded(true);
               const bonded = await deviceUtils.checkDeviceBonded(
@@ -226,9 +227,9 @@ const ConnectHardwareModal: FC = () => {
                 });
               }
             }
-          } else if (err instanceof OneKeyHardwareError) {
+          } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
             ToastManager.show({
-              title: intl.formatMessage({ id: err.key }),
+              title: intl.formatMessage({ id: key }),
             });
           } else {
             ToastManager.show({

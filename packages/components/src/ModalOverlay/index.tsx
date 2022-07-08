@@ -8,10 +8,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 type ModalOverlayProps = {
   onClose?: () => void;
   hasFormInsideDialog?: boolean;
+  canceledOnTouchOutside?: boolean;
 };
 
 const ModalOverlay: FC<ModalOverlayProps> = ({
   onClose,
+  canceledOnTouchOutside,
   children,
   ...rest
 }) => {
@@ -21,6 +23,7 @@ const ModalOverlay: FC<ModalOverlayProps> = ({
         isOpen
         onClose={onClose}
         bg="overlay"
+        closeOnOverlayClick={canceledOnTouchOutside}
         animationPreset="fade"
         {...rest}
       >

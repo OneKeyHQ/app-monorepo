@@ -6,9 +6,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export type BaseRequestViewProps = {
   children: React.ReactNode;
   onCancel: () => void;
+  onClose?: () => void;
 };
 
-const BaseRequestView: FC<BaseRequestViewProps> = ({ children, onCancel }) => {
+const BaseRequestView: FC<BaseRequestViewProps> = ({
+  children,
+  onCancel,
+  onClose,
+}) => {
   const [showClose, setShowClose] = useState(false);
 
   useEffect(() => {
@@ -22,7 +27,7 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({ children, onCancel }) => {
   }, []);
 
   return (
-    <ModalOverlay onClose={onCancel}>
+    <ModalOverlay onClose={onClose} canceledOnTouchOutside={false}>
       <Box w="full" h="full" alignItems="center" bg="overlay">
         <Box px={6} w="full" maxW="374" top={platformEnv.isNativeIOS ? 16 : 10}>
           <Box

@@ -18,11 +18,13 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
     encodedTx,
     sourceInfo,
     decodedTx: decodedTxLegacy,
+    sendConfirmParams,
   } = props;
   const decodedTx = decodedTxLegacy as IDecodedTxLegacy;
 
   const feeInput = (
     <FeeInfoInputForConfirm
+      sendConfirmParams={sendConfirmParams}
       editable={feeInfoEditable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
