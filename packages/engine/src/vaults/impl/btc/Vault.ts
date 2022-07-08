@@ -411,6 +411,9 @@ export default class Vault extends VaultBase {
       return ret;
     }
     const { xpub } = (await this.getDbAccount()) as DBUTXOAccount;
+    if (!xpub) {
+      return [new BigNumber('0'), ...ret];
+    }
     const [mainBalance] = await this.getBalances([{ address: xpub }]);
     return [mainBalance].concat(ret);
   }

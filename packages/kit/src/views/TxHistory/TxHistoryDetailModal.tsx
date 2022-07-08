@@ -85,6 +85,7 @@ const TxHistoryDetailModal: FC = () => {
             />
             {platformEnv.isDev && (
               <Button
+                testID="showTxDataBtn"
                 mt={6}
                 onPress={() => {
                   console.log({

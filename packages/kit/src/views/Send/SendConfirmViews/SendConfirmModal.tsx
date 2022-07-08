@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Modal } from '@onekeyhq/components';
+import { Modal, Text } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
@@ -13,12 +12,14 @@ import {
   IEncodedTx,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmParams, SendConfirmPayload } from '../types';
 
+import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 export type ITxConfirmViewPropsHandleConfirm = ({
@@ -76,29 +77,27 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
   });
   const modalClose = useModalClose();
 
+  const nativeBalance = useMemo(
+    () =>
+      getTokenBalance({
+        token: nativeToken,
+        defaultValue: '0',
+      }),
+    [getTokenBalance, nativeToken],
+  );
+
   // TODO move to validator
+  const fee = feeInfoPayload?.current?.totalNative ?? '0';
+
   const balanceInsufficient = useMemo(() => {
-    const fee = feeInfoPayload?.current?.totalNative ?? '0';
-    const nativeBalance = getTokenBalance({
-      token: nativeToken,
-      defaultValue: '0',
-    });
+    console.log('SendConfirmModal nativeBalance >>>> ', nativeBalance);
     return new BigNumber(nativeBalance).lt(new BigNumber(fee));
-  }, [feeInfoPayload, getTokenBalance, nativeToken]);
+  }, [fee, nativeBalance]);
 
   const isWatchingAccount = useMemo(
     () => !!(accountId && accountId.startsWith('watching-')),
     [accountId],
   );
-
-  const isNetworkNotMatched = useMemo(() => {
-    if (!sourceInfo) {
-      return false;
-    }
-    // dapp tx should check scope matched
-    // TODO add injectedProviderName to vault settings
-    return sourceInfo.scope !== IInjectedProviderNames.ethereum; // network.settings.injectedProviderName
-  }, [sourceInfo]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -125,7 +124,6 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled:
-          isNetworkNotMatched ||
           isWatchingAccount ||
           balanceInsufficient ||
           feeInfoLoading ||
@@ -148,13 +146,19 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
                 nativeToken={nativeToken}
                 isWatchingAccount={isWatchingAccount}
                 balanceInsufficient={balanceInsufficient}
-                isNetworkNotMatched={isNetworkNotMatched}
               />
             )}
 
-            {children}
+            <SendConfirmErrorBoundary>
+              {children}
+              <DecodeTxButtonTest encodedTx={encodedTx} />
+            </SendConfirmErrorBoundary>
 
-            <DecodeTxButtonTest encodedTx={encodedTx} />
+            {platformEnv.isDev ? (
+              <Text>
+                {nativeBalance} {nativeToken?.symbol}
+              </Text>
+            ) : null}
           </>
         ),
       }}

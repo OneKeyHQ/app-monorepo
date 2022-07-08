@@ -23,6 +23,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { HISTORY_CONSTS } from '@onekeyhq/engine/src/constants';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import {
   IDecodedTxStatus,
   IHistoryTx,
@@ -278,6 +279,12 @@ function TxHistoryListViewComponent({
   );
   const isFocused = useIsFocused();
   const shouldDoRefresh = useMemo((): boolean => {
+    if (!accountId || !networkId) {
+      return false;
+    }
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+      return false;
+    }
     if (!isFocused) {
       return false;
     }
@@ -285,7 +292,7 @@ function TxHistoryListViewComponent({
       return homeTabName === WalletHomeTabEnum.History;
     }
     return true;
-  }, [homeTabName, isFocused, isHomeTab]);
+  }, [accountId, homeTabName, isFocused, isHomeTab, networkId]);
 
   // TODO isValidating, refreshHistoryTs cause re-render, please useContext instead
   const swrKey = isHomeTab ? 'fetchHistoryTx-homeTab' : 'fetchHistoryTx';
