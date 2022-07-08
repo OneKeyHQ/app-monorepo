@@ -17,7 +17,7 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
     const nowTime = new Date();
     if (
       lastTime === undefined ||
-      Math.round(nowTime.getTime() - lastTime.getTime()) > 500
+      Math.round(nowTime.getTime() - lastTime.getTime()) > 200
     ) {
       // reset
       lastTime = nowTime;
