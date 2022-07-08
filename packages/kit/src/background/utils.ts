@@ -180,7 +180,7 @@ export function makeTimeoutPromise<T>({
   timeout: number;
   timeoutResult: T;
 }) {
-  return new Promise<T>((resolve, reject) => {
+  return new Promise<T>((resolve) => {
     let isResolved = false;
     const timer = setTimeout(() => {
       if (isResolved) {

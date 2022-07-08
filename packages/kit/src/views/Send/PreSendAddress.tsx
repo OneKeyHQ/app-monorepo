@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { delay, makeTimeoutPromise } from '../../background/utils';
+import { makeTimeoutPromise } from '../../background/utils';
 import AddressInput from '../../components/AddressInput';
 import { useActiveWalletAccount } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';

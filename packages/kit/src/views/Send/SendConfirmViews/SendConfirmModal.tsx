@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -16,7 +15,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IDappSourceInfo } from '../../../background/IBackgroundApi';
-import { ErrorBoundary } from '../../../components/ErrorBoundary';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmParams, SendConfirmPayload } from '../types';

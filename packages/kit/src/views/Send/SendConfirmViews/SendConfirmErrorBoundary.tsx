@@ -1,7 +1,8 @@
-import { ErrorBoundaryBase } from '../../../components/ErrorBoundary';
-import { Text } from '@onekeyhq/components';
 import React from 'react';
 
+import { Text } from '@onekeyhq/components';
+
+import { ErrorBoundaryBase } from '../../../components/ErrorBoundary';
 
 export class SendConfirmErrorBoundary extends ErrorBoundaryBase {
   override render() {
