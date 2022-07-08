@@ -34,6 +34,7 @@ type NumberInputProps = ComponentProps<typeof Input> & {
 
 function fixNumberValue(t: string, decimal?: number) {
   let text = t.replace(/[^\\.0-9]/g, '');
+  text = t.replace(/^0+(\d)/, '$1');
   try {
     if (text.startsWith('.')) {
       const b = new BigNumber(text);
