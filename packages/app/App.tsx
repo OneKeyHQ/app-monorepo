@@ -12,7 +12,8 @@ import { LogBox } from 'react-native';
 
 import { Provider } from '@onekeyhq/kit';
 
-SplashScreen.preventAutoHideAsync();
+// 直接隐藏，后续去掉原生的splash-screen
+SplashScreen.hideAsync();
 LogBox.ignoreAllLogs();
 
 const App: FC = function () {

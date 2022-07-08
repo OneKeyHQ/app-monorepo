@@ -88,7 +88,8 @@
     "@types/react": "~17.0.21",
     "@types/react-native": "~0.67.7",
     "@types/react-native-base64": "^0.2.0",
-    "babel-plugin-module-resolver": "^4.1.0"
+    "babel-plugin-module-resolver": "^4.1.0",
+    "expo-dev-client": "^1.0.0"
   },
   "private": true
 }
