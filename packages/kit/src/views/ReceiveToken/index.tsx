@@ -62,13 +62,17 @@ const ReceiveToken = () => {
     return hwAddress;
   }, [engine, accountId, networkId, walletId]);
 
-  const { ensureConnected, confirmConnected, loading } = useEnsureConnected();
+  const { ensureConnected, abortConnect, confirmConnected, loading } =
+    useEnsureConnected();
 
   useEffect(() => {
     if (confirmConnected) {
-      getAddress().then((res) => setOnHardwareConfirmed(res === shownAddress));
+      getAddress()
+        .then((res) => setOnHardwareConfirmed(res === shownAddress))
+        .catch(() => {});
     }
-  }, [confirmConnected, getAddress, shownAddress]);
+    return () => abortConnect();
+  }, [confirmConnected, getAddress, shownAddress, abortConnect]);
 
   const confirmOnDevice = useCallback(
     async () => ensureConnected(walletId),

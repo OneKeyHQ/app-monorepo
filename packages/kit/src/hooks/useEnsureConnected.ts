@@ -44,7 +44,9 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
     try {
       features = await serviceHardware.ensureConnected(device.mac);
     } catch (e) {
-      showMessage();
+      if (e instanceof Error && e.message !== 'ABORT_CONNECT') {
+        showMessage();
+      }
       setLoading(false);
       setConfirmConnected(false);
       return false;
@@ -81,9 +83,14 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
     return true;
   }
 
+  const abortConnect = () => {
+    serviceHardware.stopPolling();
+  };
+
   return {
     ensureConnected,
     loading,
     confirmConnected,
+    abortConnect,
   };
 }
