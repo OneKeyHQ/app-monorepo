@@ -80,6 +80,18 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  async clearActiveAccountTokenBalance() {
+    const { accountId, networkId } = await this.getActiveWalletAccount();
+    this.backgroundApi.dispatch(
+      setAccountTokensBalances({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        tokensBalance: {},
+      }),
+    );
+  }
+
+  @backgroundMethod()
   async fetchTokenBalance({
     activeNetworkId,
     activeAccountId,

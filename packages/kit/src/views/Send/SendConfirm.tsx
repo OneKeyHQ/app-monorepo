@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
@@ -20,6 +22,7 @@ import { TxDetailView } from '../TxDetail/TxDetailView';
 
 import { FeeInfoInputForConfirmLite } from './FeeInfoInput';
 import SendConfirmLegacy from './SendConfirmLegacy';
+import { SendConfirmErrorsAlert } from './SendConfirmViews/SendConfirmErrorsAlert';
 import { SendConfirmLoading } from './SendConfirmViews/SendConfirmLoading';
 import {
   ITxConfirmViewProps,
@@ -319,6 +322,29 @@ function SendConfirm() {
 }
 
 function SendConfirmProxy() {
+  const { sourceInfo, routeParams } = useSendConfirmRouteParamsParsed();
+  const isNetworkNotMatched = useMemo(() => {
+    if (!sourceInfo) {
+      return false;
+    }
+    // dapp tx should check scope matched
+    // TODO add injectedProviderName to vault settings
+    return sourceInfo.scope !== IInjectedProviderNames.ethereum; // network.settings.injectedProviderName
+  }, [sourceInfo]);
+
+  if (isNetworkNotMatched) {
+    return (
+      <SendConfirmModal
+        sendConfirmParams={routeParams}
+        feeInfoPayload={null}
+        feeInfoLoading={false}
+        encodedTx={null}
+        handleConfirm={() => null}
+      >
+        <SendConfirmErrorsAlert isNetworkNotMatched />
+      </SendConfirmModal>
+    );
+  }
   return platformEnv.isLegacySendConfirm ? (
     <SendConfirmLegacy />
   ) : (

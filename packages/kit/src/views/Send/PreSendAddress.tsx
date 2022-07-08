@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,8 +6,9 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { makeTimeoutPromise } from '../../background/utils';
 import AddressInput from '../../components/AddressInput';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 
@@ -49,30 +50,29 @@ function PreSendAddress() {
     networkId,
     tokenIdOnNetwork: transferInfo.token,
   });
-  const submitDisabled = isLoading || !formValues?.to || !isValid;
+  const submitDisabled =
+    isLoading || !formValues?.to || !isValid || formState.isValidating;
 
   const [warningMessage, setWarningMessage] = useState('');
-  useEffect(() => {
-    async function retrieveMessages() {
-      if (
-        !submitDisabled &&
-        (await backgroundApiProxy.validator.isContractAddress(
-          networkId,
-          formValues.to,
-        ))
-      ) {
-        setWarningMessage(
-          intl.formatMessage({
-            id: 'msg__the_recipient_address_is_a_contract_address',
-          }),
-        );
-      } else {
-        setWarningMessage('');
-      }
-    }
+  const [successMessage, setSuccessMessage] = useState('');
 
-    retrieveMessages();
-  }, [intl, submitDisabled, setWarningMessage, networkId, formValues?.to]);
+  const isContractAddressCheck = useCallback(
+    (address: string) =>
+      makeTimeoutPromise({
+        asyncFunc: async () => {
+          const isContractAddress =
+            await backgroundApiProxy.validator.isContractAddress(
+              networkId,
+              address,
+            );
+          // await delay(10000);
+          return isContractAddress;
+        },
+        timeout: 600,
+        timeoutResult: false,
+      }),
+    [networkId],
+  );
 
   return (
     <BaseSendModal
@@ -102,21 +102,17 @@ function PreSendAddress() {
               </Box>
               <Form.Item
                 control={control}
-                warningMessage={submitDisabled ? '' : warningMessage}
-                successMessage={
-                  submitDisabled || !!warningMessage
-                    ? ''
-                    : intl.formatMessage({
-                        id: 'form__enter_recipient_address_valid',
-                      })
-                }
+                warningMessage={warningMessage}
+                successMessage={successMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async () => {
-                    const toAddress = formValues?.to;
+                    const toAddress = formValues?.to || '';
+                    setSuccessMessage('');
+                    setWarningMessage('');
                     if (!toAddress) {
                       return undefined;
                       // return intl.formatMessage({
@@ -132,6 +128,24 @@ function PreSendAddress() {
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });
+                    }
+                    const isContractAddress = await isContractAddressCheck(
+                      toAddress,
+                    );
+                    if (isContractAddress) {
+                      setWarningMessage(
+                        intl.formatMessage({
+                          id: 'msg__the_recipient_address_is_a_contract_address',
+                        }),
+                      );
+                      setSuccessMessage('');
+                    } else {
+                      setWarningMessage('');
+                      setSuccessMessage(
+                        intl.formatMessage({
+                          id: 'form__enter_recipient_address_valid',
+                        }),
+                      );
                     }
                     return true;
                   },

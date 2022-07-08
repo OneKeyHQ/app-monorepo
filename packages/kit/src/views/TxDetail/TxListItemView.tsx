@@ -136,6 +136,7 @@ function TxListItemView(props: {
           transformType="T0"
           space={`${paddingY * 2 - 1}px`}
           showDivider
+          showConnectionLine
         />
         {decodedTx.status === IDecodedTxStatus.Pending ? (
           <HStack space={2} mt={2}>
