@@ -34,6 +34,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
     transformType = 'T0',
     space = 0,
     showDivider = false,
+    showConnectionLine = false,
     transferAmount,
   } = props;
   const intl = useIntl();
@@ -88,7 +89,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
   ]);
 
   const connectionLine =
-    items.length > 1 ? (
+    items.length > 1 && showConnectionLine ? (
       <Divider
         orientation="vertical"
         position="absolute"
