@@ -22,6 +22,7 @@ export type AlertProps = {
   action?: string;
   actionType?: ActionType;
   onAction?: () => void;
+  customIconName?: ICON_NAMES;
 };
 
 type AlertTypeProps = {
@@ -91,6 +92,7 @@ const Alert: FC<AlertProps> = ({
   action,
   actionType,
   onAction,
+  customIconName,
 }) => {
   const alertTypeProps = alertPropWithType(alertType);
   const borderColor = useThemeValue(alertTypeProps.borderColor);
@@ -126,7 +128,7 @@ const Alert: FC<AlertProps> = ({
               <Box>
                 <Icon
                   size={20}
-                  name={alertTypeProps.iconName}
+                  name={customIconName ?? alertTypeProps.iconName}
                   color={alertTypeProps.iconColor}
                 />
               </Box>

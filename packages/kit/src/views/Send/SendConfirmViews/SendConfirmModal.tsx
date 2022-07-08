@@ -1,9 +1,6 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-import {
-  IInjectedProviderNames,
-  IInjectedProviderNamesStrings,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 

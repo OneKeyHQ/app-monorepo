@@ -20,7 +20,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
 import WalletAvatar from '../WalletAvatar';
 
-import type { AccountType } from './index';
+import type { AccountType, DeviceStatusType } from './index';
 
 type WalletItemProps = {
   isSelected?: boolean;
@@ -60,9 +60,14 @@ WalletItem.defaultProps = WalletItemDefaultProps;
 type LeftSideProps = {
   selectedWallet?: Wallet | null;
   setSelectedWallet: (v: Wallet) => void;
+  deviceStatus?: Record<string, DeviceStatusType | undefined>;
 };
 
-const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
+const LeftSide: FC<LeftSideProps> = ({
+  selectedWallet,
+  setSelectedWallet,
+  deviceStatus,
+}) => {
   const navigation = useAppNavigation();
 
   const { wallets } = useRuntime();
@@ -70,6 +75,13 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
   const importedWallet = wallets.filter((w) => w.type === 'imported')[0];
 
   const { bottom } = useSafeAreaInsets();
+
+  const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
+    if (!status) return undefined;
+    if (status?.isConnected) return 'connected';
+    if (status?.hasUpgrade) return 'warning';
+    return undefined;
+  };
 
   return (
     <VStack borderRightWidth={1} borderRightColor="border-subdued" pb={bottom}>
@@ -112,6 +124,9 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                     (wallet.deviceType as IOneKeyDeviceType) ||
                     getDeviceTypeByDeviceId(wallet.associatedDevice)
                   }
+                  status={convertDeviceStatus(
+                    deviceStatus?.[wallet.associatedDevice ?? ''],
+                  )}
                 />
               ))}
           </VStack>

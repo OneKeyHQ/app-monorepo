@@ -4,9 +4,22 @@ import uuid from 'react-native-uuid';
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ValidationFields } from '../../components/Protected/types';
+
+import type {
+  BLEFirmwareInfo,
+  SYSFirmwareInfo,
+} from '../../utils/updates/type';
+
+export type FirmwareUpdate = {
+  forceFirmware: boolean;
+  forceBle: boolean;
+  firmware?: SYSFirmwareInfo;
+  ble?: BLEFirmwareInfo;
+};
 
 type SettingsState = {
   theme: ThemeVariant | 'system';
@@ -28,9 +41,15 @@ type SettingsState = {
     [ValidationFields.Account]?: boolean;
     [ValidationFields.Secret]?: boolean;
   };
+  deviceUpdates: Record<
+    string, // connectId
+    FirmwareUpdate
+  >;
   devMode: {
     enable: boolean;
     preReleaseUpdate: boolean;
+    updateDeviceBle: boolean;
+    updateDeviceSys: boolean;
   };
 };
 
@@ -54,9 +73,12 @@ const initialState: SettingsState = {
     [ValidationFields.Account]: true,
     [ValidationFields.Secret]: true,
   },
+  deviceUpdates: {},
   devMode: {
     enable: false,
     preReleaseUpdate: false,
+    updateDeviceBle: false,
+    updateDeviceSys: false,
   },
 };
 
@@ -138,6 +160,34 @@ export const settingsSlice = createSlice({
     setPreReleaseUpdate(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, preReleaseUpdate: action.payload };
     },
+    setUpdateDeviceBle(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, updateDeviceBle: action.payload };
+    },
+    setUpdateDeviceSys(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, updateDeviceSys: action.payload };
+    },
+    setDeviceUpdates(
+      state,
+      action: PayloadAction<{ connectId: string; value: FirmwareUpdate }>,
+    ) {
+      state.deviceUpdates = {
+        ...state.deviceUpdates,
+        [action.payload.connectId]: action.payload.value,
+      };
+    },
+    setDeviceDoneUpdate(
+      state,
+      action: PayloadAction<{ connectId: string; type: FirmwareType }>,
+    ) {
+      const { connectId, type } = action.payload;
+      if (type === 'firmware') {
+        state.deviceUpdates[connectId].forceFirmware = false;
+        state.deviceUpdates[connectId].firmware = undefined;
+      } else if (type === 'ble') {
+        state.deviceUpdates[connectId].forceBle = false;
+        state.deviceUpdates[connectId].ble = undefined;
+      }
+    },
   },
 });
 
@@ -156,6 +206,10 @@ export const {
   setValidationState,
   setDevMode,
   setPreReleaseUpdate,
+  setUpdateDeviceBle,
+  setUpdateDeviceSys,
+  setDeviceUpdates,
+  setDeviceDoneUpdate,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

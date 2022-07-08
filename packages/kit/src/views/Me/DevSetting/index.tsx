@@ -8,12 +8,18 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setDevMode,
   setPreReleaseUpdate,
+  setUpdateDeviceBle,
+  setUpdateDeviceSys,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const DevSettingSection = () => {
-  const { enable: devModeEnable, preReleaseUpdate } =
-    useSettings().devMode || {};
+  const {
+    enable: devModeEnable,
+    preReleaseUpdate,
+    updateDeviceBle,
+    updateDeviceSys,
+  } = useSettings().devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
 
@@ -52,6 +58,32 @@ export const DevSettingSection = () => {
               labelType="false"
               isChecked={preReleaseUpdate}
               onToggle={onToggleTestVersionUpdate}
+            />
+          </Container.Item>
+          <Container.Item
+            title={intl.formatMessage({
+              id: 'action__test_update_ble_firmware',
+            })}
+            titleColor="text-default"
+          >
+            <Switch
+              labelType="false"
+              isChecked={updateDeviceBle}
+              onToggle={() => {
+                dispatch(setUpdateDeviceBle(!updateDeviceBle));
+              }}
+            />
+          </Container.Item>
+          <Container.Item
+            title={intl.formatMessage({ id: 'action__test_update_firmware' })}
+            titleColor="text-default"
+          >
+            <Switch
+              labelType="false"
+              isChecked={updateDeviceSys}
+              onToggle={() => {
+                dispatch(setUpdateDeviceSys(!updateDeviceSys));
+              }}
             />
           </Container.Item>
           <Container.Item
