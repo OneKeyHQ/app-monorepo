@@ -33,6 +33,7 @@ export type ModalProps = {
   /*
     we might change headerShown to Header in future
   */
+  hideBackButton?: boolean;
   headerShown?: boolean;
   headerDescription?: string | ReactNode;
   trigger?: ReactElement<any>;

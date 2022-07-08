@@ -9,9 +9,10 @@ import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 import { FormatCurrencyNative } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks';
 
+import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from './sendConfirmConsts';
 import { FeeSpeedLabel } from './SendEditFee';
 import { TxTitleDetailView } from './TxTitleDetailView';
-import { SendRoutes, SendRoutesParams } from './types';
+import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
 
 import type { StackNavigationProp } from '@react-navigation/stack';
 
@@ -28,6 +29,7 @@ export type IFeeInfoInputProps = {
   editable?: boolean;
   renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
   autoNavigateToEdit?: boolean;
+  sendConfirmParams: SendConfirmParams;
 };
 function FeeInfoInput({
   encodedTx,
@@ -36,6 +38,7 @@ function FeeInfoInput({
   renderChildren,
   editable,
   autoNavigateToEdit,
+  sendConfirmParams,
 }: IFeeInfoInputProps) {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
@@ -52,6 +55,7 @@ function FeeInfoInput({
           feeInfoSelected: feeInfoPayload?.selected,
           autoConfirmAfterFeeSaved: autoNavigateToEdit,
           resendActionInfo: route.params.resendActionInfo,
+          sendConfirmParams,
         });
       } else {
         navigation.navigate({
@@ -62,6 +66,7 @@ function FeeInfoInput({
             encodedTx,
             feeInfoSelected: feeInfoPayload?.selected,
             autoConfirmAfterFeeSaved: autoNavigateToEdit,
+            sendConfirmParams,
           },
         });
       }
@@ -73,6 +78,7 @@ function FeeInfoInput({
       feeInfoPayload?.selected,
       autoNavigateToEdit,
       route.params.resendActionInfo,
+      sendConfirmParams,
     ],
   );
 
@@ -84,7 +90,14 @@ function FeeInfoInput({
   }, [autoNavigateToEdit, navigateToEdit]);
 
   return (
-    <Pressable disabled={disabled} onPress={() => navigateToEdit()}>
+    <Pressable
+      disabled={disabled}
+      onPress={() =>
+        navigateToEdit({
+          replace: IS_REPLACE_ROUTE_TO_FEE_EDIT,
+        })
+      }
+    >
       {renderChildren}
     </Pressable>
   );
@@ -107,11 +120,13 @@ function FeeInfoInputForTransfer({
   feeInfoPayload,
   loading,
   editable,
+  sendConfirmParams,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading: boolean;
   editable?: boolean;
+  sendConfirmParams: SendConfirmParams;
 }) {
   const intl = useIntl();
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
@@ -252,6 +267,7 @@ function FeeInfoInputForTransfer({
   );
   return (
     <FeeInfoInputContainer
+      sendConfirmParams={sendConfirmParams}
       editable={editable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -266,11 +282,13 @@ function FeeInfoInputForConfirmLite({
   feeInfoPayload,
   loading,
   editable,
+  sendConfirmParams,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading: boolean;
   editable?: boolean;
+  sendConfirmParams: SendConfirmParams;
 }) {
   const intl = useIntl();
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
@@ -418,6 +436,7 @@ function FeeInfoInputForConfirmLite({
   );
   return (
     <FeeInfoInputContainer
+      sendConfirmParams={sendConfirmParams}
       editable={editable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -432,11 +451,13 @@ function FeeInfoInputForConfirm({
   feeInfoPayload,
   loading,
   editable,
+  sendConfirmParams,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
   editable?: boolean;
+  sendConfirmParams: SendConfirmParams;
 }) {
   const intl = useIntl();
   const networkFeeInfoEditable = useNetworkFeeInfoEditable();
@@ -481,6 +502,7 @@ function FeeInfoInputForConfirm({
   );
   return (
     <FeeInfoInputContainer
+      sendConfirmParams={sendConfirmParams}
       editable={editable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -495,16 +517,19 @@ function FeeInfoInputForSpeedUpOrCancel({
   feeInfoPayload,
   loading,
   editable,
+  sendConfirmParams,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
   editable?: boolean;
+  sendConfirmParams: SendConfirmParams;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const renderChildren = useCallback(({ isHovered }) => null, []);
   return (
     <FeeInfoInputContainer
+      sendConfirmParams={sendConfirmParams}
       editable={editable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -518,8 +543,8 @@ function FeeInfoInputForSpeedUpOrCancel({
 export {
   FeeInfoInput,
   FeeInfoInputContainer,
-  FeeInfoInputForTransfer,
-  FeeInfoInputForConfirm,
   FeeInfoInputForConfirmLite,
   FeeInfoInputForSpeedUpOrCancel,
+  FeeInfoInputForTransfer,
+  FeeInfoInputForConfirm,
 };

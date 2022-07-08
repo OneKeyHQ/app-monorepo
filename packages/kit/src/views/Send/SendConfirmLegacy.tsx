@@ -13,8 +13,7 @@ import { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
@@ -284,6 +283,7 @@ const TransactionConfirm = () => {
   );
 
   const sharedProps: ITxConfirmViewProps = {
+    sendConfirmParams: route.params,
     encodedTx: encodedTx ?? '',
     // TODO remove
     onEncodedTxUpdate: (tx) => setEncodedTx(tx),

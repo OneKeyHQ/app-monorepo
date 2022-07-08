@@ -14,7 +14,13 @@ import { SendRoutes, SendRoutesParams } from '../types';
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 function TxConfirmSpeedUpOrCancel(props: ITxConfirmViewProps) {
-  const { feeInfoPayload, feeInfoLoading, feeInfoEditable, encodedTx } = props;
+  const {
+    feeInfoPayload,
+    feeInfoLoading,
+    feeInfoEditable,
+    encodedTx,
+    sendConfirmParams,
+  } = props;
   const route = useRoute<RouteProps>();
   const { autoConfirmAfterFeeSaved } = route.params;
 
@@ -29,6 +35,7 @@ function TxConfirmSpeedUpOrCancel(props: ITxConfirmViewProps) {
         <Spinner size="lg" />
         {!autoConfirmAfterFeeSaved ? (
           <FeeInfoInputForSpeedUpOrCancel
+            sendConfirmParams={sendConfirmParams}
             editable={feeInfoEditable}
             encodedTx={encodedTx}
             feeInfoPayload={feeInfoPayload}

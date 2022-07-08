@@ -50,6 +50,7 @@ import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationA
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
+import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from './sendConfirmConsts';
 import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
 
@@ -617,8 +618,12 @@ function ScreenSendEditFee({ ...rest }) {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   // autoConfirmAfterFeeSaved=true speedUp & cancel
-  const { encodedTx, autoConfirmAfterFeeSaved, resendActionInfo } =
-    route.params;
+  const {
+    encodedTx,
+    autoConfirmAfterFeeSaved,
+    resendActionInfo,
+    sendConfirmParams: oldSendConfirmParams,
+  } = route.params;
   const { network, networkId, accountId } = useActiveWalletAccount();
 
   const title = useMemo(() => {
@@ -668,6 +673,7 @@ function ScreenSendEditFee({ ...rest }) {
     reValidateMode: 'onBlur',
   });
   const { handleSubmit, setValue, trigger: formTrigger } = useFormReturn;
+
   const onSubmit = handleSubmit(async (data) => {
     let type: IFeeInfoSelectedType =
       feeType === FeeType.advanced ? 'custom' : 'preset';
@@ -696,8 +702,10 @@ function ScreenSendEditFee({ ...rest }) {
     const { routes, index } = navigation.getState();
     const prevRouteName = routes[index - 1]?.name;
 
+    // SpeedUp, Cancel
     if (autoConfirmAfterFeeSaved) {
       const sendConfirmParams: SendConfirmParams = {
+        ...oldSendConfirmParams,
         encodedTx,
         resendActionInfo: route.params.resendActionInfo,
         feeInfoSelected,
@@ -708,7 +716,11 @@ function ScreenSendEditFee({ ...rest }) {
       return navigation.replace(SendRoutes.SendConfirm, sendConfirmParams);
     }
 
-    const params = { feeInfoSelected, autoConfirmAfterFeeSaved };
+    const params = {
+      ...oldSendConfirmParams,
+      feeInfoSelected,
+      autoConfirmAfterFeeSaved,
+    };
     if (network?.settings?.isUTXOModel) {
       try {
         Object.assign(params, {
@@ -734,9 +746,14 @@ function ScreenSendEditFee({ ...rest }) {
       }
     }
 
+    const toRouteName = prevRouteName || SendRoutes.SendConfirm;
+    if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
+      // navigation.navigate() with `merge=true` will fail in firefox
+      return navigation.replace(toRouteName, params);
+    }
     return navigation.navigate({
       merge: true,
-      name: prevRouteName || SendRoutes.SendConfirm,
+      name: toRouteName,
       params,
     });
   });
