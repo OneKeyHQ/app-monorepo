@@ -628,7 +628,7 @@
   "modal__download_failed_desc": "下载无法完成。请尝试一下。",
   "modal__edit_wallet": "编辑钱包",
   "modal__enter_bootloader_mode": "进入 Bootloader 模式",
-  "modal__enter_bootloader_mode_mini_step_1": "按住 OneKey Mini 锁屏按钮的同时，重新插入 USB 数据线。",
+  "modal__enter_bootloader_mode_mini_desc": "按住 OneKey Mini 锁屏按钮的同时，重新插入 USB 数据线。",
   "modal__enter_bootloader_mode_touch": "1. 将设备关机\\n2. 按住 TOUCH 开关按钮同时滑动屏幕\\n3. 设备现在将显示 \"Update Mode\" 字样",
   "modal__enter_pin": "输入 PIN",
   "modal__enter_pin_desc": "使用设备屏幕上的键盘数字布局，点击以下按钮输入密码",

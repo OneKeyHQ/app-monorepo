@@ -628,7 +628,7 @@
   "modal__download_failed_desc": "No se pudo completar la descarga. Inténtalo de nuevo.",
   "modal__edit_wallet": "Editar el monedero",
   "modal__enter_bootloader_mode": "Enter Bootloader Mode",
-  "modal__enter_bootloader_mode_mini_step_1": "Hold the lock screen button of OneKey Mini and reconnect the USB cable.",
+  "modal__enter_bootloader_mode_mini_desc": "Hold the lock screen button of OneKey Mini and reconnect the USB cable.",
   "modal__enter_bootloader_mode_touch": "1. Turn the device off\\n2. Press and hold the TOUCH switch button while swiping the screen\\n3. The device will now display the words \"Update Mode\"",
   "modal__enter_pin": "Ingrese su PIN",
   "modal__enter_pin_desc": "Verifique la pantalla de su dispositivo con el diseño de teclado aleatorio",

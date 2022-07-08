@@ -628,7 +628,7 @@
   "modal__download_failed_desc": "下載無法完成。請嘗試一下。",
   "modal__edit_wallet": "編輯錢包",
   "modal__enter_bootloader_mode": "Enter Bootloader Mode",
-  "modal__enter_bootloader_mode_mini_step_1": "Hold the lock screen button of OneKey Mini and reconnect the USB cable.",
+  "modal__enter_bootloader_mode_mini_desc": "Hold the lock screen button of OneKey Mini and reconnect the USB cable.",
   "modal__enter_bootloader_mode_touch": "1. 關閉設備\\n 2. 按住TOUCH 開關按鈕同時滑動屏幕\\n 3. 設備現在將顯示“Update Mode”字樣",
   "modal__enter_pin": "輸入密碼",
   "modal__enter_pin_desc": "使用設備屏幕上的鍵盤數字佈局，點擊以下按鈕輸入密碼",
