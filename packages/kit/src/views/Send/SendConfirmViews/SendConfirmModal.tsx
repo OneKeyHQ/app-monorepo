@@ -17,7 +17,7 @@ import {
 import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
-import { SendConfirmPayload } from '../types';
+import { SendConfirmParams, SendConfirmPayload } from '../types';
 
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
@@ -50,6 +50,8 @@ export type ITxConfirmViewProps = ModalProps & {
   confirmDisabled?: boolean;
   autoConfirm?: boolean;
   children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
+
+  sendConfirmParams: SendConfirmParams;
 };
 
 // TODO rename SendConfirmModalBase

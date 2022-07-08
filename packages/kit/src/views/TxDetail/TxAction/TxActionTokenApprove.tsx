@@ -6,7 +6,12 @@ import { useIntl } from 'react-intl';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
-import { SendRoutes, SendRoutesParams } from '../../Send/types';
+import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/sendConfirmConsts';
+import {
+  SendRoutes,
+  SendRoutesParams,
+  TokenApproveAmountEditParams,
+} from '../../Send/types';
 import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
@@ -80,14 +85,20 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
       onPress={
         isSendConfirm
           ? () => {
-              // TODO history detail view is NOT editable
-              navigation.navigate(SendRoutes.TokenApproveAmountEdit, {
+              const routeName = SendRoutes.TokenApproveAmountEdit;
+              const routeParams: TokenApproveAmountEditParams = {
+                sendConfirmParams: sendConfirmParams.routeParams,
                 tokenApproveAmount: tokenApprove?.amount ?? '0',
                 isMaxAmount: tokenApprove?.isMax ?? true,
                 sourceInfo,
                 encodedTx: decodedTx.encodedTx,
                 decodedTx,
-              });
+              };
+              if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
+                return navigation.replace(routeName, routeParams);
+              }
+              // TODO history detail view is NOT editable
+              return navigation.navigate(routeName, routeParams);
             }
           : undefined
       }

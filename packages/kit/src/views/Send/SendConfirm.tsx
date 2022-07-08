@@ -254,6 +254,7 @@ function SendConfirm() {
 
   const feeInput = (
     <FeeInfoInputForConfirmLite
+      sendConfirmParams={routeParams}
       editable={feeInfoEditable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -261,6 +262,8 @@ function SendConfirm() {
     />
   );
   const sharedProps: ITxConfirmViewProps = {
+    sendConfirmParams: routeParams,
+
     sourceInfo,
     encodedTx,
     decodedTx,
