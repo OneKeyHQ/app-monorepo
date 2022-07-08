@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
+  Center,
   Empty,
-  Icon,
   Image,
   Modal,
   QRCode,
@@ -19,6 +20,7 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
+import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -108,12 +110,28 @@ const ReceiveToken = () => {
         justifyContent="center"
         w={{ base: 296, md: 208 }}
         h={{ base: 296, md: 208 }}
-        bgColor="surface-default"
-        borderColor="border-subdued"
-        borderWidth="1px"
-        shadow="depth.4"
+        bgColor="white"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="border-default"
+        overflow="hidden"
       >
-        <Icon size={38} name="EyeOffOutline" />
+        <Image
+          source={BlurQRCode}
+          w={{ base: 296, md: 208 }}
+          h={{ base: 296, md: 208 }}
+        />
+        <Center position="absolute" top={0} left={0} right={0} bottom={0} p={4}>
+          <Text
+            typography={{ sm: 'Body1', md: 'Body2' }}
+            color="#000"
+            opacity={80}
+            textAlign="center"
+          >
+            {intl.formatMessage({
+              id: 'content__check_the_address_on_device',
+            })}
+          </Text>
+        </Center>
       </Box>
       <Box
         alignItems="center"
@@ -138,7 +156,6 @@ const ReceiveToken = () => {
           {shortenAddress(shownAddress)}
         </Text>
         <Button
-          width={isVerticalLayout ? '168px' : '137px'}
           height={isVerticalLayout ? '50px' : '38px'}
           mt={isVerticalLayout ? '32px' : '24px'}
           type="primary"
@@ -249,7 +266,6 @@ const ReceiveToken = () => {
                       {shownAddress}
                     </Text>
                     <Button
-                      width={isVerticalLayout ? '188px' : '154px'}
                       height={isVerticalLayout ? '48px' : '36px'}
                       mt={isVerticalLayout ? '32px' : '24px'}
                       type="plain"
