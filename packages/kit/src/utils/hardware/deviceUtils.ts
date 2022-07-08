@@ -73,7 +73,6 @@ class DeviceUtils {
       const response = await searchDevices();
 
       if (!response.success) {
-        console.log('Device Utils Start Device Scan:', response);
         const error = this.convertDeviceError(response.payload);
         if (!error.data.reconnect) {
           return Promise.reject(this.convertDeviceError(response.payload));

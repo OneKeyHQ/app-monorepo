@@ -423,7 +423,6 @@ import NavSendSolid from "./react/solid/NavSend";
 import NavSettingsSolid from "./react/solid/NavSettings";
 import NavSwapSolid from "./react/solid/NavSwap";
 import NewspaperSolid from "./react/solid/Newspaper";
-import NotificationIndicatorSolid from "./react/solid/NotificationIndicator";
 import OfficeBuildingSolid from "./react/solid/OfficeBuilding";
 import OfflineSolid from "./react/solid/Offline";
 import OptionListAllSolid from "./react/solid/OptionListAll";
@@ -934,7 +933,6 @@ export type ICON_NAMES =
   | "NavSettingsSolid"
   | "NavSwapSolid"
   | "NewspaperSolid"
-  | "NotificationIndicatorSolid"
   | "OfficeBuildingSolid"
   | "OfflineSolid"
   | "OptionListAllSolid"
@@ -1445,7 +1443,6 @@ export default {
   NavSettingsSolid: NavSettingsSolid,
   NavSwapSolid: NavSwapSolid,
   NewspaperSolid: NewspaperSolid,
-  NotificationIndicatorSolid: NotificationIndicatorSolid,
   OfficeBuildingSolid: OfficeBuildingSolid,
   OfflineSolid: OfflineSolid,
   OptionListAllSolid: OptionListAllSolid,
