@@ -16,7 +16,6 @@ import {
 
 import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
-import { useDisableNavigationBack } from '../../../hooks/useDisableNavigationBack';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmParams, SendConfirmPayload } from '../types';
 
