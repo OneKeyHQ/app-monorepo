@@ -189,7 +189,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
             // eslint-disable-next-line global-require
             stateContent.sourceSrc = require('@onekeyhq/kit/assets/wallet/lottie-onekey-mini-in-bootloader-mode.json');
             stateContent.description = intl.formatMessage({
-              id: 'modal__enter_bootloader_mode_mini_step_1',
+              id: 'modal__enter_bootloader_mode_mini_step_1' as any,
             });
           }
           break;

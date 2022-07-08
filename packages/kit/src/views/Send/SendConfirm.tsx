@@ -322,7 +322,7 @@ function SendConfirm() {
 }
 
 function SendConfirmProxy() {
-  const { sourceInfo } = useSendConfirmRouteParamsParsed();
+  const { sourceInfo, routeParams } = useSendConfirmRouteParamsParsed();
   const isNetworkNotMatched = useMemo(() => {
     if (!sourceInfo) {
       return false;
@@ -335,6 +335,7 @@ function SendConfirmProxy() {
   if (isNetworkNotMatched) {
     return (
       <SendConfirmModal
+        sendConfirmParams={routeParams}
         feeInfoPayload={null}
         feeInfoLoading={false}
         encodedTx={null}
