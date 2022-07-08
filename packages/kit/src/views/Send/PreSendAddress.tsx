@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { delay, makeTimeoutPromise } from '../../background/utils';
 import AddressInput from '../../components/AddressInput';
 import { useActiveWalletAccount } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
@@ -54,6 +55,24 @@ function PreSendAddress() {
 
   const [warningMessage, setWarningMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const isContractAddressCheck = useCallback(
+    (address: string) =>
+      makeTimeoutPromise({
+        asyncFunc: async () => {
+          const isContractAddress =
+            await backgroundApiProxy.validator.isContractAddress(
+              networkId,
+              address,
+            );
+          // await delay(10000);
+          return isContractAddress;
+        },
+        timeout: 600,
+        timeoutResult: false,
+      }),
+    [networkId],
+  );
 
   return (
     <BaseSendModal
@@ -110,11 +129,9 @@ function PreSendAddress() {
                         id: 'form__address_invalid',
                       });
                     }
-                    const isContractAddress =
-                      await backgroundApiProxy.validator.isContractAddress(
-                        networkId,
-                        toAddress,
-                      );
+                    const isContractAddress = await isContractAddressCheck(
+                      toAddress,
+                    );
                     if (isContractAddress) {
                       setWarningMessage(
                         intl.formatMessage({
