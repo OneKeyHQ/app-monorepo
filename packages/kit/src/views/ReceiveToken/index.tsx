@@ -73,9 +73,12 @@ const ReceiveToken = () => {
       getAddress()
         .then((res) => setOnHardwareConfirmed(res === shownAddress))
         .catch((e: Error) => {
-          ToastManager.show({
-            title: e.message,
-          });
+          ToastManager.show(
+            {
+              title: e.message,
+            },
+            { type: 'default' },
+          );
         })
         .finally(() => setIsLoadingForHardware(false));
     }

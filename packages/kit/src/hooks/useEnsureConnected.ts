@@ -20,9 +20,12 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
 
   function showMessage(key = 'action__connection_timeout') {
     if (silent) return;
-    ToastManager.show({
-      title: intl.formatMessage({ id: key as unknown as any }),
-    });
+    ToastManager.show(
+      {
+        title: intl.formatMessage({ id: key as unknown as any }),
+      },
+      { type: 'default' },
+    );
   }
 
   async function ensureConnected(walletId: string) {
