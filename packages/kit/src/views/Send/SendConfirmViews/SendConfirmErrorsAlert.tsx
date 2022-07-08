@@ -12,10 +12,10 @@ export function SendConfirmErrorsAlert({
   balanceInsufficient,
   isNetworkNotMatched,
 }: {
-  nativeToken: Token;
-  isWatchingAccount: boolean;
-  balanceInsufficient: boolean;
-  isNetworkNotMatched: boolean;
+  nativeToken?: Token;
+  isWatchingAccount?: boolean;
+  balanceInsufficient?: boolean;
+  isNetworkNotMatched?: boolean;
 }) {
   const errors = [];
   const intl = useIntl();
@@ -24,7 +24,7 @@ export function SendConfirmErrorsAlert({
       <FormErrorMessage
         isAlertStyle
         message={intl.formatMessage({
-          id: 'msg__wrong_network_desc',
+          id: 'msg__mismatched_networks',
         })}
       />,
     );

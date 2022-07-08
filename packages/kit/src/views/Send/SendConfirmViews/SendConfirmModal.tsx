@@ -16,10 +16,12 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IDappSourceInfo } from '../../../background/IBackgroundApi';
+import { ErrorBoundary } from '../../../components/ErrorBoundary';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmParams, SendConfirmPayload } from '../types';
 
+import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 export type ITxConfirmViewPropsHandleConfirm = ({
@@ -99,15 +101,6 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     [accountId],
   );
 
-  const isNetworkNotMatched = useMemo(() => {
-    if (!sourceInfo) {
-      return false;
-    }
-    // dapp tx should check scope matched
-    // TODO add injectedProviderName to vault settings
-    return sourceInfo.scope !== IInjectedProviderNames.ethereum; // network.settings.injectedProviderName
-  }, [sourceInfo]);
-
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
       let tx = encodedTx;
@@ -133,7 +126,6 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled:
-          isNetworkNotMatched ||
           isWatchingAccount ||
           balanceInsufficient ||
           feeInfoLoading ||
@@ -156,13 +148,13 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
                 nativeToken={nativeToken}
                 isWatchingAccount={isWatchingAccount}
                 balanceInsufficient={balanceInsufficient}
-                isNetworkNotMatched={isNetworkNotMatched}
               />
             )}
 
-            {children}
-
-            <DecodeTxButtonTest encodedTx={encodedTx} />
+            <SendConfirmErrorBoundary>
+              {children}
+              <DecodeTxButtonTest encodedTx={encodedTx} />
+            </SendConfirmErrorBoundary>
 
             {platformEnv.isDev ? (
               <Text>
