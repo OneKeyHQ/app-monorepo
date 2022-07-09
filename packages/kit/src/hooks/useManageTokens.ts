@@ -39,7 +39,7 @@ export const useManageTokens = ({
     return map;
   }, [accountTokens]);
 
-  const nativeToken: Token = useMemo(
+  const nativeToken: Token | undefined | null = useMemo(
     () => accountTokens.filter((token) => !token.tokenIdOnNetwork),
     [accountTokens],
   )[0];

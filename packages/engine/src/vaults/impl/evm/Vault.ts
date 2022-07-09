@@ -1134,11 +1134,16 @@ export default class Vault extends VaultBase {
 
         let decodedTx: IDecodedTx | undefined;
 
+        decodedTx = covalentTx?.parsedDecodedTx;
+
         if (encodedTx) {
+          // TODO _decode getOrAddToken RPC error
           // TODO encodedTx both transfer Native and Token
-          decodedTx = await this.decodeTx(encodedTx, null);
-        } else {
-          decodedTx = covalentTx?.parsedDecodedTx;
+          try {
+            decodedTx = await this.decodeTx(encodedTx, null);
+          } catch (error) {
+            console.error(error);
+          }
         }
 
         if (!decodedTx) {

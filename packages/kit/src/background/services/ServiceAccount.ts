@@ -14,6 +14,10 @@ import {
   setRefreshTS,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { passwordSet, release } from '../../store/reducers/data';
@@ -23,10 +27,17 @@ import { Avatar } from '../../utils/emojiUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
-import ServiceBase from './ServiceBase';
+import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    appEventBus.on(AppEventBusNames.AccountNameChanged, () => {
+      this.addressLabelCache = {};
+    });
+  }
+
   @backgroundMethod()
   async changeActiveAccount({
     accountId,
@@ -64,6 +75,8 @@ class ServiceAccount extends ServiceBase {
     const newAccount = await engine.setAccountName(accountId, name);
 
     dispatch(updateAccountDetail({ name, id: accountId }));
+
+    appEventBus.emit(AppEventBusNames.AccountNameChanged);
 
     return newAccount;
   }
