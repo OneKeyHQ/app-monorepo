@@ -234,10 +234,9 @@ export default class Vault extends VaultBase {
           // TODO functionCall action type support
           if (nativeAction?.functionCall?.methodName === 'ft_transfer') {
             action.type = IDecodedTxActionType.TOKEN_TRANSFER;
-            const tokenInfo = await this.engine.getOrAddToken(
+            const tokenInfo = await this.engine.ensureTokenInDB(
               this.networkId,
               nativeTx.receiverId,
-              false,
             );
             if (tokenInfo) {
               const transferData = parseJsonFromRawResponse(
@@ -356,10 +355,9 @@ export default class Vault extends VaultBase {
     if (transferInfo.token) {
       // TODO transferInfo.from and transferInfo.to cannot be the same
       // TODO pass token from ITransferInfo
-      const token = await this.engine.getOrAddToken(
+      const token = await this.engine.ensureTokenInDB(
         this.networkId,
         transferInfo.token ?? '',
-        true,
       );
       if (token) {
         const hasStorageBalance = await this.isStorageBalanceAvailable({

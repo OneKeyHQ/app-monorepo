@@ -166,10 +166,9 @@ export default class Vault extends VaultBase {
     const dbAccount = await this.getDbAccount();
     // TODO what's this mean: correctDbAccountAddress
     await this._correctDbAccountAddress(dbAccount);
-    const token = await this.engine.getOrAddToken(
+    const token = await this.engine.ensureTokenInDB(
       networkId,
       tokenIdOnNetwork ?? '',
-      true,
     );
     const valueBN = new BigNumber(value);
     const extraCombined = {
@@ -367,10 +366,9 @@ export default class Vault extends VaultBase {
 
     // erc20 token transfer
     if (isTransferToken) {
-      const token = await this.engine.getOrAddToken(
+      const token = await this.engine.ensureTokenInDB(
         this.networkId,
         transferInfo.token ?? '',
-        true,
       );
       if (!token) {
         throw new Error(`Token not found: ${transferInfo.token as string}`);
@@ -404,7 +402,7 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxEvm> {
     const [network, token, spender] = await Promise.all([
       this.getNetwork(),
-      this.engine.getOrAddToken(this.networkId, approveInfo.token),
+      this.engine.ensureTokenInDB(this.networkId, approveInfo.token),
       this.validateAddress(approveInfo.spender),
     ]);
     if (typeof token === 'undefined') {
@@ -812,7 +810,7 @@ export default class Vault extends VaultBase {
   ): Promise<BigNumber> {
     const [dbAccount, token] = await Promise.all([
       this.getDbAccount(),
-      this.engine.getOrAddToken(this.networkId, tokenAddress),
+      this.engine.ensureTokenInDB(this.networkId, tokenAddress),
     ]);
 
     if (typeof token === 'undefined') {
@@ -1132,7 +1130,7 @@ export default class Vault extends VaultBase {
           });
         }
 
-        let decodedTx: IDecodedTx | undefined;
+        let decodedTx = covalentTx?.parsedDecodedTx;
 
         decodedTx = covalentTx?.parsedDecodedTx;
 

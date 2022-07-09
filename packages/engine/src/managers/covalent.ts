@@ -513,10 +513,10 @@ async function createOutputActionFromCovalentTransferInfo({
   const from = transfer.from_address;
   const to = transfer.to_address;
   const value = transfer.delta;
-  let tokenInfo = await vault.engine.getOrAddToken(
-    vault.networkId,
-    transfer.contract_address,
-  );
+  let tokenInfo = await vault.engine.findToken({
+    networkId: vault.networkId,
+    tokenIdOnNetwork: transfer.contract_address,
+  });
   let action: IDecodedTxAction | undefined;
   if (!tokenInfo) {
     const token: Token = {
@@ -554,10 +554,10 @@ async function getTokenInfoFromEvent({
   event: ICovalentHistoryListItemLogEvent;
   vault: VaultBase;
 }) {
-  let tokenInfo = await vault.engine.getOrAddToken(
-    vault.networkId,
-    event.sender_address,
-  );
+  let tokenInfo = await vault.engine.findToken({
+    networkId: vault.networkId,
+    tokenIdOnNetwork: event.sender_address,
+  });
   debugCodes.breakpointCovalentTx({ txHash: event.tx_hash });
   if (!tokenInfo) {
     const token: Token = {
@@ -716,13 +716,36 @@ export async function parseCovalentTxToDecodedTx(
     covalentTx.log_events.length
   ) {
     let outputActions = await Promise.all(
-      covalentTx.log_events.map((event) =>
-        createOutputActionFromCovalentLogEvent({
-          event,
-          vault,
-          address,
-        }),
-      ),
+      covalentTx.log_events
+        .filter((event) => {
+          if (event.decoded) {
+            const { name, params } = event.decoded;
+            if (name === 'Transfer') {
+              const from = (
+                params.find((p) => p.name === 'from')?.value || ''
+              ).toLowerCase();
+              const to = (
+                params.find((p) => p.name === 'to')?.value || ''
+              ).toLowerCase();
+              return from === address || to === address;
+            }
+            if (name === 'Approval') {
+              const owner = (
+                params.find((p) => p.name === 'owner')?.value || ''
+              ).toLowerCase();
+              return owner === address;
+            }
+          }
+          return false;
+        })
+        .slice(0, 10)
+        .map((event) =>
+          createOutputActionFromCovalentLogEvent({
+            event,
+            vault,
+            address,
+          }),
+        ),
     );
 
     debugCodes.breakpointCovalentTx({ txHash: covalentTx.tx_hash });
