@@ -63,7 +63,7 @@ const parsePayload = async (
     ) {
       // Wrap and Unwrap Native Currency
 
-      const wToken = await engine.getOrAddToken(network.id, buyTokenAddress);
+      const wToken = await engine.ensureTokenInDB(network.id, buyTokenAddress);
       const wSymbol = wToken?.symbol ?? '';
       const wAmount = ethers.utils.formatUnits(buyAmount, wToken?.decimals);
       const nSymbol = network.symbol;
@@ -86,7 +86,7 @@ const parsePayload = async (
           const amount = ethers.utils.formatEther(tokenAmount);
           return { amount, symbol: network.symbol };
         }
-        const token = await engine.getOrAddToken(network.id, address);
+        const token = await engine.ensureTokenInDB(network.id, address);
         const symbol = token?.symbol ?? '';
         const amount = ethers.utils.formatUnits(tokenAmount, token?.decimals);
         return { amount, symbol };

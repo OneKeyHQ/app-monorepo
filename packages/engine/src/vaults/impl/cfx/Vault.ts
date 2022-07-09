@@ -113,10 +113,9 @@ export default class Vault extends VaultBase {
     const dbAccount = await this.getDbAccount();
     // TODO what's this mean: correctDbAccountAddress
     await this._correctDbAccountAddress(dbAccount);
-    const token = await this.engine.getOrAddToken(
+    const token = await this.engine.ensureTokenInDB(
       networkId,
       tokenIdOnNetwork ?? '',
-      true,
     );
     const valueBN = new BigNumber(value);
     const extraCombined = {
