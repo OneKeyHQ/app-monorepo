@@ -9,6 +9,7 @@ import {
 } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import { useToast } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -39,6 +40,7 @@ const SignMessageConfirm = () => {
   useOnboardingFinished();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const toast = useToast();
   const route = useRoute<RouteProps>();
   const { sourceInfo, unsignedMessage } = route.params;
 
@@ -75,11 +77,24 @@ const SignMessageConfirm = () => {
           await dappApprove.resolve({
             result,
           });
+          const successMsg = intl.formatMessage({ id: 'transaction__success' });
+          toast.show({
+            title: successMsg,
+          });
           setTimeout(() => close(), 0);
         },
       });
     },
-    [navigation, route.params, accountId, networkId, walletId, dappApprove],
+    [
+      navigation,
+      route.params,
+      accountId,
+      walletId,
+      networkId,
+      dappApprove,
+      intl,
+      toast,
+    ],
   );
 
   const sharedProps: ISignMessageConfirmViewProps = {

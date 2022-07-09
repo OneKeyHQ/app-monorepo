@@ -55,7 +55,6 @@ function PreSendToken() {
               marginTop: 0,
             }}
             onTokenPress={({ token }) => {
-              console.log(token);
               navigation.navigate(
                 SendRoutes.PreSendAddress,
                 merge(
