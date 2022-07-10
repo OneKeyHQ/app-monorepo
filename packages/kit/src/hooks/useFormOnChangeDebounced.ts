@@ -47,7 +47,10 @@ function useFormOnChangeDebounced<T>({
     loadingRef,
     isLoading: loadingRef.current,
     formValues: values,
-    isValid: formState.isValid && !Object.keys(formState.errors).length,
+    isValid:
+      formState.isValid &&
+      !Object.keys(formState.errors).length &&
+      !formState.isValidating,
   };
 }
 export { useFormOnChangeDebounced };

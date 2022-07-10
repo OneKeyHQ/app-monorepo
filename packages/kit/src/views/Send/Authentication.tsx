@@ -87,13 +87,15 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
 
       let result: any;
       let signedTx: ISignedTx | undefined;
+      let signedMsg: string | undefined;
       if (encodedTx) {
         signedTx = await sendTx();
         result = signedTx;
       }
       if (unsignedMessage) {
-        result = await signMsg();
-        console.log('>>>>>>>> unsignedMessage ', unsignedMessage, result);
+        signedMsg = await signMsg();
+        result = signedMsg;
+        console.log('>>>>>>>> unsignedMessage ', unsignedMessage, signedMsg);
       }
       if (result) {
         onSuccess?.(result, {
@@ -117,10 +119,6 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
           // onSuccess will close() modal, goBack() is NOT needed here.
           // navigation.getParent()?.goBack?.();
         }
-        const msg = intl.formatMessage({ id: 'transaction__success' });
-        toast.show({
-          title: msg,
-        });
       }
     } catch (e) {
       console.error(e);

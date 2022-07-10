@@ -210,15 +210,22 @@ function SendConfirm() {
           data,
           resendActionInfo,
         });
+
+        navigation.navigate(SendRoutes.SendFeedbackReceipt, {
+          txid: tx.txid ?? 'unknown_txid',
+          closeModal: close,
+        });
+
         if (routeParams.onSuccess) {
           routeParams.onSuccess(tx, data);
         }
-        await serviceHistory.refreshHistoryUi();
+        serviceHistory.refreshHistoryUi();
 
-        // openBlockBrowser
-        // openTransactionDetails(tx.txid);
-
-        setTimeout(() => close(), 0);
+        // navigate SendFeedbackReceipt onSuccess
+        // close modal
+        setTimeout(() => {
+          // close()
+        }, 0);
       };
       const nextRouteParams: SendAuthenticationParams = {
         ...routeParams,
@@ -282,6 +289,7 @@ function SendConfirm() {
       dappApprove.reject();
       close();
     },
+    // reject with window.close in ext standalone window after modal closed
     onModalClose: dappApprove.reject,
     children: null,
   };

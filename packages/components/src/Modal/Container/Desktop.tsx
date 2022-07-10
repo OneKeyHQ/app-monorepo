@@ -140,6 +140,9 @@ const DesktopModal = ({
                 opacity={hideBackButton ? 0 : 1}
                 circle
                 onPress={() => {
+                  if (hideBackButton) {
+                    return;
+                  }
                   if (onBackActionPress) {
                     onBackActionPress();
                     return;
@@ -196,9 +199,10 @@ const DesktopModal = ({
                   }}
                   {...primaryActionProps}
                 >
-                  {intl.formatMessage({
-                    id: primaryActionTranslationId ?? 'action__ok',
-                  })}
+                  {primaryActionProps?.children ??
+                    intl.formatMessage({
+                      id: primaryActionTranslationId ?? 'action__ok',
+                    })}
                 </Button>
               )}
               {!hideSecondaryAction && (
@@ -209,9 +213,10 @@ const DesktopModal = ({
                   }}
                   {...secondaryActionProps}
                 >
-                  {intl.formatMessage({
-                    id: secondaryActionTranslationId ?? 'action__cancel',
-                  })}
+                  {secondaryActionProps?.children ??
+                    intl.formatMessage({
+                      id: secondaryActionTranslationId ?? 'action__cancel',
+                    })}
                 </Button>
               )}
             </HStack>
