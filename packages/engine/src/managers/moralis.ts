@@ -53,9 +53,9 @@ export const getUserAssets = async (params: {
     return { chain: '', result: [] };
   }
   const chain = getMoralisChainWithNetWork(network);
-  let apiUrl = `${HostURL}/NFT/list?address=${address}&chain=${chain}`;
+  let apiUrl = `${HostURL}/NFT/list?address=${address}&chain=${chain}&limit=10`;
   if (cursor) {
-    apiUrl = `${HostURL}/NFT/list?address=${address}&chain=${chain}&cursor=${cursor}`;
+    apiUrl = `${apiUrl}&cursor=${cursor}`;
   }
   const result = await axios.get<MoralisNFTsResp>(apiUrl);
   return camelcaseKeys(result.data, { deep: true });
