@@ -181,6 +181,14 @@ export type IPrepareAccountsParams =
   | IPrepareSoftwareAccountsParams
   | IPrepareHardwareAccountsParams;
 
+// GetAddress ----------------------------------------------
+export type IHardwareGetAddressParams = {
+  path: string;
+  showOnOneKey: boolean;
+};
+
+export type IGetAddressParams = IHardwareGetAddressParams;
+
 // DecodedTx ----------------------------------------------
 export type IDecodedTxLegacy = EVMDecodedItem;
 

@@ -21,7 +21,6 @@ const ManagerWalletLocalValidationView: FC = () => {
   const { requestId, onSuccess, onCancel, field } =
     useRoute<RouteProps>().params;
   const [inputPwd, setInputPwd] = useState('');
-
   type PasswordViewProps = {
     password: string;
   };

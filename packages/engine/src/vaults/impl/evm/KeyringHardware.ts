@@ -9,6 +9,7 @@ import * as OneKeyHardware from '../../../hardware';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
+  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
@@ -78,5 +79,16 @@ export class KeyringHardware extends KeyringHardwareBase {
       index += 1;
     }
     return ret;
+  }
+
+  async getAddress(params: IGetAddressParams): Promise<string> {
+    const connectId = await this.getHardwareConnectId();
+    const address = await OneKeyHardware.ethereumGetAddress(
+      connectId,
+      params.path,
+      params.showOnOneKey,
+    );
+
+    return address;
   }
 }

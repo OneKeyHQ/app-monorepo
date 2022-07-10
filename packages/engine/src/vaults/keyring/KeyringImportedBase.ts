@@ -25,4 +25,8 @@ export abstract class KeyringImportedBase extends KeyringSoftwareBase {
 
     return { '': privateKey };
   }
+
+  override getAddress(): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
 }

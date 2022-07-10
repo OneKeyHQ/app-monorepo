@@ -17,6 +17,7 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type {
+  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
@@ -219,4 +220,30 @@ export class KeyringHardware extends KeyringHardwareBase {
       lock_time: tx.locktime,
     };
   };
+
+  async getAddress(params: IGetAddressParams): Promise<string> {
+    const connectId = await this.getHardwareConnectId();
+
+    const dbAccount = (await this.getDbAccount({
+      noCache: true,
+    })) as DBUTXOAccount;
+    const { addresses, address, path } = dbAccount;
+    const pathSuffix = Object.keys(dbAccount.addresses).find(
+      (key) => addresses[key] === address,
+    );
+
+    if (!pathSuffix) {
+      return '';
+    }
+
+    const response = await HardwareSDK.btcGetAddress(connectId, {
+      path: `${path}/${pathSuffix}`,
+      showOnOneKey: params.showOnOneKey,
+      coin: 'btc',
+    });
+    if (response.success) {
+      return response.payload.address;
+    }
+    throw deviceUtils.convertDeviceError(response.payload);
+  }
 }

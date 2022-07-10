@@ -632,7 +632,7 @@
   "modal__enter_bootloader_mode_error": "Reboot Bootloader failed",
   "modal__enter_bootloader_mode_error_desc": "Reboot failed. Please try again or manually enter the Bootloader",
   "modal__enter_bootloader_mode_mini_desc": "Hold the lock screen button of OneKey Mini and reconnect the USB cable.",
-  "modal__enter_bootloader_mode_touch": "1. Turn the device off\\n2. Press and hold the TOUCH switch button while swiping the screen\\n3. The device will now display the words \"Update Mode\"",
+  "modal__enter_bootloader_mode_touch": "1. Turn the device off\n2. Press and hold the TOUCH switch button while swiping the screen\n3. The device will now display the words \"Update Mode\"",
   "modal__enter_pin": "ПИН кодоо оруулна уу",
   "modal__enter_pin_desc": "Гарын санамсаргүй байдлаар төхөөрөмжийнхөө дэлгэцийг шалгана уу",
   "modal__failed_to_connect": "Холболт амжилтгүй боллоо",

@@ -574,6 +574,36 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getHWAddress(accountId: string, networkId: string, walletId: string) {
+    const vault = await this.getVault({ accountId, networkId });
+    const { path } = await this.dbApi.getAccount(accountId);
+    const device = await this.getHWDeviceByWalletId(walletId);
+    if (!device) {
+      throw new OneKeyInternalError(`Device not found.`);
+    }
+
+    try {
+      const address = await vault.keyring.getAddress({
+        path,
+        showOnOneKey: true,
+      });
+
+      if (!address) {
+        throw new OneKeyInternalError(`Address not found.`);
+      }
+      return address;
+    } catch (e) {
+      if (e instanceof OneKeyHardwareError) {
+        throw e;
+      } else {
+        throw new OneKeyHardwareError({
+          message: 'Failed to get address',
+        });
+      }
+    }
+  }
+
+  @backgroundMethod()
   async getAccountPrivateKey(
     accountId: string,
     password: string,

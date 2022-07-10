@@ -632,7 +632,7 @@
   "modal__enter_bootloader_mode_error": "启动 Bootloader 失败",
   "modal__enter_bootloader_mode_error_desc": "启动失败。请再试一次或手动进入 Bootloader。",
   "modal__enter_bootloader_mode_mini_desc": "按住 OneKey Mini 锁屏按钮的同时，重新插入 USB 数据线。",
-  "modal__enter_bootloader_mode_touch": "1. 将设备关机\\n 2. 按住 TOUCH 开关按钮同时滑动屏幕\\n 3. 设备现在将显示 \"Update Mode\" 字样",
+  "modal__enter_bootloader_mode_touch": "1. 关闭设备。\n2. 按下并按住 TOUCH 开关按钮，同时滑动屏幕。\n3. 设备现在将显示 \"Update Mode \"字样。",
   "modal__enter_pin": "输入 PIN",
   "modal__enter_pin_desc": "使用设备屏幕上的键盘数字布局，点击以下按钮输入密码",
   "modal__failed_to_connect": "连接设备失败",
