@@ -593,9 +593,13 @@ class Engine {
       }
       return address;
     } catch (e) {
-      throw new OneKeyHardwareError({
-        message: 'Failed to get address',
-      });
+      if (e instanceof OneKeyHardwareError) {
+        throw e;
+      } else {
+        throw new OneKeyHardwareError({
+          message: 'Failed to get address',
+        });
+      }
     }
   }
 

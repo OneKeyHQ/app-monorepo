@@ -244,6 +244,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (response.success) {
       return response.payload.address;
     }
-    return '';
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 }
