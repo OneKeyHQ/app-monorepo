@@ -13,7 +13,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -62,10 +62,12 @@ const RecoverConfirm: FC = () => {
         undefined,
         purpose,
       );
-    } catch (e) {
-      if (e instanceof OneKeyHardwareError) {
+    } catch (e: any) {
+      const { className, key } = e || {};
+
+      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
         ToastManager.show({
-          title: intl.formatMessage({ id: e.key }),
+          title: intl.formatMessage({ id: key }),
         });
       } else {
         ToastManager.show({

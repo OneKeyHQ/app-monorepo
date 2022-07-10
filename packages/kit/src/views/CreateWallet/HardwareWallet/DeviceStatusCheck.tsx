@@ -11,10 +11,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import {
-  OneKeyErrorClassNames,
-  OneKeyHardwareError,
-} from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import {
@@ -120,9 +117,11 @@ const DeviceStatusCheckModal: FC = () => {
         });
       } catch (e: any) {
         safeGoBack();
-        if (e instanceof OneKeyHardwareError) {
+        const { className, key } = e || {};
+
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
           ToastManager.show({
-            title: intl.formatMessage({ id: e.key }),
+            title: intl.formatMessage({ id: key }),
           });
         } else {
           ToastManager.show({
