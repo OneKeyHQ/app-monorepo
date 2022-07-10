@@ -30,7 +30,10 @@ function useDappApproveAction({
       });
       if (isExtStandaloneWindow) {
         // timeout wait reject done.
-        setTimeout(() => window.close(), 0);
+        setTimeout(() => {
+          close?.();
+          window.close();
+        }, 0);
       } else {
         close?.();
       }
