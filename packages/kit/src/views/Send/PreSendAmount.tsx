@@ -31,6 +31,7 @@ import {
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
+import { INetwork } from '../../store/reducers/runtime';
 import { AutoSizeText } from '../FiatPay/AmountInput/AutoSizeText';
 
 import { BaseSendModal } from './components/BaseSendModal';
@@ -97,19 +98,28 @@ export function PreSendAmountPreview({
   );
 }
 
-export function PreSendAmountPreviewWithFiatSwitch({
+function usePreSendAmountInfo({
   tokenInfo,
-  amount,
-  onAmountChange,
-  title,
   desc,
+  network,
+  amount,
+  setAmount,
 }: {
   tokenInfo: Token | undefined;
-  amount: string;
-  onAmountChange: (amount: string) => void;
   desc?: JSX.Element;
-  title?: string;
+  network?: INetwork | null;
+  amount: string;
+  setAmount: (value: string) => void;
 }) {
+  const amountInputDecimals =
+    (tokenInfo?.tokenIdOnNetwork
+      ? network?.tokenDisplayDecimals
+      : network?.nativeDisplayDecimals) ?? 2;
+
+  const validAmountRegex = useMemo(() => {
+    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
+    return new RegExp(pattern);
+  }, [amountInputDecimals]);
   const { getTokenPrice } = useManageTokens();
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
@@ -125,23 +135,56 @@ export function PreSendAmountPreviewWithFiatSwitch({
     [getTokenPrice, tokenInfo],
   );
   const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
-  const getInputText = (isFiatMode0: boolean) => {
-    if (isFiatMode0) {
-      if (!amount) {
-        return '';
+  const getInputText = useCallback(
+    (isFiatMode0: boolean, amount0: string, roundMode = undefined) => {
+      if (isFiatMode0) {
+        if (!amount0) {
+          return '';
+        }
+        return tokenPriceBN.times(amount0 || '0').toFixed(2, roundMode);
       }
-      return tokenPriceBN.times(amount || '0').toFixed(2);
-    }
-    return amount;
-  };
+      return amount0;
+    },
+    [tokenPriceBN],
+  );
+  const setTextByAmount = useCallback(
+    (amount0: string) => {
+      const text0 = getInputText(isFiatMode, amount0, BigNumber.ROUND_FLOOR);
+      setText(text0);
+    },
+    [getInputText, isFiatMode],
+  );
+  const onTextChange = (t: string) => setText(t);
+  const onAmountChange = useCallback(
+    (text0: string) => {
+      // delete action
+      if (text0.length < amount.length) {
+        setAmount(text0);
+        return;
+      }
+      if (validAmountRegex.test(text0)) {
+        setAmount(text0);
+      } else {
+        const textBN = new BigNumber(text0);
+        if (!textBN.isNaN()) {
+          const textFixed = textBN.toFixed(
+            amountInputDecimals,
+            BigNumber.ROUND_FLOOR,
+          );
+          setAmount(textFixed);
+        }
+      }
+    },
+    [amount.length, amountInputDecimals, setAmount, validAmountRegex],
+  );
   const titleActionButton = (
     <Pressable
       onPress={() => {
         setIsFiatMode((isFiat) => !isFiat);
-        setText(getInputText(!isFiatMode));
+        setText(getInputText(!isFiatMode, amount));
       }}
     >
-      <Icon name="ArrowCircleDownOutline" size={40} />
+      <Icon name="SwitchVerticalOutline" size={32} />
     </Pressable>
   );
   const descView = useMemo(() => {
@@ -172,17 +215,17 @@ export function PreSendAmountPreviewWithFiatSwitch({
     }
     return onAmountChange(text);
   }, [isFiatMode, onAmountChange, text, tokenPriceBN]);
-  return (
-    <PreSendAmountPreview
-      title={(isFiatMode ? fiatUnit : tokenInfo?.symbol) ?? '--'}
-      titleAction={hasTokenPrice ? titleActionButton : undefined}
-      desc={descView}
-      text={text}
-      onChangeText={(text0) => {
-        setText(text0);
-      }}
-    />
-  );
+
+  return {
+    validAmountRegex,
+    title: (isFiatMode ? fiatUnit : tokenInfo?.symbol) ?? '--',
+    titleAction: hasTokenPrice ? titleActionButton : undefined,
+    isFiatMode,
+    descView,
+    text,
+    onTextChange,
+    setTextByAmount,
+  };
 }
 
 function PreSendAmount() {
@@ -205,16 +248,6 @@ function PreSendAmount() {
     networkId,
     tokenIdOnNetwork,
   });
-
-  const amountInputDecimals =
-    (tokenIdOnNetwork
-      ? network?.tokenDisplayDecimals
-      : network?.nativeDisplayDecimals) ?? 2;
-
-  const validAmountRegex = useMemo(() => {
-    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
-    return new RegExp(pattern);
-  }, [amountInputDecimals]);
 
   const { getTokenBalance } = useManageTokens({
     fetchTokensOnMount: true,
@@ -267,6 +300,36 @@ function PreSendAmount() {
     return [true, false];
   }, [minAmountBN, amount]);
 
+  const desc = useMemo(
+    () =>
+      minAmountNoticeNeeded ? (
+        <Typography.Body1Strong color="text-critical">
+          {intl.formatMessage(
+            { id: 'form__str_minimum_transfer' },
+            { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
+          )}
+        </Typography.Body1Strong>
+      ) : undefined,
+    [intl, minAmountBN, minAmountNoticeNeeded, tokenInfo?.symbol],
+  );
+
+  const {
+    title,
+    titleAction,
+    descView,
+    text,
+    onTextChange,
+    validAmountRegex,
+    setTextByAmount,
+    isFiatMode,
+  } = usePreSendAmountInfo({
+    tokenInfo,
+    desc,
+    network,
+    amount,
+    setAmount,
+  });
+
   return (
     <BaseSendModal
       header={intl.formatMessage({ id: 'content__amount' })}
@@ -280,8 +343,9 @@ function PreSendAmount() {
         if (!account || !network || !tokenInfo) {
           return;
         }
+        const amountToSend = isFiatMode ? amount : text;
         if (transferInfo) {
-          transferInfo.amount = amount;
+          transferInfo.amount = amountToSend;
           transferInfo.from = account.address;
         }
 
@@ -307,7 +371,7 @@ function PreSendAmount() {
                 idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
               },
               to: transferInfo.to,
-              value: amount,
+              value: amountToSend,
               isMax: false,
             },
           });
@@ -349,39 +413,12 @@ function PreSendAmount() {
           flex={1}
           justifyContent="center"
         >
-          <PreSendAmountPreviewWithFiatSwitch
-            tokenInfo={tokenInfo}
-            amount={amount}
-            onAmountChange={(text) => {
-              // delete action
-              if (text.length < amount.length) {
-                setAmount(text);
-                return;
-              }
-              if (validAmountRegex.test(text)) {
-                setAmount(text);
-              } else {
-                const textBN = new BigNumber(text);
-                if (!textBN.isNaN()) {
-                  const textFixed = textBN.toFixed(
-                    amountInputDecimals,
-                    BigNumber.ROUND_FLOOR,
-                  );
-                  setAmount(textFixed);
-                }
-              }
-            }}
-            title={tokenInfo?.symbol ?? '--'}
-            desc={
-              minAmountNoticeNeeded ? (
-                <Typography.Body1Strong color="text-critical">
-                  {intl.formatMessage(
-                    { id: 'form__str_minimum_transfer' },
-                    { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
-                  )}
-                </Typography.Body1Strong>
-              ) : undefined
-            }
+          <PreSendAmountPreview
+            title={title}
+            titleAction={titleAction}
+            desc={descView}
+            text={text}
+            onChangeText={onTextChange}
           />
         </Box>
         <Box mt="auto">
@@ -411,7 +448,7 @@ function PreSendAmount() {
                   token: tokenInfo,
                   defaultValue: '0',
                 });
-                setAmount(balance ?? '0');
+                setTextByAmount(balance ?? '0');
               }}
             >
               {intl.formatMessage({ id: 'action__max' })}
@@ -423,11 +460,8 @@ function PreSendAmount() {
                 itemHeight={shortScreen ? '44px' : undefined}
                 // pattern={/^(0|([1-9][0-9]*))?\.?([0-9]{1,2})?$/}
                 pattern={validAmountRegex}
-                onTextChange={(text) => {
-                  // updateInputText(text);
-                  console.log(text);
-                  setAmount(text);
-                }}
+                text={text}
+                onTextChange={onTextChange}
               />
             </Box>
           )}
