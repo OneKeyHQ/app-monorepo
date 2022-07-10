@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useState } from 'react';
 
+import * as SplashScreen from 'expo-splash-screen';
 // TODO: add .d.ts for react-native-animated-splash-screen
 // @ts-expect-error no .d.ts
 import AnimatedSplash from 'react-native-animated-splash-screen';
@@ -53,11 +54,16 @@ const AppLoading: FC = ({ children }) => {
       });
       await Promise.all([
         new Promise((resolve) => {
-          setTimeout(resolve, 1000);
+          setTimeout(resolve, 300);
         }),
         initService(),
       ]);
       setInitDataReady(true);
+
+      // end splash screen to show AnimatedSplash after 50ms to avoid twinkling
+      setTimeout(() => {
+        SplashScreen.hideAsync();
+      }, 50);
     }
     main();
   }, []);
@@ -70,10 +76,10 @@ const AppLoading: FC = ({ children }) => {
         translucent
         isLoaded={initDataReady}
         // eslint-disable-next-line global-require
-        logoImage={require('../../assets/logo.png')}
+        logoImage={require('../../assets/splash.png')}
         backgroundColor={bgColor}
-        logoHeight={100}
-        logoWidth={100}
+        logoHeight="100%"
+        logoWidth="100%"
       >
         {children}
       </AnimatedSplash>

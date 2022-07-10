@@ -74,9 +74,6 @@ export const AppLock: FC<AppLockProps> = ({ children }) => {
   const { dispatch } = backgroundApiProxy;
   useEffect(() => {
     dispatch(setAppRenderReady());
-    setTimeout(() => {
-      SplashScreen.hideAsync();
-    }, 50);
   }, [dispatch]);
   if (platformEnv.isNative) {
     return <AppLockNormalMode>{children}</AppLockNormalMode>;
