@@ -139,14 +139,19 @@ const PopupHandle: FC = () => {
     }
 
     if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_CANCEL) {
-      const connectId = payload?.deviceConnectId ?? '';
-
-      serviceHardware.cancel(connectId);
-      serviceHardware.getFeatures(connectId);
-
       setVisiblePopup(undefined);
       dispatch(closeHardwarePopup());
       DialogManager.hide();
+
+      try {
+        const connectId = payload?.deviceConnectId ?? '';
+        // Cancel the process
+        serviceHardware.cancel(connectId);
+        // Refresh the hardware screen
+        serviceHardware.getFeatures(connectId);
+      } catch (e) {
+        // TODO Collect the error
+      }
     }
 
     if (
