@@ -42,6 +42,8 @@ class ServiceHardware extends ServiceBase {
 
   tryCount = 0;
 
+  stopConnect = false;
+
   constructor({ backgroundApi }: IServiceBaseProps) {
     super({ backgroundApi });
     getHardwareSDKInstance().then((instance) => {
@@ -127,6 +129,9 @@ class ServiceHardware extends ServiceBase {
       if (connected) {
         return Promise.resolve({} as IOneKeyDeviceFeatures);
       }
+      if (this.stopConnect) {
+        return Promise.reject(new Error('ABORT_CONNECT'));
+      }
       tryCount += 1;
       try {
         const feature = await this.getFeatures(connectId);
@@ -158,7 +163,17 @@ class ServiceHardware extends ServiceBase {
       return Promise.reject(new NeedOneKeyBridge());
     }
 
+    this.startPolling();
     return poll();
+  }
+
+  @backgroundMethod()
+  stopPolling() {
+    this.stopConnect = true;
+  }
+
+  startPolling() {
+    this.stopConnect = false;
   }
 
   @backgroundMethod()
