@@ -144,7 +144,7 @@ const CardViewDesktop: FC<SectionDataType> = ({
     [filterData, numColumns, renderItem],
   );
   return (
-    <Box width="100%" height="100%" mt="32px">
+    <Box width="100%" mt="32px">
       <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
       {flatList}
     </Box>
