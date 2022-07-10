@@ -76,37 +76,40 @@ export const parseCollectiblesData = (
   nftsResp: MoralisNFTsResp,
   mainKey: string,
 ): Collectible[] => {
-  const assets = nftsResp.result;
   const collectibles =
     USER_COLLECTIBLE_CACHE.get(mainKey) ?? new Map<string, Collectible>();
-
-  if (assets) {
-    assets.forEach((asset) => {
-      const uniqueName = asset.name;
-      if (uniqueName) {
-        const collectible = collectibles.get(uniqueName);
-        if (collectible) {
-          if (
-            !collectible.assets.find(
-              (item) =>
-                item.tokenAddress === asset.tokenAddress &&
-                item.tokenId === asset.tokenId,
-            )
-          ) {
-            collectible.assets.push(asset);
+  try {
+    const assets = nftsResp.result;
+    if (assets) {
+      assets.forEach((asset) => {
+        const uniqueName = asset.name;
+        if (uniqueName) {
+          const collectible = collectibles.get(uniqueName);
+          if (collectible) {
+            if (
+              !collectible.assets.find(
+                (item) =>
+                  item.tokenAddress === asset.tokenAddress &&
+                  item.tokenId === asset.tokenId,
+              )
+            ) {
+              collectible.assets.push(asset);
+            }
+          } else {
+            collectibles.set(uniqueName, {
+              id: uniqueName,
+              chain: nftsResp.chain,
+              assets: [asset],
+              collection: {
+                name: asset.name,
+              },
+            });
           }
-        } else {
-          collectibles.set(uniqueName, {
-            id: uniqueName,
-            chain: nftsResp.chain,
-            assets: [asset],
-            collection: {
-              name: asset.name,
-            },
-          });
         }
-      }
-    });
+      });
+    }
+  } catch (error) {
+    console.log(error);
   }
   // Use lowercase address in case of case-insensitive address
   USER_COLLECTIBLE_CACHE.set(mainKey, collectibles);
@@ -156,11 +159,14 @@ export const useCollectiblesData = ({
           network,
           cursor: cursor !== 'begin' ? cursor : undefined,
         });
-
-        if (result.success === false || result.cursor === '') {
+        parseCollectiblesData(result, mainKey);
+        if (
+          result.success === false ||
+          result.cursor === '' ||
+          result.cursor === null
+        ) {
           updateCursor(mainKey, '');
-        } else if (result.cursor) {
-          parseCollectiblesData(result, mainKey);
+        } else if (result.cursor && result.cursor?.length > 0) {
           updateCursor(mainKey, result.cursor);
         }
       }
