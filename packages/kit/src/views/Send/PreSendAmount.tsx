@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -9,7 +9,10 @@ import {
   Box,
   Button,
   Center,
+  HStack,
+  Icon,
   Keyboard,
+  Pressable,
   Spinner,
   Text,
   Typography,
@@ -17,6 +20,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { Token } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -25,6 +29,7 @@ import {
   FormatCurrencyToken,
 } from '../../components/Format';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
+import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { AutoSizeText } from '../FiatPay/AmountInput/AutoSizeText';
 
@@ -41,6 +46,7 @@ type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendAmount>;
 
 export function PreSendAmountPreview({
   title,
+  titleAction,
   text,
   onChangeText,
   loading,
@@ -49,15 +55,23 @@ export function PreSendAmountPreview({
   text: string;
   onChangeText?: (text: string) => void;
   title?: string;
+  titleAction?: JSX.Element;
   desc?: string | JSX.Element;
   loading?: boolean;
 }) {
   return (
     <Box height="140px">
       {!!title && (
-        <Text textAlign="center" typography="DisplayLarge" color="text-subdued">
-          {title}
-        </Text>
+        <HStack space={2} alignItems="center" justifyContent="center">
+          <Text
+            textAlign="center"
+            typography="DisplayLarge"
+            color="text-subdued"
+          >
+            {title}
+          </Text>
+          {titleAction}
+        </HStack>
       )}
 
       {/* placeholder={intl.formatMessage({ id: 'content__amount' })} */}
@@ -80,6 +94,94 @@ export function PreSendAmountPreview({
         )
       )}
     </Box>
+  );
+}
+
+export function PreSendAmountPreviewWithFiatSwitch({
+  tokenInfo,
+  amount,
+  onAmountChange,
+  title,
+  desc,
+}: {
+  tokenInfo: Token | undefined;
+  amount: string;
+  onAmountChange: (amount: string) => void;
+  desc?: JSX.Element;
+  title?: string;
+}) {
+  const { getTokenPrice } = useManageTokens();
+  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+  const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
+  const [isFiatMode, setIsFiatMode] = useState(false);
+  const [text, setText] = useState(amount);
+  const tokenPriceBN = useMemo(
+    () =>
+      new BigNumber(
+        getTokenPrice({
+          token: tokenInfo,
+        }),
+      ),
+    [getTokenPrice, tokenInfo],
+  );
+  const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
+  const getInputText = (isFiatMode0: boolean) => {
+    if (isFiatMode0) {
+      if (!amount) {
+        return '';
+      }
+      return tokenPriceBN.times(amount || '0').toFixed(2);
+    }
+    return amount;
+  };
+  const titleActionButton = (
+    <Pressable
+      onPress={() => {
+        setIsFiatMode((isFiat) => !isFiat);
+        setText(getInputText(!isFiatMode));
+      }}
+    >
+      <Icon name="ArrowCircleDownOutline" size={40} />
+    </Pressable>
+  );
+  const descView = useMemo(() => {
+    if (desc) {
+      return desc;
+    }
+    if (isFiatMode) {
+      return (
+        <Text>
+          {amount || '0'} {tokenInfo?.symbol}
+        </Text>
+      );
+    }
+    return (
+      <FormatCurrencyToken
+        token={tokenInfo}
+        value={amount}
+        render={(ele) => <Text>{ele}</Text>}
+      />
+    );
+  }, [amount, desc, isFiatMode, tokenInfo]);
+  useEffect(() => {
+    if (isFiatMode) {
+      if (!text) {
+        return onAmountChange('');
+      }
+      return onAmountChange(new BigNumber(text).div(tokenPriceBN).toFixed());
+    }
+    return onAmountChange(text);
+  }, [isFiatMode, onAmountChange, text, tokenPriceBN]);
+  return (
+    <PreSendAmountPreview
+      title={(isFiatMode ? fiatUnit : tokenInfo?.symbol) ?? '--'}
+      titleAction={hasTokenPrice ? titleActionButton : undefined}
+      desc={descView}
+      text={text}
+      onChangeText={(text0) => {
+        setText(text0);
+      }}
+    />
   );
 }
 
@@ -247,10 +349,10 @@ function PreSendAmount() {
           flex={1}
           justifyContent="center"
         >
-          <PreSendAmountPreview
-            title={tokenInfo?.symbol ?? '--'}
-            text={amount}
-            onChangeText={(text) => {
+          <PreSendAmountPreviewWithFiatSwitch
+            tokenInfo={tokenInfo}
+            amount={amount}
+            onAmountChange={(text) => {
               // delete action
               if (text.length < amount.length) {
                 setAmount(text);
@@ -269,21 +371,16 @@ function PreSendAmount() {
                 }
               }
             }}
+            title={tokenInfo?.symbol ?? '--'}
             desc={
               minAmountNoticeNeeded ? (
                 <Typography.Body1Strong color="text-critical">
                   {intl.formatMessage(
                     { id: 'form__str_minimum_transfer' },
-                    { 0: minAmountBN.toFixed() },
+                    { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
                   )}
                 </Typography.Body1Strong>
-              ) : (
-                <FormatCurrencyToken
-                  token={tokenInfo}
-                  value={amount}
-                  render={(ele) => <Text>{ele}</Text>}
-                />
-              )
+              ) : undefined
             }
           />
         </Box>
