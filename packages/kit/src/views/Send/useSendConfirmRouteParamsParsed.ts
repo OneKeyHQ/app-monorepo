@@ -12,10 +12,13 @@ type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendConfirm
 >;
+// type ModalNavigationProps = ModalScreenProps<SendRoutesParams>;
+
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 export function useSendConfirmRouteParamsParsed() {
   const navigation = useNavigation<NavigationProps>();
+  // const navigation = useNavigation<ModalNavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const routeParams = route.params ?? {};
   const { sourceInfo, resendActionInfo, encodedTx } = routeParams;

@@ -25,6 +25,7 @@ export enum SendRoutes {
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
   SwapPreview = 'SwapPreview',
+  SendFeedbackReceipt = 'SendFeedbackReceipt',
 }
 
 export type TokenApproveAmountEditParams = {
@@ -130,6 +131,11 @@ export type SignMessageConfirmParams = {
   unsignedMessage: IUnsignedMessageEvm;
 };
 
+export type SendFeedbackReceiptParams = {
+  txid: string;
+  closeModal?: () => any;
+};
+
 export type SendRoutesParams = {
   [SendRoutes.SendLegacy]: SendLegacyParams;
   [SendRoutes.PreSendToken]: PreSendParams;
@@ -142,4 +148,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
   [SendRoutes.SwapPreview]: undefined;
+  [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
 };

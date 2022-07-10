@@ -8,7 +8,6 @@ import { PreSendAmount } from '@onekeyhq/kit/src/views/Send/PreSendAmount';
 import { PreSendToken } from '@onekeyhq/kit/src/views/Send/PreSendToken';
 import SendConfirmModern from '@onekeyhq/kit/src/views/Send/SendConfirm';
 import { SendConfirmFromDapp } from '@onekeyhq/kit/src/views/Send/SendConfirmFromDapp';
-import SendConfirmLegacy from '@onekeyhq/kit/src/views/Send/SendConfirmLegacy';
 import SendEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
 import SendLegacy from '@onekeyhq/kit/src/views/Send/SendLegacy';
 import {
@@ -17,6 +16,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenApproveAmountEdit';
+import { SendFeedbackReceipt } from '../../views/Send/SendModals/SendFeedbackReceipt';
 import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
 import SwapPreiview from '../../views/Swap/Preview/index';
 
@@ -63,6 +63,10 @@ const modalRoutes = [
   {
     name: SendRoutes.SendAuthentication,
     component: SendAuthentication,
+  },
+  {
+    name: SendRoutes.SendFeedbackReceipt,
+    component: SendFeedbackReceipt,
   },
   {
     name: SendRoutes.SignMessageConfirm,
