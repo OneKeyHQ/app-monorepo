@@ -63,7 +63,6 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
           padding="8px"
           justifyContent="center"
           alignItems="center"
-          width={isSmallScreen ? '310px' : `${cardWidth + 16}px`}
           height={isSmallScreen ? '258px' : `285px`}
         >
           <Pressable
@@ -72,7 +71,6 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
                 onItemSelect(item);
               }
             }}
-            width={isSmallScreen ? '294px' : `${cardWidth}px`}
             height="100%"
             bgColor="surface-default"
             borderRadius="12px"

@@ -22,6 +22,7 @@ import {
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import imageUrl from '../../../../assets/3d_contact.png';
@@ -276,7 +277,7 @@ const PickAddress = () => {
           onChange={setSelectedIndex}
         />
       </Box>
-      <Box flex="1" maxH={!isSmall ? '72' : undefined}>
+      <Box flex="1" maxH={!isSmall && !platformEnv.isNative ? '72' : undefined}>
         {selectedIndex === 0 ? addressbook : wallet}
       </Box>
     </Modal>
