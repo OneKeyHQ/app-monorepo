@@ -16,7 +16,6 @@ import {
   useActiveWalletAccount,
   useAppSelector,
   useRuntime,
-  useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
@@ -53,7 +52,7 @@ const AccountSelectorChildren: FC<{
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
   const { connected } = useAppSelector((s) => s.hardware);
-  const { deviceUpdates } = useSettings() || {};
+  const deviceUpdates = useAppSelector((s) => s.settings.deviceUpdates || {});
 
   const [deviceStatus, setDeviceStatus] =
     useState<Record<string, DeviceStatusType | undefined>>();
