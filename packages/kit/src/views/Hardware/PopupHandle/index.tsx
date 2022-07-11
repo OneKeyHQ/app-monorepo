@@ -1,16 +1,14 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
-import { PermissionsAndroid } from 'react-native';
+import Modal from 'react-native-modal';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { DialogManager } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import {
-  cancelHardwarePopup,
+  HardwareUiEventPayload,
   closeHardwarePopup,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,112 +34,26 @@ export const UI_REQUEST = {
   FIRMWARE_PROGRESS: 'ui-firmware-progress',
 } as const;
 
-const PopupHandle: FC = () => {
+export type HardwarePopupContentProps = {
+  uiRequest?: string;
+  payload?: HardwareUiEventPayload;
+};
+
+export type HardwarePopupProps = {
+  canceledOnTouchOutside?: boolean;
+};
+
+const HardwarePopup: FC<HardwarePopupProps> = () => {
   const { hardwarePopup } = useAppSelector((s) => s.hardware) || {};
-  const { dispatch, serviceHardware } = backgroundApiProxy;
-  const [visiblePopup, setVisiblePopup] = useState<string>();
 
   const { uiRequest, payload } = hardwarePopup;
+  const uiRequestMemo = useDeepCompareMemo(() => uiRequest, [uiRequest]);
 
-  useEffect(() => {
-    console.log(
-      `PopupHandle: uiRequest:${uiRequest ?? 'undefined'}  visiblePopup:${
-        visiblePopup ?? 'undefined'
-      }`,
-      payload,
-    );
+  const popupView = useMemo(() => {
+    const { dispatch, serviceHardware } = backgroundApiProxy;
 
-    if (uiRequest === UI_REQUEST.REQUEST_PIN) {
-      if (visiblePopup === uiRequest) return;
-      setVisiblePopup(uiRequest);
-
-      const deviceType = payload?.deviceType ?? 'classic';
-      const onDeviceInput = true;
-
-      if (onDeviceInput) {
-        serviceHardware.sendUiResponse({
-          type: UI_RESPONSE.RECEIVE_PIN,
-          payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
-        });
-      }
-
-      DialogManager.hide();
-      DialogManager.show({
-        render: (
-          <RequestPinView
-            deviceType={deviceType}
-            onDeviceInput={onDeviceInput}
-            onCancel={() => {
-              dispatch(cancelHardwarePopup());
-            }}
-            onConfirm={(pin) => {
-              serviceHardware?.sendUiResponse({
-                type: UI_RESPONSE.RECEIVE_PIN,
-                payload: pin,
-              });
-            }}
-            onClose={() => {
-              setVisiblePopup(undefined);
-            }}
-          />
-        ),
-      });
-    }
-
-    if (uiRequest === UI_REQUEST.INVALID_PIN) {
+    const handleCancelPopup = () => {
       dispatch(closeHardwarePopup());
-      DialogManager.hide();
-    }
-
-    if (uiRequest === UI_REQUEST.REQUEST_BUTTON) {
-      const formatUiRequest = `${uiRequest}-${
-        payload?.deviceBootLoaderMode ? 'bootloader' : ''
-      }`;
-
-      if (visiblePopup === formatUiRequest) return;
-      setVisiblePopup(formatUiRequest);
-
-      const deviceType = payload?.deviceType ?? 'classic';
-
-      DialogManager.hide();
-      setTimeout(() => {
-        DialogManager.show({
-          render: (
-            <RequestConfirmView
-              deviceType={deviceType}
-              bootLoader={payload?.deviceBootLoaderMode}
-              onCancel={() => {
-                dispatch(cancelHardwarePopup());
-              }}
-              onClose={() => {
-                setVisiblePopup(undefined);
-              }}
-            />
-          ),
-        });
-      }, 0);
-    }
-
-    if (uiRequest === UI_REQUEST.CLOSE_UI_WINDOW) {
-      setTimeout(() => {
-        dispatch(closeHardwarePopup());
-      }, 0);
-      if (
-        visiblePopup === UI_REQUEST.BLUETOOTH_PERMISSION ||
-        visiblePopup === UI_REQUEST.LOCATION_PERMISSION
-      ) {
-        // Users manually shut it down
-        return;
-      }
-
-      setVisiblePopup(undefined);
-      DialogManager.hide();
-    }
-
-    if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_CANCEL) {
-      setVisiblePopup(undefined);
-      dispatch(closeHardwarePopup());
-      DialogManager.hide();
 
       try {
         const connectId = payload?.deviceConnectId ?? '';
@@ -152,71 +64,84 @@ const PopupHandle: FC = () => {
       } catch (e) {
         // TODO Collect the error
       }
+    };
+
+    if (uiRequestMemo === UI_REQUEST.REQUEST_PIN) {
+      const deviceType = payload?.deviceType ?? 'classic';
+      const onDeviceInput = true;
+      if (onDeviceInput) {
+        serviceHardware.sendUiResponse({
+          type: UI_RESPONSE.RECEIVE_PIN,
+          payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+        });
+      }
+
+      return (
+        <RequestPinView
+          deviceType={deviceType}
+          onDeviceInput={onDeviceInput}
+          onCancel={() => {
+            handleCancelPopup();
+          }}
+          onConfirm={(pin) => {
+            serviceHardware?.sendUiResponse({
+              type: UI_RESPONSE.RECEIVE_PIN,
+              payload: pin,
+            });
+          }}
+        />
+      );
+    }
+
+    if (uiRequestMemo === UI_REQUEST.REQUEST_BUTTON) {
+      const deviceType = payload?.deviceType ?? 'classic';
+
+      return (
+        <RequestConfirmView
+          deviceType={deviceType}
+          bootLoader={payload?.deviceBootLoaderMode}
+          onCancel={() => {
+            handleCancelPopup();
+          }}
+        />
+      );
     }
 
     if (
-      uiRequest === UI_REQUEST.LOCATION_PERMISSION ||
-      uiRequest === UI_REQUEST.BLUETOOTH_PERMISSION
+      uiRequestMemo !== UI_REQUEST.LOCATION_PERMISSION &&
+      uiRequestMemo !== UI_REQUEST.BLUETOOTH_PERMISSION
     ) {
-      (async () => {
-        if (visiblePopup === uiRequest) return;
-
-        const check = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        );
-
-        if (check || platformEnv.isNativeIOS) {
-          setTimeout(() => {
-            setVisiblePopup(uiRequest);
-            DialogManager.show({
-              render: (
-                <PermissionDialog
-                  type="bluetooth"
-                  onClose={() => {
-                    navigationRef.current?.goBack?.();
-                    setVisiblePopup(undefined);
-                    dispatch(closeHardwarePopup());
-                  }}
-                />
-              ),
-            });
-          }, 0);
-          return;
-        }
-
-        const result = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        );
-
-        if (
-          result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
-          result === PermissionsAndroid.RESULTS.DENIED
-        ) {
-          setTimeout(() => {
-            setVisiblePopup(uiRequest);
-            DialogManager.show({
-              render: (
-                <PermissionDialog
-                  type="location"
-                  onClose={() => {
-                    navigationRef.current?.goBack?.();
-                    setVisiblePopup(undefined);
-                    dispatch(closeHardwarePopup());
-                  }}
-                />
-              ),
-            });
-          }, 0);
-        } else {
-          setVisiblePopup(undefined);
-          dispatch(closeHardwarePopup());
-        }
-      })();
+      dispatch(closeHardwarePopup());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uiRequest, visiblePopup]);
 
-  return null;
+    return null;
+  }, [
+    payload?.deviceBootLoaderMode,
+    payload?.deviceConnectId,
+    payload?.deviceType,
+    uiRequestMemo,
+  ]);
+
+  return (
+    <Modal
+      backdropColor="overlay"
+      animationOut="fadeOutDown"
+      animationIn="fadeInDown"
+      animationOutTiming={300}
+      backdropTransitionOutTiming={0}
+      coverScreen
+      useNativeDriver
+      hideModalContentWhileAnimating
+      isVisible={!!popupView}
+      style={{
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+        top: platformEnv.isNativeIOS ? 16 : 10,
+      }}
+    >
+      {popupView}
+    </Modal>
+  );
 };
 
-export default PopupHandle;
+export default HardwarePopup;

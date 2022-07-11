@@ -344,39 +344,36 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
-    setTimeout(() => {
-      const { dispatch } = this.backgroundApi;
+    const { dispatch } = this.backgroundApi;
+    dispatch(
+      setDeviceUpdates({
+        connectId,
+        value: {
+          forceFirmware: hasFirmwareForce,
+          forceBle: hasBleForce,
+          ble: hasBleUpgrade ? bleFirmware : undefined,
+          firmware: hasSysUpgrade ? firmware : undefined,
+        },
+      }),
+    );
+
+    // dev
+    const settings: { devMode: any } =
+      this.backgroundApi.appSelector((s) => s.settings) || {};
+    const { enable, updateDeviceBle, updateDeviceSys } = settings.devMode || {};
+    if (enable) {
       dispatch(
         setDeviceUpdates({
           connectId,
           value: {
             forceFirmware: hasFirmwareForce,
             forceBle: hasBleForce,
-            ble: hasBleUpgrade ? bleFirmware : undefined,
-            firmware: hasSysUpgrade ? firmware : undefined,
+            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
+            firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
           },
         }),
       );
-
-      // dev
-      const settings: { devMode: any } =
-        this.backgroundApi.appSelector((s) => s.settings) || {};
-      const { enable, updateDeviceBle, updateDeviceSys } =
-        settings.devMode || {};
-      if (enable) {
-        dispatch(
-          setDeviceUpdates({
-            connectId,
-            value: {
-              forceFirmware: hasFirmwareForce,
-              forceBle: hasBleForce,
-              ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
-              firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
-            },
-          }),
-        );
-      }
-    }, 3000);
+    }
 
     return Promise.resolve(hasFirmwareForce || hasBleForce);
   }

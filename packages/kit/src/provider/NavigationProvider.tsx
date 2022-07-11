@@ -15,6 +15,7 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import RootStack from '@onekeyhq/kit/src/routes/Root';
 import { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import HardwarePopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle';
+import HardwareSpecialPopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle/SpecialPopup';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -107,6 +108,7 @@ const NavigationApp = () => {
         <Toast bottomOffset={60} />
         <DialogManager.Holder />
         <HardwarePopup />
+        <HardwareSpecialPopup />
       </Box>
     </>
   );
