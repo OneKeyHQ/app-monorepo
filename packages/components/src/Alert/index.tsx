@@ -43,8 +43,7 @@ const WarnAlertProps: AlertTypeProps = {
   iconName: 'ExclamationSolid',
   iconColor: 'icon-warning',
   bgColor: 'surface-warning-subdued',
-  // @ts-expect-error
-  borderColor: '#7A6200',
+  borderColor: 'border-warning-subdued',
 };
 
 const ErrorAlertProps: AlertTypeProps = {
