@@ -139,14 +139,21 @@ class ProviderApiStarcoin extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    console.log('providerApiStarcoion rpcCall', request)
     const { networkId } = getActiveWalletAccount();
+    const temp = getActiveWalletAccount();
+    console.log({ temp });
+    console.log('providerApiStarcoion rpcCall', request, { networkId })
+
     debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
       networkId,
       request,
     );
+    console.log('BgApi rpcCall RESULT:', request, {
+      networkId,
+      result,
+    });
     debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
       networkId,
       result,
@@ -158,7 +165,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     const data = async ({ origin }: { origin: string }) => {
       const result = {
         method: 'metamask_accountsChanged',
-        params: await this.eth_accounts({ origin }),
+        params: await this.stc_accounts({ origin }),
       };
       return result;
     };
@@ -289,7 +296,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
 
     const result: Permission[] = Object.keys(permissions).map(
       (permissionName) => {
-        if (permissionName === 'eth_accounts') {
+        if (permissionName === 'stc_accounts') {
           return {
             caveats: [
               {
@@ -319,31 +326,31 @@ class ProviderApiStarcoin extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+  async stc_requestAccounts(request: IJsBridgeMessagePayload) {
     debugLogger.backgroundApi(
-      'ProviderApiStarcoin.eth_requestAccounts',
+      'ProviderApiStarcoin.stc_requestAccounts',
       request,
     );
 
-    const accounts = await this.eth_accounts(request);
+    const accounts = await this.stc_accounts(request);
     if (accounts && accounts.length) {
       return accounts;
     }
 
     await this.backgroundApi.serviceDapp.openConnectionModal(request);
-    return this.eth_accounts(request);
+    return this.stc_accounts(request);
 
     // TODO show approval confirmation, skip in whitelist domain
   }
 
   @providerApiMethod()
   eth_coinbase(request: IJsBridgeMessagePayload) {
-    // TODO some different with eth_accounts, check metamask code source
-    return this.eth_accounts(request);
+    // TODO some different with stc_accounts, check metamask code source
+    return this.stc_accounts(request);
   }
 
   @providerApiMethod()
-  async eth_accounts(request: IJsBridgeMessagePayload) {
+  async stc_accounts(request: IJsBridgeMessagePayload) {
     const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
       origin: request.origin as string,
     });
@@ -405,7 +412,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   async personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     let message = messages[0] as string;
 
-    const accounts = await this.eth_accounts(req);
+    const accounts = await this.stc_accounts(req);
     // FIX:  dydx use second param as message
     if (accounts && accounts.length) {
       const a = fixAddressCase({
@@ -512,7 +519,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   @providerApiMethod()
   async metamask_getProviderState(request: IJsBridgeMessagePayload) {
     return {
-      accounts: await this.eth_accounts(request),
+      accounts: await this.stc_accounts(request),
       chainId: await this.eth_chainId(),
       networkVersion: await this.net_version(),
       isUnlocked: await this._getCurrentUnlockState(),
