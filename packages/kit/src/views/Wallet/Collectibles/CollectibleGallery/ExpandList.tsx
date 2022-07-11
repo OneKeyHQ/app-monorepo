@@ -6,7 +6,6 @@ import { FlatListProps } from 'react-native';
 
 import {
   Badge,
-  BalanceText,
   Box,
   HStack,
   IconButton,

@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import { Box, LottieView, Modal, Typography } from '@onekeyhq/components';
 // import OnekeyClassicConfirm from '@onekeyhq/kit/assets/hardware/lottie_hardware_onekey_classic_confirm.json';
-import OnekeyMiniConfirm from '@onekeyhq/kit/assets/hardware/lottie_hardware_onekey_mini_confirm.json';
+import OnekeyMiniConfirm from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_mini_confirm.json';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,

@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import ConfirmOnClassic from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-classic.json';
-import ConfirmOnMini from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-mini.json';
-import ConfirmOnTouch from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-touch.json';
-import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-classic.json';
-import EnterPinCodeOnMini from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-mini.json';
-import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-touch.json';
+import ConfirmOnClassic from '@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json';
+import ConfirmOnMini from '@onekeyhq/kit/assets/animations/confirm-on-onekey-mini.json';
+import ConfirmOnTouch from '@onekeyhq/kit/assets/animations/confirm-on-onekey-touch.json';
+import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-classic.json';
+import EnterPinCodeOnMini from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-mini.json';
+import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-touch.json';
 
 import Box from '../Box';
 import LottieView from '../LottieView';

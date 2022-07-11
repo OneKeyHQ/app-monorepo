@@ -104,12 +104,14 @@ function usePreSendAmountInfo({
   network,
   amount,
   setAmount,
+  tokenBalance,
 }: {
   tokenInfo: Token | undefined;
   desc?: JSX.Element;
   network?: INetwork | null;
   amount: string;
   setAmount: (value: string) => void;
+  tokenBalance: string;
 }) {
   const amountInputDecimals =
     (tokenInfo?.tokenIdOnNetwork
@@ -180,8 +182,14 @@ function usePreSendAmountInfo({
   const titleActionButton = (
     <Pressable
       onPress={() => {
-        setIsFiatMode((isFiat) => !isFiat);
-        setText(getInputText(!isFiatMode, amount));
+        let roundingMode;
+        // max amount
+        if (text && text === tokenBalance && !isFiatMode) {
+          roundingMode = BigNumber.ROUND_FLOOR;
+        }
+        const isFiatModeNew = !isFiatMode;
+        setIsFiatMode(isFiatModeNew);
+        setText(getInputText(isFiatModeNew, amount, roundingMode));
       }}
     >
       <Icon name="SwitchVerticalOutline" size={32} />
@@ -253,17 +261,21 @@ function PreSendAmount() {
     fetchTokensOnMount: true,
   });
 
+  const tokenBalance = useMemo(
+    () =>
+      getTokenBalance({
+        token: tokenInfo,
+        defaultValue: '0',
+      }),
+    [getTokenBalance, tokenInfo],
+  );
+
   const getAmountValidateError = useCallback(() => {
     if (!tokenInfo || !amount) {
       return 'error';
     }
     const inputBN = new BigNumber(amount);
-    const balanceBN = new BigNumber(
-      getTokenBalance({
-        token: tokenInfo,
-        defaultValue: '0',
-      }),
-    );
+    const balanceBN = new BigNumber(tokenBalance);
     if (inputBN.isNaN() || balanceBN.isNaN()) {
       return intl.formatMessage(
         { id: 'form__amount_invalid' },
@@ -277,7 +289,7 @@ function PreSendAmount() {
       );
     }
     return undefined;
-  }, [amount, getTokenBalance, intl, tokenInfo]);
+  }, [amount, intl, tokenBalance, tokenInfo]);
   const errorMsg = getAmountValidateError();
 
   const minAmountBN = useMemo(
@@ -328,6 +340,7 @@ function PreSendAmount() {
     network,
     amount,
     setAmount,
+    tokenBalance,
   });
 
   return (
@@ -444,11 +457,7 @@ function PreSendAmount() {
             </Box>
             <Button
               onPress={() => {
-                const balance = getTokenBalance({
-                  token: tokenInfo,
-                  defaultValue: '0',
-                });
-                setTextByAmount(balance ?? '0');
+                setTextByAmount(tokenBalance ?? '0');
               }}
             >
               {intl.formatMessage({ id: 'action__max' })}
