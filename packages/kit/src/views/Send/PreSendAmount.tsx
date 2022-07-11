@@ -11,6 +11,7 @@ import {
   Center,
   HStack,
   Icon,
+  IconButton,
   Keyboard,
   Pressable,
   Spinner,
@@ -180,7 +181,11 @@ function usePreSendAmountInfo({
     [amount.length, amountInputDecimals, setAmount, validAmountRegex],
   );
   const titleActionButton = (
-    <Pressable
+    <IconButton
+      name="SwitchVerticalOutline"
+      size="lg"
+      type="plain"
+      circle
       onPress={() => {
         let roundingMode;
         // max amount
@@ -191,9 +196,7 @@ function usePreSendAmountInfo({
         setIsFiatMode(isFiatModeNew);
         setText(getInputText(isFiatModeNew, amount, roundingMode));
       }}
-    >
-      <Icon name="SwitchVerticalOutline" size={32} />
-    </Pressable>
+    />
   );
   const descView = useMemo(() => {
     if (desc) {
