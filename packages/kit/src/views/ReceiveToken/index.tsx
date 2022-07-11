@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
@@ -74,17 +75,27 @@ const ReceiveToken = () => {
       setIsLoadingForHardware(true);
       getAddress()
         .then((res) => setOnHardwareConfirmed(res === shownAddress))
-        .catch((e: Error) => {
-          ToastManager.show(
-            {
-              title: e.message,
-            },
-            { type: 'default' },
-          );
+        .catch((e: any) => {
+          const { className, key, message } = e;
+          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: key }),
+              },
+              { type: 'error' },
+            );
+          } else {
+            ToastManager.show(
+              {
+                title: message,
+              },
+              { type: 'default' },
+            );
+          }
         })
         .finally(() => setIsLoadingForHardware(false));
     }
-  }, [confirmConnected, getAddress, shownAddress]);
+  }, [confirmConnected, getAddress, intl, shownAddress]);
 
   useEffect(() => () => abortConnect(), [abortConnect]);
 
