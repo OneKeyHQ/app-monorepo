@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { OneKeyHardwareAbortError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -47,7 +48,7 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
     try {
       features = await serviceHardware.ensureConnected(device.mac);
     } catch (e) {
-      if (e instanceof Error && e.message !== 'ABORT_CONNECT') {
+      if (!(e instanceof OneKeyHardwareAbortError)) {
         showMessage();
       }
       setLoading(false);
