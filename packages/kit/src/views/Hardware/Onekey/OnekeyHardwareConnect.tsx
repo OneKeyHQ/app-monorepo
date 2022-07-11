@@ -5,8 +5,8 @@ import { RouteProp } from '@react-navigation/native';
 
 import { Box, LottieView, Modal, Typography } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import OnekeyBluetoothConnect from '@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_bluetooth.json';
-import OnekeyUsbConnect from '@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_usb.json';
+import OnekeyBluetoothConnect from '@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_bluetooth.json';
+import OnekeyUsbConnect from '@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_usb.json';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {

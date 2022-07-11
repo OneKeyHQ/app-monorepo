@@ -4,9 +4,9 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
 import { LottieView, Text } from '@onekeyhq/components';
-import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-classic.json';
-import EnterPinCodeOnMini from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-mini.json';
-import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-touch.json';
+import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-classic.json';
+import EnterPinCodeOnMini from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-mini.json';
+import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-touch.json';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 

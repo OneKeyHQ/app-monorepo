@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';
@@ -8,6 +8,7 @@ import {
   Box,
   HStack,
   Icon,
+  LottieView,
   Pressable,
   Text,
   VStack,
@@ -50,6 +51,18 @@ export function SendFeedbackReceipt() {
       return newNum;
     });
   }, 1000);
+  const feedbackAnimation = useMemo(
+    () => (
+      <LottieView
+        style={{ width: '200px' }}
+        // eslint-disable-next-line global-require
+        source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
+        autoPlay={false}
+        loop={false}
+      />
+    ),
+    [],
+  );
   return (
     <BaseSendModal
       hideBackButton
@@ -66,8 +79,8 @@ export function SendFeedbackReceipt() {
       closeAction={() => doClose()}
     >
       <VStack alignItems="center" justifyContent="center" minH="100%">
-        <Icon name="CheckCircleSolid" color="interactive-default" size={150} />
-        <Box h={8} />
+        {/* <Icon name="CheckCircleSolid" color="interactive-default" size={150} /> */}
+        {feedbackAnimation}
         <Text typography="DisplayMedium">
           {intl.formatMessage({ id: 'modal__transaction_submitted' })}
         </Text>
