@@ -20,6 +20,10 @@ export class UserCancel extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_user_cancel_error';
 }
 
+export class UserCancelFromOutside extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceInterruptedFromOutside;
+}
+
 export class UnknownMethod extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 
