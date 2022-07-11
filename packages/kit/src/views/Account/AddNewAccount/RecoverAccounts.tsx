@@ -35,6 +35,7 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { UserCancelFromOutside } from '@onekeyhq/kit/src/utils/hardware/errors';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -151,6 +152,9 @@ const RecoverAccounts: FC = () => {
           ]);
         })
         .catch((e) => {
+          if (e instanceof UserCancelFromOutside) {
+            return;
+          }
           isFetchingData.current = false;
           ToastManager.show({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -223,6 +227,30 @@ const RecoverAccounts: FC = () => {
     }
   }, [currentPage, getData, needGetMoreData]);
 
+  /**
+   * if the hardware method is still being called when the page jumps,
+   * the process is cancelled
+   */
+  function hardwareCancel() {
+    if (isFetchingData.current) {
+      backgroundApiProxy.engine
+        .getHWDeviceByWalletId(walletId)
+        .then((device) => {
+          if (device) {
+            backgroundApiProxy.serviceHardware.cancel(device.mac).then(() => {
+              setTimeout(() => (isFetchingData.current = false), 500);
+            });
+          }
+        });
+    }
+  }
+
+  useEffect(
+    () => () => hardwareCancel(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   return (
     <Modal
       height="640px"
@@ -237,6 +265,7 @@ const RecoverAccounts: FC = () => {
       }}
       primaryActionTranslationId="action__next"
       onPrimaryActionPress={() => {
+        hardwareCancel();
         navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
           accounts: [
             ...flatListData.filter((i) => !i.isDisabled && i.selected),
