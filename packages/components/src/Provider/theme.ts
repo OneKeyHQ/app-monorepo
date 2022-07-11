@@ -121,7 +121,7 @@ export const light = {
   'border-critical-default': '#FF8A84',
   'border-critical-subdued': '#FFB8B4',
   'border-success-subdued': '#A3E5A9',
-  'border-warning-subdued': '#A3E5A9',
+  'border-warning-subdued': '#FFE167',
   'focused-default': '#00B812',
   'focused-critical': '#FF3B30',
   'checkbox-border-disabled': '#3D3D4D',
