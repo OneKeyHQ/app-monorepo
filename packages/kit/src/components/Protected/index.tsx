@@ -118,6 +118,10 @@ const Protected: FC<ProtectedProps> = ({
           return;
         }
 
+        if (className === OneKeyErrorClassNames.OneKeyAbortError) {
+          return;
+        }
+
         if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
           ToastManager.show({
             title: intl.formatMessage({ id: key }),
@@ -167,6 +171,20 @@ const Protected: FC<ProtectedProps> = ({
     }
     loadDevices();
   }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
+
+  const abortConnect = useCallback(
+    () => serviceHardware.stopPolling(),
+    [serviceHardware],
+  );
+
+  useEffect(
+    () => () => {
+      if (isHardware) {
+        abortConnect();
+      }
+    },
+    [isHardware, abortConnect],
+  );
 
   if (password) {
     return (

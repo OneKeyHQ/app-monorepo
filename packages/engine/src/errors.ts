@@ -8,6 +8,7 @@ export enum OneKeyErrorClassNames {
   OneKeyHardwareError = 'OneKeyHardwareError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
+  OneKeyAbortError = 'OneKeyAbortError',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
@@ -79,6 +80,12 @@ export class OneKeyHardwareError extends OneKeyError<{ reconnect: boolean }> {
     super(message, {});
     this.codeHardware = code;
   }
+}
+
+export class OneKeyHardwareAbortError extends OneKeyError {
+  override className = OneKeyErrorClassNames.OneKeyAbortError;
+
+  override key = 'msg__engine__internal_error';
 }
 
 export class OneKeyValidatorError extends OneKeyError {
