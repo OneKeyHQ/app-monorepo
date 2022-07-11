@@ -51,17 +51,18 @@ export function SendFeedbackReceipt() {
       return newNum;
     });
   }, 1000);
-  const feedbackAnimation = useMemo(() => {
-    console.log('feedbackAnimation render!!!!');
-    return (
+  const feedbackAnimation = useMemo(
+    () => (
       <LottieView
         style={{ width: '200px' }}
         // eslint-disable-next-line global-require
         source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
         autoPlay={false}
+        loop={false}
       />
-    );
-  }, []);
+    ),
+    [],
+  );
   return (
     <BaseSendModal
       hideBackButton
