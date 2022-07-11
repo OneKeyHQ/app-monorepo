@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC } from 'react';
 
 import { chunk } from 'lodash';
 import { Center, Column, Pressable, Row } from 'native-base';
@@ -44,6 +44,7 @@ const defaultKeys: KeyType[] = [
 
 type KeyboardProps = {
   keys?: KeyType[];
+  text: string;
   onTextChange?: (text: string) => void;
   secure?: boolean;
   pattern?: RegExp;
@@ -67,35 +68,35 @@ const KeyBoardItem: FC<KeyBoardItemProps> = ({ item, secure }) => {
 const Keyboard: FC<KeyboardProps> = ({
   keys,
   secure = false,
+  text,
   onTextChange,
   pattern,
   itemHeight,
 }) => {
   const innerKeyArray = chunk(keys ?? defaultKeys, 3);
-  const [inputText, updateInputText] = useState('');
   const onPress = (item: KeyType) => {
-    updateInputText((prev) => {
-      let changeText = '';
-      if (item === 'del') {
-        changeText = inputText.slice(0, inputText.length - 1);
-      } else {
-        changeText = prev + item;
-        if (pattern && !pattern.test(prev + item)) {
-          changeText = prev;
-        }
-        if (!prev && item === '.') {
-          changeText = '0.';
-        }
-        if (prev === '0' && item !== '.') {
-          changeText = (prev + item).substr(1);
-        }
+    const prev = text;
+    const inputText = text;
+    let changeText = '';
+    if (item === 'del') {
+      changeText = inputText.slice(0, inputText.length - 1);
+    } else {
+      changeText = prev + item;
+      if (pattern && !pattern.test(prev + item)) {
+        changeText = prev;
       }
-      if (onTextChange) {
-        setHaptics();
-        onTextChange(changeText);
+      if (!prev && item === '.') {
+        changeText = '0.';
       }
-      return changeText;
-    });
+      if (prev === '0' && item !== '.') {
+        changeText = (prev + item).substr(1);
+      }
+    }
+    if (onTextChange) {
+      setHaptics();
+      onTextChange(changeText);
+    }
+    return changeText;
   };
 
   return (

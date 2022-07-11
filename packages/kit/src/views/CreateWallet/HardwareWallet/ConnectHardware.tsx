@@ -322,7 +322,7 @@ const ConnectHardwareModal: FC = () => {
           <Box w="358px" h="220px" mb={-4}>
             <LottieView
               // eslint-disable-next-line global-require
-              source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_bluetooth.json')}
+              source={require('@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_bluetooth.json')}
               autoPlay
               loop
             />
@@ -352,7 +352,7 @@ const ConnectHardwareModal: FC = () => {
       <Box>
         <LottieView
           // eslint-disable-next-line global-require
-          source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_usb.json')}
+          source={require('@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_usb.json')}
           autoPlay
           loop
         />

@@ -4,9 +4,9 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
 import { LottieView, Text } from '@onekeyhq/components';
-import ConfirmOnClassic from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-classic.json';
-import ConfirmOnMini from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-mini.json';
-import ConfirmOnTouch from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-touch.json';
+import ConfirmOnClassic from '@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json';
+import ConfirmOnMini from '@onekeyhq/kit/assets/animations/confirm-on-onekey-mini.json';
+import ConfirmOnTouch from '@onekeyhq/kit/assets/animations/confirm-on-onekey-touch.json';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 

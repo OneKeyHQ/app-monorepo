@@ -14,8 +14,8 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import OnekeyMiniEnterPin from '@onekeyhq/kit/assets/hardware/lottie_hardware_onekey_classic_enter_pin_code.json';
-// import OnekeyClassicEnterPin from '@onekeyhq/kit/assets/hardware/lottie_hardware_onekey_mini_enter_pin_code.json';
+import OnekeyMiniEnterPin from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_classic_enter_pin_code.json';
+// import OnekeyClassicEnterPin from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_mini_enter_pin_code.json';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,

@@ -13,11 +13,11 @@ import {
   ZStack,
 } from '@onekeyhq/components';
 import Button, { ButtonType } from '@onekeyhq/components/src/Button';
+import lottieNFCConnectComplete from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_complete.json';
+import lottieNFCConnecting from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_connect.json';
+import lottieNFCTransferData from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transfer.json';
+import lottieNFCTransmittingData from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transmitting.json';
 import iconNFCScanHint from '@onekeyhq/kit/assets/hardware/ic_pair_hint_scan_lite.png';
-import lottieNFCConnectComplete from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_complete.json';
-import lottieNFCConnecting from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_connect.json';
-import lottieNFCTransferData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transfer.json';
-import lottieNFCTransmittingData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transmitting.json';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
