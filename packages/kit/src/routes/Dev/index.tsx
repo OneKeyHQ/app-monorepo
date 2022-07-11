@@ -53,7 +53,6 @@ import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typogr
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
 import PriceChart from '../../views/Components/stories/PriceChart';
-import { SendFeedbackReceipt } from '../../views/Send/SendModals/SendFeedbackReceipt';
 import renderCustomSubStackHeader from '../Stack/Header';
 
 export enum StackRoutes {
@@ -98,7 +97,6 @@ export enum StackRoutes {
   ComponentLogger = 'component/logger',
   ComponentFirebase = 'component/firebase',
   ComponentWebview = 'component/webview',
-  ComponentSendFeedbackModal = 'component/send-feedback-modal',
   ComponentPinCode = 'component/pincode',
   ComponentRestfulRequest = 'component/restful-request',
   ComponentImageViewer = 'component/imageViewer',
@@ -154,7 +152,6 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentLogger]: undefined;
   [StackRoutes.ComponentFirebase]: undefined;
   [StackRoutes.ComponentWebview]: undefined;
-  [StackRoutes.ComponentSendFeedbackModal]: undefined;
   [StackRoutes.ComponentPinCode]: undefined;
   [StackRoutes.ComponentRestfulRequest]: undefined;
   [StackRoutes.ComponentImageViewer]: undefined;
@@ -218,10 +215,6 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentWebview,
     component: WebViewGallery,
-  },
-  {
-    name: StackRoutes.ComponentSendFeedbackModal,
-    component: SendFeedbackReceipt,
   },
   {
     name: StackRoutes.ComponentImageViewer,
