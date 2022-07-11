@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   HStack,
   Icon,
   LottieView,
