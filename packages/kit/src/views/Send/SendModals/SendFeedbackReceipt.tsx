@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 import React, { useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
@@ -55,9 +56,9 @@ export function SendFeedbackReceipt() {
     () => (
       <LottieView
         style={{ width: '200px' }}
-        // eslint-disable-next-line global-require
+        // source={require('@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json')}
         source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
-        autoPlay={false}
+        autoPlay
         loop={false}
       />
     ),
@@ -89,7 +90,7 @@ export function SendFeedbackReceipt() {
             <Box h={4} />
             <Pressable
               onPress={() => {
-                openBlockBrowser.openTransactionDetails(route.params.txid);
+                openBlockBrowser.openTransactionDetails(route?.params?.txid);
                 doClose();
               }}
             >
