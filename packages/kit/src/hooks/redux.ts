@@ -113,7 +113,7 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
     };
   });
 
-export const useGetWalletDetail = (walletId: string | null) => {
+export const useWallet = (walletId: string | null) => {
   const wallet =
     useAppSelector((s) =>
       s.runtime.wallets?.find?.((w) => w.id === walletId),

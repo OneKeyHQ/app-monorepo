@@ -5,7 +5,10 @@ import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
-import { encrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import {
+  decrypt,
+  encrypt,
+} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
@@ -1979,6 +1982,39 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async unsafeEncode(data: string): Promise<string | undefined> {
+    const context = await this.dbApi.getContext();
+    if (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    ) {
+      return encrypt(context.verifyString, Buffer.from(data, 'hex')).toString(
+        'hex',
+      );
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
+  async unsafeDecode(encrypted: string): Promise<string | undefined> {
+    const context = await this.dbApi.getContext();
+    if (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    ) {
+      try {
+        return decrypt(
+          context.verifyString,
+          Buffer.from(encrypted, 'hex'),
+        ).toString('hex');
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
   }
 }
 

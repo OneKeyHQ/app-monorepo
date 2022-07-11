@@ -9,7 +9,7 @@ import {
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useGetWalletDetail } from '../../hooks/redux';
+import { useWallet } from '../../hooks/redux';
 import { Mnemonic } from '../CreateWallet/AppWallet/Mnemonic';
 
 type RouteProps = RouteProp<
@@ -21,7 +21,7 @@ const BackupWalletMnemonic = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { mnemonic, walletId } = route.params;
-  const walletDetail = useGetWalletDetail(walletId);
+  const walletDetail = useWallet(walletId);
   const onPress = useCallback(async () => {
     if (walletDetail && !walletDetail.backuped) {
       const wallet = await backgroundApiProxy.engine.confirmHDWalletBackuped(

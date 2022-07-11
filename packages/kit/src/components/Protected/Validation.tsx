@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useSettings } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
@@ -29,7 +29,11 @@ type ValidationProps = {
 const Validation: FC<ValidationProps> = ({ onOk, field }) => {
   const intl = useIntl();
   const ref = useRef<any>();
-  const { enableLocalAuthentication, validationState = {} } = useSettings();
+  const enableLocalAuthentication = useAppSelector(
+    (s) => s.settings.enableLocalAuthentication,
+  );
+  const validationState =
+    useAppSelector((s) => s.settings.validationState) ?? {};
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
   });
