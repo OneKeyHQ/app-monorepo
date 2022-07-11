@@ -58,25 +58,10 @@ export function SendFeedbackReceipt() {
     () => (
       <LottieView
         style={{ width: '200px' }}
-        source={require('@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json')}
-        // source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
+        source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
         autoPlay
         loop={false}
       />
-    ),
-    [],
-  );
-  const feedbackIcon = useMemo(
-    () => (
-      <Center
-        width="56px"
-        height="56px"
-        borderRadius="100%"
-        bgColor="surface-success-default"
-        mb={6}
-      >
-        <Icon name="CheckOutline" size={32} color="icon-success" />
-      </Center>
     ),
     [],
   );
@@ -96,8 +81,7 @@ export function SendFeedbackReceipt() {
       closeAction={() => doClose()}
     >
       <VStack alignItems="center" justifyContent="center" minH="100%">
-        {/* {feedbackAnimation} */}
-        {feedbackIcon}
+        {feedbackAnimation}
         <Text typography="DisplayMedium">
           {intl.formatMessage({ id: 'modal__transaction_submitted' })}
         </Text>
