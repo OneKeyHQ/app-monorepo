@@ -25,7 +25,7 @@
     "@ethersproject/keccak256": "^5.6.0",
     "@ethersproject/transactions": "^5.6.0",
     "@metamask/eth-sig-util": "^4.0.0",
-    "@onekeyfe/blockchain-libs": "^0.0.36",
+    "@onekeyfe/blockchain-libs": "^0.0.37",
     "@onekeyfe/default-token-list": "1.4.0",
     "@onekeyfe/js-sdk": "1.1.5",
     "@onekeyfe/network-list": "1.5.4",
