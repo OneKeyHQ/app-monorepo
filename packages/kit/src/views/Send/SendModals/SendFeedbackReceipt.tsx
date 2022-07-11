@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   HStack,
   Icon,
   LottieView,
@@ -52,15 +53,30 @@ export function SendFeedbackReceipt() {
       return newNum;
     });
   }, 1000);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const feedbackAnimation = useMemo(
     () => (
       <LottieView
         style={{ width: '200px' }}
-        // source={require('@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json')}
-        source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
+        source={require('@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json')}
+        // source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
         autoPlay
         loop={false}
       />
+    ),
+    [],
+  );
+  const feedbackIcon = useMemo(
+    () => (
+      <Center
+        width="56px"
+        height="56px"
+        borderRadius="100%"
+        bgColor="surface-success-default"
+        mb={6}
+      >
+        <Icon name="CheckOutline" size={32} color="icon-success" />
+      </Center>
     ),
     [],
   );
@@ -80,8 +96,8 @@ export function SendFeedbackReceipt() {
       closeAction={() => doClose()}
     >
       <VStack alignItems="center" justifyContent="center" minH="100%">
-        {/* <Icon name="CheckCircleSolid" color="interactive-default" size={150} /> */}
-        {feedbackAnimation}
+        {/* {feedbackAnimation} */}
+        {feedbackIcon}
         <Text typography="DisplayMedium">
           {intl.formatMessage({ id: 'modal__transaction_submitted' })}
         </Text>
