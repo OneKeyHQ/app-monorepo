@@ -286,13 +286,10 @@ const UpdatingModal: FC = () => {
 
       case 'check-device-status':
         setMaxProgress(5);
-        if (platformEnv.isNative) return setProgressState('done');
         serviceHardware
           .getFeatures(platformEnv.isNative ? connectId : '')
           .then((response) => {
             if (response) {
-              console.log('===: getFeatures', response);
-
               const deviceType = getDeviceType(response);
               if (
                 !response.bootloader_mode &&
