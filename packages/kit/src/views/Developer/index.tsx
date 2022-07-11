@@ -194,6 +194,23 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
+                // @ts-ignore
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.Send,
+                  params: {
+                    screen: SendRoutes.SendFeedbackReceipt,
+                    params: {
+                      txid: 'test-txid',
+                    },
+                  },
+                });
+              }}
+            >
+              <Typography.Body1>Send Success Feedback</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
                 openUrlByWebview('https://dapp-example.test.onekey.so/');
               }}
             >
