@@ -8,6 +8,8 @@ import {
   PartialTokenInfo,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+
 import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -44,6 +46,9 @@ import settings from './settings';
 import { extractTransactionInfo, getAddressHistoryFromExplorer } from './utils';
 
 import type { IEncodedTxSTC } from './types';
+import {
+  extractResponseError,
+} from '../../../proxy';
 
 export default class Vault extends VaultBase {
   settings = settings;
@@ -142,6 +147,12 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
+  private async getJsonRPCClient(): Promise<StcClient> {
+    return (await this.engine.providerManager.getClient(
+      this.networkId,
+    )) as StcClient;
+  }
+
   updateEncodedTxTokenApprove(
     _encodedTx: IEncodedTxSTC,
     _amount: string,
@@ -187,8 +198,8 @@ export default class Vault extends VaultBase {
         payload: {},
         ...(typeof encodedTx.gasLimit !== 'undefined'
           ? {
-              feeLimit: new BigNumber(encodedTx.gasLimit),
-            }
+            feeLimit: new BigNumber(encodedTx.gasLimit),
+          }
           : {}),
       },
     );
@@ -256,7 +267,7 @@ export default class Vault extends VaultBase {
       const [encryptedPrivateKey] = Object.values(
         await keyring.getPrivateKeys(password),
       );
-      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
+      return `0x${ decrypt(password, encryptedPrivateKey).toString('hex') }`;
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
@@ -367,6 +378,18 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const client = await this.getJsonRPCClient();
+    try {
+      return await client.rpc.call(
+        request.method,
+        request.params as Record<string, any> | Array<any>,
+      );
+    } catch (e) {
+      throw extractResponseError(e);
+    }
+  }
 
   createClientFromURL(url: string): StcClient {
     return new StcClient(url);

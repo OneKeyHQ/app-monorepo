@@ -9,7 +9,7 @@ import {
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { IMPL_STC } from '@onekeyhq/engine/src/constants';
 import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
@@ -119,7 +119,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
       chainId: '0x736d17dc',
       networkVersion: '1936529372',
     };
-    if (network && network.impl === IMPL_EVM) {
+    if (network && network.impl === IMPL_STC) {
       networkInfo = network.extraInfo as EvmExtraInfo;
     }
     return networkInfo;
@@ -140,20 +140,18 @@ class ProviderApiStarcoin extends ProviderApiBase {
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
-    const temp = getActiveWalletAccount();
-    console.log({ temp });
-    console.log('providerApiStarcoion rpcCall', request, { networkId })
 
     debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
+    // if (request.method === 'chain.id') {
+    //   return this.chainId(request)
+    // }
+
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
       networkId,
       request,
     );
-    console.log('BgApi rpcCall RESULT:', request, {
-      networkId,
-      result,
-    });
+
     debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
       networkId,
       result,
@@ -416,11 +414,11 @@ class ProviderApiStarcoin extends ProviderApiBase {
     // FIX:  dydx use second param as message
     if (accounts && accounts.length) {
       const a = fixAddressCase({
-        impl: IMPL_EVM,
+        impl: IMPL_STC,
         address: messages[0] || '',
       });
       const b = fixAddressCase({
-        impl: IMPL_EVM,
+        impl: IMPL_STC,
         address: accounts[0] || '',
       });
       if (a && a === b && messages[1]) {
@@ -604,6 +602,18 @@ class ProviderApiStarcoin extends ProviderApiBase {
     // Metamask return null
     return convertToEthereumChainResult(result as any);
   }
+
+  // @providerApiMethod()
+  // async handleChainId(
+  //   request: IJsonRpcRequest,
+  // ) {
+  //   console.log({ request })
+  //   const result = {
+  //     "id": 251,
+  //     "name": "barnard"
+  //   }
+  //   return Promise.resolve(result)
+  // }
 
   // TODO metamask_unlockStateChanged
 
