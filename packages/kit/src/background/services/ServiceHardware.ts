@@ -6,7 +6,10 @@ import {
 } from '@onekeyfe/hd-core';
 import axios from 'axios';
 
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyHardwareAbortError,
+  OneKeyHardwareError,
+} from '@onekeyhq/engine/src/errors';
 import { setHardwarePopup } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -130,7 +133,7 @@ class ServiceHardware extends ServiceBase {
         return Promise.resolve({} as IOneKeyDeviceFeatures);
       }
       if (this.stopConnect) {
-        return Promise.reject(new Error('ABORT_CONNECT'));
+        return Promise.reject(new OneKeyHardwareAbortError());
       }
       tryCount += 1;
       try {
