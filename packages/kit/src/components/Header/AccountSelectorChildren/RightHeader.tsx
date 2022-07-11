@@ -189,7 +189,7 @@ const RightHeader: FC<RightHeaderProps> = ({
             value: 'update',
             color: 'text-warning',
             iconProps: {
-              color: 'text-warning',
+              color: 'icon-warning',
               name: isVerticalLayout ? 'UploadOutline' : 'UploadSolid',
             },
           },

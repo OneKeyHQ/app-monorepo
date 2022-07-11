@@ -46,7 +46,7 @@ const UpdatingModal: FC = () => {
   const { dispatch, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device, onSuccess } = useRoute<RouteProps>().params;
-  const { deviceUpdates } = useSettings() || {};
+  const deviceUpdates = useSettings().deviceUpdates || {};
   const { ble: bleFirmware, firmware } = deviceUpdates[device?.mac ?? ''] || {};
 
   const [firmwareType, setFirmwareType] = useState<FirmwareType>('firmware');
