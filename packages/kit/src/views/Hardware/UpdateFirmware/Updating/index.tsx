@@ -46,7 +46,7 @@ const UpdatingModal: FC = () => {
   const { dispatch, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device, onSuccess } = useRoute<RouteProps>().params;
-  const { deviceUpdates } = useSettings() || {};
+  const deviceUpdates = useSettings().deviceUpdates || {};
   const { ble: bleFirmware, firmware } = deviceUpdates[device?.mac ?? ''] || {};
 
   const [firmwareType, setFirmwareType] = useState<FirmwareType>('firmware');
@@ -286,13 +286,10 @@ const UpdatingModal: FC = () => {
 
       case 'check-device-status':
         setMaxProgress(5);
-        if (platformEnv.isNative) return setProgressState('done');
         serviceHardware
           .getFeatures(platformEnv.isNative ? connectId : '')
           .then((response) => {
             if (response) {
-              console.log('===: getFeatures', response);
-
               const deviceType = getDeviceType(response);
               if (
                 !response.bootloader_mode &&

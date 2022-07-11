@@ -100,12 +100,33 @@ export const useManageTokens = ({
         options ?? {},
       );
       const tokenInfo = token as Token | null;
-      const balance =
-        balances[tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main'] ??
-        defaultValue;
+      const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
+      const balance = balances?.[key] ?? defaultValue;
       return balance;
     },
     [balances],
+  );
+
+  const getTokenPrice = useCallback(
+    (options: {
+      token?: Token | null;
+      defaultValue?: string;
+      tokenIdOnNetwork?: string;
+    }) => {
+      const { token, defaultValue, tokenIdOnNetwork } = merge(
+        {
+          token: null,
+          defaultValue: '',
+          tokenIdOnNetwork: '',
+        },
+        options ?? {},
+      );
+      const tokenInfo = token as Token | null;
+      const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
+      const priceValue = prices?.[key] ?? defaultValue;
+      return priceValue;
+    },
+    [prices],
   );
 
   return {
@@ -116,5 +137,6 @@ export const useManageTokens = ({
     prices,
     balances,
     getTokenBalance,
+    getTokenPrice,
   };
 };

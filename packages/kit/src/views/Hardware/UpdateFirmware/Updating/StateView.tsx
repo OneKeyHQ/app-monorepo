@@ -172,7 +172,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
 
           if (stateInfo?.content?.deviceType === 'mini') {
             // eslint-disable-next-line global-require
-            stateContent.sourceSrc = require('@onekeyhq/kit/assets/wallet/lottie-onekey-mini-in-bootloader-mode-disconnect-your-device.json');
+            stateContent.sourceSrc = require('@onekeyhq/kit/assets/animations/lottie-onekey-mini-in-bootloader-mode-disconnect-your-device.json');
             stateContent.description = intl.formatMessage({
               id: 'modal__disconnecting_device',
             });
@@ -191,7 +191,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
 
           if (stateInfo?.content?.deviceType === 'mini') {
             // eslint-disable-next-line global-require
-            stateContent.sourceSrc = require('@onekeyhq/kit/assets/wallet/lottie-onekey-mini-in-bootloader-mode.json');
+            stateContent.sourceSrc = require('@onekeyhq/kit/assets/animations/lottie-onekey-mini-in-bootloader-mode.json');
             stateContent.description = intl.formatMessage({
               id: 'modal__enter_bootloader_mode_mini_desc',
             });

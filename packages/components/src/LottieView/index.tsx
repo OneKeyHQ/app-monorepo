@@ -54,7 +54,9 @@ const LottieView = ({ source, autoPlay, ...props }: LottieViewProps) => {
   }
 
   if (!platformEnv.isNative && !!LottieViewWeb) {
-    return <LottieViewWeb animationData={source} {...props} />;
+    return (
+      <LottieViewWeb animationData={source} autoPlay={autoPlay} {...props} />
+    );
   }
 
   return null;
