@@ -744,12 +744,17 @@ export default class Vault extends VaultBase {
       undefined,
       false,
     );
-    const maxPendingNonce =
-      (await simpleDb.history.getMaxPendingNonce({
-        accountId: this.accountId,
-        networkId,
-      })) || 0;
-    const nextNonce = Math.max(maxPendingNonce + 1, onChainNonce);
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
 
     if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
       throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
