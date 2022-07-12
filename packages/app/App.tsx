@@ -11,6 +11,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { LogBox } from 'react-native';
 
 import { Provider } from '@onekeyhq/kit';
+import { enableFreeze } from 'react-native-screens';
+
+// github.com/software-mansion/react-native-screens#experimental-support-for-react-freeze
+// It uses the React Suspense mechanism to prevent
+// parts of the component tree from rendering,
+// while keeping its state untouched.
+enableFreeze(true);
 
 SplashScreen.preventAutoHideAsync();
 LogBox.ignoreAllLogs();
