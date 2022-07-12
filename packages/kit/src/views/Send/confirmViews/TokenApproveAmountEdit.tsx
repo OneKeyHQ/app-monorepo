@@ -55,9 +55,6 @@ function TokenApproveAmountEdit({ ...rest }) {
     useFormReturn,
   });
   const onSubmit = handleSubmit(async (data) => {
-    if (!navigation.canGoBack()) {
-      return;
-    }
     if (!encodedTx) {
       return;
     }
@@ -70,7 +67,7 @@ function TokenApproveAmountEdit({ ...rest }) {
     });
 
     const { routes, index } = navigation.getState();
-    const prevRouteName = routes[index - 1].name;
+    const prevRouteName = routes[index - 1]?.name || SendRoutes.SendConfirm;
     const prevRouteParams = {
       ...sendConfirmParams,
       tokenApproveAmount: amount,
@@ -102,6 +99,11 @@ function TokenApproveAmountEdit({ ...rest }) {
         isDisabled: !isValid,
       }}
       hideSecondaryAction
+      onModalClose={() => {
+        if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
+          sendConfirmParams?.onModalClose?.();
+        }
+      }}
       secondaryActionTranslationId="action__reject"
       header={intl.formatMessage({ id: 'content__spend_limit_amount' })}
       headerDescription={network?.name || network?.shortName || undefined}
