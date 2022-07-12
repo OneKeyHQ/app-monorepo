@@ -1,3 +1,5 @@
+import querystring from 'querystring';
+
 import parse from 'url-parse';
 
 export const SUPPORTED_AUDIO_EXTENSIONS = ['.mp3', '.wav'];
@@ -5,6 +7,18 @@ export const SUPPORTED_AUDIO_EXTENSIONS = ['.mp3', '.wav'];
 export const SUPPORTED_VIDEO_EXTENSIONS = ['.mp4'];
 
 export const SUPPORTED_SVG_EXTENSIONS = ['.svg'];
+
+export function parseUri(url: string) {
+  return parse(url);
+}
+
+export function parseQuerystring(qs: string) {
+  return querystring.parse(qs);
+}
+
+export function parseUrlObject(url: string) {
+  return new URL(url);
+}
 
 export default function isSupportedUriExtension(
   extensions: string[],

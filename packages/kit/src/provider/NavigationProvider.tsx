@@ -20,6 +20,8 @@ import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
+
 const prefix = createURL('/');
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
@@ -44,6 +46,7 @@ if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
 }
 
 const NavigationApp = () => {
+  useAutoNavigateOnMount();
   const [bgColor, textColor, dividerColor] = useThemeValue([
     'surface-subdued',
     'text-default',
