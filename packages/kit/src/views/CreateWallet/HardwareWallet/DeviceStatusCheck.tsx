@@ -82,13 +82,23 @@ const DeviceStatusCheckModal: FC = () => {
         }
 
         if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show({
-            title: intl.formatMessage({ id: key }),
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: key }),
+            },
+            {
+              type: 'error',
+            },
+          );
         } else {
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'action__connection_timeout' }),
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'action__connection_timeout' }),
+            },
+            {
+              type: 'error',
+            },
+          );
         }
         return;
       }
@@ -117,16 +127,26 @@ const DeviceStatusCheckModal: FC = () => {
         });
       } catch (e: any) {
         safeGoBack();
-        const { className, key } = e || {};
+        const { className, key, message } = e || {};
 
         if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show({
-            title: intl.formatMessage({ id: key }),
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: key }),
+            },
+            {
+              type: 'error',
+            },
+          );
         } else {
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'action__connection_timeout' }),
-          });
+          ToastManager.show(
+            {
+              title: message,
+            },
+            {
+              type: 'default',
+            },
+          );
         }
         return;
       }

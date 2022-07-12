@@ -69,7 +69,8 @@ const getDeviceIcon = (
 };
 
 type SearchDeviceInfo = {
-  wallet?: Wallet;
+  using?: Wallet;
+  useBefore?: Wallet;
 } & SearchDevice;
 
 type ExistHwWallet = Wallet & {
@@ -123,9 +124,12 @@ const ConnectHardwareModal: FC = () => {
     (searchDevices: SearchDevice[]): SearchDeviceInfo[] => {
       const convertDevices = searchDevices.map((device) => ({
         ...device,
-        wallet: existHwWallets?.find(
+        using: existHwWallets?.find(
           (w) =>
             w.connectId === device.connectId && w.deviceId === device.deviceId,
+        ),
+        useBefore: existHwWallets?.find(
+          (w) => w.connectId === device.connectId,
         ),
       }));
       return convertDevices;
@@ -259,7 +263,7 @@ const ConnectHardwareModal: FC = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            disabled={!!device.wallet}
+            disabled={!!device.using}
             onPress={() => {
               handleConnectDeviceWithDevice(device);
             }}
@@ -274,7 +278,7 @@ const ConnectHardwareModal: FC = () => {
               <Typography.Body1>{device.name}</Typography.Body1>
             </HStack>
 
-            {device.wallet ? (
+            {device.using ? (
               <HStack alignItems="center">
                 <Badge
                   size="sm"
@@ -284,6 +288,15 @@ const ConnectHardwareModal: FC = () => {
               </HStack>
             ) : (
               <HStack space={3} alignItems="center">
+                {!!device.useBefore && platformEnv.isNative && (
+                  <Badge
+                    size="sm"
+                    title={intl.formatMessage({
+                      id: 'content__have_been_connected',
+                    })}
+                    type="success"
+                  />
+                )}
                 {isConnectingDeviceId === device.connectId && (
                   <Spinner size="sm" />
                 )}
