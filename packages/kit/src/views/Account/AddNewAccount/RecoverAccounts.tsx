@@ -153,12 +153,12 @@ const RecoverAccounts: FC = () => {
           ]);
         })
         .catch((e: any) => {
-          isFetchingData.current = false;
-
           const { className, key, code, message } = e || {};
           if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
             return;
           }
+
+          isFetchingData.current = false;
 
           if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
             ToastManager.show(
