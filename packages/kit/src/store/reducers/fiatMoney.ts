@@ -1,5 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { merge } from 'lodash';
+import { isEqual, merge } from 'lodash';
 
 type InitialState = {
   symbolList: string[];
@@ -16,10 +16,14 @@ export const fiatMoneySlice = createSlice({
   initialState,
   reducers: {
     updateFiatMoneyMap(state, action: PayloadAction<InitialState['map']>) {
-      // TODO deep compare and assign values
-      state.symbolList = Object.keys(action.payload);
+      const symbolList = Object.keys(action.payload);
+      if (!isEqual(state.symbolList, symbolList)) {
+        state.symbolList = symbolList;
+      }
       const newMap = merge({}, state.map, action.payload);
-      state.map = newMap;
+      if (!isEqual(state.map, newMap)) {
+        state.map = newMap;
+      }
     },
   },
 });
