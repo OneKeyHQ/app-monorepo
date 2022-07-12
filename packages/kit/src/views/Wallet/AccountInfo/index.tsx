@@ -55,23 +55,16 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const {
-    account,
-    network: activeNetwork,
-    walletId,
-  } = useActiveWalletAccount();
+  const { account, network: activeNetwork, wallet } = useActiveWalletAccount();
 
   const { prices, balances } = useManageTokens({
     pollingInterval: 15000,
   });
 
   const [isHwWallet, setIsHwWallet] = useState(false);
-  const { engine } = backgroundApiProxy;
   useEffect(() => {
-    engine.getHWDeviceByWalletId(walletId).then((device) => {
-      setIsHwWallet(!!device);
-    });
-  }, [engine, walletId]);
+    setIsHwWallet(wallet?.type === 'hw');
+  }, [wallet]);
 
   const copyContentToClipboard = useCallback(
     (address) => {
