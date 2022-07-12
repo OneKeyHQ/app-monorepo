@@ -3,7 +3,7 @@ import type { FC } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
-import { Box, Text, useUserDevice } from '@onekeyhq/components';
+import { Box, Text, useTheme, useUserDevice } from '@onekeyhq/components';
 import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 
 import CollectibleListImage from './CollectibleListImage';
@@ -20,6 +20,7 @@ const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
   const width = isSmallScreen
     ? Math.floor((dimensions.width - MARGIN * 3) / 2)
     : 177;
+  const { themeVariant } = useTheme();
 
   return (
     <Box
@@ -28,9 +29,10 @@ const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
       padding={`${padding}px`}
       overflow="hidden"
       borderRadius="12px"
-      borderWidth={0}
+      borderColor="border-subdued"
+      borderWidth={themeVariant === 'light' ? 1 : undefined}
       width={width}
-      mb={`${padding}px`}
+      mb="16px"
       {...rest}
     >
       <CollectibleListImage
@@ -46,7 +48,7 @@ const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
       >
         {asset.assetName}
       </Text>
-      <Text typography="Body2" height="20px" />
+      {/* <Text typography="Body2" height="20px" /> */}
       {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}
     </Box>
   );

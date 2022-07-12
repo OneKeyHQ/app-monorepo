@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 
-import { Box, Center, Icon, Image } from '@onekeyhq/components';
+import { Box, Center, Image } from '@onekeyhq/components';
+import NFTEmptyImg from '@onekeyhq/components/img/nft_empty.png';
 
 import { NFTProps } from './type';
 
@@ -11,8 +12,9 @@ const NFTImage: FC<NFTProps> = ({ asset, width, height, url }) => {
       height="333px"
       bgColor="surface-default"
       borderRadius="20px"
+      overflow="hidden"
     >
-      <Icon name="QuestionMarkCircleOutline" size={166} />
+      <Image width={width} height={height} source={NFTEmptyImg} />
     </Center>
   );
   return (
