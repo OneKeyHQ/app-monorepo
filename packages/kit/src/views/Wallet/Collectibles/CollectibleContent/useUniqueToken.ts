@@ -7,6 +7,7 @@ type UniqueTokenResult = {
   supportsAudio: boolean;
   supportsVideo: boolean;
   supportsSVG: boolean;
+  url?: string;
 };
 
 export default function useUniqueToken(
@@ -15,13 +16,19 @@ export default function useUniqueToken(
   return React.useMemo((): UniqueTokenResult => {
     if (typeof maybeUniqueToken === 'object' && !!maybeUniqueToken) {
       const { animationUrl, imageUrl } = maybeUniqueToken;
-      const assetUrl = animationUrl?.secureUrl || imageUrl?.secureUrl;
-      console.log('assetUrl = ', assetUrl);
+      let url;
+      if (imageUrl && imageUrl.resourceType !== 'raw') {
+        url = imageUrl.secureUrl;
+      }
+      if (animationUrl && animationUrl.resourceType !== 'raw') {
+        url = animationUrl.secureUrl;
+      }
+      console.log('assetUrl = ', url);
 
-      const supportsAudio = isAudio(assetUrl);
-      const supportsVideo = isVideo(assetUrl);
-      const supportsSVG = isSVG(assetUrl);
-      return { supportsAudio, supportsVideo, supportsSVG };
+      const supportsAudio = isAudio(url);
+      const supportsVideo = isVideo(url);
+      const supportsSVG = isSVG(url);
+      return { supportsAudio, supportsVideo, supportsSVG, url };
     }
     return {
       supportsAudio: false,
