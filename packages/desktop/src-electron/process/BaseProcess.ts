@@ -207,6 +207,7 @@ export default abstract class BaseProcess {
     const platform = this.getPlatform();
     const ext = platform === 'win' ? '.exe' : '';
     const system = `${platform}-${arch}`;
+    logger.debug('arch: ', arch);
     return { system, platform, arch, ext };
   }
 

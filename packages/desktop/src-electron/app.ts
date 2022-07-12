@@ -16,6 +16,7 @@ import Config from 'electron-config';
 import isDev from 'electron-is-dev';
 
 import { PrefType } from './preload';
+import initProcess from './process/index';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
 const config = new Config() as
@@ -206,6 +207,10 @@ function createMainWindow() {
   return browserWindow;
 }
 
+function init() {
+  initProcess();
+}
+
 const singleInstance = app.requestSingleInstanceLock();
 
 if (!singleInstance && !process.mas) {
@@ -220,6 +225,7 @@ if (!singleInstance && !process.mas) {
 
   app.name = APP_NAME;
   app.on('ready', () => {
+    init();
     mainWindow = createMainWindow();
   });
 }
