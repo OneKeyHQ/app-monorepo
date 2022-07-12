@@ -26,6 +26,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   FormatBalanceToken,
   FormatCurrencyToken,
+  formatBalanceDisplay,
 } from '../../components/Format';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
@@ -112,10 +113,10 @@ function usePreSendAmountInfo({
   setAmount: (value: string) => void;
   tokenBalance: string;
 }) {
-  // const amountInputDecimals =
-  //   (tokenInfo?.tokenIdOnNetwork
-  //     ? network?.tokenDisplayDecimals
-  //     : network?.nativeDisplayDecimals) ?? 2;
+  const amountDisplayDecimals =
+    (tokenInfo?.tokenIdOnNetwork
+      ? network?.tokenDisplayDecimals
+      : network?.nativeDisplayDecimals) ?? 2;
 
   const amountInputDecimals = tokenInfo?.decimals ?? 18;
 
@@ -231,7 +232,12 @@ function usePreSendAmountInfo({
     if (isFiatMode) {
       return (
         <Text>
-          {amount || '0'} {tokenInfo?.symbol}
+          {formatBalanceDisplay(amount || '0', '', {
+            fixed: amountDisplayDecimals,
+          })?.amount ||
+            amount ||
+            '0'}{' '}
+          {tokenInfo?.symbol}
         </Text>
       );
     }
@@ -242,7 +248,7 @@ function usePreSendAmountInfo({
         render={(ele) => <Text>{ele}</Text>}
       />
     );
-  }, [amount, desc, isFiatMode, tokenInfo]);
+  }, [amount, amountDisplayDecimals, desc, isFiatMode, tokenInfo]);
   useEffect(() => {
     if (isFiatMode) {
       if (!text) {
