@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,7 +19,6 @@ import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   FormatBalance,
   FormatCurrency,
@@ -111,6 +110,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       <Pressable
         mt={4}
         onPress={() => {
+          setHaptics();
           if (isHwWallet) {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Receive,
@@ -120,7 +120,6 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
               },
             });
           } else {
-            setHaptics();
             copyContentToClipboard(account?.address);
           }
         }}
