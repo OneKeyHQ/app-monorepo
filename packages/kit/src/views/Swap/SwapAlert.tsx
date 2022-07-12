@@ -4,15 +4,15 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import { useDepositLimit, useSwap, useSwapEnabled } from './hooks/useSwap';
+import { useInputLimitsError, useSwap, useSwapEnabled } from './hooks/useSwap';
 import { SwapError } from './typings';
 
 const DepositLimitAlert = () => {
-  const { limited, message } = useDepositLimit();
-  if (limited) {
+  const limitsError = useInputLimitsError();
+  if (limitsError) {
     return (
       <Box mb="6">
-        <Alert title={message} alertType="warn" dismiss={false} />
+        <Alert title={limitsError.message} alertType="warn" dismiss={false} />
       </Box>
     );
   }

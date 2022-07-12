@@ -25,38 +25,13 @@ import {
   switchTokens,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { swapClient } from '../client';
-import { ApprovalState, QuoteParams, SwapError } from '../typings';
+import { networkRecords } from '../config';
+import { SwapQuoter } from '../quoter';
+import { ApprovalState, FetchQuoteParams, SwapError } from '../typings';
 import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
 
 import { useHasPendingApproval } from './useTransactions';
 
-enum Chains {
-  MAINNET = '1',
-  ROPSTEN = '3',
-  KOVAN = '42',
-  BSC = '56',
-  POLYGON = '137',
-  FANTOM = '250',
-  AVALANCHE = '43114',
-}
-
-const NETWORKS: Record<string, string> = {
-  [Chains.MAINNET]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=ethereum',
-  [Chains.ROPSTEN]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=ropsten',
-  [Chains.KOVAN]: 'https://kovan.api.0x.org/swap/v1/quote',
-  [Chains.BSC]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=bsc',
-
-  [Chains.POLYGON]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=polygon',
-  [Chains.FANTOM]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=fantom',
-  [Chains.AVALANCHE]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=avalanche',
-};
 class TokenAmount {
   amount: BigNumber;
 
@@ -101,7 +76,7 @@ export function useSwapEnabled() {
   const { network } = useActiveWalletAccount();
   const chainId = network?.extraInfo?.chainId;
   const index = String(+chainId);
-  return !!NETWORKS[index];
+  return !!networkRecords[index];
 }
 
 export function useSwapState() {
@@ -179,10 +154,11 @@ export function useTokenBalance(
   return new TokenAmount(token, balance).toNumber();
 }
 
-export function useSwapQuoteRequestParams(): QuoteParams | undefined {
+export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
+  const { account, network } = useActiveWalletAccount();
   const {
     inputToken,
     outputToken,
@@ -199,6 +175,8 @@ export function useSwapQuoteRequestParams(): QuoteParams | undefined {
       !typedValue ||
       !inputTokenNetwork ||
       !outputTokenNetwork ||
+      !account ||
+      !network ||
       new BigNumber(typedValue).lte(0)
     ) {
       return;
@@ -211,6 +189,8 @@ export function useSwapQuoteRequestParams(): QuoteParams | undefined {
       slippagePercentage: swapSlippagePercent,
       typedValue,
       independentField,
+      activeAccount: account,
+      activeNetwok: network,
     };
   }, [
     inputToken,
@@ -220,6 +200,8 @@ export function useSwapQuoteRequestParams(): QuoteParams | undefined {
     typedValue,
     swapSlippagePercent,
     independentField,
+    account,
+    network,
   ]);
 }
 
@@ -229,7 +211,7 @@ export const useSwapQuoteCallback = function (
   const { silent } = options;
   const requestParams = useSwapQuoteRequestParams();
   const { accountId, networkId } = useActiveWalletAccount();
-  const refs = useRef({ accountId, networkId });
+  const refs = useRef({ accountId, networkId, loading: false });
   const params = useDebounce(requestParams, 500);
 
   useEffect(() => {
@@ -246,10 +228,14 @@ export const useSwapQuoteCallback = function (
       backgroundApiProxy.dispatch(setLoading(true));
     }
     backgroundApiProxy.dispatch(setError(undefined));
+    if (refs.current.loading) {
+      return;
+    }
     try {
       refs.current.accountId = accountId;
       refs.current.networkId = networkId;
-      const data = await swapClient.getQuote(params);
+      refs.current.loading = true;
+      const data = await SwapQuoter.client.fetchQuote(params);
       if (
         refs.current.accountId === accountId &&
         refs.current.networkId === networkId
@@ -263,6 +249,7 @@ export const useSwapQuoteCallback = function (
     } catch (e) {
       backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
     } finally {
+      refs.current.loading = false;
       if (!silent) {
         backgroundApiProxy.dispatch(setLoading(false));
       }
@@ -391,34 +378,34 @@ export function useSwap() {
   };
 }
 
-export function useDepositLimit() {
+export function useInputLimitsError(): Error | undefined {
   const intl = useIntl();
   const { inputToken } = useSwapState();
   const { inputAmount, swapQuote } = useSwap();
   return useMemo(() => {
-    let message = '';
+    let message: string | undefined;
     if (inputAmount && swapQuote && inputToken) {
-      const { depositMax, depositMin } = swapQuote;
-      if (depositMin) {
-        const min = new TokenAmount(inputToken, depositMin);
-        if (min.amount.gt(inputAmount.amount)) {
+      const { max, min } = swapQuote?.limited ?? {};
+      if (min) {
+        const tokenAmount = new TokenAmount(inputToken, min);
+        if (tokenAmount.amount.gt(inputAmount.amount)) {
           message = intl.formatMessage(
             { id: 'msg__str_minimum_amount' },
-            { '0': `${depositMin} ${inputToken.symbol}` },
+            { '0': `${min} ${inputToken.symbol}` },
           );
         }
       }
-      if (depositMax) {
-        const max = new TokenAmount(inputToken, depositMax);
-        if (max.amount.lt(inputAmount.amount)) {
+      if (max) {
+        const tokenAmount = new TokenAmount(inputToken, max);
+        if (tokenAmount.amount.lt(inputAmount.amount)) {
           message = intl.formatMessage(
             { id: 'msg__str_maximum_amount' },
-            { '0': `${depositMax} ${inputToken.symbol}` },
+            { '0': `${max} ${inputToken.symbol}` },
           );
         }
       }
     }
-    return { limited: !!message, message };
+    return message ? new Error(message) : undefined;
   }, [inputAmount, inputToken, swapQuote, intl]);
 }
 

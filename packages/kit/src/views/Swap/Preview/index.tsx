@@ -29,7 +29,6 @@ import {
 import { setReceiving } from '../../../store/reducers/swap';
 import { addTransaction } from '../../../store/reducers/swapTransactions';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
-import { swapClient } from '../client';
 import NetworkToken from '../components/NetworkToken';
 import TransactionRate from '../components/TransactionRate';
 import {
@@ -38,7 +37,8 @@ import {
   useSwapQuoteRequestParams,
   useSwapState,
 } from '../hooks/useSwap';
-import { QuoteParams, SwapQuote } from '../typings';
+import { SwapQuoter } from '../quoter';
+import { FetchQuoteParams, QuoteData } from '../typings';
 import { TokenAmount, formatAmount } from '../utils';
 
 import { Timer } from './Timer';
@@ -46,8 +46,8 @@ import { Timer } from './Timer';
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
 function convertToSwapInfo(options: {
-  swapQuote: SwapQuote;
-  quoteParams: QuoteParams;
+  swapQuote: QuoteData;
+  quoteParams: FetchQuoteParams;
   inputAmount: TokenAmount;
   outputAmount: TokenAmount;
   account: BaseAccount;
@@ -115,11 +115,12 @@ const Preview = () => {
       swapQuote,
       account,
     });
-    const res = await swapClient.encodeTx({
+    const res = await SwapQuoter.client.buildTransaction(swapQuote.type, {
       ...params,
       activeAccount: account,
       activeNetwok: network,
       receivingAddress,
+      txData: swapQuote.txData,
     });
     if (res?.data) {
       const encodedTx: IEncodedTxEvm = {
@@ -157,6 +158,7 @@ const Preview = () => {
                       type: 'swap',
                       accountId: account.id,
                       networkId: network.id,
+                      quoterType: swapQuote.type,
                       nonce: data?.decodedTx?.nonce,
                       thirdPartyOrderId: res.orderId,
                       receivingAddress: res.orderId
@@ -186,8 +188,10 @@ const Preview = () => {
           },
         },
       });
-    } else if (res?.resMsg) {
-      toast.show({ title: res?.resMsg });
+    } else if (res?.error) {
+      const msg =
+        res.error.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
+      toast.show({ title: msg });
     } else {
       toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
     }

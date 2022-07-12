@@ -44,8 +44,8 @@ type QuoteResponse = {
   allowanceTarget: string;
 };
 
-export class SimpleQuoter implements Quoter {
-  type: QuoterType = '0x';
+export class MdexQuoter implements Quoter {
+  type: QuoterType = 'mdex';
 
   private client: Axios;
 
@@ -54,9 +54,11 @@ export class SimpleQuoter implements Quoter {
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
+    const chainId = getChainIdFromNetwork(networkA);
     return (
       networkA.id === networkB.id &&
-      !!networkRecords[getChainIdFromNetwork(networkA)]
+      chainId === '128' &&
+      !!networkRecords[chainId]
     );
   }
 
@@ -97,10 +99,10 @@ export class SimpleQuoter implements Quoter {
     }
     const res = await this.client.get(baseURL, { params });
 
-    const data = res.data.data as QuoteResponse; // eslint-disable-line
+    const data = res.data as QuoteResponse; // eslint-disable-line
 
     const result: QuoteData = {
-      type: '0x',
+      type: this.type,
       instantRate: data.price,
       allowanceTarget: data.allowanceTarget,
       buyAmount: data.buyAmount,
@@ -166,7 +168,7 @@ export class SimpleQuoter implements Quoter {
     }
     const res = await this.client.get(baseURL, { params });
     // eslint-disable-next-line
-    const data = res.data.data as QuoteResponse;
+    const data = res.data as QuoteResponse;
     return {
       data: {
         ...data,

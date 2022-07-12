@@ -17,7 +17,7 @@ import { addTransaction } from '../../store/reducers/swapTransactions';
 import { SendRoutes } from '../Send/types';
 
 import {
-  useDepositLimit,
+  useInputLimitsError,
   useSwap,
   useSwapEnabled,
   useSwapQuoteCallback,
@@ -40,7 +40,7 @@ const SwapButton = () => {
   const navigation = useNavigation();
   const isSwapEnabled = useSwapEnabled();
   const { inputToken } = useSwapState();
-  const { limited } = useDepositLimit();
+  const limitsError = useInputLimitsError();
   const { account, network, wallet } = useActiveWalletAccount();
   const { swapQuote, isSwapLoading, error, approveState, inputAmount } =
     useSwap();
@@ -207,7 +207,7 @@ const SwapButton = () => {
       </Button>
     );
   }
-  if (limited) {
+  if (limitsError) {
     return (
       <Button size="xl" type="primary" isDisabled key="depositLimit">
         {intl.formatMessage({ id: 'title__swap' })}
