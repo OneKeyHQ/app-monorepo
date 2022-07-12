@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   HStack,
   Icon,
   LottieView,
@@ -53,18 +52,6 @@ export function SendFeedbackReceipt() {
       return newNum;
     });
   }, 1000);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const feedbackAnimation = useMemo(
-    () => (
-      <LottieView
-        style={{ width: '200px' }}
-        source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
-        autoPlay
-        loop={false}
-      />
-    ),
-    [],
-  );
   return (
     <BaseSendModal
       hideBackButton
@@ -80,8 +67,20 @@ export function SendFeedbackReceipt() {
       onPrimaryActionPress={() => doClose()}
       closeAction={() => doClose()}
     >
-      <VStack alignItems="center" justifyContent="center" minH="100%">
-        {feedbackAnimation}
+      <VStack
+        alignItems="center"
+        justifyContent="center"
+        flex={1}
+        // bgColor="surface-neutral-default"
+      >
+        <Box w="200px" h="200px">
+          <LottieView
+            width={200}
+            source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
+            autoPlay
+            loop={false}
+          />
+        </Box>
         <Text typography="DisplayMedium">
           {intl.formatMessage({ id: 'modal__transaction_submitted' })}
         </Text>

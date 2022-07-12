@@ -7,4 +7,5 @@ export const persistWhiteList = [
   'tokens',
   'contacts',
   'swapTransactions',
+  'fiatMoney',
 ];
