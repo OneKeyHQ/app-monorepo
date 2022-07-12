@@ -61,10 +61,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
     pollingInterval: 15000,
   });
 
-  const [isHwWallet, setIsHwWallet] = useState(false);
-  useEffect(() => {
-    setIsHwWallet(wallet?.type === 'hw');
-  }, [wallet]);
+  const isHwWallet = wallet?.type === 'hw';
 
   const copyContentToClipboard = useCallback(
     (address) => {
