@@ -44,7 +44,7 @@ const ReceiveToken = () => {
   const { address, name } = route.params ?? {};
 
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network, walletId, accountId, networkId } =
+  const { account, network, wallet, walletId, accountId, networkId } =
     useActiveWalletAccount();
 
   const shownAddress = address ?? account?.address ?? '';
@@ -52,15 +52,9 @@ const ReceiveToken = () => {
 
   const { engine } = backgroundApiProxy;
 
-  const [isHwWallet, setIsHwWallet] = useState(false);
+  const isHwWallet = wallet?.type === 'hw';
   const [onHardwareConfirmed, setOnHardwareConfirmed] = useState(false);
   const [isLoadingForHardware, setIsLoadingForHardware] = useState(false);
-
-  useEffect(() => {
-    engine.getHWDeviceByWalletId(walletId).then((device) => {
-      setIsHwWallet(!!device);
-    });
-  }, [engine, walletId]);
 
   const getAddress = useCallback(async () => {
     const hwAddress = await engine.getHWAddress(accountId, networkId, walletId);
