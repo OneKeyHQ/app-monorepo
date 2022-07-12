@@ -546,7 +546,7 @@ PODS:
     - RNFBApp
   - RNGestureHandler (2.5.0):
     - React-Core
-  - RNReanimated (2.8.0):
+  - RNReanimated (2.9.1):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -573,7 +573,7 @@ PODS:
     - React-RCTText
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNScreens (3.11.1):
+  - RNScreens (3.15.0):
     - React-Core
     - React-RCTImage
   - RNSVG (12.3.0):
@@ -965,8 +965,8 @@ SPEC CHECKSUMS:
   RNFBApp: ca5f49bbe21f663142320337eb39956b04de4d12
   RNFBCrashlytics: 97bf2b05e4a5523c57adc8f9e5bf6e1b17804482
   RNGestureHandler: bad495418bcbd3ab47017a38d93d290ebd406f50
-  RNReanimated: 64573e25e078ae6bec03b891586d50b9ec284393
-  RNScreens: 4d83613b50b74ed277026375dc0810893b0c347f
+  RNReanimated: 5c8c17e26787fd8984cd5accdc70fef2ca70aafd
+  RNScreens: 4a1af06327774490d97342c00aee0c2bafb497b7
   RNSVG: 302bfc9905bd8122f08966dc2ce2d07b7b52b9f8
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: f93010f3f6c031e2f8fb3081ca4ee6966c539815
