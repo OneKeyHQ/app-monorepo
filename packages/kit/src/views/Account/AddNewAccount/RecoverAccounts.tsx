@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
@@ -23,6 +24,7 @@ import {
   Typography,
   useToast,
 } from '@onekeyhq/components';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type {
   Account,
   ImportableHDAccount,
@@ -35,7 +37,6 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { UserCancelFromOutside } from '@onekeyhq/kit/src/utils/hardware/errors';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -151,15 +152,34 @@ const RecoverAccounts: FC = () => {
             }),
           ]);
         })
-        .catch((e) => {
-          if (e instanceof UserCancelFromOutside) {
+        .catch((e: any) => {
+          const { className, key, code, message } = e || {};
+          if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
             return;
           }
+
           isFetchingData.current = false;
-          ToastManager.show({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            title: intl.formatMessage({ id: e?.message ?? '' }),
-          });
+
+          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: key }),
+              },
+              {
+                type: 'error',
+              },
+            );
+          } else {
+            ToastManager.show(
+              {
+                title: message,
+              },
+              {
+                type: 'default',
+              },
+            );
+          }
+
           navigation?.goBack?.();
           navigation?.goBack?.();
         });

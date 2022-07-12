@@ -27,6 +27,7 @@ import Validation from './Validation';
 type ProtectedOptions = {
   isLocalAuthentication?: boolean;
   withEnableAuthentication?: boolean;
+  deviceFeatures?: IOneKeyDeviceFeatures;
 };
 
 type ProtectedProps = {
@@ -47,7 +48,7 @@ const Protected: FC<ProtectedProps> = ({
   const walletDetail = useGetWalletDetail(walletId);
   const intl = useIntl();
   const { engine, serviceHardware } = backgroundApiProxy;
-  const [deviceCheckSuccess, setDeviceCheckSuccess] = useState(false);
+  const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
@@ -167,7 +168,9 @@ const Protected: FC<ProtectedProps> = ({
         safeGoBack();
         return;
       }
-      setDeviceCheckSuccess(true);
+
+      // device connect success
+      setDeviceFeatures(features);
     }
     loadDevices();
   }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
@@ -198,12 +201,13 @@ const Protected: FC<ProtectedProps> = ({
   }
 
   if (isHardware) {
-    if (deviceCheckSuccess) {
+    if (deviceFeatures) {
       return (
         <Box w="full" h="full">
           {children(password, {
             withEnableAuthentication,
             isLocalAuthentication,
+            deviceFeatures,
           })}
         </Box>
       );
