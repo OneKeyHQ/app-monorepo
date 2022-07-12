@@ -3,10 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
-import {
-  OneKeyErrorClassNames,
-  OneKeyHardwareAbortError,
-} from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';

@@ -199,20 +199,36 @@ const UpdatingModal: FC = () => {
       setStateViewInfo({ type: 'install-failure' });
     } else if (currentStep === 'reboot-bootloader') {
       setStateViewInfo({ type: 'reboot-bootloader-failure' });
-    }
-
-    if (className === 'OneKeyHardwareError') {
-      ToastManager.show(
-        {
+    } else if (className === 'OneKeyHardwareError') {
+      setStateViewInfo({
+        type: 'common_error',
+        content: {
           title: intl.formatMessage({
             // @ts-expect-error
             id: key,
             defaultMessage: error.message,
           }),
         },
-        { type: 'error' },
-      );
+      });
+    } else {
+      // other error
+      setStateViewInfo({
+        type: 'common_error',
+        content: {
+          title: `「${code}」${error.message}`,
+        },
+      });
     }
+
+    ToastManager.show(
+      {
+        title: intl.formatMessage({
+          // @ts-expect-error
+          id: key,
+        }),
+      },
+      { type: 'error' },
+    );
 
     setProgressState('failure');
   };
