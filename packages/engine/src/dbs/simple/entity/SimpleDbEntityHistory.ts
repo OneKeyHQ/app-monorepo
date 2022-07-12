@@ -20,10 +20,10 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
   // but add accountHistoryCache instead to save memory
   override enableCache = false;
 
-  async getMaxPendingNonce(props: {
+  async getPendingNonceList(props: {
     accountId: string;
     networkId: string;
-  }): Promise<number> {
+  }): Promise<number[]> {
     const { accountId, networkId } = props;
     const { items: pendingTx } = await this.getAccountHistory({
       accountId,
@@ -31,14 +31,22 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
       isPending: true,
     });
     const nonceList = pendingTx.map((item) => item.decodedTx.nonce);
+    return nonceList || [];
+  }
+
+  async getMaxPendingNonce(props: {
+    accountId: string;
+    networkId: string;
+  }): Promise<number | null> {
+    const nonceList = await this.getPendingNonceList(props);
     if (nonceList.length) {
       const nonce = Math.max(...nonceList);
       if (Number.isNaN(nonce) || nonce === Infinity || nonce === -Infinity) {
-        return 0;
+        return null;
       }
       return nonce;
     }
-    return 0;
+    return null;
   }
 
   _getAccountHistoryInList({
