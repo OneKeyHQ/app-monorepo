@@ -252,6 +252,7 @@
   "content__hardware_wallets_do_not_support_this_feature": "Hardware Wallets are not Supported.",
   "content__hardware_wallets_do_not_support_this_feature_desc": "This functionality is only accessible for rapid payments using the app wallet.",
   "content__hash": "Hash",
+  "content__have_been_connected": "It was connected before",
   "content__i_am_aware_of_the_above_risks": "I am aware of the above risks",
   "content__if_the_price_drifts_against_you": "If the price drifts against you by more than this percentage, the trade is terminated.",
   "content__if_you_choose_max": "If you choose max, the maximum amount you may spend on {0} is infinite.",
