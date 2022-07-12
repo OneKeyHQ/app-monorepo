@@ -219,6 +219,10 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
+                /*
+               var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
+               await window.ethereum.request(p);
+                 */
                 // @ts-ignore
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
@@ -236,6 +240,24 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
+                /*
+                var p = {
+      "method": "eth_sendTransaction",
+      "params": [
+        {
+          "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
+          "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
+          "data": "0x",
+          "value": "0xa3b5840f4000"
+        }
+      ],
+      "jsonrpc": "2.0"
+    };
+
+
+                           await window.ethereum.request(p);
+
+                 */
                 // @ts-ignore
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
@@ -254,7 +276,7 @@ export const Debug = () => {
           "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
           "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
           "data": "0x",
-          "value": "0x18abedda5a37000"
+          "value": "0xa3b5840f4000"
         }
       ],
       "jsonrpc": "2.0"
@@ -264,7 +286,7 @@ export const Debug = () => {
     "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
     "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
     "data": "0x",
-    "value": "0x18abedda5a37000"
+    "value": "0xa3b5840f4000"
   }
 }`,
                     },

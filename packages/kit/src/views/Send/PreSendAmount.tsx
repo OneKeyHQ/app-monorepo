@@ -112,19 +112,29 @@ function usePreSendAmountInfo({
   setAmount: (value: string) => void;
   tokenBalance: string;
 }) {
-  const amountInputDecimals =
-    (tokenInfo?.tokenIdOnNetwork
-      ? network?.tokenDisplayDecimals
-      : network?.nativeDisplayDecimals) ?? 2;
+  // const amountInputDecimals =
+  //   (tokenInfo?.tokenIdOnNetwork
+  //     ? network?.tokenDisplayDecimals
+  //     : network?.nativeDisplayDecimals) ?? 2;
+
+  const amountInputDecimals = tokenInfo?.decimals ?? 18;
 
   const validAmountRegex = useMemo(() => {
     const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
     return new RegExp(pattern);
   }, [amountInputDecimals]);
+
   const { getTokenPrice } = useManageTokens();
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
+
+  const textInputDecimals = isFiatMode ? 2 : amountInputDecimals;
+  const validTextRegex = useMemo(() => {
+    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${textInputDecimals}})?$`;
+    return new RegExp(pattern);
+  }, [textInputDecimals]);
+
   const [text, setText] = useState(amount);
   const tokenPriceBN = useMemo(
     () =>
@@ -155,7 +165,25 @@ function usePreSendAmountInfo({
     },
     [getInputText, isFiatMode],
   );
-  const onTextChange = (t: string) => setText(t);
+  const onTextChange = (text0: string) => {
+    // delete action
+    if (text0.length < text.length) {
+      setText(text0);
+      return;
+    }
+    if (validTextRegex.test(text0)) {
+      setText(text0);
+    } else {
+      const textBN = new BigNumber(text0);
+      if (!textBN.isNaN()) {
+        const textFixed = textBN.toFixed(
+          textInputDecimals,
+          BigNumber.ROUND_FLOOR,
+        );
+        setText(textFixed);
+      }
+    }
+  };
   const onAmountChange = useCallback(
     (text0: string) => {
       // delete action

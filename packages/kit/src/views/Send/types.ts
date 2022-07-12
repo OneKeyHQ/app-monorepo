@@ -100,6 +100,7 @@ export type SendConfirmSharedParams = {
   resendActionInfo?: SendConfirmResendActionInfo;
   feeInfoSelected?: IFeeInfoSelected;
   autoConfirmAfterFeeSaved?: boolean;
+  onModalClose?: () => void;
 };
 export type SendConfirmParams = SendConfirmSharedParams & {
   payloadType?: string; // TODO remove

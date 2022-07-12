@@ -132,15 +132,12 @@ function SendConfirm() {
     resendActionInfo,
     isSpeedUpOrCancel,
     isFromDapp,
+    dappApprove,
+    onModalClose,
   } = useSendConfirmRouteParamsParsed();
 
   useDisableNavigationAnimation({
     condition: !!routeParams.autoConfirmAfterFeeSaved,
-  });
-
-  const dappApprove = useDappApproveAction({
-    id: sourceInfo?.id ?? '',
-    closeOnError: true,
   });
 
   const { encodedTx } = useSendConfirmEncodedTx({
@@ -290,7 +287,7 @@ function SendConfirm() {
       close();
     },
     // reject with window.close in ext standalone window after modal closed
-    onModalClose: dappApprove.reject,
+    onModalClose,
     children: null,
   };
 
