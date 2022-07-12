@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,7 @@ import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   FormatBalance,
   FormatCurrency,
@@ -52,10 +53,25 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const intl = useIntl();
   const toast = useToast();
 
-  const { account, network: activeNetwork } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+
+  const {
+    account,
+    network: activeNetwork,
+    walletId,
+  } = useActiveWalletAccount();
+
   const { prices, balances } = useManageTokens({
     pollingInterval: 15000,
   });
+
+  const [isHwWallet, setIsHwWallet] = useState(false);
+  const { engine } = backgroundApiProxy;
+  useEffect(() => {
+    engine.getHWDeviceByWalletId(walletId).then((device) => {
+      setIsHwWallet(!!device);
+    });
+  }, [engine, walletId]);
 
   const copyContentToClipboard = useCallback(
     (address) => {
@@ -105,8 +121,18 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       <Pressable
         mt={4}
         onPress={() => {
-          setHaptics();
-          copyContentToClipboard(account?.address);
+          if (isHwWallet) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {},
+              },
+            });
+          } else {
+            setHaptics();
+            copyContentToClipboard(account?.address);
+          }
         }}
       >
         {({ isHovered, isPressed }) => (
@@ -125,7 +151,9 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
             flexDirection="row"
           >
             <Text typography={{ sm: 'Body2', md: 'CaptionStrong' }} mr={2}>
-              {shortenAddress(account?.address ?? '')}
+              {isHwWallet
+                ? intl.formatMessage({ id: 'action__copy_address' })
+                : shortenAddress(account?.address ?? '')}
             </Text>
             <Icon name="DuplicateSolid" size={isCenter ? 20 : 16} />
           </Box>
