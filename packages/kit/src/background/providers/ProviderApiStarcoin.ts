@@ -324,6 +324,22 @@ class ProviderApiStarcoin extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async wallet_getPermissions(
+    request: IJsBridgeMessagePayload,
+  ) {
+    const result = [
+      {
+        caveats: [],
+        date: Date.now(),
+        id: request.id?.toString() ?? (uuid.v4() as string),
+        invoker: request.origin as string,
+        parentCapability: 'stc_accounts',
+      }
+    ];
+    return Promise.resolve(result)
+  }
+
+  @providerApiMethod()
   async stc_requestAccounts(request: IJsBridgeMessagePayload) {
     debugLogger.backgroundApi(
       'ProviderApiStarcoin.stc_requestAccounts',
