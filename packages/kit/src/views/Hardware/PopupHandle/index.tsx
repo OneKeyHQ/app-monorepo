@@ -122,6 +122,8 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
     uiRequestMemo,
   ]);
 
+  if (!popupView) return null;
+
   return (
     <Modal
       backdropColor="overlay"

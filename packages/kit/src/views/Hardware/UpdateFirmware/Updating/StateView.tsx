@@ -25,7 +25,8 @@ export type StateViewType =
   | 'success'
   | 'bluetooth-turned-off'
   | 'manually-enter-bootloader-one'
-  | 'manually-enter-bootloader-two';
+  | 'manually-enter-bootloader-two'
+  | 'common_error';
 
 type StateContent = {
   emoji?: string;
@@ -196,6 +197,15 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
               id: 'modal__enter_bootloader_mode_mini_desc',
             });
           }
+          break;
+
+        case 'common_error':
+          stateContent = {
+            emoji: '😞',
+            title: intl.formatMessage({
+              id: 'msg__unknown_error',
+            }),
+          };
           break;
 
         default:
