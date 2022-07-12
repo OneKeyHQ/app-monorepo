@@ -1,6 +1,7 @@
 import React, { ComponentProps, FC } from 'react';
 
-import { Box, Center, Icon, NetImage } from '@onekeyhq/components';
+import { Box, Center, Image, NetImage } from '@onekeyhq/components';
+import NFTEmptyImg from '@onekeyhq/components/img/nft_empty.png';
 import { getImageWithAsset } from '@onekeyhq/engine/src/managers/moralis';
 import type { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 
@@ -15,7 +16,7 @@ const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
   if (imageUrl === '') {
     return (
       <Center size={`${size}px`} {...props} overflow="hidden">
-        <Icon name="QuestionMarkCircleOutline" size={size / 2} />
+        <Image size={`${size}px`} source={NFTEmptyImg} />
       </Center>
     );
   }
