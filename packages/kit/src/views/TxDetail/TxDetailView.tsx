@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import { TxDetailFeeInfoBox } from './components/TxDetailFeeInfoBox';
+import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxDetailTopHeader } from './components/TxDetailTopHeader';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
@@ -47,7 +47,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
         <TxActionsListView {...props} transformType="T1" space={6} />
       </TxDetailContextProvider>
       {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
-      <TxDetailFeeInfoBox {...props} />
+      <TxDetailExtraInfoBox {...props} />
     </>
   );
 }
