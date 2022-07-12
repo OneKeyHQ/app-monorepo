@@ -18,7 +18,7 @@ const AppLoading: FC = ({ children }) => {
   const isAppRenderReady = useAppSelector((s) => s.data.isAppRenderReady);
 
   useSWR('fiat-money', () => serviceCronJob.getFiatMoney(), {
-    refreshInterval: 1 * 60 * 1000,
+    refreshInterval: 5 * 60 * 1000,
   });
 
   useSWR('currencies', fetchCurrencies);

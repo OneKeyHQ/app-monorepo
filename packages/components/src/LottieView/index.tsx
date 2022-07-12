@@ -33,13 +33,14 @@ const LottieView = ({ source, autoPlay, loop, ...props }: LottieViewProps) => {
   const animationRef = useRef<AnimatedLottieView | null>();
 
   useEffect(() => {
+    // animation won't work in navigate(), needs delay here
     setTimeout(() => {
       if (autoPlay) {
         animationRef.current?.play?.();
       } else {
         animationRef.current?.pause?.();
       }
-    }, 50);
+    }, 300);
   }, [autoPlay]);
 
   if (platformEnv.isNative && !!LottieViewNative) {
@@ -55,7 +56,14 @@ const LottieView = ({ source, autoPlay, loop, ...props }: LottieViewProps) => {
   }
 
   if (!platformEnv.isNative && !!LottieViewWeb) {
-    return <LottieViewWeb animationData={source} loop={loop} {...props} />;
+    return (
+      <LottieViewWeb
+        animationData={source}
+        autoPlay={autoPlay}
+        loop={loop}
+        {...props}
+      />
+    );
   }
 
   return null;
