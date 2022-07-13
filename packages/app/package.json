@@ -16,6 +16,7 @@
     "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh"
   },
   "dependencies": {
+    "@ethersproject/shims": "^5.6.0",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
@@ -41,7 +42,7 @@
     "expo-location": "^14.2.2",
     "expo-media-library": "^14.1.0",
     "expo-splash-screen": "^0.15.1",
-    "jsc-android": "npm:@onekeyfe/jsc-android",
+    "jsc-android": "294992.0.0",
     "lottie-ios": "3.2.3",
     "lottie-react": "^2.3.1",
     "lottie-react-native": "5.0.1",
@@ -52,7 +53,6 @@
     "react-dom": "17.0.2",
     "react-native": "^0.68.2",
     "react-native-auto-size-text": "^1.1.1",
-    "react-native-base64": "^0.2.1",
     "react-native-ble-manager": "^8.1.0",
     "react-native-ble-plx": "^2.0.3",
     "react-native-collapsible-tab-view": "4.5.2",
@@ -62,6 +62,7 @@
     "react-native-fast-image": "^8.5.11",
     "react-native-flipper": "^0.150.0",
     "react-native-gesture-handler": "^2.5.0",
+    "react-native-get-random-values": "^1.8.0",
     "react-native-keyboard-manager": "^6.5.4-4",
     "react-native-pager-view": "5.4.15",
     "react-native-randombytes": "^3.6.1",
@@ -71,7 +72,7 @@
     "react-native-screens": "3.15.0",
     "react-native-svg": "^12.3.0",
     "react-native-toast-message": "2.1.2",
-    "react-native-vision-camera": "^2.13.3",
+    "react-native-vision-camera": "^2.13.5",
     "react-native-web": "0.18.6",
     "react-native-webview": "11.18.1",
     "readable-stream": "^3.6.0",
@@ -87,7 +88,6 @@
     "@types/node": "^16.7.13",
     "@types/react": "~17.0.21",
     "@types/react-native": "~0.67.7",
-    "@types/react-native-base64": "^0.2.0",
     "babel-plugin-module-resolver": "^4.1.0"
   },
   "private": true

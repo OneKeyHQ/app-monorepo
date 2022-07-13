@@ -23,13 +23,22 @@ if (typeof TextEncoder === 'undefined') {
 }
 
 // Buffer polyfill
-if (typeof Buffer === 'undefined') global.Buffer = require('buffer').Buffer;
+if (typeof Buffer === 'undefined') {
+  // global.Buffer = require('@craftzdog/react-native-buffer').Buffer;
+  global.Buffer = require('buffer').Buffer;
+}
 
 // Crypto polyfill
 if (typeof crypto === 'undefined') global.crypto = require('crypto');
 
+// https://docs.ethers.io/v5/cookbook/react-native/
+// Import the crypto getRandomValues shim (**BEFORE** the shims)
+require('react-native-get-random-values');
+// Import the the ethers shims (**BEFORE** ethers)
+require('@ethersproject/shims');
+
 if (platformEnv.isNativeAndroid) {
-  const consoleLog = console.log;
+  // const consoleLog = console.log;
   const shimConsoleLog = (method) => {
     const originMethod = console[method];
     if (!originMethod) {
