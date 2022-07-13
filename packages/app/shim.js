@@ -1,5 +1,8 @@
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { shim as base64Shim } from 'react-native-quick-base64';
+
+base64Shim();
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';
 if (typeof __filename === 'undefined') global.__filename = '';
@@ -23,13 +26,20 @@ if (typeof TextEncoder === 'undefined') {
 }
 
 // Buffer polyfill
-if (typeof Buffer === 'undefined') global.Buffer = require('buffer').Buffer;
+if (typeof Buffer === 'undefined')
+  global.Buffer = require('@craftzdog/react-native-buffer').Buffer;
 
 // Crypto polyfill
 if (typeof crypto === 'undefined') global.crypto = require('crypto');
 
+// https://docs.ethers.io/v5/cookbook/react-native/
+// Import the crypto getRandomValues shim (**BEFORE** the shims)
+require('react-native-get-random-values');
+// Import the the ethers shims (**BEFORE** ethers)
+require('@ethersproject/shims');
+
 if (platformEnv.isNativeAndroid) {
-  const consoleLog = console.log;
+  // const consoleLog = console.log;
   const shimConsoleLog = (method) => {
     const originMethod = console[method];
     if (!originMethod) {
