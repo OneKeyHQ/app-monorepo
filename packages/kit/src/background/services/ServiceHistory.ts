@@ -6,6 +6,7 @@ import { HISTORY_CONSTS } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   IDecodedTxStatus,
+  IFeeInfoUnit,
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
 
@@ -305,11 +306,13 @@ class ServiceHistory extends ServiceBase {
     accountId,
     data,
     resendActionInfo,
+    feeInfo,
   }: {
     networkId: string;
     accountId: string;
     data?: SendConfirmOnSuccessData;
     resendActionInfo?: SendConfirmResendActionInfo;
+    feeInfo?: IFeeInfoUnit | undefined;
   }) {
     const { engine } = this.backgroundApi;
     if (!data || !data.decodedTx) {
@@ -324,6 +327,7 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
     let prevTx: IHistoryTx | undefined;
     if (resendActionInfo && resendActionInfo.replaceHistoryId) {
       prevTx = await simpleDb.history.getHistoryById({
