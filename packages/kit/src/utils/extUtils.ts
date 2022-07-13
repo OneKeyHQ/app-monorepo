@@ -2,6 +2,7 @@ import {
   UI_HTML_DEFAULT_MIN_HEIGHT,
   UI_HTML_DEFAULT_MIN_WIDTH,
 } from '../../../ext/src/ui/popupSizeFix';
+import { IS_LAZY_NAVIGATE_SUB_ROUTER } from '../views/Send/sendConfirmConsts';
 
 type OpenUrlRouteInfo = {
   routes: string | string[];
@@ -18,7 +19,14 @@ function buildExtRouteUrl(
   // eslint-disable-next-line no-param-reassign
   routes = ([] as string[]).concat(routes).join('/');
   const paramsStr = new URLSearchParams(params).toString();
-  return chrome.runtime.getURL(`/${htmlFile}#/${routes}?${paramsStr}`);
+  const hash = `#/${routes}?${paramsStr}`;
+  if (IS_LAZY_NAVIGATE_SUB_ROUTER) {
+    const navigateRouterHash = encodeURIComponent(hash);
+    return chrome.runtime.getURL(
+      `/${htmlFile}?navigateRouterHash=${navigateRouterHash}`,
+    );
+  }
+  return chrome.runtime.getURL(`/${htmlFile}${hash}`);
 }
 
 function openUrl(url: string) {

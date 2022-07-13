@@ -13,7 +13,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
-import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
@@ -132,15 +131,12 @@ function SendConfirm() {
     resendActionInfo,
     isSpeedUpOrCancel,
     isFromDapp,
+    dappApprove,
+    onModalClose,
   } = useSendConfirmRouteParamsParsed();
 
   useDisableNavigationAnimation({
     condition: !!routeParams.autoConfirmAfterFeeSaved,
-  });
-
-  const dappApprove = useDappApproveAction({
-    id: sourceInfo?.id ?? '',
-    closeOnError: true,
   });
 
   const { encodedTx } = useSendConfirmEncodedTx({
@@ -290,7 +286,7 @@ function SendConfirm() {
       close();
     },
     // reject with window.close in ext standalone window after modal closed
-    onModalClose: dappApprove.reject,
+    onModalClose,
     children: null,
   };
 

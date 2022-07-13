@@ -26,6 +26,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   FormatBalanceToken,
   FormatCurrencyToken,
+  formatBalanceDisplay,
 } from '../../components/Format';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
@@ -112,19 +113,29 @@ function usePreSendAmountInfo({
   setAmount: (value: string) => void;
   tokenBalance: string;
 }) {
-  const amountInputDecimals =
+  const amountDisplayDecimals =
     (tokenInfo?.tokenIdOnNetwork
       ? network?.tokenDisplayDecimals
       : network?.nativeDisplayDecimals) ?? 2;
+
+  const amountInputDecimals = tokenInfo?.decimals ?? 18;
 
   const validAmountRegex = useMemo(() => {
     const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
     return new RegExp(pattern);
   }, [amountInputDecimals]);
+
   const { getTokenPrice } = useManageTokens();
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
+
+  const textInputDecimals = isFiatMode ? 2 : amountInputDecimals;
+  const validTextRegex = useMemo(() => {
+    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${textInputDecimals}})?$`;
+    return new RegExp(pattern);
+  }, [textInputDecimals]);
+
   const [text, setText] = useState(amount);
   const tokenPriceBN = useMemo(
     () =>
@@ -155,7 +166,25 @@ function usePreSendAmountInfo({
     },
     [getInputText, isFiatMode],
   );
-  const onTextChange = (t: string) => setText(t);
+  const onTextChange = (text0: string) => {
+    // delete action
+    if (text0.length < text.length) {
+      setText(text0);
+      return;
+    }
+    if (validTextRegex.test(text0)) {
+      setText(text0);
+    } else {
+      const textBN = new BigNumber(text0);
+      if (!textBN.isNaN()) {
+        const textFixed = textBN.toFixed(
+          textInputDecimals,
+          BigNumber.ROUND_FLOOR,
+        );
+        setText(textFixed);
+      }
+    }
+  };
   const onAmountChange = useCallback(
     (text0: string) => {
       // delete action
@@ -203,7 +232,12 @@ function usePreSendAmountInfo({
     if (isFiatMode) {
       return (
         <Text>
-          {amount || '0'} {tokenInfo?.symbol}
+          {formatBalanceDisplay(amount || '0', '', {
+            fixed: amountDisplayDecimals,
+          })?.amount ||
+            amount ||
+            '0'}{' '}
+          {tokenInfo?.symbol}
         </Text>
       );
     }
@@ -214,7 +248,7 @@ function usePreSendAmountInfo({
         render={(ele) => <Text>{ele}</Text>}
       />
     );
-  }, [amount, desc, isFiatMode, tokenInfo]);
+  }, [amount, amountDisplayDecimals, desc, isFiatMode, tokenInfo]);
   useEffect(() => {
     if (isFiatMode) {
       if (!text) {

@@ -31,17 +31,18 @@ type RouteProps = RouteProp<
 
 type OnekeyHardwareDetailsModalProps = {
   walletId: string;
+  deviceFeatures?: IOneKeyDeviceFeatures;
 };
 
 const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   walletId,
+  deviceFeatures,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { engine, serviceHardware } = backgroundApiProxy;
   const { deviceUpdates } = useSettings() || {};
 
-  const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
   const [deviceConnectId, setDeviceConnectId] = useState<string>();
 
   const updates = useMemo(
@@ -53,9 +54,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
-        const features = await serviceHardware.getFeatures(device?.mac ?? '');
         setDeviceConnectId(device?.mac);
-        setDeviceFeatures(features ?? undefined);
       } catch (err: any) {
         if (navigation.canGoBack()) {
           navigation.goBack();
@@ -174,7 +173,12 @@ const OnekeyHardwareDetailsModal: FC = () => {
       scrollViewProps={{
         children: (
           <Protected walletId={walletId}>
-            {() => <OnekeyHardwareDetails walletId={walletId} />}
+            {(_, { deviceFeatures }) => (
+              <OnekeyHardwareDetails
+                walletId={walletId}
+                deviceFeatures={deviceFeatures}
+              />
+            )}
           </Protected>
         ),
       }}

@@ -4,7 +4,13 @@ import type { FC } from 'react';
 import { Row } from 'native-base';
 import { useWindowDimensions } from 'react-native';
 
-import { Box, Center, Text, useUserDevice } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Text,
+  useTheme,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { Collectible, MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 
 import CollectibleListImage from './CollectibleListImage';
@@ -33,7 +39,6 @@ type SubItemListProps = {
   width: number;
 };
 const SubItemList: FC<SubItemListProps> = ({ width, assets }) => {
-  console.log();
   const subItemSize = (width - 9) / 2;
   const filterAssets = assets.filter((item, index) => index < 4);
   if (filterAssets.length === 1) {
@@ -77,7 +82,7 @@ const CollectionCard: FC<Props> = ({ collectible, ...rest }) => {
   const width = isSmallScreen
     ? Math.floor((dimensions.width - MARGIN * 3) / 2)
     : 177;
-
+  const { themeVariant } = useTheme();
   const contentSize = width - 2 * padding;
 
   return (
@@ -86,9 +91,10 @@ const CollectionCard: FC<Props> = ({ collectible, ...rest }) => {
       padding={`${padding}px`}
       overflow="hidden"
       borderRadius="12px"
-      borderWidth={0}
+      borderColor="border-subdued"
+      borderWidth={themeVariant === 'light' ? 1 : undefined}
       width={width}
-      mb={`${padding}px`}
+      mb="16px"
       flexDirection="column"
       {...rest}
     >
@@ -101,7 +107,7 @@ const CollectionCard: FC<Props> = ({ collectible, ...rest }) => {
       >
         {collectible.collection.name}
       </Text>
-      <Text typography="Body2" height="20px" />
+      {/* <Text typography="Body2" height="20px" /> */}
       {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}
     </Box>
   );

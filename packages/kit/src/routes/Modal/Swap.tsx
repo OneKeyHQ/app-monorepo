@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import CustomToken from '../../views/ManageTokens/CustomToken';
+import SwftcHelp from '../../views/Swap/SwftcHelp';
 import Transaction from '../../views/Swap/Transaction';
 import Webview from '../../views/Swap/Webview';
 
@@ -46,6 +47,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.Webview,
     component: Webview,
+  },
+  {
+    name: SwapRoutes.SwftcHelp,
+    component: SwftcHelp,
   },
 ];
 

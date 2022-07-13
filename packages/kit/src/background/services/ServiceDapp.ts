@@ -4,6 +4,7 @@ import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
+import { buildModalRouteParams } from '../../provider/useAutoNavigateOnMount';
 import {
   DappModalRoutes,
   ModalRoutes,
@@ -145,19 +146,10 @@ class ServiceDapp extends ServiceBase {
         }),
       };
 
-      const modalParams: { screen: any; params: any } = {
-        screen: null,
-        params: {},
-      };
-      let paramsCurrent = modalParams;
-      let paramsLast = modalParams;
-      screens.forEach((screen) => {
-        paramsCurrent.screen = screen;
-        paramsCurrent.params = {};
-        paramsLast = paramsCurrent;
-        paramsCurrent = paramsCurrent.params;
+      const modalParams = buildModalRouteParams({
+        screens: routeNames,
+        routeParams,
       });
-      paramsLast.params = routeParams;
 
       ensureSerializable(modalParams);
 
@@ -167,7 +159,10 @@ class ServiceDapp extends ServiceBase {
           params: routeParams,
         });
       } else {
-        global.$navigationRef.current?.navigate(RootRoutes.Modal, modalParams);
+        global.$navigationRef.current?.navigate(
+          modalParams.screen,
+          modalParams.params,
+        );
       }
     });
   }

@@ -252,6 +252,7 @@
   "content__hardware_wallets_do_not_support_this_feature": "硬件钱包不支持此功能",
   "content__hardware_wallets_do_not_support_this_feature_desc": "此功能仅适用于 App 钱包的快捷支付",
   "content__hash": "哈希",
+  "content__have_been_connected": "曾连接过",
   "content__i_am_aware_of_the_above_risks": "我已知晓以上风险",
   "content__if_the_price_drifts_against_you": "当成交价格朝向对您不利的方向偏移高于此比例时，交易将被撤销。",
   "content__if_you_choose_max": "如果您点击 Max 按钮，您在 {0} 上的授权额度将是无限制的",

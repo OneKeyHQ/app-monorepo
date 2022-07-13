@@ -38,7 +38,7 @@ const UpdateInfoModal: FC = () => {
   const { walletId, onSuccess } = useRoute<RouteProps>().params;
 
   const { engine } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings() || {};
+  const { deviceUpdates } = useSettings();
 
   const [device, setDevice] = useState<Device>();
   const [bleFirmware, setBleFirmware] = useState<BLEFirmwareInfo>();
@@ -55,7 +55,7 @@ const UpdateInfoModal: FC = () => {
 
       setDevice(deviceByWalletId);
 
-      const { ble, firmware } = deviceUpdates[deviceByWalletId.mac] || {};
+      const { ble, firmware } = deviceUpdates?.[deviceByWalletId.mac] || {};
 
       if (ble) {
         setBleFirmware(ble);

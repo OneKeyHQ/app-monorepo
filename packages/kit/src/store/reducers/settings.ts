@@ -41,7 +41,7 @@ type SettingsState = {
     [ValidationFields.Account]?: boolean;
     [ValidationFields.Secret]?: boolean;
   };
-  deviceUpdates: Record<
+  deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
   >;
@@ -179,6 +179,8 @@ export const settingsSlice = createSlice({
       state,
       action: PayloadAction<{ connectId: string; type: FirmwareType }>,
     ) {
+      if (!state.deviceUpdates) return;
+
       const { connectId, type } = action.payload;
       if (type === 'firmware') {
         state.deviceUpdates[connectId].forceFirmware = false;

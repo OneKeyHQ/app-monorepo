@@ -13,6 +13,7 @@ export enum SwapRoutes {
   CustomToken = 'CustomToken',
   Transaction = 'Transaction',
   Webview = 'Webview',
+  SwftcHelp = 'SwftcHelp',
 }
 
 export type SwapRoutesParams = {
@@ -22,6 +23,7 @@ export type SwapRoutesParams = {
   [SwapRoutes.Settings]: undefined;
   [SwapRoutes.Preview]: undefined;
   [SwapRoutes.Webview]: { url: string };
+  [SwapRoutes.SwftcHelp]: { orderid: string };
   [SwapRoutes.CustomToken]: { address?: string } | undefined;
   [SwapRoutes.Transaction]: {
     accountId: string;

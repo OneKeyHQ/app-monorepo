@@ -932,6 +932,11 @@ function ScreenSendEditFee({ ...rest }) {
       }}
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
+      onModalClose={() => {
+        if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
+          oldSendConfirmParams?.onModalClose?.();
+        }
+      }}
       header={title}
       headerDescription={network?.name || network?.shortName || undefined}
       scrollViewProps={{

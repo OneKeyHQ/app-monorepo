@@ -3,10 +3,12 @@ import React, {
   FC,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
@@ -23,6 +25,7 @@ import {
   Typography,
   useToast,
 } from '@onekeyhq/components';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type {
   Account,
   ImportableHDAccount,
@@ -35,7 +38,6 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { UserCancelFromOutside } from '@onekeyhq/kit/src/utils/hardware/errors';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -112,24 +114,26 @@ const RecoverAccounts: FC = () => {
 
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
 
-  const [isVaild, setIsVaild] = useState(false);
+  const [isValid, setIsValid] = useState(false);
   const isFetchingData = useRef(false);
+  const activeAccounts = useRef<Account[]>([]);
 
-  const getActiveAccount = useCallback(async () => {
-    let activeAccounts: Account[] = [];
-    if (wallet) {
-      activeAccounts = await backgroundApiProxy.engine.getAccounts(
-        wallet.accounts,
-        network,
-      );
+  useEffect(() => {
+    async function refreshActiveAccounts() {
+      if (wallet) {
+        activeAccounts.current = await backgroundApiProxy.engine.getAccounts(
+          wallet.accounts,
+          network,
+        );
+      }
+      return activeAccounts;
     }
-    return activeAccounts;
+    refreshActiveAccounts();
   }, [network, wallet]);
 
   const getData = useCallback(
-    async (page: number, pageSize: number) => {
+    (page: number, pageSize: number) => {
       isFetchingData.current = true;
-      const activeAccounts = await getActiveAccount();
       const limit = pageSize;
       const start = page * limit;
       backgroundApiProxy.engine
@@ -142,38 +146,50 @@ const RecoverAccounts: FC = () => {
           // required, stop searching for more accounts.
           setSearchEnded(accounts.length < limit);
           isFetchingData.current = false;
-          updateFlatListData((prev) => [
-            ...prev,
-            ...accounts.map((item) => {
-              const isDisabled =
-                activeAccounts.filter((a) => a.path === item.path).length > 0;
-              return { ...item, selected: isDisabled, isDisabled };
-            }),
-          ]);
+          updateFlatListData((prev) =>
+            prev.concat(
+              accounts.map((item) => {
+                const isDisabled = activeAccounts.current.some(
+                  (a) => a.path === item.path,
+                );
+                return { ...item, selected: isDisabled, isDisabled };
+              }),
+            ),
+          );
         })
-        .catch((e) => {
-          if (e instanceof UserCancelFromOutside) {
+        .catch((e: any) => {
+          const { className, key, code, message } = e || {};
+          if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
             return;
           }
+
           isFetchingData.current = false;
-          ToastManager.show({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            title: intl.formatMessage({ id: e?.message ?? '' }),
-          });
+
+          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: key }),
+              },
+              {
+                type: 'error',
+              },
+            );
+          } else {
+            ToastManager.show(
+              {
+                title: message,
+              },
+              {
+                type: 'default',
+              },
+            );
+          }
+
           navigation?.goBack?.();
           navigation?.goBack?.();
         });
     },
-    [
-      currentPage,
-      getActiveAccount,
-      network,
-      password,
-      walletId,
-      intl,
-      navigation,
-      purpose,
-    ],
+    [currentPage, network, password, walletId, intl, navigation, purpose],
   );
 
   const checkBoxOnChange = useCallback(
@@ -184,21 +200,18 @@ const RecoverAccounts: FC = () => {
           toast.show({
             title: intl.formatMessage({ id: 'content__up_to_100_accounts' }),
           });
-          setIsVaild(
-            flatListData.filter((i) => !i.isDisabled && i.selected).length > 0,
-          );
+          setIsValid(flatListData.some((i) => !i.isDisabled && i.selected));
           return false;
         }
       }
-      flatListData.map((i) => {
+      flatListData.some((i) => {
         if (i.path === item.path) {
           i.selected = isSelected;
+          return true;
         }
-        return i;
+        return false;
       });
-      setIsVaild(
-        flatListData.filter((i) => !i.isDisabled && i.selected).length > 0,
-      );
+      setIsValid(flatListData.some((i) => !i.isDisabled && i.selected));
       return true;
     },
     [flatListData, intl, toast],
@@ -251,6 +264,35 @@ const RecoverAccounts: FC = () => {
     [],
   );
 
+  const flatlistProps = useMemo(
+    () =>
+      pageStatus === 'data'
+        ? {
+            height: '640px',
+            data: flatListData,
+            // @ts-ignore
+            renderItem,
+            ItemSeparatorComponent: () => <Divider />,
+            keyExtractor: (item: ImportableHDAccount) => item.path,
+            ListFooterComponent: searchEnded
+              ? undefined
+              : () => (
+                  <Box pt="20px">
+                    <Spinner size="sm" />
+                  </Box>
+                ),
+            onEndReached: () => {
+              /**
+               * Prevent duplicate loading to cause hardware error
+               */
+              if (isFetchingData.current) return;
+              setCurrentPage((p) => p + 1);
+            },
+          }
+        : undefined,
+    [flatListData, pageStatus, renderItem, searchEnded],
+  );
+
   return (
     <Modal
       height="640px"
@@ -267,9 +309,7 @@ const RecoverAccounts: FC = () => {
       onPrimaryActionPress={() => {
         hardwareCancel();
         navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
-          accounts: [
-            ...flatListData.filter((i) => !i.isDisabled && i.selected),
-          ],
+          accounts: flatListData.filter((i) => !i.isDisabled && i.selected),
           walletId,
           network,
           purpose,
@@ -277,36 +317,11 @@ const RecoverAccounts: FC = () => {
         });
       }}
       primaryActionProps={{
-        isDisabled: !isVaild,
+        isDisabled: !isValid,
       }}
       hideSecondaryAction
       // @ts-ignore
-      flatListProps={
-        pageStatus === 'data'
-          ? {
-              height: '640px',
-              data: flatListData,
-              // @ts-ignore
-              renderItem,
-              ItemSeparatorComponent: () => <Divider />,
-              keyExtractor: (item) => (item as ImportableHDAccount).path,
-              ListFooterComponent: searchEnded
-                ? undefined
-                : () => (
-                    <Box pt="20px">
-                      <Spinner size="sm" />
-                    </Box>
-                  ),
-              onEndReached: () => {
-                /**
-                 * Prevent duplicate loading to cause hardware error
-                 */
-                if (isFetchingData.current) return;
-                setCurrentPage((p) => p + 1);
-              },
-            }
-          : undefined
-      }
+      flatListProps={flatlistProps}
       mt="10px"
     >
       {pageStatus !== 'data' ? (
