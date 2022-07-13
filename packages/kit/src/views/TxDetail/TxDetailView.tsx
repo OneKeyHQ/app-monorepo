@@ -21,7 +21,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
   return (
     <>
       {replacedTxTextKeys && replacedTxTextKeys.length ? (
-        <Box mb={6}>
+        <Box testID="replacedTxTextKeys" mb={6}>
           <Alert
             title={intl.formatMessage({ id: replacedTxTextKeys[0] })}
             description={intl.formatMessage({ id: replacedTxTextKeys[1] })}
@@ -31,7 +31,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
       ) : null}
 
       {isMultipleActions ? (
-        <Box mb={6}>
+        <Box testID="TxDetailTopHeader" mb={6}>
           <TxDetailTopHeader
             showSubTitle={!!isHistoryDetail}
             decodedTx={decodedTx}

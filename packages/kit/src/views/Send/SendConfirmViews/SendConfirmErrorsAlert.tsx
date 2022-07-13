@@ -52,8 +52,11 @@ export function SendConfirmErrorsAlert({
       />,
     );
   }
+  if (!errors || !errors.length) {
+    return null;
+  }
   return (
-    <VStack space={2} pb={4}>
+    <VStack testID="SendConfirmErrorsAlert" space={2} pb={4}>
       {errors.map((err, idx) => (
         <Box key={idx}>{err}</Box>
       ))}

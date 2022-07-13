@@ -65,6 +65,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
   details.push({
     title: (
       <Pressable
+        cursor="default" // not working
         style={{
           // @ts-ignore
           cursor: 'default',
@@ -73,7 +74,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
           clickTimes.current += 1;
           if (clickTimes.current > 5) {
             clickTimes.current = 0;
-            copyText(JSON.stringify(historyTx, null, 2));
+            copyText(JSON.stringify(historyTx ?? decodedTx, null, 2));
           }
         }}
       >
