@@ -7,6 +7,7 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IDecodedTxActionType,
   IEncodedTx,
+  IFeeInfoUnit,
   ISignedTx,
 } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -178,12 +179,14 @@ function SendConfirm() {
         return;
       }
       let encodedTxWithFee = encodedTx;
+      let feeInfoValue: IFeeInfoUnit | undefined;
       if (feeInfoEditable && feeInfoPayload) {
+        feeInfoValue = feeInfoPayload?.current.value;
         encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({
           networkId,
           accountId,
           encodedTx,
-          feeInfoValue: feeInfoPayload?.current.value,
+          feeInfoValue,
         });
       }
       const onSuccess: SendAuthenticationParams['onSuccess'] = async (
@@ -205,6 +208,7 @@ function SendConfirm() {
           accountId,
           data,
           resendActionInfo,
+          feeInfo: feeInfoValue,
         });
 
         navigation.navigate(SendRoutes.SendFeedbackReceipt, {
