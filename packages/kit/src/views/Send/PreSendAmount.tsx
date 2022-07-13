@@ -64,6 +64,7 @@ export function PreSendAmountPreview({
     <Box height="140px">
       {!!title && (
         <HStack space={2} alignItems="center" justifyContent="center">
+          <Box opacity={0}>{titleAction}</Box>
           <Text
             textAlign="center"
             typography="DisplayLarge"
