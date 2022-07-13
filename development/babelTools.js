@@ -49,6 +49,9 @@ function normalizeConfig({ platform, config }) {
         '@onekeyfe/js-sdk': fullPath(
           '../node_modules/@onekeyfe/js-sdk/dist/js-sdk-native',
         ),
+        // 'bn.js': fullPath('../node_modules/react-native-bignumber'),
+        // 'buffer': fullPath('../node_modules/@craftzdog/react-native-buffer'),
+        // 'base64-js': fullPath('../node_modules/react-native-quick-base64'),
       },
     };
   }
