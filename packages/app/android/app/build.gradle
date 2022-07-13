@@ -316,8 +316,8 @@ android {
         // exclude "**/libjsc.so"
 
         // avoid conflict with react-native-bignumber
-        pickFirst "**/libcrypto.so"
-        pickFirst "**/libssl.so"
+        // pickFirst "**/libcrypto.so"
+        // pickFirst "**/libssl.so"
     }
 }
 

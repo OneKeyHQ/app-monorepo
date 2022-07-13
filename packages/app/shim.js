@@ -1,8 +1,5 @@
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { shim as base64Shim } from 'react-native-quick-base64';
-
-base64Shim();
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';
 if (typeof __filename === 'undefined') global.__filename = '';
@@ -26,8 +23,10 @@ if (typeof TextEncoder === 'undefined') {
 }
 
 // Buffer polyfill
-if (typeof Buffer === 'undefined')
-  global.Buffer = require('@craftzdog/react-native-buffer').Buffer;
+if (typeof Buffer === 'undefined') {
+  // global.Buffer = require('@craftzdog/react-native-buffer').Buffer;
+  global.Buffer = require('buffer').Buffer;
+}
 
 // Crypto polyfill
 if (typeof crypto === 'undefined') global.crypto = require('crypto');

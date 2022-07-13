@@ -191,7 +191,6 @@ PODS:
     - nanopb/encode (= 2.30908.0)
   - nanopb/decode (2.30908.0)
   - nanopb/encode (2.30908.0)
-  - OpenSSL-Universal (1.1.1700)
   - PromisesObjC (2.1.0)
   - Protobuf (3.21.1)
   - RCT-Folly (2021.06.28.00-v2):
@@ -401,12 +400,6 @@ PODS:
   - React-jsinspector (0.68.2)
   - React-logger (0.68.2):
     - glog
-  - react-native-bignumber (0.1.7):
-    - OpenSSL-Universal (~> 1.1.180)
-    - React
-    - React-callinvoker
-    - React-Core
-    - ReactCommon/turbomodule/core
   - react-native-ble-manager (8.1.0):
     - React-Core
   - react-native-ble-plx (2.0.3):
@@ -421,8 +414,6 @@ PODS:
   - react-native-netinfo (8.2.0):
     - React-Core
   - react-native-pager-view (5.4.15):
-    - React-Core
-  - react-native-quick-base64 (2.0.3):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -654,14 +645,12 @@ DEPENDENCIES:
   - React-jsiexecutor (from `../../../node_modules/react-native/ReactCommon/jsiexecutor`)
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector`)
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
-  - react-native-bignumber (from `../../../node_modules/react-native-bignumber`)
   - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
-  - react-native-quick-base64 (from `../../../node_modules/react-native-quick-base64`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-restart (from `../../../node_modules/react-native-restart`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
@@ -718,7 +707,6 @@ SPEC REPOS:
     - MLKitVision
     - MultiplatformBleAdapter
     - nanopb
-    - OpenSSL-Universal
     - PromisesObjC
     - Protobuf
     - SDWebImage
@@ -810,8 +798,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/jsinspector"
   React-logger:
     :path: "../../../node_modules/react-native/ReactCommon/logger"
-  react-native-bignumber:
-    :path: "../../../node_modules/react-native-bignumber"
   react-native-ble-manager:
     :path: "../../../node_modules/react-native-ble-manager"
   react-native-ble-plx:
@@ -824,8 +810,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
     :path: "../../../node_modules/react-native-pager-view"
-  react-native-quick-base64:
-    :path: "../../../node_modules/react-native-quick-base64"
   react-native-randombytes:
     :path: "../../../node_modules/react-native-randombytes"
   react-native-restart:
@@ -941,7 +925,6 @@ SPEC CHECKSUMS:
   MLKitVision: 5e393f4d8a28be57b6384a3665f5f041deff9c2e
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   nanopb: a0ba3315591a9ae0a16a309ee504766e90db0c96
-  OpenSSL-Universal: ee0a7a25f2042782e2df405e66db3e429198e392
   PromisesObjC: 99b6f43f9e1044bd87a95a60beff28c2c44ddb72
   Protobuf: 9e88c1e667d75aa2491d211f26ccddde4e8ad4cf
   RCT-Folly: 4d8508a426467c48885f1151029bc15fa5d7b3b8
@@ -957,14 +940,12 @@ SPEC CHECKSUMS:
   React-jsiexecutor: b7b553412f2ec768fe6c8f27cd6bafdb9d8719e6
   React-jsinspector: c5989c77cb89ae6a69561095a61cce56a44ae8e8
   React-logger: a0833912d93b36b791b7a521672d8ee89107aff1
-  react-native-bignumber: 981f405cd46d64f0728dd5bc0d155e5d406ec728
   react-native-ble-manager: d2ed36acf9051fa0ecf6efb3da5b3570b1e92771
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-get-random-values: a6ea6a8a65dc93e96e24a11105b1a9c8cfe1d72a
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
   react-native-pager-view: b1914469643f40042e65d78cbf3d3dfebd6fb0d9
-  react-native-quick-base64: 8d7a267399ebe8e9b49c68642ff461ff579e93bf
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 45c8dca02491980f2958595333cbccd6877cb57e
   react-native-safe-area-context: f98b0b16d1546d208fc293b4661e3f81a895afd9
