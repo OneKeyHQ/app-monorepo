@@ -92,8 +92,7 @@ const NavigationApp = () => {
     <>
       <NavigationContainer
         documentTitle={{
-          formatter: () =>
-            'OneKey | Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others',
+          formatter: () => 'OneKey',
         }}
         ref={navigationRef}
         theme={navigationTheme}
