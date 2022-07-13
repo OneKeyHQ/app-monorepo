@@ -2,11 +2,14 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ToastManager } from '@onekeyhq/components';
+import { DialogManager, ToastManager } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import { CustomOneKeyHardwareError } from '../utils/hardware/errors';
 
 type IUseEnsureConnected = {
   silent?: boolean;
@@ -48,7 +51,11 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
     try {
       features = await serviceHardware.ensureConnected(device.mac);
     } catch (e: any) {
-      const { className } = e || {};
+      const { className, code } = e || {};
+      if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
+        DialogManager.show({ render: <NeedBridgeDialog /> });
+        return;
+      }
       if (!(className === OneKeyErrorClassNames.OneKeyAbortError)) {
         showMessage();
       }
