@@ -32,7 +32,10 @@ const configKeys = {
 const APP_NAME = 'OneKey Wallet';
 let mainWindow: BrowserWindow | null;
 
-(global as any).resourcesPath = process.resourcesPath;
+(global as any).resourcesPath = isDev
+  ? path.join(__dirname, '../public/static')
+  : process.resourcesPath;
+
 const staticPath = isDev
   ? path.join(__dirname, '../public/static')
   : path.join((global as any).resourcesPath, 'static');
