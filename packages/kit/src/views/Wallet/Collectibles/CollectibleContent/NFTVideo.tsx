@@ -15,7 +15,7 @@ const NFTVideo: FC<NFTProps> = ({ asset, width, height }) => {
     if (source) {
       return cloudinaryVideoWithPublidId(
         source.publicId,
-        platformEnv.isWeb ? width : source.width,
+        platformEnv.isNative ? source.width : width,
       );
     }
     return '';
