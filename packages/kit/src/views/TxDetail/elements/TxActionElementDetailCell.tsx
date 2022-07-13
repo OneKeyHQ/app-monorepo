@@ -3,6 +3,13 @@ import React, { ComponentProps } from 'react';
 import { Box, Text } from '@onekeyhq/components';
 
 import { ITxActionElementDetail } from '../types';
+import { fallbackTextComponent } from '../utils/utilsTxDetail';
+
+export function TxActionElementDetailCellTitleText(
+  props: ComponentProps<typeof Text>,
+) {
+  return <Text typography="Body1Strong" color="text-subdued" {...props} />;
+}
 
 export function TxActionElementDetailCellContentText(
   props: ComponentProps<typeof Text>,
@@ -12,19 +19,17 @@ export function TxActionElementDetailCellContentText(
 
 export function TxActionElementDetailCell(props: ITxActionElementDetail) {
   const { title, content } = props;
-  let contentView = content;
-  if (typeof content === 'string') {
-    contentView = (
-      <TxActionElementDetailCellContentText>
-        {content}
-      </TxActionElementDetailCellContentText>
-    );
-  }
+  const titleView = fallbackTextComponent(
+    title,
+    TxActionElementDetailCellTitleText,
+  );
+  const contentView = fallbackTextComponent(
+    content,
+    TxActionElementDetailCellContentText,
+  );
   return (
     <Box>
-      <Text typography="Body1Strong" color="text-subdued">
-        {title}
-      </Text>
+      {titleView}
       {contentView}
     </Box>
   );

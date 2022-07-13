@@ -102,7 +102,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
     ) : null;
 
   return (
-    <Box>
+    <Box testID="TxActionsListView">
       {connectionLine}
       <VStack space={space}>{items}</VStack>
     </Box>

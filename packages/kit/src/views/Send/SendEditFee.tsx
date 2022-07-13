@@ -220,11 +220,14 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           control={control}
           name="baseFee"
           defaultValue=""
-          formControlProps={{ isReadOnly: true }}
+          formControlProps={{
+            isReadOnly: true,
+          }}
         >
           <Form.Input
             w="100%"
             rightText=""
+            bgColor="surface-neutral-subdued"
             size={isSmallScreen ? 'xl' : undefined}
           />
         </Form.Item>
