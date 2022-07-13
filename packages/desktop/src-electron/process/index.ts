@@ -25,7 +25,6 @@ export const launchBridge = async () => {
     await bridge.start();
   } catch (err) {
     logger.error(`bridge: Start failed: ${(err as Error).message}`);
-    logger.error(err);
   }
 
   app.on('before-quit', () => {

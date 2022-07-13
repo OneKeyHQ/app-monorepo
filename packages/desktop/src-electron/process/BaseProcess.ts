@@ -171,7 +171,7 @@ export default abstract class BaseProcess {
   }
 
   onError(err: Error) {
-    logger.error('Process exit error: ', err.message);
+    logger.error(err.message);
   }
 
   onExit(code: number | null) {
