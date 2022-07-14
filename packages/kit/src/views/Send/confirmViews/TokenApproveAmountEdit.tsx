@@ -100,9 +100,7 @@ function TokenApproveAmountEdit({ ...rest }) {
       }}
       hideSecondaryAction
       onModalClose={() => {
-        if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
-          sendConfirmParams?.onModalClose?.();
-        }
+        sendConfirmParams?.onModalClose?.();
       }}
       secondaryActionTranslationId="action__reject"
       header={intl.formatMessage({ id: 'content__spend_limit_amount' })}

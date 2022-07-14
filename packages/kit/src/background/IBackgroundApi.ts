@@ -62,7 +62,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
 }
 
 export type IDappSourceInfo = {
-  id: string | number;
+  id: string | number; // ServicePromise callback id to reject/resolve
   origin: string;
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;
