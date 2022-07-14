@@ -12,6 +12,9 @@ import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
+import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
+import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
+import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
 import Protected from '@onekeyhq/kit/src/views/Protected';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
@@ -105,6 +108,18 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.SettingsWebviewScreen,
         component: Webview,
+      },
+      {
+        name: HomeRoutes.CloudBackup,
+        component: CloudBackup,
+      },
+      {
+        name: HomeRoutes.CloudBackupPreviousBackups,
+        component: CloudBackupPreviousBackups,
+      },
+      {
+        name: HomeRoutes.CloudBackupDetails,
+        component: CloudBackupDetails,
       },
     ],
   },

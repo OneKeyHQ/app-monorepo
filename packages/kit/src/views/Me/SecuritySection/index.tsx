@@ -18,6 +18,7 @@ import {
   setAppLockDuration,
   setEnableAppLock,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
@@ -91,6 +92,7 @@ export const SecuritySection = () => {
     dispatch(setEnableAppLock(!enableAppLock));
   }, [enableAppLock, dispatch]);
   const lockDuration = Math.min(240, appLockDuration);
+
   return (
     <>
       <Box w="full" mb="6">
@@ -108,6 +110,36 @@ export const SecuritySection = () => {
           borderWidth={themeVariant === 'light' ? 1 : undefined}
           borderColor="border-subdued"
         >
+          {platformEnv.isNativeIOS ? (
+            <Pressable
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              borderBottomWidth="1"
+              borderBottomColor="divider"
+              onPress={() => {
+                navigation.navigate(HomeRoutes.CloudBackup);
+              }}
+            >
+              <Icon name="CloudOutline" />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mx={3}
+              >
+                {intl.formatMessage({
+                  id: 'action__backup',
+                })}
+              </Text>
+              <Box>
+                <Icon name="ChevronRightSolid" size={20} />
+              </Box>
+            </Pressable>
+          ) : undefined}
           <Pressable
             display="flex"
             flexDirection="row"

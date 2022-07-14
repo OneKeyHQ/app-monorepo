@@ -28,6 +28,7 @@ type OneKeyContext = {
   verifyString: string;
   networkOrderChanged?: boolean;
   pendingWallets?: Array<string>;
+  backupUUID: string;
 };
 
 type StoredSeedCredential = {
@@ -58,6 +59,7 @@ type CreateHDWalletParams = {
   backuped: boolean;
   name?: string;
   avatar?: Avatar;
+  nextAccountIds?: Record<string, number>;
 };
 
 type CreateHWWalletParams = {
@@ -100,6 +102,9 @@ interface DBAPI {
   getContext(): Promise<OneKeyContext | undefined>;
   updatePassword(oldPassword: string, newPassword: string): Promise<void>;
   reset(): Promise<void>;
+
+  getBackupUUID(): Promise<string>;
+  dumpCredentials(password: string): Promise<Record<string, string>>;
 
   listNetworks(): Promise<Array<DBNetwork>>;
   addNetwork(network: DBNetwork): Promise<DBNetwork>;

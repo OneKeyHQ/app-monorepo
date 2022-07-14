@@ -20,6 +20,7 @@ import HardwareOnekeyLitePinModal from './HardwareOnekeyLiteChangePin';
 import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
 import HardwareUpdateModal from './HardwareUpdate';
 import HistoryRequestModal from './HistoryRequest';
+import ImportBackupPassword from './ImportBackupPassword';
 import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
@@ -142,6 +143,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.AddressBook,
     component: AddressBookModal,
+  },
+  {
+    name: ModalRoutes.ImportBackupPassword,
+    component: ImportBackupPassword,
   },
 ];
 

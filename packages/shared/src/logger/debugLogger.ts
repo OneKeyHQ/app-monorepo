@@ -98,6 +98,7 @@ export enum LoggerNames {
   navigation = 'navigation',
   redux = 'redux',
   common = 'common',
+  cloudBackup = 'cloudBackup',
 }
 
 export type LoggerEntity = {
@@ -134,6 +135,7 @@ const debugLogger = {
   [LoggerNames.engine]: Cache.createLogger(LoggerNames.engine),
   [LoggerNames.sendTx]: Cache.createLogger(LoggerNames.sendTx),
   [LoggerNames.common]: Cache.createLogger(LoggerNames.common),
+  [LoggerNames.cloudBackup]: Cache.createLogger(LoggerNames.cloudBackup),
 };
 
 if (platformEnv.isDev) {

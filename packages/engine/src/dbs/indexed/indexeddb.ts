@@ -295,6 +295,14 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
+  getBackupUUID(): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  dumpCredentials(_password: string): Promise<Record<string, string>> {
+    throw new NotImplemented();
+  }
+
   listNetworks(): Promise<Array<DBNetwork>> {
     return this.ready.then(
       (db) =>
@@ -836,6 +844,7 @@ class IndexedDBApi implements DBAPI {
     backuped,
     name,
     avatar,
+    nextAccountIds = {},
   }: CreateHDWalletParams): Promise<Wallet> {
     let ret: Wallet;
     return this.ready.then(
@@ -869,7 +878,7 @@ class IndexedDBApi implements DBAPI {
               type: WALLET_TYPE_HD,
               backuped,
               accounts: [],
-              nextAccountIds: {},
+              nextAccountIds,
             };
             transaction.objectStore(WALLET_STORE_NAME).add(ret);
             transaction.objectStore(CREDENTIAL_STORE_NAME).add({
