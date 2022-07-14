@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -89,6 +89,8 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
   // TODO move to validator
   const fee = feeInfoPayload?.current?.totalNative ?? '0';
 
+  const isAutoConfirmed = useRef(false);
+
   const balanceInsufficient = useMemo(() => {
     console.log('SendConfirmModal nativeBalance >>>> ', nativeBalance);
     return new BigNumber(nativeBalance).lt(new BigNumber(fee));
@@ -113,7 +115,8 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     [encodedTx, handleConfirm, updateEncodedTxBeforeConfirm],
   );
   useEffect(() => {
-    if (autoConfirm && !feeInfoLoading) {
+    if (autoConfirm && !feeInfoLoading && !isAutoConfirmed.current) {
+      isAutoConfirmed.current = true;
       confirmAction({ close: modalClose });
     }
   }, [feeInfoLoading, autoConfirm, confirmAction, modalClose]);
