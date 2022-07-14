@@ -9,8 +9,6 @@ import React, {
   useRef,
 } from 'react';
 
-import { OverlayProvider } from '@react-native-aria/overlays';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
@@ -191,9 +189,6 @@ const Modal = ({
       content = <Box {...staticChildrenProps}>{rest.children}</Box>;
     }
 
-    if (!platformEnv.isRuntimeBrowser) {
-      return <OverlayProvider>{content}</OverlayProvider>;
-    }
     return content;
   }, [
     sectionListProps,
@@ -277,7 +272,6 @@ const Modal = ({
       {modalContainer}
     </>
   );
-
   return node;
 };
 
