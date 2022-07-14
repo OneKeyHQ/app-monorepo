@@ -12,6 +12,7 @@
 		1625CE96A62F41B0B52FF2B4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB5A55C2A16742BCB8148B6E /* noop-file.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		96905EF65AED1B983A6B3ABC /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */; };
+		A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */ = {isa = PBXBuildFile; fileRef = A23573BA2880172400A9CA58 /* RCTRootView+Orientation.m */; };
 		A24B8A7427422EF300E321A9 /* OKNFCBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = A24B8A6127422EF200E321A9 /* OKNFCBridge.mm */; };
 		A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */ = {isa = PBXBuildFile; fileRef = A24B8A6727422EF200E321A9 /* OKNFCUtility.m */; };
 		A24B8A7627422EF300E321A9 /* OKNFCLite.m in Sources */ = {isa = PBXBuildFile; fileRef = A24B8A6827422EF200E321A9 /* OKNFCLite.m */; };
@@ -54,6 +55,8 @@
 		6C2E3173556A471DD304B334 /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
 		7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
 		93FED1BEA58543E1B882DBF8 /* OneKeyWallet-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "OneKeyWallet-Bridging-Header.h"; path = "OneKeyWallet/OneKeyWallet-Bridging-Header.h"; sourceTree = "<group>"; };
+		A23573B92880172400A9CA58 /* RCTRootView+Orientation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "RCTRootView+Orientation.h"; sourceTree = "<group>"; };
+		A23573BA2880172400A9CA58 /* RCTRootView+Orientation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "RCTRootView+Orientation.m"; sourceTree = "<group>"; };
 		A24B8A6027422EF200E321A9 /* OKNFCUtility.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OKNFCUtility.h; sourceTree = "<group>"; };
 		A24B8A6127422EF200E321A9 /* OKNFCBridge.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = OKNFCBridge.mm; sourceTree = "<group>"; };
 		A24B8A6327422EF200E321A9 /* GPChannelSDK.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GPChannelSDK.h; sourceTree = "<group>"; };
@@ -102,8 +105,8 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
-				A3294A672844472100C18DD0 /* AppDelegate.m */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
+				A3294A672844472100C18DD0 /* AppDelegate.m */,
 				A24B8A7127422EF300E321A9 /* RNBridge */,
 				A24B8A6927422EF200E321A9 /* Category */,
 				A24B8A6E27422EF200E321A9 /* Frameworks */,
@@ -197,6 +200,8 @@
 		A24B8A6927422EF200E321A9 /* Category */ = {
 			isa = PBXGroup;
 			children = (
+				A23573B92880172400A9CA58 /* RCTRootView+Orientation.h */,
+				A23573BA2880172400A9CA58 /* RCTRootView+Orientation.m */,
 				A24B8A6C27422EF200E321A9 /* NSString+OKAdd.h */,
 				A24B8A6A27422EF200E321A9 /* NSString+OKAdd.m */,
 				A24B8A6B27422EF200E321A9 /* NSData+StringToData.h */,
@@ -433,6 +438,7 @@
 				A24B8A7727422EF300E321A9 /* NSString+OKAdd.m in Sources */,
 				A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
+				A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */,
 				A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
 				A24B8A7827422EF300E321A9 /* NSData+StringToData.m in Sources */,
