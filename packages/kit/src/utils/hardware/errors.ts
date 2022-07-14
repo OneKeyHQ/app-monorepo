@@ -44,7 +44,7 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
 
 // 设备没有配对成功
 export class DeviceNotBonded extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceNotFound;
+  override code = HardwareErrorCode.BleDeviceNotBonded;
 
   override key: LocaleIds = 'msg__hardware_bluetooth_not_paired_error';
 }
