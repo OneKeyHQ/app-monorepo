@@ -294,7 +294,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                       walletId: selectedWalletId,
                       onDone: (password) => {
                         const network = getValues('network');
-                        navigation.navigate(
+                        navigation.replace(
                           CreateAccountModalRoutes.RecoverAccountsList,
                           {
                             walletId: selectedWalletId,

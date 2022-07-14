@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import { TxDetailFeeInfoBox } from './components/TxDetailFeeInfoBox';
+import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxDetailTopHeader } from './components/TxDetailTopHeader';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
@@ -21,7 +21,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
   return (
     <>
       {replacedTxTextKeys && replacedTxTextKeys.length ? (
-        <Box mb={6}>
+        <Box testID="replacedTxTextKeys" mb={6}>
           <Alert
             title={intl.formatMessage({ id: replacedTxTextKeys[0] })}
             description={intl.formatMessage({ id: replacedTxTextKeys[1] })}
@@ -31,7 +31,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
       ) : null}
 
       {isMultipleActions ? (
-        <Box mb={6}>
+        <Box testID="TxDetailTopHeader" mb={6}>
           <TxDetailTopHeader
             showSubTitle={!!isHistoryDetail}
             decodedTx={decodedTx}
@@ -47,7 +47,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
         <TxActionsListView {...props} transformType="T1" space={6} />
       </TxDetailContextProvider>
       {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
-      <TxDetailFeeInfoBox {...props} />
+      <TxDetailExtraInfoBox {...props} />
     </>
   );
 }

@@ -54,7 +54,7 @@ export type ITxActionAmountProps = ComponentProps<typeof Text> & {
 };
 
 export type ITxActionElementDetail = {
-  title: string;
+  title: JSX.Element | string;
   content: JSX.Element | string;
 };
 

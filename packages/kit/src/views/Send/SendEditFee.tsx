@@ -220,11 +220,14 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           control={control}
           name="baseFee"
           defaultValue=""
-          formControlProps={{ isReadOnly: true }}
+          formControlProps={{
+            isReadOnly: true,
+          }}
         >
           <Form.Input
             w="100%"
             rightText=""
+            bgColor="surface-neutral-subdued"
             size={isSmallScreen ? 'xl' : undefined}
           />
         </Form.Item>
@@ -933,9 +936,7 @@ function ScreenSendEditFee({ ...rest }) {
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
       onModalClose={() => {
-        if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
-          oldSendConfirmParams?.onModalClose?.();
-        }
+        oldSendConfirmParams?.onModalClose?.();
       }}
       header={title}
       headerDescription={network?.name || network?.shortName || undefined}

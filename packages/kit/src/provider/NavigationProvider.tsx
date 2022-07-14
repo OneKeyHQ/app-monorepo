@@ -40,8 +40,14 @@ const linking = {
 };
 let enableLinkingRoute =
   platformEnv.isDev || platformEnv.isNative || platformEnv.isExtension;
-// firefox popup window resize issue
+
+// firefox: popup window trigger resize issue
 if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
+  enableLinkingRoute = false;
+}
+// firefox: router back auto-reload navigation issue
+//        may be caused by @react-navigation+native+6.0.6.patch
+if (platformEnv.isExtFirefox) {
   enableLinkingRoute = false;
 }
 
