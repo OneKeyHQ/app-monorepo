@@ -16,11 +16,13 @@ function buildExtRouteUrl(
   /*
   http://localhost:3001/#/modal/DappConnectionModal/ConnectionModal?id=0&origin=https%3A%2F%2Fmetamask.github.io&scope=ethereum&data=%7B%22method%22%3A%22eth_requestAccounts%22%2C%22jsonrpc%22%3A%222.0%22%7D
    */
-  // eslint-disable-next-line no-param-reassign
-  routes = ([] as string[]).concat(routes).join('/');
+  const pathStr = ([] as string[]).concat(routes).join('/');
   const paramsStr = new URLSearchParams(params).toString();
-  const hash = `#/${routes}?${paramsStr}`;
-  if (IS_LAZY_NAVIGATE_SUB_ROUTER) {
+  let hash = '';
+  if (pathStr && paramsStr) {
+    hash = `#/${pathStr}?${paramsStr}`;
+  }
+  if (hash && IS_LAZY_NAVIGATE_SUB_ROUTER) {
     const navigateRouterHash = encodeURIComponent(hash);
     return chrome.runtime.getURL(
       `/${htmlFile}?navigateRouterHash=${navigateRouterHash}`,

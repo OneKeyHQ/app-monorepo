@@ -6,4 +6,5 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 //   platformEnv.isExtFirefox && platformEnv.isExtensionUiStandaloneWindow;
 export const IS_REPLACE_ROUTE_TO_FEE_EDIT = false;
 
+// export const IS_LAZY_NAVIGATE_SUB_ROUTER = false;
 export const IS_LAZY_NAVIGATE_SUB_ROUTER = !!platformEnv.isExtFirefox;
