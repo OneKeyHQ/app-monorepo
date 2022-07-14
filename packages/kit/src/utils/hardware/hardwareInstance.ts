@@ -28,8 +28,8 @@ const promise: Promise<CoreApi> = new Promise(async (resolve) => {
   } else {
     HardwareSDK = (await import('@onekeyfe/hd-web-sdk'))
       .default as unknown as CoreApi;
-    const { enable } = store.getState().settings.devMode || {};
-    settings.connectSrc = enable
+    const devMode = store.getState()?.settings?.devMode?.enable ?? false;
+    settings.connectSrc = devMode
       ? HARDWARE_SDK_TEST_IFRAME_SRC
       : HARDWARE_SDK_IFRAME_SRC;
   }

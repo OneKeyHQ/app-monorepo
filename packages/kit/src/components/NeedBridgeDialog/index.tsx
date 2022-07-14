@@ -28,6 +28,7 @@ const NeedBridgeDialog: FC<NeedBridgeDialogProps> = ({ onClose }) => {
         }),
       }}
       footerButtonProps={{
+        primaryActionTranslationId: 'action__download',
         // eslint-disable-next-line @typescript-eslint/no-shadow
         onPrimaryActionPress: ({ onClose }) => {
           openUrlExternal(HARDWARE_BRIDGE_DOWNLOAD_URL);
