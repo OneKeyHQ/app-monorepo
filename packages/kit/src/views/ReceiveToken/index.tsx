@@ -68,7 +68,18 @@ const ReceiveToken = () => {
     if (confirmConnected) {
       setIsLoadingForHardware(true);
       getAddress()
-        .then((res) => setOnHardwareConfirmed(res === shownAddress))
+        .then((res) => {
+          const isSameAddress = res === shownAddress;
+          if (!isSameAddress) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: 'msg__not_the_same_wallet' }),
+              },
+              { type: 'default' },
+            );
+          }
+          setOnHardwareConfirmed(isSameAddress);
+        })
         .catch((e: any) => {
           const { className, key, message } = e;
           if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
