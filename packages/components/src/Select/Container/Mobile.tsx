@@ -3,6 +3,8 @@ import React, { isValidElement, useEffect, useMemo, useRef } from 'react';
 import { Animated } from 'react-native';
 import { Modalize } from 'react-native-modalize';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../../Box';
 import Button from '../../Button';
 import IconButton from '../../IconButton';
@@ -102,7 +104,7 @@ function Mobile<T>({
       adjustToContentHeight
       panGestureComponentEnabled
       modalTopOffset={300}
-      withReactModal={withReactModal}
+      withReactModal={withReactModal && platformEnv.isNativeIOS}
       panGestureAnimatedValue={animated}
       ref={modalizeRef}
       withHandle={false}
@@ -153,7 +155,7 @@ function Mobile<T>({
     </Modalize>
   );
 
-  if (withReactModal) {
+  if (withReactModal && platformEnv.isNativeIOS) {
     return content;
   }
 
