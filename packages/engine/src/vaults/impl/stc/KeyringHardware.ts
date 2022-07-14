@@ -21,45 +21,14 @@ import type {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
+const PATH_PREFIX = `m/44'/${ COIN_TYPE }'/0'/0'`;
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(
     unsignedTx: UnsignedTx,
     _options: ISignCredentialOptions,
   ): Promise<SignedTx> {
-    const dbAccount = await this.getDbAccount();
-    const connectId = await this.getHardwareConnectId();
-    const chainId = await this.getNetworkChainId();
-
-    const [rawTxn, rawUserTransactionBytes] = buildUnsignedRawTx(
-      unsignedTx,
-      chainId,
-    );
-
-    const {
-      inputs: [{ publicKey: senderPublicKey }],
-    } = unsignedTx;
-
-    if (!senderPublicKey) {
-      throw new OneKeyHardwareError(Error('senderPublicKey is required'));
-    }
-
-    const response = await HardwareSDK.starcoinSignTransaction(connectId, {
-      path: dbAccount.path,
-      rawTx: Buffer.from(rawUserTransactionBytes).toString('hex'),
-    });
-
-    if (response.success) {
-      const { signature } = response.payload;
-      return buildSignedTx(
-        senderPublicKey,
-        Buffer.from(signature as string, 'hex'),
-        rawTxn,
-      );
-    }
-
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw new NotImplemented();
   }
 
   signMessage(
@@ -73,7 +42,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { type, indexes, names } = params;
-    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'`);
+    const paths = indexes.map((index) => `${ PATH_PREFIX }/${ index }'`);
     const isSearching = type === 'SEARCH_ACCOUNTS';
     const showOnOneKey = false;
     const connectId = await this.getHardwareConnectId();
@@ -119,9 +88,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of addressesResponse.payload) {
       const { address, path } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `STC #${indexes[index] + 1}`;
+        const name = (names || [])[index] || `STC #${ indexes[index] + 1 }`;
         ret.push({
-          id: `${this.walletId}--${path}`,
+          id: `${ this.walletId }--${ path }`,
           name,
           type: AccountType.SIMPLE,
           path,
