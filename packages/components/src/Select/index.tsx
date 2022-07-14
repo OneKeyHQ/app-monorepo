@@ -211,7 +211,7 @@ function Select<T = string>({
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
       setInnerValue(v);
       toggleVisible();
-      setTimeout(() => onChange?.(v, option), 300);
+      setTimeout(() => onChange?.(v, option), 500);
     },
     [onChange, toggleVisible],
   );
