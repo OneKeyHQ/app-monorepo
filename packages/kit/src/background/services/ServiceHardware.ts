@@ -1,7 +1,6 @@
 import {
   CoreApi,
   IDeviceType,
-  Response,
   UiResponseEvent,
   getDeviceType,
 } from '@onekeyfe/hd-core';
