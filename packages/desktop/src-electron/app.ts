@@ -14,6 +14,7 @@ import {
 } from 'electron';
 import Config from 'electron-config';
 import isDev from 'electron-is-dev';
+import logger from 'electron-log';
 
 import { PrefType } from './preload';
 import initProcess from './process/index';
@@ -179,11 +180,22 @@ function createMainWindow() {
   const filter = {
     urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
   };
+
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
+      logger.debug('content url: ', details.webContents?.getURL());
+      logger.debug('frame url: ', details.frame?.url);
+      /**
+       * temporary solution to switch origin when the sdk iframe src is modified in development mode.
+       */
+      const origin =
+        // @ts-expect-error
+        details?.frame?.url?.indexOf('hardware-sdk.test.onekey.so') > -1
+          ? 'https://hardware-sdk.test.onekey.so'
+          : 'https://jssdk.onekey.so';
       // @ts-ignore electron declares requestHeaders as an empty interface
-      details.requestHeaders.Origin = 'https://jssdk.onekey.so';
+      details.requestHeaders.Origin = origin;
 
       callback({ cancel: false, requestHeaders: details.requestHeaders });
     },
