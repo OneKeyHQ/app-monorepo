@@ -52,15 +52,16 @@ export interface Transaction {
   chainId?: number;
   data?: string;
   from: string;
-  gas?: string;
-  gasPrice?: string;
-  gasUsed?: string;
-  nonce?: string;
   to?: string;
   value?: string;
+  gas?: string;
+  gasLimit?: number,
+  gasPrice?: number;
+  nonce?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
   estimatedBaseFee?: string;
+  expiredSecs?: number;
 }
 
 export type WatchAssetParameters = {
@@ -194,27 +195,26 @@ class ProviderApiStarcoin extends ProviderApiBase {
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Approve.tsx").default} approve modal
    *
    * Example:
-   * const result = await ethereum.request({
-   *    method: 'eth_sendTransaction',
+   * const result = await starcoin.request({
+   *    method: 'stc_sendTransaction',
    *    params: [
    *      {
    *        from: accounts[0],
-   *        to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
-   *        value: '0x0',
-   *        gasLimit: '0x5028',
-   *        gasPrice: '0x2540be400',
-   *        type: '0x0',
+   *        to: '0x46ecE7c1e39fb6943059565E2621b312',
+   *        value: '0xf4240',  // 0.001 STC
+   *        gasLimit: 127845,
+   *        gasPrice: 1,
    *      },
    *    ],
    *  });
    */
   @permissionRequired()
   @providerApiMethod()
-  async eth_sendTransaction(
+  async stc_sendTransaction(
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
-    debugLogger.ethereum('eth_sendTransaction', request, transaction);
+    debugLogger.ethereum('stc_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
@@ -227,7 +227,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     );
 
     debugLogger.ethereum(
-      'eth_sendTransaction DONE',
+      'stc_sendTransaction DONE',
       result,
       request,
       transaction,
