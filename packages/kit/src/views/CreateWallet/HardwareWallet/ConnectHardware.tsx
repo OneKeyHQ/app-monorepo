@@ -232,14 +232,20 @@ const ConnectHardwareModal: FC = () => {
               }
             }
           } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-            ToastManager.show({
-              title: intl.formatMessage({ id: key }),
-            });
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: key }),
+              },
+              { type: 'error' },
+            );
           } else {
             ToastManager.show({
-              title: intl.formatMessage({
-                id: 'action__connection_timeout',
-              }),
+              title: intl.formatMessage(
+                {
+                  id: 'action__connection_timeout',
+                },
+                { type: 'error' },
+              ),
             });
           }
         });
