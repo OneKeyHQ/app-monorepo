@@ -143,16 +143,25 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         />
       </Container.Box>
 
-      {/* <Container.Box mt={6}>
-              <Container.Item
-                onPress={() => {}}
-                hasArrow
-                titleColor="text-default"
-                describeColor="text-subdued"
-                describe="Not Passed"
-                title="Verification"
-              />
-            </Container.Box> */}
+      <Container.Box mt={6}>
+        <Container.Item
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.OnekeyHardware,
+              params: {
+                screen: OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal,
+                params: {
+                  walletId,
+                },
+              },
+            });
+          }}
+          hasArrow
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title={intl.formatMessage({ id: 'action__verify' })}
+        />
+      </Container.Box>
     </Box>
   );
 };

@@ -5,11 +5,13 @@ import OnekeyHardwareConfirm from '@onekeyhq/kit/src/views/Hardware/Onekey/Oneke
 import OnekeyHardwareConnect from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConnect';
 import OnekeyHardwareDetails from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareDetails';
 import OnekeyHardwarePinCode from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwarePinCode';
+import OnekeyHardwareVerify from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareVerify';
 
 import createStackNavigator from './createStackNavigator';
 
 export enum OnekeyHardwareModalRoutes {
   OnekeyHardwareDetailsModal = 'OnekeyHardwareDetailsModal',
+  OnekeyHardwareVerifyModal = 'OnekeyHardwareVerifyModal',
   OnekeyHardwareConnectModal = 'OnekeyHardwareConnectModal',
   OnekeyHardwarePinCodeModal = 'OnekeyHardwarePinCodeModal',
   OnekeyHardwareConfirmModal = 'OnekeyHardwareConfirmModal',
@@ -17,6 +19,9 @@ export enum OnekeyHardwareModalRoutes {
 
 export type OnekeyHardwareRoutesParams = {
   [OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal]: {
+    walletId: string;
+  };
+  [OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal]: {
     walletId: string;
   };
   [OnekeyHardwareModalRoutes.OnekeyHardwareConnectModal]: {
@@ -37,6 +42,10 @@ const modalRoutes = [
   {
     name: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
     component: OnekeyHardwareDetails,
+  },
+  {
+    name: OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal,
+    component: OnekeyHardwareVerify,
   },
   {
     name: OnekeyHardwareModalRoutes.OnekeyHardwareConnectModal,

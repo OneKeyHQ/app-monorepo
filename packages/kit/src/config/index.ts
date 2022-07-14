@@ -15,3 +15,5 @@ export const HARDWARE_SDK_TEST_IFRAME_SRC =
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
+
+export const CERTIFICATE_URL = 'https://certificate.onekey.so/verify';

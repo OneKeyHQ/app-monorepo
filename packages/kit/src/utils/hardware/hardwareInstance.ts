@@ -19,7 +19,7 @@ const promise: Promise<CoreApi> = new Promise(async (resolve) => {
   }
 
   const settings: Partial<ConnectSettings> = {
-    debug: true,
+    debug: platformEnv.isDev,
   };
 
   if (platformEnv.isNative) {
