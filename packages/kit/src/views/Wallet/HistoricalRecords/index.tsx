@@ -245,6 +245,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 
   return (
     <ListElementType
+      nestedScrollEnabled
       bg="background-default"
       contentContainerStyle={{
         paddingHorizontal: responsivePadding,

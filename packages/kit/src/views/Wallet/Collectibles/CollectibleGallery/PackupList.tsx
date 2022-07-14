@@ -76,6 +76,7 @@ const PackupList: FC<
   );
   return (
     <Tabs.FlatList<Collectible>
+      nestedScrollEnabled
       numColumns={numColumns}
       ListHeaderComponent={
         <CollectiblesHeader view={CollectibleView.Packup} onPress={onPress} />

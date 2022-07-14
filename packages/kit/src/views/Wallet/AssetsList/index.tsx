@@ -232,6 +232,7 @@ function AssetsList({
 
   return (
     <Container
+      nestedScrollEnabled
       contentContainerStyle={merge(
         {
           paddingHorizontal: responsivePadding(),

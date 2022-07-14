@@ -217,7 +217,7 @@ function TxHistoryListSectionList(props: {
   };
 
   console.log(`TxHistoryListView render:`);
-  return <SectionListComponent {...sectionListProps} />;
+  return <SectionListComponent nestedScrollEnabled {...sectionListProps} />;
 }
 const TxHistoryListSectionsMemo = React.memo(TxHistoryListSectionList);
 

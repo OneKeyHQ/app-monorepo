@@ -120,6 +120,7 @@ const ExpandList: FC<
 
   return (
     <Tabs.FlatList<Collectible>
+      nestedScrollEnabled
       ListHeaderComponent={
         <CollectiblesHeader view={CollectibleView.Expand} onPress={onPress} />
       }
