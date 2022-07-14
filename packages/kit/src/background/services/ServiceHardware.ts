@@ -97,20 +97,27 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeatures(connectId: string) {
+  async getFeatures(
+    connectId: string,
+    options?: {
+      skipCheckUpdate?: boolean;
+    },
+  ) {
     const hardwareSDK = await this.getSDKInstance();
     const response = await hardwareSDK?.getFeatures(connectId);
 
     if (response.success) {
       // this.backgroundApi.dispatch(addConnectedConnectId(connectId));
 
-      const existsFocused = await this._checkDeviceUpdate(
-        hardwareSDK,
-        connectId,
-      );
+      if (!options?.skipCheckUpdate) {
+        const existsFocused = await this._checkDeviceUpdate(
+          hardwareSDK,
+          connectId,
+        );
 
-      if (existsFocused) {
-        return null;
+        if (existsFocused) {
+          return null;
+        }
       }
 
       this.connectedDeviceType = getDeviceType(response.payload);
