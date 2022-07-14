@@ -40,8 +40,12 @@ const linking = {
 };
 let enableLinkingRoute =
   platformEnv.isDev || platformEnv.isNative || platformEnv.isExtension;
-// firefox popup window resize issue
+// firefox: popup window trigger resize issue
 if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
+  enableLinkingRoute = false;
+}
+// firefox: router back reload navigation issue
+if (platformEnv.isExtFirefox) {
   enableLinkingRoute = false;
 }
 
