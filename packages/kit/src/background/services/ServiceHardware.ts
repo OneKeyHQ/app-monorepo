@@ -201,6 +201,21 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getDeviceCertWithSig(connectId: string, dataHex: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.deviceVerify(connectId, { dataHex })
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response.payload;
+      });
+  }
+
+  @backgroundMethod()
   async downloadFirmware(url: string | undefined) {
     if (!url) return Promise.reject(new FirmwareDownloadFailed());
 
