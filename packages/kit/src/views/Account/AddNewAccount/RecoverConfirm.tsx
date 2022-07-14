@@ -66,13 +66,19 @@ const RecoverConfirm: FC = () => {
       const { className, key } = e || {};
 
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        ToastManager.show({
-          title: intl.formatMessage({ id: key }),
-        });
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: key }),
+          },
+          { type: 'error' },
+        );
       } else {
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'action__connection_timeout' }),
-        });
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: 'action__connection_timeout' }),
+          },
+          { type: 'error' },
+        );
       }
     } finally {
       onLoadingAccount?.(walletId, network, true);
