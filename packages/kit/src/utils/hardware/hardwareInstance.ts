@@ -1,4 +1,8 @@
-import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/kit/src/config';
+import {
+  HARDWARE_SDK_IFRAME_SRC,
+  HARDWARE_SDK_TEST_IFRAME_SRC,
+} from '@onekeyhq/kit/src/config';
+import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
@@ -24,7 +28,10 @@ const promise: Promise<CoreApi> = new Promise(async (resolve) => {
   } else {
     HardwareSDK = (await import('@onekeyfe/hd-web-sdk'))
       .default as unknown as CoreApi;
-    settings.connectSrc = HARDWARE_SDK_IFRAME_SRC;
+    const devMode = store.getState()?.settings?.devMode?.enable ?? false;
+    settings.connectSrc = devMode
+      ? HARDWARE_SDK_TEST_IFRAME_SRC
+      : HARDWARE_SDK_IFRAME_SRC;
   }
 
   try {

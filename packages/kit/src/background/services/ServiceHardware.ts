@@ -266,10 +266,10 @@ class ServiceHardware extends ServiceBase {
     }
 
     const hardwareSDK = await this.getSDKInstance();
-    const transportRelease = await hardwareSDK?.checkTransportRelease();
+    const bridgeStatus = await hardwareSDK?.checkBridgeStatus();
 
-    if (!transportRelease.success) {
-      const error = deviceUtils.convertDeviceError(transportRelease.payload);
+    if (!bridgeStatus.success) {
+      const error = deviceUtils.convertDeviceError(bridgeStatus.payload);
       if (
         error instanceof InitIframeLoadFail ||
         error instanceof InitIframeTimeout
@@ -279,7 +279,7 @@ class ServiceHardware extends ServiceBase {
       return Promise.resolve(false);
     }
 
-    return Promise.resolve(true);
+    return Promise.resolve(bridgeStatus.payload);
   }
 
   _hasUseBridge() {
