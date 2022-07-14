@@ -193,8 +193,8 @@ export default class Vault extends VaultBase {
         // TODO: pending support
         // nonce: encodedTx.nonce !== 'undefined' ? decodedTx.nonce : await this.getNextNonce(this.networkId, dbAccount),
         feePricePerUnit: new BigNumber(
-          encodedTx.gasPrice || '0.000000001',
-        ).shiftedBy(network.decimals),
+          encodedTx.gasPrice || 1,
+        ),
         payload: {},
         ...(typeof encodedTx.gasLimit !== 'undefined'
           ? {
@@ -254,7 +254,7 @@ export default class Vault extends VaultBase {
 
     const encodedTxWithFee = {
       ...params.encodedTx,
-      gasPrice: new BigNumber(price || '0.000000001').toFixed(),
+      gasPrice: new BigNumber(price || 1).toFixed(),
       gasLimit: limit,
     };
     return Promise.resolve(encodedTxWithFee);
