@@ -61,25 +61,34 @@ export default class Vault extends VaultBase {
   };
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    let result: any;
     const { type, nativeTransfer } = decodedTx.actions[0];
-    if (
-      type !== IDecodedTxActionType.NATIVE_TRANSFER ||
-      typeof nativeTransfer === 'undefined'
-    ) {
+
+    if (type === IDecodedTxActionType.NATIVE_TRANSFER) {
+      result = {
+        txType: EVMDecodedTxType.NATIVE_TRANSFER,
+        symbol: 'UNKNOWN',
+        amount: nativeTransfer?.amount,
+        value: nativeTransfer?.amountValue,
+        fromAddress: nativeTransfer?.from,
+        toAddress: nativeTransfer?.to,
+        data: '',
+        total: '0', // not available
+      } as IDecodedTxLegacy;
+    } else if (type === IDecodedTxActionType.TRANSACTION) {
+      result = {
+        txType: EVMDecodedTxType.NATIVE_TRANSFER,
+        symbol: 'UNKNOWN',
+        fromAddress: decodedTx.owner,
+        data: decodedTx.payload?.data,
+        total: '0', // not available
+      } as IDecodedTxLegacy;
+    } else {
       // shouldn't happen.
       throw new OneKeyInternalError('Incorrect decodedTx.');
     }
 
-    return Promise.resolve({
-      txType: EVMDecodedTxType.NATIVE_TRANSFER,
-      symbol: 'UNKNOWN',
-      amount: nativeTransfer.amount,
-      value: nativeTransfer.amountValue,
-      fromAddress: nativeTransfer.from,
-      toAddress: nativeTransfer.to,
-      data: '',
-      total: '0', // not available
-    } as IDecodedTxLegacy);
+    return Promise.resolve(result);
   }
 
   override async decodeTx(
@@ -89,29 +98,41 @@ export default class Vault extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
-
-    const nativeTransfer: IDecodedTxActionNativeTransfer = {
-      tokenInfo: token,
-      from: encodedTx.from,
-      to: encodedTx.to,
-      amount: new BigNumber(encodedTx.value)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      amountValue: encodedTx.value,
-      extraInfo: null,
-    };
+    const { data, to } = encodedTx;
+    let action: IDecodedTxAction | null = null;
+    if (to) {
+      const nativeTransfer: IDecodedTxActionNativeTransfer = {
+        tokenInfo: token,
+        from: encodedTx.from,
+        to: encodedTx.to,
+        amount: new BigNumber(encodedTx.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        amountValue: encodedTx.value,
+        extraInfo: null,
+      };
+      action = {
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        nativeTransfer,
+      };
+    } else if (data) {
+      action = {
+        type: IDecodedTxActionType.TRANSACTION,
+        direction: IDecodedTxDirection.SELF,
+        unknownAction: {
+          extraInfo: {},
+        },
+      };
+    } else {
+      throw new NotImplemented();
+    }
 
     const result: IDecodedTx = {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [
-        {
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          nativeTransfer,
-        },
-      ],
+      actions: [action],
       status: IDecodedTxStatus.Pending, // TODO
       networkId: this.networkId,
       accountId: this.accountId,
@@ -120,13 +141,24 @@ export default class Vault extends VaultBase {
         limit: encodedTx.gasLimit,
       },
       extraInfo: null,
+      encodedTx,
+      ...(encodedTx.data
+        ? {
+          payload: {
+            data: encodedTx.data,
+          }
+        }
+        : {}),
     };
+    console.log('stc decodedTx', { result })
+
     return Promise.resolve(result);
   }
 
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxSTC> {
+    console.log('stc buildEncodedTxFromTransfer')
     const { from, to, amount, token } = transferInfo;
     if (typeof token !== 'undefined' && token.length > 0) {
       // TODO: token not supported yet.
@@ -179,23 +211,32 @@ export default class Vault extends VaultBase {
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxSTC,
   ): Promise<UnsignedTx> {
+    console.log('buildUnsignedTxFromEncodedTx', encodedTx)
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const network = await this.getNetwork();
     const value = new BigNumber(encodedTx.value);
 
+    console.log(encodedTx.value, value.toNumber())
     const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
       this.networkId,
       {
         inputs: [
           { address: dbAccount.address, value, publicKey: dbAccount.pub },
         ],
-        outputs: [{ address: encodedTx.to, value }],
+        outputs: encodedTx.to ? [{ address: encodedTx.to, value }] : [],
         // TODO: pending support
         // nonce: encodedTx.nonce !== 'undefined' ? decodedTx.nonce : await this.getNextNonce(this.networkId, dbAccount),
         feePricePerUnit: new BigNumber(
           encodedTx.gasPrice || 1,
         ),
-        payload: {},
+
+        payload: {
+          ...(encodedTx.data
+            ? {
+              data: encodedTx.data,
+            }
+            : {})
+        },
         ...(typeof encodedTx.gasLimit !== 'undefined'
           ? {
             feeLimit: new BigNumber(encodedTx.gasLimit),
@@ -244,6 +285,7 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxSTC;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxSTC> {
+    console.log('stc valut attachFeeInfoToEncodedTx', { params })
     const { price, limit } = params.feeInfoValue;
     if (typeof price !== 'undefined' && typeof price !== 'string') {
       throw new OneKeyInternalError('Invalid gas price.');
@@ -257,6 +299,7 @@ export default class Vault extends VaultBase {
       gasPrice: new BigNumber(price || 1).toFixed(),
       gasLimit: limit,
     };
+    console.log({ encodedTxWithFee })
     return Promise.resolve(encodedTxWithFee);
   }
 
