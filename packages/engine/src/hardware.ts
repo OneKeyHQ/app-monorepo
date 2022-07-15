@@ -10,12 +10,7 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  DeviceSettingsParams,
-  Features,
-  Success,
-  Unsuccessful,
-} from '@onekeyfe/hd-core';
+import { Success, Unsuccessful } from '@onekeyfe/hd-core';
 import { BigNumber } from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 
@@ -34,73 +29,6 @@ import { ETHMessageTypes } from './types/message';
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import type { EVMTransaction, EVMTransactionEIP1559 } from '@onekeyfe/hd-core';
 
-/**
- * Get hardware wallet info
- * @returns {Promise<Features>}
- * @throws {OneKeyInternalError}
- * @throws {OneKeyHardwareError}
- */
-export async function getFeatures(): Promise<Features> {
-  let response;
-  try {
-    response = await HardwareSDK.getFeatures();
-    console.log('getFeatures', response);
-  } catch (error: any) {
-    throw new OneKeyHardwareError(error);
-  }
-  if (response.success) {
-    return response.payload;
-  }
-  console.error(response.payload);
-  throw deviceUtils.convertDeviceError(response.payload);
-}
-
-/**
- * Change the pin of the hardware wallet
- * @param remove {boolean}
- * @returns {Promise<void>}
- * @throws {OneKeyHardwareError}
- * @throws {OneKeyInternalError}
- */
-export async function changePin(
-  connectId: string,
-  remove = false,
-): Promise<void> {
-  let response;
-  try {
-    response = await HardwareSDK.deviceChangePin(connectId, { remove });
-  } catch (error: any) {
-    console.error(error);
-    throw new OneKeyHardwareError(error);
-  }
-  if (response.success) {
-    return;
-  }
-  console.error(response.payload);
-  throw deviceUtils.convertDeviceError(response.payload);
-}
-
-/**
- * apply settings to the hardware wallet
- */
-
-export async function applySettings(
-  connectId: string,
-  settings: DeviceSettingsParams,
-): Promise<void> {
-  let response;
-  try {
-    response = await HardwareSDK.deviceSettings(connectId, settings);
-  } catch (error: any) {
-    console.error(error);
-    throw new OneKeyHardwareError(error);
-  }
-  if (response.success) {
-    return;
-  }
-  console.error(response.payload);
-  throw deviceUtils.convertDeviceError(response.payload);
-}
 /**
  * get Eth address from the hardware wallet with the specified derivation path
  * @param path drivation path

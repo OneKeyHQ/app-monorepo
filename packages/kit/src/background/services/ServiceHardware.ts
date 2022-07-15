@@ -1,5 +1,6 @@
 import {
   CoreApi,
+  DeviceSettingsParams,
   IDeviceType,
   UiResponseEvent,
   getDeviceType,
@@ -35,7 +36,7 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import { FirmwareDownloadFailed } from '../../utils/hardware/errors';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
-import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import ServiceBase from './ServiceBase';
 
 type IPollFn<T> = (time?: number) => T;
 
@@ -49,39 +50,41 @@ const CHECK_UPDATE_INTERVAL = 60 * 60 * 24 * 1000;
 class ServiceHardware extends ServiceBase {
   connectedDeviceType: IDeviceType = 'classic';
 
+  registeredEvents = false;
+
   tryCount = 0;
 
   stopConnect = false;
 
-  constructor({ backgroundApi }: IServiceBaseProps) {
-    super({ backgroundApi });
-    getHardwareSDKInstance().then((instance) => {
-      instance.on('UI_EVENT', (e) => {
-        const { type, payload } = e;
-
-        setTimeout(() => {
-          const { device, type: eventType } = payload || {};
-          const { deviceType, connectId, features } = device || {};
-          const { bootloader_mode: bootLoaderMode } = features || {};
-
-          this.backgroundApi.dispatch(
-            setHardwarePopup({
-              uiRequest: type,
-              payload: {
-                type: eventType,
-                deviceType,
-                deviceConnectId: connectId,
-                deviceBootLoaderMode: !!bootLoaderMode,
-              },
-            }),
-          );
-        }, 0);
-      });
-    });
-  }
-
   async getSDKInstance() {
-    return getHardwareSDKInstance();
+    return getHardwareSDKInstance().then((instance) => {
+      if (!this.registeredEvents) {
+        this.registeredEvents = true;
+
+        instance.on('UI_EVENT', (e) => {
+          const { type, payload } = e;
+
+          setTimeout(() => {
+            const { device, type: eventType } = payload || {};
+            const { deviceType, connectId, features } = device || {};
+            const { bootloader_mode: bootLoaderMode } = features || {};
+
+            this.backgroundApi.dispatch(
+              setHardwarePopup({
+                uiRequest: type,
+                payload: {
+                  type: eventType,
+                  deviceType,
+                  deviceConnectId: connectId,
+                  deviceBootLoaderMode: !!bootLoaderMode,
+                },
+              }),
+            );
+          }, 0);
+        });
+      }
+      return instance;
+    });
   }
 
   @backgroundMethod()
@@ -285,6 +288,43 @@ class ServiceHardware extends ServiceBase {
           }, 10 * 1000);
         });
       });
+  }
+
+  /**
+   * Change the pin of the hardware wallet
+   * @param remove {boolean}
+   * @returns {Promise<Success>}
+   * @throws {OneKeyHardwareError}
+   */
+  @backgroundMethod()
+  async changePin(connectId: string, remove = false) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.deviceChangePin(connectId, {
+        remove,
+      })
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response;
+      });
+  }
+
+  /**
+   * apply settings to the hardware wallet
+   */
+  @backgroundMethod()
+  async applySettings(connectId: string, settings: DeviceSettingsParams) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK?.deviceSettings(connectId, settings).then((response) => {
+      if (!response.success) {
+        return Promise.reject(deviceUtils.convertDeviceError(response.payload));
+      }
+      return response;
+    });
   }
 
   @backgroundMethod()
