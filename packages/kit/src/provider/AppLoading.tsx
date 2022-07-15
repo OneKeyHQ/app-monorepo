@@ -1,8 +1,12 @@
 import React, { FC, useEffect, useState } from 'react';
 
+import * as SplashScreen from 'expo-splash-screen';
+// TODO: add .d.ts for react-native-animated-splash-screen
+// @ts-expect-error no .d.ts
+import AnimatedSplash from 'react-native-animated-splash-screen';
 import useSWR from 'swr';
 
-import { Box, Center, Spinner, useThemeValue } from '@onekeyhq/components';
+import { Box, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
@@ -14,9 +18,6 @@ const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
 const AppLoading: FC = ({ children }) => {
   const [initDataReady, setInitDataReady] = useState(false);
-  // appRenderReady and splashscreen.hideAsync moved to AppLock.tsx
-  const isAppRenderReady = useAppSelector((s) => s.data.isAppRenderReady);
-
   useSWR('fiat-money', () => serviceCronJob.getFiatMoney(), {
     refreshInterval: 5 * 60 * 1000,
   });
@@ -28,10 +29,10 @@ const AppLoading: FC = ({ children }) => {
       await serviceApp.initApp();
     } catch (e) {
       console.log(e);
-    } finally {
-      setInitDataReady(true);
     }
   };
+
+  const bgColor = useThemeValue('background-default');
 
   useEffect(() => {
     async function main() {
@@ -51,7 +52,18 @@ const AppLoading: FC = ({ children }) => {
           return false;
         },
       });
-      await initService();
+      await Promise.all([
+        new Promise((resolve) => {
+          setTimeout(resolve, 300);
+        }),
+        initService(),
+      ]);
+      setInitDataReady(true);
+
+      // end splash screen to show AnimatedSplash after 50ms to avoid twinkling
+      setTimeout(() => {
+        SplashScreen.hideAsync();
+      }, 50);
     }
     main();
   }, []);
@@ -60,12 +72,17 @@ const AppLoading: FC = ({ children }) => {
 
   return (
     <Box flex={1} bg={bg}>
-      {initDataReady && children}
-      {!isAppRenderReady && (
-        <Center position="absolute" zIndex={1} w="full" h="full" bg={bg}>
-          <Spinner />
-        </Center>
-      )}
+      <AnimatedSplash
+        translucent
+        isLoaded={initDataReady}
+        // eslint-disable-next-line global-require
+        logoImage={require('../../assets/splash.png')}
+        backgroundColor={bgColor}
+        logoHeight="100%"
+        logoWidth="100%"
+      >
+        {children}
+      </AnimatedSplash>
     </Box>
   );
 };
