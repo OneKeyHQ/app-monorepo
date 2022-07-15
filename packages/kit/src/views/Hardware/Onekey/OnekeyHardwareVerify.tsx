@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
@@ -8,11 +9,13 @@ import {
   Box,
   Button,
   Center,
+  LottieView,
   Modal,
-  Spinner,
+  PresenceTransition,
   Text,
   ToastManager,
   Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
@@ -62,15 +65,16 @@ const ErrorMessage: FC<{ messageKey: string }> = ({ messageKey }) => {
   }
 
   return (
-    <Typography.Body2Underline px={8} textAlign="center" color="text-subdued">
+    <Typography.Body2 px={8} textAlign="center" color="text-subdued">
       {message}
-    </Typography.Body2Underline>
+    </Typography.Body2>
   );
 };
 
 const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
   const intl = useIntl();
   const navigation = useNavigation();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const { engine, serviceHardware } = backgroundApiProxy;
 
@@ -166,80 +170,68 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
   const verifyChildren = useMemo(() => {
     if (requestState?.isLoading) {
       return (
-        <Center
-          flex="1"
-          minHeight={240}
-          justifyContent="center"
-          alignItems="center"
-          alignSelf="center"
+        <PresenceTransition
+          visible={requestState?.isLoading}
+          key="loading"
+          initial={{ translateX: 8, opacity: 0 }}
+          animate={{ translateX: 0, opacity: 1, transition: { duration: 150 } }}
         >
-          <Box alignItems="center">
-            <Text fontSize={56}>🔍</Text>
-            <Box
-              alignItems="center"
-              flexDirection="row"
-              justifyContent="center"
-              mt="2"
-            >
-              <Spinner />
-              <Typography.Heading ml="2">
-                {intl.formatMessage({ id: 'action__verify_loading' })}
-              </Typography.Heading>
+          <Center flex="1" alignSelf="center" mt={-6}>
+            <Box w={200} h={200} ml={5}>
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/lottie_searching.json')}
+                autoPlay
+                loop
+              />
             </Box>
-          </Box>
-        </Center>
+            <Typography.Heading>
+              {intl.formatMessage({ id: 'action__verify_loading' })}...
+            </Typography.Heading>
+          </Center>
+        </PresenceTransition>
       );
     }
 
     if (requestState?.success) {
       return (
-        <Center
-          flex="1"
-          minHeight={240}
-          justifyContent="center"
-          alignItems="center"
-          alignSelf="center"
+        <PresenceTransition
+          key="success"
+          visible={requestState?.success}
+          initial={{ translateX: 8, opacity: 0 }}
+          animate={{ translateX: 0, opacity: 1, transition: { duration: 150 } }}
         >
-          <Box alignItems="center">
-            <Text fontSize={56}>🎉</Text>
-            <Box
-              alignItems="center"
-              flexDirection="row"
-              justifyContent="center"
-              mt="2"
-            >
-              <Typography.Heading ml="2">
-                {intl.formatMessage({ id: 'action__verify_success' })}
-              </Typography.Heading>
+          <Center flex="1" alignSelf="center" mt={-6}>
+            <Box w={200} h={200}>
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
+                autoPlay
+                loop={false}
+              />
             </Box>
-          </Box>
-        </Center>
+            <Typography.Heading>
+              {intl.formatMessage({ id: 'action__verify_success' })}
+            </Typography.Heading>
+          </Center>
+        </PresenceTransition>
       );
     }
 
     if (requestState?.errorKey) {
       return (
-        <Center
-          flex="1"
-          minHeight={240}
-          justifyContent="center"
-          alignItems="center"
-          alignSelf="center"
-        >
+        <Center flex="1" minHeight={240} alignSelf="center">
           <Box alignItems="center">
             <Text fontSize={56}>🙁</Text>
-            <Box
-              alignItems="center"
-              flexDirection="row"
-              justifyContent="center"
-              my="2"
-            >
-              <Typography.Heading ml="2">
-                {intl.formatMessage({ id: 'action__verify_failed' })}
-              </Typography.Heading>
-            </Box>
+            <Typography.Heading mb={2}>
+              {intl.formatMessage({ id: 'action__verify_failed' })}
+            </Typography.Heading>
             <ErrorMessage messageKey={requestState.errorKey} />
-            <Button type="primary" onPress={handleGetDeviceSigResponse} mt="4">
+            <Button
+              type="primary"
+              onPress={handleGetDeviceSigResponse}
+              size={isVerticalLayout ? 'xl' : 'base'}
+              mt={6}
+              minW={120}
+            >
               {intl.formatMessage({ id: 'action_retry' })}
             </Button>
           </Box>
@@ -249,14 +241,9 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
   }, [requestState, intl, handleGetDeviceSigResponse]);
 
   return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      h="100%"
-      justifyContent="space-between"
-    >
+    <Center h="100%" pb={6}>
       {verifyChildren}
-    </Box>
+    </Center>
   );
 };
 
