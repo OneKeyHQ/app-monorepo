@@ -186,6 +186,12 @@ const OnekeyHardwareDetailsModal: FC = () => {
       headerDescription=""
       footer={null}
       scrollViewProps={{
+        contentContainerStyle: {
+          flex: 1,
+          justifyContent: 'center',
+          paddingTop: 24,
+          paddingBottom: 24,
+        },
         children: (
           <Protected walletId={walletId}>
             {(_, { deviceFeatures }) => (
