@@ -6,12 +6,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import AnimatedSplash from 'react-native-animated-splash-screen';
 import useSWR from 'swr';
 
-import { Box, useThemeValue } from '@onekeyhq/components';
+import { Box, Center, Spinner, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
 
-import { useAppSelector } from '../hooks';
 import { fetchCurrencies } from '../views/FiatPay/Service';
 
 const { serviceApp, serviceCronJob } = backgroundApiProxy;
@@ -81,7 +80,13 @@ const AppLoading: FC = ({ children }) => {
         logoHeight="100%"
         logoWidth="100%"
       >
-        {children}
+        {initDataReady ? (
+          children
+        ) : (
+          <Center w="full" h="full">
+            <Spinner />
+          </Center>
+        )}
       </AnimatedSplash>
     </Box>
   );
