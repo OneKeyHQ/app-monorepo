@@ -1,7 +1,5 @@
 import React, { FC, useEffect, useMemo } from 'react';
 
-import * as SplashScreen from 'expo-splash-screen';
-
 import { Box, OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
