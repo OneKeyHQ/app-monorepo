@@ -10,7 +10,10 @@ import {
   OneKeyHardwareAbortError,
   OneKeyHardwareError,
 } from '@onekeyhq/engine/src/errors';
-import { setHardwarePopup } from '@onekeyhq/kit/src/store/reducers/hardware';
+import {
+  recordLastCheckUpdateTime,
+  setHardwarePopup,
+} from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
@@ -20,6 +23,7 @@ import {
   NeedOneKeyBridge,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
+import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
@@ -38,6 +42,8 @@ type IPollFn<T> = (time?: number) => T;
 const MAX_CONNECT_TRY_COUNT = 5;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
+
+const CHECK_UPDATE_INTERVAL = 60 * 60 * 24 * 1000;
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -321,6 +327,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   async _checkDeviceUpdate(sdk: CoreApi, connectId: string): Promise<boolean> {
+    const hardware: { lastCheckUpdateTime: Record<string, number> } =
+      this.backgroundApi.appSelector((s) => s.hardware);
+    const lastCheckTime = hardware.lastCheckUpdateTime[connectId];
+
+    if (
+      lastCheckTime &&
+      getTimeStamp() - lastCheckTime < CHECK_UPDATE_INTERVAL
+    ) {
+      return Promise.resolve(false);
+    }
+
     const checkBleResult = await sdk.checkBLEFirmwareRelease(connectId);
 
     let bleFirmware: BLEFirmwareInfo | undefined;
@@ -378,6 +395,7 @@ class ServiceHardware extends ServiceBase {
         },
       }),
     );
+    dispatch(recordLastCheckUpdateTime({ connectId }));
 
     // dev
     const settings: { devMode: any } =
