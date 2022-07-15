@@ -28,7 +28,38 @@ export class KeyringHardware extends KeyringHardwareBase {
     unsignedTx: UnsignedTx,
     _options: ISignCredentialOptions,
   ): Promise<SignedTx> {
-    throw new NotImplemented();
+    const dbAccount = await this.getDbAccount();
+    const connectId = await this.getHardwareConnectId();
+    const chainId = await this.getNetworkChainId();
+
+    const [rawTxn, rawUserTransactionBytes] = buildUnsignedRawTx(
+      unsignedTx,
+      chainId,
+    );
+
+    const {
+      inputs: [{ publicKey: senderPublicKey }],
+    } = unsignedTx;
+
+    if (!senderPublicKey) {
+      throw new OneKeyHardwareError(Error('senderPublicKey is required'));
+    }
+
+    const response = await HardwareSDK.starcoinSignTransaction(connectId, {
+      path: dbAccount.path,
+      rawTx: Buffer.from(rawUserTransactionBytes).toString('hex'),
+    });
+
+    if (response.success) {
+      const { signature } = response.payload;
+      return buildSignedTx(
+        senderPublicKey,
+        Buffer.from(signature as string, 'hex'),
+        rawTxn,
+      );
+    }
+
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 
   signMessage(
