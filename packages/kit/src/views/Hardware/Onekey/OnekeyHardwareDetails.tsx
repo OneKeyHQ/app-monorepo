@@ -9,6 +9,7 @@ import {
   Container,
   Icon,
   Modal,
+  Switch,
   ToastManager,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -21,6 +22,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { setDeviceConfig } from '@onekeyhq/kit/src/store/reducers/settings';
 import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -41,10 +43,21 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { engine, serviceHardware } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings() || {};
+  const { dispatch, engine, serviceHardware } = backgroundApiProxy;
+  const { deviceUpdates, deviceConfig } = useSettings();
 
   const [deviceConnectId, setDeviceConnectId] = useState<string>();
+
+  const canOnDeviceInputPin = useMemo(() => {
+    const deviceType = getDeviceType(deviceFeatures);
+    if (deviceType === 'classic' || deviceType === 'mini') return true;
+    return false;
+  }, [deviceFeatures]);
+
+  const onDeviceInputPin = useMemo(
+    () => deviceConfig?.[deviceConnectId ?? '']?.onDeviceInputPin ?? true,
+    [deviceConfig, deviceConnectId],
+  );
 
   const updates = useMemo(
     () => deviceUpdates?.[deviceConnectId ?? ''],
@@ -195,6 +208,31 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'action__verify' })}
         />
+        {!!canOnDeviceInputPin && (
+          <Container.Item
+            titleColor="text-default"
+            title={intl.formatMessage({
+              id: 'content__enter_pin_in_app',
+            })}
+          >
+            <Switch
+              labelType="false"
+              isChecked={!onDeviceInputPin}
+              onToggle={() => {
+                if (deviceConnectId) {
+                  dispatch(
+                    setDeviceConfig({
+                      connectId: deviceConnectId,
+                      config: {
+                        onDeviceInputPin: !onDeviceInputPin,
+                      },
+                    }),
+                  );
+                }
+              }}
+            />
+          </Container.Item>
+        )}
       </Container.Box>
     </Box>
   );

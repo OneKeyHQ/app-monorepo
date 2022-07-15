@@ -1,32 +1,55 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 
-import { Box, IconButton } from '@onekeyhq/components';
+import { Box, Center, IconButton, Spinner } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+export type CloseWay = 'delay' | 'now' | 'never';
 
 export type BaseRequestViewProps = {
   children: React.ReactNode;
+  mobileFillWidth?: boolean;
+  loading?: boolean;
+  closeWay?: CloseWay;
   onCancel: () => void;
   onClose?: () => void;
 };
 
+const defaultProps = {
+  mobileFillWidth: false,
+  popupType: 'normal',
+  closeWay: 'delay',
+} as const;
+
 const BaseRequestView: FC<BaseRequestViewProps> = ({
   children,
+  mobileFillWidth,
+  loading,
+  closeWay,
   onCancel,
   onClose,
 }) => {
   const [showClose, setShowClose] = useState(false);
 
+  const mobileFill = useMemo(
+    () => platformEnv.isNative && mobileFillWidth,
+    [mobileFillWidth],
+  );
+
   useEffect(() => {
+    if (closeWay === 'never') return;
+    if (closeWay === 'now') return setShowClose(true);
+
     const timer = setTimeout(() => {
       setShowClose(true);
     }, 30 * 1000);
 
     return () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [closeWay]);
 
   return (
-    <Box px={6} w="full" maxW="374">
+    <Box px={mobileFill ? 0 : 6} w="full" maxW={mobileFill ? 'full' : '374'}>
       <Box
         w="full"
         mx="auto"
@@ -54,9 +77,16 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({
             name="CloseSolid"
           />
         )}
+
+        {!!loading && (
+          <Center w="full" h="full" top={0} right={0} position="absolute">
+            <Spinner size="lg" />
+          </Center>
+        )}
       </Box>
     </Box>
   );
 };
 
+BaseRequestView.defaultProps = defaultProps;
 export default BaseRequestView;

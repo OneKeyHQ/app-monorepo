@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useMemo } from 'react';
+import React, { FC, useMemo, useState } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
 import Modal from 'react-native-modal';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HardwareUiEventPayload,
   closeHardwarePopup,
@@ -15,6 +15,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import RequestConfirmView from './RequestConfirm';
 import RequestPinView from './RequestPin';
+
+export type PopupType = 'normal' | 'input';
 
 export const CUSTOM_UI_RESPONSE = {
   // monorepo custom
@@ -45,11 +47,17 @@ export type HardwarePopupProps = {
 
 const HardwarePopup: FC<HardwarePopupProps> = () => {
   const { hardwarePopup } = useAppSelector((s) => s.hardware) || {};
+  const { deviceConfig } = useSettings();
 
   const { uiRequest, payload } = hardwarePopup;
   const uiRequestMemo = useDeepCompareMemo(() => uiRequest, [uiRequest]);
 
+  const [popupType, setPopupType] = useState<PopupType>();
+
   const popupView = useMemo(() => {
+    // reset popup type
+    setPopupType('normal');
+
     const { dispatch, serviceHardware } = backgroundApiProxy;
 
     const handleCancelPopup = () => {
@@ -68,13 +76,10 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
 
     if (uiRequestMemo === UI_REQUEST.REQUEST_PIN) {
       const deviceType = payload?.deviceType ?? 'classic';
-      const onDeviceInput = true;
-      if (onDeviceInput) {
-        serviceHardware.sendUiResponse({
-          type: UI_RESPONSE.RECEIVE_PIN,
-          payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
-        });
-      }
+      const onDeviceInput =
+        deviceConfig?.[payload?.deviceConnectId ?? '']?.onDeviceInputPin ??
+        true;
+      setPopupType(onDeviceInput ? 'normal' : 'input');
 
       return (
         <RequestPinView
@@ -87,6 +92,16 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
             serviceHardware?.sendUiResponse({
               type: UI_RESPONSE.RECEIVE_PIN,
               payload: pin,
+            });
+            dispatch(closeHardwarePopup());
+          }}
+          onDeviceInputChange={(onDeviceInput) => {
+            setPopupType(onDeviceInput ? 'normal' : 'input');
+            if (!onDeviceInput) return;
+
+            serviceHardware.sendUiResponse({
+              type: UI_RESPONSE.RECEIVE_PIN,
+              payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
             });
           }}
         />
@@ -116,6 +131,7 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
 
     return null;
   }, [
+    deviceConfig,
     payload?.deviceBootLoaderMode,
     payload?.deviceConnectId,
     payload?.deviceType,
@@ -124,11 +140,14 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
 
   if (!popupView) return null;
 
+  const nativeInputContentAlign = platformEnv.isNative ? 'flex-end' : 'center';
+  const modalTop = platformEnv.isNativeIOS ? 42 : 10;
+
   return (
     <Modal
       backdropColor="overlay"
-      animationOut="fadeOutDown"
-      animationIn="fadeInDown"
+      animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
+      animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
       animationOutTiming={300}
       backdropTransitionOutTiming={0}
       coverScreen
@@ -136,9 +155,12 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
       hideModalContentWhileAnimating
       isVisible={!!popupView}
       style={{
-        justifyContent: 'flex-start',
+        justifyContent:
+          popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
         alignItems: 'center',
-        top: platformEnv.isNativeIOS ? 16 : 10,
+        padding: 0,
+        margin: 0,
+        top: popupType === 'normal' ? modalTop : 0,
       }}
     >
       {popupView}

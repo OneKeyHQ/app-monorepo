@@ -22,6 +22,10 @@ export type FirmwareUpdate = {
   ble?: BLEFirmwareInfo;
 };
 
+export type DeviceConfig = {
+  onDeviceInputPin?: boolean;
+};
+
 type SettingsState = {
   theme: ThemeVariant | 'system';
   locale: LocaleSymbol;
@@ -39,6 +43,10 @@ type SettingsState = {
   deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
+  >;
+  deviceConfig?: Record<
+    string, // connectId
+    DeviceConfig
   >;
   devMode: {
     enable: boolean;
@@ -194,6 +202,20 @@ export const settingsSlice = createSlice({
     setEnableHaptics(state, action: PayloadAction<boolean>) {
       state.enableHaptics = action.payload;
     },
+    setDeviceConfig(
+      state,
+      action: PayloadAction<{ connectId: string; config: DeviceConfig }>,
+    ) {
+      const config = state.deviceConfig?.[action.payload.connectId] || {};
+
+      state.deviceConfig = {
+        ...state.deviceConfig,
+        [action.payload.connectId]: {
+          ...config,
+          ...action.payload.config,
+        },
+      };
+    },
   },
 });
 
@@ -217,6 +239,7 @@ export const {
   setDeviceUpdates,
   setDeviceDoneUpdate,
   setEnableHaptics,
+  setDeviceConfig,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
