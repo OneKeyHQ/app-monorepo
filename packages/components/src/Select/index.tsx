@@ -180,15 +180,17 @@ function Select<T = string>({
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
-  const toggleVisible = useCallback(() => {
-    // if (platformEnv.isBrowser) {
-    //   const event = new Event('click');
-    //   window.dispatchEvent(event);
-    // }
-    const newVisible = !(selectVisible === undefined ? visible : selectVisible);
-    setVisible(newVisible);
-    onVisibleChange?.(newVisible);
-  }, [onVisibleChange, selectVisible, visible]);
+  const toggleVisible = useCallback(
+    (vis?: boolean) => {
+      const newVisible =
+        typeof vis === 'boolean'
+          ? vis
+          : !(selectVisible === undefined ? visible : selectVisible);
+      setVisible(newVisible);
+      onVisibleChange?.(newVisible);
+    },
+    [onVisibleChange, selectVisible, visible],
+  );
 
   const [innerValue, setInnerValue] = useState<T | undefined>(defaultValue);
   const currentActiveValue = value ?? innerValue;
@@ -216,14 +218,14 @@ function Select<T = string>({
   const handleChange = useCallback(
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
       setInnerValue(v);
-      toggleVisible();
+      toggleVisible(false);
       setTimeout(() => onChange?.(v, option), 500);
     },
     [onChange, toggleVisible],
   );
 
   const handlePressFooter = useCallback(() => {
-    toggleVisible();
+    toggleVisible(false);
     onPressFooter?.();
   }, [onPressFooter, toggleVisible]);
 
@@ -250,9 +252,7 @@ function Select<T = string>({
       positionTranslateY,
       withReactModal,
       onModalHide: () => {
-        if (visible) {
-          toggleVisible();
-        }
+        toggleVisible(false);
         onModalHide?.();
       },
     };
@@ -264,7 +264,7 @@ function Select<T = string>({
     }
     return (
       <OverlayContainer>
-        <CloseButton onClose={toggleVisible} />
+        <CloseButton onClose={() => toggleVisible()} />
         <Desktop<T> {...childContainerProps} />
       </OverlayContainer>
     );

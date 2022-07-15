@@ -17,8 +17,6 @@ import { renderOptions } from './Option';
 import type { ChildProps } from '..';
 
 function Mobile<T>({
-  // dropdownProps,
-  toggleVisible,
   options,
   onChange,
   visible,
@@ -70,12 +68,12 @@ function Mobile<T>({
           name="CloseOutline"
           type="plain"
           size="xl"
-          onPress={toggleVisible}
+          onPress={onModalHide}
           circle
         />
       </Box>
     ),
-    [title, toggleVisible],
+    [title, onModalHide],
   );
 
   const footerComponent = useMemo(
