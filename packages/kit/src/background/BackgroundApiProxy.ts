@@ -6,6 +6,7 @@ import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
+import ServicePassword from './services/ServicePassword';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type WalletConnectAdapter from './providers/WalletConnectAdapter';
@@ -62,6 +63,10 @@ class BackgroundApiProxy
   serviceHardware = this._createProxyService(
     'serviceHardware',
   ) as ServiceHardware;
+
+  servicePassword = this._createProxyService(
+    'servicePassword',
+  ) as ServicePassword;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

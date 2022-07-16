@@ -9,9 +9,9 @@ import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
-import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
+import Protected from '@onekeyhq/kit/src/views/Protected';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
@@ -85,8 +85,8 @@ export const tabRoutes: TabRouteConfig[] = [
         component: OnekeyLiteDetail,
       },
       {
-        name: HomeRoutes.FaceId,
-        component: FaceID,
+        name: HomeRoutes.Protected,
+        component: Protected,
       },
       {
         name: HomeRoutes.AddressBook,

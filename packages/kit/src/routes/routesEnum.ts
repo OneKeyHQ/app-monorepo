@@ -50,7 +50,7 @@ export enum HomeRoutes {
   ExploreScreen = 'ExploreScreen',
   DAppListScreen = 'DAppListScreen',
   TransactionHistoryScreen = 'TransactionHistoryScreen',
-  FaceId = 'FaceId',
+  Protected = 'Protected',
   AddressBook = 'AddressBook',
   SwapHistory = 'SwapHistory',
 }
