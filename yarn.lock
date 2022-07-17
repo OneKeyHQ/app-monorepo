@@ -18616,9 +18616,10 @@ react-native-randombytes@^3.6.1:
     buffer "^4.9.1"
     sjcl "^1.0.3"
 
-react-native-reanimated@^2.4.1, react-native-reanimated@kudo/react-native-reanimated#v8/2.9.1:
+react-native-reanimated@^2.4.1, "react-native-reanimated@npm:@onekeyfe/react-native-reanimated":
   version "2.9.1"
-  resolved "https://codeload.github.com/kudo/react-native-reanimated/tar.gz/2b96fdc9676e83594ab886d02c42a03365fc12f2"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/react-native-reanimated/-/react-native-reanimated-2.9.1.tgz#f79c44149ce72d70b06d1466804f1c4ddc1ebf8a"
+  integrity sha512-QD/HTZasWKL/j8LMSf95eUgXcmGhsu9qHLtakwzz4P/puRd1Ycpkt7I6kOWGKibKcvrL6AOolS2d9TV1W2pHQQ==
   dependencies:
     "@babel/plugin-proposal-export-namespace-from" "^7.17.12"
     "@babel/plugin-transform-object-assign" "^7.16.7"
