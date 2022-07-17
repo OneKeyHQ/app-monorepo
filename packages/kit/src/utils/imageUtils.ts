@@ -7,41 +7,35 @@ import { CLOUNDINARY_NAME_KEY } from '../config';
 const cloudName = CLOUNDINARY_NAME_KEY;
 const pixelRatio = PixelRatio.get();
 
-const cld = new Cloudinary({
-  cloud: {
-    cloudName,
-  },
-});
+// const cld = new Cloudinary({
+//   cloud: {
+//     cloudName,
+//   },
+// });
 
 export function cloudinaryImageWithPublidId(
   publicID: string,
   type: string,
-  format: string,
   size?: number,
 ) {
   if (!cloudName) {
     return '';
   }
-  if (type === 'image') {
-    return cld
-      .image(publicID)
-      .resize(scale().width((size ?? 150) * pixelRatio))
-      .format('png')
-      .toURL();
+  if (size) {
+    const scaleW = `c_scale,w_${(size ?? 150) * pixelRatio}`;
+    return `https://res.cloudinary.com/${cloudName}/${type}/upload/${scaleW}/f_png/v1/${publicID}.png`;
   }
-  return cld
-    .video(publicID)
-    .resize(scale().width((size ?? 150) * pixelRatio))
-    .format('png')
-    .toURL();
+  return `https://res.cloudinary.com/${cloudName}/${type}/upload/f_png/v1/${publicID}.png`;
 }
 
-export function cloudinaryVideoWithPublidId(publicID: string, size?: number) {
+export function cloudinarySourceWithPublidId(
+  publicID: string,
+  type: string,
+  size?: number,
+) {
   if (!cloudName) {
     return '';
   }
-  return cld
-    .video(publicID)
-    .resize(scale().width(size ?? 500))
-    .toURL();
+  const scaleW = `c_scale,w_${size ?? 500}`;
+  return `https://res.cloudinary.com/${cloudName}/${type}/upload/${scaleW}/v1/${publicID}`;
 }

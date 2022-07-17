@@ -2,6 +2,9 @@ import React, { FC } from 'react';
 
 import { Box, Center, Image } from '@onekeyhq/components';
 import NFTEmptyImg from '@onekeyhq/components/img/nft_empty.png';
+import { getImageWithAsset } from '@onekeyhq/engine/src/managers/moralis';
+
+import { isImage } from '../../../../utils/uriUtils';
 
 import { NFTProps } from './type';
 
