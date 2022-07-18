@@ -88,6 +88,10 @@ export class OneKeyHardwareAbortError extends OneKeyError {
   override key = 'msg__engine__internal_error';
 }
 
+export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError {
+  override key: LocaleIds = 'msg__wallet_already_exist';
+}
+
 export class OneKeyValidatorError extends OneKeyError {
   override className = OneKeyErrorClassNames.OneKeyValidatorError;
 
