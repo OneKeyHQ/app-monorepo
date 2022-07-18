@@ -151,9 +151,6 @@ export const SecuritySection = () => {
               px={{ base: 4, md: 6 }}
               borderBottomWidth="1"
               borderBottomColor="divider"
-              onPress={() => {
-                navigation.navigate(HomeRoutes.Protected);
-              }}
             >
               <Icon
                 name={
