@@ -286,6 +286,7 @@
   "content__more_details": "Илүү дэлгэрэнгүй мэдээллийг",
   "content__no_need_to_enter_a_password_for_each_transaction": "2. Гүйлгээ бүрт нууц үг оруулах шаардлагагүй.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "Ашиглалтын явцад биометрийн согогоос үүдэн гарсан хөрөнгийн алдагдлыг програм хангамж хариуцахгүй тул үндсэн хөрөнгө болон нийтийн утсанд нууц үггүй төлбөрийн сонголтыг бүү ашиглаарай.",
+  "content__no_password_until_next_locking": "Дараагийн түгжээг хүртэл нууц үг оруулах шаардлагагүй",
   "content__no_results": "Үр дүнгүй",
   "content__no_results_desc": "Таны хайсан токен олдсонгүй",
   "content__nonce": "Үгүй ээ",

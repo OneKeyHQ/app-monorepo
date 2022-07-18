@@ -286,6 +286,7 @@
   "content__more_details": "詳細はこちら",
   "content__no_need_to_enter_a_password_for_each_transaction": "2.取引のたびにパスワードを入力する必要がない。",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "使用中の生体認証の不具合による資産損失については、本ソフトウェアでは責任を負いかねますので、主要資産や公衆電話にはパスワード不要の決済オプションを利用しないようお願いします。",
+  "content__no_password_until_next_locking": "次回のロックまでは、パスワードは不要です",
   "content__no_results": "結果なし",
   "content__no_results_desc": "検索されたトークンは見つかりませんでした",
   "content__nonce": "ノンス",

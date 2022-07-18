@@ -286,6 +286,7 @@
   "content__more_details": "Thêm chi tiết",
   "content__no_need_to_enter_a_password_for_each_transaction": "Không cần mật khẩu.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "Tuy nhiên, không nên bật tính năng này cho các nội dung chính hoặc điện thoại công cộng.",
+  "content__no_password_until_next_locking": "Cho đến lần khóa tiếp theo, không cần mật khẩu",
   "content__no_results": "Ko có kết quả",
   "content__no_results_desc": "Không tìm thấy mã thông báo bạn tìm kiếm",
   "content__nonce": "Nonce",

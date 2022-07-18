@@ -286,6 +286,7 @@
   "content__more_details": "Higit pang mga detalye",
   "content__no_need_to_enter_a_password_for_each_transaction": "Walang Kinakailangang Password.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "Gayunpaman, hindi dapat paganahin ang feature na ito para sa mga pangunahing asset o pampublikong telepono.",
+  "content__no_password_until_next_locking": "Hanggang sa susunod na pag-lock, walang kinakailangang password",
   "content__no_results": "Walang resulta",
   "content__no_results_desc": "Ang token na iyong hinanap ay hindi nakita",
   "content__nonce": "Nonce",

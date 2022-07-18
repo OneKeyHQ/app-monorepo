@@ -286,6 +286,7 @@
   "content__more_details": "المزيد من التفاصيل",
   "content__no_need_to_enter_a_password_for_each_transaction": "لا توجد كلمة مرور مطلوبة.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "ومع ذلك ، لا ينبغي تمكين هذه الميزة للأصول الرئيسية أو الهواتف العامة.",
+  "content__no_password_until_next_locking": "حتى القفل التالي ، لا يلزم إدخال كلمة مرور",
   "content__no_results": "لا نتائج",
   "content__no_results_desc": "لم يتم العثور على الرمز الذي بحثت عنه",
   "content__nonce": "نونس",

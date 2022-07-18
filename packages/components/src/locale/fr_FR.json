@@ -286,6 +286,7 @@
   "content__more_details": "Plus de détails",
   "content__no_need_to_enter_a_password_for_each_transaction": "2. Pas besoin d'entrer un mot de passe pour chaque transaction.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "Veuillez ne pas utiliser l'option de paiement sans mot de passe pour les biens importants ou les téléphones publics, car le logiciel ne sera pas tenu responsable de toute perte de biens causée par des défauts biométriques en cours d'utilisation.",
+  "content__no_password_until_next_locking": "Jusqu'au prochain verrouillage, aucun mot de passe n'est requis",
   "content__no_results": "Aucun résultat",
   "content__no_results_desc": "Le jeton que vous avez recherché n'a pas été trouvé.",
   "content__nonce": "Nonce",
