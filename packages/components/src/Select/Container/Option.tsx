@@ -2,8 +2,6 @@ import React, { Fragment } from 'react';
 
 import { Icon as NBIcon } from 'native-base';
 
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
-
 import Badge from '../../Badge';
 import Box from '../../Box';
 import Divider from '../../Divider';
@@ -100,7 +98,6 @@ function RenderSingleOption<T>({
       <Pressable
         key={option.value as unknown as string}
         onPress={() => {
-          setHaptics();
           onChange?.(option.value, option);
         }}
       >

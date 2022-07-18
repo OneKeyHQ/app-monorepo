@@ -15,7 +15,6 @@ import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import { setHaptics } from '../../../hooks/setHaptics';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
 import WalletAvatar from '../WalletAvatar';
@@ -95,7 +94,6 @@ const LeftSide: FC<LeftSideProps> = ({
                 <WalletItem
                   key={`${wallet.id}${index}`}
                   onPress={() => {
-                    setHaptics();
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}
@@ -113,7 +111,6 @@ const LeftSide: FC<LeftSideProps> = ({
                 <WalletItem
                   key={`${wallet.id}${index}`}
                   onPress={() => {
-                    setHaptics();
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}
@@ -136,7 +133,6 @@ const LeftSide: FC<LeftSideProps> = ({
             {importedWallet ? (
               <WalletItem
                 onPress={() => {
-                  setHaptics();
                   setSelectedWallet(importedWallet);
                 }}
                 isSelected={selectedWallet?.id === importedWallet.id}
@@ -150,7 +146,6 @@ const LeftSide: FC<LeftSideProps> = ({
                 <WalletItem
                   key={wallet.id}
                   onPress={() => {
-                    setHaptics();
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}

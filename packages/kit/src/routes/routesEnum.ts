@@ -53,6 +53,7 @@ export enum HomeRoutes {
   Protected = 'Protected',
   AddressBook = 'AddressBook',
   SwapHistory = 'SwapHistory',
+  VolumeHaptic = 'VolumeHaptic',
 }
 export enum TabRoutes {
   // Overview = 'overview',

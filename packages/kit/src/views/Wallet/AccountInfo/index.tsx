@@ -24,7 +24,6 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -110,7 +109,6 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       <Pressable
         mt={4}
         onPress={() => {
-          setHaptics();
           if (isHwWallet) {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Receive,

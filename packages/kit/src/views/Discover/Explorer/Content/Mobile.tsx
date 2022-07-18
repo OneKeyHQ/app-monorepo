@@ -3,7 +3,6 @@ import React, { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, IconButton, Pressable, Typography } from '@onekeyhq/components';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import useNavigation from '@onekeyhq/kit/src/hooks/useNavigation';
 import {
   DiscoverModalRoutes,
@@ -66,7 +65,6 @@ const Mobile: FC<ExplorerViewProps> = ({
           />
           <Pressable
             onPress={() => {
-              setHaptics();
               onSearch();
             }}
             flex={1}

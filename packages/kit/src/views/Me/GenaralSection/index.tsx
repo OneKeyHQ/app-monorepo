@@ -1,22 +1,48 @@
 import React, { useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Select, Typography, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  Pressable,
+  Select,
+  Text,
+  Typography,
+  useTheme,
+} from '@onekeyhq/components';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  RootRoutes,
+  RootRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
 import {
   setLocale,
   setSelectedFiatMoneySymbol,
   setTheme,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import { supportedHaptics } from '@onekeyhq/shared/src/haptics';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SelectTrigger } from '../SelectTrigger';
+
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = CompositeNavigationProp<
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.VolumeHaptic>
+>;
 
 export const GenaralSection = () => {
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
   const { theme, locale, selectedFiatMoneySymbol } = useSettings();
   const { themeVariant } = useTheme();
@@ -133,7 +159,6 @@ export const GenaralSection = () => {
             <Select<string>
               title={intl.formatMessage({
                 id: 'form__fiat_currency',
-                defaultMessage: 'Fiat currency',
               })}
               isTriggerPlain
               footer={null}
@@ -152,15 +177,41 @@ export const GenaralSection = () => {
                 <SelectTrigger
                   title={intl.formatMessage({
                     id: 'form__fiat_currency',
-                    defaultMessage: 'Fiat currency',
                   })}
-                  hideDivider
                   activeOption={activeOption}
                   iconName="CurrencyDollarOutline"
                 />
               )}
             />
           </Box>
+          {supportedHaptics ? (
+            <Pressable
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              onPress={() => {
+                navigation.navigate(HomeRoutes.VolumeHaptic);
+              }}
+            >
+              <Icon name="VolumeUpOutline" />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mx={3}
+              >
+                {intl.formatMessage({
+                  id: 'form__sound_n_vibration',
+                })}
+              </Text>
+              <Box>
+                <Icon name="ChevronRightSolid" size={20} />
+              </Box>
+            </Pressable>
+          ) : null}
         </Box>
       </Box>
     </Box>

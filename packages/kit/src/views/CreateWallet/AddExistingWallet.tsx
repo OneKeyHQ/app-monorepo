@@ -27,7 +27,6 @@ import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigationActions } from '../../hooks';
-import { setHaptics } from '../../hooks/setHaptics';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingFinished';
 
@@ -186,7 +185,6 @@ const AddExistingWallet = () => {
   );
 
   const onPaste = useCallback(async () => {
-    setHaptics();
     const pastedText = await getClipboard();
     setValue('text', pastedText);
     trigger('text');
