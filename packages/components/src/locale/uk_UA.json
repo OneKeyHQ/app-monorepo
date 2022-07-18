@@ -451,6 +451,7 @@
   "form__contract_data": "Дані контракту",
   "form__create_delete_accounts": "Створення / видалення облікових записів",
   "form__create_delete_wallets": "Створення / видалення гаманців",
+  "form__create_transactions": "Створення транзакцій",
   "form__cross_chain": "Хрестовий ланцюжок",
   "form__dark": "Темний",
   "form__data": "Дані",

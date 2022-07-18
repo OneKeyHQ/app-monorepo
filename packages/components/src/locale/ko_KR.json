@@ -451,6 +451,7 @@
   "form__contract_data": "계약 데이터",
   "form__create_delete_accounts": "계정 생성/삭제",
   "form__create_delete_wallets": "지갑 생성/삭제",
+  "form__create_transactions": "트랜잭션 생성",
   "form__cross_chain": "크로스 체인",
   "form__dark": "어두운",
   "form__data": "데이터",

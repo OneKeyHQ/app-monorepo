@@ -451,6 +451,7 @@
   "form__contract_data": "Contract Data",
   "form__create_delete_accounts": "Create / Remove Accounts",
   "form__create_delete_wallets": "Create / Remove Wallets",
+  "form__create_transactions": "Create Transactions",
   "form__cross_chain": "Cross chain",
   "form__dark": "Dark",
   "form__data": "Data",

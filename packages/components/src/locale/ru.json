@@ -451,6 +451,7 @@
   "form__contract_data": "Данные по контракту",
   "form__create_delete_accounts": "Создание/удаление учетных записей",
   "form__create_delete_wallets": "Создание/удаление кошельков",
+  "form__create_transactions": "Создание транзакций",
   "form__cross_chain": "Крест цепи",
   "form__dark": "Темный",
   "form__data": "Данные",

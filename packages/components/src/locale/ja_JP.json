@@ -451,6 +451,7 @@
   "form__contract_data": "契約データ",
   "form__create_delete_accounts": "アカウントの作成/削除",
   "form__create_delete_wallets": "ウォレットの作成/削除",
+  "form__create_transactions": "トランザクションの作成",
   "form__cross_chain": "クロスチェーン",
   "form__dark": "ダーク",
   "form__data": "データ",

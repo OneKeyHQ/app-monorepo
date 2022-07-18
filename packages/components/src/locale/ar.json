@@ -451,6 +451,7 @@
   "form__contract_data": "بيانات العقد",
   "form__create_delete_accounts": "إنشاء / حذف الحسابات",
   "form__create_delete_wallets": "إنشاء / حذف محافظ",
+  "form__create_transactions": "إنشاء المعاملات",
   "form__cross_chain": "عبر سلسلة",
   "form__dark": "داكن",
   "form__data": "البيانات",

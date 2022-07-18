@@ -61,7 +61,7 @@ const Protected = () => {
   }, []);
 
   return (
-    <Box w="full" h="full" bg="background-default" p="4">
+    <Box w="full" h="full" bg="background-default" p="4" maxW={768} mx="auto">
       <Box>
         <Typography.Caption mt="2" color="text-subdued">
           {intl.formatMessage({
@@ -85,7 +85,7 @@ const Protected = () => {
           >
             <Options
               title={intl.formatMessage({
-                id: 'form__password_free_payment',
+                id: 'form__create_transactions',
               })}
               isChecked={validationSetting.Payment}
               divider
