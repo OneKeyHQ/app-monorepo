@@ -28,25 +28,27 @@ class ServiceApp extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
     if (platformEnv.isExtensionBackground) {
-      setInterval(() => this.checkLockStatus(), 5 * 1000);
+      setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
     // TODO recheck last reset status and resetApp here
     console.log('TODO: recheck last reset status and resetApp here 22222');
   }
 
   @backgroundMethod()
-  async checkLockStatus() {
+  async checkLockStatus(offset = 0) {
     const { appSelector, engine } = this.backgroundApi;
     const lastActivity = appSelector((s) => s.status.lastActivity);
     const enableAppLock = appSelector((s) => s.settings.enableAppLock);
-    const appLockDuration = appSelector((s) => s.settings.appLockDuration);
+    const appLockDuration = appSelector(
+      (s) => s.settings.appLockDuration,
+    ) as number;
 
     const isPasswordSet = await engine.isMasterPasswordSet();
     const prerequisites = isPasswordSet && enableAppLock;
     if (!prerequisites) return;
 
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
-    const isStale = idleDuration >= Math.min(240, appLockDuration);
+    const isStale = idleDuration >= Math.min(240, appLockDuration + offset);
     if (isStale) {
       this.lock();
     }

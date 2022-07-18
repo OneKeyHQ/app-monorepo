@@ -58,6 +58,7 @@ const AccountSelectorChildren: FC<{
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
   const { connected } = useAppSelector((s) => s.hardware);
+  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const { deviceUpdates } = useSettings();
 
   const [deviceStatus, setDeviceStatus] =
@@ -249,13 +250,15 @@ const AccountSelectorChildren: FC<{
               activeWallet={activeWallet}
             />
           </Box>
-          <IconButton
-            ml="3"
-            name="LockOutline"
-            size="lg"
-            minW="50px"
-            onPress={onLock}
-          />
+          {isPasswordSet ? (
+            <IconButton
+              ml="3"
+              name="LockOutline"
+              size="lg"
+              minW="50px"
+              onPress={onLock}
+            />
+          ) : null}
         </Box>
       </VStack>
       {RemoveAccountDialog}

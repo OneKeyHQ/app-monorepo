@@ -19,7 +19,6 @@ import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
   HomeRoutesParams,
-  ModalRoutes,
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
