@@ -180,6 +180,7 @@ const CollectibleDetailModal: FC = () => {
                   flex="1"
                   textAlign="right"
                   numberOfLines={999}
+                  selectable
                 >
                   {asset.tokenAddress}
                 </Typography.Body1Strong>
