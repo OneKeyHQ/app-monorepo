@@ -18610,7 +18610,7 @@ react-native-pager-view@5.4.15:
 
 react-native-portalize@1.0.3:
   version "1.0.3"
-  resolved "https://registry.yarnpkg.com/react-native-portalize/-/react-native-portalize-1.0.3.tgz#1db2f525f3d9e01b5ff9be4998ca9e957d891b63"
+  resolved "https://registry.npmmirror.com/react-native-portalize/-/react-native-portalize-1.0.3.tgz#1db2f525f3d9e01b5ff9be4998ca9e957d891b63"
   integrity sha512-jxMduHfinr8RbN6uxeJEm4Pw35GwkSA/Kfh50jc6ElU41OewbAAApTBt62GG/Q+UGOHBzKN43fsPToaG6VhqWg==
 
 react-native-randombytes@^3.6.1:

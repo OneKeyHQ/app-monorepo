@@ -7,6 +7,7 @@ import {
   NavigationContainerRef,
 } from '@react-navigation/native';
 import { createURL } from 'expo-linking';
+import { Host } from 'react-native-portalize';
 
 import { Box, DialogManager, useThemeValue } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
@@ -97,9 +98,11 @@ const NavigationApp = () => {
         theme={navigationTheme}
         linking={enableLinkingRoute ? linking : undefined}
       >
-        <OverlayProvider>
-          <RootStack />
-        </OverlayProvider>
+        <Host>
+          <OverlayProvider>
+            <RootStack />
+          </OverlayProvider>
+        </Host>
       </NavigationContainer>
       <Box
         overflow="hidden"
