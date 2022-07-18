@@ -451,6 +451,7 @@
   "form__contract_data": "Гэрээний өгөгдөл",
   "form__create_delete_accounts": "Бүртгэл үүсгэх / устгах",
   "form__create_delete_wallets": "Түрийвч үүсгэх / устгах",
+  "form__create_transactions": "Гүйлгээ үүсгэх",
   "form__cross_chain": "Хөндлөн гинж",
   "form__dark": "Харанхуй",
   "form__data": "Өгөгдөл",

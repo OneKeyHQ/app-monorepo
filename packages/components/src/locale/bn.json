@@ -451,6 +451,7 @@
   "form__contract_data": "চুক্তির তথ্য",
   "form__create_delete_accounts": "অ্যাকাউন্ট তৈরি করুন / মুছুন",
   "form__create_delete_wallets": "ওয়ালেট তৈরি/মুছুন",
+  "form__create_transactions": "লেনদেন তৈরি করুন",
   "form__cross_chain": "ক্রস চেইন",
   "form__dark": "অন্ধকার",
   "form__data": "ডেটা",

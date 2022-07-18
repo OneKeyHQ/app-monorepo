@@ -451,6 +451,7 @@
   "form__contract_data": "Dados do contrato",
   "form__create_delete_accounts": "Criar/Excluir Contas",
   "form__create_delete_wallets": "Criar/Excluir Carteiras",
+  "form__create_transactions": "Criar transações",
   "form__cross_chain": "Cadeia cruzada",
   "form__dark": "Escuro",
   "form__data": "Dados",

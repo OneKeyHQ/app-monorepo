@@ -451,6 +451,7 @@
   "form__contract_data": "合同數據",
   "form__create_delete_accounts": "創建/移除帳戶",
   "form__create_delete_wallets": "創建/移除錢包",
+  "form__create_transactions": "創建交易",
   "form__cross_chain": "跨鏈",
   "form__dark": "深色",
   "form__data": "數據",

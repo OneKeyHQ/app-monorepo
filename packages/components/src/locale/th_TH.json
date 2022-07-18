@@ -451,6 +451,7 @@
   "form__contract_data": "ข้อมูลสัญญา",
   "form__create_delete_accounts": "สร้าง / ลบบัญชี",
   "form__create_delete_wallets": "สร้าง / ลบ Wallets",
+  "form__create_transactions": "สร้างธุรกรรม",
   "form__cross_chain": "โซ่ข้าม",
   "form__dark": "มืด",
   "form__data": "ข้อมูล",
