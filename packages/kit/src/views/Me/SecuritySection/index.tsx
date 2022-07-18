@@ -21,6 +21,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+import { EnableLocalAuthenticationRoutes } from '../../../routes/Modal/EnableLocalAuthentication';
 import { PasswordRoutes } from '../../../routes/Modal/Password';
 import {
   HomeRoutes,
@@ -38,13 +39,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FaceId>
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Protected>
 >;
 
 export const SecuritySection = () => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const { enableAppLock, appLockDuration } = useSettings();
+  const { enableAppLock, appLockDuration, enableLocalAuthentication } =
+    useSettings();
   const { isPasswordSet } = useData();
   const { authenticationType } = useStatus();
   const { isOk } = useLocalAuthentication();
@@ -73,16 +75,8 @@ export const SecuritySection = () => {
         value: 60,
       },
       {
-        label: intl.formatMessage({ id: 'form__str_hour' }, { '0': 6 }),
-        value: 360,
-      },
-      {
-        label: intl.formatMessage({ id: 'form__str_day' }, { '0': 1 }),
-        value: 1440,
-      },
-      {
-        label: intl.formatMessage({ id: 'form__str_day' }, { '0': 7 }),
-        value: 10080,
+        label: intl.formatMessage({ id: 'form__str_hour' }, { '0': 4 }),
+        value: 240,
       },
     ],
     [intl],
@@ -96,6 +90,7 @@ export const SecuritySection = () => {
   const onToggleAppLock = useCallback(() => {
     dispatch(setEnableAppLock(!enableAppLock));
   }, [enableAppLock, dispatch]);
+  const lockDuration = Math.min(240, appLockDuration);
   return (
     <>
       <Box w="full" mb="6">
@@ -157,7 +152,7 @@ export const SecuritySection = () => {
               borderBottomWidth="1"
               borderBottomColor="divider"
               onPress={() => {
-                navigation.navigate(HomeRoutes.FaceId);
+                navigation.navigate(HomeRoutes.Protected);
               }}
             >
               <Icon
@@ -180,7 +175,19 @@ export const SecuritySection = () => {
                   : intl.formatMessage({ id: 'content__touch_id' })}
               </Text>
               <Box>
-                <Icon name="ChevronRightSolid" size={20} />
+                <Switch
+                  labelType="false"
+                  isChecked={enableLocalAuthentication}
+                  onToggle={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.EnableLocalAuthentication,
+                      params: {
+                        screen:
+                          EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
+                      },
+                    });
+                  }}
+                />
               </Box>
             </Pressable>
           ) : null}
@@ -225,8 +232,8 @@ export const SecuritySection = () => {
                 })}
                 isTriggerPlain
                 footer={null}
-                value={appLockDuration}
-                defaultValue={appLockDuration}
+                value={lockDuration}
+                defaultValue={lockDuration}
                 headerShown={false}
                 options={lockTimerOptions}
                 dropdownProps={{ width: '64' }}
@@ -245,6 +252,32 @@ export const SecuritySection = () => {
               />
             </Box>
           ) : null}
+          <Pressable
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            py={4}
+            px={{ base: 4, md: 6 }}
+            borderBottomWidth="1"
+            borderBottomColor="divider"
+            onPress={() => {
+              navigation.navigate(HomeRoutes.Protected);
+            }}
+          >
+            <Icon name="UmbrellaOutline" />
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex="1"
+              numberOfLines={1}
+              mx={3}
+            >
+              {intl.formatMessage({ id: 'action__protection' })}
+            </Text>
+            <Box>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Box>
+          </Pressable>
           <ResetButton />
         </Box>
       </Box>

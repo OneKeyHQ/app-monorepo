@@ -34,13 +34,6 @@ type SettingsState = {
   refreshTimeStamp: number;
   autoRefreshTimeStamp: number;
   swapSlippagePercent: string;
-  validationState: {
-    [ValidationFields.Unlock]?: boolean;
-    [ValidationFields.Payment]?: boolean;
-    [ValidationFields.Wallet]?: boolean;
-    [ValidationFields.Account]?: boolean;
-    [ValidationFields.Secret]?: boolean;
-  };
   deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
@@ -50,6 +43,12 @@ type SettingsState = {
     preReleaseUpdate: boolean;
     updateDeviceBle: boolean;
     updateDeviceSys: boolean;
+  };
+  validationSetting: {
+    [ValidationFields.Account]?: boolean;
+    [ValidationFields.Payment]?: boolean;
+    [ValidationFields.Secret]?: boolean;
+    [ValidationFields.Wallet]?: boolean;
   };
 };
 
@@ -66,19 +65,18 @@ const initialState: SettingsState = {
   refreshTimeStamp: getTimeStamp(),
   autoRefreshTimeStamp: getTimeStamp(),
   swapSlippagePercent: '3',
-  validationState: {
-    [ValidationFields.Unlock]: true,
-    [ValidationFields.Payment]: true,
-    [ValidationFields.Wallet]: true,
-    [ValidationFields.Account]: true,
-    [ValidationFields.Secret]: true,
-  },
   deviceUpdates: {},
   devMode: {
     enable: false,
     preReleaseUpdate: false,
     updateDeviceBle: false,
     updateDeviceSys: false,
+  },
+  validationSetting: {
+    [ValidationFields.Account]: false,
+    [ValidationFields.Payment]: false,
+    [ValidationFields.Secret]: false,
+    [ValidationFields.Wallet]: false,
   },
 };
 
@@ -148,11 +146,11 @@ export const settingsSlice = createSlice({
       state,
       action: PayloadAction<{ key: ValidationFields; value: boolean }>,
     ) => {
-      if (!state.validationState) {
-        state.validationState = {};
+      if (!state.validationSetting) {
+        state.validationSetting = {};
       }
       const { key, value } = action.payload;
-      state.validationState[key] = value;
+      state.validationSetting[key] = value;
     },
     setDevMode(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, enable: action.payload };

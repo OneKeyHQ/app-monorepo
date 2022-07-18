@@ -148,6 +148,7 @@ import LightningBoltOutline from "./react/outline/LightningBolt";
 import LinkOutline from "./react/outline/Link";
 import LoadingIndicatorOutline from "./react/outline/LoadingIndicator";
 import LocationMarkerOutline from "./react/outline/LocationMarker";
+import LockOutline from "./react/outline/Lock";
 import LockClosedOutline from "./react/outline/LockClosed";
 import LockOpenOutline from "./react/outline/LockOpen";
 import LoginOutline from "./react/outline/Login";
@@ -238,6 +239,7 @@ import TrendingDownOutline from "./react/outline/TrendingDown";
 import TrendingUpOutline from "./react/outline/TrendingUp";
 import TruckOutline from "./react/outline/Truck";
 import TwitterOutline from "./react/outline/Twitter";
+import UmbrellaOutline from "./react/outline/Umbrella";
 import UploadOutline from "./react/outline/Upload";
 import UserOutline from "./react/outline/User";
 import UserAddOutline from "./react/outline/UserAdd";
@@ -658,6 +660,7 @@ export type ICON_NAMES =
   | "LinkOutline"
   | "LoadingIndicatorOutline"
   | "LocationMarkerOutline"
+  | "LockOutline"
   | "LockClosedOutline"
   | "LockOpenOutline"
   | "LoginOutline"
@@ -748,6 +751,7 @@ export type ICON_NAMES =
   | "TrendingUpOutline"
   | "TruckOutline"
   | "TwitterOutline"
+  | "UmbrellaOutline"
   | "UploadOutline"
   | "UserOutline"
   | "UserAddOutline"
@@ -1168,6 +1172,7 @@ export default {
   LinkOutline: LinkOutline,
   LoadingIndicatorOutline: LoadingIndicatorOutline,
   LocationMarkerOutline: LocationMarkerOutline,
+  LockOutline: LockOutline,
   LockClosedOutline: LockClosedOutline,
   LockOpenOutline: LockOpenOutline,
   LoginOutline: LoginOutline,
@@ -1258,6 +1263,7 @@ export default {
   TrendingUpOutline: TrendingUpOutline,
   TruckOutline: TruckOutline,
   TwitterOutline: TwitterOutline,
+  UmbrellaOutline: UmbrellaOutline,
   UploadOutline: UploadOutline,
   UserOutline: UserOutline,
   UserAddOutline: UserAddOutline,

@@ -7,7 +7,12 @@ import React, {
   useState,
 } from 'react';
 
-import { Box, VStack, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Box,
+  IconButton,
+  VStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -199,6 +204,10 @@ const AccountSelectorChildren: FC<{
     activeNetwork?.id,
   ]);
 
+  const onLock = useCallback(() => {
+    backgroundApiProxy.serviceApp.lock();
+  }, []);
+
   return (
     <>
       <LeftSide
@@ -230,13 +239,22 @@ const AccountSelectorChildren: FC<{
           loadingAccountWalletId={loadingAccountWalletId}
           refreshAccounts={refreshAccounts}
         />
-        <Box p={2}>
-          <RightAccountCreateButton
-            onLoadingAccount={onLoadingAccount}
-            isLoading={!!loadingAccountWalletId}
-            activeNetwork={activeNetwork}
-            selectedNetworkId={selectedNetworkId}
-            activeWallet={activeWallet}
+        <Box p={2} flexDirection="row">
+          <Box flex="1">
+            <RightAccountCreateButton
+              onLoadingAccount={onLoadingAccount}
+              isLoading={!!loadingAccountWalletId}
+              activeNetwork={activeNetwork}
+              selectedNetworkId={selectedNetworkId}
+              activeWallet={activeWallet}
+            />
+          </Box>
+          <IconButton
+            ml="3"
+            name="LockOutline"
+            size="lg"
+            minW="50px"
+            onPress={onLock}
           />
         </Box>
       </VStack>

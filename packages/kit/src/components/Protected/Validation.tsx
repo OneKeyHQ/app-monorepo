@@ -13,23 +13,22 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useSettings } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
-
-import { ValidationFields } from './types';
 
 type FieldValues = { password: string };
 
 type ValidationProps = {
-  field?: ValidationFields;
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
 };
 
-const Validation: FC<ValidationProps> = ({ onOk, field }) => {
+const Validation: FC<ValidationProps> = ({ onOk }) => {
   const intl = useIntl();
   const ref = useRef<any>();
-  const { enableLocalAuthentication, validationState = {} } = useSettings();
+  const enableLocalAuthentication = useAppSelector(
+    (s) => s.settings.enableLocalAuthentication,
+  );
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
   });
@@ -60,7 +59,7 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
       return;
     }
     hasHardwareSupported().then((isOk) => {
-      if (!isOk || !field || validationState[field] === false) {
+      if (!isOk) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         setTimeout(() => ref.current?.focus(), 100);
       }
@@ -115,10 +114,7 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
         </Button>
       </Form>
       <Center mt="8">
-        <LocalAuthenticationButton
-          onOk={onLocalAuthenticationOk}
-          field={field}
-        />
+        <LocalAuthenticationButton onOk={onLocalAuthenticationOk} />
       </Center>
     </KeyboardDismissView>
   );
