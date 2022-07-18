@@ -33,12 +33,10 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   SendRoutes,
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -251,16 +249,6 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
             {intl.formatMessage({ id: 'action__buy' })}
           </Typography.CaptionStrong>
         </Box>
-      )}
-
-      {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
-        <IconButton
-          onPress={() => {
-            extUtils.openExpandTab({ routes: '' });
-          }}
-          ml={4}
-          name="ArrowsExpandOutline"
-        />
       )}
     </Box>
   );

@@ -31,10 +31,8 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
-import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
@@ -265,16 +263,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
               {intl.formatMessage({ id: 'action__sell' })}
             </Typography.CaptionStrong>
           </Box>
-        )}
-
-        {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
-          <IconButton
-            onPress={() => {
-              extUtils.openExpandTab({ routes: '' });
-            }}
-            ml={4}
-            name="ArrowsExpandOutline"
-          />
         )}
       </Box>
     ),
