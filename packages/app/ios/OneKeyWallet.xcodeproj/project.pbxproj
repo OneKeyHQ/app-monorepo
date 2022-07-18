@@ -25,6 +25,11 @@
 		A284EFC427CE238D0070F4EA /* OKTools.m in Sources */ = {isa = PBXBuildFile; fileRef = A284EFC327CE238D0070F4EA /* OKTools.m */; };
 		A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */; };
 		A2D598AF282BFD0B00152C7C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */; };
+		A2E533472885151100063227 /* PagingView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E533462885151100063227 /* PagingView.m */; };
+		A2E5334A2885157E00063227 /* PagingViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E533492885157E00063227 /* PagingViewManager.m */; };
+		A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E5334C288515EA00063227 /* PagingViewContainer.m */; };
+		A2E533502885167100063227 /* PagingHeaderView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E5334F2885167100063227 /* PagingHeaderView.m */; };
+		A2E533532885177100063227 /* PagingContainerRootView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E533522885177100063227 /* PagingContainerRootView.m */; };
 		A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */; };
 		A3294A682844472100C18DD0 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A3294A672844472100C18DD0 /* AppDelegate.m */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
@@ -80,6 +85,16 @@
 		A2D02C022824EAF9005A45F0 /* SplashScreenManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SplashScreenManager.h; sourceTree = "<group>"; };
 		A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SplashScreenManager.m; sourceTree = "<group>"; };
 		A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "OneKeyWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		A2E533452885151100063227 /* PagingView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PagingView.h; sourceTree = "<group>"; };
+		A2E533462885151100063227 /* PagingView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PagingView.m; sourceTree = "<group>"; };
+		A2E533482885157E00063227 /* PagingViewManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PagingViewManager.h; sourceTree = "<group>"; };
+		A2E533492885157E00063227 /* PagingViewManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PagingViewManager.m; sourceTree = "<group>"; };
+		A2E5334B288515EA00063227 /* PagingViewContainer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PagingViewContainer.h; sourceTree = "<group>"; };
+		A2E5334C288515EA00063227 /* PagingViewContainer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PagingViewContainer.m; sourceTree = "<group>"; };
+		A2E5334E2885167100063227 /* PagingHeaderView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PagingHeaderView.h; sourceTree = "<group>"; };
+		A2E5334F2885167100063227 /* PagingHeaderView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PagingHeaderView.m; sourceTree = "<group>"; };
+		A2E533512885177100063227 /* PagingContainerRootView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PagingContainerRootView.h; sourceTree = "<group>"; };
+		A2E533522885177100063227 /* PagingContainerRootView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PagingContainerRootView.m; sourceTree = "<group>"; };
 		A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RNLiteCallBackManager.h; sourceTree = "<group>"; };
 		A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RNLiteCallBackManager.m; sourceTree = "<group>"; };
 		A3294A672844472100C18DD0 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = AppDelegate.m; path = OneKeyWallet/AppDelegate.m; sourceTree = "<group>"; };
@@ -107,6 +122,7 @@
 			children = (
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				A3294A672844472100C18DD0 /* AppDelegate.m */,
+				A2E53344288514A900063227 /* PagingView */,
 				A24B8A7127422EF300E321A9 /* RNBridge */,
 				A24B8A6927422EF200E321A9 /* Category */,
 				A24B8A6E27422EF200E321A9 /* Frameworks */,
@@ -243,6 +259,23 @@
 				A284EFC327CE238D0070F4EA /* OKTools.m */,
 			);
 			path = Other;
+			sourceTree = "<group>";
+		};
+		A2E53344288514A900063227 /* PagingView */ = {
+			isa = PBXGroup;
+			children = (
+				A2E533452885151100063227 /* PagingView.h */,
+				A2E533462885151100063227 /* PagingView.m */,
+				A2E533482885157E00063227 /* PagingViewManager.h */,
+				A2E533492885157E00063227 /* PagingViewManager.m */,
+				A2E5334B288515EA00063227 /* PagingViewContainer.h */,
+				A2E5334C288515EA00063227 /* PagingViewContainer.m */,
+				A2E5334E2885167100063227 /* PagingHeaderView.h */,
+				A2E5334F2885167100063227 /* PagingHeaderView.m */,
+				A2E533512885177100063227 /* PagingContainerRootView.h */,
+				A2E533522885177100063227 /* PagingContainerRootView.m */,
+			);
+			path = PagingView;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -443,12 +476,17 @@
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
 				A24B8A7827422EF300E321A9 /* NSData+StringToData.m in Sources */,
 				A3294A682844472100C18DD0 /* AppDelegate.m in Sources */,
+				A2E533472885151100063227 /* PagingView.m in Sources */,
+				A2E533502885167100063227 /* PagingHeaderView.m in Sources */,
 				A284EFA327C49CDD0070F4EA /* NFCConfig.m in Sources */,
 				A24B8A7627422EF300E321A9 /* OKNFCLite.m in Sources */,
 				A24B8A7427422EF300E321A9 /* OKNFCBridge.mm in Sources */,
 				A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */,
 				1625CE96A62F41B0B52FF2B4 /* noop-file.swift in Sources */,
+				A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */,
+				A2E533532885177100063227 /* PagingContainerRootView.m in Sources */,
 				A284EFC427CE238D0070F4EA /* OKTools.m in Sources */,
+				A2E5334A2885157E00063227 /* PagingViewManager.m in Sources */,
 				A24B8A7A27422EF300E321A9 /* OKLiteManager.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -4,6 +4,7 @@ import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import PagingView from '@onekeyhq/app/src/views/PagingView';
 import {
   Box,
   Button,
@@ -209,90 +210,91 @@ const Home: FC = () => {
     );
   }
 
-  return (
-    <>
-      <Tabs.Container
-        // lazy={true}
-        initialTabName={homeTabName || undefined}
-        onIndexChange={(index) => {
-          console.log('homeTab onIndexChange', index);
-        }}
-        onTabChange={({ tabName, index }) => {
-          console.log('homeTab onTabChange', { index, tabName });
-          backgroundApiProxy.dispatch(setHomeTabName(tabName));
-        }}
-        renderHeader={AccountInfo}
-        width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
-        pagerProps={{ scrollEnabled: false }}
-        headerHeight={
-          isVerticalLayout
-            ? FIXED_VERTICAL_HEADER_HEIGHT
-            : FIXED_HORIZONTAL_HEDER_HEIGHT
-        }
-        containerStyle={{
-          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-          width: '100%',
-          marginHorizontal: 'auto', // Center align vertically
-          backgroundColor: tabbarBgColor,
-        }}
-        headerContainerStyle={{
-          shadowOffset: { width: 0, height: 0 },
-          shadowColor: 'transparent',
-          elevation: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: borderDefault,
-        }}
-        renderTabBar={(props) => (
-          <MaterialTabBar
-            {...props}
-            activeColor={activeLabelColor}
-            inactiveColor={labelColor}
-            labelStyle={{
-              ...(Body2StrongProps as TextStyle),
-            }}
-            indicatorStyle={{ backgroundColor: indicatorColor }}
-            style={{
-              backgroundColor: tabbarBgColor,
-            }}
-            tabStyle={{ backgroundColor: tabbarBgColor }}
-          />
-        )}
-      >
-        <Tabs.Tab
-          name={WalletHomeTabEnum.Tokens}
-          label={intl.formatMessage({ id: 'asset__tokens' })}
-        >
-          <AssetsList />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={WalletHomeTabEnum.Collectibles}
-          label={intl.formatMessage({ id: 'asset__collectibles' })}
-        >
-          <CollectiblesList address={account?.address} network={network} />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={WalletHomeTabEnum.History}
-          label={intl.formatMessage({ id: 'transaction__history' })}
-        >
-          {platformEnv.isLegacyHistory ? (
-            <HistoricalRecord
-              accountId={account?.id}
-              networkId={network?.id}
-              isTab
-            />
-          ) : (
-            <TxHistoryListView
-              accountId={account?.id}
-              networkId={network?.id}
-              isHomeTab
-            />
-          )}
-        </Tabs.Tab>
-      </Tabs.Container>
-      {backupToast()}
-      <OfflineView offline={offline} />
-    </>
-  );
+  return <PagingView />;
+  // return (
+  //   <>
+  //     <Tabs.Container
+  //       // lazy={true}
+  //       initialTabName={homeTabName || undefined}
+  //       onIndexChange={(index) => {
+  //         console.log('homeTab onIndexChange', index);
+  //       }}
+  //       onTabChange={({ tabName, index }) => {
+  //         console.log('homeTab onTabChange', { index, tabName });
+  //         backgroundApiProxy.dispatch(setHomeTabName(tabName));
+  //       }}
+  //       renderHeader={AccountInfo}
+  //       width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
+  //       pagerProps={{ scrollEnabled: false }}
+  //       headerHeight={
+  //         isVerticalLayout
+  //           ? FIXED_VERTICAL_HEADER_HEIGHT
+  //           : FIXED_HORIZONTAL_HEDER_HEIGHT
+  //       }
+  //       containerStyle={{
+  //         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+  //         width: '100%',
+  //         marginHorizontal: 'auto', // Center align vertically
+  //         backgroundColor: tabbarBgColor,
+  //       }}
+  //       headerContainerStyle={{
+  //         shadowOffset: { width: 0, height: 0 },
+  //         shadowColor: 'transparent',
+  //         elevation: 0,
+  //         borderBottomWidth: 1,
+  //         borderBottomColor: borderDefault,
+  //       }}
+  //       renderTabBar={(props) => (
+  //         <MaterialTabBar
+  //           {...props}
+  //           activeColor={activeLabelColor}
+  //           inactiveColor={labelColor}
+  //           labelStyle={{
+  //             ...(Body2StrongProps as TextStyle),
+  //           }}
+  //           indicatorStyle={{ backgroundColor: indicatorColor }}
+  //           style={{
+  //             backgroundColor: tabbarBgColor,
+  //           }}
+  //           tabStyle={{ backgroundColor: tabbarBgColor }}
+  //         />
+  //       )}
+  //     >
+  //       <Tabs.Tab
+  //         name={WalletHomeTabEnum.Tokens}
+  //         label={intl.formatMessage({ id: 'asset__tokens' })}
+  //       >
+  //         <AssetsList />
+  //       </Tabs.Tab>
+  //       <Tabs.Tab
+  //         name={WalletHomeTabEnum.Collectibles}
+  //         label={intl.formatMessage({ id: 'asset__collectibles' })}
+  //       >
+  //         <CollectiblesList address={account?.address} network={network} />
+  //       </Tabs.Tab>
+  //       <Tabs.Tab
+  //         name={WalletHomeTabEnum.History}
+  //         label={intl.formatMessage({ id: 'transaction__history' })}
+  //       >
+  //         {platformEnv.isLegacyHistory ? (
+  //           <HistoricalRecord
+  //             accountId={account?.id}
+  //             networkId={network?.id}
+  //             isTab
+  //           />
+  //         ) : (
+  //           <TxHistoryListView
+  //             accountId={account?.id}
+  //             networkId={network?.id}
+  //             isHomeTab
+  //           />
+  //         )}
+  //       </Tabs.Tab>
+  //     </Tabs.Container>
+  //     {backupToast()}
+  //     <OfflineView offline={offline} />
+  //   </>
+  // );
 };
 
 export default Home;
