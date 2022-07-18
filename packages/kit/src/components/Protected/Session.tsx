@@ -25,7 +25,7 @@ const Session: FC<SessionProps> = ({ field, onOk }) => {
     async function load() {
       const data = await backgroundApiProxy.servicePassword.getPassword();
       if (data) {
-        onOk?.(data, false);
+        setTimeout(() => onOk?.(data, false), 500);
       }
       setHasPw(!!data);
       setLoaded(true);
@@ -51,12 +51,11 @@ const Session: FC<SessionProps> = ({ field, onOk }) => {
     if (!hasvPw) {
       return <Validation onOk={onSubmit} />;
     }
-    return null;
   }
 
   return (
     <Center w="full" h="full">
-      <Spinner />
+      <Spinner size="lg" />
     </Center>
   );
 };
