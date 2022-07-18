@@ -85,10 +85,13 @@ export type IEncodedTx =
   | IEncodedTxSTC;
 export type INativeTx = INativeTxEvm | INativeTxNear | INativeTxBtc;
 export type IRawTx = string;
-export type IUnsignedTx = UnsignedTx;
+export type IUnsignedTxPro = UnsignedTx & {
+  encodedTx: IEncodedTx;
+};
 export type ISignedTx = {
   txid: string;
   rawTx: string;
+  encodedTx: IEncodedTx;
 };
 
 // EncodedTx Update ----------------------------------------------

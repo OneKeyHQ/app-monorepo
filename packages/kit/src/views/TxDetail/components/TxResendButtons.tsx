@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { NavigationProp } from '@react-navigation/native';
-import { cloneDeep, isNil } from 'lodash';
+import { cloneDeep, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
@@ -29,7 +29,7 @@ function doSpeedUpOrCancelTx(props: {
   const { historyTx, actionType, navigation } = props;
   const encodedTx = (historyTx.decodedTx?.encodedTx ?? {}) as IEncodedTxEvm;
   const { nonce } = historyTx.decodedTx;
-  if (isNil(nonce)) {
+  if (isNil(nonce) || !isNumber(nonce) || nonce < 0) {
     console.error('speedUpOrCancelTx ERROR: nonce is missing!');
     return;
   }
@@ -40,7 +40,15 @@ function doSpeedUpOrCancelTx(props: {
     to: encodedTx.to,
     value: encodedTx.value,
     data: encodedTx.data,
-    nonce: historyTx.decodedTx.nonce, // must be number, 0x string will send new tx
+    // must be number, 0x string will send new tx
+    nonce: historyTx.decodedTx.nonce,
+
+    // keep origin fee info
+    gas: encodedTx.gas,
+    gasLimit: encodedTx.gasLimit,
+    gasPrice: encodedTx.gasPrice,
+    maxFeePerGas: encodedTx.maxFeePerGas,
+    maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas,
   };
   if (actionType === 'cancel') {
     encodedTxEvm.to = encodedTxEvm.from;

@@ -38,12 +38,12 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     networkId,
     accountId,
     onSuccess,
-    encodedTx,
     unsignedMessage,
     payloadInfo,
     backRouteName,
     sourceInfo,
   } = route.params;
+  let { encodedTx } = route.params;
   const payload = payloadInfo || route.params.payload;
 
   const { decodedTx } = useDecodedTx({
@@ -91,6 +91,8 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
       if (encodedTx) {
         signedTx = await sendTx();
         result = signedTx;
+        // encodedTx will be edit by buildUnsignedTx, re-assign encodedTx
+        encodedTx = signedTx.encodedTx || encodedTx;
       }
       if (unsignedMessage) {
         signedMsg = await signMsg();

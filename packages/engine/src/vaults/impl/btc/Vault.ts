@@ -38,6 +38,7 @@ import {
   IHistoryTx,
   ISignCredentialOptions,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
@@ -305,7 +306,9 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxBtc): Promise<UnsignedTx> {
+  buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxBtc,
+  ): Promise<IUnsignedTxPro> {
     const { inputs, outputs } = encodedTx;
 
     const inputsInUnsignedTx: Array<TxInput> = [];
@@ -326,6 +329,7 @@ export default class Vault extends VaultBase {
       inputs: inputsInUnsignedTx,
       outputs: outputsInUnsignedTx,
       payload: {},
+      encodedTx,
     };
     return Promise.resolve(ret);
   }

@@ -117,7 +117,9 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
   useEffect(() => {
     if (autoConfirm && !feeInfoLoading && !isAutoConfirmed.current) {
       isAutoConfirmed.current = true;
-      confirmAction({ close: modalClose });
+      setTimeout(() => {
+        confirmAction({ close: modalClose });
+      }, 600);
     }
   }, [feeInfoLoading, autoConfirm, confirmAction, modalClose]);
 
