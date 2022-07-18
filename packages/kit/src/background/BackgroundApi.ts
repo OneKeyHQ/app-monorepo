@@ -11,6 +11,7 @@ import ServiceHardware from './services/ServiceHardware';
 import ServiceHistory from './services/ServiceHistory';
 import ServiceNetwork from './services/ServiceNetwork';
 import ServiceOnboarding from './services/ServiceOnboarding';
+import ServicePassword from './services/ServicePassword';
 import ServicePromise from './services/ServicePromise';
 import ServiceToken from './services/ServiceToken';
 
@@ -62,6 +63,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceHardware = new ServiceHardware({
+    backgroundApi: this,
+  });
+
+  servicePassword = new ServicePassword({
     backgroundApi: this,
   });
 }

@@ -15,12 +15,10 @@ import { IconButton, useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../hooks';
-import { useAppSelector, useSettings } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { wait } from '../../utils/helper';
-import { ValidationFields } from '../Protected/types';
 
 type LocalAuthenticationButtonProps = {
-  field?: ValidationFields;
   onOk?: (password: string) => void;
   onNg?: () => void;
 };
@@ -28,14 +26,15 @@ type LocalAuthenticationButtonProps = {
 const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   onOk,
   onNg,
-  field,
 }) => {
   const intl = useIntl();
   const [isLoading, setLoading] = useState(false);
   const loading = useRef(false);
   const toast = useToast();
   const appState = useRef(AppState.currentState);
-  const { enableLocalAuthentication, validationState = {} } = useSettings();
+  const enableLocalAuthentication = useAppSelector(
+    (s) => s.settings.enableLocalAuthentication,
+  );
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const { localAuthenticate, getPassword } = useLocalAuthentication();
 
@@ -73,19 +72,11 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const onChange = useCallback(
     (nextState: AppStateStatus) => {
       if (appState.current === 'background' && nextState === 'active') {
-        if (!field || field !== ValidationFields.Unlock) {
-          return;
-        }
-        if (
-          validationState[field] === true ||
-          validationState[field] === undefined
-        ) {
-          onLocalAuthenticate();
-        }
+        onLocalAuthenticate();
       }
       appState.current = nextState;
     },
-    [onLocalAuthenticate, field, validationState],
+    [onLocalAuthenticate],
   );
 
   // for app unlock
@@ -104,16 +95,11 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
 
   useLayoutEffect(() => {
     async function main() {
-      if (!field || !enableLocalAuthentication) {
+      if (!enableLocalAuthentication) {
         return;
       }
-      if (
-        validationState[field] === true ||
-        validationState[field] === undefined
-      ) {
-        await wait(500);
-        onLocalAuthenticate();
-      }
+      await wait(500);
+      onLocalAuthenticate();
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps

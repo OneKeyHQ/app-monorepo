@@ -23,7 +23,6 @@ import { release } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
 import { wait } from '../../utils/helper';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
-import { ValidationFields } from '../Protected';
 
 const ForgetPasswordButton = () => {
   const intl = useIntl();
@@ -104,6 +103,7 @@ export const AppStateUnlock = () => {
       if (platformEnv.isNativeAndroid) {
         Keyboard.dismiss();
       }
+      await backgroundApiProxy.servicePassword.savePassword(password);
       backgroundApiProxy.dispatch(unlock());
       backgroundApiProxy.dispatch(release());
       await wait(500);
@@ -169,10 +169,7 @@ export const AppStateUnlock = () => {
               </Button>
             </Box>
             <Center mt="8">
-              <LocalAuthenticationButton
-                onOk={onOk}
-                field={ValidationFields.Unlock}
-              />
+              <LocalAuthenticationButton onOk={onOk} />
             </Center>
           </Box>
           <Center position={isSmall ? 'relative' : 'absolute'} bottom="0">

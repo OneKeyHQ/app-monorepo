@@ -32,6 +32,9 @@ export const dataSlice = createSlice({
     release(state) {
       state.isUnlock = true;
     },
+    lock(state) {
+      state.isUnlock = false;
+    },
     passwordSet(state) {
       state.isPasswordSet = true;
     },
@@ -63,6 +66,7 @@ export const {
   currenciesSet,
   setAppRenderReady,
   cursorMapSet,
+  lock,
 } = dataSlice.actions;
 
 export default dataSlice.reducer;
