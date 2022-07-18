@@ -4,10 +4,7 @@
 
 import { StcClient } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/starcoin';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
