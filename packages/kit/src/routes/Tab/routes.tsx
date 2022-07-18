@@ -11,6 +11,7 @@ import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
+import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
 import Protected from '@onekeyhq/kit/src/views/Protected';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
@@ -91,6 +92,10 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.AddressBook,
         component: AddressBook,
+      },
+      {
+        name: HomeRoutes.VolumeHaptic,
+        component: VolumeHaptic,
       },
       {
         name: HomeRoutes.SettingsWebviewScreen,

@@ -8,8 +8,10 @@ import React, {
 
 import { Text } from 'native-base';
 
-import { setHaptics } from '../../../kit/src/hooks/setHaptics';
+import { enableHaptics } from '@onekeyhq/shared/src/haptics';
+
 import Icon, { ICON_NAMES } from '../Icon';
+import { useProviderValue } from '../Provider/hooks';
 import { ThemeToken } from '../Provider/theme';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
@@ -463,6 +465,7 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
       onPress?.();
     }
   }, [onPress, onPromise, setLoading, isLoading]);
+  const { hapticsEnabled } = useProviderValue();
   useEffect(() => {
     if (typeof isLoading !== 'undefined') {
       setLoading(isLoading);
@@ -472,7 +475,10 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
     <Button
       {...props}
       onPress={() => {
-        setHaptics();
+        if (hapticsEnabled) {
+          enableHaptics();
+        }
+
         handlePress();
       }}
       isLoading={loading}

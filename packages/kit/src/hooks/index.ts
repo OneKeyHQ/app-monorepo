@@ -18,6 +18,5 @@ export {
   useNetworkTokens,
   useNetworkTokensPrice,
 } from './useTokens';
-export { setHaptics } from './setHaptics';
 export { usePrevious } from './usePrevious';
 export { useAddressName } from './useAddressName';

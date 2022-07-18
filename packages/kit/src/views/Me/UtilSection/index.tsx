@@ -11,6 +11,7 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
+import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -55,6 +56,37 @@ export const UtilSection = () => {
             <Icon name="ChevronRightSolid" size={20} />
           </Box>
         </Pressable>
+        {platformEnv.isExtensionUiPopup ? (
+          <>
+            <Divider />
+            <Pressable
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              onPress={() => {
+                extUtils.openExpandTab({ routes: '' });
+              }}
+            >
+              <Icon name="ArrowsExpandOutline" />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mx={3}
+              >
+                {intl.formatMessage({
+                  id: 'form__expand_view',
+                })}
+              </Text>
+              <Box>
+                <Icon name="ChevronRightSolid" size={20} />
+              </Box>
+            </Pressable>
+          </>
+        ) : null}
         {!platformEnv.isExtFirefoxUiPopup ? (
           <>
             <Divider />

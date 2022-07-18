@@ -19,8 +19,6 @@ import {
   removeOldRef,
 } from '@onekeyhq/components/src/utils/SelectAutoHide';
 
-import { setHaptics } from '../../hooks/setHaptics';
-
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
 
@@ -90,7 +88,6 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
         <AccountSelectorTrigger
           visible={visible}
           handleToggleVisible={() => {
-            setHaptics();
             if (!visible) {
               handleToggleVisible();
             }

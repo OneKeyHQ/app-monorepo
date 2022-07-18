@@ -25,7 +25,6 @@ import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import { useEnsureConnected } from '@onekeyhq/kit/src/hooks/useEnsureConnected';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -288,7 +287,6 @@ const ReceiveToken = () => {
                       size={isVerticalLayout ? 'xl' : 'base'}
                       leftIconName="DuplicateSolid"
                       onPress={() => {
-                        setHaptics();
                         copyAddressToClipboard();
                       }}
                     >

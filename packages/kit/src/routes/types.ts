@@ -90,6 +90,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.Protected]: undefined;
   [HomeRoutes.AddressBook]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
+  [HomeRoutes.VolumeHaptic]: undefined;
 };
 /** HomeStack */
 

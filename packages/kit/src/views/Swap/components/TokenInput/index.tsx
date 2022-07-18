@@ -11,7 +11,6 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
 import {
   useAccountTokensBalance,
@@ -104,7 +103,6 @@ const TokenInput: FC<TokenInputProps> = ({
               if (isDisabled) {
                 return;
               }
-              setHaptics();
               if (onPress) onPress();
             }}
             flexDirection="row"
@@ -142,7 +140,6 @@ const TokenInput: FC<TokenInputProps> = ({
               if (isDisabled || !showMax) {
                 return;
               }
-              setHaptics();
               onMax();
             }}
             p={2}

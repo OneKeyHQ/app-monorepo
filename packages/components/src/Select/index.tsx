@@ -15,7 +15,6 @@ import { ColorType } from 'native-base/lib/typescript/components/types';
 import { StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
 import { GestureResponderEvent } from 'react-native-modal';
 
-import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ChevronDown } from '../Icon/react/solid';
@@ -288,13 +287,7 @@ function Select<T = string>({
 
   return (
     <Box ref={triggerRef} position="relative" {...containerProps}>
-      <Pressable
-        onPress={() => {
-          setHaptics();
-          toggleVisible();
-        }}
-        {...triggerProps}
-      >
+      <Pressable onPress={toggleVisible} {...triggerProps}>
         {({ isHovered, isFocused, isPressed }) =>
           renderTrigger?.(
             activeOption,

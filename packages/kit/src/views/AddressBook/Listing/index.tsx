@@ -20,7 +20,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { setHaptics, useAppSelector, useNavigation } from '../../../hooks';
+import { useAppSelector, useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { Contact, remove } from '../../../store/reducers/contacts';
 import { AddressBookRoutes } from '../routes';
@@ -74,7 +74,6 @@ const ListingItem: FC<ListingItemValues> = ({
 
   const onLongPress = useCallback(() => {
     onCopy();
-    setHaptics();
   }, [onCopy]);
 
   return (

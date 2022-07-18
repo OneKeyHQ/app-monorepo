@@ -5,6 +5,7 @@ import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
+import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ValidationFields } from '../../components/Protected/types';
@@ -34,6 +35,7 @@ type SettingsState = {
   refreshTimeStamp: number;
   autoRefreshTimeStamp: number;
   swapSlippagePercent: string;
+  enableHaptics: boolean;
   deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
@@ -61,6 +63,7 @@ const initialState: SettingsState = {
   enableAppLock: false,
   enableLocalAuthentication: false,
   appLockDuration: 5,
+  enableHaptics: defaultHapticStatus,
   selectedFiatMoneySymbol: 'usd',
   refreshTimeStamp: getTimeStamp(),
   autoRefreshTimeStamp: getTimeStamp(),
@@ -188,6 +191,9 @@ export const settingsSlice = createSlice({
         state.deviceUpdates[connectId].ble = undefined;
       }
     },
+    setEnableHaptics(state) {
+      state.enableHaptics = !state.enableHaptics;
+    },
   },
 });
 
@@ -210,6 +216,7 @@ export const {
   setUpdateDeviceSys,
   setDeviceUpdates,
   setDeviceDoneUpdate,
+  setEnableHaptics,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

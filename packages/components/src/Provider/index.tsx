@@ -21,6 +21,8 @@ export type UIProviderProps = {
    * default locale symbol
    */
   locale: LocaleSymbol;
+
+  hapticsEnabled: boolean;
 };
 
 const FontProvider: FC = ({ children }) => {
@@ -34,20 +36,26 @@ const FontProvider: FC = ({ children }) => {
   return <>{children}</>;
 };
 
-const Provider: FC<UIProviderProps> = ({ children, themeVariant, locale }) => {
+const Provider: FC<UIProviderProps> = ({
+  children,
+  themeVariant,
+  locale,
+  hapticsEnabled,
+}) => {
   const { width, height } = useWindowDimensions();
 
   const providerValue = useMemo(
     () => ({
       themeVariant,
       locale,
+      hapticsEnabled,
       device: {
         screenWidth: width,
         screenHeight: height,
         size: getSize(width),
       },
     }),
-    [themeVariant, locale, width, height],
+    [themeVariant, locale, width, height, hapticsEnabled],
   );
 
   const themeVar = useMemo(

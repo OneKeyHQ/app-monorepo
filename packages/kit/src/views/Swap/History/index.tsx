@@ -31,7 +31,6 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 import historyPNG from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import boxPNG from '@onekeyhq/kit/assets/box.png';
 
-import { setHaptics } from '../../../hooks';
 import {
   useActiveWalletAccount,
   useNetwork,
@@ -72,7 +71,6 @@ const ChainSelectorItem: FC<ChainSelectorItemProps> = ({
   );
   const onPress = useCallback(() => {
     setSelectNetworkId(value);
-    setHaptics();
   }, [setSelectNetworkId, value]);
   return (
     <Pressable

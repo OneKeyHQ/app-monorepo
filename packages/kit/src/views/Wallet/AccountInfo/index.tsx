@@ -24,7 +24,6 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -34,12 +33,10 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   SendRoutes,
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -110,7 +107,6 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       <Pressable
         mt={4}
         onPress={() => {
-          setHaptics();
           if (isHwWallet) {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Receive,
@@ -253,16 +249,6 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
             {intl.formatMessage({ id: 'action__buy' })}
           </Typography.CaptionStrong>
         </Box>
-      )}
-
-      {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
-        <IconButton
-          onPress={() => {
-            extUtils.openExpandTab({ routes: '' });
-          }}
-          ml={4}
-          name="ArrowsExpandOutline"
-        />
       )}
     </Box>
   );
