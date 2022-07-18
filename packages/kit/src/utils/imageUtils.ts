@@ -1,5 +1,3 @@
-import { Cloudinary } from '@cloudinary/url-gen';
-import { scale } from '@cloudinary/url-gen/actions/resize';
 import { PixelRatio } from 'react-native';
 
 import { CLOUNDINARY_NAME_KEY } from '../config';
