@@ -238,7 +238,14 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         </Center>
       );
     }
-  }, [requestState, intl, handleGetDeviceSigResponse, isVerticalLayout]);
+  }, [
+    requestState?.isLoading,
+    requestState?.success,
+    requestState.errorKey,
+    intl,
+    handleGetDeviceSigResponse,
+    isVerticalLayout,
+  ]);
 
   return (
     <Center h="100%" pb={6}>

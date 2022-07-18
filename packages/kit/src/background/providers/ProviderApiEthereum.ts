@@ -336,9 +336,9 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  eth_coinbase(request: IJsBridgeMessagePayload) {
-    // TODO some different with eth_accounts, check metamask code source
-    return this.eth_accounts(request);
+  async eth_coinbase(request: IJsBridgeMessagePayload): Promise<string | null> {
+    const accounts = await this.eth_accounts(request);
+    return accounts?.[0] || null;
   }
 
   @providerApiMethod()

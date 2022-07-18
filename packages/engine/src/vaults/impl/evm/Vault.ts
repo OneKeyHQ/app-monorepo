@@ -62,6 +62,7 @@ import {
   IRawTx,
   ISignCredentialOptions,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
@@ -146,42 +147,6 @@ export default class Vault extends VaultBase {
     return (await this.engine.providerManager.getClient(
       this.networkId,
     )) as Geth;
-  }
-
-  async simpleTransfer(
-    payload: {
-      to: string;
-      value: string;
-      tokenIdOnNetwork?: string;
-      extra?: { [key: string]: any };
-      gasPrice: string; // TODO remove gasPrice
-      gasLimit: string;
-    },
-    options: ISignCredentialOptions,
-  ) {
-    debugLogger.engine('EVM simpleTransfer', payload);
-    const { to, value, tokenIdOnNetwork, extra, gasLimit, gasPrice } = payload;
-    const { networkId } = this;
-    const network = await this.getNetwork();
-    const dbAccount = await this.getDbAccount();
-    // TODO what's this mean: correctDbAccountAddress
-    await this._correctDbAccountAddress(dbAccount);
-    const token = await this.engine.ensureTokenInDB(
-      networkId,
-      tokenIdOnNetwork ?? '',
-    );
-    const valueBN = new BigNumber(value);
-    const extraCombined = {
-      ...extra,
-      feeLimit: new BigNumber(gasLimit),
-      feePricePerUnit: new BigNumber(gasPrice),
-    };
-    // TODO buildUnsignedTx
-    const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
-      networkId,
-      fillUnsignedTx(network, dbAccount, to, valueBN, token, extraCombined),
-    );
-    return this.signAndSendTransaction(unsignedTx, options);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
@@ -501,7 +466,7 @@ export default class Vault extends VaultBase {
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxEvm,
     // TODO feeInfo
-  ): Promise<UnsignedTx> {
+  ): Promise<IUnsignedTxPro> {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const {
@@ -565,7 +530,7 @@ export default class Vault extends VaultBase {
     // TODO remove side effect here
     encodedTx.nonce = nextNonce;
 
-    return unsignedTx;
+    return { ...unsignedTx, encodedTx };
   }
 
   _toNormalAmount(value: string, decimals: number) {

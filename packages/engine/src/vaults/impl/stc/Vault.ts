@@ -4,10 +4,7 @@
 
 import { StcClient } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/starcoin';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -32,6 +29,7 @@ import {
   IFeeInfoUnit,
   IHistoryTx,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
@@ -167,7 +165,7 @@ export default class Vault extends VaultBase {
 
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxSTC,
-  ): Promise<UnsignedTx> {
+  ): Promise<IUnsignedTxPro> {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const network = await this.getNetwork();
     const value = new BigNumber(encodedTx.value);
@@ -198,7 +196,7 @@ export default class Vault extends VaultBase {
       unsignedTx,
     );
 
-    return unsignedTx;
+    return { ...unsignedTx, encodedTx };
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxSTC): Promise<IFeeInfo> {

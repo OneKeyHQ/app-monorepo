@@ -37,6 +37,7 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import {
@@ -250,10 +251,9 @@ export default class Vault extends VaultBase {
               const amount = new BigNumber(amountValue)
                 .shiftedBy(tokenInfo.decimals * -1)
                 .toFixed();
-              debugger;
               action.tokenTransfer = {
                 tokenInfo,
-                from: transferData.sender_id,
+                from: transferData.sender_id || nativeTx.signerId,
                 to: transferData.receiver_id,
                 amount,
                 amountValue,
@@ -407,7 +407,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve(txStr);
   }
 
-  async buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<UnsignedTx> {
+  async buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<IUnsignedTxPro> {
     const nativeTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as nearApiJs.transactions.Transaction;
@@ -421,12 +421,13 @@ export default class Vault extends VaultBase {
     nativeTx.nonce = accessKey?.nonce ?? 0;
     nativeTx.blockHash = baseDecode(blockHash);
 
-    const unsignedTx: UnsignedTx = {
+    const unsignedTx: IUnsignedTxPro = {
       inputs: [],
       outputs: [],
       payload: {
         nativeTx,
       },
+      encodedTx,
     };
     return unsignedTx;
   }
