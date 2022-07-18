@@ -85,7 +85,7 @@ const Protected = () => {
           >
             <Options
               title={intl.formatMessage({
-                id: 'form__password_free_payment',
+                id: 'form__create_transactions',
               })}
               isChecked={validationSetting.Payment}
               divider
