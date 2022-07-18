@@ -7,6 +7,10 @@ import {
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
+import { starcoin_types, utils } from '@starcoin/starcoin';
+
+import { arrayify } from '@ethersproject/bytes';
+
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
@@ -62,11 +66,48 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw deviceUtils.convertDeviceError(response.payload);
   }
 
-  signMessage(
+  async signMessage(
     _messages: any[],
     _options: ISignCredentialOptions,
   ): Promise<string[]> {
-    throw new NotImplemented();
+    const dbAccount = await this.getDbAccount();
+    const connectId = await this.getHardwareConnectId();
+    const chainId = await this.getNetworkChainId();
+
+    return Promise.all(
+      _messages.map(async (message) => {
+        let response;
+        const { type, message: messageHex } = message;
+        try {
+          response = await HardwareSDK.starcoinSignMessage(connectId, {
+            path: dbAccount.path,
+            messageHex,
+          });
+        } catch (error: any) {
+          console.error(error);
+          throw new OneKeyHardwareError(error);
+        }
+
+        if (!response.success) {
+          console.error(response.payload);
+          throw deviceUtils.convertDeviceError(response.payload);
+        }
+        const { public_key, signature } = response.payload;
+        if (type === 1) {
+          // personal sign
+          const msgBytes = arrayify(messageHex);
+          const signingMessage = new starcoin_types.SigningMessage(msgBytes);
+          const signedMessageHex = await utils.signedMessage.generateSignedMessage(
+            signingMessage,
+            parseInt(chainId),
+            public_key as string,
+            signature as string,
+          );
+          return signedMessageHex;
+        }
+        return signature as string;
+      })
+    );
   }
 
   async prepareAccounts(
