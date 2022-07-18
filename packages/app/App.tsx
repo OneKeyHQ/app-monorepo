@@ -8,11 +8,13 @@ import { AppRegistry, LogBox } from 'react-native';
 
 import React, { FC } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import PagingViewHeader from './src/views/PagingViewHeader';
+// import PagingViewHeader from './src/views/PagingViewHeader';
 import PagingViewContrainer from './src/views/PagingViewContrainer';
 import { Provider } from '@onekeyhq/kit';
 import { enableFreeze } from 'react-native-screens';
+import AccountInfo from '@onekeyhq/kit/src/views/Wallet/AccountInfo';
 
+import { BasicProvider } from '@onekeyhq/kit/src/provider';
 // github.com/software-mansion/react-native-screens#experimental-support-for-react-freeze
 // It uses the React Suspense mechanism to prevent
 // parts of the component tree from rendering,
@@ -25,7 +27,15 @@ LogBox.ignoreAllLogs();
 const App: FC = function () {
   return <Provider />;
 };
-AppRegistry.registerComponent('PagingHeaderView', () => PagingViewHeader);
+
+function NativeHeader() {
+  return (
+    <BasicProvider>
+      <AccountInfo />
+    </BasicProvider>
+  );
+}
+AppRegistry.registerComponent('PagingHeaderView', () => NativeHeader);
 AppRegistry.registerComponent(
   'PagingViewContrainer',
   () => PagingViewContrainer,

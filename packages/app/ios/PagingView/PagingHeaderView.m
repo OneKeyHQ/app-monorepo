@@ -24,6 +24,7 @@
     RCTRootView *view = [[RCTRootView alloc] initWithBridge:mainRootView.bridge
                           moduleName:@"PagingHeaderView"
                                           initialProperties: @{@"data":@"123"}];
+    view.frame = frame;
     
     [self addSubview:view];
   }

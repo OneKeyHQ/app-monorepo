@@ -12,8 +12,7 @@ import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
 import ThemeApp from './ThemeProvider';
 
-// TODO: detect network change & APP in background mode
-const KitProvider: FC = () => (
+export const BasicProvider: FC = ({ children }) => (
   <SWRConfig
     value={{
       refreshInterval: 0,
@@ -26,16 +25,21 @@ const KitProvider: FC = () => (
   >
     <ReduxProvider store={store}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeApp>
-          <AppLoading>
-            <ErrorBoundary>
-              <NavigationApp />
-            </ErrorBoundary>
-          </AppLoading>
-        </ThemeApp>
+        <ThemeApp>{children}</ThemeApp>
       </GestureHandlerRootView>
     </ReduxProvider>
   </SWRConfig>
+);
+
+// TODO: detect network change & APP in background mode
+const KitProvider: FC = () => (
+  <BasicProvider>
+    <AppLoading>
+      <ErrorBoundary>
+        <NavigationApp />
+      </ErrorBoundary>
+    </AppLoading>
+  </BasicProvider>
 );
 
 export default KitProvider;
