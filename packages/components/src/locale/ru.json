@@ -286,6 +286,7 @@
   "content__more_details": "Подробнее",
   "content__no_need_to_enter_a_password_for_each_transaction": "2. Нет необходимости вводить пароль для каждой транзакции.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "Пожалуйста, не используйте возможность оплаты без пароля для крупных активов или общественных телефонов, поскольку программное обеспечение не будет нести ответственность за любые потери активов, вызванные дефектами биометрии во время использования.",
+  "content__no_password_until_next_locking": "До следующей блокировки пароль не требуется",
   "content__no_results": "Нет результатов",
   "content__no_results_desc": "Искомый токен не найден",
   "content__nonce": "Nonce",

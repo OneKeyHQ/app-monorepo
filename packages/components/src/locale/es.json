@@ -286,6 +286,7 @@
   "content__more_details": "Más detalles",
   "content__no_need_to_enter_a_password_for_each_transaction": "2. No es necesario introducir una contraseña para cada transacción.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "Por favor, no utilice la opción de pago sin contraseña para activos importantes o teléfonos públicos, ya que el software no se hará responsable de las pérdidas de activos causadas por defectos biométricos durante su uso.",
+  "content__no_password_until_next_locking": "Hasta el próximo cierre, no se requiere contraseña",
   "content__no_results": "No hay resultados",
   "content__no_results_desc": "No se ha encontrado la ficha que buscaba",
   "content__nonce": "Nonce",

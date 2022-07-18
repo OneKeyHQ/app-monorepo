@@ -286,6 +286,7 @@
   "content__more_details": "अधिक जानकारी",
   "content__no_need_to_enter_a_password_for_each_transaction": "2. प्रत्येक लेनदेन के लिए पासवर्ड दर्ज करने की आवश्यकता नहीं है।",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "कृपया प्रमुख संपत्तियों या सार्वजनिक फोन के लिए पासवर्ड-मुक्त भुगतान विकल्प का उपयोग न करें, क्योंकि उपयोग के दौरान बायोमेट्रिक दोषों के कारण होने वाली किसी भी संपत्ति के नुकसान के लिए सॉफ़्टवेयर को जिम्मेदार नहीं ठहराया जाएगा।",
+  "content__no_password_until_next_locking": "अगली लॉकिंग तक, किसी पासवर्ड की आवश्यकता नहीं है",
   "content__no_results": "कोई परिणाम नहीं",
   "content__no_results_desc": "आपके द्वारा खोजा गया टोकन नहीं मिला",
   "content__nonce": "अस्थायी रूप से",

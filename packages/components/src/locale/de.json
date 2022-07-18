@@ -286,6 +286,7 @@
   "content__more_details": "Mehr Details",
   "content__no_need_to_enter_a_password_for_each_transaction": "2. Sie müssen nicht für jede Transaktion ein Passwort eingeben.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "Bitte nutzen Sie die passwortfreie Zahlungsoption nicht für größere Vermögenswerte oder öffentliche Telefone, da die Software nicht für Verluste von Vermögenswerten verantwortlich gemacht werden kann, die durch biometrische Defekte während der Nutzung verursacht werden.",
+  "content__no_password_until_next_locking": "Bis zur nächsten Sperrung ist kein Passwort erforderlich.",
   "content__no_results": "Keine Ergebnisse",
   "content__no_results_desc": "Das gesuchte Token wurde nicht gefunden",
   "content__nonce": "Nonce",

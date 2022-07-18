@@ -286,6 +286,7 @@
   "content__more_details": "更多详情",
   "content__no_need_to_enter_a_password_for_each_transaction": "无需为每笔交易输入密码",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "但是，大额资产和公用手机请勿开启此功能",
+  "content__no_password_until_next_locking": "直到下次锁定前，无需输入密码",
   "content__no_results": "暂无结果",
   "content__no_results_desc": "没有找到搜索的代币",
   "content__nonce": "Nonce",

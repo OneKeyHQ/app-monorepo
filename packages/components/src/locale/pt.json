@@ -286,6 +286,7 @@
   "content__more_details": "Mais detalhes",
   "content__no_need_to_enter_a_password_for_each_transaction": "Nenhuma senha é necessária.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "No entanto, esse recurso não deve ser ativado para grandes ativos ou telefones públicos.",
+  "content__no_password_until_next_locking": "Até ao próximo bloqueio, não é necessária qualquer palavra-passe",
   "content__no_results": "Sem resultados",
   "content__no_results_desc": "O token que você pesquisou não foi encontrado",
   "content__nonce": "Nonce",

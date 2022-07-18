@@ -286,6 +286,7 @@
   "content__more_details": "รายละเอียดเพิ่มเติม",
   "content__no_need_to_enter_a_password_for_each_transaction": "2. ไม่จำเป็นต้องป้อนรหัสผ่านสำหรับแต่ละธุรกรรม",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "โปรดอย่าใช้ตัวเลือกการชำระเงินแบบไม่ใช้รหัสผ่านสำหรับทรัพย์สินหลักหรือโทรศัพท์สาธารณะ เนื่องจากซอฟต์แวร์จะไม่รับผิดชอบต่อการสูญเสียทรัพย์สินใดๆ ที่เกิดจากข้อบกพร่องด้านไบโอเมตริกขณะใช้งาน",
+  "content__no_password_until_next_locking": "จนกว่าจะถึงการล็อกครั้งถัดไป ไม่จำเป็นต้องใช้รหัสผ่าน",
   "content__no_results": "ไม่มีผลลัพธ์",
   "content__no_results_desc": "ไม่พบโทเค็นที่คุณค้นหา",
   "content__nonce": "น็อนเซ่",

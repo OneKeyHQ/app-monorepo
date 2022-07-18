@@ -286,6 +286,7 @@
   "content__more_details": "More details",
   "content__no_need_to_enter_a_password_for_each_transaction": "No Password is Required.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "However, this feature should not be enabled for major assets or public phones.",
+  "content__no_password_until_next_locking": "Until the next locking, no password is required",
   "content__no_results": "No Results",
   "content__no_results_desc": "The token you searched for was not found",
   "content__nonce": "Nonce",
