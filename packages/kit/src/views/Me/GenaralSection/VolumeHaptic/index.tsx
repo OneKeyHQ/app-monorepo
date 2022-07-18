@@ -62,7 +62,7 @@ const VolumeHaptic = () => {
 
   return (
     <Box w="full" h="full" bg="background-default" p="4" maxW={768} mx="auto">
-      <Box w="full" mt="6">
+      <Box w="full">
         <Box
           mt="2"
           borderRadius="12"
