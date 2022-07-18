@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
+import { Keyboard, NativeModules } from 'react-native';
 
 import {
   Box,
@@ -19,6 +19,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../hooks';
 import { release } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
 import { wait } from '../../utils/helper';
@@ -28,21 +29,32 @@ const ForgetPasswordButton = () => {
   const intl = useIntl();
   const [input, setInput] = useState('');
   const [visible, setVisible] = useState(false);
+  const { resetToWelcome } = useNavigationActions();
   const onReset = useCallback(async () => {
+    if (platformEnv.isNativeIOS) {
+      NativeModules.SplashScreenManager.show();
+    }
+    resetToWelcome();
     await backgroundApiProxy.serviceApp.resetApp();
     setVisible(false);
-  }, []);
+  }, [resetToWelcome]);
   return (
     <>
       <Box justifyContent="center" alignItems="center" pb="10">
-        <Typography.Body2 color="text-subdued" mb="5 ">
-          {intl.formatMessage({ id: 'action__forget_password' })}
-        </Typography.Body2>
-        <Pressable onPress={() => setVisible(true)} flexDirection="row">
-          <Typography.Body1Strong color="interactive-default" mr="2">
-            {intl.formatMessage({ id: 'form__reset_app' })}
-          </Typography.Body1Strong>
-          <Icon color="interactive-default" name="ArrowNarrowRightSolid" />
+        <Typography.Caption color="text-subdued" mb="4">
+          {intl.formatMessage({
+            id: 'content__no_password_until_next_locking',
+          })}
+        </Typography.Caption>
+        <Pressable
+          onPress={() => setVisible(true)}
+          flexDirection="row"
+          py="1.5"
+          px="2.5"
+        >
+          <Typography.CaptionStrong color="interactive-default" mr="2">
+            {intl.formatMessage({ id: 'action__forget_password' })}
+          </Typography.CaptionStrong>
         </Pressable>
       </Box>
       <Dialog
@@ -117,7 +129,8 @@ export const AppStateUnlock = () => {
     }
   }, [password, intl]);
 
-  const onOk = useCallback(() => {
+  const onOk = useCallback(async (pw: string) => {
+    await backgroundApiProxy.servicePassword.savePassword(pw);
     backgroundApiProxy.dispatch(unlock());
     backgroundApiProxy.dispatch(release());
   }, []);

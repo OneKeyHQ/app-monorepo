@@ -2,13 +2,7 @@ import React, { FC, memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  HStack,
-  Icon,
-  Pressable,
-  Typography,
-  useToast,
-} from '@onekeyhq/components';
+import { Button, useToast } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
@@ -46,8 +40,10 @@ const RightAccountCreateButton: FC<Props> = ({
   if (selectedNetworkId === AllNetwork) return null;
 
   return (
-    <Pressable
-      disabled={selectedNetworkId === AllNetwork}
+    <Button
+      leftIconName="UserAddSolid"
+      size="xl"
+      isDisabled={selectedNetworkId === AllNetwork}
       onPress={() => {
         if (!activeWallet || isLoading) return;
         const networkSettings = activeNetwork?.settings;
@@ -99,24 +95,8 @@ const RightAccountCreateButton: FC<Props> = ({
         });
       }}
     >
-      {({ isHovered }) => (
-        <HStack
-          py={3}
-          borderRadius="xl"
-          space={3}
-          borderWidth={1}
-          borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
-          borderStyle="dashed"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Icon name="UserAddOutline" />
-          <Typography.Body2Strong color="text-subdued">
-            {intl.formatMessage({ id: 'action__add_account' })}
-          </Typography.Body2Strong>
-        </HStack>
-      )}
-    </Pressable>
+      {intl.formatMessage({ id: 'action__add_account' })}
+    </Button>
   );
 };
 

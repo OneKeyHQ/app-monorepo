@@ -69,13 +69,6 @@ const Protected = () => {
           })}
         </Typography.Caption>
         <Box w="full" mt="6">
-          <Box>
-            <Typography.Subheading color="text-subdued">
-              {intl.formatMessage({
-                id: 'form__use_for_uppercase',
-              })}
-            </Typography.Subheading>
-          </Box>
           <Box
             mt="2"
             borderRadius="12"
