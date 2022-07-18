@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 
-import { OverlayProvider } from '@react-native-aria/overlays';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { DialogManager } from '@onekeyhq/components';
@@ -152,8 +151,8 @@ const modalStackScreenList = [
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
-const ModalStackNavigator = () => {
-  let dom = (
+const ModalStackNavigator = () => (
+  <>
     <ModalStack.Navigator
       screenOptions={{
         headerShown: false,
@@ -167,20 +166,11 @@ const ModalStackNavigator = () => {
         />
       ))}
     </ModalStack.Navigator>
-  );
-  if (!platformEnv.isRuntimeBrowser) {
-    dom = <OverlayProvider>{dom}</OverlayProvider>;
-  }
-
-  return (
-    <>
-      {dom}
-      {/* Native Modal must register another for root container */}
-      {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
-      {platformEnv.isNativeIOS && <DialogManager.Holder />}
-      {platformEnv.isNativeIOS && <HardwarePopup />}
-    </>
-  );
-};
+    {/* Native Modal must register another for root container */}
+    {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
+    {platformEnv.isNativeIOS && <DialogManager.Holder />}
+    {platformEnv.isNativeIOS && <HardwarePopup />}
+  </>
+);
 
 export default memo(ModalStackNavigator);
