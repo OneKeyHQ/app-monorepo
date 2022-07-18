@@ -77,9 +77,11 @@ const AccountSelectorChildren: FC<{
 
   const activeWallet = useMemo(() => {
     const wallet =
-      wallets.find((_wallet) => _wallet.id === selectedWallet?.id) ?? null;
+      wallets.find((_wallet) => _wallet.id === selectedWallet?.id) ??
+      wallets.find((_wallet) => _wallet.id === defaultSelectedWallet?.id) ??
+      null;
     return wallet;
-  }, [selectedWallet?.id, wallets]);
+  }, [selectedWallet?.id, wallets, defaultSelectedWallet]);
 
   const refreshAccounts = useCallback(
     async (walletId?: string) => {
