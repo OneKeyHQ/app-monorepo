@@ -34,29 +34,13 @@ const PriceChart: React.FC<PriceChartProps> = ({
       let latestPriceData: MarketApiData;
       if (!dataMap.current) {
         setIsFetching(true);
-        dataMap.current = await Promise.all(
-          TIMEOPTIONS_VALUE.map((days) =>
-            fetchHistoricalPrices({
-              contract,
-              platform,
-              days,
-              vs_currency: selectedFiatMoneySymbol,
-            }),
-          ),
-        );
-        const dayData = dataMap.current[0];
-        if (dayData.length) {
-          latestPriceData = dayData[dayData.length - 1];
-          for (let i = 1; i < dataMap.current.length; i += 1) {
-            let otherData = dataMap.current[i];
-            if (otherData.length) {
-              // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
-              otherData = otherData.filter((d) => d[0] < latestPriceData[0]);
-              otherData.push(latestPriceData);
-              dataMap.current[i] = otherData;
-            }
-          }
-        }
+        const dayData = await fetchHistoricalPrices({
+          contract,
+          platform,
+          days: '1',
+          vs_currency: selectedFiatMoneySymbol,
+        });
+        dataMap.current = [dayData];
       }
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
