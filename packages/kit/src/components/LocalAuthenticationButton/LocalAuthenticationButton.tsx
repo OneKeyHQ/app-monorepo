@@ -32,10 +32,8 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const loading = useRef(false);
   const toast = useToast();
   const appState = useRef(AppState.currentState);
-  const enableLocalAuthentication = useAppSelector(
-    (s) => s.settings.enableLocalAuthentication,
-  );
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
+  const handOperatedLock = useAppSelector((s) => s.data.handOperatedLock);
   const { localAuthenticate, getPassword } = useLocalAuthentication();
 
   const onLocalAuthenticate = useCallback(async () => {
@@ -99,7 +97,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
 
   useLayoutEffect(() => {
     async function main() {
-      if (!enableLocalAuthentication) {
+      if (handOperatedLock) {
         return;
       }
       await wait(500);
