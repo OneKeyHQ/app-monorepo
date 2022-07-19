@@ -28,6 +28,7 @@ import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
+import OnboardingGallery from '@onekeyhq/kit/src/views/Components/stories/Onboarding/index';
 import PageActionsGallery from '@onekeyhq/kit/src/views/Components/stories/PageActions';
 import PinCodeGallery from '@onekeyhq/kit/src/views/Components/stories/PinCode';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
@@ -108,6 +109,7 @@ export enum StackRoutes {
   ComponentPopover = 'component/Popover',
   ComponentPriceChart = 'component/PriceChart',
   ComponentTypeWriter = 'component/TypeWriter',
+  ComponentOnboarding = 'component/Onboarding',
 }
 
 export type StackBasicRoutesParams = {
@@ -163,6 +165,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentPopover]: undefined;
   [StackRoutes.ComponentPriceChart]: undefined;
   [StackRoutes.ComponentTypeWriter]: undefined;
+  [StackRoutes.ComponentOnboarding]: undefined;
 };
 
 export const stackScreenList = [
@@ -196,6 +199,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentMarkdown, component: MarkdownGallery },
   { name: StackRoutes.ComponentDialog, component: DialogGallery },
   { name: StackRoutes.ComponentPageActions, component: PageActionsGallery },
+  { name: StackRoutes.ComponentOnboarding, component: OnboardingGallery },
   { name: StackRoutes.ComponentSortableList, component: SortableListGallery },
   { name: StackRoutes.ComponentTabs, component: TabsGallery },
   { name: StackRoutes.ComponentSegmentedControl, component: SegmentedControl },
@@ -252,6 +256,7 @@ const DevScreen = () => {
     <DevStack.Navigator>
       <DevStack.Group
         screenOptions={{
+          headerShown: false,
           headerBackTitle: '',
           headerTitleAlign: 'center',
           headerStyle: {

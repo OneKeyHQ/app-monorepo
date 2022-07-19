@@ -81,6 +81,7 @@ import CogOutline from "./react/outline/Cog";
 import CollectionOutline from "./react/outline/Collection";
 import ColorSwatchOutline from "./react/outline/ColorSwatch";
 import CompassOutline from "./react/outline/Compass";
+import ConnectOutline from "./react/outline/Connect";
 import CreditCardOutline from "./react/outline/CreditCard";
 import CubeOutline from "./react/outline/Cube";
 import CubeTransparentOutline from "./react/outline/CubeTransparent";
@@ -591,6 +592,7 @@ export type ICON_NAMES =
   | "CollectionOutline"
   | "ColorSwatchOutline"
   | "CompassOutline"
+  | "ConnectOutline"
   | "CreditCardOutline"
   | "CubeOutline"
   | "CubeTransparentOutline"
@@ -1101,6 +1103,7 @@ export default {
   CollectionOutline: CollectionOutline,
   ColorSwatchOutline: ColorSwatchOutline,
   CompassOutline: CompassOutline,
+  ConnectOutline: ConnectOutline,
   CreditCardOutline: CreditCardOutline,
   CubeOutline: CubeOutline,
   CubeTransparentOutline: CubeTransparentOutline,
