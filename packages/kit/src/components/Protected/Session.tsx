@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Center, Spinner } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
@@ -25,7 +26,11 @@ const Session: FC<SessionProps> = ({ field, onOk }) => {
     async function load() {
       const data = await backgroundApiProxy.servicePassword.getPassword();
       if (data) {
-        setTimeout(() => onOk?.(data, false), 500);
+        if (platformEnv.isNative) {
+          setTimeout(() => onOk?.(data, false), 500);
+        } else {
+          onOk?.(data, false);
+        }
       }
       setHasPw(!!data);
       setLoaded(true);
