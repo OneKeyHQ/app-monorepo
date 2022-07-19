@@ -117,6 +117,11 @@ const RecoverAccounts: FC = () => {
   const [isValid, setIsValid] = useState(false);
   const isFetchingData = useRef(false);
   const activeAccounts = useRef<Account[]>([]);
+  const obj = useState(() => {
+    let resolve: () => void = () => {};
+    const p = new Promise<void>((fn) => (resolve = fn));
+    return { p, resolve };
+  })[0];
 
   useEffect(() => {
     async function refreshActiveAccounts() {
@@ -125,11 +130,12 @@ const RecoverAccounts: FC = () => {
           wallet.accounts,
           network,
         );
+        obj.resolve();
       }
       return activeAccounts;
     }
     refreshActiveAccounts();
-  }, [network, wallet]);
+  }, [network, wallet, obj]);
 
   const getData = useCallback(
     (page: number, pageSize: number) => {
@@ -234,11 +240,14 @@ const RecoverAccounts: FC = () => {
   const pageSize = 10;
   const needGetMoreData =
     flatListData.length <= currentPage * pageSize && !searchEnded;
+
   useEffect(() => {
     if (needGetMoreData) {
-      getData(currentPage, pageSize);
+      obj.p.then(() => {
+        getData(currentPage, pageSize);
+      });
     }
-  }, [currentPage, getData, needGetMoreData]);
+  }, [currentPage, getData, needGetMoreData, obj]);
 
   /**
    * if the hardware method is still being called when the page jumps,
