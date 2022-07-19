@@ -4,7 +4,11 @@ import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import { passwordSet, release } from '../../store/reducers/data';
+import {
+  passwordSet,
+  release,
+  setHandOperatedLock,
+} from '../../store/reducers/data';
 import {
   setEnableAppLock,
   setEnableLocalAuthentication,
@@ -187,10 +191,24 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  lock() {
+  lock(handOperated = false) {
     const { dispatch, servicePassword } = this.backgroundApi;
     servicePassword.clearData();
+    dispatch(setHandOperatedLock(handOperated));
     dispatch(lock());
+  }
+
+  @backgroundMethod()
+  async unlock(password: string): Promise<boolean> {
+    const { dispatch, servicePassword } = this.backgroundApi;
+    const isOk = await servicePassword.verifyPassword(password);
+    if (isOk) {
+      await servicePassword.savePassword(password);
+      dispatch(setHandOperatedLock(false));
+      dispatch(unlock());
+      dispatch(release());
+    }
+    return isOk;
   }
 }
 
