@@ -10,6 +10,7 @@ import { Box, Center, Spinner, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { fetchCurrencies } from '../views/FiatPay/Service';
 
@@ -72,7 +73,7 @@ const AppLoading: FC = ({ children }) => {
   return (
     <Box flex={1} bg={bg}>
       <AnimatedSplash
-        translucent
+        translucent={!platformEnv.isNativeAndroid}
         isLoaded={initDataReady}
         // eslint-disable-next-line global-require
         logoImage={require('../../assets/splash.png')}
