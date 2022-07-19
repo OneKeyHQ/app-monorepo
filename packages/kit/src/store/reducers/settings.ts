@@ -191,8 +191,8 @@ export const settingsSlice = createSlice({
         state.deviceUpdates[connectId].ble = undefined;
       }
     },
-    setEnableHaptics(state) {
-      state.enableHaptics = !state.enableHaptics;
+    setEnableHaptics(state, action: PayloadAction<boolean>) {
+      state.enableHaptics = action.payload;
     },
   },
 });

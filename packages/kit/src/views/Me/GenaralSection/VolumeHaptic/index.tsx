@@ -76,7 +76,7 @@ const VolumeHaptic = () => {
             })}
             isChecked={enableHaptics}
             onToggle={() => {
-              dispatch(setEnableHaptics());
+              dispatch(setEnableHaptics(!enableHaptics));
             }}
           />
         </Box>
