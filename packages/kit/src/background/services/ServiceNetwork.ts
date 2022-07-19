@@ -5,7 +5,10 @@ import {
   Network,
   UpdateNetworkParams,
 } from '@onekeyhq/engine/src/types/network';
-
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   GeneralInitialState,
   changeActiveNetwork,
@@ -61,6 +64,7 @@ class ServiceNetwork extends ServiceBase {
       },
     );
     this.backgroundApi.walletConnect.notifySessionChanged();
+    appEventBus.emit(AppEventBusNames.NetworkChanged);
   }
 
   @backgroundMethod()
