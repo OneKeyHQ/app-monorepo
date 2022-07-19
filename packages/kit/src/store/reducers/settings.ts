@@ -62,7 +62,7 @@ const initialState: SettingsState = {
   instanceId: uuid.v4() as string,
   enableAppLock: false,
   enableLocalAuthentication: false,
-  appLockDuration: 5,
+  appLockDuration: 240,
   enableHaptics: defaultHapticStatus,
   selectedFiatMoneySymbol: 'usd',
   refreshTimeStamp: getTimeStamp(),
