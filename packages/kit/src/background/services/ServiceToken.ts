@@ -2,6 +2,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import {
   TokenInitialState,
   setAccountTokens,
@@ -17,14 +18,19 @@ import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 export default class ServiceToken extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
-    appEventBus.on(AppEventBusNames.NetworkChanged, this.refreshTokenBalance.bind(this));
+    appEventBus.on(
+      AppEventBusNames.NetworkChanged,
+      this.refreshTokenBalance.bind(this),
+    );
   }
 
   refreshTokenBalance() {
     const { appSelector } = this.backgroundApi;
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
-    this.fetchTokenBalance({ activeAccountId, activeNetworkId })
+    if (activeAccountId && activeNetworkId) {
+      this.fetchTokenBalance({ activeAccountId, activeNetworkId });
+    }
   }
 
   @backgroundMethod()

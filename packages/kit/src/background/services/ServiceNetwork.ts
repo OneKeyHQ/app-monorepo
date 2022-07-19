@@ -9,6 +9,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import {
   GeneralInitialState,
   changeActiveNetwork,
