@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { getDeviceUUID } from '@onekeyfe/hd-core';
+import { getDeviceLabel, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -121,6 +121,25 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         <Container.Item
           titleColor="text-default"
           describeColor="text-subdued"
+          title={intl.formatMessage({ id: 'modal__device_name' })}
+          describe={deviceFeatures ? getDeviceLabel(deviceFeatures) : ''}
+          hasArrow
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.OnekeyHardware,
+              params: {
+                screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
+                params: {
+                  walletId,
+                },
+              },
+            });
+          }}
+        />
+
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
           title={intl.formatMessage({ id: 'content__serial_number' })}
           describe={deviceFeatures ? getDeviceUUID(deviceFeatures) : '-'}
         />
@@ -146,6 +165,15 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
             id: 'content__bluetooth_firmware_version',
           })}
           describe={deviceFeatures?.ble_ver ?? '-'}
+        />
+
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title={intl.formatMessage({
+            id: 'modal__homescreen',
+          })}
+          hasArrow
         />
       </Container.Box>
 
