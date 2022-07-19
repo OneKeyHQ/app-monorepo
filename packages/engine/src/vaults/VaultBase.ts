@@ -12,10 +12,12 @@ import BigNumber from 'bignumber.js';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { InvalidAddress, InvalidTokenAddress, NotImplemented } from '../errors';
-import { Account } from '../types/account';
+import { InvalidAddress, InvalidTokenAddress, NotImplemented, PendingQueueTooLong } from '../errors';
+import { Account, DBAccount } from '../types/account';
 import { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import { WalletType } from '../types/wallet';
+import { HISTORY_CONSTS } from '../constants';
+import simpleDb from '../dbs/simple/simpleDb';
 
 import {
   IApproveInfo,
@@ -92,7 +94,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     // Generic private key test, override if needed.
     return Promise.resolve(
       this.settings.importedAccountEnabled &&
-        /^(0x)?[0-9a-zA-Z]{64}$/.test(input),
+      /^(0x)?[0-9a-zA-Z]{64}$/.test(input),
     );
   }
 
@@ -100,7 +102,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     // Generic address test, override if needed.
     return Promise.resolve(
       this.settings.watchingAccountEnabled &&
-        (await this.engineProvider.verifyAddress(input)).isValid,
+      (await this.engineProvider.verifyAddress(input)).isValid,
     );
   }
 
@@ -383,7 +385,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
     // TODO base.mergeDecodedTx with signedTx.rawTx
     // must include accountId here, so that two account wont share same tx history
-    const historyId = `${this.networkId}_${txid}_${this.accountId}`;
+    const historyId = `${ this.networkId }_${ txid }_${ this.accountId }`;
     let historyTx: IHistoryTx = {
       id: historyId,
 
@@ -438,5 +440,38 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       return IDecodedTxDirection.IN;
     }
     return IDecodedTxDirection.OTHER;
+  }
+
+  async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
+    const onChainNonce =
+      (
+        await this.engine.providerManager.getAddresses(networkId, [
+          dbAccount.address,
+        ])
+      )[0]?.nonce ?? 0;
+
+    // TODO: Although 100 history items should be enough to cover all the
+    // pending transactions, we need to find a more reliable way.
+    const historyItems = await this.engine.getHistory(
+      networkId,
+      dbAccount.id,
+      undefined,
+      false,
+    );
+    const maxPendingNonce =
+      (await simpleDb.history.getMaxPendingNonce({
+        accountId: this.accountId,
+        networkId,
+      })) || 0;
+    const nextNonce = Math.max(maxPendingNonce + 1, onChainNonce);
+
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
   }
 }

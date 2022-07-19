@@ -15,6 +15,7 @@ import BigNumber from 'bignumber.js';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
+
 import { DBSimpleAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
@@ -217,6 +218,11 @@ export default class Vault extends VaultBase {
     const value = new BigNumber(encodedTx.value);
 
     console.log(encodedTx.value, value.toNumber())
+    const nonce = encodedTx.nonce;
+    const nonceBN = new BigNumber(nonce ?? 'NaN');
+    const nextNonce: number = !nonceBN.isNaN()
+      ? nonceBN.toNumber()
+      : await this.getNextNonce(network.id, dbAccount);
     const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
       this.networkId,
       {
@@ -224,8 +230,7 @@ export default class Vault extends VaultBase {
           { address: dbAccount.address, value, publicKey: dbAccount.pub },
         ],
         outputs: encodedTx.to ? [{ address: encodedTx.to, value }] : [],
-        // TODO: pending support
-        // nonce: encodedTx.nonce !== 'undefined' ? decodedTx.nonce : await this.getNextNonce(this.networkId, dbAccount),
+        nonce: nextNonce,
         feePricePerUnit: new BigNumber(
           encodedTx.gasPrice || 1,
         ),
@@ -259,7 +264,6 @@ export default class Vault extends VaultBase {
     // avoid redundant network requests.
     const encodedTxWithFakePriceAndNonce = {
       ...encodedTx,
-      nonce: 1,
       gasPrice: '1',
     };
 
