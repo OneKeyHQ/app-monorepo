@@ -177,6 +177,7 @@ export const GenaralSection = () => {
                   title={intl.formatMessage({
                     id: 'form__fiat_currency',
                   })}
+                  hideDivider={!supportedHaptics}
                   activeOption={activeOption}
                   iconName="CurrencyDollarOutline"
                 />
