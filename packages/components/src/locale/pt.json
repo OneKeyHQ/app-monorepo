@@ -762,7 +762,7 @@
   "msg__hardware_bluetooth_not_paired_error": "O dispositivo Bluetooth não está emparelhado.",
   "msg__hardware_bluetooth_requires_permission_error": "Autorização Bluetooth necessária",
   "msg__hardware_bridge_network_error": "Falha na comunicação do hardware, conecte e desconecte o USB e tente novamente",
-  "msg__hardware_bridge_timeout": "Tempo limite de comunicação do OneKey Bridge, reinicie e tente novamente",
+  "msg__hardware_bridge_timeout": "Tempo limite de comunicação do OneKey Bridge, tente novamente",
   "msg__hardware_connect_timeout_error": "Tempo limite de ligação do dispositivo",
   "msg__hardware_default_error": "Falha na comunicação do hardware, tente novamente.",
   "msg__hardware_device_not_find_error": "Hardware não encontrado.",

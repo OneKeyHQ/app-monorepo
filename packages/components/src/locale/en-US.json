@@ -762,7 +762,7 @@
   "msg__hardware_bluetooth_not_paired_error": "Bluetooth Unpaired",
   "msg__hardware_bluetooth_requires_permission_error": "Bluetooth Permission Required",
   "msg__hardware_bridge_network_error": "Hardware communication failed, please plug and unplug the USB and try again",
-  "msg__hardware_bridge_timeout": "OneKey Bridge communication timeout, please reboot and try again",
+  "msg__hardware_bridge_timeout": "OneKey Bridge communication timeout, please try again",
   "msg__hardware_connect_timeout_error": "Connection timed out.",
   "msg__hardware_default_error": "Hardware communication failed. Please try again.",
   "msg__hardware_device_not_find_error": "Device not found.",

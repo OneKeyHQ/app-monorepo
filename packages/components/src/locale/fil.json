@@ -762,7 +762,7 @@
   "msg__hardware_bluetooth_not_paired_error": "Hindi naipares ang bluetooth device.",
   "msg__hardware_bluetooth_requires_permission_error": "Kinakailangan ang pahintulot sa Bluetooth",
   "msg__hardware_bridge_network_error": "Nabigo ang komunikasyon sa hardware, mangyaring isaksak at i-unplug ang USB at subukang muli",
-  "msg__hardware_bridge_timeout": "Timeout ng komunikasyon ng OneKey Bridge, mangyaring i-reboot at subukang muli",
+  "msg__hardware_bridge_timeout": "Timeout ng komunikasyon ng OneKey Bridge, pakisubukang muli",
   "msg__hardware_connect_timeout_error": "Oras ng Koneksiyon ng Kagamitan",
   "msg__hardware_default_error": "Nabigo ang komunikasyon sa hardware, pakisubukang muli.",
   "msg__hardware_device_not_find_error": "Hindi natagpuan ang hardware.",

@@ -762,7 +762,7 @@
   "msg__hardware_bluetooth_not_paired_error": "蓝牙未配对",
   "msg__hardware_bluetooth_requires_permission_error": "需要蓝牙权限",
   "msg__hardware_bridge_network_error": "硬件通信失败，请插拔USB再试",
-  "msg__hardware_bridge_timeout": "OneKey Bridge 通信超时，请重启后重试",
+  "msg__hardware_bridge_timeout": "OneKey Bridge 通信超时，请重试",
   "msg__hardware_connect_timeout_error": "连接超时",
   "msg__hardware_default_error": "硬件通信失败，请重试",
   "msg__hardware_device_not_find_error": "未找到设备",

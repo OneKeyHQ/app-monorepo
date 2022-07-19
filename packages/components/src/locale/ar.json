@@ -762,7 +762,7 @@
   "msg__hardware_bluetooth_not_paired_error": "لا يتم إقران جهاز Bluetooth.",
   "msg__hardware_bluetooth_requires_permission_error": "مطلوب إذن بلوتوث",
   "msg__hardware_bridge_network_error": "فشل اتصال الأجهزة ، يرجى توصيل USB وفصله وحاول مرة أخرى",
-  "msg__hardware_bridge_timeout": "انتهت مهلة اتصال OneKey Bridge ، يرجى إعادة التشغيل والمحاولة مرة أخرى",
+  "msg__hardware_bridge_timeout": "انتهت مهلة اتصال OneKey Bridge ، يرجى المحاولة مرة أخرى",
   "msg__hardware_connect_timeout_error": "مهلة اتصال الجهاز",
   "msg__hardware_default_error": "فشل الاتصال بالجهاز ، يرجى المحاولة مرة أخرى.",
   "msg__hardware_device_not_find_error": "لم يتم العثور على الأجهزة.",

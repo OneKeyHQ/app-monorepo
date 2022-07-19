@@ -762,7 +762,7 @@
   "msg__hardware_bluetooth_not_paired_error": "Устройство Bluetooth не сопряжено.",
   "msg__hardware_bluetooth_requires_permission_error": "Требуется разрешение Bluetooth",
   "msg__hardware_bridge_network_error": "Аппаратная связь не удалась, пожалуйста, подключите и отключите USB и повторите попытку",
-  "msg__hardware_bridge_timeout": "Тайм-аут связи OneKey Bridge. Перезагрузите компьютер и повторите попытку.",
+  "msg__hardware_bridge_timeout": "Тайм-аут связи OneKey Bridge, повторите попытку.",
   "msg__hardware_connect_timeout_error": "Таймаут подключения устройства",
   "msg__hardware_default_error": "Аппаратная связь не удалась, попробуйте еще раз.",
   "msg__hardware_device_not_find_error": "Оборудование не найдено.",

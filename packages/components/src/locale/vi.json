@@ -762,7 +762,7 @@
   "msg__hardware_bluetooth_not_paired_error": "Thiết bị Bluetooth không được ghép nối.",
   "msg__hardware_bluetooth_requires_permission_error": "Yêu cầu quyền Bluetooth",
   "msg__hardware_bridge_network_error": "Giao tiếp phần cứng không thành công, vui lòng cắm và rút USB và thử lại",
-  "msg__hardware_bridge_timeout": "OneKey Bridge hết thời gian chờ giao tiếp, vui lòng khởi động lại và thử lại",
+  "msg__hardware_bridge_timeout": "OneKey Bridge hết thời gian chờ giao tiếp, vui lòng thử lại",
   "msg__hardware_connect_timeout_error": "Hết thời gian chờ kết nối thiết bị",
   "msg__hardware_default_error": "Giao tiếp phần cứng không thành công, vui lòng thử lại.",
   "msg__hardware_device_not_find_error": "Không tìm thấy phần cứng.",
