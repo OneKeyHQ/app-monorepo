@@ -31,7 +31,7 @@ export async function getAddressHistoryFromExplorer(
   if (typeof urlBase === 'undefined') {
     return Promise.resolve([]);
   }
-  const requestURL = `${urlBase}/${address}`;
+  const requestURL = `${ urlBase }/${ address }`;
   try {
     const response = await axios.get<{
       contents: Array<ISTCExplorerTransaction>;
@@ -99,5 +99,20 @@ export function extractTransactionInfo(tx: ISTCExplorerTransaction) {
   } catch (e) {
     console.error(e);
     return null;
+  }
+}
+
+
+export function decodeTokenData(data: string) {
+  let name, params;
+  try {
+    const txnPayload = encoding.decodeTransactionPayload(data) as Record<string, any>;
+    const keys = Object.keys(txnPayload);
+    name = keys[0] as string;
+    params = txnPayload[keys[0]] as any;
+    return { name, params };
+  } catch (error) {
+    console.debug('Failed to decode transaction data.', error, data);
+    return { name, params };
   }
 }

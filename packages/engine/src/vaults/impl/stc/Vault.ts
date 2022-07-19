@@ -44,7 +44,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { extractTransactionInfo, getAddressHistoryFromExplorer } from './utils';
+import { extractTransactionInfo, getAddressHistoryFromExplorer, decodeTokenData } from './utils';
 
 import type { IEncodedTxSTC } from './types';
 import {
@@ -117,6 +117,11 @@ export default class Vault extends VaultBase {
         nativeTransfer,
       };
     } else if (data) {
+      // TODO:  display dataName and dataParamsStr on UI's confirmTransactionPage
+      const { name: dataName, params: dataParams } = decodeTokenData(data);
+      const dataParamsStr = JSON.stringify(dataParams)
+      console.log('decodeTokenData', { data, dataName, dataParams, dataParamsStr });
+
       action = {
         type: IDecodedTxActionType.TRANSACTION,
         direction: IDecodedTxDirection.SELF,
