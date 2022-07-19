@@ -37,7 +37,7 @@ const OnekeyHardwareDeviceName: FC = () => {
   const [connectId, setConnectId] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { engine, serviceHardware } = backgroundApiProxy;
+  const { engine, serviceHardware, serviceAccount } = backgroundApiProxy;
   useEffect(() => {
     engine.getHWDeviceByWalletId(walletId).then((device) => {
       if (!device) return;
@@ -69,6 +69,11 @@ const OnekeyHardwareDeviceName: FC = () => {
       await serviceHardware.applySettings(connectId, {
         label: values.name,
       });
+      await engine.updateWalletName(walletId, values.name);
+      /**
+       * use dispatch action to refresh the wallet list
+       */
+      await serviceAccount.initWallets();
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       navigation.getParent()?.goBack();
     } catch (e) {

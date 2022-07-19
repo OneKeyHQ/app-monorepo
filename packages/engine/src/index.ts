@@ -423,6 +423,11 @@ class Engine {
   }
 
   @backgroundMethod()
+  updateWalletName(walletId: string, name: string) {
+    return this.dbApi.updateWalletName(walletId, name);
+  }
+
+  @backgroundMethod()
   async getHWDevices() {
     return this.dbApi.getDevices();
   }

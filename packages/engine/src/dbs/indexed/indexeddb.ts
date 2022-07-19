@@ -1906,9 +1906,6 @@ class IndexedDBApi implements DBAPI {
             }
             walletStore.put(Object.assign(wallet, { name }));
             if (!wallet.associatedDevice) {
-              reject(
-                new OneKeyInternalError('Wallet has no associated hardware.'),
-              );
               return;
             }
             const deviceStore = transaction.objectStore(DEVICE_STORE_NAME);
