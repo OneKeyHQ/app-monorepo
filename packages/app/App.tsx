@@ -8,8 +8,6 @@ import { AppRegistry, LogBox } from 'react-native';
 
 import React, { FC, useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-// import PagingViewHeader from './src/views/PagingViewHeader';
-import PagingViewContrainer from './src/views/PagingViewContrainer';
 import { Provider } from '@onekeyhq/kit';
 import { enableFreeze } from 'react-native-screens';
 import AccountInfo from '@onekeyhq/kit/src/views/Wallet/AccountInfo';
@@ -58,10 +56,5 @@ function NativeHeader() {
     </BasicProvider>
   );
 }
-AppRegistry.registerComponent('PagingHeaderView', () => NativeHeader);
-AppRegistry.registerComponent(
-  'PagingViewContrainer',
-  () => PagingViewContrainer,
-);
 
 export default App;

@@ -7,10 +7,26 @@
 
 #import "PagingViewManager.h"
 #import "PagingView.h"
+#import <React/RCTUIManager.h>
 
 @implementation PagingViewManager
 RCT_EXPORT_MODULE(PagingView)
 RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(headerHeight, CGFloat);
+RCT_EXPORT_VIEW_PROPERTY(defaultIndex, NSInteger);
+RCT_EXPORT_VIEW_PROPERTY(pageIndex, NSInteger);
+
+RCT_EXPORT_METHOD(setPageIndex:(nonnull NSNumber *)reactTag index:(nonnull NSNumber *)index) {
+  [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager,NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+    PagingView *view = (PagingView *)viewRegistry[reactTag];
+    if (!view || ![view isKindOfClass:[PagingView class]]) {
+      RCTLogError(@"Cannot find ReactNativePageView with tag #%@", reactTag);
+      return;
+    }
+    [view goTo:index.integerValue];
+  }];
+}
+
 
 
 - (UIView *)view

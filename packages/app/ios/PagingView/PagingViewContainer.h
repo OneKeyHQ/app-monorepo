@@ -12,8 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface PagingViewContainer : UIView<JXPagerViewListViewDelegate>
 @property (nonatomic, weak) UIScrollView *scrollView;
-@property (nonatomic, copy) void(^listScrollCallback)(UIScrollView *scrollView);
--(instancetype)initWithTag:(NSInteger)flag;
+-(instancetype)initWithReactView:(UIView *)reactView;
 
 @end
 

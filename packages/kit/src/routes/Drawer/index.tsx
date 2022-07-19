@@ -30,7 +30,7 @@ const DrawerStackNavigator = () => {
          * fix drawer every render blink issue: https://github.com/react-navigation/react-navigation/issues/7515
          */
         drawerType: isWeb ? 'back' : 'front',
-        swipeEdgeWidth: 390,
+        swipeEdgeWidth: 50,
         drawerStyle,
       }}
       drawerContent={(props) => <AccountSelectorMobile {...props} />}

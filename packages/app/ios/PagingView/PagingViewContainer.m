@@ -8,64 +8,54 @@
 #import "PagingViewContainer.h"
 
 #import <React/RCTScrollView.h>
-#import <React/RCTRootView.h>
 #import <React/RCTRootViewDelegate.h>
 #import <React/RCTAppSetupUtils.h>
-#import "PagingContainerRootView.h"
 
-@interface PagingViewContainer ()<UIScrollViewDelegate,PagingContainerRootViewDelegate>
+@interface PagingViewContainer ()<UIScrollViewDelegate>
 @property (nonatomic, copy) void(^scrollCallback)(UIScrollView *scrollView);
-@property (nonatomic, assign) NSInteger flag;
-@property (nonatomic, strong) PagingContainerRootView *rootView;
+@property (nonatomic, strong) UIView *reactView;
 
 @end
 
 @implementation PagingViewContainer
 
--(instancetype)initWithTag:(NSInteger)flag {
+-(instancetype)initWithReactView:(UIView *)reactView {
   self = [super init];
   if (self){
-    _flag = flag;
+    _reactView = reactView;
+    [self addSubview:reactView];
+    [self bindingScrollView];
   }
   return self;
 }
 
+
+
+-(void)bindingScrollView {
+  UIView *tmpView = _reactView;
+  while (![tmpView isKindOfClass:NSClassFromString(@"RCTScrollView")]) {
+    if (tmpView.subviews.count > 0) {
+      tmpView = tmpView.subviews.firstObject;
+    } else {
+      break;
+    }
+  }
+  if ([tmpView isKindOfClass:NSClassFromString(@"RCTScrollView")]) {
+    self.scrollView = [(RCTScrollView *)tmpView scrollView];
+    self.scrollView.delegate = self;
+  }
+}
+
 -(void)layoutSubviews {
   [super layoutSubviews];
-  
-  self.rootView.frame = self.bounds;
-//  self.scrollView.frame = self.bounds;
-  
-}
-
--(PagingContainerRootView *)rootView {
-  if (!_rootView) {
-    RCTRootView *mainRootView = (RCTRootView *)[[[[UIApplication sharedApplication] delegate] window] rootViewController].view;
-    PagingContainerRootView *view = [[PagingContainerRootView alloc] initWithBridge:mainRootView.bridge
-                                                       moduleName:@"PagingViewContrainer"
-                                                initialProperties: @{@"data":@(_flag)}];
-    view.tag = _flag;
-    view.contrainDelegate = self;
-    _rootView = view;
-    [self addSubview:view];
-  }
-  return _rootView;
-}
-
--(void)scrollViewDidFind:(RCTScrollView *)rctScrollView {
-  self.scrollView = rctScrollView.scrollView;
-  self.scrollView.delegate = self;
+  self.reactView.frame = self.bounds;
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
     if (self.scrollCallback != nil) {
         self.scrollCallback(scrollView);
     }
-    if (self.listScrollCallback != nil) {
-        self.listScrollCallback(scrollView);
-    }
 }
-
 
 - (void)listViewDidScrollCallback:(void (^)(UIScrollView *))callback {
   self.scrollCallback = callback;

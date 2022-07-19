@@ -14,6 +14,8 @@ typedef NSString* _Nonnull (^RenderItemBlock)(NSDictionary *body);
 
 @interface PagingView : RCTView
 
+- (void)goTo:(NSInteger)pageIndex;
+
 @end
 
 NS_ASSUME_NONNULL_END

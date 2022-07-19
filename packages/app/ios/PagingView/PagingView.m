@@ -8,34 +8,66 @@
 #import "PagingView.h"
 #import <JXPagingView/JXPagerView.h>
 #import "PagingViewContainer.h"
-#import "PagingHeaderView.h"
-
-
-
-static const CGFloat JXTableHeaderViewHeight = 200;
-static const CGFloat BigHeightForHeaderInSection = 50;
+#import <React/UIView+React.h>
 
 @interface PagingView ()<JXPagerViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
 @property (nonatomic, copy) RCTBubblingEventBlock onChange;
-@property (nonatomic, strong) PagingHeaderView *headerView;
+@property (nonatomic, assign) CGFloat headerHeight;
+@property (nonatomic, assign) NSInteger defaultIndex;
+@property (nonatomic, assign) NSInteger pageIndex;
+
+@property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) UIView *categoryContainerView;
+//@property (nonatomic, strong) NSMapTable *cachelistContainer;
 
 @end
 
 @implementation PagingView
 
+-(instancetype)init {
+  self = [super init];
+  if (self){
+    NSLog(@"PagingView init");
+    self.tag = 500;
+  }
+  return self;
+}
+
 -(void)layoutSubviews {
   [super layoutSubviews];
-  self.pagingView.frame = self.bounds;
+  _pagingView.frame = self.bounds;
 }
+
+- (void)goTo:(NSInteger)pageIndex {
+  if (_pageIndex == pageIndex) {
+    return;
+  }
+  _pageIndex = pageIndex;
+  CGFloat screenWidth = CGRectGetWidth([UIScreen mainScreen].bounds);
+  [self.pagingView.listContainerView didClickSelectedItemAtIndex:pageIndex];
+  [self.pagingView.listContainerView.scrollView setContentOffset:CGPointMake(screenWidth * pageIndex, 0) animated:YES];
+}
+
+
+- (void)didUpdateReactSubviews {
+//  if (self.reactSubviews.count != 3) {
+//    return;
+//  }
+  self.headerView = self.reactSubviews.firstObject;
+  self.categoryContainerView = self.reactSubviews[1];
+  [self.pagingView reloadData];
+}
+
 
 -(JXPagerView *)pagingView {
   if (!_pagingView) {
     _pagingView = [[JXPagerView alloc] initWithDelegate:self];
     _pagingView.mainTableView.backgroundColor = [UIColor clearColor];
     _pagingView.pinSectionHeaderVerticalOffset = 0;
-    
+    _pagingView.listContainerView.listCellBackgroundColor = [UIColor clearColor];
+    _pagingView.isListHorizontalScrollEnabled = false;
+    _pagingView.defaultSelectedIndex = self.defaultIndex;
     if (@available(iOS 15.0, *)) {
         self.pagingView.mainTableView.sectionHeaderTopPadding = 0;
     }
@@ -44,31 +76,6 @@ static const CGFloat BigHeightForHeaderInSection = 50;
   return _pagingView;
 }
 
--(PagingHeaderView *)headerView {
-  if (!_headerView) {
-    _headerView = [[PagingHeaderView alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, JXTableHeaderViewHeight)];
-    _headerView.backgroundColor = [UIColor clearColor];
-
-  }
-  return _headerView;
-}
-
-//-(void)setHeaderView:(UIView *)headerView {
-//  NSLog(@"headerView = %@",headerView);
-//  _headerView = headerView;
-//}
-
-
-
--(UIView *)categoryContainerView {
-  if (!_categoryContainerView) {
-    _categoryContainerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, BigHeightForHeaderInSection)];
-    _categoryContainerView.backgroundColor = [UIColor blueColor];
-  }
-  return _categoryContainerView;
-}
-
-
 #pragma mark - JXPagingViewDelegate
 
 - (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {
@@ -76,11 +83,11 @@ static const CGFloat BigHeightForHeaderInSection = 50;
 }
 
 - (NSUInteger)tableHeaderViewHeightInPagerView:(JXPagerView *)pagerView {
-    return JXTableHeaderViewHeight;
+    return self.headerHeight;
 }
 
 - (NSUInteger)heightForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
-    return BigHeightForHeaderInSection;
+    return CGRectGetHeight(self.categoryContainerView.frame);
 }
 
 - (UIView *)viewForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
@@ -88,16 +95,16 @@ static const CGFloat BigHeightForHeaderInSection = 50;
 }
 
 - (NSInteger)numberOfListsInPagerView:(JXPagerView *)pagerView {
-    return 3;
+
+  return self.reactSubviews.count - 2;
 }
 
 - (id<JXPagerViewListViewDelegate>)pagerView:(JXPagerView *)pagerView initListAtIndex:(NSInteger)index {
-  
-  PagingViewContainer *list = [[PagingViewContainer alloc] initWithTag:1000 + index];
-  if (self.onChange) {
-    self.onChange(@{@"index":@(index)});
-  }
-  return list;
+  PagingViewContainer *view = [[PagingViewContainer alloc] initWithReactView:self.reactSubviews[index + 2]];
+  return view;
 }
 
+-(void)dealloc {
+  NSLog(@"pagingview dealloc");
+}
 @end
