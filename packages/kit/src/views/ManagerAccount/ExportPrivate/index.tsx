@@ -113,7 +113,7 @@ const ExportPrivateViewModal = () => {
                 onPress={copyDataToClipboard}
               >
                 {intl.formatMessage({
-                  id: 'action__copy_address',
+                  id: 'action__copy',
                 })}
               </Button>
             </Box>
