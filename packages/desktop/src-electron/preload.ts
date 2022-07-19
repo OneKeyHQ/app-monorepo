@@ -1,4 +1,5 @@
 import { ipcRenderer } from 'electron';
+import logger from 'electron-log';
 import keytar from 'keytar';
 
 export type PrefType = 'camera' | 'bluetooth' | 'location';
@@ -14,6 +15,7 @@ export type DesktopAPI = {
   promptTouchID: (msg: string) => Promise<boolean>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
+  reloadBridgeProcess: () => void;
 };
 declare global {
   interface Window {
@@ -69,6 +71,9 @@ const desktopApi = {
   },
   secureGetItemAsync(key: string) {
     return keytar.getPassword('OneKey', key);
+  },
+  reloadBridgeProcess: () => {
+    ipcRenderer.send('app/reloadBridgeProcess');
   },
 };
 

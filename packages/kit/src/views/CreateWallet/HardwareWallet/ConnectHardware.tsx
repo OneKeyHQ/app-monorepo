@@ -158,6 +158,7 @@ const ConnectHardwareModal: FC = () => {
       OneKeyErrorClassNames.OneKeyHardwareError
     ) {
       if (platformEnv.isDesktop) {
+        window.desktopApi.reloadBridgeProcess();
         ToastManager.show(
           {
             title: intl.formatMessage({

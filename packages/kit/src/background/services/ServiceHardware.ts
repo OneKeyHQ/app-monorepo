@@ -186,6 +186,9 @@ class ServiceHardware extends ServiceBase {
       const error = platformEnv.isDesktop
         ? checkBridge
         : new NeedOneKeyBridge();
+      if (platformEnv.isDesktop) {
+        window.desktopApi.reloadBridgeProcess();
+      }
       // checkBridge should be an error
       return Promise.reject(error);
     }
