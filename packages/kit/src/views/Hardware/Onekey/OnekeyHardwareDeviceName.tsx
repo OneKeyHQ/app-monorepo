@@ -30,9 +30,9 @@ const OnekeyHardwareDeviceName: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
-  const { walletId } = useRoute<RouteProps>().params;
-  const { control, setValue, handleSubmit, setError } = useForm<FieldValues>({
-    defaultValues: { name: '' },
+  const { walletId, walletName } = useRoute<RouteProps>().params;
+  const { control, handleSubmit, setError } = useForm<FieldValues>({
+    defaultValues: { name: walletName },
   });
   const [connectId, setConnectId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,24 +44,6 @@ const OnekeyHardwareDeviceName: FC = () => {
       setConnectId(device.mac);
     });
   }, [walletId, engine]);
-
-  useEffect(() => {
-    if (!connectId) return;
-    serviceHardware
-      .getFeatures(connectId)
-      .then((res) => {
-        setValue('name', (res && res.label) ?? '');
-      })
-      .catch((err) => {
-        const { key } = err;
-        toast.show(
-          { title: intl.formatMessage({ id: key }) },
-          { type: 'error' },
-        );
-        navigation.goBack();
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectId]);
 
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     setLoading(true);
@@ -93,7 +75,13 @@ const OnekeyHardwareDeviceName: FC = () => {
     >
       <KeyboardDismissView px={{ base: 4, md: 6 }}>
         <Form>
-          <Form.Item name="name" control={control}>
+          <Form.Item
+            name="name"
+            control={control}
+            rules={{
+              required: true,
+            }}
+          >
             <Form.Input size="xl" autoFocus />
           </Form.Item>
         </Form>

@@ -37,6 +37,7 @@ export type OnekeyHardwareRoutesParams = {
   };
   [OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal]: {
     walletId: string;
+    walletName: string;
   };
 };
 
