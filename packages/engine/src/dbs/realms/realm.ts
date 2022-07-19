@@ -1610,7 +1610,7 @@ class RealmDB implements DBAPI {
       }
       const device = this.realm!.objectForPrimaryKey<DeviceSchema>(
         'Device',
-        wallet.associatedDevice as unknown as string,
+        wallet.associatedDevice.id,
       );
       if (device) {
         device.name = name;
