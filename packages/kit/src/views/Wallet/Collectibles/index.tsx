@@ -27,9 +27,10 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 export type CollectiblesProps = {
   address?: string | null;
   network?: Network | null;
+  isTab?: boolean;
 };
 
-const Collectibles = ({ address, network }: CollectiblesProps) => {
+const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isCollectibleSupported = isCollectibleSupportedChainId(network?.id);
 
@@ -78,6 +79,7 @@ const Collectibles = ({ address, network }: CollectiblesProps) => {
 
   return (
     <CollectibleGallery
+      isTab={isTab}
       collectibles={collectibles}
       fetchData={fetchData}
       isLoading={isLoading}

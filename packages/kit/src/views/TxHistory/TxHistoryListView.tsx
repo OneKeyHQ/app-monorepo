@@ -225,7 +225,7 @@ export type ITxHistoryListViewProps = {
   accountId: string | null | undefined;
   networkId: string | null | undefined;
   tokenId?: string; // tokenIdOnNetwork
-  isHomeTab?: boolean;
+  isTab?: boolean;
   headerView?: JSX.Element | null;
 };
 // TODO use Tabs.SectionList and SectionList instead
@@ -234,7 +234,7 @@ function TxHistoryListViewComponent({
   networkId,
   tokenId,
   headerView,
-  isHomeTab,
+  isTab,
 }: ITxHistoryListViewProps) {
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
   const txDetailContext = useTxHistoryContext();
@@ -288,14 +288,14 @@ function TxHistoryListViewComponent({
     if (!isFocused) {
       return false;
     }
-    if (isHomeTab) {
+    if (isTab) {
       return homeTabName === WalletHomeTabEnum.History;
     }
     return true;
-  }, [accountId, homeTabName, isFocused, isHomeTab, networkId]);
+  }, [accountId, homeTabName, isFocused, isTab, networkId]);
 
   // TODO isValidating, refreshHistoryTs cause re-render, please useContext instead
-  const swrKey = isHomeTab ? 'fetchHistoryTx-homeTab' : 'fetchHistoryTx';
+  const swrKey = isTab ? 'fetchHistoryTx-homeTab' : 'fetchHistoryTx';
   const { mutate, isValidating: isLoading } = useSWR(swrKey, fetchHistoryTx, {
     refreshInterval: 30 * 1000,
     revalidateOnMount: false,
@@ -382,7 +382,7 @@ function TxHistoryListViewComponent({
     return null;
   }
   const SectionListComponent = (
-    isHomeTab ? Tabs.SectionList : SectionList
+    isTab ? Tabs.SectionList : SectionList
   ) as typeof SectionList;
 
   return (
@@ -394,9 +394,9 @@ function TxHistoryListViewComponent({
 }
 
 function TxHistoryListView(props: ITxHistoryListViewProps) {
-  const { headerView, isHomeTab } = props;
+  const { headerView, isTab } = props;
   return (
-    <TxHistoryContextProvider headerView={headerView} isHomeTab={isHomeTab}>
+    <TxHistoryContextProvider headerView={headerView} isTab={isTab}>
       <TxHistoryListViewComponent {...props} />
     </TxHistoryContextProvider>
   );

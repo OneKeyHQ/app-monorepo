@@ -95,11 +95,11 @@ export type IAssetsListProps = Omit<
   'data' | 'renderItem'
 > & {
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
-  singleton?: boolean;
+  isTab?: boolean;
   hidePriceInfo?: boolean;
 };
 function AssetsList({
-  singleton,
+  isTab,
   hidePriceInfo,
   ListHeaderComponent,
   ListFooterComponent,
@@ -228,7 +228,7 @@ function AssetsList({
     );
   };
 
-  const Container = singleton ? FlatList : Tabs.FlatList;
+  const Container = isTab ? Tabs.FlatList : FlatList;
 
   return (
     <Container

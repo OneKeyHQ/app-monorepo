@@ -44,9 +44,9 @@
     return;
   }
   _pageIndex = pageIndex;
-  CGFloat screenWidth = CGRectGetWidth([UIScreen mainScreen].bounds);
+  CGFloat pageWidth = CGRectGetWidth(self.frame);
   [self.pagingView.listContainerView didClickSelectedItemAtIndex:pageIndex];
-  [self.pagingView.listContainerView.scrollView setContentOffset:CGPointMake(screenWidth * pageIndex, 0) animated:YES];
+  [self.pagingView.listContainerView.scrollView setContentOffset:CGPointMake(pageWidth * pageIndex, 0) animated:YES];
 }
 
 
@@ -66,7 +66,7 @@
     _pagingView.mainTableView.backgroundColor = [UIColor clearColor];
     _pagingView.pinSectionHeaderVerticalOffset = 0;
     _pagingView.listContainerView.listCellBackgroundColor = [UIColor clearColor];
-    _pagingView.isListHorizontalScrollEnabled = false;
+    _pagingView.isListHorizontalScrollEnabled = true;
     _pagingView.defaultSelectedIndex = self.defaultIndex;
     if (@available(iOS 15.0, *)) {
         self.pagingView.mainTableView.sectionHeaderTopPadding = 0;

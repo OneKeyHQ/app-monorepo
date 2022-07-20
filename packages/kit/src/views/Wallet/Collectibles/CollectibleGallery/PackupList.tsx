@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { FlatListProps } from 'react-native';
 
 import {
+  FlatList,
   HStack,
   IconButton,
   ScrollableFlatListProps,
@@ -51,7 +52,7 @@ const PackupList: FC<
     flatListProps: Omit<FlatListProps<Collectible>, 'renderItem'>;
     onPress: () => void;
   }
-> = ({ flatListProps, onPress, onSelectCollectible }) => {
+> = ({ flatListProps, onPress, onSelectCollectible, isTab }) => {
   // Set it to grid view when not in mobile
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
@@ -74,8 +75,11 @@ const PackupList: FC<
     ),
     [onSelectCollectible],
   );
+
+  const Container = isTab ? Tabs.FlatList : FlatList;
+
   return (
-    <Tabs.FlatList<Collectible>
+    <Container<Collectible>
       numColumns={numColumns}
       ListHeaderComponent={
         <CollectiblesHeader view={CollectibleView.Packup} onPress={onPress} />

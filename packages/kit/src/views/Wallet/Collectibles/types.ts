@@ -13,4 +13,5 @@ export type CollectibleGalleryProps = {
   fetchData: () => void;
   onSelectCollectible?: (cols: Collectible) => void;
   onSelectAsset?: (asset: MoralisNFT) => void;
+  isTab?: boolean;
 };

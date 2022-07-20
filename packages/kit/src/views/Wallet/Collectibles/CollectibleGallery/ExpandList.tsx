@@ -7,6 +7,7 @@ import { FlatListProps } from 'react-native';
 import {
   Badge,
   Box,
+  FlatList,
   HStack,
   IconButton,
   Pressable,
@@ -55,7 +56,7 @@ const ExpandList: FC<
     flatListProps: Omit<FlatListProps<Collectible>, 'renderItem'>;
     onPress: () => void;
   }
-> = ({ onSelectAsset, flatListProps, onPress }) => {
+> = ({ onSelectAsset, flatListProps, onPress, isTab }) => {
   // Set it to grid view when not in mobile
   const isSmallScreen = useIsVerticalLayout();
 
@@ -117,9 +118,10 @@ const ExpandList: FC<
     },
     [isSmallScreen, onSelectAsset],
   );
+  const Container = isTab ? Tabs.FlatList : FlatList;
 
   return (
-    <Tabs.FlatList<Collectible>
+    <Container<Collectible>
       ListHeaderComponent={
         <CollectiblesHeader view={CollectibleView.Expand} onPress={onPress} />
       }
