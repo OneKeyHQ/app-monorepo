@@ -30,6 +30,9 @@ type RouteProps = RouteProp<
 
 type DataItem = { name: string; staticPath: any; hex: string };
 
+// eslint-disable-next-line react/no-unused-prop-types
+type RenderItemParams = { item: DataItem; index: number };
+
 const OnekeyHardwareHomescreen: FC = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -52,8 +55,17 @@ const OnekeyHardwareHomescreen: FC = () => {
     });
   }, [walletId, engine]);
 
+  const numColumns = 4;
+
   useEffect(() => {
     const dataSource = Object.values(homescreensT1).map((item) => item);
+    const layoutData = Array.from({
+      length: dataSource.length % numColumns,
+    }).map(
+      (_, index) =>
+        ({ name: `hackLayout-${index}`, staticPath: null } as DataItem),
+    );
+    dataSource.push(...layoutData);
     setData(dataSource);
   }, []);
 
@@ -91,30 +103,55 @@ const OnekeyHardwareHomescreen: FC = () => {
   );
 
   const renderItem = useCallback(
-    ({ item, index }) => (
-      <Pressable
-        key={index}
-        width={cardWidth}
-        height={16}
-        mb={4}
-        onPress={() => setActiveIndex(index)}
-      >
-        <Box flex={1} height={16}>
-          <Image
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            source={item.staticPath}
-            resizeMode="contain"
-            size={cardWidth}
-            height={16}
-            borderRadius="12px"
-            borderWidth={index === activeIndex ? '2px' : 0}
-            borderColor="interactive-default"
-            bgColor="#000"
-          />
-        </Box>
-      </Pressable>
-    ),
-    [cardWidth, activeIndex],
+    ({ item, index }: RenderItemParams) =>
+      !item.staticPath ? (
+        <Box key={index} width={cardWidth} height={16} />
+      ) : (
+        <Pressable
+          key={index}
+          width={cardWidth}
+          height={16}
+          mb={4}
+          onPress={() => {
+            if (loading) return;
+            setActiveIndex(index);
+          }}
+        >
+          <Box flex={1} height={16}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              source={item.staticPath}
+              resizeMode="contain"
+              size={cardWidth}
+              height={16}
+              borderRadius="12px"
+              borderWidth={index === activeIndex ? '2px' : 0}
+              borderColor="interactive-default"
+              bgColor="#000"
+            />
+          </Box>
+        </Pressable>
+      ),
+    [cardWidth, activeIndex, loading],
+  );
+
+  const flatlistProps = useMemo(
+    () => ({
+      contentContainerStyle: {
+        paddingTop: 24,
+        paddingBottom: 24,
+      },
+      columnWrapperStyle: {
+        justifyContent: 'space-between',
+      },
+      data,
+      numColumns,
+      showsHorizontalScrollIndicator: false,
+      renderItem,
+      ListFooterComponent: <Box />,
+      keyExtractor: (item: DataItem) => item.name,
+    }),
+    [data, renderItem],
   );
 
   const footer = useMemo(
@@ -136,31 +173,12 @@ const OnekeyHardwareHomescreen: FC = () => {
           isLoading={loading}
         >
           {intl.formatMessage({
-            id: 'action__done',
+            id: 'action__confirm',
           })}
         </Button>
       </Box>
     ),
     [handleConfirm, loading, isSmallScreen, intl],
-  );
-  const flatlistProps = useMemo(
-    () => ({
-      contentContainerStyle: {
-        flex: 1,
-        paddingTop: 24,
-        paddingBottom: 24,
-      },
-      columnWrapperStyle: {
-        justifyContent: 'space-between',
-      },
-      data,
-      numColumns: 4,
-      showsHorizontalScrollIndicator: false,
-      renderItem,
-      ListFooterComponent: <Box />,
-      keyExtractor: (item: DataItem) => item.name,
-    }),
-    [data, renderItem],
   );
 
   return (
