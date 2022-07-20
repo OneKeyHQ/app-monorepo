@@ -120,7 +120,6 @@ export default class Vault extends VaultBase {
       // TODO:  display dataName and dataParamsStr on UI's confirmTransactionPage
       const { name: dataName, params: dataParams } = decodeTokenData(data);
       const dataParamsStr = JSON.stringify(dataParams)
-      console.log('decodeTokenData', { data, dataName, dataParams, dataParamsStr });
 
       action = {
         type: IDecodedTxActionType.TRANSACTION,
@@ -156,7 +155,6 @@ export default class Vault extends VaultBase {
         }
         : {}),
     };
-    console.log('stc decodedTx', { result })
 
     return Promise.resolve(result);
   }
@@ -164,7 +162,6 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxSTC> {
-    console.log('stc buildEncodedTxFromTransfer')
     const { from, to, amount, token } = transferInfo;
     if (typeof token !== 'undefined' && token.length > 0) {
       // TODO: token not supported yet.
@@ -217,12 +214,10 @@ export default class Vault extends VaultBase {
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxSTC,
   ): Promise<UnsignedTx> {
-    console.log('buildUnsignedTxFromEncodedTx', encodedTx)
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const network = await this.getNetwork();
     const value = new BigNumber(encodedTx.value);
 
-    console.log(encodedTx.value, value.toNumber())
     const nonce = encodedTx.nonce;
     const nonceBN = new BigNumber(nonce ?? 'NaN');
     const nextNonce: number = !nonceBN.isNaN()
@@ -237,8 +232,8 @@ export default class Vault extends VaultBase {
         outputs: encodedTx.to ? [{ address: encodedTx.to, value }] : [],
         nonce: nextNonce,
         feePricePerUnit: new BigNumber(
-          encodedTx.gasPrice || 1,
-        ),
+          encodedTx.gasPrice || '0.000000001',
+        ).shiftedBy(network.feeDecimals),
 
         payload: {
           ...(encodedTx.data
@@ -269,7 +264,7 @@ export default class Vault extends VaultBase {
     // avoid redundant network requests.
     const encodedTxWithFakePriceAndNonce = {
       ...encodedTx,
-      gasPrice: '1',
+      gasPrice: '0.000000001',
     };
 
     const [network, prices, unsignedTx] = await Promise.all([
@@ -287,6 +282,13 @@ export default class Vault extends VaultBase {
       limit: (unsignedTx.feeLimit || new BigNumber('0')).toFixed(),
       prices,
       defaultPresetIndex: '0',
+      extraInfo: {
+        ...(Object.keys(unsignedTx.tokensChangedTo || {}).length
+          ? {
+            tokensChangedTo: unsignedTx.tokensChangedTo,
+          }
+          : {})
+      }
     };
   }
 
@@ -294,7 +296,6 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxSTC;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxSTC> {
-    console.log('stc valut attachFeeInfoToEncodedTx', { params })
     const { price, limit } = params.feeInfoValue;
     if (typeof price !== 'undefined' && typeof price !== 'string') {
       throw new OneKeyInternalError('Invalid gas price.');
@@ -302,13 +303,13 @@ export default class Vault extends VaultBase {
     if (typeof limit !== 'string') {
       throw new OneKeyInternalError('Invalid fee limit');
     }
+    const network = await this.getNetwork();
 
     const encodedTxWithFee = {
       ...params.encodedTx,
-      gasPrice: new BigNumber(price || 1).toFixed(),
+      gasPrice: new BigNumber(price || '0.000000001').toFixed(),
       gasLimit: limit,
     };
-    console.log({ encodedTxWithFee })
     return Promise.resolve(encodedTxWithFee);
   }
 

@@ -108,22 +108,35 @@ function convertToEthereumChainResult(result: Network | undefined | null) {
 @backgroundClass()
 class ProviderApiStarcoin extends ProviderApiBase {
   public providerName = IInjectedProviderNames.starcoin;
-
   async _getCurrentUnlockState() {
     return Promise.resolve(true);
   }
 
-  _getCurrentNetworkExtraInfo(): EvmExtraInfo {
+  async _getCurrentNetworkExtraInfo(): Promise<EvmExtraInfo> {
     const { network } = getActiveWalletAccount();
-    // return a random chainId in non-evm, as empty string may cause dapp error
+    // Give default value to prevent UI crashing
     let networkInfo: EvmExtraInfo = {
-      chainId: '0x736d17dc',
-      networkVersion: '1936529372',
+      chainId: '0x1',
+      networkVersion: '1',
     };
-    if (network && network.impl === IMPL_STC) {
+    if (network && network.impl === IMPL_STC && Object.keys(network.extraInfo).length) {
       networkInfo = network.extraInfo as EvmExtraInfo;
+    } else {
+      const request: IJsonRpcRequest = {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'chain.id',
+        params: []
+      };
+      const result = await this.rpcCall(request)
+      if (result.id) {
+        networkInfo = {
+          chainId: `0x${ result.id.toString(16) }`,
+          networkVersion: result.id.toString(),
+        };
+      }
     }
-    return networkInfo;
+    return Promise.resolve(networkInfo);
   }
 
   async _showSignMessageModal(
@@ -143,9 +156,6 @@ class ProviderApiStarcoin extends ProviderApiBase {
     const { networkId } = getActiveWalletAccount();
 
     debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
-    // if (request.method === 'chain.id') {
-    //   return this.chainId(request)
-    // }
 
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
@@ -163,7 +173,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
       const result = {
-        method: 'metamask_accountsChanged',
+        method: 'starmask_accountsChanged',
         params: await this.stc_accounts({ origin }),
       };
       return result;
@@ -175,7 +185,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async () => {
       const result = {
-        method: 'metamask_chainChanged',
+        method: 'starmask_chainChanged',
         params: {
           chainId: await this.eth_chainId(),
           networkVersion: await this.net_version(),
@@ -358,7 +368,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  eth_coinbase(request: IJsBridgeMessagePayload) {
+  stc_coinbase(request: IJsBridgeMessagePayload) {
     // TODO some different with stc_accounts, check metamask code source
     return this.stc_accounts(request);
   }
@@ -379,7 +389,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
    */
   @providerApiMethod()
-  eth_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
+  stc_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
     if (params[1].length === 66 || params[1].length === 67) {
       // const rawSignature = await addUnapprovedMessage({
       //   data: params[1]
@@ -391,20 +401,20 @@ class ProviderApiStarcoin extends ProviderApiBase {
       //   origin: req.origin
       // })
       // return signature
-      throw new Error('eth_signTransaction not supported yet');
+      throw new Error('stc_signTransaction not supported yet');
     }
     throw web3Errors.rpc.invalidParams(
-      'eth_sign requires 32 byte message hash',
+      'stc_sign requires 32 byte message hash',
     );
   }
 
   @providerApiMethod()
-  eth_subscribe() {
+  stc_subscribe() {
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_unsubscribe() {
+  stc_unsubscribe() {
     throw web3Errors.rpc.methodNotSupported();
   }
 
@@ -413,13 +423,8 @@ class ProviderApiStarcoin extends ProviderApiBase {
    * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]
    */
   @providerApiMethod()
-  eth_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_sign', messages, req);
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.ETH_SIGN,
-      message: messages[1],
-      payload: messages,
-    });
+  stc_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
@@ -442,7 +447,6 @@ class ProviderApiStarcoin extends ProviderApiBase {
       }
     }
 
-    console.log('personal_sign', message, messages, req);
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
       message,
@@ -455,106 +459,67 @@ class ProviderApiStarcoin extends ProviderApiBase {
     req: IJsBridgeMessagePayload,
     ...messages: string[]
   ) {
-    console.log('personal_ecRecover: ', req, messages);
-    const [message, signature] = messages;
-    if (
-      typeof message === 'string' &&
-      typeof signature === 'string' &&
-      // Signature is 65-bytes in length, length of its hexstring is 132.
-      signature.length === 132
-    ) {
-      const { networkId } = getActiveWalletAccount();
-      // Not interacting with user's credential, only a static method, so any
-      // vault would do.
-      const evmWatchVault =
-        await this.backgroundApi.engine.vaultFactory.getChainOnlyVault(
-          networkId,
-        );
-      const result = await (evmWatchVault as VaultEvm).personalECRecover(
-        message,
-        signature,
-      );
-      console.log('personal_ecRecover: ', req, messages, result);
-      return result;
-    }
-    throw web3Errors.rpc.invalidParams(
-      'personal_ecRecover requires a message and a 65 bytes signature.',
-    );
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_signTypedData', messages, req);
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V1,
-      message: JSON.stringify(messages[0]),
-      payload: messages,
-    });
+  stc_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData_v1(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    // @ts-ignore
-    return this.eth_signTypedData(req, ...messages);
+  stc_signTypedData_v1(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData_v3(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_signTypedData_v3', messages, req);
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V3,
-      message: messages[1],
-      payload: messages,
-    });
+  stc_signTypedData_v3(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData_v4(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_signTypedData_v4', messages, req);
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V4,
-      message: messages[1],
-      payload: messages,
-    });
+  stc_signTypedData_v4(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
   async eth_chainId() {
-    const networkExtraInfo = this._getCurrentNetworkExtraInfo();
+    const networkExtraInfo = await this._getCurrentNetworkExtraInfo();
     return Promise.resolve(networkExtraInfo.chainId);
   }
 
   @providerApiMethod()
   async net_version() {
-    const networkExtraInfo = this._getCurrentNetworkExtraInfo();
+    const networkExtraInfo = await this._getCurrentNetworkExtraInfo();
     return Promise.resolve(networkExtraInfo.networkVersion);
   }
 
   @providerApiMethod()
-  async metamask_getProviderState(request: IJsBridgeMessagePayload) {
+  async starmask_getProviderState(request: IJsBridgeMessagePayload) {
+    const networkExtraInfo = await this._getCurrentNetworkExtraInfo();
     return {
       accounts: await this.stc_accounts(request),
-      chainId: await this.eth_chainId(),
-      networkVersion: await this.net_version(),
+      chainId: networkExtraInfo.chainId,
+      networkVersion: networkExtraInfo.networkVersion,
       isUnlocked: await this._getCurrentUnlockState(),
     };
   }
 
   // get and save Dapp site icon & title
   @providerApiMethod()
-  metamask_sendDomainMetadata() {
+  starmask_sendDomainMetadata() {
     // TODO
     return {};
   }
 
   @providerApiMethod()
-  metamask_logWeb3ShimUsage() {
+  starmask_logWeb3ShimUsage() {
     // TODO
     return {};
   }
 
   @providerApiMethod()
-  eth_subscription() {
+  stc_subscription() {
     // TODO
     return {};
   }
@@ -619,19 +584,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     return convertToEthereumChainResult(result as any);
   }
 
-  // @providerApiMethod()
-  // async handleChainId(
-  //   request: IJsonRpcRequest,
-  // ) {
-  //   console.log({ request })
-  //   const result = {
-  //     "id": 251,
-  //     "name": "barnard"
-  //   }
-  //   return Promise.resolve(result)
-  // }
-
-  // TODO metamask_unlockStateChanged
+  // TODO starmask_unlockStateChanged
 
   // TODO throwMethodNotFound
 }
