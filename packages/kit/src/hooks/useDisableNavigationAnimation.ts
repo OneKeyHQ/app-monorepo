@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import type { StackAnimationTypes } from 'react-native-screens';
 
-function useDisableNavigationAnimation({ condition }: { condition: boolean }) {
+function useDisableNavigationAnimation({ condition }: { condition?: boolean }) {
   const navigation = useNavigation();
 
   React.useLayoutEffect(() => {

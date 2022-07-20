@@ -30,7 +30,6 @@ import {
 
 import { FormatBalance, FormatCurrency } from '../../../../components/Format';
 import {
-  setHaptics,
   useAccountTokens,
   useAccountTokensBalance,
   useActiveWalletAccount,
@@ -62,7 +61,6 @@ type NetworkItemProps = {
 const NetworkItem: FC<NetworkItemProps> = ({ network }) => {
   const { networkId, setNetworkId } = useContext(NetworkSelectorContext);
   const onPress = useCallback(() => {
-    setHaptics();
     setNetworkId?.(network.id);
   }, [setNetworkId, network]);
   return (

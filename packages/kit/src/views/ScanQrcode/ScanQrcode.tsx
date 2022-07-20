@@ -23,7 +23,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
-import { setHaptics } from '../../hooks/setHaptics';
 import useNavigation from '../../hooks/useNavigation';
 import { handleScanResult } from '../../utils/gotoScanQrcode';
 
@@ -62,7 +61,6 @@ const ScanQrcode: FC = () => {
         return;
       }
       scanned.current = true;
-      setHaptics();
       if (onScanCompleted) {
         onScanCompleted(data);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -78,7 +76,6 @@ const ScanQrcode: FC = () => {
   );
 
   const pickImage = useCallback(async () => {
-    setHaptics();
     const result = await ImagePicker.launchImageLibraryAsync({
       base64: isWeb,
       allowsMultipleSelection: false,

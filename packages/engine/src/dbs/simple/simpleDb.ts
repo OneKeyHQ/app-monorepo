@@ -1,7 +1,10 @@
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
+import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
 
 class SimpleDb {
   history = new SimpleDbEntityHistory();
+
+  pwkey = new SimpleDbEntityPwKey();
 }
 
 const simpleDb = new SimpleDb();

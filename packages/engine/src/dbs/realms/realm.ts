@@ -7,6 +7,7 @@ import Realm from 'realm';
 import {
   AccountAlreadyExists,
   NotImplemented,
+  OneKeyAlreadyExistWalletError,
   OneKeyError,
   OneKeyInternalError,
   TooManyDerivedAccounts,
@@ -462,9 +463,7 @@ class RealmDB implements DBAPI {
         token.id,
       );
       if (typeof tokenFind !== 'undefined') {
-        return Promise.reject(
-          new OneKeyInternalError(`Token ${token.id} already exist.`),
-        );
+        return Promise.resolve(tokenFind.internalObj);
       }
       this.realm!.write(() => {
         this.realm!.create('Token', {
@@ -969,9 +968,7 @@ class RealmDB implements DBAPI {
       });
 
       if (hasExistWallet) {
-        throw new OneKeyInternalError(
-          `Hardware Wallet ${walletId} already exists.`,
-        );
+        throw new OneKeyAlreadyExistWalletError();
       }
 
       await this.insertDevice(
@@ -1009,9 +1006,7 @@ class RealmDB implements DBAPI {
           });
         });
       } else {
-        throw new OneKeyInternalError(
-          `Hardware Wallet ${walletId} already exists.`,
-        );
+        throw new OneKeyAlreadyExistWalletError();
       }
       return await Promise.resolve(wallet!.internalObj);
     } catch (error: any) {

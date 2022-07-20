@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
+import useDappApproveAction from '../../hooks/useDappApproveAction';
+
 import { SendRoutes, SendRoutesParams } from './types';
 
 import type { SendConfirmPayloadBase } from './types';
@@ -12,10 +14,13 @@ type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendConfirm
 >;
+// type ModalNavigationProps = ModalScreenProps<SendRoutesParams>;
+
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 export function useSendConfirmRouteParamsParsed() {
   const navigation = useNavigation<NavigationProps>();
+  // const navigation = useNavigation<ModalNavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const routeParams = route.params ?? {};
   const { sourceInfo, resendActionInfo, encodedTx } = routeParams;
@@ -30,6 +35,13 @@ export function useSendConfirmRouteParamsParsed() {
     () => routeParams.payload as SendConfirmPayloadBase | undefined,
     [routeParams.payload],
   );
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeOnError: true,
+  });
+  const onModalClose = dappApprove.reject;
+  // TODO use Context instead
+  Object.assign(routeParams, { onModalClose });
 
   const isInternalSwapTx = payload?.payloadType === 'InternalSwap';
   // const isTransferTypeTx =
@@ -37,6 +49,8 @@ export function useSendConfirmRouteParamsParsed() {
   //   decodedTx?.txType === EVMDecodedTxType.TOKEN_TRANSFER;
 
   return {
+    dappApprove,
+    onModalClose,
     encodedTx,
     navigation,
     route,

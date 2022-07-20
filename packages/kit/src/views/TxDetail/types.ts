@@ -54,7 +54,7 @@ export type ITxActionAmountProps = ComponentProps<typeof Text> & {
 };
 
 export type ITxActionElementDetail = {
-  title: string;
+  title: JSX.Element | string;
   content: JSX.Element | string;
 };
 
@@ -73,6 +73,7 @@ export type ITxActionListViewProps = {
   decodedTx: IDecodedTx;
   space?: number | string;
   showDivider?: boolean;
+  showConnectionLine?: boolean;
   transformType?: ITxActionTransformTypes;
   // TODO useContext instead
   transferAmount?: string;

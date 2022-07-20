@@ -38,6 +38,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.EnableLocalAuthentication]: NavigatorScreenParams<SubModalRoutesParams.EnableLocalAuthenticationRoutesParams>;
   [ModalRoutes.ManageNetwork]: NavigatorScreenParams<SubModalRoutesParams.ManageNetworkRoutesParams>;
   [ModalRoutes.OnekeyHardware]: NavigatorScreenParams<SubModalRoutesParams.OnekeyHardwareRoutesParams>;
+  [ModalRoutes.HardwareUpdate]: NavigatorScreenParams<SubModalRoutesParams.HardwareUpdateRoutesParams>;
   [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
   [ModalRoutes.Swap]: NavigatorScreenParams<SubModalRoutesParams.SwapRoutesParams>;
   [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
@@ -86,9 +87,10 @@ export type HomeRoutesParams = {
     tokenId?: string;
     historyFilter?: (item: any) => boolean;
   };
-  [HomeRoutes.FaceId]: undefined;
+  [HomeRoutes.Protected]: undefined;
   [HomeRoutes.AddressBook]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
+  [HomeRoutes.VolumeHaptic]: undefined;
 };
 /** HomeStack */
 

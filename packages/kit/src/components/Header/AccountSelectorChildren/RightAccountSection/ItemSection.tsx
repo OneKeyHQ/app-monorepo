@@ -15,7 +15,6 @@ import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -127,7 +126,6 @@ const AccountSectionItem: FC<Props> = ({
       <Pressable
         px={2}
         onPress={() => {
-          setHaptics();
           serviceNetwork.changeActiveNetwork(section?.title?.id);
           serviceAccount.changeActiveAccount({
             accountId: item.id,

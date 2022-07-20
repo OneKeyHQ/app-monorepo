@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -23,7 +24,10 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyErrorClassNames,
+  OneKeyHardwareError,
+} from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -45,7 +49,6 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Wallet } from '../../../../../engine/src/types/wallet';
 import {
-  DeviceNotBonded,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '../../../utils/hardware/errors';
@@ -69,7 +72,8 @@ const getDeviceIcon = (
 };
 
 type SearchDeviceInfo = {
-  wallet?: Wallet;
+  using?: Wallet;
+  useBefore?: Wallet;
 } & SearchDevice;
 
 type ExistHwWallet = Wallet & {
@@ -123,9 +127,12 @@ const ConnectHardwareModal: FC = () => {
     (searchDevices: SearchDevice[]): SearchDeviceInfo[] => {
       const convertDevices = searchDevices.map((device) => ({
         ...device,
-        wallet: existHwWallets?.find(
+        using: existHwWallets?.find(
           (w) =>
             w.connectId === device.connectId && w.deviceId === device.deviceId,
+        ),
+        useBefore: existHwWallets?.find(
+          (w) => w.connectId === device.connectId,
         ),
       }));
       return convertDevices;
@@ -142,8 +149,29 @@ const ConnectHardwareModal: FC = () => {
     setIsSearching(true);
 
     const checkBridge = await serviceHardware.checkBridge();
-    if (!checkBridge) {
+    if (typeof checkBridge === 'boolean' && !checkBridge) {
       DialogManager.show({ render: <NeedBridgeDialog /> });
+      return;
+    }
+    if (
+      (checkBridge as unknown as OneKeyHardwareError).className ===
+      OneKeyErrorClassNames.OneKeyHardwareError
+    ) {
+      if (platformEnv.isDesktop) {
+        window.desktopApi.reloadBridgeProcess();
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: (checkBridge as unknown as OneKeyHardwareError).key,
+            }),
+          },
+          {
+            type: 'default',
+          },
+        );
+      } else {
+        DialogManager.show({ render: <NeedBridgeDialog /> });
+      }
       return;
     }
 
@@ -212,8 +240,9 @@ const ConnectHardwareModal: FC = () => {
         .then((result) => {
           finishConnected(result);
         })
-        .catch(async (err) => {
-          if (err instanceof DeviceNotBonded) {
+        .catch(async (err: any) => {
+          const { className, key, code } = err || {};
+          if (code === HardwareErrorCode.BleDeviceNotBonded) {
             if (!checkBonded && platformEnv.isNativeAndroid) {
               setCheckBonded(true);
               const bonded = await deviceUtils.checkDeviceBonded(
@@ -226,15 +255,21 @@ const ConnectHardwareModal: FC = () => {
                 });
               }
             }
-          } else if (err instanceof OneKeyHardwareError) {
-            ToastManager.show({
-              title: intl.formatMessage({ id: err.key }),
-            });
+          } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: key }),
+              },
+              { type: 'error' },
+            );
           } else {
             ToastManager.show({
-              title: intl.formatMessage({
-                id: 'action__connection_timeout',
-              }),
+              title: intl.formatMessage(
+                {
+                  id: 'action__connection_timeout',
+                },
+                { type: 'error' },
+              ),
             });
           }
         });
@@ -258,7 +293,7 @@ const ConnectHardwareModal: FC = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            disabled={!!device.wallet}
+            disabled={!!device.using}
             onPress={() => {
               handleConnectDeviceWithDevice(device);
             }}
@@ -273,7 +308,7 @@ const ConnectHardwareModal: FC = () => {
               <Typography.Body1>{device.name}</Typography.Body1>
             </HStack>
 
-            {device.wallet ? (
+            {device.using ? (
               <HStack alignItems="center">
                 <Badge
                   size="sm"
@@ -283,6 +318,15 @@ const ConnectHardwareModal: FC = () => {
               </HStack>
             ) : (
               <HStack space={3} alignItems="center">
+                {!!device.useBefore && platformEnv.isNative && (
+                  <Badge
+                    size="sm"
+                    title={intl.formatMessage({
+                      id: 'content__have_been_connected',
+                    })}
+                    type="success"
+                  />
+                )}
                 {isConnectingDeviceId === device.connectId && (
                   <Spinner size="sm" />
                 )}
@@ -321,7 +365,7 @@ const ConnectHardwareModal: FC = () => {
           <Box w="358px" h="220px" mb={-4}>
             <LottieView
               // eslint-disable-next-line global-require
-              source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_bluetooth.json')}
+              source={require('@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_bluetooth.json')}
               autoPlay
               loop
             />
@@ -351,7 +395,7 @@ const ConnectHardwareModal: FC = () => {
       <Box>
         <LottieView
           // eslint-disable-next-line global-require
-          source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_usb.json')}
+          source={require('@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_usb.json')}
           autoPlay
           loop
         />

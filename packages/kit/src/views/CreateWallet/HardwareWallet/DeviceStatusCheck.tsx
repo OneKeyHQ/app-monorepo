@@ -11,8 +11,9 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -23,10 +24,8 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import NeedBridgeDialog from '../../../components/NeedBridgeDialog';
-import { NeedOneKeyBridge } from '../../../utils/hardware/errors';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
@@ -74,22 +73,32 @@ const DeviceStatusCheckModal: FC = () => {
           new Promise((_, reject) => setTimeout(reject, 30 * 1000)),
         ]);
         features = result as IOneKeyDeviceFeatures;
-      } catch (e) {
+      } catch (e: any) {
         safeGoBack();
-
-        if (e instanceof NeedOneKeyBridge) {
+        const { className, key, code } = e || {};
+        if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
           DialogManager.show({ render: <NeedBridgeDialog /> });
           return;
         }
 
-        if (e instanceof OneKeyHardwareError) {
-          ToastManager.show({
-            title: intl.formatMessage({ id: e.key }),
-          });
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: key }),
+            },
+            {
+              type: 'error',
+            },
+          );
         } else {
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'action__connection_timeout' }),
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'action__connection_timeout' }),
+            },
+            {
+              type: 'error',
+            },
+          );
         }
         return;
       }
@@ -118,14 +127,26 @@ const DeviceStatusCheckModal: FC = () => {
         });
       } catch (e: any) {
         safeGoBack();
-        if (e instanceof OneKeyHardwareError) {
-          ToastManager.show({
-            title: intl.formatMessage({ id: e.key }),
-          });
+        const { className, key, message } = e || {};
+
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: key }),
+            },
+            {
+              type: 'error',
+            },
+          );
         } else {
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'action__connection_timeout' }),
-          });
+          ToastManager.show(
+            {
+              title: message,
+            },
+            {
+              type: 'default',
+            },
+          );
         }
         return;
       }

@@ -2,6 +2,7 @@ import {
   UI_HTML_DEFAULT_MIN_HEIGHT,
   UI_HTML_DEFAULT_MIN_WIDTH,
 } from '../../../ext/src/ui/popupSizeFix';
+import { IS_LAZY_NAVIGATE_SUB_ROUTER } from '../views/Send/sendConfirmConsts';
 
 type OpenUrlRouteInfo = {
   routes: string | string[];
@@ -15,10 +16,19 @@ function buildExtRouteUrl(
   /*
   http://localhost:3001/#/modal/DappConnectionModal/ConnectionModal?id=0&origin=https%3A%2F%2Fmetamask.github.io&scope=ethereum&data=%7B%22method%22%3A%22eth_requestAccounts%22%2C%22jsonrpc%22%3A%222.0%22%7D
    */
-  // eslint-disable-next-line no-param-reassign
-  routes = ([] as string[]).concat(routes).join('/');
+  const pathStr = ([] as string[]).concat(routes).join('/');
   const paramsStr = new URLSearchParams(params).toString();
-  return chrome.runtime.getURL(`/${htmlFile}#/${routes}?${paramsStr}`);
+  let hash = '';
+  if (pathStr && paramsStr) {
+    hash = `#/${pathStr}?${paramsStr}`;
+  }
+  if (hash && IS_LAZY_NAVIGATE_SUB_ROUTER) {
+    const navigateRouterHash = encodeURIComponent(hash);
+    return chrome.runtime.getURL(
+      `/${htmlFile}?navigateRouterHash=${navigateRouterHash}`,
+    );
+  }
+  return chrome.runtime.getURL(`/${htmlFile}${hash}`);
 }
 
 function openUrl(url: string) {

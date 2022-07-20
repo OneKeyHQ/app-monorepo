@@ -6,7 +6,6 @@ import { FlatListProps } from 'react-native';
 
 import {
   Badge,
-  BalanceText,
   Box,
   HStack,
   IconButton,
@@ -73,7 +72,7 @@ const ExpandList: FC<
           <Badge type="default" title={length.toString()} size="sm" />
         )}
       </HStack>
-      <BalanceText text="563.12" typography="DisplayMedium" />
+      {/* <BalanceText text="563.12" typography="DisplayMedium" /> */}
     </Box>
   );
 

@@ -25,6 +25,7 @@ export enum SendRoutes {
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
   SwapPreview = 'SwapPreview',
+  SendFeedbackReceipt = 'SendFeedbackReceipt',
 }
 
 export type TokenApproveAmountEditParams = {
@@ -33,18 +34,16 @@ export type TokenApproveAmountEditParams = {
   sourceInfo?: IDappSourceInfo | undefined;
   encodedTx?: IEncodedTx | null;
   decodedTx?: IDecodedTx;
+  sendConfirmParams: SendConfirmParams;
 };
 
-export type EditFeeParams = {
-  encodedTx?: IEncodedTx;
-  feeInfoSelected?: IFeeInfoSelected;
-  autoConfirmAfterFeeSaved?: boolean;
-  resendActionInfo?: SendConfirmResendActionInfo;
+export type EditFeeParams = SendConfirmSharedParams & {
+  sendConfirmParams: SendConfirmParams;
 };
 
 export type PreSendParams = ITransferInfo;
 
-export type SendLegacyParams = EditFeeParams & {
+export type SendLegacyParams = SendConfirmSharedParams & {
   token?: Token;
   to?: string;
 };
@@ -96,7 +95,14 @@ export type SendConfirmPayloadInfo = {
   transferInfo?: ITransferInfo;
   swapInfo?: ISwapInfo;
 };
-export type SendConfirmParams = EditFeeParams & {
+export type SendConfirmSharedParams = {
+  encodedTx?: IEncodedTx;
+  resendActionInfo?: SendConfirmResendActionInfo;
+  feeInfoSelected?: IFeeInfoSelected;
+  autoConfirmAfterFeeSaved?: boolean;
+  onModalClose?: () => void;
+};
+export type SendConfirmParams = SendConfirmSharedParams & {
   payloadType?: string; // TODO remove
   payload?: SendConfirmPayload; // use payload.payloadType // TODO remove
   payloadInfo?: SendConfirmPayloadInfo;
@@ -126,6 +132,11 @@ export type SignMessageConfirmParams = {
   unsignedMessage: IUnsignedMessageEvm;
 };
 
+export type SendFeedbackReceiptParams = {
+  txid: string;
+  closeModal?: () => any;
+};
+
 export type SendRoutesParams = {
   [SendRoutes.SendLegacy]: SendLegacyParams;
   [SendRoutes.PreSendToken]: PreSendParams;
@@ -138,4 +149,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
   [SendRoutes.SwapPreview]: undefined;
+  [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
 };

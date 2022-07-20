@@ -107,22 +107,15 @@ async function syncLatestTokenList() {
   await syncLatestTokenList();
 })();
 
-function getPresetToken(networkId: string, tokenIdOnNetwork: string): Token {
+function getPresetToken(
+  networkId: string,
+  tokenIdOnNetwork: string,
+): Token | undefined {
   let tokens = presetTokens[networkId];
   if (typeof tokens === 'undefined') {
     tokens = new Map<string, Token>();
   }
-  return (
-    tokens.get(tokenIdOnNetwork) || {
-      id: `${networkId}--${tokenIdOnNetwork}`,
-      name: tokenIdOnNetwork.slice(0, 4),
-      networkId,
-      tokenIdOnNetwork,
-      symbol: tokenIdOnNetwork.slice(0, 4),
-      decimals: -1,
-      logoURI: '',
-    }
-  );
+  return tokens.get(tokenIdOnNetwork);
 }
 
 function getPresetTokensOnNetwork(networkId: string): Token[] {

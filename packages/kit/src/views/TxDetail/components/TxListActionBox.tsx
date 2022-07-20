@@ -9,9 +9,9 @@ import { fallbackTextComponent } from '../utils/utilsTxDetail';
 
 export type ITxListActionBoxProps = {
   icon?: JSX.Element;
+  iconInfo?: ITxActionMetaIcon;
   title?: JSX.Element | string;
   titleInfo?: ITxActionMetaTitle;
-  iconInfo?: ITxActionMetaIcon;
 
   subTitle?: JSX.Element | string;
   content?: JSX.Element | string;
@@ -59,7 +59,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
   return (
     <Box>
       <HStack space={2}>
-        {iconView}
+        {iconView ? <Box py="6px">{iconView}</Box> : null}
         <Box flex={1} flexDirection="column">
           <HStack space={2} flexDirection="row" justifyContent="space-between">
             <Box maxW={contentView ? '50%' : '100%'}>{titleView}</Box>

@@ -21,6 +21,7 @@ function TxConfirmSwap(props: ITxConfirmViewProps) {
     sourceInfo,
     decodedTx: decodedTxLegacy,
     payload,
+    sendConfirmParams,
   } = props;
   const decodedTx = decodedTxLegacy as IDecodedTxLegacy;
 
@@ -28,6 +29,7 @@ function TxConfirmSwap(props: ITxConfirmViewProps) {
 
   const feeInput = (
     <FeeInfoInputForConfirm
+      sendConfirmParams={sendConfirmParams}
       editable={feeInfoEditable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}

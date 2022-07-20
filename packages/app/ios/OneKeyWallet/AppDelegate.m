@@ -5,6 +5,7 @@
 #import <React/RCTRootView.h>
 #import <React/RCTLinkingManager.h>
 #import <React/RCTConvert.h>
+#import "RCTRootView+Orientation.h"
 
 #ifdef DEBUG
 #else

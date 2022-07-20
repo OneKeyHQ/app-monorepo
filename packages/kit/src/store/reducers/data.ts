@@ -11,6 +11,7 @@ export type DataInitialState = {
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
   cursorMap: Record<string, string>;
+  handOperatedLock?: boolean;
 };
 
 const initialState: DataInitialState = {
@@ -31,6 +32,9 @@ export const dataSlice = createSlice({
     },
     release(state) {
       state.isUnlock = true;
+    },
+    lock(state) {
+      state.isUnlock = false;
     },
     passwordSet(state) {
       state.isPasswordSet = true;
@@ -54,6 +58,9 @@ export const dataSlice = createSlice({
     ) {
       state.cursorMap[action.payload.key] = action.payload.cursor;
     },
+    setHandOperatedLock(state, action: PayloadAction<boolean>) {
+      state.handOperatedLock = action.payload;
+    },
   },
 });
 
@@ -63,6 +70,8 @@ export const {
   currenciesSet,
   setAppRenderReady,
   cursorMapSet,
+  lock,
+  setHandOperatedLock,
 } = dataSlice.actions;
 
 export default dataSlice.reducer;

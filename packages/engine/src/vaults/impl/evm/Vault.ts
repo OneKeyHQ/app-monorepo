@@ -62,6 +62,7 @@ import {
   IRawTx,
   ISignCredentialOptions,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
@@ -146,43 +147,6 @@ export default class Vault extends VaultBase {
     return (await this.engine.providerManager.getClient(
       this.networkId,
     )) as Geth;
-  }
-
-  async simpleTransfer(
-    payload: {
-      to: string;
-      value: string;
-      tokenIdOnNetwork?: string;
-      extra?: { [key: string]: any };
-      gasPrice: string; // TODO remove gasPrice
-      gasLimit: string;
-    },
-    options: ISignCredentialOptions,
-  ) {
-    debugLogger.engine('EVM simpleTransfer', payload);
-    const { to, value, tokenIdOnNetwork, extra, gasLimit, gasPrice } = payload;
-    const { networkId } = this;
-    const network = await this.getNetwork();
-    const dbAccount = await this.getDbAccount();
-    // TODO what's this mean: correctDbAccountAddress
-    await this._correctDbAccountAddress(dbAccount);
-    const token = await this.engine.getOrAddToken(
-      networkId,
-      tokenIdOnNetwork ?? '',
-      true,
-    );
-    const valueBN = new BigNumber(value);
-    const extraCombined = {
-      ...extra,
-      feeLimit: new BigNumber(gasLimit),
-      feePricePerUnit: new BigNumber(gasPrice),
-    };
-    // TODO buildUnsignedTx
-    const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
-      networkId,
-      fillUnsignedTx(network, dbAccount, to, valueBN, token, extraCombined),
-    );
-    return this.signAndSendTransaction(unsignedTx, options);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
@@ -367,10 +331,9 @@ export default class Vault extends VaultBase {
 
     // erc20 token transfer
     if (isTransferToken) {
-      const token = await this.engine.getOrAddToken(
+      const token = await this.engine.ensureTokenInDB(
         this.networkId,
         transferInfo.token ?? '',
-        true,
       );
       if (!token) {
         throw new Error(`Token not found: ${transferInfo.token as string}`);
@@ -404,7 +367,7 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxEvm> {
     const [network, token, spender] = await Promise.all([
       this.getNetwork(),
-      this.engine.getOrAddToken(this.networkId, approveInfo.token),
+      this.engine.ensureTokenInDB(this.networkId, approveInfo.token),
       this.validateAddress(approveInfo.spender),
     ]);
     if (typeof token === 'undefined') {
@@ -503,7 +466,7 @@ export default class Vault extends VaultBase {
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxEvm,
     // TODO feeInfo
-  ): Promise<UnsignedTx> {
+  ): Promise<IUnsignedTxPro> {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const {
@@ -567,7 +530,7 @@ export default class Vault extends VaultBase {
     // TODO remove side effect here
     encodedTx.nonce = nextNonce;
 
-    return unsignedTx;
+    return { ...unsignedTx, encodedTx };
   }
 
   _toNormalAmount(value: string, decimals: number) {
@@ -727,6 +690,56 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTxWithFee);
   }
 
+  private async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
+    const onChainNonce =
+      (
+        await this.engine.providerManager.getAddresses(networkId, [
+          dbAccount.address,
+        ])
+      )[0]?.nonce ?? 0;
+
+    // TODO: Although 100 history items should be enough to cover all the
+    // pending transactions, we need to find a more reliable way.
+    const historyItems = await this.engine.getHistory(
+      networkId,
+      dbAccount.id,
+      undefined,
+      false,
+    );
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.history.getPendingNonceList({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
+    if (nextNonce > onChainNonce) {
+      for (let i = onChainNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
+
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
+  }
+
   async mmGetPublicKey(options: ISignCredentialOptions): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
@@ -779,7 +792,7 @@ export default class Vault extends VaultBase {
   ): Promise<BigNumber> {
     const [dbAccount, token] = await Promise.all([
       this.getDbAccount(),
-      this.engine.getOrAddToken(this.networkId, tokenAddress),
+      this.engine.ensureTokenInDB(this.networkId, tokenAddress),
     ]);
 
     if (typeof token === 'undefined') {
@@ -1099,13 +1112,18 @@ export default class Vault extends VaultBase {
           });
         }
 
-        let decodedTx: IDecodedTx | undefined;
+        let decodedTx = covalentTx?.parsedDecodedTx;
+
+        decodedTx = covalentTx?.parsedDecodedTx;
 
         if (encodedTx) {
+          // TODO _decode getOrAddToken RPC error
           // TODO encodedTx both transfer Native and Token
-          decodedTx = await this.decodeTx(encodedTx, null);
-        } else {
-          decodedTx = covalentTx?.parsedDecodedTx;
+          try {
+            decodedTx = await this.decodeTx(encodedTx, null);
+          } catch (error) {
+            console.error(error);
+          }
         }
 
         if (!decodedTx) {

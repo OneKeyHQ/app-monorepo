@@ -43,10 +43,9 @@ function getWalletIdFromAccountId(accountId: string): string {
 }
 
 function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
-  return isCoinTypeCompatibleWithImpl(
-    getCoinTypeFromAccountId(accountId),
-    getImplFromNetworkId(networkId),
-  );
+  const coinType = getCoinTypeFromAccountId(accountId);
+  const impl = getImplFromNetworkId(networkId);
+  return isCoinTypeCompatibleWithImpl(coinType, impl);
 }
 
 export { getWalletIdFromAccountId, isAccountCompatibleWithNetwork };

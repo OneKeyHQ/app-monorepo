@@ -1,14 +1,18 @@
 import { FC, useEffect, useState } from 'react';
 
-import { Box, IconButton, ModalOverlay } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box, IconButton } from '@onekeyhq/components';
 
 export type BaseRequestViewProps = {
   children: React.ReactNode;
   onCancel: () => void;
+  onClose?: () => void;
 };
 
-const BaseRequestView: FC<BaseRequestViewProps> = ({ children, onCancel }) => {
+const BaseRequestView: FC<BaseRequestViewProps> = ({
+  children,
+  onCancel,
+  onClose,
+}) => {
   const [showClose, setShowClose] = useState(false);
 
   useEffect(() => {
@@ -22,39 +26,36 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({ children, onCancel }) => {
   }, []);
 
   return (
-    <ModalOverlay onClose={onCancel}>
-      <Box w="full" h="full" alignItems="center" bg="overlay">
-        <Box px={6} w="full" maxW="374" top={platformEnv.isNativeIOS ? 16 : 10}>
-          <Box
-            w="full"
-            mx="auto"
-            p={4}
-            pb={6}
-            rounded="xl"
-            bgColor="surface-default"
-            borderWidth={1}
-            borderColor="border-subdued"
-            shadow="depth.4"
-          >
-            {children}
+    <Box px={6} w="full" maxW="374">
+      <Box
+        w="full"
+        mx="auto"
+        p={4}
+        pb={6}
+        rounded="xl"
+        bgColor="surface-default"
+        borderWidth={1}
+        borderColor="border-subdued"
+        shadow="depth.4"
+      >
+        {children}
 
-            {!!showClose && (
-              <IconButton
-                onPress={() => {
-                  onCancel?.();
-                }}
-                position="absolute"
-                top={2}
-                right={2}
-                size="lg"
-                type="plain"
-                name="CloseSolid"
-              />
-            )}
-          </Box>
-        </Box>
+        {!!showClose && (
+          <IconButton
+            onPress={() => {
+              onCancel?.();
+              onClose?.();
+            }}
+            position="absolute"
+            top={2}
+            right={2}
+            size="lg"
+            type="plain"
+            name="CloseSolid"
+          />
+        )}
       </Box>
-    </ModalOverlay>
+    </Box>
   );
 };
 

@@ -9,6 +9,7 @@ import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
+import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../sendConfirmConsts';
 import { SendRoutes, SendRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -37,7 +38,7 @@ function TokenApproveAmountEdit({ ...rest }) {
   const { networkId, accountId, network } = useActiveWalletAccount();
   const { encodedTx, tokenApproveAmount, isMaxAmount } = route.params;
   const [isMax, setIsMax] = useState(isMaxAmount);
-  const { decodedTx } = route.params;
+  const { decodedTx, sendConfirmParams } = route.params;
   const info = decodedTx?.actions?.[0]?.tokenApprove;
   const token = info?.tokenInfo;
   const symbol = token?.symbol;
@@ -54,9 +55,6 @@ function TokenApproveAmountEdit({ ...rest }) {
     useFormReturn,
   });
   const onSubmit = handleSubmit(async (data) => {
-    if (!navigation.canGoBack()) {
-      return;
-    }
     if (!encodedTx) {
       return;
     }
@@ -69,14 +67,19 @@ function TokenApproveAmountEdit({ ...rest }) {
     });
 
     const { routes, index } = navigation.getState();
-    const prevRouteName = routes[index - 1].name;
-    navigation.navigate({
+    const prevRouteName = routes[index - 1]?.name || SendRoutes.SendConfirm;
+    const prevRouteParams = {
+      ...sendConfirmParams,
+      tokenApproveAmount: amount,
+      encodedTx: tx,
+    };
+    if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
+      return navigation.replace(prevRouteName, prevRouteParams);
+    }
+    return navigation.navigate({
       merge: true,
       name: prevRouteName,
-      params: {
-        tokenApproveAmount: amount,
-        encodedTx: tx,
-      },
+      params: prevRouteParams,
     });
   });
 
@@ -96,6 +99,9 @@ function TokenApproveAmountEdit({ ...rest }) {
         isDisabled: !isValid,
       }}
       hideSecondaryAction
+      onModalClose={() => {
+        sendConfirmParams?.onModalClose?.();
+      }}
       secondaryActionTranslationId="action__reject"
       header={intl.formatMessage({ id: 'content__spend_limit_amount' })}
       headerDescription={network?.name || network?.shortName || undefined}

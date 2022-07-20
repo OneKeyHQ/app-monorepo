@@ -14,6 +14,10 @@ import {
   setRefreshTS,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { passwordSet, release } from '../../store/reducers/data';
@@ -23,10 +27,17 @@ import { Avatar } from '../../utils/emojiUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
-import ServiceBase from './ServiceBase';
+import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    appEventBus.on(AppEventBusNames.AccountNameChanged, () => {
+      this.addressLabelCache = {};
+    });
+  }
+
   @backgroundMethod()
   async changeActiveAccount({
     accountId,
@@ -64,6 +75,8 @@ class ServiceAccount extends ServiceBase {
     const newAccount = await engine.setAccountName(accountId, name);
 
     dispatch(updateAccountDetail({ name, id: accountId }));
+
+    appEventBus.emit(AppEventBusNames.AccountNameChanged);
 
     return newAccount;
   }
@@ -115,6 +128,10 @@ class ServiceAccount extends ServiceBase {
       },
     );
     this.backgroundApi.walletConnect.notifySessionChanged();
+    // emit at next tick
+    setTimeout(() => {
+      appEventBus.emit(AppEventBusNames.AccountChanged);
+    }, 10);
   }
 
   @backgroundMethod()
@@ -140,34 +157,42 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async autoChangeWallet() {
-    const { engine, serviceAccount, appSelector } = this.backgroundApi;
+    const { engine, appSelector } = this.backgroundApi;
     const wallets = await this.initWallets();
 
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
-    let wallet: Wallet | null =
-      wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
-    let account: Account | null = null;
-    if (wallet) {
-      account = await engine.getAccount(wallet.accounts?.[0], activeNetworkId);
-    } else {
-      wallet =
-        wallets.find(($wallet) => ['hw', 'hd'].includes($wallet.type)) ?? null;
-
-      if (!wallet) {
-        // Check for imported wallets
-        wallet =
-          wallets
-            .filter(($wallet) => $wallet.accounts.length > 0)
-            .find(($wallet) =>
-              ['imported', 'watching'].includes($wallet.type),
-            ) ?? null;
+    for (const wallet of wallets) {
+      // First find wallet & account compatible with currect network.
+      if (wallet.accounts.length > 0) {
+        const [account] = await engine.getAccounts(
+          wallet.accounts,
+          activeNetworkId,
+        );
+        if (account) {
+          this.changeActiveAccount({
+            accountId: account.id,
+            walletId: wallet.id,
+          });
+          return;
+        }
       }
     }
 
-    serviceAccount.changeActiveAccount({
-      accountId: account?.id ?? null,
-      walletId: wallet?.id ?? null,
-    });
+    // No compatible account found, set account to null and wallet to:
+    //   - first non-empty wallet
+    //   - first hd or hw wallet
+    //   - first imported or watching wallet
+    const { id: walletId } =
+      // wallet not empty?
+      wallets.find(($wallet) => $wallet.accounts.length > 0) ??
+        // HD or HW type?
+        wallets.find(($wallet) => ['hw', 'hd'].includes($wallet.type)) ??
+        // imported or watching?
+        wallets.find(($wallet) =>
+          ['imported', 'watching'].includes($wallet.type),
+        ) ?? { id: null };
+
+    this.changeActiveAccount({ accountId: null, walletId });
   }
 
   @backgroundMethod()

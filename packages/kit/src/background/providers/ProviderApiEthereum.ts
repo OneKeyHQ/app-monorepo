@@ -352,9 +352,9 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  eth_coinbase(request: IJsBridgeMessagePayload) {
-    // TODO some different with eth_accounts, check metamask code source
-    return this.eth_accounts(request);
+  async eth_coinbase(request: IJsBridgeMessagePayload): Promise<string | null> {
+    const accounts = await this.eth_accounts(request);
+    return accounts?.[0] || null;
   }
 
   @providerApiMethod()
@@ -602,7 +602,12 @@ class ProviderApiEthereum extends ProviderApiBase {
       // throw new Error(
       //   `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
       // );
-      return false;
+      return null;
+    }
+
+    const { network } = getActiveWalletAccount();
+    if (params.chainId === network?.extraInfo?.chainId) {
+      return convertToEthereumChainResult(network);
     }
 
     const result = await this.backgroundApi.serviceDapp?.openSwitchNetworkModal(

@@ -9,7 +9,11 @@ export const CLOUNDINARY_NAME_KEY = process.env.CLOUNDINARY_NAME!;
 export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;
 
 export const HARDWARE_SDK_IFRAME_SRC =
-  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://hardware-sdk.onekey.so/';
+  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/';
+export const HARDWARE_SDK_TEST_IFRAME_SRC =
+  'https://hardware-sdk.test.onekey.so/';
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
+
+export const CERTIFICATE_URL = 'https://certificate.onekey.so/verify';

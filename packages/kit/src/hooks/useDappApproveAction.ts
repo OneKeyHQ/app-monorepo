@@ -18,7 +18,7 @@ function useDappApproveAction({
   getResolveData?: () => Promise<any> | any;
   closeOnError?: boolean;
 }) {
-  const isExt = platformEnv.isExtensionUiStandaloneWindow;
+  const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve
   const reject = useCallback(
@@ -28,13 +28,17 @@ function useDappApproveAction({
         id,
         error: toPlainErrorObject(error),
       });
-      close?.();
-      if (isExt) {
+      if (isExtStandaloneWindow) {
         // timeout wait reject done.
-        setTimeout(() => window.close(), 0);
+        setTimeout(() => {
+          close?.();
+          window.close();
+        }, 0);
+      } else {
+        close?.();
       }
     },
-    [id, isExt, rejectError],
+    [id, isExtStandaloneWindow, rejectError],
   );
 
   const resolve = useCallback(
@@ -66,7 +70,7 @@ function useDappApproveAction({
   // also trigger browser refresh
   useEffect(() => {
     // const registerWindowUnload = isExt && !platformEnv.isDev;
-    const registerWindowUnload = isExt;
+    const registerWindowUnload = isExtStandaloneWindow;
     // TODO do not reject with hardware interaction when beforeunload
     if (registerWindowUnload) {
       window.addEventListener('beforeunload', () => reject());
@@ -76,7 +80,7 @@ function useDappApproveAction({
         window.removeEventListener('beforeunload', () => reject());
       }
     };
-  }, [isExt, reject]);
+  }, [isExtStandaloneWindow, reject]);
 
   return {
     reject,

@@ -15,6 +15,7 @@ import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
+import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
 import type ServiceToken from './services/ServiceToken';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -59,10 +60,11 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceToken: ServiceToken;
   serviceHistory: ServiceHistory;
   serviceHardware: ServiceHardware;
+  servicePassword: ServicePassword;
 }
 
 export type IDappSourceInfo = {
-  id: string | number;
+  id: string | number; // ServicePromise callback id to reject/resolve
   origin: string;
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;

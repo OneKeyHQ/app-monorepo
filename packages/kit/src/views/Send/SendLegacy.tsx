@@ -498,6 +498,7 @@ const Transaction = () => {
                 </Typography.Body2Strong>
 
                 <FeeInfoInputForTransfer
+                  sendConfirmParams={route.params as any}
                   encodedTx={encodedTx}
                   feeInfoPayload={feeInfoPayload}
                   loading={feeInfoLoading}

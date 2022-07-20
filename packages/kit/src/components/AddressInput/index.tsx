@@ -13,7 +13,7 @@ import {
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { setHaptics, useNavigation } from '../../hooks';
+import { useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { AddressBookRoutes } from '../../views/AddressBook/routes';
@@ -48,16 +48,13 @@ const AddressInput: FC<AddressInputProps> = ({
     [value, onChange],
   );
   const onPaste = useCallback(async () => {
-    setHaptics();
     const text = await getClipboard();
     onChangeValue?.(text);
   }, [onChangeValue]);
   const onScan = useCallback(() => {
-    setHaptics();
     gotoScanQrcode(onChangeValue);
   }, [onChangeValue]);
   const onContacts = useCallback(() => {
-    setHaptics();
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.AddressBook,
       params: {

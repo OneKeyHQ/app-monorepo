@@ -5,13 +5,15 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 
 export enum OneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
+  OneKeyHardwareError = 'OneKeyHardwareError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
+  OneKeyAbortError = 'OneKeyAbortError',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
-export class OneKeyError extends Web3RpcError<Error> {
+export class OneKeyError<T = Error> extends Web3RpcError<T> {
   className = OneKeyErrorClassNames.OneKeyError;
 
   info: IOneKeyErrorInfo;
@@ -63,8 +65,12 @@ export class OneKeyInternalError extends OneKeyError {
   override key = 'msg__engine__internal_error';
 }
 
-export class OneKeyHardwareError extends OneKeyError {
-  reconnect = false;
+export class OneKeyHardwareError extends OneKeyError<{ reconnect: boolean }> {
+  override className = OneKeyErrorClassNames.OneKeyHardwareError;
+
+  override data: { reconnect: boolean } = {
+    reconnect: false,
+  };
 
   codeHardware?: string;
 
@@ -74,6 +80,16 @@ export class OneKeyHardwareError extends OneKeyError {
     super(message, {});
     this.codeHardware = code;
   }
+}
+
+export class OneKeyHardwareAbortError extends OneKeyError {
+  override className = OneKeyErrorClassNames.OneKeyAbortError;
+
+  override key = 'msg__engine__internal_error';
+}
+
+export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError {
+  override key: LocaleIds = 'msg__wallet_already_exist';
 }
 
 export class OneKeyValidatorError extends OneKeyError {

@@ -22,6 +22,7 @@ export type AlertProps = {
   action?: string;
   actionType?: ActionType;
   onAction?: () => void;
+  customIconName?: ICON_NAMES;
 };
 
 type AlertTypeProps = {
@@ -42,8 +43,7 @@ const WarnAlertProps: AlertTypeProps = {
   iconName: 'ExclamationSolid',
   iconColor: 'icon-warning',
   bgColor: 'surface-warning-subdued',
-  // @ts-expect-error
-  borderColor: '#7A6200',
+  borderColor: 'border-warning-subdued',
 };
 
 const ErrorAlertProps: AlertTypeProps = {
@@ -91,6 +91,7 @@ const Alert: FC<AlertProps> = ({
   action,
   actionType,
   onAction,
+  customIconName,
 }) => {
   const alertTypeProps = alertPropWithType(alertType);
   const borderColor = useThemeValue(alertTypeProps.borderColor);
@@ -126,7 +127,7 @@ const Alert: FC<AlertProps> = ({
               <Box>
                 <Icon
                   size={20}
-                  name={alertTypeProps.iconName}
+                  name={customIconName ?? alertTypeProps.iconName}
                   color={alertTypeProps.iconColor}
                 />
               </Box>

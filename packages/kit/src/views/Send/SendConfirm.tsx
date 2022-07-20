@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IDecodedTxActionType,
   IEncodedTx,
+  IFeeInfoUnit,
   ISignedTx,
 } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
-import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
@@ -20,6 +22,7 @@ import { TxDetailView } from '../TxDetail/TxDetailView';
 
 import { FeeInfoInputForConfirmLite } from './FeeInfoInput';
 import SendConfirmLegacy from './SendConfirmLegacy';
+import { SendConfirmErrorsAlert } from './SendConfirmViews/SendConfirmErrorsAlert';
 import { SendConfirmLoading } from './SendConfirmViews/SendConfirmLoading';
 import {
   ITxConfirmViewProps,
@@ -129,15 +132,12 @@ function SendConfirm() {
     resendActionInfo,
     isSpeedUpOrCancel,
     isFromDapp,
+    dappApprove,
+    onModalClose,
   } = useSendConfirmRouteParamsParsed();
 
   useDisableNavigationAnimation({
     condition: !!routeParams.autoConfirmAfterFeeSaved,
-  });
-
-  const dappApprove = useDappApproveAction({
-    id: sourceInfo?.id ?? '',
-    closeOnError: true,
   });
 
   const { encodedTx } = useSendConfirmEncodedTx({
@@ -179,12 +179,14 @@ function SendConfirm() {
         return;
       }
       let encodedTxWithFee = encodedTx;
+      let feeInfoValue: IFeeInfoUnit | undefined;
       if (feeInfoEditable && feeInfoPayload) {
+        feeInfoValue = feeInfoPayload?.current.value;
         encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({
           networkId,
           accountId,
           encodedTx,
-          feeInfoValue: feeInfoPayload?.current.value,
+          feeInfoValue,
         });
       }
       const onSuccess: SendAuthenticationParams['onSuccess'] = async (
@@ -206,16 +208,24 @@ function SendConfirm() {
           accountId,
           data,
           resendActionInfo,
+          feeInfo: feeInfoValue,
         });
+
+        navigation.navigate(SendRoutes.SendFeedbackReceipt, {
+          txid: tx.txid ?? 'unknown_txid',
+          closeModal: close,
+        });
+
         if (routeParams.onSuccess) {
           routeParams.onSuccess(tx, data);
         }
-        await serviceHistory.refreshHistoryUi();
+        serviceHistory.refreshHistoryUi();
 
-        // openBlockBrowser
-        // openTransactionDetails(tx.txid);
-
-        setTimeout(() => close(), 0);
+        // navigate SendFeedbackReceipt onSuccess
+        // close modal
+        setTimeout(() => {
+          // close()
+        }, 0);
       };
       const nextRouteParams: SendAuthenticationParams = {
         ...routeParams,
@@ -254,6 +264,7 @@ function SendConfirm() {
 
   const feeInput = (
     <FeeInfoInputForConfirmLite
+      sendConfirmParams={routeParams}
       editable={feeInfoEditable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -261,6 +272,8 @@ function SendConfirm() {
     />
   );
   const sharedProps: ITxConfirmViewProps = {
+    sendConfirmParams: routeParams,
+
     sourceInfo,
     encodedTx,
     decodedTx,
@@ -276,7 +289,8 @@ function SendConfirm() {
       dappApprove.reject();
       close();
     },
-    onModalClose: dappApprove.reject,
+    // reject with window.close in ext standalone window after modal closed
+    onModalClose,
     children: null,
   };
 
@@ -316,6 +330,30 @@ function SendConfirm() {
 }
 
 function SendConfirmProxy() {
+  const { sourceInfo, routeParams } = useSendConfirmRouteParamsParsed();
+  const isNetworkNotMatched = useMemo(() => {
+    if (!sourceInfo) {
+      return false;
+    }
+    // dapp tx should check scope matched
+    // TODO add injectedProviderName to vault settings
+    return sourceInfo.scope !== IInjectedProviderNames.ethereum; // network.settings.injectedProviderName
+    return ![IInjectedProviderNames.ethereum, IInjectedProviderNames.starcoin].includes(sourceInfo.scope as any); // network.settings.injectedProviderName
+  }, [sourceInfo]);
+
+  if (isNetworkNotMatched) {
+    return (
+      <SendConfirmModal
+        sendConfirmParams={routeParams}
+        feeInfoPayload={null}
+        feeInfoLoading={false}
+        encodedTx={null}
+        handleConfirm={() => null}
+      >
+        <SendConfirmErrorsAlert isNetworkNotMatched />
+      </SendConfirmModal>
+    );
+  }
   return platformEnv.isLegacySendConfirm ? (
     <SendConfirmLegacy />
   ) : (

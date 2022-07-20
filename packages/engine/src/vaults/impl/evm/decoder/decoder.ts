@@ -160,10 +160,10 @@ class EVMTxDecoder {
       | null = null;
 
     if (itemBuilder.protocol === 'erc20') {
-      const token = await this.engine.getOrAddToken(
+      const token = await this.engine.findToken({
         networkId,
-        itemBuilder.toAddress,
-      );
+        tokenIdOnNetwork: itemBuilder.toAddress,
+      });
       if (!token) {
         throw new Error(`Token ${itemBuilder.toAddress} not found`);
       }

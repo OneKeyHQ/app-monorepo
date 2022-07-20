@@ -24,7 +24,6 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -34,12 +33,10 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   SendRoutes,
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -52,10 +49,15 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const intl = useIntl();
   const toast = useToast();
 
-  const { account, network: activeNetwork } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+
+  const { account, network: activeNetwork, wallet } = useActiveWalletAccount();
+
   const { prices, balances } = useManageTokens({
     pollingInterval: 15000,
   });
+
+  const isHwWallet = wallet?.type === 'hw';
 
   const copyContentToClipboard = useCallback(
     (address) => {
@@ -105,8 +107,17 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       <Pressable
         mt={4}
         onPress={() => {
-          setHaptics();
-          copyContentToClipboard(account?.address);
+          if (isHwWallet) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {},
+              },
+            });
+          } else {
+            copyContentToClipboard(account?.address);
+          }
         }}
       >
         {({ isHovered, isPressed }) => (
@@ -125,7 +136,9 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
             flexDirection="row"
           >
             <Text typography={{ sm: 'Body2', md: 'CaptionStrong' }} mr={2}>
-              {shortenAddress(account?.address ?? '')}
+              {isHwWallet
+                ? intl.formatMessage({ id: 'action__copy_address' })
+                : shortenAddress(account?.address ?? '')}
             </Text>
             <Icon name="DuplicateSolid" size={isCenter ? 20 : 16} />
           </Box>
@@ -236,16 +249,6 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
             {intl.formatMessage({ id: 'action__buy' })}
           </Typography.CaptionStrong>
         </Box>
-      )}
-
-      {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
-        <IconButton
-          onPress={() => {
-            extUtils.openExpandTab({ routes: '' });
-          }}
-          ml={4}
-          name="ArrowsExpandOutline"
-        />
       )}
     </Box>
   );

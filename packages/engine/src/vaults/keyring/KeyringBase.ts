@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 // eslint-disable-next-line max-classes-per-file
 import { DBAccount } from '../../types/account';
-import { IVaultOptions } from '../types';
+import { IGetAddressParams, IVaultOptions } from '../types';
 import { VaultContext } from '../VaultContext';
 
 import type { CredentialSelector } from '../../types/credential';
@@ -35,6 +35,8 @@ export abstract class KeyringBase extends VaultContext {
   abstract prepareAccounts(
     params: IPrepareAccountsParams,
   ): Promise<Array<DBAccount>>;
+
+  abstract getAddress(params: IGetAddressParams): Promise<string>;
 }
 
 // @ts-ignore

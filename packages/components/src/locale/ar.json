@@ -20,8 +20,8 @@
   "action__add_new": "اضف جديد",
   "action__add_new_address": "أضف عنوان جديد",
   "action__add_to_favorites": "اضافة الى المفضلة",
-  "action__add_tokens": "Add Tokens",
-  "action__add_tokens_desc": "Add existing tokens to current account",
+  "action__add_tokens": "أضف الرموز",
+  "action__add_tokens_desc": "إضافة الرموز الموجودة إلى الحساب الجاري",
   "action__add_wallet": "أضف المحفظة",
   "action__allow": "السماح",
   "action__back": "خلف",
@@ -30,10 +30,11 @@
   "action__back_up_to_onekey_lite": "نسخ احتياطي إلى OneKey Lite",
   "action__backup": "دعم",
   "action__buy": "يشتري",
-  "action__buy_crypto": "Buy Crypto",
-  "action__buy_crypto_desc": "With multiple payment options",
+  "action__buy_crypto": "شراء العملات المشفرة",
+  "action__buy_crypto_desc": "مع خيارات دفع متعددة",
   "action__cancel": "يلغي",
   "action__change_pin": "تغيير PIN",
+  "action__check_address": "تحقق من العنوان",
   "action__checking": "تدقيق...",
   "action__choose_an_image": "اختر صورة",
   "action__choose_from_library": "اختر من المكتبة",
@@ -46,8 +47,8 @@
   "action__connect_device": "قم بتوصيل الجهاز",
   "action__connection_duplicate_device": "تمت إضافة الجهاز {deviceId} بشكل متكرر ، يرجى تغيير الجهاز والمحاولة مرة أخرى.",
   "action__connection_timeout": "انتهت مهلة اتصال الجهاز ، يرجى المحاولة مرة أخرى.",
-  "action__contact": "Contact",
-  "action__contact_third_party_provider": "Contact Third-party Provider",
+  "action__contact": "اتصال",
+  "action__contact_third_party_provider": "اتصل بموفر الطرف الثالث",
   "action__contact_us": "اتصال",
   "action__continue": "يكمل",
   "action__copy": "ينسخ",
@@ -66,6 +67,7 @@
   "action__deny": "ينكر",
   "action__discard": "تجاهل",
   "action__done": "منتهي",
+  "action__download": "تحميل",
   "action__edit": "تعديل",
   "action__edit_fee": "تحرير الرسوم",
   "action__enable": "ممكن",
@@ -83,12 +85,14 @@
   "action__i_have_saved_the_phrase": "لقد قمت بحفظ العبارة",
   "action__i_understand": "أفهم",
   "action__import": "يستورد",
+  "action__import_wallet": "استيراد المحفظة",
   "action__incorrect_token_information": "معلومات رمز غير صحيحة",
   "action__install_and_restart": "التثبيت وإعادة التشغيل",
   "action__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "action__learn_more": "يتعلم أكثر",
   "action__list_view": "عرض القائمة",
   "action__local_picture": "اختر من الألبوم",
+  "action__lock_now": "اقفل الان",
   "action__manage_address": "إدارة العنوان",
   "action__max": "الأعلى",
   "action__next": "التالي",
@@ -99,6 +103,7 @@
   "action__overwrite": "الكتابة فوق",
   "action__paste": "معجون",
   "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
+  "action__protection": "حماية",
   "action__receive": "تسلم",
   "action__recover": "استعادة",
   "action__recover_accounts": "استعادة الحسابات",
@@ -133,10 +138,22 @@
   "action__speed_up": "اسرع",
   "action__submit": "إرسال",
   "action__switch": "يُحوّل",
+  "action__test_update_ble_firmware": "اختبار ترقية بلي البرامج الثابتة",
+  "action__test_update_firmware": "اختبار البرامج الثابتة للترقية",
   "action__unlock": "الغاء القفل",
   "action__update": "تحديث",
   "action__update_available": "التحديث متاح",
   "action__update_now": "تحديث الان",
+  "action__verify": "تَحَقّق",
+  "action__verify_cert_invalid": "شهادة المفتاح العام غير صالحة ، يرجى المحاولة مرة أخرى",
+  "action__verify_failed": "فشل التحقق",
+  "action__verify_loading": "التحقق",
+  "action__verify_params_invalid": "المعلمة غير صالحة ، يرجى المحاولة مرة أخرى",
+  "action__verify_request_failed": "الطلب غير طبيعي ، يرجى المحاولة مرة أخرى",
+  "action__verify_server_failed": "فشل الاتصال بالخادم ، يرجى المحاولة مرة أخرى",
+  "action__verify_sig_invalid": "التوقيع غير صالح ، يرجى المحاولة مرة أخرى",
+  "action__verify_sn_mismatch": "الأرقام التسلسلية غير متطابقة",
+  "action__verify_success": "نجح التحقق",
   "action__view": "رأي",
   "action__view_details": "عرض التفاصيل",
   "action__view_device_details": "تفاصيل الجهاز",
@@ -183,7 +200,7 @@
   "content__advanced": "متقدم",
   "content__agree_to_user_agreement_and_privacy_policy": "من خلال الاستمرار في استخدام التطبيق ، فإنك توافق على <a> اتفاقية خدمة المستخدم </a> و <b> سياسة الخصوصية </b> .",
   "content__all_addresses_are_stored_locally": "يتم تخزين جميع العناوين محليًا ، يرجى عمل نسخة احتياطية قبل الحذف.",
-  "content__all_chains": "All Chains",
+  "content__all_chains": "كل السلاسل",
   "content__allow_this_site_to_switch_your_network_to_str": "اسمح لهذا الموقع بتبديل شبكتك إلى {0}.",
   "content__allow_this_website_to_read_decrypted_messages_to_complete_your_action": "اسمح لموقع الويب هذا بقراءة الرسائل التي تم فك تشفيرها لإكمال عملك.",
   "content__allow_this_website_to_uppercase": "السماح لهذا الموقع:",
@@ -199,11 +216,12 @@
   "content__base_fee": "الرسوم الأساسية",
   "content__blockchain": "بلوكشين",
   "content__bluetooth_firmware_lowercase": "البرامج الثابتة بلوتوث",
-  "content__bluetooth_firmware_version": "Bluetooth Firmware Version",
-  "content__bluetooth_name": "Bluetooth Name",
+  "content__bluetooth_firmware_version": "إصدار البرنامج الثابت للبلوتوث",
+  "content__bluetooth_name": "اسم البلوتوث",
   "content__btc_dominance": "هيمنة BTC",
   "content__calculate_fee": "🚀 سيحسب OneKey الرسوم بعد إدخال العنوان والمبلغ.",
   "content__change_password_attention": "احتفظ بالتطبيق مفتوحًا أثناء تغيير كلمات المرور.",
+  "content__check_the_address_on_device": "تحقق من العنوان الموجود على الجهاز لإظهار رمز الاستجابة السريعة.",
   "content__click_below_to_copy": "انقر أدناه للنسخ",
   "content__completed_lowercase": "منجز",
   "content__confirmed": "مؤكد",
@@ -216,23 +234,23 @@
   "content__details": "تفاصيل",
   "content__downloading": "جارى التحميل",
   "content__downloading_str": "تحميل {0}",
-  "content__enter_bootloader_mode": "Enter Bootloader mode",
+  "content__enter_bootloader_mode": "ادخل إلى وضع Bootloader",
   "content__enter_current_password_before_resetting_it": "أدخل كلمة المرور الحالية قبل إعادة تعيينها",
   "content__enter_onekey_lite_pin_to_continue": "أدخل رقم التعريف الشخصي OneKey Lite للمتابعة",
-  "content__enter_pin_in_app": "Enter PIN in APP",
+  "content__enter_pin_in_app": "أدخل رقم التعريف الشخصي في التطبيق",
   "content__enter_your_recovery_seed": "أدخل عبارة الاسترداد الخاصة بك",
   "content__enter_your_recovery_seed_desc": "أدخل عبارة الاسترداد التي كتبتها من قبل ، وتحقق منها.",
   "content__estimated": "مُقدَّر",
   "content__ether_price": "سعر الأثير",
   "content__every_time_we_find_the_best_prices": "نجد دائمًا أفضل السيولة والأسعار من الموردين. يتضمن كل عرض أسعار 1٪ رسوم لمساعدة OneKey على تقديم خدمة أفضل لك.",
   "content__exchange_any_tokens": "تبادل أي رموز",
-  "content__existing": "Existing",
+  "content__existing": "موجود",
   "content__face_id": "معرف الوجه",
   "content__face_id_touch_id_can_be_used_instead_of": "يمكن استخدام Face ID / Touch ID بدلاً من إدخال كلمة مرور ، مما يجعلها أسرع وأكثر ملاءمة.",
   "content__fast": "سريع",
   "content__fee": "مصاريف",
   "content__firmware_lowercase": "البرامج الثابتة للجهاز",
-  "content__firmware_version": "Firmware Version",
+  "content__firmware_version": "نسخة برنامج ثابت",
   "content__follow_instructions": "اتبع التعليمات",
   "content__follow_instructions_desc": "عد إلى هنا لاتباع التعليمات بعد إنشاء المحفظة بنجاح.",
   "content__follow_instructions_restore_desc": "عد إلى هنا لاتباع التعليمات بعد استعادة المحفظة بنجاح.",
@@ -248,6 +266,7 @@
   "content__hardware_wallets_do_not_support_this_feature": "محافظ الأجهزة غير مدعومة.",
   "content__hardware_wallets_do_not_support_this_feature_desc": "هذه الوظيفة متاحة فقط للمدفوعات السريعة باستخدام محفظة التطبيق.",
   "content__hash": "تجزئة",
+  "content__have_been_connected": "متصل سابقًا",
   "content__i_am_aware_of_the_above_risks": "أنا على علم بالمخاطر المذكورة أعلاه",
   "content__if_the_price_drifts_against_you": "إذا انحرف السعر ضدك بأكثر من هذه النسبة المئوية ، يتم إنهاء الصفقة.",
   "content__if_you_choose_max": "إذا اخترت الحد الأقصى ، فإن الحد الأقصى للمبلغ الذي قد تنفقه على {0} لا نهائي.",
@@ -268,16 +287,19 @@
   "content__more_details": "المزيد من التفاصيل",
   "content__no_need_to_enter_a_password_for_each_transaction": "لا توجد كلمة مرور مطلوبة.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "ومع ذلك ، لا ينبغي تمكين هذه الميزة للأصول الرئيسية أو الهواتف العامة.",
+  "content__no_password_until_next_locking": "حتى القفل التالي ، لا يلزم إدخال كلمة مرور",
   "content__no_results": "لا نتائج",
   "content__no_results_desc": "لم يتم العثور على الرمز الذي بحثت عنه",
   "content__nonce": "نونس",
   "content__normal": "طبيعي",
   "content__not_actived": "غير نشط",
   "content__or_lowercase": "أو",
-  "content__past_24_hours": "past 24 hours",
-  "content__past_7_days": "past 7 days",
-  "content__past_month": "past month",
-  "content__past_year": "past year",
+  "content__password_required_even_unlocked": "ستكون كلمة المرور مطلوبة في هذه الحالات حتى إذا قمت بالفعل بإلغاء قفل OneKey.",
+  "content__password_required_unlock_onekey": "ستكون كلمة المرور مطلوبة في المرة التالية التي تقوم فيها بإلغاء تأمين OneKey.",
+  "content__past_24_hours": "الـ 24 ساعة الماضية",
+  "content__past_7_days": "السبعة أيام الماضية",
+  "content__past_month": "الشهر الماضي",
+  "content__past_year": "السنة الفائتة",
   "content__path": "طريق",
   "content__pin_error_the_data_of_this_device_will_be_erased_after_str_more_wrong_tries": "خطأ رقم التعريف الشخصي ، سيتم مسح بيانات هذا الجهاز بعد {count} من المحاولات الخاطئة",
   "content__place_your_onekey_lite_close_to_the_back_of_here": "ضع OneKey Lite الخاص بك\n بالقرب من الجزء الخلفي من هنا",
@@ -301,10 +323,10 @@
   "content__select_wallet_type": "اختر نوعًا للإعداد",
   "content__send_encrypted_messages_to_you": "إرسال رسائل مشفرة لك.",
   "content__send_transactions_and_signature_request": "إرسال المعاملات وطلب التوقيع.",
-  "content__serial_number": "Serial Number",
+  "content__serial_number": "رقم سري",
   "content__set_a_pin_code": "قم بتعيين رمز PIN",
   "content__set_a_pin_code_desc": "قم بتعيين رمز PIN بنفسك ، والذي يشبه رمز السحب الخاص ببطاقة مصرفية.",
-  "content__since_str": "since {0}",
+  "content__since_str": "منذ {0}",
   "content__spend_limit_amount": "مبلغ حد الإنفاق",
   "content__standard": "اساسي",
   "content__str_failed": "فشل {0} !",
@@ -318,11 +340,11 @@
   "content__the_decentralized_web_awaits": "شبكة الإنترنت اللامركزية تنتظر",
   "content__these_information_may_be_found": "يمكن العثور على هذه المعلومات على صفحة حول الجهاز.",
   "content__to": "ل",
-  "content__today": "Today",
-  "content__token_approve_owner": "Owner",
+  "content__today": "اليوم",
+  "content__token_approve_owner": "صاحب",
   "content__token_approve_spender": "Approved Spender",
   "content__total": "المجموع",
-  "content__total_value_by_str": "Total value by  {0}",
+  "content__total_value_by_str": "إجمالي القيمة بواسطة {0}",
   "content__touch_id": "معرف اتصال",
   "content__transfer_tokens_to_another_wallet": "تحويل الرموز إلى محفظة أخرى",
   "content__type": "يكتب",
@@ -376,18 +398,18 @@
   "form__24h_high": "24 ساعة عالية",
   "form__24h_low": "24 ساعة منخفضة",
   "form__24h_volume": "حجم 24H",
-  "form___7d_volume": "7D Volume",
+  "form___7d_volume": "حجم 7D",
   "form__about_uppercase": "حول",
-  "form__accelerated_transaction": "🚀 Accelerated transaction",
+  "form__accelerated_transaction": "🚀 المعاملات المعجلة",
   "form__account": "الحساب",
   "form__account_name": "إسم الحساب",
   "form__account_name_invalid_characters_limit": "ما يصل إلى {0} من الأحرف.",
   "form__account_name_invalid_exists": "الاسم موجود بالفعل.",
   "form__account_uppercase": "الحساب",
-  "form__add_exsting_wallet_invalid": "Unsupported Format",
+  "form__add_exsting_wallet_invalid": "صيغة غير مدعومة",
   "form__add_to_address_book": "أضف إلى دفتر العناوين",
   "form__address": "عنوان",
-  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
+  "form__address_btc_as_wachted_account": "عنوان استيراد BTC كحساب مراقب غير مدعوم حتى الآن.",
   "form__address_helperText": "يمكنك \"مشاهدة\" أي عنوان عام دون الكشف عن مفتاحك الخاص. يتيح لك هذا عرض الرصيد والمعاملات ، ولكن لا يتيح لك إرسال المعاملات.",
   "form__address_invalid": "عنوان غير صحيح.",
   "form__address_type_label": "نوع العنوان",
@@ -418,7 +440,7 @@
   "form__blockchain_explorer_url_invalid": "يتطلب URL البادئة http أو https.",
   "form__buy_int_max_purchase": "{0} الحد الأقصى للشراء",
   "form__buy_int_min_purchase": "{0} الحد الأدنى للشراء",
-  "form__cancelled_transaction": "💨 Cancelled transaction",
+  "form__cancelled_transaction": "💨 معاملة ملغاة",
   "form__chain_id": "معرف السلسلة",
   "form__chain_id_invalid": "معرف السلسلة غير صالح!",
   "form__change_password": "غير كلمة السر",
@@ -431,7 +453,8 @@
   "form__contract_data": "بيانات العقد",
   "form__create_delete_accounts": "إنشاء / حذف الحسابات",
   "form__create_delete_wallets": "إنشاء / حذف محافظ",
-  "form__cross_chain": "Cross chain",
+  "form__create_transactions": "إنشاء المعاملات",
+  "form__cross_chain": "عبر سلسلة",
   "form__dark": "داكن",
   "form__data": "البيانات",
   "form__data_tab": "البيانات",
@@ -448,13 +471,14 @@
   "form__enter_recipient_address_valid": "عنوان صالح",
   "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
   "form__estomated_gas": "الغاز المقدر",
+  "form__expand_view": "قم بتوسيع العرض",
   "form__explorer": "إكسبلورر",
   "form__face_id": "معرف الوجه / معرف اللمس",
   "form__fee_estimated": "الرسوم (تقديرية)",
   "form__fiat_currency": "عملة ورقية",
   "form__field_is_required": "مطلوب هذا المجال.",
   "form__firmware_version": "نسخة برنامج ثابت",
-  "form__floor_price": "Floor Price",
+  "form__floor_price": "أدنى سعر",
   "form__fully_diluted_value": "القيمة المخففة بالكامل",
   "form__gas_limit_invalid_min": "يجب ألا يقل حد الغاز عن {0}",
   "form__gas_limit_invalid_too_much": "حد الغاز أعلى من اللازم.",
@@ -466,18 +490,18 @@
   "form__hardware": "المعدات",
   "form__hardware_wallet_manuals": "كتيبات محفظة الأجهزة",
   "form__help_support": "ساعد لدعم",
-  "form__hide_small_balance": "Hide Small Balance",
+  "form__hide_small_balance": "إخفاء الرصيد الصغير",
   "form__hint_optional": "اختياري",
   "form__hot_cryptos_uppercase": "التشفير الساخن",
   "form__hot_tokens": "الرموز الساخنة",
   "form__imported_as_a_watch_account": "استيراد كحساب مراقب",
-  "form__include_nfts_in_totals": "Include NFTs in Totals",
+  "form__include_nfts_in_totals": "تضمين NFTs في الإجماليات",
   "form__keystore": "كيستور",
   "form__keystore_helperText": "عدة أسطر من النص تبدأ بـ \" {...} \".",
   "form__keystore_invalid": "تنسيق Keystore / JSON غير صحيح.",
   "form__keystore_password": "كلمة مرور Keystore",
   "form__language": "لغة",
-  "form__last_price": "Last Price",
+  "form__last_price": "السعر الاخير",
   "form__light": "خفيفة",
   "form__market_cap": "القيمة السوقية",
   "form__massage_uppercase": "رسالة",
@@ -505,7 +529,7 @@
   "form__one_year_high": "1 سنة عالية",
   "form__one_year_low": "1 سنة منخفضة",
   "form__overwrite_metamask": "الكتابة فوق MetaMask",
-  "form__owners": "Owners",
+  "form__owners": "أصحاب",
   "form__password": "كلمه السر",
   "form__password_free_payment": "الدفع بدون كلمة مرور",
   "form__password_free_payment_desc": "ادفع باستخدام Face ID بدلاً من كلمة المرور (محفظة البرنامج فقط)",
@@ -543,13 +567,14 @@
   "form__sell_min_transaction_amount": "{0} {1} الحد الأدنى للبيع",
   "form__send_tokens": "إرسال الرموز",
   "form__show_all": "عرض الكل",
-  "form__sign_method_type_uppercase": "Sign Method",
+  "form__sign_method_type_uppercase": "طريقة تسجيل الدخول",
   "form__slippage_tolerance": "تحمل الانزلاق",
+  "form__sound_n_vibration": "الصوت والاهتزاز",
   "form__str_accounts": "{count} حسابات",
-  "form__str_chain_uppercase": "{0} CHAIN",
+  "form__str_chain_uppercase": "سلسلة {0}",
   "form__str_day": "{0} أيام",
   "form__str_hour": "{0} ساعات",
-  "form__str_minimum_transfer": "{0} Minimum Transfer Amount",
+  "form__str_minimum_transfer": "{0} الحد الأدنى لمبلغ التحويل",
   "form__str_minute": "{0} دقيقة",
   "form__submit_a_request": "تقديم طلب",
   "form__symbol": "رمز",
@@ -572,6 +597,7 @@
   "form__value": "قيمة",
   "form__valued_str": "قيم ≥ {0}",
   "form__version": "الإصدار",
+  "form__vibrate": "تذبذب",
   "form__view_in_explore": "عرض في استكشاف",
   "form__view_recovery_phrase_private_key": "عرض عبارة الاسترداد / المفتاح الخاص",
   "form__website": "موقع الكتروني",
@@ -598,8 +624,6 @@
   "modal__camera_access_not_granted": "لم يتم منح الوصول إلى الكاميرا",
   "modal__camera_access_not_granted_desc": "انتقل إلى \"الإعدادات\" لتشغيل الوصول إلى الكاميرا.",
   "modal__charts": "الرسوم البيانية",
-  "modal__check_device_connected_power": "تأكد من أن الجهاز متصل بمصدر الطاقة",
-  "modal__check_device_connected_power_desc": "لضمان ترقية ناجحة، تأكد من توصيل الجهاز بموفر الطاقة.",
   "modal__check_firmware_update_failure": "فشل التحقق من ترقية البرنامج الثابت",
   "modal__check_firmware_update_failure_desc": "أعد تشغيل الجهاز وانقر فوق إعادة المحاولة، أو تحقق مما إذا كان التحديث ناجحا على الجهاز أم لا.",
   "modal__check_the_box_contents": "تحقق من محتويات العبوة",
@@ -615,29 +639,38 @@
   "modal__delete_this_token": "هل تريد حذف هذا الرمز المميز؟",
   "modal__delete_this_token_desc": "ستتم إزالة {token} من الرموز المميزة الخاصة بي",
   "modal__detecting_onekey_bridge_instalation": "الكشف عن تثبيت OneKey Bridge",
-  "modal__device_check_failed": "Device Check Failed",
-  "modal__device_check_failed_desc": "Device check failed. Please try again.",
+  "modal__device_check_failed": "فشل فحص الجهاز",
+  "modal__device_check_failed_desc": "فشل فحص الجهاز. حاول مرة اخرى.",
+  "modal__device_name": "Device Name",
   "modal__device_status_check": "فحص حالة الجهاز",
   "modal__disconnected_during_installation": "قطع الاتصال أثناء التثبيت",
   "modal__disconnected_during_installation_desc": "يرجى إعادة الاتصال والمحاولة مرة أخرى.",
+  "modal__disconnecting_device": "فصل الجهاز",
   "modal__do_you_have_your_phrase": "هل لديك عبارتك؟",
   "modal__do_you_have_your_phrase_desc": "قبل إجراء التحديث ، يرجى التأكد من أن لديك عبارة الاسترداد.",
   "modal__download_failed": "التحميل فشل",
   "modal__download_failed_desc": "التحميل غير قادر على الاكتمال. يرجى المحاولة أجيان.",
   "modal__edit_wallet": "تحرير المحفظة",
+  "modal__enter_bootloader_mode": "أدخل وضع Bootloader",
+  "modal__enter_bootloader_mode_error": "فشل إعادة تشغيل محمل الإقلاع",
+  "modal__enter_bootloader_mode_error_desc": "فشل إعادة التشغيل. يرجى المحاولة مرة أخرى أو إدخال أداة تحميل التشغيل يدويًا",
+  "modal__enter_bootloader_mode_mini_desc": "استمر في الضغط على زر قفل الشاشة في OneKey Mini وأعد توصيل كابل USB.",
+  "modal__enter_bootloader_mode_touch": "1. قم بإيقاف تشغيل الجهاز\n 2. اضغط مع الاستمرار على زر التبديل TOUCH أثناء التمرير على الشاشة\n 3. سيعرض الجهاز الآن الكلمات \"وضع التحديث\"",
   "modal__enter_pin": "أدخل رقم التعريف الشخصي",
   "modal__enter_pin_desc": "تحقق من شاشة جهازك باستخدام تخطيط لوحة المفاتيح العشوائي",
   "modal__failed_to_connect": "فشل الاتصال",
   "modal__failed_to_connect_desc": "تأكد من أن الجهاز قريب من وحدة NFC بالهاتف ، ثم حاول مرة أخرى",
   "modal__finish_backup": "إنهاء النسخ الاحتياطي",
   "modal__finish_backup_desc": "تحقق من أنك قمت بعمل نسخة احتياطية صحيحة عن طريق إدخال الكلمات المقابلة من عبارة الاسترداد أدناه.",
-  "modal__firmware_installation_failed": "Firmware Installation Failed",
-  "modal__firmware_installation_failed_desc": "Firmware installation failed. Please try again.",
+  "modal__firmware_installation_failed": "فشل تثبيت البرنامج الثابت",
+  "modal__firmware_installation_failed_desc": "فشل تثبيت البرنامج الثابت. حاول مرة اخرى.",
   "modal__firmware_update": "تحديث البرامج الثابتة",
+  "modal__firmware_update_hint": "يرجى الاحتفاظ بجهازك قيد الشحن لضمان الترقية المناسبة.",
   "modal__firmware_updated": "تم تحديث البرنامج الثابت",
   "modal__follow_the_instructions_on_your_device_screen": "اتبع التعليمات التي تظهر على شاشة جهازك",
   "modal__for_your_eyes_only": "فقط لاجل عينيك",
   "modal__for_your_eyes_only_desc": "لا تشارك عبارة الاسترداد. سيتمكن أي شخص لديه هذه الكلمات من الوصول الكامل إلى محفظتك.",
+  "modal__homescreen": "Homescreen",
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
@@ -648,17 +681,17 @@
   "modal__looking_for_devices_desc": "يرجى التأكد من تمكين البلوتوث الخاص بك.",
   "modal__looking_for_devices_result": "وجدنا هذه الأجهزة",
   "modal__need_install_onekey_bridge": "قم بتثبيت OneKey Bridge",
-  "modal__need_install_onekey_bridge_desc": "تحتاج إلى تنزيل OneKey Brigde لاستخدام الجهاز ، فانتقل إلى التنزيل؟",
-  "modal__no_device_found": "No Device Found",
-  "modal__no_device_found_desc": "Please check if your device is connected.",
+  "modal__need_install_onekey_bridge_desc": "بدء تشغيل سطح مكتب OneKey قبل استخدام الجهاز. يمكنك أيضًا تثبيت OneKey Brigde لتعزيز استقرار النقل. المضي قدما والتحميل؟",
+  "modal__no_device_found": "لم يتم العثور على جهاز",
+  "modal__no_device_found_desc": "يرجى التحقق مما إذا كان جهازك متصلاً.",
   "modal__no_response": "لا يوجد رد",
   "modal__no_response_desc": "لا يوجد تأكيد على الجهاز.",
   "modal__onekey_lite_has_been_reset": "تمت إعادة تعيين OneKey Lite",
   "modal__onekey_lite_has_been_reset_desc": "تم إدخال رقم التعريف الشخصي الحالي بشكل غير صحيح أكثر من 10 مرات ، وتم مسح بيانات هذا الجهاز لمنع تصدع بيانات النسخ الاحتياطي بالقوة الغاشمة",
   "modal__onekey_wants_to_use_nfc": "يريد مفتاح \"OneKey\" استخدام NFC",
   "modal__onekey_wants_to_use_nfc_desc": "أذونات NFC مطلوبة للاتصال بـ OneKey Lite.",
-  "modal__only_one_device_can_be_connected": "Only one device can be connected",
-  "modal__only_one_device_can_be_connected_desc": "Please connect only one device to upgrade.",
+  "modal__only_one_device_can_be_connected": "يمكن توصيل جهاز واحد فقط",
+  "modal__only_one_device_can_be_connected_desc": "الرجاء توصيل جهاز واحد فقط للترقية.",
   "modal__pin_change_failed": "فشل تغيير رقم التعريف الشخصي",
   "modal__pin_change_failed_desc": "ليست هناك حاجة لتغيير رقم التعريف الشخصي على بطاقة OneKey Lite الجديدة هذه",
   "modal__preview": "معاينة",
@@ -724,14 +757,17 @@
   "msg__exceeding_the_maximum_word_limit": "تجاوز الحد الأقصى لعدد الكلمات.",
   "msg__failed_to_add_token": "فشل إضافة الرمز المميز",
   "msg__failed_to_get_price": "فشل في الحصول على السعر",
+  "msg__firmware_is_being_upgraded": "جاري ترقية البرنامج الثابت. يرجى اتباع تعليمات الجهاز.",
   "msg__hardware_bluetooth_need_turned_on_error": "يجب تشغيل Bluetooth.",
   "msg__hardware_bluetooth_not_paired_error": "لا يتم إقران جهاز Bluetooth.",
   "msg__hardware_bluetooth_requires_permission_error": "مطلوب إذن بلوتوث",
+  "msg__hardware_bridge_network_error": "فشل اتصال الأجهزة ، يرجى توصيل USB وفصله وحاول مرة أخرى",
+  "msg__hardware_bridge_timeout": "انتهت مهلة اتصال OneKey Bridge ، يرجى المحاولة مرة أخرى",
   "msg__hardware_connect_timeout_error": "مهلة اتصال الجهاز",
   "msg__hardware_default_error": "فشل الاتصال بالجهاز ، يرجى المحاولة مرة أخرى.",
   "msg__hardware_device_not_find_error": "لم يتم العثور على الأجهزة.",
   "msg__hardware_failed_to_search_devices": "فشل البحث عن الأجهزة",
-  "msg__hardware_firmware_download_error": "Firmware download failure",
+  "msg__hardware_firmware_download_error": "فشل تنزيل البرنامج الثابت",
   "msg__hardware_init_iframe_load_error": "فشلت تهيئة الاتصال. يرجى المحاولة مرة أخرى.",
   "msg__hardware_invalid_pin_error": "رقم التعريف الشخصي الذي تم إدخاله غير صالح",
   "msg__hardware_not_same": "الجهاز غير متطابق ، يرجى توصيل الجهاز الصحيح",
@@ -742,9 +778,12 @@
   "msg__history_deleted": "تم حذف السجل",
   "msg__image_saved": "تم حفظ الصورة",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
+  "msg__mismatched_account": "حساب غير متطابق.",
+  "msg__mismatched_networks": "شبكات غير متطابقة.",
   "msg__network_added": "تمت إضافة الشبكة",
   "msg__network_removed": "إزالة الشبكة!",
   "msg__network_reset": "إعادة تعيين الشبكة!",
+  "msg__not_the_same_wallet": "ليست نفس المحفظة.",
   "msg__offline": "غير متصل على الانترنت",
   "msg__password_changed": "تم تغيير كلمة السر",
   "msg__password_has_been_set": "تم تعيين كلمة المرور",
@@ -759,14 +798,14 @@
   "msg__submitted_successfully": "تم الإرسال بنجاح",
   "msg__switch_to_str": "تحول إلى {0}",
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
-  "msg__the_recipient_address_is_a_contract_address": "The recipient address is a contract address, and transferring to this address may result in asset loss.",
+  "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__this_address_already_exists": "هذا العنوان موجود بالفعل.",
-  "msg__this_is_a_cross_chain_swap_transaction": "This is a cross-chain Swap transaction.",
-  "msg__this_is_a_cross_chain_swap_transaction_desc": "This kind of transaction information will be displayed as many different transactions in the transaction history of your account.",
-  "msg__this_is_a_transaction_for_cancellation": "This is a transaction for cancellation.",
-  "msg__this_is_a_transaction_for_cancellation_desc": "The original transaction will be canceled.",
-  "msg__this_is_an_accelerated_transaction": "This is an accelerated transaction️.",
-  "msg__this_is_an_accelerated_transaction_desc": "The original transaction will be replaced.",
+  "msg__this_is_a_cross_chain_swap_transaction": "هذه معاملة مقايضة عبر سلسلة.",
+  "msg__this_is_a_cross_chain_swap_transaction_desc": "سيتم عرض هذا النوع من معلومات المعاملات على أنه العديد من المعاملات المختلفة في سجل المعاملات الخاص بحسابك.",
+  "msg__this_is_a_transaction_for_cancellation": "هذه معاملة للإلغاء.",
+  "msg__this_is_a_transaction_for_cancellation_desc": "سيتم إلغاء المعاملة الأصلية.",
+  "msg__this_is_an_accelerated_transaction": "هذه معاملة معجلة️.",
+  "msg__this_is_an_accelerated_transaction_desc": "سيتم استبدال المعاملة الأصلية.",
   "msg__this_site_is_identified_as_a_scam": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال",
   "msg__this_transaction_is_not_supported": "هذه الصفقة غير مدعومة",
   "msg__token_added": "تمت إضافة الرمز",
@@ -777,6 +816,7 @@
   "msg__upload_failed": "التحميل فشل",
   "msg__url_copied": "تم نسخ URL",
   "msg__verification_failure": "فشل التحقق",
+  "msg__wallet_already_exist": "Wallet already exist.",
   "msg__wallet_deleted": "تم حذف المحفظة \" {0} \"",
   "msg__wrong_address_format": "عنوان العقد غير صحيح.",
   "msg__wrong_email_format": "تنسيق بريد إلكتروني خاطئ.",
@@ -801,7 +841,7 @@
   "terms__user_agreement": "اتفاقية المستخدم",
   "title__New_Collection": "مجموعة جديدة",
   "title__about": "عن",
-  "title__accounts": "Accounts",
+  "title__accounts": "حسابات",
   "title__activity": "نشاط",
   "title__add_a_network": "أضف شبكة",
   "title__add_token": "أضف رمز",
@@ -837,16 +877,16 @@
   "title__favorites": "المفضلة",
   "title__filter": "منقي",
   "title__help": "مساعدة",
-  "title__help_center": "Help Center",
+  "title__help_center": "مركز المساعدة",
   "title__home": "مسكن",
   "title__invest": "استثمار",
-  "title__leaderboard": "LeaderBoard",
+  "title__leaderboard": "ليدربورد",
   "title__manage_cryptos": "إدارة التشفير",
   "title__manage_tokens": "إدارة الرموز",
   "title__market": "سوق",
   "title__me": "أنا",
   "title__menu": "قائمة",
-  "title__newly_added": "Newly Added",
+  "title__newly_added": "مضاف حديثا",
   "title__news": "أخبار",
   "title__nfc_data_has_been_read": "الانتعاش جاهز",
   "title__nfc_data_has_been_read_desc": "أدخل كلمة مرور التطبيق لإكمال استعادة المحفظة",
@@ -864,7 +904,7 @@
   "title__no_request_history_desc": "أنت لم تقدم أي طلبات.",
   "title__official_website": "الموقع الرسمي",
   "title__onekey_lite_pin": "OneKey Lite PIN",
-  "title__order_id": "Order ID",
+  "title__order_id": "رقم التعريف الخاص بالطلب",
   "title__overview": "ملخص",
   "title__pin_changed": "تم تغيير رقم التعريف الشخصي!",
   "title__pin_changed_desc": "تمت إعادة تعيين رقم التعريف الشخصي الخاص بـ OneKey Lite",
@@ -909,7 +949,7 @@
   "title__verified_token_desc": "تشير العلامة الخضراء إلى أنه تم التحقق من هذا الرمز المميز في قائمتين مميزتين على الأقل.",
   "title__verify_new_pin": "تحقق من رقم التعريف الشخصي الجديد",
   "title__verify_new_pin_desc": "تحقق من رقم التعريف الشخصي الجديد لـ OneKey Lite",
-  "title__wallets": "Wallets",
+  "title__wallets": "محافظ",
   "title__welcome": "أهلا بك",
   "title__welcome_desc": "كل ما تحتاج لمعرفته حول استكشاف عالم Web3 الجديد من خلال OneKey",
   "title__whats_new": "ما هو الجديد",
@@ -928,11 +968,11 @@
   "transaction__pending": "قيد الانتظار",
   "transaction__register_with_config": "التسجيل مع Config",
   "transaction__success": "نجاح",
-  "transaction__swap_completed": "Completed",
-  "transaction__swap_deposit": "Depositing",
-  "transaction__swap_exchange": "Exchanging",
-  "transaction__swap_receiving": "Receiving",
-  "transaction__swap_timeout": "Timeout",
+  "transaction__swap_completed": "مكتمل",
+  "transaction__swap_deposit": "الإيداع",
+  "transaction__swap_exchange": "التبادل",
+  "transaction__swap_receiving": "يستلم",
+  "transaction__swap_timeout": "نفذ الوقت",
   "transaction__transaction_confirm": "تأكيد المعاملة",
   "transaction__transaction_details": "تفاصيل الصفقه",
   "wallet__app_wallet": "محفظة APP",

@@ -35,4 +35,8 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   //     'prepareAccounts is not supported for watching accounts',
   //   );
   // }
+
+  override getAddress(): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
 }

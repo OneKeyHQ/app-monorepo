@@ -14,8 +14,9 @@ import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
-import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
+import Protected from '@onekeyhq/kit/src/views/Protected';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
@@ -54,8 +55,8 @@ export const stackScreenList = [
     component: TransactionHistory,
   },
   {
-    name: HomeRoutes.FaceId,
-    component: FaceID,
+    name: HomeRoutes.Protected,
+    component: Protected,
   },
   {
     name: HomeRoutes.AddressBook,
@@ -64,6 +65,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.SwapHistory,
     component: SwapHistory,
+  },
+  {
+    name: HomeRoutes.VolumeHaptic,
+    component: VolumeHaptic,
   },
 ];
 

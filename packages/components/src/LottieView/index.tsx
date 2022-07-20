@@ -29,24 +29,26 @@ type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
   autoPlay?: boolean;
 };
 
-const LottieView = ({ source, autoPlay, ...props }: LottieViewProps) => {
+const LottieView = ({ source, autoPlay, loop, ...props }: LottieViewProps) => {
   const animationRef = useRef<AnimatedLottieView | null>();
 
   useEffect(() => {
+    // animation won't work in navigate(), needs delay here
     setTimeout(() => {
       if (autoPlay) {
         animationRef.current?.play?.();
       } else {
         animationRef.current?.pause?.();
       }
-    }, 50);
+    }, 300);
   }, [autoPlay]);
 
   if (platformEnv.isNative && !!LottieViewNative) {
     return (
       <LottieViewNative
-        source={source}
+        source={source as LottieNativeProps['source']}
         autoPlay={autoPlay}
+        loop={!!loop}
         {...props}
         ref={animationRef as LegacyRef<AnimatedLottieView>}
       />
@@ -54,7 +56,14 @@ const LottieView = ({ source, autoPlay, ...props }: LottieViewProps) => {
   }
 
   if (!platformEnv.isNative && !!LottieViewWeb) {
-    return <LottieViewWeb animationData={source} {...props} />;
+    return (
+      <LottieViewWeb
+        animationData={source}
+        autoPlay={autoPlay}
+        loop={loop}
+        {...props}
+      />
+    );
   }
 
   return null;

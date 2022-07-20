@@ -280,6 +280,7 @@ export const AmountInput: FC = () => {
             <Keyboard
               itemHeight={shortScreen ? '44px' : undefined}
               pattern={/^(0|([1-9][0-9]*))?\.?([0-9]{1,2})?$/}
+              text={inputText}
               onTextChange={(text) => {
                 updateInputText(text);
               }}

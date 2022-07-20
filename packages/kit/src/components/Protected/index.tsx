@@ -11,22 +11,23 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { NeedOneKeyBridge } from '../../utils/hardware/errors';
+import { CustomOneKeyHardwareError } from '../../utils/hardware/errors';
 import NeedBridgeDialog from '../NeedBridgeDialog';
 
+import Session from './Session';
 import Setup from './Setup';
 import { ValidationFields } from './types';
-import Validation from './Validation';
 
 type ProtectedOptions = {
   isLocalAuthentication?: boolean;
   withEnableAuthentication?: boolean;
+  deviceFeatures?: IOneKeyDeviceFeatures;
 };
 
 type ProtectedProps = {
@@ -47,7 +48,7 @@ const Protected: FC<ProtectedProps> = ({
   const walletDetail = useGetWalletDetail(walletId);
   const intl = useIntl();
   const { engine, serviceHardware } = backgroundApiProxy;
-  const [deviceCheckSuccess, setDeviceCheckSuccess] = useState(false);
+  const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
@@ -108,22 +109,34 @@ const Protected: FC<ProtectedProps> = ({
         features = await serviceHardware.ensureConnected(
           currentWalletDevice.mac,
         );
-      } catch (e) {
+      } catch (e: any) {
         safeGoBack();
 
-        if (e instanceof NeedOneKeyBridge) {
+        const { className, key, code } = e || {};
+
+        if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
           DialogManager.show({ render: <NeedBridgeDialog /> });
           return;
         }
 
-        if (e instanceof OneKeyHardwareError) {
-          ToastManager.show({
-            title: intl.formatMessage({ id: e.key }),
-          });
+        if (className === OneKeyErrorClassNames.OneKeyAbortError) {
+          return;
+        }
+
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: key }),
+            },
+            { type: 'error' },
+          );
         } else {
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'action__connection_timeout' }),
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'action__connection_timeout' }),
+            },
+            { type: 'error' },
+          );
         }
         return;
       }
@@ -161,10 +174,26 @@ const Protected: FC<ProtectedProps> = ({
         safeGoBack();
         return;
       }
-      setDeviceCheckSuccess(true);
+
+      // device connect success
+      setDeviceFeatures(features);
     }
     loadDevices();
   }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
+
+  const abortConnect = useCallback(
+    () => serviceHardware.stopPolling(),
+    [serviceHardware],
+  );
+
+  useEffect(
+    () => () => {
+      if (isHardware) {
+        abortConnect();
+      }
+    },
+    [isHardware, abortConnect],
+  );
 
   if (password) {
     return (
@@ -178,12 +207,13 @@ const Protected: FC<ProtectedProps> = ({
   }
 
   if (isHardware) {
-    if (deviceCheckSuccess) {
+    if (deviceFeatures) {
       return (
         <Box w="full" h="full">
           {children(password, {
             withEnableAuthentication,
             isLocalAuthentication,
+            deviceFeatures,
           })}
         </Box>
       );
@@ -202,7 +232,7 @@ const Protected: FC<ProtectedProps> = ({
   }
 
   if (hasPassword) {
-    return <Validation onOk={onValidationOk} field={field} />;
+    return <Session onOk={onValidationOk} field={field} />;
   }
   return <Setup onOk={onSetupOk} skipSavePassword={skipSavePassword} />;
 };

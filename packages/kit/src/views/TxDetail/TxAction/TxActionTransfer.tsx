@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyToken } from '../../../components/Format';
-import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBox';
+import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import {
   TxListActionBox,
   TxListActionBoxExtraText,

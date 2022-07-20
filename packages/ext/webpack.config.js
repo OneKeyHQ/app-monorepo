@@ -31,6 +31,7 @@ const transpileModules = [
   '@onekeyhq/shared',
   '@onekeyhq/engine',
   '@onekeyhq/app',
+  'react-native-animated-splash-screen',
 ];
 
 // TODO use webpack 4.43.0

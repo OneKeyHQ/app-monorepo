@@ -80,8 +80,14 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
   );
 
   const onOpenCustomerSupport = useCallback(() => {
-    onOpenUrl(swftcCustomerSupportUrl);
-  }, [onOpenUrl]);
+    if (platformEnv.isNative) {
+      navigation.navigate(SwapRoutes.SwftcHelp, {
+        orderid: tx.thirdPartyOrderId ?? '',
+      });
+    } else {
+      global.open(swftcCustomerSupportUrl, '_blank');
+    }
+  }, [navigation, tx.thirdPartyOrderId]);
 
   const onOpenTx = useCallback(() => {
     const url = buildTransactionDetailsUrl(network, tx.hash);

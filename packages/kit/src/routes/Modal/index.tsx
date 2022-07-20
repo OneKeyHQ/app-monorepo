@@ -7,6 +7,7 @@ import { DialogManager } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import HardwarePopup from '../../views/Hardware/PopupHandle';
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import AddressBookModal from './AddressBook';
@@ -21,6 +22,7 @@ import BuyModal from './FiatPay';
 import OnekeyHardwareModal from './HardwareOnekey';
 import HardwareOnekeyLitePinModal from './HardwareOnekeyLiteChangePin';
 import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
+import HardwareUpdateModal from './HardwareUpdate';
 import HistoryRequestModal from './HistoryRequest';
 import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
@@ -122,6 +124,10 @@ const modalStackScreenList = [
     component: OnekeyHardwareModal,
   },
   {
+    name: ModalRoutes.HardwareUpdate,
+    component: HardwareUpdateModal,
+  },
+  {
     name: ModalRoutes.Discover,
     component: DiscoverModal,
   },
@@ -163,6 +169,7 @@ const ModalStackNavigator = () => (
     {/* Native Modal must register another for root container */}
     {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
     {platformEnv.isNativeIOS && <DialogManager.Holder />}
+    {platformEnv.isNativeIOS && <HardwarePopup />}
   </>
 );
 

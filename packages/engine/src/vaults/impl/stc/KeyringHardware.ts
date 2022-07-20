@@ -15,6 +15,7 @@ import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import type {
+  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
@@ -173,5 +174,17 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
     }
     return ret;
+  }
+
+  async getAddress(params: IGetAddressParams): Promise<string> {
+    const connectId = await this.getHardwareConnectId();
+    const response = await HardwareSDK.starcoinGetAddress(connectId, {
+      path: params.path,
+      showOnOneKey: params.showOnOneKey,
+    });
+    if (response.success) {
+      return response.payload.address ?? '';
+    }
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 }

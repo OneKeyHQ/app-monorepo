@@ -1,13 +1,9 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import {
-  IInjectedProviderNames,
-  IInjectedProviderNamesStrings,
-} from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Modal } from '@onekeyhq/components';
+import { Modal, Text } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
@@ -16,12 +12,14 @@ import {
   IEncodedTx,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
-import { SendConfirmPayload } from '../types';
+import { SendConfirmParams, SendConfirmPayload } from '../types';
 
+import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 export type ITxConfirmViewPropsHandleConfirm = ({
@@ -53,6 +51,8 @@ export type ITxConfirmViewProps = ModalProps & {
   confirmDisabled?: boolean;
   autoConfirm?: boolean;
   children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
+
+  sendConfirmParams: SendConfirmParams;
 };
 
 // TODO rename SendConfirmModalBase
@@ -77,29 +77,29 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
   });
   const modalClose = useModalClose();
 
+  const nativeBalance = useMemo(
+    () =>
+      getTokenBalance({
+        token: nativeToken,
+        defaultValue: '0',
+      }),
+    [getTokenBalance, nativeToken],
+  );
+
   // TODO move to validator
+  const fee = feeInfoPayload?.current?.totalNative ?? '0';
+
+  const isAutoConfirmed = useRef(false);
+
   const balanceInsufficient = useMemo(() => {
-    const fee = feeInfoPayload?.current?.totalNative ?? '0';
-    const nativeBalance = getTokenBalance({
-      token: nativeToken,
-      defaultValue: '0',
-    });
+    console.log('SendConfirmModal nativeBalance >>>> ', nativeBalance);
     return new BigNumber(nativeBalance).lt(new BigNumber(fee));
-  }, [feeInfoPayload, getTokenBalance, nativeToken]);
+  }, [fee, nativeBalance]);
 
   const isWatchingAccount = useMemo(
     () => !!(accountId && accountId.startsWith('watching-')),
     [accountId],
   );
-
-  const isNetworkNotMatched = useMemo(() => {
-    if (!sourceInfo) {
-      return false;
-    }
-    // dapp tx should check scope matched
-    // TODO add injectedProviderName to vault settings
-    return ![IInjectedProviderNames.ethereum, IInjectedProviderNames.starcoin].includes(sourceInfo.scope as any); // network.settings.injectedProviderName
-  }, [sourceInfo]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -115,8 +115,11 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     [encodedTx, handleConfirm, updateEncodedTxBeforeConfirm],
   );
   useEffect(() => {
-    if (autoConfirm && !feeInfoLoading) {
-      confirmAction({ close: modalClose });
+    if (autoConfirm && !feeInfoLoading && !isAutoConfirmed.current) {
+      isAutoConfirmed.current = true;
+      setTimeout(() => {
+        confirmAction({ close: modalClose });
+      }, 600);
     }
   }, [feeInfoLoading, autoConfirm, confirmAction, modalClose]);
 
@@ -126,7 +129,6 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled:
-          isNetworkNotMatched ||
           isWatchingAccount ||
           balanceInsufficient ||
           feeInfoLoading ||
@@ -149,13 +151,19 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
                 nativeToken={nativeToken}
                 isWatchingAccount={isWatchingAccount}
                 balanceInsufficient={balanceInsufficient}
-                isNetworkNotMatched={isNetworkNotMatched}
               />
             )}
 
-            {children}
+            <SendConfirmErrorBoundary>
+              {children}
+              <DecodeTxButtonTest encodedTx={encodedTx} />
+            </SendConfirmErrorBoundary>
 
-            <DecodeTxButtonTest encodedTx={encodedTx} />
+            {platformEnv.isDev ? (
+              <Text>
+                {nativeBalance} {nativeToken?.symbol}
+              </Text>
+            ) : null}
           </>
         ),
       }}

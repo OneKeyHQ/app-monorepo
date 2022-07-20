@@ -26,4 +26,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     console.log(params);
     throw new NotImplemented();
   }
+
+  override getAddress(): Promise<string> {
+    throw new NotImplemented();
+  }
 }

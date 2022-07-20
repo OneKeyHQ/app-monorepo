@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
-import { ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
@@ -37,8 +37,8 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
   const {
     networkId,
     accountId,
-    onSuccess,
     encodedTx,
+    onSuccess,
     unsignedMessage,
     payloadInfo,
     backRouteName,
@@ -82,31 +82,36 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
         return;
       }
       submitted.current = true;
+      let submitEncodedTx: IEncodedTx | undefined = encodedTx;
 
       // throw new Error('test error');
 
       let result: any;
       let signedTx: ISignedTx | undefined;
-      if (encodedTx) {
+      let signedMsg: string | undefined;
+      if (submitEncodedTx) {
         signedTx = await sendTx();
         result = signedTx;
+        // encodedTx will be edit by buildUnsignedTx, re-assign encodedTx
+        submitEncodedTx = signedTx.encodedTx || submitEncodedTx;
       }
       if (unsignedMessage) {
-        result = await signMsg();
-        console.log('>>>>>>>> unsignedMessage ', unsignedMessage, result);
+        signedMsg = await signMsg();
+        result = signedMsg;
+        console.log('>>>>>>>> unsignedMessage ', unsignedMessage, signedMsg);
       }
       if (result) {
         onSuccess?.(result, {
           signedTx,
-          encodedTx,
+          encodedTx: submitEncodedTx,
           // should rebuild decodedTx from encodedTx,
           // as encodedTx will be edit by buildUnsignedTx
-          decodedTx: encodedTx
+          decodedTx: submitEncodedTx
             ? (
                 await backgroundApiProxy.engine.decodeTx({
                   networkId,
                   accountId,
-                  encodedTx,
+                  encodedTx: submitEncodedTx,
                   payload,
                   interactInfo,
                 })
@@ -117,10 +122,6 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
           // onSuccess will close() modal, goBack() is NOT needed here.
           // navigation.getParent()?.goBack?.();
         }
-        const msg = intl.formatMessage({ id: 'transaction__success' });
-        toast.show({
-          title: msg,
-        });
       }
     } catch (e) {
       console.error(e);
