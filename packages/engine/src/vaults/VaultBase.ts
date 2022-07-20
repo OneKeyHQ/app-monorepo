@@ -8,6 +8,7 @@ import {
 import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -100,7 +101,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     // Generic private key test, override if needed.
     return Promise.resolve(
       this.settings.importedAccountEnabled &&
-        /^(0x)?[0-9a-zA-Z]{64}$/.test(input),
+      /^(0x)?[0-9a-zA-Z]{64}$/.test(input),
     );
   }
 
@@ -108,7 +109,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     // Generic address test, override if needed.
     return Promise.resolve(
       this.settings.watchingAccountEnabled &&
-        (await this.engineProvider.verifyAddress(input)).isValid,
+      (await this.engineProvider.verifyAddress(input)).isValid,
     );
   }
 
@@ -397,7 +398,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
     // TODO base.mergeDecodedTx with signedTx.rawTx
     // must include accountId here, so that two account wont share same tx history
-    const historyId = `${this.networkId}_${txid}_${this.accountId}`;
+    const historyId = `${ this.networkId }_${ txid }_${ this.accountId }`;
     let historyTx: IHistoryTx = {
       id: historyId,
 
@@ -454,7 +455,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return IDecodedTxDirection.OTHER;
   }
 
-  async getNextNonce(networkId: string, dbAccount: DBAccount): Promise<number> {
+  async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
     const onChainNonce =
       (
         await this.engine.providerManager.getAddresses(networkId, [
@@ -470,12 +474,29 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       undefined,
       false,
     );
-    const maxPendingNonce =
-      (await simpleDb.history.getMaxPendingNonce({
-        accountId: this.accountId,
-        networkId,
-      })) || 0;
-    const nextNonce = Math.max(maxPendingNonce + 1, onChainNonce);
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.history.getPendingNonceList({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
+    if (nextNonce > onChainNonce) {
+      for (let i = onChainNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
 
     if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
       throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
