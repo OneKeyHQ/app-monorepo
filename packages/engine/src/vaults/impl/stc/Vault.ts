@@ -9,13 +9,12 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-
 import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
-
+import { extractResponseError } from '../../../proxy';
 import { DBSimpleAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
@@ -44,12 +43,13 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { extractTransactionInfo, getAddressHistoryFromExplorer, decodeTokenData } from './utils';
+import {
+  decodeTokenData,
+  extractTransactionInfo,
+  getAddressHistoryFromExplorer,
+} from './utils';
 
 import type { IEncodedTxSTC } from './types';
-import {
-  extractResponseError,
-} from '../../../proxy';
 
 export default class Vault extends VaultBase {
   settings = settings;
@@ -119,7 +119,7 @@ export default class Vault extends VaultBase {
     } else if (data) {
       // TODO:  display dataName and dataParamsStr on UI's confirmTransactionPage
       const { name: dataName, params: dataParams } = decodeTokenData(data);
-      const dataParamsStr = JSON.stringify(dataParams)
+      const dataParamsStr = JSON.stringify(dataParams);
 
       action = {
         type: IDecodedTxActionType.TRANSACTION,
@@ -149,10 +149,10 @@ export default class Vault extends VaultBase {
       encodedTx,
       ...(encodedTx.data
         ? {
-          payload: {
-            data: encodedTx.data,
+            payload: {
+              data: encodedTx.data,
+            },
           }
-        }
         : {}),
     };
 
@@ -218,7 +218,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const value = new BigNumber(encodedTx.value);
 
-    const nonce = encodedTx.nonce;
+    const { nonce } = encodedTx;
     const nonceBN = new BigNumber(nonce ?? 'NaN');
     const nextNonce: number = !nonceBN.isNaN()
       ? nonceBN.toNumber()
@@ -238,14 +238,14 @@ export default class Vault extends VaultBase {
         payload: {
           ...(encodedTx.data
             ? {
-              data: encodedTx.data,
-            }
-            : {})
+                data: encodedTx.data,
+              }
+            : {}),
         },
         ...(typeof encodedTx.gasLimit !== 'undefined'
           ? {
-            feeLimit: new BigNumber(encodedTx.gasLimit),
-          }
+              feeLimit: new BigNumber(encodedTx.gasLimit),
+            }
           : {}),
       },
     );
@@ -285,10 +285,10 @@ export default class Vault extends VaultBase {
       extraInfo: {
         ...(Object.keys(unsignedTx.tokensChangedTo || {}).length
           ? {
-            tokensChangedTo: unsignedTx.tokensChangedTo,
-          }
-          : {})
-      }
+              tokensChangedTo: unsignedTx.tokensChangedTo,
+            }
+          : {}),
+      },
     };
   }
 
@@ -320,7 +320,7 @@ export default class Vault extends VaultBase {
       const [encryptedPrivateKey] = Object.values(
         await keyring.getPrivateKeys(password),
       );
-      return `0x${ decrypt(password, encryptedPrivateKey).toString('hex') }`;
+      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',

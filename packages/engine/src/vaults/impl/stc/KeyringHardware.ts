@@ -1,15 +1,13 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+import { arrayify } from '@ethersproject/bytes';
 import {
   buildSignedTx,
   buildUnsignedRawTx,
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
-
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-
 import { starcoin_types, utils } from '@starcoin/starcoin';
 
-import { arrayify } from '@ethersproject/bytes';
+import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
@@ -25,7 +23,7 @@ import type {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-const PATH_PREFIX = `m/44'/${ COIN_TYPE }'/0'/0'`;
+const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(
@@ -97,16 +95,17 @@ export class KeyringHardware extends KeyringHardwareBase {
           // personal sign
           const msgBytes = arrayify(messageHex);
           const signingMessage = new starcoin_types.SigningMessage(msgBytes);
-          const signedMessageHex = await utils.signedMessage.generateSignedMessage(
-            signingMessage,
-            parseInt(chainId),
-            public_key as string,
-            signature as string,
-          );
+          const signedMessageHex =
+            await utils.signedMessage.generateSignedMessage(
+              signingMessage,
+              parseInt(chainId),
+              public_key as string,
+              signature as string,
+            );
           return signedMessageHex;
         }
         return signature as string;
-      })
+      }),
     );
   }
 
@@ -114,7 +113,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { type, indexes, names } = params;
-    const paths = indexes.map((index) => `${ PATH_PREFIX }/${ index }'`);
+    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'`);
     const isSearching = type === 'SEARCH_ACCOUNTS';
     const showOnOneKey = false;
     const connectId = await this.getHardwareConnectId();
@@ -160,9 +159,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of addressesResponse.payload) {
       const { address, path } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `STC #${ indexes[index] + 1 }`;
+        const name = (names || [])[index] || `STC #${indexes[index] + 1}`;
         ret.push({
-          id: `${ this.walletId }--${ path }`,
+          id: `${this.walletId}--${path}`,
           name,
           type: AccountType.SIMPLE,
           path,

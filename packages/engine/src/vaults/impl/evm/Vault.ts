@@ -373,13 +373,13 @@ export default class Vault extends VaultBase {
         true,
       );
       if (!token) {
-        throw new Error(`Token not found: ${ transferInfo.token as string }`);
+        throw new Error(`Token not found: ${transferInfo.token as string}`);
       }
       const amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
 
-      const data = `${ Erc20MethodSelectors.tokenTransfer }${ defaultAbiCoder
+      const data = `${Erc20MethodSelectors.tokenTransfer}${defaultAbiCoder
         .encode(['address', 'uint256'], [transferInfo.to, amountHex])
-        .slice(2) }`; // method_selector(transfer) + byte32_pad(address) + byte32_pad(value)
+        .slice(2)}`; // method_selector(transfer) + byte32_pad(address) + byte32_pad(value)
       // erc20 token transfer
       return {
         from: transferInfo.from,
@@ -408,7 +408,7 @@ export default class Vault extends VaultBase {
       this.validateAddress(approveInfo.spender),
     ]);
     if (typeof token === 'undefined') {
-      throw new Error(`Token not found: ${ approveInfo.token }`);
+      throw new Error(`Token not found: ${approveInfo.token}`);
     }
 
     const amountBN = new BigNumber(approveInfo.amount);
@@ -419,9 +419,9 @@ export default class Vault extends VaultBase {
     );
     // keccak256(Buffer.from('approve(address,uint256)') => '0x095ea7b3...'
     const methodID = Erc20MethodSelectors.tokenApprove;
-    const data = `${ methodID }${ defaultAbiCoder
+    const data = `${methodID}${defaultAbiCoder
       .encode(['address', 'uint256'], [spender, amountHex])
-      .slice(2) }`;
+      .slice(2)}`;
     return {
       from: approveInfo.from,
       to: approveInfo.token,
@@ -459,9 +459,9 @@ export default class Vault extends VaultBase {
     if (decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
       const info = decodedTx.info as EVMDecodedItemERC20Transfer;
       const amountHex = toBigIntHex(amountBN.shiftedBy(info.token.decimals));
-      const data = `${ Erc20MethodSelectors.tokenTransfer }${ defaultAbiCoder
+      const data = `${Erc20MethodSelectors.tokenTransfer}${defaultAbiCoder
         .encode(['address', 'uint256'], [info.recipient, amountHex])
-        .slice(2) }`;
+        .slice(2)}`;
       encodedTx.data = data;
     }
     return encodedTx;
@@ -486,14 +486,14 @@ export default class Vault extends VaultBase {
     } else {
       const amountBN = new BigNumber(amount);
       if (amountBN.isNaN()) {
-        throw new Error(`Invalid amount input: ${ amount }`);
+        throw new Error(`Invalid amount input: ${amount}`);
       }
       amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
     }
 
-    const data = `${ approveMethodID }${ defaultAbiCoder
+    const data = `${approveMethodID}${defaultAbiCoder
       .encode(['address', 'uint256'], [spender, amountHex])
-      .slice(2) }`;
+      .slice(2)}`;
     return {
       ...encodedTx,
       data, // Override the data
@@ -609,9 +609,9 @@ export default class Vault extends VaultBase {
       const txData = ethers.utils.serializeTransaction({
         value: encodedTx.value,
         data: encodedTx.data,
-        gasLimit: `0x${ (unsignedTx.feeLimit ?? new BigNumber('0')).toString(
+        gasLimit: `0x${(unsignedTx.feeLimit ?? new BigNumber('0')).toString(
           16,
-        ) }`,
+        )}`,
         to: encodedTx.to,
         chainId: 10, // any number other than 0 will lead to fixed length of data
         gasPrice: '0xf4240', // 0.001 Gwei
@@ -619,9 +619,9 @@ export default class Vault extends VaultBase {
       });
 
       // keccak256(Buffer.from('getL1Fee(bytes)')) => '0x49948e0e...'
-      const data = `0x49948e0e${ defaultAbiCoder
+      const data = `0x49948e0e${defaultAbiCoder
         .encode(['bytes'], [txData])
-        .slice(2) }`;
+        .slice(2)}`;
       const client = await this.getJsonRPCClient();
       const l1FeeHex = await client.rpc.call('eth_call', [
         { to: '0x420000000000000000000000000000000000000F', data },
@@ -651,9 +651,9 @@ export default class Vault extends VaultBase {
         {
           maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas
             ? this._toNormalAmount(
-              encodedTx.maxPriorityFeePerGas,
-              network.feeDecimals,
-            )
+                encodedTx.maxPriorityFeePerGas,
+                network.feeDecimals,
+              )
             : undefined,
           maxFeePerGas: encodedTx.maxFeePerGas
             ? this._toNormalAmount(encodedTx.maxFeePerGas, network.feeDecimals)
@@ -784,15 +784,15 @@ export default class Vault extends VaultBase {
 
     if (typeof token === 'undefined') {
       // This will be catched by engine.
-      console.error(`Token not found: ${ tokenAddress }`);
+      console.error(`Token not found: ${tokenAddress}`);
       throw new Error();
     }
 
     // keccak256(Buffer.from('allowance(address,address)') => '0xdd62ed3e...'
     const allowanceMethodID = '0xdd62ed3e';
-    const data = `${ allowanceMethodID }${ defaultAbiCoder
+    const data = `${allowanceMethodID}${defaultAbiCoder
       .encode(['address', 'address'], [dbAccount.address, spenderAddress])
-      .slice(2) }`;
+      .slice(2)}`;
     const client = await this.getJsonRPCClient();
     const rawAllowanceHex = await client.rpc.call('eth_call', [
       { to: token.tokenIdOnNetwork, data },
@@ -808,7 +808,7 @@ export default class Vault extends VaultBase {
       const [encryptedPrivateKey] = Object.values(
         await keyring.getPrivateKeys(password),
       );
-      return `0x${ decrypt(password, encryptedPrivateKey).toString('hex') }`;
+      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
@@ -983,7 +983,7 @@ export default class Vault extends VaultBase {
         if (
           decodedTx.createdAt &&
           Date.now() - decodedTx.createdAt >
-          HISTORY_CONSTS.SET_IS_FINAL_EXPIRED_IN
+            HISTORY_CONSTS.SET_IS_FINAL_EXPIRED_IN
         ) {
           decodedTx.isFinal = true;
         }
