@@ -3,6 +3,8 @@ import React, { FC, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { SectionListProps } from 'react-native';
+// @ts-expect-error
+import NestedScrollView from 'react-native-nested-scroll-view';
 
 import {
   Badge,
@@ -245,7 +247,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 
   return (
     <ListElementType
-      nestedScrollEnabled
       bg="background-default"
       contentContainerStyle={{
         paddingHorizontal: responsivePadding,
@@ -258,6 +259,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
       ListFooterComponent={() => <Box key="footer" h="20px" />}
       ItemSeparatorComponent={() => <Divider key="separator" />}
+      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
       keyExtractor={(tx: Transaction) => tx.txHash}
       showsVerticalScrollIndicator={false}
       stickySectionHeadersEnabled={false}

@@ -33,6 +33,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import android.webkit.WebView;
 
+import com.rnnestedscrollview.RNNestedScrollViewPackage;
 import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
 
 public class MainApplication extends Application implements ReactApplication , ViewModelStoreOwner {
@@ -55,6 +56,7 @@ public class MainApplication extends Application implements ReactApplication , V
       // Packages that cannot be autolinked yet can be added manually here, for example:
       // packages.add(new MyReactNativePackage());
       packages.add(new MainReactNativePackage());
+      packages.add(new RNNestedScrollViewPackage());
       return packages;
     }
 

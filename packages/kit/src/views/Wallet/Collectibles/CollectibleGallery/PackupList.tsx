@@ -2,6 +2,8 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatListProps } from 'react-native';
+// @ts-expect-error
+import NestedScrollView from 'react-native-nested-scroll-view';
 
 import {
   HStack,
@@ -76,12 +78,12 @@ const PackupList: FC<
   );
   return (
     <Tabs.FlatList<Collectible>
-      nestedScrollEnabled
       numColumns={numColumns}
       ListHeaderComponent={
         <CollectiblesHeader view={CollectibleView.Packup} onPress={onPress} />
       }
       renderItem={renderCollectionItem}
+      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
       {...flatListProps}
     />
   );

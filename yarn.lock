@@ -18596,6 +18596,10 @@ react-native-modalize@^2.0.13:
   resolved "https://registry.yarnpkg.com/react-native-modalize/-/react-native-modalize-2.0.13.tgz#51517cddd726ddbc19c080d15e7721ade4ee7a66"
   integrity sha512-BMJlpTnpeDVp5LbbE6kdO+3+yLzowRvPgcIu1QCCM+//uY7oON4VcL8ISilSgAfOYeNQc6vhaD5chVtmpTl/dw==
 
+"react-native-nested-scroll-view@https://github.com/OneKeyHQ/react-native-nested-scroll-view.git":
+  version "9.0.1"
+  resolved "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#e901ebfcd0b71f2f06186b252b0afdaccb50378e"
+
 react-native-pager-view@5.4.15:
   version "5.4.15"
   resolved "https://registry.yarnpkg.com/react-native-pager-view/-/react-native-pager-view-5.4.15.tgz#075fef5ae4ba6ecc37e49b6c4a24770131a2a3cc"
