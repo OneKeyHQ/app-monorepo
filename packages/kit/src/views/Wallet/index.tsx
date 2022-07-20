@@ -12,7 +12,10 @@ import {
   useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
-import { MaterialTabBar } from '@onekeyhq/components/src/CollapsibleTabView';
+import {
+  MaterialTabBar,
+  Tabs,
+} from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
@@ -255,43 +258,38 @@ const Home: FC = () => {
             tabStyle={{ backgroundColor: tabbarBgColor }}
           />
         )}
-        items={[
-          {
-            name: WalletHomeTabEnum.Tokens,
-            label: intl.formatMessage({ id: 'asset__tokens' }),
-            view: <AssetsList isTab={isTab} />,
-          },
-          {
-            name: WalletHomeTabEnum.Collectibles,
-            label: intl.formatMessage({ id: 'asset__collectibles' }),
-            view: (
-              <CollectiblesList
-                address={account?.address}
-                network={network}
-                isTab={isTab}
-              />
-            ),
-          },
-          {
-            name: WalletHomeTabEnum.History,
-            label: intl.formatMessage({ id: 'transaction__history' }),
-            // view: <AssetsList singleton />,
-            view: platformEnv.isLegacyHistory ? (
-              <HistoricalRecord
-                accountId={account?.id}
-                networkId={network?.id}
-                isTab={isTab}
-              />
-            ) : (
-              <TxHistoryListView
-                accountId={account?.id}
-                networkId={network?.id}
-                isTab={isTab}
-              />
-            ),
-          },
-        ]}
-      />
+      >
+        <Tabs.Tab
+          name={WalletHomeTabEnum.Tokens}
+          label={intl.formatMessage({ id: 'asset__tokens' })}
+        >
+          <AssetsList />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={WalletHomeTabEnum.Collectibles}
+          label={intl.formatMessage({ id: 'asset__collectibles' })}
+        >
+          <CollectiblesList address={account?.address} network={network} />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={WalletHomeTabEnum.History}
+          label={intl.formatMessage({ id: 'transaction__history' })}
+        >
+          {platformEnv.isLegacyHistory ? (
+            <HistoricalRecord
+              accountId={account?.id}
+              networkId={network?.id}
+              isTab
+            />
+          ) : (
+            <TxHistoryListView
+              accountId={account?.id}
+              networkId={network?.id}
+              isHomeTab
+            />
+          )}
+        </Tabs.Tab>
+      </PagingView>
       {backupToast()}
       <OfflineView offline={offline} />
     </>

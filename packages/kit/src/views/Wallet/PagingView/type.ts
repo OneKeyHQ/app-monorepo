@@ -16,7 +16,6 @@ type TabName = string | number;
 export type PageViewProps = {
   initialTabName?: TabName;
 
-  items: TabItemProps[];
   renderHeader: () => React.ReactElement | null;
   renderTabBar?: (props: TabBarProps<TabName>) => React.ReactElement | null; // for web site
   // renderTabBar?: () => React.ReactElement | null; // for native
