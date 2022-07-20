@@ -194,6 +194,10 @@ class DeviceUtils {
         return new Error.UserCancel({ message: msg });
       case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
         return new Error.NeedOneKeyBridge({ message: msg });
+      case HardwareErrorCode.BridgeNetworkError:
+        return new Error.BridgeNetworkError({ message: msg });
+      case HardwareErrorCode.BridgeTimeoutError:
+        return new Error.BridgeTimeoutError({ message: msg });
       default:
         return new Error.UnknownHardwareError({ message: msg });
     }

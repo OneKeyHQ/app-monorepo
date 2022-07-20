@@ -17,7 +17,7 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
 import { PrefType } from './preload';
-import initProcess from './process/index';
+import initProcess, { restartBridge } from './process/index';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
 const config = new Config() as
@@ -159,6 +159,12 @@ function createMainWindow() {
     }
   });
 
+  ipcMain.on('app/reloadBridgeProcess', (event) => {
+    logger.debug('reloadBridgeProcess receive');
+    restartBridge();
+    event.reply('app/reloadBridgeProcess', true);
+  });
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send('appState', undefined);
@@ -184,8 +190,6 @@ function createMainWindow() {
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
-      logger.debug('content url: ', details.webContents?.getURL());
-      logger.debug('frame url: ', details.frame?.url);
       /**
        * temporary solution to switch origin when the sdk iframe src is modified in development mode.
        */

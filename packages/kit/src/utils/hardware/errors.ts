@@ -42,6 +42,18 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
   override key: LocaleIds = 'modal__need_install_onekey_bridge';
 }
 
+export class BridgeNetworkError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BridgeNetworkError;
+
+  override key: LocaleIds = 'msg__hardware_bridge_network_error';
+}
+
+export class BridgeTimeoutError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BridgeTimeoutError;
+
+  override key: LocaleIds = 'msg__hardware_bridge_timeout';
+}
+
 // 设备没有配对成功
 export class DeviceNotBonded extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleDeviceNotBonded;

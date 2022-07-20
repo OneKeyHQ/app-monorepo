@@ -7,9 +7,9 @@ const filter = {
   urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
 };
 
+let bridgeInstance: BridgeProcess;
 export const launchBridge = async () => {
   const bridge = new BridgeProcess();
-
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
@@ -23,6 +23,7 @@ export const launchBridge = async () => {
   try {
     logger.info('bridge: Staring');
     await bridge.start();
+    bridgeInstance = bridge;
   } catch (err) {
     logger.error(`bridge: Start failed: ${(err as Error).message}`);
     logger.error(err);
@@ -32,6 +33,11 @@ export const launchBridge = async () => {
     logger.info('bridge', 'Stopping when app quit');
     bridge.stop();
   });
+};
+
+export const restartBridge = async () => {
+  logger.debug('bridge: ', 'Restarting');
+  await bridgeInstance?.restart();
 };
 
 const init = async () => {
