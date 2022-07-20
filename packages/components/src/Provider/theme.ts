@@ -97,7 +97,7 @@ export const light = {
   'text-subdued': '#6B6B80',
   'text-disabled': '#A0A0B0',
   'text-critical': '#CC2F26',
-  'text-warning': '#886E07',
+  'text-warning': '#C7A10A',
   'text-success': '#1F7836',
   'text-on-primary': '#FFFFFF',
   'text-on-critical': '#FFFFFF',
