@@ -8,6 +8,7 @@ import {
   Box,
   Button,
   Empty,
+  SegmentedControl,
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
@@ -48,8 +49,7 @@ import AccountInfo, {
 import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import CollectiblesList from './Collectibles';
-import HistoricalRecord from './HistoricalRecords';
-import PagingView from './PagingView';
+// import HistoricalRecord from './HistoricalRecords';
 import { WalletHomeTabEnum } from './type';
 
 import type { TextStyle } from 'react-native';
@@ -209,11 +209,11 @@ const Home: FC = () => {
       </Box>
     );
   }
-  const isTab = platformEnv.isWeb || platformEnv.isNativeIOSPad;
 
   return (
     <>
-      <PagingView
+      <Tabs.Container
+        // lazy={true}
         initialTabName={homeTabName || undefined}
         onIndexChange={(index) => {
           console.log('homeTab onIndexChange', index);
@@ -223,8 +223,8 @@ const Home: FC = () => {
           backgroundApiProxy.dispatch(setHomeTabName(tabName));
         }}
         renderHeader={() => <AccountInfo />}
-        scrollEnabled={false}
         width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
+        pagerProps={{ scrollEnabled: false }}
         headerHeight={
           isVerticalLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT
@@ -263,37 +263,33 @@ const Home: FC = () => {
           name={WalletHomeTabEnum.Tokens}
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
-          <AssetsList isTab={isTab} />
+          <AssetsList />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.Collectibles}
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
-          <CollectiblesList
-            address={account?.address}
-            network={network}
-            isTab={isTab}
-          />
+          <CollectiblesList address={account?.address} network={network} />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.History}
           label={intl.formatMessage({ id: 'transaction__history' })}
         >
-          {platformEnv.isLegacyHistory ? (
+          {/* {platformEnv.isLegacyHistory ? (
             <HistoricalRecord
               accountId={account?.id}
               networkId={network?.id}
               isTab={isTab}
             />
-          ) : (
-            <TxHistoryListView
-              accountId={account?.id}
-              networkId={network?.id}
-              isTab={isTab}
-            />
-          )}
+          ) : ( */}
+          <TxHistoryListView
+            accountId={account?.id}
+            networkId={network?.id}
+            isTab
+          />
+          {/* )} */}
         </Tabs.Tab>
-      </PagingView>
+      </Tabs.Container>
       {backupToast()}
       <OfflineView offline={offline} />
     </>

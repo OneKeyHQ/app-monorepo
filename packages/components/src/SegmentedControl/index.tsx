@@ -5,7 +5,7 @@ import SegmentedControlBase from '@react-native-segmented-control/segmented-cont
 import { useThemeValue } from '../Provider/hooks';
 import { Body2StrongProps } from '../Typography';
 
-type SegmentedControlProps = Omit<
+export type SegmentedControlProps = Omit<
   ComponentProps<typeof SegmentedControlBase>,
   'onChange'
 > & {
