@@ -66,7 +66,7 @@
     _pagingView.mainTableView.backgroundColor = [UIColor clearColor];
     _pagingView.pinSectionHeaderVerticalOffset = 0;
     _pagingView.listContainerView.listCellBackgroundColor = [UIColor clearColor];
-    _pagingView.isListHorizontalScrollEnabled = true;
+    _pagingView.isListHorizontalScrollEnabled = false;
     _pagingView.defaultSelectedIndex = self.defaultIndex;
     if (@available(iOS 15.0, *)) {
         self.pagingView.mainTableView.sectionHeaderTopPadding = 0;
