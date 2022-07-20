@@ -75,7 +75,7 @@ export interface SocketBridgeStatusResponse {
 }
 
 const baseURL = 'https://api.socket.tech/v2';
-const API_KEY = '645b2c8c-5825-4930-baf3-d9b997fcd88c';
+const API_KEY = '055646f8-d9f6-41b6-9bae-8633e690f1e6';
 
 function calculateRate(
   inDecimals: number,
