@@ -5,6 +5,7 @@ import OnekeyHardwareConfirm from '@onekeyhq/kit/src/views/Hardware/Onekey/Oneke
 import OnekeyHardwareConnect from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConnect';
 import OnekeyHardwareDetails from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareDetails';
 import OnekeyHardwareDeviceName from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareDeviceName';
+import OnekeyHardwareHomescreen from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareHomescreen';
 import OnekeyHardwarePinCode from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwarePinCode';
 import OnekeyHardwareVerify from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareVerify';
 
@@ -17,6 +18,7 @@ export enum OnekeyHardwareModalRoutes {
   OnekeyHardwarePinCodeModal = 'OnekeyHardwarePinCodeModal',
   OnekeyHardwareConfirmModal = 'OnekeyHardwareConfirmModal',
   OnekeyHardwareDeviceNameModal = 'OnekeyHardwareDeviceNameModal',
+  OnekeyHardwareHomescreenModal = 'OnekeyHardwareHomescreenModal',
 }
 
 export type OnekeyHardwareRoutesParams = {
@@ -38,6 +40,9 @@ export type OnekeyHardwareRoutesParams = {
   [OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal]: {
     walletId: string;
     walletName: string;
+  };
+  [OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal]: {
+    walletId: string;
   };
 };
 
@@ -68,6 +73,10 @@ const modalRoutes = [
   {
     name: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
     component: OnekeyHardwareDeviceName,
+  },
+  {
+    name: OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
+    component: OnekeyHardwareHomescreen,
   },
 ];
 

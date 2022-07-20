@@ -1,6 +1,10 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { getDeviceLabel, getDeviceUUID } from '@onekeyfe/hd-core';
+import {
+  getDeviceLabel,
+  getDeviceType,
+  getDeviceUUID,
+} from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -49,6 +53,10 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const updates = useMemo(
     () => deviceUpdates?.[deviceConnectId ?? ''],
     [deviceUpdates, deviceConnectId],
+  );
+
+  const showHomescreenSet = ['classic', 'mini'].includes(
+    getDeviceType(deviceFeatures),
   );
 
   const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null);
@@ -176,14 +184,28 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           describe={deviceFeatures?.ble_ver ?? '-'}
         />
 
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title={intl.formatMessage({
-            id: 'modal__homescreen',
-          })}
-          hasArrow
-        />
+        {showHomescreenSet && (
+          <Container.Item
+            titleColor="text-default"
+            describeColor="text-subdued"
+            title={intl.formatMessage({
+              id: 'modal__homescreen',
+            })}
+            hasArrow
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.OnekeyHardware,
+                params: {
+                  screen:
+                    OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
+                  params: {
+                    walletId,
+                  },
+                },
+              });
+            }}
+          />
+        )}
       </Container.Box>
 
       <Container.Box mt={6}>
