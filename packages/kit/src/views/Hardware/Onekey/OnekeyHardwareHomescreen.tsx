@@ -6,19 +6,25 @@ import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import { Box, Image, Modal, Pressable, useToast } from '@onekeyhq/components';
-import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  homescreensT1,
+  homescreensT2,
+} from '@onekeyhq/kit/src/config/homescreens';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
   OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal
 >;
+
+type DataItem = { name: string };
 
 const OnekeyHardwareHomescreen: FC = () => {
   const intl = useIntl();
@@ -27,18 +33,28 @@ const OnekeyHardwareHomescreen: FC = () => {
   const { walletId } = useRoute<RouteProps>().params;
   const [connectId, setConnectId] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const activeIndex = 1;
+  const [data, setData] = useState<DataItem[]>([]);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const { engine, serviceHardware } = backgroundApiProxy;
   useEffect(() => {
     engine.getHWDeviceByWalletId(walletId).then((device) => {
       if (!device) return;
       setConnectId(device.mac);
+      try {
+        const features = JSON.parse(device.features) as IOneKeyDeviceFeatures;
+        const homescreens =
+          features.major_version === 1 ? homescreensT1 : homescreensT2;
+        const dataSource = Object.entries(homescreens).map(
+          ([name, source]) => ({ name, source }),
+        );
+        setData(dataSource);
+      } catch (e) {
+        console.log(e);
+      }
     });
   }, [walletId, engine]);
 
-  const array = Array.from({ length: 64 }).map((_, idx) => ({ id: idx }));
   const { width } = useWindowDimensions();
   const containerWidth = platformEnv.isNative ? width : 400;
   const containerPadding = platformEnv.isNative ? 16 : 24;
@@ -55,13 +71,13 @@ const OnekeyHardwareHomescreen: FC = () => {
         height={16}
         mb={4}
         onPress={() => {
-          console.log('A');
-          console.log(index);
+          setActiveIndex(index);
         }}
       >
         <Box flex={1} height={16}>
           <Image
-            source={ClassicIcon}
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            source={item.source}
             resizeMode="contain"
             size={cardWidth}
             height={16}
@@ -73,7 +89,7 @@ const OnekeyHardwareHomescreen: FC = () => {
         </Box>
       </Pressable>
     ),
-    [cardWidth],
+    [cardWidth, activeIndex],
   );
 
   const flatlistProps = useMemo(
@@ -86,13 +102,13 @@ const OnekeyHardwareHomescreen: FC = () => {
       columnWrapperStyle: {
         justifyContent: 'space-between',
       },
-      data: array,
+      data,
       numColumns: 4,
       showsHorizontalScrollIndicator: false,
       renderItem,
-      keyExtractor: (item: any) => item.id,
+      keyExtractor: (item: DataItem) => item.name,
     }),
-    [array, renderItem],
+    [data, renderItem],
   );
 
   return (
