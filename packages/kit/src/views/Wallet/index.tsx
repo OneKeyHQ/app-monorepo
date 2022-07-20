@@ -263,13 +263,17 @@ const Home: FC = () => {
           name={WalletHomeTabEnum.Tokens}
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
-          <AssetsList />
+          <AssetsList isTab={isTab} />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.Collectibles}
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
-          <CollectiblesList address={account?.address} network={network} />
+          <CollectiblesList
+            address={account?.address}
+            network={network}
+            isTab={isTab}
+          />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.History}
@@ -279,13 +283,13 @@ const Home: FC = () => {
             <HistoricalRecord
               accountId={account?.id}
               networkId={network?.id}
-              isTab
+              isTab={isTab}
             />
           ) : (
             <TxHistoryListView
               accountId={account?.id}
               networkId={network?.id}
-              isHomeTab
+              isTab={isTab}
             />
           )}
         </Tabs.Tab>

@@ -6,8 +6,8 @@
 //
 
 #import "PagingViewContainer.h"
+#import "RCTScrollView+swizzled.h"
 
-#import <React/RCTScrollView.h>
 #import <React/RCTRootViewDelegate.h>
 #import <React/RCTAppSetupUtils.h>
 
@@ -29,10 +29,8 @@
   return self;
 }
 
-
-
 -(void)bindingScrollView {
-  UIView *tmpView = _reactView;
+  UIView *tmpView = self;
   while (![tmpView isKindOfClass:NSClassFromString(@"RCTScrollView")]) {
     if (tmpView.subviews.count > 0) {
       tmpView = tmpView.subviews.firstObject;
@@ -41,20 +39,30 @@
     }
   }
   if ([tmpView isKindOfClass:NSClassFromString(@"RCTScrollView")]) {
-    self.scrollView = [(RCTScrollView *)tmpView scrollView];
-    self.scrollView.delegate = self;
+    RCTScrollView *scrollView = (RCTScrollView *)tmpView;
+    if (self.reactScrollView != scrollView) {
+      self.reactScrollView.scrollViewDidScroll = nil;
+      self.reactScrollView = scrollView;
+      __weak typeof(self) weakSelf = self;
+      self.reactScrollView.scrollViewDidScroll = ^(UIScrollView *scrollView) {
+        [weakSelf scrollViewDidScroll:scrollView];
+      };
+    }
   }
 }
 
 -(void)layoutSubviews {
   [super layoutSubviews];
   self.reactView.frame = self.bounds;
+  if (self.reactScrollView) {
+    self.reactScrollView.scrollView.frame = self.bounds;
+  }
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    if (self.scrollCallback != nil) {
-        self.scrollCallback(scrollView);
-    }
+  if (self.scrollCallback != nil) {
+    self.scrollCallback(scrollView);
+  }
 }
 
 - (void)listViewDidScrollCallback:(void (^)(UIScrollView *))callback {
@@ -62,13 +70,21 @@
 }
 
 - (UIScrollView *)listScrollView {
-    return self.scrollView;
+  return self.reactScrollView.scrollView;
 }
 
 
 - (UIView *)listView {
-    return self;
+  return self;
 }
 
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+  [self bindingScrollView];
+  return [super hitTest:point withEvent:event];
+}
 
+- (void)dealloc {
+  self.reactScrollView.scrollViewDidScroll = nil;
+  self.reactScrollView = nil;
+}
 @end

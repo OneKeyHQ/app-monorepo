@@ -1,7 +1,7 @@
 import React, { Children, FC, useRef, useState } from 'react';
 
 import NativePagingView from '@onekeyhq/app/src/views/PagingView';
-import { SegmentedControl } from '@onekeyhq/components';
+import { Box, SegmentedControl } from '@onekeyhq/components';
 
 import { PageViewProps } from '../type';
 
@@ -19,21 +19,23 @@ const Mobile: FC<PageViewProps> = ({
       defaultIndex={selectedIndex}
       headerHeight={headerHeight}
       renderHeader={renderHeader}
+      scrollEnabled={false}
       renderTabBar={() => (
-        <SegmentedControl
-          style={{ width: 300, height: 36, paddingLeft: 16, paddingRight: 16 }}
-          values={Children.toArray(children).map(
-            (child) =>
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-              child.props.label,
-          )}
-          selectedIndex={selectedIndex}
-          onChange={(index) => {
-            ref.current?.setPageIndex(index);
-            setSelectedIndex(index);
-          }}
-        />
+        <Box height="36px" paddingX="16px">
+          <SegmentedControl
+            values={Children.toArray(children).map(
+              (child) =>
+                // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+                child.props.label,
+            )}
+            selectedIndex={selectedIndex}
+            onChange={(index) => {
+              ref.current?.setPageIndex(index);
+              setSelectedIndex(index);
+            }}
+          />
+        </Box>
       )}
     >
       {children}

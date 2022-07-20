@@ -15,6 +15,7 @@ RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(headerHeight, CGFloat);
 RCT_EXPORT_VIEW_PROPERTY(defaultIndex, NSInteger);
 RCT_EXPORT_VIEW_PROPERTY(pageIndex, NSInteger);
+RCT_EXPORT_VIEW_PROPERTY(scrollEnabled, BOOL);
 
 RCT_EXPORT_METHOD(setPageIndex:(nonnull NSNumber *)reactTag index:(nonnull NSNumber *)index) {
   [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager,NSDictionary<NSNumber *, UIView *> *viewRegistry) {

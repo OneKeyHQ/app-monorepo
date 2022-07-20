@@ -16,6 +16,7 @@
 @property (nonatomic, assign) CGFloat headerHeight;
 @property (nonatomic, assign) NSInteger defaultIndex;
 @property (nonatomic, assign) NSInteger pageIndex;
+@property (nonatomic, assign) BOOL scrollEnabled;
 
 @property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) UIView *categoryContainerView;
@@ -29,7 +30,6 @@
   self = [super init];
   if (self){
     NSLog(@"PagingView init");
-    self.tag = 500;
   }
   return self;
 }
@@ -66,7 +66,7 @@
     _pagingView.mainTableView.backgroundColor = [UIColor clearColor];
     _pagingView.pinSectionHeaderVerticalOffset = 0;
     _pagingView.listContainerView.listCellBackgroundColor = [UIColor clearColor];
-    _pagingView.isListHorizontalScrollEnabled = false;
+    _pagingView.isListHorizontalScrollEnabled = self.scrollEnabled;
     _pagingView.defaultSelectedIndex = self.defaultIndex;
     if (@available(iOS 15.0, *)) {
         self.pagingView.mainTableView.sectionHeaderTopPadding = 0;

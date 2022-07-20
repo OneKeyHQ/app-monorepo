@@ -29,6 +29,7 @@
 		A2E5334A2885157E00063227 /* PagingViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E533492885157E00063227 /* PagingViewManager.m */; };
 		A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E5334C288515EA00063227 /* PagingViewContainer.m */; };
 		A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */; };
+		A2F6BE9928882FB9005798D7 /* RCTScrollView+swizzled.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F6BE9828882FB9005798D7 /* RCTScrollView+swizzled.m */; };
 		A3294A682844472100C18DD0 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A3294A672844472100C18DD0 /* AppDelegate.m */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
@@ -91,6 +92,8 @@
 		A2E5334C288515EA00063227 /* PagingViewContainer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PagingViewContainer.m; sourceTree = "<group>"; };
 		A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RNLiteCallBackManager.h; sourceTree = "<group>"; };
 		A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RNLiteCallBackManager.m; sourceTree = "<group>"; };
+		A2F6BE9728882FB9005798D7 /* RCTScrollView+swizzled.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "RCTScrollView+swizzled.h"; sourceTree = "<group>"; };
+		A2F6BE9828882FB9005798D7 /* RCTScrollView+swizzled.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "RCTScrollView+swizzled.m"; sourceTree = "<group>"; };
 		A3294A672844472100C18DD0 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = AppDelegate.m; path = OneKeyWallet/AppDelegate.m; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		AB5A55C2A16742BCB8148B6E /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
@@ -264,6 +267,8 @@
 				A2E533492885157E00063227 /* PagingViewManager.m */,
 				A2E5334B288515EA00063227 /* PagingViewContainer.h */,
 				A2E5334C288515EA00063227 /* PagingViewContainer.m */,
+				A2F6BE9728882FB9005798D7 /* RCTScrollView+swizzled.h */,
+				A2F6BE9828882FB9005798D7 /* RCTScrollView+swizzled.m */,
 			);
 			path = PagingView;
 			sourceTree = "<group>";
@@ -460,6 +465,7 @@
 			files = (
 				A24B8A7727422EF300E321A9 /* NSString+OKAdd.m in Sources */,
 				A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */,
+				A2F6BE9928882FB9005798D7 /* RCTScrollView+swizzled.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */,
 				A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */,

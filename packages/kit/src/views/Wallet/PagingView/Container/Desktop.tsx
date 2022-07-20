@@ -6,7 +6,6 @@ import { PageViewProps } from '../type';
 
 const Desktop: FC<PageViewProps> = ({
   initialTabName,
-  items,
   width,
   scrollEnabled,
   renderHeader,
@@ -16,6 +15,7 @@ const Desktop: FC<PageViewProps> = ({
   renderTabBar,
   onTabChange,
   onIndexChange,
+  children,
 }) => (
   <Tabs.Container
     lazy
@@ -30,11 +30,7 @@ const Desktop: FC<PageViewProps> = ({
     headerContainerStyle={headerContainerStyle}
     renderTabBar={renderTabBar}
   >
-    {items.map((tab) => (
-      <Tabs.Tab key={tab.name} name={tab.name} label={tab.label}>
-        {tab.view}
-      </Tabs.Tab>
-    ))}
+    {children as any}
   </Tabs.Container>
 );
 export default Desktop;

@@ -22,13 +22,21 @@ export class PagingView extends React.Component<PagingViewProps> {
   };
 
   override render() {
-    const { defaultIndex, headerHeight, renderHeader, renderTabBar, children } =
-      this.props;
+    const {
+      defaultIndex,
+      headerHeight,
+      renderHeader,
+      renderTabBar,
+      scrollEnabled,
+      children,
+    } = this.props;
     return (
       <NativePagingView
         ref={this.PagerView as any}
         defaultIndex={defaultIndex}
         headerHeight={headerHeight}
+        scrollEnabled={scrollEnabled}
+        style={{ height: 660 }}
       >
         {renderHeader()}
         {renderTabBar()}

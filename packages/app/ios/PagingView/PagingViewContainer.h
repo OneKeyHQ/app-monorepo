@@ -7,11 +7,12 @@
 
 #import <UIKit/UIKit.h>
 #import "JXPagerView.h"
+#import <React/RCTScrollView.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface PagingViewContainer : UIView<JXPagerViewListViewDelegate>
-@property (nonatomic, weak) UIScrollView *scrollView;
+@property (nonatomic, weak) RCTScrollView *reactScrollView;
 -(instancetype)initWithReactView:(UIView *)reactView;
 
 @end

@@ -18,7 +18,6 @@ export type PageViewProps = {
 
   renderHeader: () => React.ReactElement | null;
   renderTabBar?: (props: TabBarProps<TabName>) => React.ReactElement | null; // for web site
-  // renderTabBar?: () => React.ReactElement | null; // for native
   onTabChange?: OnTabChangeCallback<string | number>;
   onIndexChange?: (index: number) => void;
 
