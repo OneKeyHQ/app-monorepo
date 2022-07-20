@@ -17,6 +17,7 @@ export {
   useAccountTokensBalance,
   useNetworkTokens,
   useNetworkTokensPrice,
+  useNativeToken,
 } from './useTokens';
 export { usePrevious } from './usePrevious';
 export { useAddressName } from './useAddressName';

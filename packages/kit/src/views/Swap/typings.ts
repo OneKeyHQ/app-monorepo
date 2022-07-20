@@ -47,59 +47,72 @@ export enum SwapError {
   DepositMin = 'DepositMin',
 }
 
-export type QuoteParams = {
-  networkOut: Network;
-  networkIn: Network;
-  tokenOut: Token;
-  tokenIn: Token;
-  slippagePercentage: string;
-  typedValue: string;
-  independentField: 'INPUT' | 'OUTPUT';
-};
+export type QuoterType = '0x' | 'swftc' | 'socket' | 'mdex';
+export type IndependentFieldType = 'INPUT' | 'OUTPUT';
 
-export type SwapQuote = {
-  instantRate: string;
-  sellAmount: string;
-  sellTokenAddress: string;
-  buyAmount: string;
-  buyTokenAddress: string;
-  allowanceTarget?: string;
-  depositMax?: string;
-  depositMin?: string;
-};
-
-export type TxParams = {
-  networkOut: Network;
-  networkIn: Network;
-  tokenOut: Token;
-  tokenIn: Token;
-  slippagePercentage: string;
-  typedValue: string;
-  independentField: 'INPUT' | 'OUTPUT';
-  activeNetwok: Network;
-  activeAccount: Account;
-  receivingAddress?: string;
-};
-
-export type TxData = {
+export type TransactionData = {
   from: string;
   to: string;
   data: string;
   value: string;
 };
 
-export type TxRes = {
-  data?: TxData;
-  resCode?: string;
-  resMsg?: string;
+export type FetchQuoteParams = {
+  networkOut: Network;
+  networkIn: Network;
+  tokenOut: Token;
+  tokenIn: Token;
+  slippagePercentage: string;
+  typedValue: string;
+  independentField: IndependentFieldType;
+  activeNetwok: Network;
+  activeAccount: Account;
+  receivingAddress?: string;
+};
+
+export type QuoteData = {
+  type: QuoterType;
+  instantRate: string;
+  sellAmount: string;
+  sellTokenAddress: string;
+  buyAmount: string;
+  buyTokenAddress: string;
+  allowanceTarget?: string;
+  txData?: TransactionData;
+  limited?: {
+    max?: string;
+    min?: string;
+  };
+};
+
+export type BuildTransactionParams = FetchQuoteParams & {
+  txData?: TransactionData;
+};
+
+type BuildTransactionError = {
+  code?: string;
+  msg?: string;
+};
+
+export type BuildTransactionResponse = {
+  data?: TransactionData;
+  error?: BuildTransactionError;
   orderId?: string;
 };
 
-export type SwapQuoteTx = SendConfirmPayloadBase & SwapQuote & TxData;
+export type SwapQuoteTx = SendConfirmPayloadBase & QuoteData & TransactionData;
+
 export interface Quoter {
+  type: QuoterType;
+  prepare?: () => void;
   isSupported(networkA: Network, networkB: Network): boolean;
-  getQuote(params: QuoteParams): Promise<SwapQuote | undefined>;
-  encodeTx(params: TxParams): Promise<TxRes | undefined>;
+  fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined>;
+  buildTransaction(
+    params: BuildTransactionParams,
+  ): Promise<BuildTransactionResponse | undefined>;
+  queryTransactionStatus(
+    tx: TransactionDetails,
+  ): Promise<TransactionStatus | undefined>;
 }
 
 export interface SerializableTransactionReceipt {
@@ -130,6 +143,7 @@ export interface TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   archive?: boolean;
+  quoterType?: QuoterType;
   approval?: { tokenAddress: string; spender: string; token: Token };
   tokens?: { from: TransactionToken; to: TransactionToken; rate: number };
   receipt?: SerializableTransactionReceipt;
