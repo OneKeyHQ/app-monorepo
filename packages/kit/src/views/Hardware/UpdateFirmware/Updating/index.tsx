@@ -373,11 +373,21 @@ const UpdatingModal: FC = () => {
       case 'reboot-bootloader':
         setMaxProgress(20);
         setProgress(15);
+        if (device?.deviceType === 'mini') {
+          // abnormal state，check the device status again
+          setSuspendStep('check-device-status');
+          setProgressState('failure');
+          return;
+        }
         serviceHardware
           .rebootToBootloader(connectId)
           .then(async () => {
             // Waiting for the device to restart
-            await sleep(1000);
+            if (device?.deviceType === 'touch') {
+              await sleep(8000);
+            } else {
+              await sleep(2000);
+            }
             setProgressState('done');
           })
           .catch((e) => {

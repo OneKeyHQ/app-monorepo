@@ -186,6 +186,9 @@ class DeviceUtils {
         if (msg.indexOf('Unknown message') !== -1) {
           return new Error.UnknownMethod({ message: msg });
         }
+        if (msg.indexOf('Failure_UnexpectedMessage') !== -1) {
+          return new Error.UnknownMethod({ message: msg });
+        }
         return new Error.UnknownHardwareError({ message: msg });
       case HardwareErrorCode.PinInvalid:
         return new Error.InvalidPIN({ message: msg });

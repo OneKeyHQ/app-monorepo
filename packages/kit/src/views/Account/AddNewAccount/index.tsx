@@ -9,6 +9,7 @@ import {
   Box,
   Form,
   Modal,
+  ToastManager,
   Typography,
   useForm,
   useToast,
@@ -17,6 +18,7 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
@@ -190,11 +192,14 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             purpose,
           )
           .catch((e) => {
-            console.error(e);
-            const errorKey = (e as { key: LocaleIds }).key;
-            toast.show({
-              title: intl.formatMessage({ id: errorKey }),
-            });
+            const { key } = e || {};
+
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: key }),
+              },
+              { type: 'error' },
+            );
           })
           .finally(() => {
             onLoadingAccount?.(selectedWalletId, network, true);
