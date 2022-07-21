@@ -2,10 +2,7 @@ import React, {
   Children,
   ComponentProps,
   FC,
-  ReactElement,
-  ReactNode,
   createContext,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -14,7 +11,6 @@ import {
   Container as BaseContainer,
   MaterialTabBar,
 } from 'react-native-collapsible-tab-view';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import NativePagingView from '@onekeyhq/app/src/views/PagingView';
 
@@ -25,66 +21,18 @@ import SegmentedControl from '../SegmentedControl';
 
 export { MaterialTabBar };
 
-type TabProps = {
-  name: string;
-  // eslint-disable-next-line react/no-unused-prop-types
-  label?: string;
-};
-
-export function useTabProps(
-  children: ReactElement<{ children: ReactNode } & TabProps>,
-  tabType: FC<TabProps>,
-) {
-  const options = useMemo(() => {
-    const tabOptions = new Map<string, { index: number } & TabProps>();
-
-    if (children) {
-      Children.forEach(children, (element, index) => {
-        if (!element) return;
-        if (element.type !== tabType)
-          throw new Error(
-            'Container children must be wrapped in a <Tabs.Tab ... /> component',
-          );
-
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        const { name, children, ...options } = element.props;
-        if (tabOptions.has(name))
-          throw new Error(
-            'Tab names must be unique, '.concat(name, ' already exists'),
-          );
-        tabOptions.set(name, {
-          index,
-          name,
-          ...options,
-        });
-      });
-    }
-
-    return tabOptions;
-  }, [children, tabType]);
-  const optionEntries = Array.from(options.entries());
-  const optionKeys = Array.from(options.keys());
-  const memoizedOptions = useDeepCompareMemo(() => options, [optionEntries]);
-  const memoizedTabNames = useDeepCompareMemo(() => optionKeys, [optionKeys]);
-  return { options: memoizedOptions, names: memoizedTabNames };
-}
-
 const Context = createContext<string>('');
 
 type ContainerProps = ComponentProps<typeof BaseContainer> & {
   onTabChange?: (options: { tabName: string; index: number | string }) => void;
   onIndexChange?: (index: number | string) => void;
-  initialTabName?: string;
 };
 const Container: FC<ContainerProps> = ({
   children,
-  containerStyle,
   headerHeight,
   renderHeader,
-  headerContainerStyle,
   onTabChange,
   onIndexChange,
-  initialTabName,
 }) => {
   const tabNames: string[] = Children.map(
     children,
