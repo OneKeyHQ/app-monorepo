@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 import logger from 'electron-log';
-// import keytar from 'keytar';
+import keytar from 'keytar';
 
 export type PrefType = 'camera' | 'bluetooth' | 'location';
 export type DesktopAPI = {
@@ -67,12 +67,10 @@ const desktopApi = {
       ipcRenderer.send('app/promptTouchID', msg);
     }),
   secureSetItemAsync(key: string, value: string) {
-    return Promise.resolve();
-    // return keytar.setPassword('OneKey', key, value);
+    return keytar.setPassword('OneKey', key, value);
   },
   secureGetItemAsync(key: string) {
-    return Promise.resolve(null);
-    // return keytar.getPassword('OneKey', key);
+    return keytar.getPassword('OneKey', key);
   },
   reloadBridgeProcess: () => {
     ipcRenderer.send('app/reloadBridgeProcess');
