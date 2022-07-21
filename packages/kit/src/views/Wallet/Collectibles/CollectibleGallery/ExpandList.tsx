@@ -3,6 +3,8 @@ import React, { FC } from 'react';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { FlatListProps } from 'react-native';
+// @ts-expect-error
+import NestedScrollView from 'react-native-nested-scroll-view';
 
 import {
   Badge,
@@ -126,6 +128,7 @@ const ExpandList: FC<
         <CollectiblesHeader view={CollectibleView.Expand} onPress={onPress} />
       }
       renderItem={renderAssetItem}
+      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
       {...flatListProps}
     />
   );

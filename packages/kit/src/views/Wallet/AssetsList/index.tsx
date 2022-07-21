@@ -5,6 +5,8 @@ import React, { ComponentProps, useCallback } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
+// @ts-expect-error
+import NestedScrollView from 'react-native-nested-scroll-view';
 
 import {
   Box,
@@ -248,6 +250,7 @@ function AssetsList({
       }
       ItemSeparatorComponent={Divider}
       ListFooterComponent={ListFooterComponent ?? (() => <Box h={8} />)}
+      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}

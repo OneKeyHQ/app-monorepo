@@ -10,6 +10,8 @@ import React, {
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { SectionListProps } from 'react-native';
+// @ts-expect-error
+import NestedScrollView from 'react-native-nested-scroll-view';
 import useSWR from 'swr';
 
 import {
@@ -217,7 +219,12 @@ function TxHistoryListSectionList(props: {
   };
 
   console.log(`TxHistoryListView render:`);
-  return <SectionListComponent {...sectionListProps} />;
+  return (
+    <SectionListComponent
+      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
+      {...sectionListProps}
+    />
+  );
 }
 const TxHistoryListSectionsMemo = React.memo(TxHistoryListSectionList);
 
