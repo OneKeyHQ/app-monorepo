@@ -552,17 +552,29 @@ export default class Vault extends VaultBase {
     };
 
     const network = await this.getNetwork();
-    const decodedTx = await this.legacyDecodeTx(encodedTx);
-    if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
-      // always use value=0 to calculate native transfer gas limit
-      encodedTxWithFakePriceAndNonce.value = '0x0';
+    const prices = await this.engine.getGasPrice(this.networkId);
+    const {
+      actions: [{ type: actionType }],
+    } = await this.decodeTx(encodedTx);
+    let unsignedTx;
+    if (actionType === IDecodedTxActionType.NATIVE_TRANSFER) {
+      // First try using value=0 to calculate native transfer gas limit to
+      // avoid maximum transfer failure.
+      try {
+        unsignedTx = await this.buildUnsignedTxFromEncodedTx({
+          ...encodedTxWithFakePriceAndNonce,
+          value: '0x0',
+        });
+      } catch (e) {
+        console.error(e);
+      }
     }
 
-    const [prices, unsignedTx] = await Promise.all([
-      this.engine.getGasPrice(this.networkId),
-      // TODO add options params to control which fields should fetch in blockchain-libs
-      this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
-    ]);
+    if (typeof unsignedTx === 'undefined') {
+      unsignedTx = await this.buildUnsignedTxFromEncodedTx(
+        encodedTxWithFakePriceAndNonce,
+      );
+    }
 
     // For L2 networks with L1 fee.
     let baseFeeValue = '0';
