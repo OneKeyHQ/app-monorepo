@@ -38,10 +38,10 @@
     "prepare": "husky install"
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "^0.0.10",
-    "@onekeyfe/cross-inpage-provider-errors": "^0.0.10",
-    "@onekeyfe/cross-inpage-provider-injected": "^0.0.10",
-    "@onekeyfe/cross-inpage-provider-types": "^0.0.10",
+    "@onekeyfe/cross-inpage-provider-core": "^0.0.15",
+    "@onekeyfe/cross-inpage-provider-errors": "^0.0.15",
+    "@onekeyfe/cross-inpage-provider-injected": "^0.0.15",
+    "@onekeyfe/cross-inpage-provider-types": "^0.0.15",
     "@onekeyfe/extension-bridge-hosted": "^0.0.10",
     "@onekeyfe/onekey-cross-webview": "^0.0.10",
     "axios": "^0.26.0",
