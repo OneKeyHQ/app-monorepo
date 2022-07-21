@@ -1,10 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import {
-  getDeviceLabel,
-  getDeviceType,
-  getDeviceUUID,
-} from '@onekeyfe/hd-core';
+import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -126,26 +122,6 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
       )}
 
       <Container.Box>
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title={intl.formatMessage({ id: 'modal__device_name' })}
-          describe={deviceFeatures ? getDeviceLabel(deviceFeatures) : ''}
-          hasArrow
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.OnekeyHardware,
-              params: {
-                screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
-                params: {
-                  walletId,
-                  deviceName: deviceFeatures?.label ?? '',
-                },
-              },
-            });
-          }}
-        />
-
         <Container.Item
           titleColor="text-default"
           describeColor="text-subdued"

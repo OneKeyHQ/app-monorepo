@@ -155,6 +155,13 @@ const RightHeader: FC<RightHeaderProps> = ({
         title: '',
         options: [
           {
+            label: intl.formatMessage({ id: 'action__edit' }),
+            value: 'rename',
+            iconProps: {
+              name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+            },
+          },
+          {
             label: intl.formatMessage({
               id: 'action__view_device_details',
             }),
@@ -288,12 +295,13 @@ const RightHeader: FC<RightHeaderProps> = ({
               switch (_value) {
                 case 'rename':
                   navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.ManagerWallet,
+                    screen: ModalRoutes.OnekeyHardware,
                     params: {
                       screen:
-                        ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
+                        OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
                       params: {
                         walletId: selectedWallet?.id ?? '',
+                        deviceName: '',
                       },
                     },
                   });
