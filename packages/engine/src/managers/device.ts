@@ -6,7 +6,7 @@ function fromDBDeviceToDevice(device: DBDevice): Device {
   try {
     payload = JSON.parse(device.payloadJson);
   } catch (error) {
-    // do nothing
+    // ignore
   }
 
   return {
@@ -16,9 +16,18 @@ function fromDBDeviceToDevice(device: DBDevice): Device {
 }
 
 function fromDeviceToDBDevice(device: Device): DBDevice {
+  let payloadJson = '{}';
+  try {
+    if (typeof device.payload === 'object') {
+      payloadJson = JSON.stringify(device.payload);
+    }
+  } catch (error) {
+    // ignore
+  }
+
   return {
     ...device,
-    payloadJson: JSON.stringify(device.payload) ?? '{}',
+    payloadJson,
   };
 }
 
