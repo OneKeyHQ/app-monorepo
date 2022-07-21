@@ -309,16 +309,11 @@ const UpdatingModal: FC = () => {
           .then((response) => {
             if (response) {
               const deviceType = getDeviceType(response);
-              if (
-                !response.bootloader_mode &&
-                (deviceType === 'mini' || deviceType === 'touch')
-              ) {
+              if (!response.bootloader_mode && deviceType === 'mini') {
                 setStateViewInfo({
                   type: 'manually-enter-bootloader-one',
                   content: {
                     deviceType,
-                    primaryActionTranslationId:
-                      deviceType === 'touch' ? 'action__continue' : undefined,
                     nextState:
                       deviceType === 'mini'
                         ? {
