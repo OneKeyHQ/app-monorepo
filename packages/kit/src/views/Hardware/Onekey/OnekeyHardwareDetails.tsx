@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -54,9 +55,8 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
     [deviceUpdates, deviceConnectId],
   );
 
-  const showHomescreenSet = ['classic', 'mini'].includes(
-    getDeviceType(deviceFeatures),
-  );
+  const deviceType = getDeviceType(deviceFeatures);
+  const showHomescreenSetting = getHomescreenKeys(deviceType).length > 0;
 
   useEffect(() => {
     (async () => {
@@ -176,7 +176,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           describe={deviceFeatures?.ble_ver ?? '-'}
         />
 
-        {showHomescreenSet && (
+        {showHomescreenSetting && (
           <Container.Item
             titleColor="text-default"
             describeColor="text-subdued"
@@ -192,6 +192,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                     OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
                   params: {
                     walletId,
+                    deviceType: getDeviceType(deviceFeatures),
                   },
                 },
               });

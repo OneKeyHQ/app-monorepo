@@ -20,7 +20,10 @@ import {
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import { homescreensT1 } from '@onekeyhq/kit/src/utils/hardware/constants/homescreenConfig';
+import {
+  HomescreenItem,
+  getHomescreenData,
+} from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type RouteProps = RouteProp<
@@ -28,20 +31,18 @@ type RouteProps = RouteProp<
   OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal
 >;
 
-type DataItem = { name: string; staticPath: any; hex: string };
-
 // eslint-disable-next-line react/no-unused-prop-types
-type RenderItemParams = { item: DataItem; index: number };
+type RenderItemParams = { item: HomescreenItem; index: number };
 
 const OnekeyHardwareHomescreen: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
-  const { walletId } = useRoute<RouteProps>().params;
+  const { walletId, deviceType } = useRoute<RouteProps>().params;
   const [connectId, setConnectId] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<DataItem[]>([]);
+  const [data, setData] = useState<HomescreenItem[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const { engine, serviceHardware } = backgroundApiProxy;
@@ -58,16 +59,17 @@ const OnekeyHardwareHomescreen: FC = () => {
   const numColumns = 4;
 
   useEffect(() => {
-    const dataSource = Object.values(homescreensT1).map((item) => item);
+    const homescreensMap = getHomescreenData(deviceType);
+    const dataSource = Object.values(homescreensMap).map((item) => item);
     const layoutData = Array.from({
       length: dataSource.length % numColumns,
     }).map(
       (_, index) =>
-        ({ name: `hackLayout-${index}`, staticPath: null } as DataItem),
+        ({ name: `hackLayout-${index}`, staticPath: null } as HomescreenItem),
     );
     dataSource.push(...layoutData);
     setData(dataSource);
-  }, []);
+  }, [deviceType]);
 
   const handleConfirm = useCallback(async () => {
     if (!connectId) return;
@@ -149,7 +151,7 @@ const OnekeyHardwareHomescreen: FC = () => {
       showsHorizontalScrollIndicator: false,
       renderItem,
       ListFooterComponent: <Box />,
-      keyExtractor: (item: DataItem) => item.name,
+      keyExtractor: (item: HomescreenItem) => item.name,
     }),
     [data, renderItem],
   );

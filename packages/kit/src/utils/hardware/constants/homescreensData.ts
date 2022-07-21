@@ -1,6 +1,5 @@
 /* eslint-disable global-require */
-
-export const homescreensT1 = {
+export const T1Data = {
   'original': {
     'name': 'original',
     'staticPath': require('@onekeyhq/kit/assets/hardware/homescreens/t1/original.png'),

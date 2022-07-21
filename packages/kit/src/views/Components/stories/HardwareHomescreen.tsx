@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { homescreensT1 } from '@onekeyhq/kit/src/utils/hardware/constants/homescreenConfig';
+import { T1Data } from '@onekeyhq/kit/src/utils/hardware/constants/homescreensData';
 import { elementToHomescreen } from '@onekeyhq/kit/src/utils/hardware/homescreens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -22,7 +22,7 @@ const GenerateHomescreen: FC = () => {
   const [data, setData] = useState<DataItem[]>([]);
 
   useEffect(() => {
-    const dataSource = Object.values(homescreensT1).map((item) => item);
+    const dataSource = Object.values(T1Data).map((item) => item);
     setData(dataSource);
   }, []);
 
@@ -44,7 +44,7 @@ const GenerateHomescreen: FC = () => {
 
   const generateAllData = () => {
     const allData: any = {};
-    Object.entries(homescreensT1).forEach(([name]) => {
+    Object.entries(T1Data).forEach(([name]) => {
       const element = document.getElementById(name);
       if (element instanceof HTMLImageElement) {
         const hex = elementToHomescreen(element);
@@ -113,4 +113,4 @@ const HomescreenSetting = () => {
     </ScrollView>
   );
 };
-export default HomescreenSetting;
+export default React.memo(HomescreenSetting);
