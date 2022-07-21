@@ -399,7 +399,10 @@ class Engine {
     const deviceType = getDeviceType(features);
     const deviceUUID = getDeviceUUID(features);
     const walletName =
-      name ?? features.ble_name ?? `OneKey ${serialNo.slice(-4)}`;
+      name ??
+      features.label ??
+      features.ble_name ??
+      `OneKey ${serialNo.slice(-4)}`;
     const wallet = await this.dbApi.addHWWallet({
       id,
       name: walletName,

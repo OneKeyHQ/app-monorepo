@@ -30,9 +30,9 @@ const OnekeyHardwareDeviceName: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
-  const { walletId, walletName } = useRoute<RouteProps>().params;
+  const { walletId, deviceName } = useRoute<RouteProps>().params;
   const { control, handleSubmit, setError } = useForm<FieldValues>({
-    defaultValues: { name: walletName },
+    defaultValues: { name: deviceName },
   });
   const [connectId, setConnectId] = useState('');
   const [loading, setLoading] = useState(false);

@@ -16,7 +16,6 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -58,13 +57,6 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const showHomescreenSet = ['classic', 'mini'].includes(
     getDeviceType(deviceFeatures),
   );
-
-  const [currentWallet, setCurrentWallet] = useState<Wallet | null>(null);
-  useEffect(() => {
-    engine.getWallet(walletId).then((wallet) => {
-      setCurrentWallet(wallet);
-    });
-  }, [walletId, engine]);
 
   useEffect(() => {
     (async () => {
@@ -147,7 +139,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                 screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
                 params: {
                   walletId,
-                  walletName: currentWallet?.name ?? '',
+                  deviceName: deviceFeatures?.label ?? '',
                 },
               },
             });
