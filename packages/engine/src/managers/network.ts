@@ -1,4 +1,4 @@
-import { IMPL_EVM, SEPERATOR } from '../constants';
+import { IMPL_EVM, IMPL_STC, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getPresetNetworks, networkIsPreset } from '../presets';
 import {
@@ -103,7 +103,7 @@ function fromDBNetworkToNetwork(
     };
 
   let extraInfo = {};
-  if (dbNetwork.impl === IMPL_EVM) {
+  if (dbNetwork.impl === IMPL_EVM || dbNetwork.impl === IMPL_STC) {
     const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
     extraInfo = {
       chainId: `0x${chainId.toString(16)}`,
