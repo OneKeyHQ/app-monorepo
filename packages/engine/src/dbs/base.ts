@@ -11,7 +11,7 @@ import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
 import { DBAccount } from '../types/account';
 import { PrivateKeyCredential } from '../types/credential';
-import { Device } from '../types/device';
+import { Device, DevicePayload } from '../types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -178,7 +178,9 @@ interface DBAPI {
   ): Promise<Array<HistoryEntry>>;
   getDevices(): Promise<Array<Device>>;
   getDevice(deviceId: string): Promise<Device>;
+  getDeviceByDeviceId(deviceId: string): Promise<Device>;
   updateWalletName(walletId: string, name: string): Promise<void>;
+  updateDevicePayload(deviceId: string, payload: DevicePayload): Promise<void>;
 }
 
 export type {

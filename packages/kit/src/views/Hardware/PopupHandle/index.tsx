@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useMemo, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
 import Modal from 'react-native-modal';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HardwareUiEventPayload,
   closeHardwarePopup,
@@ -47,96 +47,96 @@ export type HardwarePopupProps = {
 
 const HardwarePopup: FC<HardwarePopupProps> = () => {
   const { hardwarePopup } = useAppSelector((s) => s.hardware) || {};
-  const { deviceConfig } = useSettings();
 
   const { uiRequest, payload } = hardwarePopup;
   const uiRequestMemo = useDeepCompareMemo(() => uiRequest, [uiRequest]);
 
   const [popupType, setPopupType] = useState<PopupType>();
 
-  const popupView = useMemo(() => {
-    // reset popup type
-    setPopupType('normal');
+  const [popupView, setPopupView] = useState<JSX.Element>();
 
-    const { dispatch, serviceHardware } = backgroundApiProxy;
+  useEffect(() => {
+    (async () => {
+      // reset popup type
+      setPopupType('normal');
 
-    const handleCancelPopup = () => {
-      dispatch(closeHardwarePopup());
+      const { dispatch, engine, serviceHardware } = backgroundApiProxy;
 
-      try {
-        const connectId = payload?.deviceConnectId ?? '';
-        // Cancel the process
-        serviceHardware.cancel(connectId);
-        // Refresh the hardware screen
-        serviceHardware.getFeatures(connectId);
-      } catch (e) {
-        // TODO Collect the error
+      const handleCancelPopup = () => {
+        dispatch(closeHardwarePopup());
+
+        try {
+          const connectId = payload?.deviceConnectId ?? '';
+          // Cancel the process
+          serviceHardware.cancel(connectId);
+          // Refresh the hardware screen
+          serviceHardware.getFeatures(connectId);
+        } catch (e) {
+          // TODO Collect the error
+        }
+      };
+
+      if (uiRequestMemo === UI_REQUEST.REQUEST_PIN) {
+        const deviceType = payload?.deviceType ?? 'classic';
+
+        let onDeviceInputPin = true;
+        if (payload?.deviceId) {
+          const device = await engine.getHWDeviceByDeviceId(payload?.deviceId);
+          onDeviceInputPin = device?.payload?.onDeviceInputPin ?? true;
+        }
+        setPopupType(onDeviceInputPin ? 'normal' : 'input');
+
+        return setPopupView(
+          <RequestPinView
+            deviceType={deviceType}
+            onDeviceInput={onDeviceInputPin}
+            onCancel={() => {
+              handleCancelPopup();
+            }}
+            onConfirm={(pin) => {
+              serviceHardware?.sendUiResponse({
+                type: UI_RESPONSE.RECEIVE_PIN,
+                payload: pin,
+              });
+              dispatch(closeHardwarePopup());
+            }}
+            onDeviceInputChange={(onDeviceInput) => {
+              setPopupType(onDeviceInput ? 'normal' : 'input');
+              if (!onDeviceInput) return;
+
+              serviceHardware.sendUiResponse({
+                type: UI_RESPONSE.RECEIVE_PIN,
+                payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+              });
+            }}
+          />,
+        );
       }
-    };
 
-    if (uiRequestMemo === UI_REQUEST.REQUEST_PIN) {
-      const deviceType = payload?.deviceType ?? 'classic';
-      const onDeviceInput =
-        deviceConfig?.[payload?.deviceConnectId ?? '']?.onDeviceInputPin ??
-        true;
-      setPopupType(onDeviceInput ? 'normal' : 'input');
+      if (uiRequestMemo === UI_REQUEST.REQUEST_BUTTON) {
+        const deviceType = payload?.deviceType ?? 'classic';
 
-      return (
-        <RequestPinView
-          deviceType={deviceType}
-          onDeviceInput={onDeviceInput}
-          onCancel={() => {
-            handleCancelPopup();
-          }}
-          onConfirm={(pin) => {
-            serviceHardware?.sendUiResponse({
-              type: UI_RESPONSE.RECEIVE_PIN,
-              payload: pin,
-            });
-            dispatch(closeHardwarePopup());
-          }}
-          onDeviceInputChange={(onDeviceInput) => {
-            setPopupType(onDeviceInput ? 'normal' : 'input');
-            if (!onDeviceInput) return;
+        return setPopupView(
+          <RequestConfirmView
+            deviceType={deviceType}
+            bootLoader={payload?.deviceBootLoaderMode}
+            onCancel={() => {
+              handleCancelPopup();
+            }}
+          />,
+        );
+      }
 
-            serviceHardware.sendUiResponse({
-              type: UI_RESPONSE.RECEIVE_PIN,
-              payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
-            });
-          }}
-        />
-      );
-    }
+      if (
+        uiRequestMemo !== UI_REQUEST.LOCATION_PERMISSION &&
+        uiRequestMemo !== UI_REQUEST.BLUETOOTH_PERMISSION
+      ) {
+        dispatch(closeHardwarePopup());
+      }
 
-    if (uiRequestMemo === UI_REQUEST.REQUEST_BUTTON) {
-      const deviceType = payload?.deviceType ?? 'classic';
-
-      return (
-        <RequestConfirmView
-          deviceType={deviceType}
-          bootLoader={payload?.deviceBootLoaderMode}
-          onCancel={() => {
-            handleCancelPopup();
-          }}
-        />
-      );
-    }
-
-    if (
-      uiRequestMemo !== UI_REQUEST.LOCATION_PERMISSION &&
-      uiRequestMemo !== UI_REQUEST.BLUETOOTH_PERMISSION
-    ) {
-      dispatch(closeHardwarePopup());
-    }
-
-    return null;
-  }, [
-    deviceConfig,
-    payload?.deviceBootLoaderMode,
-    payload?.deviceConnectId,
-    payload?.deviceType,
-    uiRequestMemo,
-  ]);
+      return setPopupView(undefined);
+    })();
+  }, [payload, uiRequestMemo]);
 
   if (!popupView) return null;
 

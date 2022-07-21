@@ -21,10 +21,11 @@ import {
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
 import { getPath } from '../../managers/derivation';
+import { fromDBDeviceToDevice } from '../../managers/device';
 import { walletIsImported } from '../../managers/wallet';
 import { AccountType, DBAccount, DBVariantAccount } from '../../types/account';
 import { PrivateKeyCredential } from '../../types/credential';
-import { Device } from '../../types/device';
+import { DBDevice, Device, DevicePayload } from '../../types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -1833,6 +1834,7 @@ class IndexedDBApi implements DBAPI {
             deviceId,
             deviceType,
             features,
+            payloadJson: '{}',
             createdAt: now,
             updatedAt: now,
           });
@@ -1855,7 +1857,10 @@ class IndexedDBApi implements DBAPI {
             .objectStore(DEVICE_STORE_NAME)
             .getAll();
           request.onsuccess = (_event) => {
-            resolve(request.result);
+            const devices = request.result.map((device) =>
+              fromDBDeviceToDevice(device),
+            );
+            resolve(devices);
           };
         }),
     );
@@ -1871,7 +1876,32 @@ class IndexedDBApi implements DBAPI {
             .get(deviceId);
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
-              resolve(request.result);
+              resolve(fromDBDeviceToDevice(request.result));
+            } else {
+              reject(new OneKeyInternalError(`Device ${deviceId} not found.`));
+            }
+          };
+        }),
+    );
+  }
+
+  getDeviceByDeviceId(deviceId: string): Promise<Device> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const request: IDBRequest = db
+            .transaction([DEVICE_STORE_NAME])
+            .objectStore(DEVICE_STORE_NAME)
+            .getAll();
+
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              const ret = request.result as Array<DBDevice>;
+              const device = ret.find((item) => item.deviceId === deviceId);
+
+              if (device) resolve(fromDBDeviceToDevice(device));
+
+              reject(new OneKeyInternalError(`Device ${deviceId} not found.`));
             } else {
               reject(new OneKeyInternalError(`Device ${deviceId} not found.`));
             }
@@ -1920,6 +1950,49 @@ class IndexedDBApi implements DBAPI {
               }
               deviceStore.put(Object.assign(device, { name }));
             };
+          };
+        }),
+    );
+  }
+
+  updateDevicePayload(deviceId: string, payload: DevicePayload): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([DEVICE_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to update device.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve();
+          };
+
+          const deviceStore = transaction.objectStore(DEVICE_STORE_NAME);
+          const request = deviceStore.getAll();
+
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              const devices = request.result as Array<DBDevice>;
+              const device = devices.find((item) => item.deviceId === deviceId);
+              if (device) {
+                const oldPayload = fromDBDeviceToDevice(device).payload;
+                const newPayload = JSON.stringify({
+                  ...oldPayload,
+                  ...payload,
+                });
+
+                deviceStore.put(
+                  Object.assign(device, {
+                    payloadJson: newPayload,
+                    updatedAt: Date.now(),
+                  }),
+                );
+              } else {
+                reject(
+                  new OneKeyInternalError(`Device ${deviceId} not found.`),
+                );
+              }
+            }
           };
         }),
     );

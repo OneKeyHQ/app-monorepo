@@ -22,7 +22,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { setDeviceConfig } from '@onekeyhq/kit/src/store/reducers/settings';
 import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -43,21 +42,18 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { dispatch, engine, serviceHardware } = backgroundApiProxy;
-  const { deviceUpdates, deviceConfig } = useSettings();
+  const { engine, serviceHardware } = backgroundApiProxy;
+  const { deviceUpdates } = useSettings();
 
   const [deviceConnectId, setDeviceConnectId] = useState<string>();
+  const [deviceId, setDeviceId] = useState<string>();
+  const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
 
   const canOnDeviceInputPin = useMemo(() => {
     const deviceType = getDeviceType(deviceFeatures);
     if (deviceType === 'classic' || deviceType === 'mini') return true;
     return false;
   }, [deviceFeatures]);
-
-  const onDeviceInputPin = useMemo(
-    () => deviceConfig?.[deviceConnectId ?? '']?.onDeviceInputPin ?? true,
-    [deviceConfig, deviceConnectId],
-  );
 
   const updates = useMemo(
     () => deviceUpdates?.[deviceConnectId ?? ''],
@@ -67,11 +63,24 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const deviceType = getDeviceType(deviceFeatures);
   const showHomescreenSetting = getHomescreenKeys(deviceType).length > 0;
 
+  const refreshDevicePayload = () => {
+    engine
+      .getHWDeviceByWalletId(walletId)
+      .then((device) => {
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
   useEffect(() => {
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
         setDeviceConnectId(device?.mac);
+        setDeviceId(device?.deviceId);
       } catch (err: any) {
         if (navigation.canGoBack()) {
           navigation.goBack();
@@ -219,15 +228,14 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
               labelType="false"
               isChecked={!onDeviceInputPin}
               onToggle={() => {
-                if (deviceConnectId) {
-                  dispatch(
-                    setDeviceConfig({
-                      connectId: deviceConnectId,
-                      config: {
-                        onDeviceInputPin: !onDeviceInputPin,
-                      },
-                    }),
-                  );
+                if (deviceId) {
+                  serviceHardware
+                    .updateDevicePayload(deviceId, {
+                      onDeviceInputPin: !onDeviceInputPin,
+                    })
+                    .then(() => {
+                      refreshDevicePayload();
+                    });
                 }
               }}
             />
