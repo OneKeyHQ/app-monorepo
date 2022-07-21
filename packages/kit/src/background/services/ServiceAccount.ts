@@ -128,6 +128,10 @@ class ServiceAccount extends ServiceBase {
       },
     );
     this.backgroundApi.walletConnect.notifySessionChanged();
+    // emit at next tick
+    setTimeout(() => {
+      appEventBus.emit(AppEventBusNames.AccountChanged);
+    }, 10);
   }
 
   @backgroundMethod()

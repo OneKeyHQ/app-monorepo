@@ -75,9 +75,8 @@ const VolumeHaptic = () => {
               id: 'form__vibrate',
             })}
             isChecked={enableHaptics}
-            divider
             onToggle={() => {
-              dispatch(setEnableHaptics());
+              dispatch(setEnableHaptics(!enableHaptics));
             }}
           />
         </Box>

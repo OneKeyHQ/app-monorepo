@@ -163,6 +163,7 @@ const SwapContent = () => {
           {isDisabled ? <Box w="full" h="full" position="absolute" /> : null}
         </Box>
         {outputTokenNetwork &&
+        inputTokenNetwork &&
         outputTokenNetwork?.id !== inputTokenNetwork?.id ? (
           <Box
             display="flex"

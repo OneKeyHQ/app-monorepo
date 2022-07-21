@@ -208,7 +208,7 @@ const AccountSelectorChildren: FC<{
   ]);
 
   const onLock = useCallback(() => {
-    backgroundApiProxy.serviceApp.lock();
+    backgroundApiProxy.serviceApp.lock(true);
   }, []);
 
   return (

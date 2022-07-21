@@ -20,9 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../hooks';
-import { release } from '../../store/reducers/data';
-import { unlock } from '../../store/reducers/status';
-import { wait } from '../../utils/helper';
+import { sleep } from '../../utils/promiseUtils';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 const ForgetPasswordButton = () => {
@@ -110,15 +108,12 @@ export const AppStateUnlock = () => {
   }, []);
 
   const onUnlock = useCallback(async () => {
-    const isOk = await backgroundApiProxy.serviceApp.verifyPassword(password);
+    const isOk = await backgroundApiProxy.serviceApp.unlock(password);
     if (isOk) {
       if (platformEnv.isNativeAndroid) {
         Keyboard.dismiss();
       }
-      await backgroundApiProxy.servicePassword.savePassword(password);
-      backgroundApiProxy.dispatch(unlock());
-      backgroundApiProxy.dispatch(release());
-      await wait(500);
+      await sleep(500);
     } else {
       setError(
         intl.formatMessage({
@@ -129,10 +124,8 @@ export const AppStateUnlock = () => {
     }
   }, [password, intl]);
 
-  const onOk = useCallback(async (pw: string) => {
-    await backgroundApiProxy.servicePassword.savePassword(pw);
-    backgroundApiProxy.dispatch(unlock());
-    backgroundApiProxy.dispatch(release());
+  const onOk = useCallback((pw: string) => {
+    backgroundApiProxy.serviceApp.unlock(pw);
   }, []);
 
   return (

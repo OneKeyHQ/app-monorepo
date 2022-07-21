@@ -24,7 +24,7 @@ export const UtilSection = () => {
   const { themeVariant } = useTheme();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const onLock = useCallback(() => {
-    backgroundApiProxy.serviceApp.lock();
+    backgroundApiProxy.serviceApp.lock(true);
   }, []);
   return (
     <Box w="full" mb="6">

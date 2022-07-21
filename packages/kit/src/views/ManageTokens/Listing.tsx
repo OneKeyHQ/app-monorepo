@@ -273,10 +273,14 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
           5000,
         );
       } catch (e) {
-        toast.show({
-          title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
-          type: 'error',
-        });
+        toast.show(
+          {
+            title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
+          },
+          {
+            type: 'error',
+          },
+        );
         return;
       }
       toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });

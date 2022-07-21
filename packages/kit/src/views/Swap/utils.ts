@@ -3,6 +3,8 @@ import BigNumber from 'bignumber.js';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import { enabledChainIds } from './config';
+
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 export const feeRecipient = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
 export const affiliateAddress = '0x4F5FC02bE49Bea15229041b87908148b04c14717';
@@ -30,6 +32,11 @@ export class TokenAmount {
   toFormat() {
     return this.toNumber().toFixed();
   }
+}
+
+export function getTokenAmountString(token: Token, amount: string) {
+  const tokenAmount = new TokenAmount(token, amount);
+  return tokenAmount.toFormat();
 }
 
 export function multiply(a: BigNumber.Value, b: BigNumber.Value): string {
@@ -109,17 +116,6 @@ export function formatAmount(value?: BigNumber.Value, precision = 4) {
   return bn.decimalPlaces(precision).toFixed();
 }
 
-export const enabledChainIds = [
-  '1',
-  '56',
-  '128',
-  '137',
-  '43114',
-  '66',
-  '42161',
-  '42220',
-];
-
 export function getChainIdFromNetwork(network?: Network): string {
   const chainId = network?.extraInfo?.chainId;
   return network ? String(+chainId) : '';
@@ -127,6 +123,10 @@ export function getChainIdFromNetwork(network?: Network): string {
 
 export function getChainIdFromNetworkId(networdId: string) {
   return networdId.split('--')[1] ?? '';
+}
+
+export function getEvmTokenAddress(token: Token) {
+  return token.tokenIdOnNetwork ? token.tokenIdOnNetwork : nativeTokenAddress;
 }
 
 export function isNetworkEnabled(

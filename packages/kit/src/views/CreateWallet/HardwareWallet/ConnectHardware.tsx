@@ -24,7 +24,10 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyErrorClassNames,
+  OneKeyHardwareError,
+} from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -146,8 +149,29 @@ const ConnectHardwareModal: FC = () => {
     setIsSearching(true);
 
     const checkBridge = await serviceHardware.checkBridge();
-    if (!checkBridge) {
+    if (typeof checkBridge === 'boolean' && !checkBridge) {
       DialogManager.show({ render: <NeedBridgeDialog /> });
+      return;
+    }
+    if (
+      (checkBridge as unknown as OneKeyHardwareError).className ===
+      OneKeyErrorClassNames.OneKeyHardwareError
+    ) {
+      if (platformEnv.isDesktop) {
+        window.desktopApi.reloadBridgeProcess();
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: (checkBridge as unknown as OneKeyHardwareError).key,
+            }),
+          },
+          {
+            type: 'default',
+          },
+        );
+      } else {
+        DialogManager.show({ render: <NeedBridgeDialog /> });
+      }
       return;
     }
 

@@ -1,17 +1,16 @@
 import React, { useEffect } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens } from '../../hooks';
+import { useNativeToken } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import {
   reset,
-  setNoSupportCoins,
   setSelectedNetworkId,
   setSwftcSupportedTokens,
 } from '../../store/reducers/swap';
 
-import { swapClient } from './client';
 import { useSwapActionHandlers, useSwapEnabled } from './hooks/useSwap';
+import { SwapQuoter } from './quoter';
 import { refs } from './refs';
 
 const AccountListener = () => {
@@ -23,8 +22,8 @@ const AccountListener = () => {
 };
 
 const NetworkListener = () => {
-  const { network, accountId } = useActiveWalletAccount();
-  const { nativeToken } = useManageTokens();
+  const { network, accountId, networkId } = useActiveWalletAccount();
+  const nativeToken = useNativeToken(networkId, accountId);
   const { onSelectToken } = useSwapActionHandlers();
   const isSwapEnabled = useSwapEnabled();
   useEffect(() => {
@@ -59,9 +58,8 @@ const NetworkListener = () => {
 const SwapTokensFetcher = () => {
   useEffect(() => {
     async function main() {
-      const { tokens, noSuportedTokens } = await swapClient.getBaseInfo();
+      const tokens = await SwapQuoter.client.getSwftcSupportedTokens();
       backgroundApiProxy.dispatch(setSwftcSupportedTokens(tokens));
-      backgroundApiProxy.dispatch(setNoSupportCoins(noSuportedTokens));
     }
     main();
   }, []);

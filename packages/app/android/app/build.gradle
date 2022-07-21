@@ -313,7 +313,7 @@ android {
 
     packagingOptions {
         // (V8) Make sure libjsc.so does not packed in APK
-        // exclude "**/libjsc.so"
+        exclude "**/libjsc.so"
 
         // avoid conflict with react-native-bignumber
         // pickFirst "**/libcrypto.so"

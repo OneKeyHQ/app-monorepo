@@ -5,17 +5,22 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  QuoteParams,
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  QuoteData,
   Quoter,
-  SwapQuote,
-  TxData,
-  TxParams,
-  TxRes,
+  QuoterType,
+  SwftcTransactionReceipt,
+  TransactionData,
+  TransactionDetails,
+  TransactionStatus,
 } from '../typings';
 import {
-  TokenAmount,
   div,
   getChainIdFromNetwork,
+  getEvmTokenAddress,
+  getTokenAmountString,
   multiply,
   nativeTokenAddress,
   plus,
@@ -32,6 +37,7 @@ function getSwftcNetworkName(chainId?: string): string {
     '250': 'FTM',
     '42161': 'ARB',
     '42220': 'CELO',
+    '10': 'Optimism',
   };
   return records[chainId ?? ''] ?? '';
 }
@@ -41,6 +47,7 @@ function getChainIdFromSwftcNetworkName(name: string): string {
     'ETH': '1',
     'BSC': '56',
     'HECO': '128',
+    'Optimism': '10',
     'POLYGON': '137',
     'AVAXC': '43114',
     'OKExChain': '66',
@@ -120,9 +127,11 @@ type OrderInfo = {
 };
 
 export class SwftcQuoter implements Quoter {
+  type: QuoterType = 'swftc';
+
   private client: Axios;
 
-  private coins: Coin[] = [];
+  private coins?: Coin[];
 
   private coinsLastUpdate = 0;
 
@@ -138,37 +147,17 @@ export class SwftcQuoter implements Quoter {
     this.client = axios.create({ timeout: 30 * 1000 });
   }
 
+  prepare() {
+    this.getCoins();
+  }
+
   isSupported(networkA: Network, networkB: Network): boolean {
     return networkA !== networkB;
   }
 
-  async getBaseInfo() {
+  async getGroupedCoins() {
     const coins = await this.getCoins();
-    const tokenRecords = this.chunkCoins(coins);
-
-    const coinCodeRecords = await this.getCoinCodeRecords();
-    const noSuportedRecords: Record<
-      string,
-      Record<string, Record<string, string[]>>
-    > = {};
-
-    for (let i = 0; i < coins.length; i += 1) {
-      const coin = coins[i];
-      const chainId = getChainIdFromSwftcNetworkName(coin.mainNetwork);
-      if (chainId) {
-        const address = coin.contact || nativeTokenAddress;
-        const noSupportCoins = coin.noSupportCoin
-          .split(',')
-          .map((name) => coinCodeRecords[name])
-          .filter(Boolean);
-        const chunkedNoSupportCoins = this.chunkCoins(noSupportCoins);
-        if (!noSuportedRecords[chainId]) {
-          noSuportedRecords[chainId] = {};
-        }
-        noSuportedRecords[chainId][address] = chunkedNoSupportCoins;
-      }
-    }
-    return { tokens: tokenRecords, noSuportedTokens: noSuportedRecords };
+    return this.groupCoinsByChainId(coins);
   }
 
   async getCoin(network: Network, address: string): Promise<Coin | undefined> {
@@ -191,20 +180,28 @@ export class SwftcQuoter implements Quoter {
     const noSupportCoinItems = listItem
       .map((name) => coinCodeRecords[name])
       .filter(Boolean);
-    const data = this.chunkCoins(noSupportCoinItems);
+    const data = this.groupCoinsByChainId(noSupportCoinItems);
     return data;
   }
 
-  private async getCoins(): Promise<Coin[]> {
-    if (this.coins && Date.now() - this.coinsLastUpdate < 1000 * 60 * 60) {
-      return this.coins;
-    }
+  private async requestCoins(): Promise<Coin[]> {
     const url = 'https://www.swftc.info/api/v1/queryCoinList';
     const res = await this.client.post(url, { supportType: 'advanced' });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     this.coins = res.data.data as Coin[];
     this.coinsLastUpdate = Date.now();
     return this.coins;
+  }
+
+  private async getCoins(): Promise<Coin[]> {
+    const { coins } = this;
+    if (!coins) {
+      return this.requestCoins();
+    }
+    if (Date.now() - this.coinsLastUpdate > 1000 * 60 * 60) {
+      setTimeout(() => this.requestCoins(), 10);
+    }
+    return coins;
   }
 
   private async getCoinCodeRecords(): Promise<Record<string, Coin>> {
@@ -247,7 +244,7 @@ export class SwftcQuoter implements Quoter {
     return this.networkAddrRecords;
   }
 
-  private chunkCoins(coins: Coin[]) {
+  private groupCoinsByChainId(coins: Coin[]) {
     const records: Record<string, string[]> = {};
     coins.forEach((coin) => {
       const chainId = getChainIdFromSwftcNetworkName(coin.mainNetwork);
@@ -262,18 +259,18 @@ export class SwftcQuoter implements Quoter {
     return records;
   }
 
-  private async getPreQuote(
-    rateParams: QuoteParams,
+  private async fetchSwftcQuote(
+    params: FetchQuoteParams,
   ): Promise<InternalRateResult | undefined> {
-    const { networkIn, networkOut, tokenOut, tokenIn } = rateParams;
+    const { networkIn, networkOut, tokenOut, tokenIn } = params;
     if (!this.isSupported(networkIn, networkOut)) {
       return;
     }
     const coins = await this.getNetworkAddrRecords();
     const fromNetwork = getSwftcNetworkName(getChainIdFromNetwork(networkIn));
     const toNetwork = getSwftcNetworkName(getChainIdFromNetwork(networkOut));
-    const fromToken = tokenIn.tokenIdOnNetwork || nativeTokenAddress;
-    const toToken = tokenOut.tokenIdOnNetwork || nativeTokenAddress;
+    const fromToken = getEvmTokenAddress(tokenIn);
+    const toToken = getEvmTokenAddress(tokenOut);
     if (fromNetwork && toNetwork) {
       const depositCoinCode = coins[fromNetwork]?.[fromToken]?.coinCode;
       const receiveCoinCode = coins[toNetwork]?.[toToken]?.coinCode;
@@ -289,22 +286,25 @@ export class SwftcQuoter implements Quoter {
     }
   }
 
-  async getQuote(params: QuoteParams): Promise<SwapQuote | undefined> {
+  async fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined> {
     const { independentField, tokenIn, typedValue, tokenOut } = params;
-    const data = await this.getPreQuote(params);
+    const data = await this.fetchSwftcQuote(params);
     if (data) {
-      const result: SwapQuote = {
+      const result: QuoteData = {
+        type: this.type,
         instantRate: data.rate.instantRate,
-        depositMax: data.rate.depositMax,
-        depositMin: data.rate.depositMin,
-        sellTokenAddress: tokenIn.tokenIdOnNetwork || nativeTokenAddress,
-        buyTokenAddress: tokenOut.tokenIdOnNetwork || nativeTokenAddress,
+        limited: {
+          max: data.rate.depositMax,
+          min: data.rate.depositMin,
+        },
+        sellTokenAddress: getEvmTokenAddress(tokenIn),
+        buyTokenAddress: getEvmTokenAddress(tokenOut),
         sellAmount: '',
         buyAmount: '',
       };
       if (independentField === 'INPUT') {
-        result.sellAmount = new TokenAmount(tokenIn, typedValue).toFormat();
-        result.buyAmount = new TokenAmount(
+        result.sellAmount = getTokenAmountString(tokenIn, typedValue);
+        result.buyAmount = getTokenAmountString(
           tokenOut,
           calcBuyAmount(
             typedValue,
@@ -312,10 +312,10 @@ export class SwftcQuoter implements Quoter {
             data.rate.instantRate,
             data.rate.chainFee,
           ),
-        ).toFormat();
+        );
       } else {
-        result.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
-        result.sellAmount = new TokenAmount(
+        result.buyAmount = getTokenAmountString(tokenOut, typedValue);
+        result.sellAmount = getTokenAmountString(
           tokenIn,
           calcSellAmount(
             typedValue,
@@ -323,13 +323,15 @@ export class SwftcQuoter implements Quoter {
             data.rate.instantRate,
             data.rate.chainFee,
           ),
-        ).toFormat();
+        );
       }
       return result;
     }
   }
 
-  async encodeTx(params: TxParams): Promise<TxRes | undefined> {
+  async buildTransaction(
+    params: BuildTransactionParams,
+  ): Promise<BuildTransactionResponse | undefined> {
     const {
       typedValue,
       independentField,
@@ -338,7 +340,7 @@ export class SwftcQuoter implements Quoter {
       tokenIn,
       receivingAddress,
     } = params;
-    const data = await this.getPreQuote(params);
+    const data = await this.fetchSwftcQuote(params);
     if (data && activeNetwok && activeAccount) {
       const { depositCoinCode, receiveCoinCode, rate } = data;
       let depositCoinAmt = '';
@@ -352,16 +354,17 @@ export class SwftcQuoter implements Quoter {
       }
       const equipmentNo = activeAccount.address;
       const destinationAddr = receivingAddress ?? activeAccount.address;
-      const orderData = await this.createOrder(
+      const refundAddr = activeAccount.address;
+      const orderRes = await this.createOrder(
         depositCoinCode,
         receiveCoinCode,
         new BigNumber(depositCoinAmt).toFixed(8, BigNumber.ROUND_DOWN),
         new BigNumber(receiveCoinAmt).toFixed(8, BigNumber.ROUND_DOWN),
         equipmentNo,
         destinationAddr,
-        activeAccount.address,
+        refundAddr,
       );
-      if (orderData && orderData.data) {
+      if (orderRes && orderRes.data) {
         if (!tokenIn.tokenIdOnNetwork) {
           const txdata =
             await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
@@ -369,13 +372,13 @@ export class SwftcQuoter implements Quoter {
               accountId: activeAccount.id,
               transferInfo: {
                 from: activeAccount.address,
-                to: orderData.data.platformAddr,
+                to: orderRes.data.platformAddr,
                 amount: depositCoinAmt,
               },
             });
           return {
-            data: txdata as unknown as TxData,
-            orderId: orderData.data.orderId,
+            data: txdata as unknown as TransactionData,
+            orderId: orderRes.data.orderId,
           };
         }
         const txdata =
@@ -384,17 +387,17 @@ export class SwftcQuoter implements Quoter {
             accountId: activeAccount.id,
             transferInfo: {
               from: activeAccount.address,
-              to: orderData.data.platformAddr,
+              to: orderRes.data.platformAddr,
               amount: depositCoinAmt,
               token: tokenIn.tokenIdOnNetwork,
             },
           });
         return {
-          data: txdata as unknown as TxData,
-          orderId: orderData.data.orderId,
+          data: txdata as unknown as TransactionData,
+          orderId: orderRes.data.orderId,
         };
       }
-      return { resCode: orderData.resCode, resMsg: orderData.resMsg };
+      return { error: { code: orderRes.resCode, msg: orderRes.resMsg } };
     }
   }
 
@@ -429,5 +432,40 @@ export class SwftcQuoter implements Quoter {
       resMsg?: string;
     };
     return orderData;
+  }
+
+  async queryTransactionStatus(
+    tx: TransactionDetails,
+  ): Promise<TransactionStatus | undefined> {
+    if (tx.thirdPartyOrderId) {
+      const res = await axios.post(
+        'https://www.swftc.info/api/v2/queryOrderState',
+        {
+          equipmentNo: tx.from,
+          sourceType: 'H5',
+          orderId: tx.thirdPartyOrderId,
+        },
+      );
+      // eslint-disable-next-line
+      const receipt = res.data.data as SwftcTransactionReceipt;
+      if (receipt.tradeState === 'complete') {
+        return 'sucesss';
+      }
+    }
+    const { networkId, accountId, nonce } = tx;
+    if (nonce) {
+      const status =
+        await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
+          networkId,
+          accountId,
+          nonce,
+        });
+      if (status === 'canceled' || status === 'failed') {
+        return status;
+      }
+    } else if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
+      return 'failed';
+    }
+    return undefined;
   }
 }

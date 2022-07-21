@@ -355,6 +355,21 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getTransactionsWithNonce({
+    networkId,
+    accountId,
+    nonce,
+  }: {
+    networkId: string;
+    accountId: string;
+    nonce: number;
+  }) {
+    const historyTxs = await this.getLocalHistory({ networkId, accountId });
+    const nonceTxs = historyTxs.filter((tx) => tx.decodedTx.nonce === nonce);
+    return nonceTxs;
+  }
+
+  @backgroundMethod()
   async queryTransactionNonceStatus({
     networkId,
     accountId,
@@ -365,8 +380,11 @@ class ServiceHistory extends ServiceBase {
     nonce: number;
   }): Promise<'pending' | 'failed' | 'sucesss' | 'canceled'> {
     await this.refreshPendingHistory({ networkId, accountId });
-    const historyTxs = await this.getLocalHistory({ networkId, accountId });
-    const nonceTxs = historyTxs.filter((tx) => tx.decodedTx.nonce === nonce);
+    const nonceTxs = await this.getTransactionsWithNonce({
+      networkId,
+      accountId,
+      nonce,
+    });
     const statusList = nonceTxs.map((tx) => tx.decodedTx.status);
     if (statusList.includes(IDecodedTxStatus.Confirmed)) {
       const canceledTxs = nonceTxs.filter(

@@ -18,6 +18,7 @@ import {
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
+  BridgeTimeoutError,
   ConnectTimeout,
   InitIframeLoadFail,
   InitIframeTimeout,
@@ -178,8 +179,18 @@ class ServiceHardware extends ServiceBase {
     };
 
     const checkBridge = await this.checkBridge();
-    if (!checkBridge) {
+    if (typeof checkBridge === 'boolean' && !checkBridge) {
       return Promise.reject(new NeedOneKeyBridge());
+    }
+    if (checkBridge instanceof BridgeTimeoutError) {
+      const error = platformEnv.isDesktop
+        ? checkBridge
+        : new NeedOneKeyBridge();
+      if (platformEnv.isDesktop) {
+        window.desktopApi.reloadBridgeProcess();
+      }
+      // checkBridge should be an error
+      return Promise.reject(error);
     }
 
     this.startPolling();
@@ -344,6 +355,14 @@ class ServiceHardware extends ServiceBase {
       ) {
         return Promise.resolve(true);
       }
+      /**
+       * Sometimes we need to capture the Bridge timeout error
+       * it does not mean that the user does not have bridge installed
+       */
+      if (error instanceof BridgeTimeoutError) {
+        return Promise.resolve(error);
+      }
+
       return Promise.resolve(false);
     }
 
