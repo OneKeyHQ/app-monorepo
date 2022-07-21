@@ -5,8 +5,6 @@ import React, { ComponentProps, useCallback } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
-// @ts-expect-error
-import NestedScrollView from 'react-native-nested-scroll-view';
 
 import {
   Box,
@@ -97,11 +95,11 @@ export type IAssetsListProps = Omit<
   'data' | 'renderItem'
 > & {
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
-  isTab?: boolean;
+  singleton?: boolean;
   hidePriceInfo?: boolean;
 };
 function AssetsList({
-  isTab,
+  singleton,
   hidePriceInfo,
   ListHeaderComponent,
   ListFooterComponent,
@@ -230,10 +228,11 @@ function AssetsList({
     );
   };
 
-  const Container = isTab ? Tabs.FlatList : FlatList;
+  const Container = singleton ? FlatList : Tabs.FlatList;
 
   return (
     <Container
+      nestedScrollEnabled
       contentContainerStyle={merge(
         {
           paddingHorizontal: responsivePadding(),
@@ -250,7 +249,6 @@ function AssetsList({
       }
       ItemSeparatorComponent={Divider}
       ListFooterComponent={ListFooterComponent ?? (() => <Box h={8} />)}
-      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}

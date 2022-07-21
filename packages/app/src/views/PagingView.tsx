@@ -2,7 +2,7 @@ import React from 'react';
 
 import { UIManager, findNodeHandle } from 'react-native';
 
-import NativePagingView, { getViewManagerConfig } from './NativePagingView';
+import NestedTabView, { getViewManagerConfig } from './NestedTabView';
 import { PagingViewManagerProps } from './types';
 
 type PagingViewProps = {
@@ -11,7 +11,7 @@ type PagingViewProps = {
 } & PagingViewManagerProps;
 
 export class PagingView extends React.Component<PagingViewProps> {
-  private PagerView = React.createRef<typeof NativePagingView>();
+  private PagerView = React.createRef<typeof NestedTabView>();
 
   public setPageIndex = (selectedPage: number) => {
     UIManager.dispatchViewManagerCommand(
@@ -32,7 +32,7 @@ export class PagingView extends React.Component<PagingViewProps> {
       children,
     } = this.props;
     return (
-      <NativePagingView
+      <NestedTabView
         ref={this.PagerView as any}
         defaultIndex={defaultIndex}
         headerHeight={headerHeight}
@@ -42,7 +42,7 @@ export class PagingView extends React.Component<PagingViewProps> {
         {renderHeader()}
         {renderTabBar()}
         {children}
-      </NativePagingView>
+      </NestedTabView>
     );
   }
 }

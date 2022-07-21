@@ -8,7 +8,7 @@ import javax.annotation.Nullable
 
 
 class HomePageManager : ViewGroupManager<HomePageView>() {
-    private val REACT_CLASS = "RNCHomePage"
+    private val REACT_CLASS = "NestedTabView"
 
     private var height = 56;
 
@@ -18,8 +18,8 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         return HomePageView(reactContext)
     }
 
-    @ReactProp(name = "hardHeight")
-    fun setHardHeight(view: HomePageView, @Nullable height: Int?) {
+    @ReactProp(name = "headerHeight")
+    fun setHeaderHeight(view: HomePageView, @Nullable height: Int?) {
         height?.let { this.height = it }
     }
 
@@ -28,7 +28,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         if (child == null) return
 
         if (index == 0) {
-            parent.setHardView(child, this.height)
+            parent.setHeaderView(child, this.height)
         } else {
             parent.setContentView(child)
         }
@@ -37,7 +37,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     override fun addViews(parent: HomePageView?, views: MutableList<View>?) {
         if (parent == null) return
 
-        views?.get(0)?.let { parent.setHardView(it, this.height) }
+        views?.get(0)?.let { parent.setHeaderView(it, this.height) }
         views?.get(1)?.let { parent.setContentView(it) }
     }
 }

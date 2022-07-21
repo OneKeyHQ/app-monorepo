@@ -10,8 +10,6 @@ import React, {
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { SectionListProps } from 'react-native';
-// @ts-expect-error
-import NestedScrollView from 'react-native-nested-scroll-view';
 import useSWR from 'swr';
 
 import {
@@ -219,12 +217,7 @@ function TxHistoryListSectionList(props: {
   };
 
   console.log(`TxHistoryListView render:`);
-  return (
-    <SectionListComponent
-      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
-      {...sectionListProps}
-    />
-  );
+  return <SectionListComponent nestedScrollEnabled {...sectionListProps} />;
 }
 const TxHistoryListSectionsMemo = React.memo(TxHistoryListSectionList);
 
@@ -232,7 +225,7 @@ export type ITxHistoryListViewProps = {
   accountId: string | null | undefined;
   networkId: string | null | undefined;
   tokenId?: string; // tokenIdOnNetwork
-  isTab?: boolean;
+  isHomeTab?: boolean;
   headerView?: JSX.Element | null;
 };
 // TODO use Tabs.SectionList and SectionList instead
@@ -241,7 +234,7 @@ function TxHistoryListViewComponent({
   networkId,
   tokenId,
   headerView,
-  isTab,
+  isHomeTab,
 }: ITxHistoryListViewProps) {
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
   const txDetailContext = useTxHistoryContext();
@@ -295,14 +288,14 @@ function TxHistoryListViewComponent({
     if (!isFocused) {
       return false;
     }
-    if (isTab) {
+    if (isHomeTab) {
       return homeTabName === WalletHomeTabEnum.History;
     }
     return true;
-  }, [accountId, homeTabName, isFocused, isTab, networkId]);
+  }, [accountId, homeTabName, isFocused, isHomeTab, networkId]);
 
   // TODO isValidating, refreshHistoryTs cause re-render, please useContext instead
-  const swrKey = isTab ? 'fetchHistoryTx-homeTab' : 'fetchHistoryTx';
+  const swrKey = isHomeTab ? 'fetchHistoryTx-homeTab' : 'fetchHistoryTx';
   const { mutate, isValidating: isLoading } = useSWR(swrKey, fetchHistoryTx, {
     refreshInterval: 30 * 1000,
     revalidateOnMount: false,
@@ -389,7 +382,7 @@ function TxHistoryListViewComponent({
     return null;
   }
   const SectionListComponent = (
-    isTab ? Tabs.SectionList : SectionList
+    isHomeTab ? Tabs.SectionList : SectionList
   ) as typeof SectionList;
 
   return (
@@ -401,9 +394,9 @@ function TxHistoryListViewComponent({
 }
 
 function TxHistoryListView(props: ITxHistoryListViewProps) {
-  const { headerView, isTab } = props;
+  const { headerView, isHomeTab } = props;
   return (
-    <TxHistoryContextProvider headerView={headerView} isTab={isTab}>
+    <TxHistoryContextProvider headerView={headerView} isHomeTab={isHomeTab}>
       <TxHistoryListViewComponent {...props} />
     </TxHistoryContextProvider>
   );

@@ -10,7 +10,7 @@
 #import <React/RCTUIManager.h>
 
 @implementation PagingViewManager
-RCT_EXPORT_MODULE(PagingView)
+RCT_EXPORT_MODULE(NestedTabView)
 RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(headerHeight, CGFloat);
 RCT_EXPORT_VIEW_PROPERTY(defaultIndex, NSInteger);

@@ -3,13 +3,10 @@ import React, { FC } from 'react';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { FlatListProps } from 'react-native';
-// @ts-expect-error
-import NestedScrollView from 'react-native-nested-scroll-view';
 
 import {
   Badge,
   Box,
-  FlatList,
   HStack,
   IconButton,
   Pressable,
@@ -58,7 +55,7 @@ const ExpandList: FC<
     flatListProps: Omit<FlatListProps<Collectible>, 'renderItem'>;
     onPress: () => void;
   }
-> = ({ onSelectAsset, flatListProps, onPress, isTab }) => {
+> = ({ onSelectAsset, flatListProps, onPress }) => {
   // Set it to grid view when not in mobile
   const isSmallScreen = useIsVerticalLayout();
 
@@ -120,15 +117,14 @@ const ExpandList: FC<
     },
     [isSmallScreen, onSelectAsset],
   );
-  const Container = isTab ? Tabs.FlatList : FlatList;
 
   return (
-    <Container<Collectible>
+    <Tabs.FlatList<Collectible>
+      nestedScrollEnabled
       ListHeaderComponent={
         <CollectiblesHeader view={CollectibleView.Expand} onPress={onPress} />
       }
       renderItem={renderAssetItem}
-      renderScrollComponent={(viewProps) => <NestedScrollView {...viewProps} />}
       {...flatListProps}
     />
   );
