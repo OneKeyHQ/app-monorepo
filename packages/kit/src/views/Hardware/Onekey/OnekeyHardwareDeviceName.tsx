@@ -1,24 +1,29 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Button,
+  Center,
   Form,
   KeyboardDismissView,
   Modal,
+  Typography,
   useForm,
   useToast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { defaultAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import { deviceUtils, getDeviceType } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type FieldValues = { name: string };
@@ -77,31 +82,55 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
     }
   });
 
+  const ImageView = useMemo(
+    () => (
+      <Center>
+        <Box width="56px" height="56px">
+          <WalletAvatar
+            walletImage="hw"
+            hwWalletType={getDeviceType(deviceFeatures)}
+            size="xl"
+            avatarBgColor={defaultAvatar.bgColor}
+          />
+        </Box>
+      </Center>
+    ),
+    [deviceFeatures],
+  );
+
   return (
-    <KeyboardDismissView px={{ base: 4, md: 6 }}>
-      <Form>
-        <Form.Item
-          name="name"
-          control={control}
-          rules={{
-            required: true,
-          }}
+    <>
+      <KeyboardDismissView px={{ base: 4, md: 6 }}>
+        {ImageView}
+        <Form mt="3" mb="2">
+          <Form.Item
+            name="name"
+            control={control}
+            rules={{
+              required: true,
+            }}
+          >
+            <Form.Input size="xl" autoFocus />
+          </Form.Item>
+        </Form>
+        <Typography.Body2 color="text-subdued">
+          {intl.formatMessage({
+            id: 'form__wallet_name_help_text',
+          })}
+        </Typography.Body2>
+        <Button
+          mt="6"
+          type="primary"
+          size="xl"
+          isLoading={loading}
+          onPress={onSubmit}
         >
-          <Form.Input size="xl" autoFocus />
-        </Form.Item>
-      </Form>
-      <Button
-        mt="6"
-        type="primary"
-        size="xl"
-        isLoading={loading}
-        onPress={onSubmit}
-      >
-        {intl.formatMessage({
-          id: 'action__done',
-        })}
-      </Button>
-    </KeyboardDismissView>
+          {intl.formatMessage({
+            id: 'action__done',
+          })}
+        </Button>
+      </KeyboardDismissView>
+    </>
   );
 };
 
