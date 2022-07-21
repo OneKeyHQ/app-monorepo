@@ -28,6 +28,7 @@ export class PagingView extends React.Component<PagingViewProps> {
       renderHeader,
       renderTabBar,
       scrollEnabled,
+      style,
       children,
     } = this.props;
     return (
@@ -36,7 +37,7 @@ export class PagingView extends React.Component<PagingViewProps> {
         defaultIndex={defaultIndex}
         headerHeight={headerHeight}
         scrollEnabled={scrollEnabled}
-        style={{ height: 660 }}
+        style={style}
       >
         {renderHeader()}
         {renderTabBar()}

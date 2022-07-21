@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Empty,
-  SegmentedControl,
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,

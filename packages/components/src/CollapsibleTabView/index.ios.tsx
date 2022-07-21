@@ -1,12 +1,10 @@
 import React, {
-  CSSProperties,
   Children,
   ComponentProps,
   FC,
   ReactElement,
   ReactNode,
   createContext,
-  useContext,
   useMemo,
   useRef,
   useState,
@@ -21,7 +19,6 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 import NativePagingView from '@onekeyhq/app/src/views/PagingView';
 
 import FlatList from '../FlatList';
-import { useIsVerticalLayout } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import SegmentedControl from '../SegmentedControl';
@@ -97,14 +94,15 @@ const Container: FC<ContainerProps> = ({
       child.props.label,
   );
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
-
   const ref = useRef<NativePagingView>(null);
 
   return (
     <NativePagingView
       ref={ref}
+      style={{ flex: 1 }}
       defaultIndex={selectedIndex}
       headerHeight={headerHeight}
+      // @ts-ignore
       renderHeader={renderHeader}
       renderTabBar={() => (
         <SegmentedControl
