@@ -36,7 +36,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
-	<string>NFC tag to read NDEF messages into the application</string>
+	<string>Use NFC to read NDEF messages into the application.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -53,17 +53,15 @@
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Use bluetooth to connect OneKey hardware devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Use blutooth peripheral to connect OneKey hardware devices.</string>
+	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Give $(PRODUCT_NAME) permission to access your camera</string>
+	<string>Use Camera to scan QR Code.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to authenticate and unlcok your wallet.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Give $(PRODUCT_NAME) permission to use your microphone</string>
+	<string>Use Face ID to authenticate and unlock your wallet.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Use photo library to to save QR images.</string>
+	<string>Use photo library to save QR images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Give $(PRODUCT_NAME) permission to save photos</string>
+	<string>Use photo library to read QR images.</string>
 	<key>RCTRootViewBackgroundColor</key>
 	<dict>
 		<key>dynamic</key>
