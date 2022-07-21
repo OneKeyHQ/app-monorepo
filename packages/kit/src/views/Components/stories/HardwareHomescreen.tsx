@@ -9,7 +9,6 @@ import {
   Stack,
   Typography,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { T1Data } from '@onekeyhq/kit/src/utils/hardware/constants/homescreensData';
 import { elementToHomescreen } from '@onekeyhq/kit/src/utils/hardware/homescreens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,8 +24,6 @@ const GenerateHomescreen: FC = () => {
     const dataSource = Object.values(T1Data).map((item) => item);
     setData(dataSource);
   }, []);
-
-  const { serviceHardware } = backgroundApiProxy;
 
   const handleClick = (imageId: string) => {
     const element = document.getElementById(imageId);

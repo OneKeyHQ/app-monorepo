@@ -1,5 +1,6 @@
 import RNRestart from 'react-native-restart';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -41,12 +42,13 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async checkLockStatus(offset = 0) {
     const { appSelector, engine } = this.backgroundApi;
-    const lastActivity = appSelector((s) => s.status.lastActivity);
+
     const enableAppLock = appSelector((s) => s.settings.enableAppLock);
     const appLockDuration = appSelector(
       (s) => s.settings.appLockDuration,
     ) as number;
 
+    const lastActivity = await simpleDb.lastActivity.getValue();
     const isPasswordSet = await engine.isMasterPasswordSet();
     const prerequisites = isPasswordSet && enableAppLock;
     if (!prerequisites) return;
@@ -56,6 +58,11 @@ class ServiceApp extends ServiceBase {
     if (isStale) {
       this.lock();
     }
+  }
+
+  @backgroundMethod()
+  async refreshLastActivity() {
+    return simpleDb.lastActivity.setValue(Date.now());
   }
 
   isUnlock(): boolean {
