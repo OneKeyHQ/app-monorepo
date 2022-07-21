@@ -178,6 +178,7 @@ interface DBAPI {
   ): Promise<Array<HistoryEntry>>;
   getDevices(): Promise<Array<Device>>;
   getDevice(deviceId: string): Promise<Device>;
+  updateWalletName(walletId: string, name: string): Promise<void>;
 }
 
 export type {

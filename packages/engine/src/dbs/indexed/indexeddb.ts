@@ -1879,6 +1879,51 @@ class IndexedDBApi implements DBAPI {
         }),
     );
   }
+
+  updateWalletName(walletId: string, name: string): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [WALLET_STORE_NAME, DEVICE_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = () => {
+            reject(new OneKeyInternalError('Failed to update wallet name.'));
+          };
+          transaction.oncomplete = () => {
+            resolve();
+          };
+
+          const walletStore = transaction.objectStore(WALLET_STORE_NAME);
+          const getWalletRequest: IDBRequest<Wallet> =
+            walletStore.get(walletId);
+          getWalletRequest.onsuccess = () => {
+            const wallet = getWalletRequest.result;
+            if (typeof wallet === 'undefined') {
+              reject(new OneKeyInternalError('Wallet not found.'));
+              return;
+            }
+            walletStore.put(Object.assign(wallet, { name }));
+            if (!wallet.associatedDevice) {
+              return;
+            }
+            const deviceStore = transaction.objectStore(DEVICE_STORE_NAME);
+            const getDeviceRequest: IDBRequest<Device> = deviceStore.get(
+              wallet.associatedDevice,
+            );
+            getDeviceRequest.onsuccess = () => {
+              const device = getDeviceRequest.result;
+              if (typeof device === 'undefined') {
+                reject(new OneKeyInternalError('Device not found.'));
+                return;
+              }
+              deviceStore.put(Object.assign(device, { name }));
+            };
+          };
+        }),
+    );
+  }
 }
 
 export { IndexedDBApi };

@@ -175,6 +175,7 @@ const Protected: FC<ProtectedProps> = ({
         return;
       }
 
+      await serviceHardware.syncDeviceLabel(features, walletDetail.id);
       // device connect success
       setDeviceFeatures(features);
     }

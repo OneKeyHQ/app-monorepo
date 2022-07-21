@@ -1595,6 +1595,30 @@ class RealmDB implements DBAPI {
     }
   }
 
+  updateWalletName(walletId: string, name: string): Promise<void> {
+    const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
+      'Wallet',
+      walletId,
+    );
+    if (typeof wallet === 'undefined') {
+      return Promise.reject(new OneKeyInternalError('Wallet not found.'));
+    }
+    this.realm!.write(() => {
+      wallet.name = name;
+      if (!wallet.associatedDevice) {
+        return Promise.resolve();
+      }
+      const device = this.realm!.objectForPrimaryKey<DeviceSchema>(
+        'Device',
+        wallet.associatedDevice.id,
+      );
+      if (device) {
+        device.name = name;
+      }
+    });
+    return Promise.resolve();
+  }
+
   private static addImportAccountEntry(realm: Realm): void {
     const importAccount = realm.objectForPrimaryKey<WalletSchema>(
       'Wallet',

@@ -476,6 +476,22 @@ class ServiceHardware extends ServiceBase {
 
     return Promise.resolve(hasFirmwareForce || hasBleForce);
   }
+
+  @backgroundMethod()
+  async syncDeviceLabel(features: IOneKeyDeviceFeatures, walletId: string) {
+    const { engine } = this.backgroundApi;
+    const { label } = features;
+    try {
+      const wallet = await engine.getWallet(walletId);
+      const correctLabel = typeof label === 'string' && label.length > 0;
+      if (correctLabel && label !== wallet.name && wallet.associatedDevice) {
+        await engine.updateWalletName(walletId, label ?? wallet.name);
+        await this.backgroundApi.serviceAccount.initWallets();
+      }
+    } catch {
+      // empty
+    }
+  }
 }
 
 export default ServiceHardware;

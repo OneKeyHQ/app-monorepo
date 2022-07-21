@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { getDeviceUUID } from '@onekeyfe/hd-core';
+import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -49,6 +50,9 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
     () => deviceUpdates?.[deviceConnectId ?? ''],
     [deviceUpdates, deviceConnectId],
   );
+
+  const deviceType = getDeviceType(deviceFeatures);
+  const showHomescreenSetting = getHomescreenKeys(deviceType).length > 0;
 
   useEffect(() => {
     (async () => {
@@ -147,6 +151,30 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           })}
           describe={deviceFeatures?.ble_ver ?? '-'}
         />
+
+        {showHomescreenSetting && (
+          <Container.Item
+            titleColor="text-default"
+            describeColor="text-subdued"
+            title={intl.formatMessage({
+              id: 'modal__homescreen',
+            })}
+            hasArrow
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.OnekeyHardware,
+                params: {
+                  screen:
+                    OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
+                  params: {
+                    walletId,
+                    deviceType: getDeviceType(deviceFeatures),
+                  },
+                },
+              });
+            }}
+          />
+        )}
       </Container.Box>
 
       <Container.Box mt={6}>
