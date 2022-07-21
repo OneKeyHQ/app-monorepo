@@ -23,21 +23,21 @@ export class SwapQuoter {
 
   simple = new SimpleQuoter();
 
-  sockets = new SocketQuoter();
+  socket = new SocketQuoter();
 
   mdex = new MdexQuoter();
 
-  quotors: Quoter[] = [this.mdex, this.simple, this.swftc];
+  quoters: Quoter[] = [this.mdex, this.simple, this.socket, this.swftc];
 
   prepare() {
-    this.quotors.forEach((quotor) => {
-      quotor.prepare?.();
+    this.quoters.forEach((quoter) => {
+      quoter.prepare?.();
     });
   }
 
   async fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined> {
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const current = this.quotors[i];
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const current = this.quoters[i];
       if (current.isSupported(params.networkOut, params.networkIn)) {
         const result = await current.fetchQuote(params);
         if (result) {
@@ -51,8 +51,8 @@ export class SwapQuoter {
     quoterType: QuoterType,
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const current = this.quotors[i];
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const current = this.quoters[i];
       if (
         current.type === quoterType &&
         current.isSupported(params.networkOut, params.networkIn)
@@ -79,8 +79,8 @@ export class SwapQuoter {
     tx: TransactionDetails,
   ): Promise<TransactionStatus | undefined> {
     const quoterType = this.getQuoteType(tx);
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const current = this.quotors[i];
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const current = this.quoters[i];
       if (current.type === quoterType) {
         return current.queryTransactionStatus(tx);
       }

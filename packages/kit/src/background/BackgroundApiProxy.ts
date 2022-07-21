@@ -19,6 +19,7 @@ import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
+import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 
 class BackgroundApiProxy
@@ -67,6 +68,8 @@ class BackgroundApiProxy
   servicePassword = this._createProxyService(
     'servicePassword',
   ) as ServicePassword;
+
+  serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

@@ -43,7 +43,7 @@ const SwapContent = () => {
   } = useSwapState();
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
-  const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
+  const { onUserInput } = useSwapActionHandlers();
   const { account, wallet, network } = useActiveWalletAccount();
   const { themeVariant } = useTheme();
 
@@ -79,6 +79,10 @@ const SwapContent = () => {
     },
     [onUserInput],
   );
+
+  const onSwitchTokens = useCallback(() => {
+    backgroundApiProxy.serviceSwap.switchTokens();
+  }, []);
 
   useEffect(() => {
     backgroundApiProxy.dispatch(setQuote(undefined));

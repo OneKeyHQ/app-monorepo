@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo } from 'react';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { useActiveWalletAccount, useRuntime } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { NetworkSelectorContext } from '../components/TokenSelector/context';
-import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
+import { useSwapState } from '../hooks/useSwap';
 import { getChainIdFromNetworkId } from '../utils';
 
 import type { Token } from '../../../store/typings';
@@ -18,17 +19,15 @@ const Input = () => {
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
-  const { onSelectToken } = useSwapActionHandlers();
-
   const onSelect = useCallback(
     (token: Token) => {
       const network = networks.filter((n) => n.id === token.networkId)[0];
       if (network) {
-        onSelectToken(token, 'INPUT', network);
+        backgroundApiProxy.serviceSwap.selectToken('INPUT', network, token);
       }
       navigation.goBack();
     },
-    [navigation, onSelectToken, networks],
+    [navigation, networks],
   );
 
   const included = useMemo(() => {

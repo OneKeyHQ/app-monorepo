@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -18,7 +19,7 @@ const Output = () => {
   const { networks } = useRuntime();
   const { networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
-  const { onSelectToken, onSelectNetworkId } = useSwapActionHandlers();
+  const { onSelectNetworkId } = useSwapActionHandlers();
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
@@ -27,11 +28,11 @@ const Output = () => {
     (token: Token) => {
       const network = networks.filter((n) => n.id === token.networkId)[0];
       if (network) {
-        onSelectToken(token, 'OUTPUT', network);
+        backgroundApiProxy.serviceSwap.selectToken('OUTPUT', network, token);
       }
       navigation.goBack();
     },
-    [navigation, onSelectToken, networks],
+    [navigation, networks],
   );
 
   const included = useMemo(() => {

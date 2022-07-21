@@ -26,7 +26,10 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
-import { setReceiving } from '../../../store/reducers/swap';
+import {
+  setApprovalSubmitted,
+  setReceiving,
+} from '../../../store/reducers/swap';
 import { addTransaction } from '../../../store/reducers/swapTransactions';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import NetworkToken from '../components/NetworkToken';
@@ -39,7 +42,7 @@ import {
 } from '../hooks/useSwap';
 import { SwapQuoter } from '../quoter';
 import { FetchQuoteParams, QuoteData } from '../typings';
-import { TokenAmount, formatAmount } from '../utils';
+import { TokenAmount, formatAmount, isNoCharge } from '../utils';
 
 import { Timer } from './Timer';
 
@@ -180,6 +183,7 @@ const Preview = () => {
                     },
                   }),
                 );
+                backgroundApiProxy.dispatch(setApprovalSubmitted(false));
                 backgroundApiProxy.dispatch(
                   setReceiving({ address: undefined, name: undefined }),
                 );
@@ -308,7 +312,11 @@ const Preview = () => {
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage({ id: 'form__handling_fee' })}
             </Typography.Body2>
-            <Typography.Body2>0.875%</Typography.Body2>
+            <Typography.Body2>
+              {swapQuote && !isNoCharge(swapQuote)
+                ? '0.875%'
+                : intl.formatMessage({ id: 'content__no_charge' })}
+            </Typography.Body2>
           </Box>
         </VStack>
       </Box>

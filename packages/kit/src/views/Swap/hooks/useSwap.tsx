@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useAccountTokensBalance,
@@ -16,13 +14,10 @@ import {
   refresh,
   reset,
   setError,
-  setInputToken,
   setLoading,
-  setOutputToken,
   setQuote,
   setSelectedNetworkId,
   setTypedValue,
-  switchTokens,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
 import { networkRecords } from '../config';
@@ -87,25 +82,12 @@ export function useSwapActionHandlers() {
   const onRefresh = useCallback(() => {
     backgroundApiProxy.dispatch(refresh());
   }, []);
-  const onSwitchTokens = useCallback(() => {
-    backgroundApiProxy.dispatch(switchTokens());
-    backgroundApiProxy.dispatch(setQuote(undefined));
-  }, []);
+
   const onUserInput = useCallback(
     (independentField: 'INPUT' | 'OUTPUT', typedValue: string) => {
       backgroundApiProxy.dispatch(
         setTypedValue({ independentField, typedValue }),
       );
-    },
-    [],
-  );
-  const onSelectToken = useCallback(
-    (token: Token, typedField: 'INPUT' | 'OUTPUT', network?: Network) => {
-      if (typedField === 'INPUT') {
-        backgroundApiProxy.dispatch(setInputToken({ token, network }));
-      } else {
-        backgroundApiProxy.dispatch(setOutputToken({ token, network }));
-      }
     },
     [],
   );
@@ -119,8 +101,6 @@ export function useSwapActionHandlers() {
 
   return {
     onUserInput,
-    onSelectToken,
-    onSwitchTokens,
     onRefresh,
     onReset,
     onSelectNetworkId,
