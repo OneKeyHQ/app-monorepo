@@ -368,9 +368,9 @@ class ProviderApiStarcoin extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  stc_coinbase(request: IJsBridgeMessagePayload) {
-    // TODO some different with stc_accounts, check metamask code source
-    return this.stc_accounts(request);
+  async stc_coinbase(request: IJsBridgeMessagePayload): Promise<string | null> {
+    const accounts = await this.stc_accounts(request);
+    return accounts?.[0] || null;
   }
 
   @providerApiMethod()
@@ -390,22 +390,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
    */
   @providerApiMethod()
   stc_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
-    if (params[1].length === 66 || params[1].length === 67) {
-      // const rawSignature = await addUnapprovedMessage({
-      //   data: params[1]
-      //   from: params[0]
-      // // dapp metadata
-      //   ...{
-      //     url, title, icon
-      //   },
-      //   origin: req.origin
-      // })
-      // return signature
-      throw new Error('stc_signTransaction not supported yet');
-    }
-    throw web3Errors.rpc.invalidParams(
-      'stc_sign requires 32 byte message hash',
-    );
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()

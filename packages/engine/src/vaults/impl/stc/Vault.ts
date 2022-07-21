@@ -130,7 +130,14 @@ export default class Vault extends VaultBase {
         },
       };
     } else {
-      throw new NotImplemented();
+      // TODO: support other types
+      action = {
+        type: IDecodedTxActionType.TRANSACTION,
+        direction: IDecodedTxDirection.OTHER,
+        unknownAction: {
+          extraInfo: {},
+        },
+      };
     }
 
     const result: IDecodedTx = {
@@ -148,13 +155,9 @@ export default class Vault extends VaultBase {
       },
       extraInfo: null,
       encodedTx,
-      ...(encodedTx.data
-        ? {
-            payload: {
-              data: encodedTx.data,
-            },
-          }
-        : {}),
+      payload: {
+        data: encodedTx.data,
+      },
     };
 
     return Promise.resolve(result);
@@ -256,7 +259,7 @@ export default class Vault extends VaultBase {
       unsignedTx,
     );
 
-    return unsignedTx as IUnsignedTxPro;
+    return { ...unsignedTx, encodedTx };
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxSTC): Promise<IFeeInfo> {
