@@ -20,6 +20,7 @@ import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   BridgeTimeoutError,
+  BridgeTimeoutErrorForDesktop,
   ConnectTimeout,
   InitIframeLoadFail,
   InitIframeTimeout,
@@ -186,8 +187,8 @@ class ServiceHardware extends ServiceBase {
     }
     if (checkBridge instanceof BridgeTimeoutError) {
       const error = platformEnv.isDesktop
-        ? checkBridge
-        : new NeedOneKeyBridge();
+        ? new BridgeTimeoutErrorForDesktop()
+        : checkBridge;
       if (platformEnv.isDesktop) {
         window.desktopApi.reloadBridgeProcess();
       }
