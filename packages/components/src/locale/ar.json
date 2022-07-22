@@ -143,6 +143,7 @@
   "action__send": "يرسل",
   "action__share": "شارك",
   "action__show_more": "أظهر المزيد",
+  "action__show_recovery_phrase": "Show Recovery Phrase",
   "action__sign": "وقع",
   "action__skip": "يتخطى",
   "action__speed_up": "اسرع",
@@ -329,6 +330,7 @@
   "content__price_uppercase": "سعر",
   "content__purchase_crypto_with_cash": "شراء العملات المشفرة نقدًا",
   "content__rapid": "سريعون",
+  "content__read_information_on_the_left": "Please read the information on the left, then click on the button below",
   "content__receive_description": "لا يمكن إرسال الأصول إلا داخل نفس الشبكة.",
   "content__recovery_phrase_restore": "If you forget your password, you can use the recovery phrase to get back into your wallet.",
   "content__rocket_fast": "🚀 سريع",
@@ -352,6 +354,8 @@
   "content__since_str": "منذ {0}",
   "content__spend_limit_amount": "مبلغ حد الإنفاق",
   "content__standard": "اساسي",
+  "content__state_logs": "State Logs",
+  "content__state_logs_desc": "This will help OneKey support debug any issue you might encounter. Please send to {0} or OneKey support only.",
   "content__str_failed": "فشل {0} !",
   "content__str_succeeded": "{0} تم النجاح!",
   "content__str_transactions_failed": "{0} فشلت المعاملات!",
@@ -811,7 +815,7 @@
   "msg__hardware_device_not_find_error": "لم يتم العثور على الأجهزة.",
   "msg__hardware_failed_to_search_devices": "فشل البحث عن الأجهزة",
   "msg__hardware_firmware_download_error": "فشل تنزيل البرنامج الثابت",
-  "msg__hardware_init_iframe_load_error": "فشلت تهيئة الاتصال. يرجى المحاولة مرة أخرى.",
+  "msg__hardware_init_iframe_load_error": "Hardware SDK initialization failed, please restart the application and try again.",
   "msg__hardware_invalid_pin_error": "رقم التعريف الشخصي الذي تم إدخاله غير صالح",
   "msg__hardware_not_same": "الجهاز غير متطابق ، يرجى توصيل الجهاز الصحيح",
   "msg__hardware_open_blind_sign_error": "يرجى الانتقال إلى إعدادات الأجهزة -> قائمة الأمان لفتح التوقيع الأعمى.",
@@ -904,6 +908,8 @@
   "title__all_tokens": "كل الرموز",
   "title__app_update": "تحديث التطبيق",
   "title__approve": "يوافق",
+  "title__approved": "Approved",
+  "title__approving": "Approving",
   "title__asset__display": "عرض الأصول",
   "title__assets": "أصول",
   "title__backup_completed": "اكتمل النسخ الاحتياطي!",

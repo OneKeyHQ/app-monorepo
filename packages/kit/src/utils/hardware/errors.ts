@@ -116,15 +116,11 @@ export class DeviceNotFind extends OneKeyHardwareError {
 export class InitIframeLoadFail extends OneKeyHardwareError {
   override code = HardwareErrorCode.IFrameLoadFail;
 
-  override data = { reconnect: true };
-
   override key: LocaleIds = 'msg__hardware_init_iframe_load_error';
 }
 
 export class InitIframeTimeout extends OneKeyHardwareError {
   override code = HardwareErrorCode.IframeTimeout;
-
-  override data = { reconnect: true };
 
   override key: LocaleIds = 'msg__hardware_init_iframe_load_error';
 }
