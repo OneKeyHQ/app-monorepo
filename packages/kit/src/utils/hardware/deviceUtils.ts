@@ -14,11 +14,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
-/**
- * will delete packages/kit/src/utils/device
- * so declare it here
- */
-
 type IPollFn<T> = (time?: number) => T;
 
 const MAX_SEARCH_TRY_COUNT = 15;
