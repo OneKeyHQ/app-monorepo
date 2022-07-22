@@ -81,7 +81,7 @@ class BackgroundApiProxy
             const key = `${name}.${prop}`;
             if (!this._proxyServiceCache[key]) {
               this._proxyServiceCache[key] = (...args: any) => {
-                debugLogger.backgroundApi('Proxy method call', key, ...args);
+                debugLogger.backgroundApi.info('Proxy method call', key);
                 return this.callBackground(key, ...args);
               };
             }

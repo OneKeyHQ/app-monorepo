@@ -1,19 +1,50 @@
 // FIX: Uncaught ReferenceError: global is not defined
 import 'core-js/es7/global';
+import { InteractionManager } from 'react-native';
+import { logger as RNLogger, consoleTransport, fileAsyncTransport } from 'react-native-logs';
+// eslint-disable-next-line import/order
+import { stringify } from 'circular-json';
+import * as FileSystem from 'expo-file-system';
 
-import platformEnv, { isInjected, isJest } from '../platformEnv';
+import platformEnv from '../platformEnv';
 
-import createDebug from './debug/index.js';
+const MAX_LOG_LENGTH = 1000;
+export const MAX_LOG_LENGTH_ARRAY: string[] = [];
 
-/*
-DEBUG=connect:bodyParser,connect:compress,connect:session
-DEBUG=connect:*
-DEBUG=*
-DEBUG=*,-connect:*
+const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
+  transport: consoleTransport,
+  transportOptions: {
+    consoleFunc: (msg: string) => {
+      if (MAX_LOG_LENGTH_ARRAY.length >= MAX_LOG_LENGTH) {
+        MAX_LOG_LENGTH_ARRAY.shift();
+      }
+      MAX_LOG_LENGTH_ARRAY.push(`${msg}\r\n`);
+      if (platformEnv.isDev) {
+        console.log(msg);
+      }
+    },
+  },
+};
 
-debugLogger.debug.enable('jsBridge,dappProvider');
-debugLogger.debug.enable('');
-*/
+const NATIVE_TRANSPORT_CONFIG = {
+  transport: fileAsyncTransport,
+  transportOptions: {
+    FS: FileSystem,
+    fileName: `log.txt`,
+    filePath: FileSystem.cacheDirectory,
+  },
+};
+
+const logger = RNLogger.createLogger({
+  async: true,
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  asyncFunc: InteractionManager.runAfterInteractions,
+  stringifyFunc: stringify,
+  dateFormat: 'iso',
+  ...(platformEnv.isNative
+    ? NATIVE_TRANSPORT_CONFIG
+    : LOCAL_WEB_LIKE_TRANSPORT_CONFIG),
+});
 
 export type IDebugLoggerModule = {
   enable: (ns: string) => void;
@@ -32,6 +63,8 @@ enum LoggerNames {
   walletConnect = 'walletConnect',
   engine = 'engine',
   sendTx = 'sendTx',
+  navigation = 'navigation',
+  redux = 'redux',
 }
 
 type Logger = (...args: unknown[]) => void;
@@ -41,34 +74,15 @@ export type IDebugLogger = Record<LoggerNames, Logger> & {
 };
 
 const Cache = {
-  cache: {} as Record<LoggerNames, unknown[][] | undefined>,
-  createLogger(name: LoggerNames): Logger {
-    return (...args: unknown[]) => {
-      if (isJest()) {
-        return;
-      }
-      const calls = this.cache[name];
-      if (calls) {
-        calls.push(args);
-      } else {
-        this.cache[name] = [args];
-      }
-    };
-  },
-  flush(name: LoggerNames, logger: Logger): void {
-    const calls = this.cache[name];
-    if (calls) {
-      for (const args of calls) {
-        logger(...args);
-      }
-    }
-    delete this.cache[name];
+  createLogger(name: LoggerNames): ReturnType<typeof logger.extend> {
+    return logger.extend(name);
   },
 };
 
-// https://github.com/debug-js/debug
-const debugLogger: IDebugLogger = {
+const debugLogger = {
   debug: null,
+  [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
+  [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),
   [LoggerNames.http]: Cache.createLogger(LoggerNames.http),
   [LoggerNames.jsBridge]: Cache.createLogger(LoggerNames.jsBridge),
   [LoggerNames.webview]: Cache.createLogger(LoggerNames.webview),
@@ -86,31 +100,7 @@ const debugLogger: IDebugLogger = {
   [LoggerNames.sendTx]: Cache.createLogger(LoggerNames.sendTx),
 };
 
-async function initLoggerAsync() {
-  let debug;
-  if (process.env.NODE_ENV !== 'production') {
-    debug = await createDebug();
-    Object.assign(debugLogger, { debug });
-  }
-
-  const noop = () => null;
-  // override loggers
-  for (const key of Object.keys(LoggerNames)) {
-    const name = key as LoggerNames;
-    debugLogger[name] = debug ? (debug(name) as Logger) : noop;
-    // flush cache calls before debugLogger ready
-    Cache.flush(name, debugLogger[name]);
-  }
-}
-
-initLoggerAsync();
-
-if (isInjected()) {
-  // injected console
-  global.$onekey = global.$onekey || {};
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  global.$onekey.debugLogger = debugLogger;
-} else if (platformEnv.isDev) {
+if (platformEnv.isDev) {
   // internal console
   global.$$debugLogger = debugLogger;
 }

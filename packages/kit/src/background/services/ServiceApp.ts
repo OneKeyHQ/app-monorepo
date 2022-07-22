@@ -36,7 +36,6 @@ class ServiceApp extends ServiceBase {
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
     // TODO recheck last reset status and resetApp here
-    console.log('TODO: recheck last reset status and resetApp here 22222');
   }
 
   @backgroundMethod()

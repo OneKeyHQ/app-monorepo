@@ -46,7 +46,7 @@ function DebugLoggerSettings() {
         alignItems="flex-start"
       >
         {keys.map((key) => (
-          <Box py={1}>
+          <Box py={1} key={key}>
             <CheckBox key={key} value={key}>
               {key}
             </CheckBox>

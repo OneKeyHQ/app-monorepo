@@ -11,6 +11,7 @@ import { DevSettingSection } from './DevSetting';
 import { GenaralSection } from './GenaralSection';
 import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
+import { FooterAction } from './FooterSection';
 
 export const Me = () => {
   const { enable: devModeEnable } = useSettings().devMode || {};
@@ -24,8 +25,9 @@ export const Me = () => {
           <DefaultSection />
           <GenaralSection />
           <SecuritySection />
-          {devModeEnable ? <DevSettingSection /> : null}
           <AboutSection />
+          <FooterAction />
+          {devModeEnable ? <DevSettingSection /> : null}
         </Box>
       </ScrollView>
       <Box

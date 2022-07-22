@@ -148,7 +148,7 @@ const TransactionConfirm = () => {
   });
 
   useEffect(() => {
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'SendConfirm  >>>>  ',
       feeInfoPayload,
       encodedTx,

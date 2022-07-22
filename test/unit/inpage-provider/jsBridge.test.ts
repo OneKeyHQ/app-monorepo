@@ -13,7 +13,6 @@ it('two bridge communication', async () => {
     timeout: 0, // TODO remove, fix in JsBridgeSimple: this.callbacksExpireTimeout=0
     sendAsString: false,
     receiveHandler(event: IJsBridgeMessagePayload) {
-      console.log('jest: host onMessage', event);
       // throw new Error('hhhhhh');
       const { method } = event.data;
       if (method === 'eth_chainId') {
@@ -26,7 +25,6 @@ it('two bridge communication', async () => {
     timeout: 0, // TODO remove, fix in JsBridgeSimple: this.callbacksExpireTimeout=0
     sendAsString: false,
     receiveHandler(event: IJsBridgeMessagePayload) {
-      console.log('jest: inpage onMessage', event);
       const { method, params } = event.data;
       if (method === 'metamask_chainChanged') {
         currentChainId = params.chainId;
@@ -41,7 +39,6 @@ it('two bridge communication', async () => {
 
   // TODO async event handler?
   host.on('error', (error) => {
-    debugger;
     console.log(error);
   });
 

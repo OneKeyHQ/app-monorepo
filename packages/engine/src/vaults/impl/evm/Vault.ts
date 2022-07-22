@@ -481,7 +481,7 @@ export default class Vault extends VaultBase {
       nonce,
       ...others
     } = encodedTx;
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'buildUnsignedTxFromEncodedTx >>>> encodedTx',
       encodedTx,
     );
@@ -510,7 +510,7 @@ export default class Vault extends VaultBase {
       },
     });
 
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'buildUnsignedTxFromEncodedTx >>>> fillUnsignedTx',
       unsignedTxInfo,
       decodeUnsignedTxFeeData(unsignedTxInfo),
@@ -521,7 +521,7 @@ export default class Vault extends VaultBase {
       unsignedTxInfo,
     );
 
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'buildUnsignedTxFromEncodedTx >>>> buildUnsignedTx',
       unsignedTx,
       decodeUnsignedTxFeeData(unsignedTx),

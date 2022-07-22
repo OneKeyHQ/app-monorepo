@@ -235,7 +235,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
-    debugLogger.engine('broadcastTransaction START:', {
+    debugLogger.engine.info('broadcastTransaction START:', {
       rawTx: signedTx.rawTx,
     });
     // TODO RPC Error format return: EIP-1474 EIP-1193
@@ -243,7 +243,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       this.networkId,
       signedTx.rawTx,
     );
-    debugLogger.engine('broadcastTransaction END:', {
+    debugLogger.engine.info('broadcastTransaction END:', {
       txid,
       rawTx: signedTx.rawTx,
     });
