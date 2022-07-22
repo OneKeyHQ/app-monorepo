@@ -207,8 +207,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { method, params } = request;
 
-    debugLogger.backgroundApi.info('bridgeReceiveHandler', scope, request, payload);
-
     if (!origin) {
       throw new Error('BackgroundApi [payload.origin] is required.');
     }
@@ -240,16 +238,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     payload: IJsBridgeMessagePayload,
   ): Promise<any> => {
     const res = await this._bridgeReceiveHandler(payload);
-    debugLogger.backgroundApi.info(
-      'bridgeReceiveHandler->response',
-      payload.scope,
-      '\n',
-      payload,
-      '\n',
-      payload.data,
-      '\n -----> ',
-      res,
-    );
     return res;
   };
 

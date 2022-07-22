@@ -13,7 +13,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { MAX_LOG_LENGTH_ARRAY } from '@onekeyhq/shared/src/logger/debugLogger';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const getShareModule = async () => {
@@ -31,10 +31,12 @@ export const FooterAction = () => {
     return `log-${str}.txt`;
   }, []);
 
-  const downloadTxtFile = useCallback(() => {
+  const downloadTxtFile = useCallback(async () => {
     const logName = getLogName();
     const element = document.createElement('a');
-    const file = new Blob(MAX_LOG_LENGTH_ARRAY, {
+
+    const logger = await backgroundApiProxy.serviceApp.getLoggerInstance();
+    const file = new Blob(logger, {
       type: 'text/plain',
       endings: 'native',
     });

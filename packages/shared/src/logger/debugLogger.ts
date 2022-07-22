@@ -1,24 +1,24 @@
 // FIX: Uncaught ReferenceError: global is not defined
 import 'core-js/es7/global';
+import * as FileSystem from 'expo-file-system';
 import { InteractionManager } from 'react-native';
-import { logger as RNLogger, consoleTransport, fileAsyncTransport } from 'react-native-logs';
+import {
+  logger as RNLogger,
+  consoleTransport,
+  fileAsyncTransport,
+} from 'react-native-logs';
 // eslint-disable-next-line import/order
 import { stringify } from 'circular-json';
-import * as FileSystem from 'expo-file-system';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import platformEnv from '../platformEnv';
-
-const MAX_LOG_LENGTH = 1000;
-export const MAX_LOG_LENGTH_ARRAY: string[] = [];
 
 const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   transport: consoleTransport,
   transportOptions: {
     consoleFunc: (msg: string) => {
-      if (MAX_LOG_LENGTH_ARRAY.length >= MAX_LOG_LENGTH) {
-        MAX_LOG_LENGTH_ARRAY.shift();
-      }
-      MAX_LOG_LENGTH_ARRAY.push(`${msg}\r\n`);
+      backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
       if (platformEnv.isDev) {
         console.log(msg);
       }
@@ -30,7 +30,7 @@ const NATIVE_TRANSPORT_CONFIG = {
   transport: fileAsyncTransport,
   transportOptions: {
     FS: FileSystem,
-    fileName: `log.txt`,
+    fileName: 'log.txt',
     filePath: FileSystem.cacheDirectory,
   },
 };
@@ -45,11 +45,6 @@ const logger = RNLogger.createLogger({
     ? NATIVE_TRANSPORT_CONFIG
     : LOCAL_WEB_LIKE_TRANSPORT_CONFIG),
 });
-
-export type IDebugLoggerModule = {
-  enable: (ns: string) => void;
-  load: () => Promise<string>;
-};
 
 enum LoggerNames {
   http = 'http',
@@ -67,12 +62,6 @@ enum LoggerNames {
   redux = 'redux',
 }
 
-type Logger = (...args: unknown[]) => void;
-
-export type IDebugLogger = Record<LoggerNames, Logger> & {
-  debug: IDebugLoggerModule | null;
-};
-
 const Cache = {
   createLogger(name: LoggerNames): ReturnType<typeof logger.extend> {
     return logger.extend(name);
@@ -80,7 +69,6 @@ const Cache = {
 };
 
 const debugLogger = {
-  debug: null,
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
   [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),
   [LoggerNames.http]: Cache.createLogger(LoggerNames.http),
@@ -103,6 +91,22 @@ const debugLogger = {
 if (platformEnv.isDev) {
   // internal console
   global.$$debugLogger = debugLogger;
+}
+
+if (platformEnv.isNative) {
+  const removePreviousLogFile = async () => {
+    try {
+      const filePath = `${FileSystem.cacheDirectory ?? ''}log.txt`;
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
+      if (fileInfo.exists) {
+        await FileSystem.deleteAsync(filePath);
+        debugLogger.backgroundApi.info('previous log file deleted at init');
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+  removePreviousLogFile();
 }
 
 export default debugLogger;
