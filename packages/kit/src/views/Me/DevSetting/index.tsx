@@ -2,7 +2,13 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Container, Switch, Typography, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  Container,
+  Switch,
+  Typography,
+  useTheme,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {

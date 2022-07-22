@@ -319,7 +319,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.backgroundApi(
+    debugLogger.backgroundApi.info(
       'ProviderApiEthereum.eth_requestAccounts',
       request,
     );

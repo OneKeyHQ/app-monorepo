@@ -150,7 +150,7 @@ const Provider: FC<UIProviderProps> = ({
         <IntlProvider locale={locale} messages={LOCALES[locale]}>
           <NativeBaseProvider
             config={{
-              suppressColorAccessibilityWarning: true
+              suppressColorAccessibilityWarning: true,
             }}
             theme={themeVar}
           >

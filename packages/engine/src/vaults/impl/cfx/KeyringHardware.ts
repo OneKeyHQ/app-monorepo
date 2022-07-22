@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { NotImplemented } from '../../../errors';

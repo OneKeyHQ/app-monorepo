@@ -8,10 +8,10 @@ import HelpSelector from '../Help/HelpSelector';
 import { AboutSection } from './AboutSection';
 import { DefaultSection } from './DefaultSection';
 import { DevSettingSection } from './DevSetting';
+import { FooterAction } from './FooterSection';
 import { GenaralSection } from './GenaralSection';
 import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
-import { FooterAction } from './FooterSection';
 
 export const Me = () => {
   const { enable: devModeEnable } = useSettings().devMode || {};

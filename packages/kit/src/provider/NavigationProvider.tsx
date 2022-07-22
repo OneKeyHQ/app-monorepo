@@ -18,10 +18,10 @@ import HardwarePopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle';
 import HardwareSpecialPopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle/SpecialPopup';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 const prefix = createURL('/');
 
@@ -97,14 +97,20 @@ const NavigationApp = () => {
           formatter: () => 'OneKey',
         }}
         onReady={() => {
-          routeNameRef.current = navigationRef?.current?.getCurrentRoute?.()?.name;
+          routeNameRef.current =
+            navigationRef?.current?.getCurrentRoute?.()?.name;
         }}
-        onStateChange={async () => {
+        onStateChange={() => {
           const previousRouteName = routeNameRef.current;
-          const currentRouteName = navigationRef?.current?.getCurrentRoute?.()?.name;
+          const currentRouteName =
+            navigationRef?.current?.getCurrentRoute?.()?.name;
 
           if (previousRouteName !== currentRouteName) {
-            debugLogger.navigation.info(previousRouteName, ' -> ', currentRouteName)
+            debugLogger.navigation.info(
+              previousRouteName,
+              ' -> ',
+              currentRouteName,
+            );
           }
 
           routeNameRef.current = currentRouteName;
