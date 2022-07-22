@@ -21,10 +21,11 @@ import {
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
 import { getPath } from '../../managers/derivation';
+import { fromDBDeviceToDevice } from '../../managers/device';
 import { walletIsImported } from '../../managers/wallet';
 import { AccountType, DBAccount } from '../../types/account';
 import { PrivateKeyCredential } from '../../types/credential';
-import { Device } from '../../types/device';
+import { Device, DevicePayload } from '../../types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -68,7 +69,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -1531,6 +1532,7 @@ class RealmDB implements DBAPI {
     deviceId: string,
     deviceType: IDeviceType,
     features: string,
+    payloadJson = '{}',
   ): Promise<void> {
     try {
       const foundDevice = this.realm!.objectForPrimaryKey<DeviceSchema>(
@@ -1551,6 +1553,7 @@ class RealmDB implements DBAPI {
             deviceId,
             deviceType,
             features,
+            payloadJson,
             createdAt: now,
             updatedAt: now,
           });
@@ -1570,7 +1573,9 @@ class RealmDB implements DBAPI {
   getDevices(): Promise<Array<Device>> {
     try {
       const devices = this.realm!.objects<DeviceSchema>('Device');
-      return Promise.resolve(devices.map((device) => device.internalObj));
+      return Promise.resolve(
+        devices.map((device) => fromDBDeviceToDevice(device.internalObj)),
+      );
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -1588,7 +1593,53 @@ class RealmDB implements DBAPI {
           new OneKeyInternalError(`Device ${deviceId} not found.`),
         );
       }
-      return Promise.resolve(device.internalObj);
+      return Promise.resolve(fromDBDeviceToDevice(device.internalObj));
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  getDeviceByDeviceId(deviceId: string): Promise<Device> {
+    try {
+      const devices = this.realm!.objects<DeviceSchema>('Device')
+        .filtered('deviceId == $0', deviceId)
+        .sorted('createdAt', true);
+
+      if (devices.length === 0) {
+        return Promise.reject(
+          new OneKeyInternalError(`Device ${deviceId} not found.`),
+        );
+      }
+      const device = devices[0];
+      return Promise.resolve(fromDBDeviceToDevice(device.internalObj));
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  updateDevicePayload(deviceId: string, payload: DevicePayload): Promise<void> {
+    try {
+      const devices = this.realm!.objects<DeviceSchema>('Device')
+        .filtered('deviceId == $0', deviceId)
+        .sorted('createdAt', true);
+
+      if (devices.length === 0) {
+        return Promise.reject(
+          new OneKeyInternalError(`Device ${deviceId} not found.`),
+        );
+      }
+      const device = devices[0];
+
+      const now = Date.now();
+      const oldPayload = fromDBDeviceToDevice(device).payload;
+      const newPayload = { ...oldPayload, ...payload };
+      this.realm!.write(() => {
+        device.payloadJson = JSON.stringify(newPayload);
+        device.updatedAt = now;
+      });
+      return Promise.resolve();
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));

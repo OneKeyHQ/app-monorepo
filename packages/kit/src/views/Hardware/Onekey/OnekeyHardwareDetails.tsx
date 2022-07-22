@@ -9,6 +9,7 @@ import {
   Container,
   Icon,
   Modal,
+  Switch,
   ToastManager,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -42,9 +43,17 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const { engine, serviceHardware } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings() || {};
+  const { deviceUpdates } = useSettings();
 
   const [deviceConnectId, setDeviceConnectId] = useState<string>();
+  const [deviceId, setDeviceId] = useState<string>();
+  const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
+
+  const canOnDeviceInputPin = useMemo(() => {
+    const deviceType = getDeviceType(deviceFeatures);
+    if (deviceType === 'classic' || deviceType === 'mini') return true;
+    return false;
+  }, [deviceFeatures]);
 
   const updates = useMemo(
     () => deviceUpdates?.[deviceConnectId ?? ''],
@@ -54,11 +63,24 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const deviceType = getDeviceType(deviceFeatures);
   const showHomescreenSetting = getHomescreenKeys(deviceType).length > 0;
 
+  const refreshDevicePayload = () => {
+    engine
+      .getHWDeviceByWalletId(walletId)
+      .then((device) => {
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
   useEffect(() => {
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
         setDeviceConnectId(device?.mac);
+        setDeviceId(device?.deviceId);
       } catch (err: any) {
         if (navigation.canGoBack()) {
           navigation.goBack();
@@ -195,6 +217,30 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'action__verify' })}
         />
+        {!!canOnDeviceInputPin && (
+          <Container.Item
+            titleColor="text-default"
+            title={intl.formatMessage({
+              id: 'content__enter_pin_in_app',
+            })}
+          >
+            <Switch
+              labelType="false"
+              isChecked={!onDeviceInputPin}
+              onToggle={() => {
+                if (deviceId) {
+                  serviceHardware
+                    .updateDevicePayload(deviceId, {
+                      onDeviceInputPin: !onDeviceInputPin,
+                    })
+                    .then(() => {
+                      refreshDevicePayload();
+                    });
+                }
+              }}
+            />
+          </Container.Item>
+        )}
       </Container.Box>
     </Box>
   );

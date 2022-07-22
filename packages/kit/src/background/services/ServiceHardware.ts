@@ -11,6 +11,7 @@ import {
   OneKeyHardwareAbortError,
   OneKeyHardwareError,
 } from '@onekeyhq/engine/src/errors';
+import { DevicePayload } from '@onekeyhq/engine/src/types/device';
 import {
   recordLastCheckUpdateTime,
   setHardwarePopup,
@@ -68,7 +69,7 @@ class ServiceHardware extends ServiceBase {
 
           setTimeout(() => {
             const { device, type: eventType } = payload || {};
-            const { deviceType, connectId, features } = device || {};
+            const { deviceType, connectId, deviceId, features } = device || {};
             const { bootloader_mode: bootLoaderMode } = features || {};
 
             this.backgroundApi.dispatch(
@@ -77,6 +78,7 @@ class ServiceHardware extends ServiceBase {
                 payload: {
                   type: eventType,
                   deviceType,
+                  deviceId,
                   deviceConnectId: connectId,
                   deviceBootLoaderMode: !!bootLoaderMode,
                 },
@@ -337,6 +339,12 @@ class ServiceHardware extends ServiceBase {
       }
       return response;
     });
+  }
+
+  @backgroundMethod()
+  async updateDevicePayload(deviceId: string, payload: DevicePayload) {
+    await this.backgroundApi.engine.updateDevicePayload(deviceId, payload);
+    return this.backgroundApi.engine.getHWDeviceByDeviceId(deviceId);
   }
 
   @backgroundMethod()
