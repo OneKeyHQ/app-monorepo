@@ -41,7 +41,7 @@ import {
   useSwapState,
 } from '../hooks/useSwap';
 import { SwapQuoter } from '../quoter';
-import { FetchQuoteParams, QuoteData } from '../typings';
+import { FetchQuoteParams, QuoteData, QuoterType } from '../typings';
 import { TokenAmount, formatAmount, isNoCharge } from '../utils';
 
 import { Timer } from './Timer';
@@ -86,6 +86,14 @@ function convertToSwapInfo(options: {
   return swapInfo;
 }
 
+const isCrosschainQuote = (data?: QuoteData): boolean => {
+  if (!data) {
+    return false;
+  }
+  const channels: QuoterType[] = ['socket', 'swftc'];
+  return data.type && channels.includes(data.type);
+};
+
 const Preview = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -93,12 +101,13 @@ const Preview = () => {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
-  const { address: receivingAddress } = useReceivingAddress();
+  const { address } = useReceivingAddress();
   const { account, network } = useActiveWalletAccount();
   const { inputToken, outputToken, inputTokenNetwork, outputTokenNetwork } =
     useSwapState();
   const { inputAmount, outputAmount, swapQuote } = useSwap();
   const params = useSwapQuoteRequestParams();
+  const receivingAddress = isCrosschainQuote(swapQuote) ? address : undefined;
 
   const onSubmit = useCallback(async () => {
     if (
@@ -124,6 +133,7 @@ const Preview = () => {
       activeNetwok: network,
       receivingAddress,
       txData: swapQuote.txData,
+      txAttachment: swapQuote.txAttachment,
     });
     if (res?.data) {
       const encodedTx: IEncodedTxEvm = {
@@ -163,10 +173,8 @@ const Preview = () => {
                       networkId: network.id,
                       quoterType: swapQuote.type,
                       nonce: data?.decodedTx?.nonce,
-                      thirdPartyOrderId: res.orderId,
-                      receivingAddress: res.orderId
-                        ? receivingAddress
-                        : undefined,
+                      attachment: res.attachment,
+                      receivingAddress,
                       tokens: {
                         rate: Number(swapQuote.instantRate),
                         from: {
@@ -315,6 +323,17 @@ const Preview = () => {
                 ? '0.875%'
                 : intl.formatMessage({ id: 'content__no_charge' })}
             </Typography.Body2>
+          </Box>
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            h="9"
+          >
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'title__channel' })}
+            </Typography.Body2>
+            <Typography.Body2>{swapQuote?.type}</Typography.Body2>
           </Box>
         </VStack>
       </Box>

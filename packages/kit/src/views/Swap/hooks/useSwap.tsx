@@ -191,13 +191,14 @@ export const useSwapQuoteCallback = function (
   const { silent } = options;
   const requestParams = useSwapQuoteRequestParams();
   const { accountId, networkId } = useActiveWalletAccount();
-  const refs = useRef({ accountId, networkId, loading: false });
   const params = useDebounce(requestParams, 500);
+  const refs = useRef({ accountId, networkId, params, loading: false });
 
   useEffect(() => {
     refs.current.accountId = accountId;
     refs.current.networkId = networkId;
-  }, [accountId, networkId]);
+    refs.current.params = params;
+  }, [accountId, networkId, params]);
 
   const onSwapQuote = useCallback(async () => {
     if (!params) {
@@ -214,11 +215,13 @@ export const useSwapQuoteCallback = function (
     try {
       refs.current.accountId = accountId;
       refs.current.networkId = networkId;
+      refs.current.params = params;
       refs.current.loading = true;
       const data = await SwapQuoter.client.fetchQuote(params);
       if (
         refs.current.accountId === accountId &&
-        refs.current.networkId === networkId
+        refs.current.networkId === networkId &&
+        refs.current.params === params
       ) {
         if (data) {
           backgroundApiProxy.dispatch(setQuote(data));

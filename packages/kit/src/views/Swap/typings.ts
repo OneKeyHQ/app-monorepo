@@ -79,14 +79,21 @@ export type QuoteData = {
   buyTokenAddress: string;
   allowanceTarget?: string;
   txData?: TransactionData;
+  txAttachment?: TransactionAttachment;
   limited?: {
     max?: string;
     min?: string;
   };
 };
 
+export interface TransactionAttachment {
+  swftcOrderId?: string;
+  socketUsedBridgeNames?: string[];
+}
+
 export type BuildTransactionParams = FetchQuoteParams & {
   txData?: TransactionData;
+  txAttachment?: TransactionAttachment;
 };
 
 type BuildTransactionError = {
@@ -96,24 +103,11 @@ type BuildTransactionError = {
 
 export type BuildTransactionResponse = {
   data?: TransactionData;
+  attachment?: TransactionAttachment;
   error?: BuildTransactionError;
-  orderId?: string;
 };
 
 export type SwapQuoteTx = SendConfirmPayloadBase & QuoteData & TransactionData;
-
-export interface Quoter {
-  type: QuoterType;
-  prepare?: () => void;
-  isSupported(networkA: Network, networkB: Network): boolean;
-  fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined>;
-  buildTransaction(
-    params: BuildTransactionParams,
-  ): Promise<BuildTransactionResponse | undefined>;
-  queryTransactionStatus(
-    tx: TransactionDetails,
-  ): Promise<TransactionStatus | undefined>;
-}
 
 export interface SerializableTransactionReceipt {
   to: string;
@@ -152,6 +146,7 @@ export interface TransactionDetails {
   receivingAddress?: string;
   thirdPartyOrderId?: string;
   nonce?: number;
+  attachment?: TransactionAttachment;
 }
 
 export type SwftcTransactionState =
@@ -172,4 +167,17 @@ export interface SwftcTransactionReceipt {
   detailState: SwftcTransactionState;
   tradeState: SwftcTradeState;
   instantRate: string;
+}
+
+export interface Quoter {
+  type: QuoterType;
+  prepare?: () => void;
+  isSupported(networkA: Network, networkB: Network): boolean;
+  fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined>;
+  buildTransaction(
+    params: BuildTransactionParams,
+  ): Promise<BuildTransactionResponse | undefined>;
+  queryTransactionStatus(
+    tx: TransactionDetails,
+  ): Promise<TransactionStatus | undefined>;
 }

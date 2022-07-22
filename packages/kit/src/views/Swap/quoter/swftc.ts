@@ -378,7 +378,7 @@ export class SwftcQuoter implements Quoter {
             });
           return {
             data: txdata as unknown as TransactionData,
-            orderId: orderRes.data.orderId,
+            attachment: { swftcOrderId: orderRes.data.orderId },
           };
         }
         const txdata =
@@ -394,7 +394,7 @@ export class SwftcQuoter implements Quoter {
           });
         return {
           data: txdata as unknown as TransactionData,
-          orderId: orderRes.data.orderId,
+          attachment: { swftcOrderId: orderRes.data.orderId },
         };
       }
       return { error: { code: orderRes.resCode, msg: orderRes.resMsg } };
@@ -437,13 +437,14 @@ export class SwftcQuoter implements Quoter {
   async queryTransactionStatus(
     tx: TransactionDetails,
   ): Promise<TransactionStatus | undefined> {
-    if (tx.thirdPartyOrderId) {
+    const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
+    if (swftcOrderId) {
       const res = await axios.post(
         'https://www.swftc.info/api/v2/queryOrderState',
         {
           equipmentNo: tx.from,
           sourceType: 'H5',
-          orderId: tx.thirdPartyOrderId,
+          orderId: swftcOrderId,
         },
       );
       // eslint-disable-next-line
