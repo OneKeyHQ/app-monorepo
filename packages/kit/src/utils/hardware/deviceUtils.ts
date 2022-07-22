@@ -144,6 +144,14 @@ class DeviceUtils {
 
     const msg = error ?? message ?? 'Unknown error';
 
+    /**
+     * Catch some special errors
+     * they may have multiple error codes
+     */
+    if (this.caputureErrorByMessage(msg)) {
+      return this.caputureErrorByMessage(msg) as Error.BridgeNetworkError;
+    }
+
     console.log('Device Utils Convert Device Error:', code, msg);
 
     switch (code) {
@@ -201,6 +209,14 @@ class DeviceUtils {
       default:
         return new Error.UnknownHardwareError({ message: msg });
     }
+  }
+
+  caputureErrorByMessage(message: string) {
+    if (typeof message !== 'string') return null;
+    if (message.includes('Bridge network error')) {
+      return new Error.BridgeNetworkError({ message });
+    }
+    return null;
   }
 }
 
