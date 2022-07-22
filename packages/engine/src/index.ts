@@ -83,6 +83,7 @@ import {
   ImportableHDAccount,
 } from './types/account';
 import { CredentialType } from './types/credential';
+import { DevicePayload } from './types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -448,7 +449,12 @@ class Engine {
 
   @backgroundMethod()
   async getHWDeviceByDeviceId(deviceId: string) {
-    return this.dbApi.getDevice(deviceId);
+    return this.dbApi.getDeviceByDeviceId(deviceId);
+  }
+
+  @backgroundMethod()
+  async updateDevicePayload(deviceId: string, payload: DevicePayload) {
+    return this.dbApi.updateDevicePayload(deviceId, payload);
   }
 
   @backgroundMethod()

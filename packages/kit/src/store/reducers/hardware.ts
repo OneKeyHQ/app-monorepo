@@ -6,6 +6,7 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 export type HardwareUiEventPayload = {
   type: string;
   deviceType: IOneKeyDeviceType;
+  deviceId: string;
   deviceConnectId: string;
   deviceBootLoaderMode: boolean;
 };
