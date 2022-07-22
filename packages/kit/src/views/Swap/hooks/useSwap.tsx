@@ -10,15 +10,7 @@ import {
   useAppSelector,
   useDebounce,
 } from '../../../hooks';
-import {
-  refresh,
-  reset,
-  setError,
-  setLoading,
-  setQuote,
-  setSelectedNetworkId,
-  setTypedValue,
-} from '../../../store/reducers/swap';
+import { setError, setLoading, setQuote } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
 import { networkRecords } from '../config';
 import { SwapQuoter } from '../quoter';
@@ -76,35 +68,6 @@ export function useSwapEnabled() {
 
 export function useSwapState() {
   return useAppSelector((s) => s.swap);
-}
-
-export function useSwapActionHandlers() {
-  const onRefresh = useCallback(() => {
-    backgroundApiProxy.dispatch(refresh());
-  }, []);
-
-  const onUserInput = useCallback(
-    (independentField: 'INPUT' | 'OUTPUT', typedValue: string) => {
-      backgroundApiProxy.dispatch(
-        setTypedValue({ independentField, typedValue }),
-      );
-    },
-    [],
-  );
-  const onReset = useCallback(() => {
-    backgroundApiProxy.dispatch(reset());
-  }, []);
-
-  const onSelectNetworkId = useCallback((networkId?: string) => {
-    backgroundApiProxy.dispatch(setSelectedNetworkId(networkId));
-  }, []);
-
-  return {
-    onUserInput,
-    onRefresh,
-    onReset,
-    onSelectNetworkId,
-  };
 }
 
 export function useTokenBalance(
@@ -186,9 +149,9 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
 }
 
 export const useSwapQuoteCallback = function (
-  options: { silent: boolean } = { silent: true },
+  options: { showLoading: boolean } = { showLoading: false },
 ) {
-  const { silent } = options;
+  const { showLoading } = options;
   const requestParams = useSwapQuoteRequestParams();
   const { accountId, networkId } = useActiveWalletAccount();
   const params = useDebounce(requestParams, 500);
@@ -205,7 +168,7 @@ export const useSwapQuoteCallback = function (
       backgroundApiProxy.dispatch(setQuote(undefined));
       return;
     }
-    if (!silent) {
+    if (showLoading) {
       backgroundApiProxy.dispatch(setLoading(true));
     }
     backgroundApiProxy.dispatch(setError(undefined));
@@ -233,11 +196,9 @@ export const useSwapQuoteCallback = function (
       backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
     } finally {
       refs.current.loading = false;
-      if (!silent) {
-        backgroundApiProxy.dispatch(setLoading(false));
-      }
+      backgroundApiProxy.dispatch(setLoading(false));
     }
-  }, [params, silent, accountId, networkId]);
+  }, [params, showLoading, accountId, networkId]);
   return onSwapQuote;
 };
 

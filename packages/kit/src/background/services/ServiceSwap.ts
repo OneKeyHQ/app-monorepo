@@ -3,13 +3,16 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import {
+  resetState,
   setApprovalSubmitted,
   setInputToken,
   setOutputToken,
   setQuote,
+  setSelectedNetworkId,
+  setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
-import { IndependentFieldType } from '../../views/Swap/typings';
+import { FieldType } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -23,11 +26,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async selectToken(
-    field: IndependentFieldType,
-    network: Network,
-    token: Token,
-  ) {
+  async selectToken(field: FieldType, network: Network, token: Token) {
     const { dispatch } = this.backgroundApi;
     if (field === 'INPUT') {
       dispatch(setInputToken({ token, network }));
@@ -38,9 +37,27 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  switchTokens() {
+  async switchTokens() {
     const { dispatch } = this.backgroundApi;
     dispatch(setQuote(undefined));
     dispatch(switchTokens());
+  }
+
+  @backgroundMethod()
+  async resetState() {
+    const { dispatch } = this.backgroundApi;
+    dispatch(resetState());
+  }
+
+  @backgroundMethod()
+  async userInput(field: FieldType, typedValue: string) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setTypedValue({ independentField: field, typedValue }));
+  }
+
+  @backgroundMethod()
+  async selectNetworkId(networkId?: string) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setSelectedNetworkId(networkId));
   }
 }

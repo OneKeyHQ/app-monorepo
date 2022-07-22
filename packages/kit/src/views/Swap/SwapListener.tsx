@@ -4,7 +4,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNativeToken } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import {
-  reset,
   setSelectedNetworkId,
   setSwftcSupportedTokens,
 } from '../../store/reducers/swap';
@@ -16,7 +15,7 @@ import { refs } from './refs';
 const AccountListener = () => {
   const { account } = useActiveWalletAccount();
   useEffect(() => {
-    backgroundApiProxy.dispatch(reset());
+    backgroundApiProxy.serviceSwap.resetState();
   }, [account]);
   return <></>;
 };
@@ -26,7 +25,7 @@ const NetworkListener = () => {
   const nativeToken = useNativeToken(networkId, accountId);
   const isSwapEnabled = useSwapEnabled();
   useEffect(() => {
-    backgroundApiProxy.dispatch(reset());
+    backgroundApiProxy.serviceSwap.resetState();
     if (!isSwapEnabled || !network) {
       return;
     }

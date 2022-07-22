@@ -48,7 +48,7 @@ export enum SwapError {
 }
 
 export type QuoterType = '0x' | 'swftc' | 'socket' | 'mdex';
-export type IndependentFieldType = 'INPUT' | 'OUTPUT';
+export type FieldType = 'INPUT' | 'OUTPUT';
 
 export type TransactionData = {
   from: string;
@@ -64,7 +64,7 @@ export type FetchQuoteParams = {
   tokenIn: Token;
   slippagePercentage: string;
   typedValue: string;
-  independentField: IndependentFieldType;
+  independentField: FieldType;
   activeNetwok: Network;
   activeAccount: Account;
   receivingAddress?: string;

@@ -74,7 +74,7 @@ export const swapSlice = createSlice({
       state.outputTokenNetwork = network;
       state.approvalSubmitted = false;
     },
-    reset(state) {
+    resetState(state) {
       state.inputToken = undefined;
       state.inputTokenNetwork = undefined;
       state.outputToken = undefined;
@@ -132,7 +132,7 @@ export const {
   setInputToken,
   setOutputToken,
   switchTokens,
-  reset,
+  resetState,
   refresh,
   setQuote,
   setLoading,

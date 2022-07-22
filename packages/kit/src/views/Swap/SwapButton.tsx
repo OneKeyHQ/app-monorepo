@@ -27,7 +27,7 @@ import { ApprovalState, SwapError } from './typings';
 
 const RetryQuoteButton = () => {
   const intl = useIntl();
-  const onQuote = useSwapQuoteCallback({ silent: false });
+  const onQuote = useSwapQuoteCallback({ showLoading: true });
   return (
     <Button size="xl" type="primary" key="network_error" onPress={onQuote}>
       {intl.formatMessage({ id: 'action__retry' })}

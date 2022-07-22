@@ -144,7 +144,7 @@ export class SwftcQuoter implements Quoter {
   private networkAddrRecordsLastUpdate = 0;
 
   constructor() {
-    this.client = axios.create({ timeout: 30 * 1000 });
+    this.client = axios.create({ timeout: 60 * 1000 });
   }
 
   prepare() {

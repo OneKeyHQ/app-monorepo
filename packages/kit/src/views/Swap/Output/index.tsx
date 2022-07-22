@@ -11,7 +11,7 @@ import {
 import { useRuntime } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { NetworkSelectorContext } from '../components/TokenSelector/context';
-import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
+import { useSwapState } from '../hooks/useSwap';
 import { getChainIdFromNetworkId } from '../utils';
 
 const Output = () => {
@@ -19,7 +19,6 @@ const Output = () => {
   const { networks } = useRuntime();
   const { networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
-  const { onSelectNetworkId } = useSwapActionHandlers();
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
@@ -49,6 +48,10 @@ const Output = () => {
     }
     return undefined;
   }, [selectedNetworkId, inputToken, networkId]);
+
+  const onSelectNetworkId = useCallback((networkid?: string) => {
+    backgroundApiProxy.serviceSwap.selectNetworkId(networkid);
+  }, []);
 
   const value = useMemo(
     () => ({
