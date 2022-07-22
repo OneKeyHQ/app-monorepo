@@ -23,7 +23,10 @@ import {
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { deviceUtils, getDeviceType } from '@onekeyhq/kit/src/utils/hardware';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import {
+  IOneKeyDeviceFeatures,
+  IOneKeyDeviceType,
+} from '@onekeyhq/shared/types';
 
 type FieldValues = { name: string };
 
@@ -37,6 +40,16 @@ type DeviceNameProps = {
   deviceFeatures?: IOneKeyDeviceFeatures;
 };
 
+const defaultName: Record<IOneKeyDeviceType, string> = {
+  'classic': 'OneKey Classic',
+  'mini': 'OneKey Mini',
+  'touch': 'OneKey Touch',
+  'pro': 'OneKey Pro',
+};
+
+const getDeviceDefaultLabel = (features?: IOneKeyDeviceFeatures) =>
+  defaultName[getDeviceType(features)];
+
 const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
   walletId,
   deviceFeatures,
@@ -45,7 +58,9 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
   const toast = useToast();
   const navigation = useNavigation();
   const { control, handleSubmit, setError } = useForm<FieldValues>({
-    defaultValues: { name: deviceFeatures?.label ?? '' },
+    defaultValues: {
+      name: deviceFeatures?.label || getDeviceDefaultLabel(deviceFeatures),
+    },
   });
   const [connectId, setConnectId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -61,10 +76,14 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     setLoading(true);
     try {
+      const label =
+        values.name && values.name.length > 0
+          ? values.name
+          : getDeviceDefaultLabel(deviceFeatures);
       await serviceHardware.applySettings(connectId, {
-        label: values.name,
+        label,
       });
-      await engine.updateWalletName(walletId, values.name);
+      await engine.updateWalletName(walletId, label);
       /**
        * use dispatch action to refresh the wallet list
        */
@@ -105,12 +124,6 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
             name="name"
             control={control}
             rules={{
-              required: {
-                value: true,
-                message: intl.formatMessage({
-                  id: 'form__field_is_required',
-                }),
-              },
               maxLength: {
                 value: 16,
                 message: intl.formatMessage({
