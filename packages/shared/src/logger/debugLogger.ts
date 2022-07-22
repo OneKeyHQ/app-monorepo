@@ -35,7 +35,7 @@ const NATIVE_TRANSPORT_CONFIG = {
   },
 };
 
-const logger = RNLogger.createLogger({
+export const logger = RNLogger.createLogger({
   async: true,
   // eslint-disable-next-line @typescript-eslint/unbound-method
   asyncFunc: InteractionManager.runAfterInteractions,
@@ -46,7 +46,7 @@ const logger = RNLogger.createLogger({
     : LOCAL_WEB_LIKE_TRANSPORT_CONFIG),
 });
 
-enum LoggerNames {
+export enum LoggerNames {
   http = 'http',
   jsBridge = 'jsBridge',
   webview = 'webview',
