@@ -62,6 +62,8 @@
 	<string>Use photo library to save QR images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Give $(PRODUCT_NAME) permission to use your microphone</string>
 	<key>RCTRootViewBackgroundColor</key>
 	<dict>
 		<key>dynamic</key>
