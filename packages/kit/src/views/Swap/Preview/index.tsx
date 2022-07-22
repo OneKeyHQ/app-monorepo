@@ -54,7 +54,7 @@ function convertToSwapInfo(options: {
   inputAmount: TokenAmount;
   outputAmount: TokenAmount;
   account: BaseAccount;
-}) {
+}): ISwapInfo {
   const { swapQuote, quoteParams, inputAmount, outputAmount, account } =
     options;
   const {
@@ -192,12 +192,10 @@ const Preview = () => {
           },
         },
       });
-    } else if (res?.error) {
-      const msg =
-        res.error.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
-      toast.show({ title: msg });
     } else {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      const msg =
+        res?.error?.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
+      toast.show({ title: msg });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, account, network, swapQuote, addTransaction]);
