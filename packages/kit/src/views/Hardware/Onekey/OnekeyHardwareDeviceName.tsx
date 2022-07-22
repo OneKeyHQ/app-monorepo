@@ -22,7 +22,6 @@ import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import { defaultAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { deviceUtils, getDeviceType } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -90,7 +89,6 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
             walletImage="hw"
             hwWalletType={getDeviceType(deviceFeatures)}
             size="xl"
-            avatarBgColor={defaultAvatar.bgColor}
           />
         </Box>
       </Center>
@@ -107,7 +105,18 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
             name="name"
             control={control}
             rules={{
-              required: true,
+              required: {
+                value: true,
+                message: intl.formatMessage({
+                  id: 'form__field_is_required',
+                }),
+              },
+              maxLength: {
+                value: 16,
+                message: intl.formatMessage({
+                  id: 'msg__exceeding_the_maximum_word_limit',
+                }),
+              },
             }}
           >
             <Form.Input size="xl" autoFocus />
@@ -141,7 +150,7 @@ const OnekeyHardwareDeviceNameModal: FC = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'modal__device_name' })}
+      header={intl.formatMessage({ id: 'modal__edit_wallet' })}
       footer={null}
       scrollViewProps={{
         contentContainerStyle: {
