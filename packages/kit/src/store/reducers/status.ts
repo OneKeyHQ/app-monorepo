@@ -1,7 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 type StatusState = {
-  lastActivity: number;
   isUnlock: boolean;
   boardingCompleted: boolean;
   webviewGlobalKey: number;
@@ -11,7 +10,6 @@ type StatusState = {
 };
 
 const initialState: StatusState = {
-  lastActivity: 0,
   isUnlock: false,
   boardingCompleted: false,
   webviewGlobalKey: 0,
@@ -36,17 +34,10 @@ export const slice = createSlice({
       state.authenticationType = action.payload;
     },
     unlock: (state) => {
-      state.lastActivity = Date.now();
       state.isUnlock = true;
     },
     lock: (state) => {
       state.isUnlock = false;
-    },
-    refreshLastActivity: (
-      state,
-      action?: PayloadAction<number | undefined>,
-    ) => {
-      state.lastActivity = action?.payload || Date.now();
     },
     refreshWebviewGlobalKey: (state) => {
       state.webviewGlobalKey = Date.now();
@@ -62,7 +53,6 @@ export const {
   setAuthenticationType,
   lock,
   unlock,
-  refreshLastActivity,
   refreshWebviewGlobalKey,
   setHideAddressBookAttention,
   setHomeTabName,

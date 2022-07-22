@@ -11,6 +11,7 @@ import { useActiveWalletAccount } from './redux';
 import {
   useAccountTokens,
   useAccountTokensBalance,
+  useNativeToken,
   useNetworkTokens,
   useNetworkTokensPrice,
 } from './useTokens';
@@ -28,6 +29,7 @@ export const useManageTokens = ({
   const accountTokens: Token[] = useAccountTokens(networkId, accountId);
   const balances = useAccountTokensBalance(networkId, accountId);
   const prices = useNetworkTokensPrice(networkId);
+  const nativeToken = useNativeToken(networkId, accountId);
 
   const accountTokensMap = useMemo(() => {
     const map = new Map<string, Token>();
@@ -38,11 +40,6 @@ export const useManageTokens = ({
     });
     return map;
   }, [accountTokens]);
-
-  const nativeToken: Token | undefined | null = useMemo(
-    () => accountTokens.filter((token) => !token.tokenIdOnNetwork),
-    [accountTokens],
-  )[0];
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;

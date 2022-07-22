@@ -11,6 +11,7 @@ import {
   OneKeyHardwareAbortError,
   OneKeyHardwareError,
 } from '@onekeyhq/engine/src/errors';
+import { DevicePayload } from '@onekeyhq/engine/src/types/device';
 import {
   recordLastCheckUpdateTime,
   setHardwarePopup,
@@ -67,7 +68,7 @@ class ServiceHardware extends ServiceBase {
 
           setTimeout(() => {
             const { device, type: eventType } = payload || {};
-            const { deviceType, connectId, features } = device || {};
+            const { deviceType, connectId, deviceId, features } = device || {};
             const { bootloader_mode: bootLoaderMode } = features || {};
 
             this.backgroundApi.dispatch(
@@ -76,6 +77,7 @@ class ServiceHardware extends ServiceBase {
                 payload: {
                   type: eventType,
                   deviceType,
+                  deviceId,
                   deviceConnectId: connectId,
                   deviceBootLoaderMode: !!bootLoaderMode,
                 },
@@ -339,6 +341,12 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateDevicePayload(deviceId: string, payload: DevicePayload) {
+    await this.backgroundApi.engine.updateDevicePayload(deviceId, payload);
+    return this.backgroundApi.engine.getHWDeviceByDeviceId(deviceId);
+  }
+
+  @backgroundMethod()
   async checkBridge() {
     if (!this._hasUseBridge()) {
       return Promise.resolve(true);
@@ -475,6 +483,22 @@ class ServiceHardware extends ServiceBase {
     }
 
     return Promise.resolve(hasFirmwareForce || hasBleForce);
+  }
+
+  @backgroundMethod()
+  async syncDeviceLabel(features: IOneKeyDeviceFeatures, walletId: string) {
+    const { engine } = this.backgroundApi;
+    const { label } = features;
+    try {
+      const wallet = await engine.getWallet(walletId);
+      const correctLabel = typeof label === 'string' && label.length > 0;
+      if (correctLabel && label !== wallet.name && wallet.associatedDevice) {
+        await engine.updateWalletName(walletId, label ?? wallet.name);
+        await this.backgroundApi.serviceAccount.initWallets();
+      }
+    } catch {
+      // empty
+    }
   }
 }
 

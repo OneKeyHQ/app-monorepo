@@ -2,7 +2,19 @@ import axios, { Axios } from 'axios';
 
 import { Network } from '@onekeyhq/engine/src/types/network';
 
-import { QuoteParams, Quoter, SwapQuote, TxParams, TxRes } from '../typings';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { networkRecords } from '../config';
+import {
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  QuoteData,
+  Quoter,
+  QuoterType,
+  SerializableTransactionReceipt,
+  TransactionDetails,
+  TransactionStatus,
+} from '../typings';
 import {
   TokenAmount,
   affiliateAddress,
@@ -11,33 +23,6 @@ import {
   getChainIdFromNetwork,
   nativeTokenAddress,
 } from '../utils';
-
-enum Chains {
-  MAINNET = '1',
-  ROPSTEN = '3',
-  KOVAN = '42',
-  BSC = '56',
-  POLYGON = '137',
-  FANTOM = '250',
-  AVALANCHE = '43114',
-}
-
-const NETWORKS: Record<string, string> = {
-  [Chains.MAINNET]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=ethereum',
-  [Chains.ROPSTEN]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=ropsten',
-  [Chains.KOVAN]: 'https://kovan.api.0x.org/swap/v1/quote',
-  [Chains.BSC]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=bsc',
-
-  [Chains.POLYGON]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=polygon',
-  [Chains.FANTOM]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=fantom',
-  [Chains.AVALANCHE]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=avalanche',
-};
 
 type QuoteResponse = {
   price: string;
@@ -60,6 +45,8 @@ type QuoteResponse = {
 };
 
 export class SimpleQuoter implements Quoter {
+  type: QuoterType = '0x';
+
   private client: Axios;
 
   constructor() {
@@ -68,11 +55,14 @@ export class SimpleQuoter implements Quoter {
 
   isSupported(networkA: Network, networkB: Network): boolean {
     return (
-      networkA.id === networkB.id && !!NETWORKS[getChainIdFromNetwork(networkA)]
+      networkA.id === networkB.id &&
+      !!networkRecords[getChainIdFromNetwork(networkA)]
     );
   }
 
-  async getQuote(rateParams: QuoteParams): Promise<SwapQuote | undefined> {
+  async fetchQuote(
+    quoteParams: FetchQuoteParams,
+  ): Promise<QuoteData | undefined> {
     const {
       networkIn,
       networkOut,
@@ -81,7 +71,8 @@ export class SimpleQuoter implements Quoter {
       slippagePercentage,
       independentField,
       typedValue,
-    } = rateParams;
+      activeAccount,
+    } = quoteParams;
     if (!this.isSupported(networkIn, networkOut)) {
       return;
     }
@@ -100,31 +91,42 @@ export class SimpleQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const baseURL = NETWORKS[getChainIdFromNetwork(networkOut)];
-    const res = await this.client.get(baseURL, { params });
-    // eslint-disable-next-line
-    const data = res.data.data as QuoteResponse;
-    if (independentField === 'INPUT') {
-      return {
-        allowanceTarget: data.allowanceTarget,
-        buyAmount: data.buyAmount,
-        buyTokenAddress: data.buyTokenAddress,
-        sellAmount: data.sellAmount,
-        sellTokenAddress: data.sellTokenAddress,
-        instantRate: data.price,
-      };
+    const baseURL = networkRecords[getChainIdFromNetwork(networkOut)];
+    if (!baseURL) {
+      return;
     }
-    return {
+    const res = await this.client.get(baseURL, { params });
+
+    const data = res.data.data as QuoteResponse; // eslint-disable-line
+
+    const result: QuoteData = {
+      type: '0x',
+      instantRate: data.price,
       allowanceTarget: data.allowanceTarget,
       buyAmount: data.buyAmount,
       buyTokenAddress: data.buyTokenAddress,
       sellAmount: data.sellAmount,
       sellTokenAddress: data.sellTokenAddress,
-      instantRate: div(1, data.price),
     };
+    if (data.data) {
+      result.txData = {
+        from: activeAccount.address,
+        to: data.to,
+        data: data.data,
+        value: data.value,
+      };
+    }
+    if (independentField === 'INPUT') {
+      result.instantRate = data.price;
+    } else {
+      result.instantRate = div(1, data.price);
+    }
+    return result;
   }
 
-  async encodeTx(quoteParams: TxParams): Promise<TxRes | undefined> {
+  async buildTransaction(
+    quoteParams: BuildTransactionParams,
+  ): Promise<BuildTransactionResponse | undefined> {
     const {
       networkIn,
       networkOut,
@@ -134,9 +136,13 @@ export class SimpleQuoter implements Quoter {
       independentField,
       typedValue,
       activeAccount,
+      txData,
     } = quoteParams;
     if (!this.isSupported(networkIn, networkOut) && !activeAccount) {
       return;
+    }
+    if (txData) {
+      return { data: txData };
     }
     const swapSlippagePercent = +slippagePercentage / 100;
     const params: Record<string, string> = {
@@ -147,13 +153,17 @@ export class SimpleQuoter implements Quoter {
         : String(swapSlippagePercent),
       feeRecipient,
       affiliateAddress,
+      takerAddress: activeAccount.address,
     };
     if (independentField === 'INPUT') {
       params.sellAmount = new TokenAmount(tokenIn, typedValue).toFormat();
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const baseURL = NETWORKS[getChainIdFromNetwork(networkOut)];
+    const baseURL = networkRecords[getChainIdFromNetwork(networkOut)];
+    if (!baseURL) {
+      return undefined;
+    }
     const res = await this.client.get(baseURL, { params });
     // eslint-disable-next-line
     const data = res.data.data as QuoteResponse;
@@ -163,5 +173,30 @@ export class SimpleQuoter implements Quoter {
         from: activeAccount.address,
       },
     };
+  }
+
+  async queryTransactionStatus(
+    tx: TransactionDetails,
+  ): Promise<TransactionStatus | undefined> {
+    const { networkId, accountId, nonce } = tx;
+    if (nonce) {
+      return backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
+        networkId,
+        accountId,
+        nonce,
+      });
+    }
+    const result = (await backgroundApiProxy.serviceNetwork.rpcCall(networkId, {
+      method: 'eth_getTransactionReceipt',
+      params: [tx.hash],
+    })) as SerializableTransactionReceipt | undefined;
+    if (result) {
+      return Number(result.status) === 1 ? 'sucesss' : 'failed';
+    }
+
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
+      return 'failed';
+    }
+    return undefined;
   }
 }

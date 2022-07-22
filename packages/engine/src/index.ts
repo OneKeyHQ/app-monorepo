@@ -83,6 +83,7 @@ import {
   ImportableHDAccount,
 } from './types/account';
 import { CredentialType } from './types/credential';
+import { DevicePayload } from './types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -399,7 +400,10 @@ class Engine {
     const deviceType = getDeviceType(features);
     const deviceUUID = getDeviceUUID(features);
     const walletName =
-      name ?? features.ble_name ?? `OneKey ${serialNo.slice(-4)}`;
+      name ??
+      features.label ??
+      features.ble_name ??
+      `OneKey ${serialNo.slice(-4)}`;
     const wallet = await this.dbApi.addHWWallet({
       id,
       name: walletName,
@@ -423,6 +427,11 @@ class Engine {
   }
 
   @backgroundMethod()
+  updateWalletName(walletId: string, name: string) {
+    return this.dbApi.updateWalletName(walletId, name);
+  }
+
+  @backgroundMethod()
   async getHWDevices() {
     return this.dbApi.getDevices();
   }
@@ -440,7 +449,12 @@ class Engine {
 
   @backgroundMethod()
   async getHWDeviceByDeviceId(deviceId: string) {
-    return this.dbApi.getDevice(deviceId);
+    return this.dbApi.getDeviceByDeviceId(deviceId);
+  }
+
+  @backgroundMethod()
+  async updateDevicePayload(deviceId: string, payload: DevicePayload) {
+    return this.dbApi.updateDevicePayload(deviceId, payload);
   }
 
   @backgroundMethod()

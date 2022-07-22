@@ -1,5 +1,5 @@
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
-import { SwapQuote } from '@onekeyhq/kit/src/views/Swap/typings';
+import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
@@ -74,7 +74,7 @@ export type ISwapInfo = {
   accountAddress: string;
   slippagePercentage: string;
   independentField: 'INPUT' | 'OUTPUT';
-  swapQuote: SwapQuote;
+  swapQuote: QuoteData;
 };
 
 // EncodedTx\RawTx\SignedTx ----------------------------------------------

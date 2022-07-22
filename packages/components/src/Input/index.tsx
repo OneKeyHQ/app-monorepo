@@ -24,6 +24,7 @@ import type { TypographyStyle } from '../Typography';
 type Props = {
   autoFocus?: boolean;
   isDisabled?: boolean;
+  isReadOnly?: boolean;
   leftText?: string;
   rightText?: string;
   rightSecondaryText?: string | ReactElement | null;
@@ -49,6 +50,7 @@ const Input = React.forwardRef<
     {
       autoFocus,
       isDisabled,
+      isReadOnly,
       leftText,
       rightText,
       leftIconName,
@@ -235,6 +237,7 @@ const Input = React.forwardRef<
       <BaseInput
         ref={inputRef}
         selectionColor="text-default"
+        isReadOnly={isReadOnly}
         isDisabled={isDisabled}
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}
