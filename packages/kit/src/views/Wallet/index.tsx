@@ -212,13 +212,9 @@ const Home: FC = () => {
   return (
     <>
       <Tabs.Container
-        // lazy={true}
-        initialTabName={homeTabName || undefined}
-        onIndexChange={(index) => {
-          console.log('homeTab onIndexChange', index);
-        }}
-        onTabChange={({ tabName, index }) => {
-          console.log('homeTab onTabChange', { index, tabName });
+        initialTabName={homeTabName}
+        onTabChange={({ tabName }) => {
+          // console.log('homeTab onTabChange', { index, tabName });
           backgroundApiProxy.dispatch(setHomeTabName(tabName));
         }}
         renderHeader={() => <AccountInfo />}

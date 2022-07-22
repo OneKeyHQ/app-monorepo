@@ -4,7 +4,7 @@ import { NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
 
 import { FontProps } from '@onekeyhq/components/src/Typography';
 
-type TabViewProps = {
+type TabViewStyle = {
   height: number;
   paddingX?: number;
   paddingY?: number;
@@ -21,14 +21,14 @@ export type TabProps = {
   label: string;
 };
 
-export interface PagingViewManagerProps {
+export interface NativeNestedTabViewProps {
   defaultIndex?: number;
   values: TabProps[];
   headerHeight?: number;
   scrollEnabled?: boolean;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  tabViewStyle?: TabViewProps;
+  tabViewStyle?: TabViewStyle;
   onChange?: (
     e: NativeSyntheticEvent<{ tabName: string; index: number | string }>,
   ) => void;

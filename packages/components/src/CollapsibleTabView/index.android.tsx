@@ -15,7 +15,7 @@ import { View, useWindowDimensions } from 'react-native';
 import NestedScrollView from 'react-native-nested-scroll-view';
 import PagerView from 'react-native-pager-view';
 
-import NestedTabView from '@onekeyhq/app/src/views/NestedTabView';
+import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NativeNestedTabView';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
