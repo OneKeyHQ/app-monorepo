@@ -7,7 +7,6 @@ import { PagingViewManagerProps } from './types';
 
 type PagingViewProps = {
   renderHeader: () => React.ReactElement | null;
-  renderTabBar: () => React.ReactElement | null;
 } & PagingViewManagerProps;
 
 export class PagingView extends React.Component<PagingViewProps> {
@@ -25,22 +24,26 @@ export class PagingView extends React.Component<PagingViewProps> {
     const {
       defaultIndex,
       headerHeight,
+      values,
       renderHeader,
-      renderTabBar,
       scrollEnabled,
       style,
+      tabViewStyle,
+      onChange,
       children,
     } = this.props;
     return (
       <NestedTabView
+        values={values}
+        onChange={onChange}
         ref={this.PagerView as any}
         defaultIndex={defaultIndex}
         headerHeight={headerHeight}
         scrollEnabled={scrollEnabled}
         style={style}
+        tabViewStyle={tabViewStyle}
       >
         {renderHeader()}
-        {renderTabBar()}
         {children}
       </NestedTabView>
     );

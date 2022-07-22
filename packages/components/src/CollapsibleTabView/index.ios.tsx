@@ -13,11 +13,13 @@ import {
 } from 'react-native-collapsible-tab-view';
 
 import NativePagingView from '@onekeyhq/app/src/views/PagingView';
+import { TabProps } from '@onekeyhq/app/src/views/types';
 
 import FlatList from '../FlatList';
+import { useThemeValue } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
-import SegmentedControl from '../SegmentedControl';
+import { Body2StrongProps } from '../Typography';
 
 export { MaterialTabBar };
 
@@ -33,47 +35,55 @@ const Container: FC<ContainerProps> = ({
   renderHeader,
   onTabChange,
   onIndexChange,
+  initialTabName,
 }) => {
-  const tabNames: string[] = Children.map(
-    children,
-    (child) =>
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-      child.props.label,
+  const tabs: TabProps[] = Children.map(children, (child) =>
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+    ({ name: child.props.name, label: child.props.label }),
   );
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+
+  let selectedIndex = tabs.findIndex((tab) => tab.name === initialTabName);
+  if (selectedIndex < 0) {
+    selectedIndex = 0;
+  }
   const ref = useRef<NativePagingView>(null);
+  const [tabbarBgColor, activeLabelColor, labelColor, indicatorColor] =
+    useThemeValue([
+      'surface-neutral-default',
+      'text-default',
+      'text-subdued',
+      'surface-default',
+    ]);
 
   return (
     <NativePagingView
       ref={ref}
       style={{ flex: 1 }}
+      values={tabs}
       defaultIndex={selectedIndex}
+      onChange={(e) => {
+        if (onTabChange) {
+          onTabChange({
+            tabName: e.nativeEvent.tabName,
+            index: e.nativeEvent.index,
+          });
+        }
+      }}
       headerHeight={headerHeight}
       // @ts-ignore
       renderHeader={renderHeader}
-      renderTabBar={() => (
-        <SegmentedControl
-          style={{ width: 300, height: 36, paddingLeft: 16, paddingRight: 16 }}
-          values={tabNames}
-          selectedIndex={selectedIndex}
-          onChange={(index) => {
-            ref.current?.setPageIndex(index);
-            setSelectedIndex(index);
-            if (onTabChange) {
-              onTabChange({
-                index,
-                tabName: tabNames[index],
-              });
-            }
-            if (onIndexChange) {
-              onIndexChange(index);
-            }
-          }}
-        />
-      )}
+      tabViewStyle={{
+        paddingX: 16,
+        height: 36,
+        activeColor: activeLabelColor,
+        inactiveColor: labelColor,
+        indicatorColor,
+        backgroundColor: tabbarBgColor,
+        labelStyle: Body2StrongProps,
+      }}
     >
-      <Context.Provider value={tabNames[selectedIndex]}>
+      <Context.Provider value={tabs[selectedIndex].name}>
         {children}
       </Context.Provider>
     </NativePagingView>

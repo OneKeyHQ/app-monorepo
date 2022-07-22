@@ -9,8 +9,9 @@
 #import <JXPagingView/JXPagerView.h>
 #import "PagingViewContainer.h"
 #import <React/UIView+React.h>
+#import "RNTabView.h"
 
-@interface PagingView ()<JXPagerViewDelegate>
+@interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
 @property (nonatomic, copy) RCTBubblingEventBlock onChange;
 @property (nonatomic, assign) CGFloat headerHeight;
@@ -19,8 +20,10 @@
 @property (nonatomic, assign) BOOL scrollEnabled;
 
 @property (nonatomic, strong) UIView *headerView;
-@property (nonatomic, strong) UIView *categoryContainerView;
-//@property (nonatomic, strong) NSMapTable *cachelistContainer;
+@property (nonatomic, strong) RNTabView *tabView;
+
+@property (nonatomic, strong) NSArray *values;
+@property (nonatomic, strong) NSDictionary *tabViewStyle;
 
 @end
 
@@ -34,31 +37,61 @@
   return self;
 }
 
--(void)layoutSubviews {
-  [super layoutSubviews];
-  _pagingView.frame = self.bounds;
-}
-
-- (void)goTo:(NSInteger)pageIndex {
-  if (_pageIndex == pageIndex) {
+-(void)setDefaultIndex:(NSInteger)defaultIndex {
+  if (_defaultIndex == defaultIndex) {
     return;
   }
-  _pageIndex = pageIndex;
-  CGFloat pageWidth = CGRectGetWidth(self.frame);
-  [self.pagingView.listContainerView didClickSelectedItemAtIndex:pageIndex];
-  [self.pagingView.listContainerView.scrollView setContentOffset:CGPointMake(pageWidth * pageIndex, 0) animated:YES];
+  _defaultIndex = defaultIndex;
+//  [self reloadTabView];
 }
 
+-(void)setTabViewStyle:(NSDictionary *)tabViewStyle {
+  if ([_tabViewStyle isEqualToDictionary:tabViewStyle]) {
+    return;
+  }
+  _tabViewStyle = tabViewStyle;
+  [self reloadTabView];
+}
+
+-(void)setValues:(NSArray *)values {
+  if ([_values isEqualToArray:values]) {
+    return;
+  }
+  _values = values;
+  [self reloadTabView];
+}
+
+-(void)reloadTabView {
+  if (_tabView) {
+    _tabView.tabViewStyle = _tabViewStyle;
+    _tabView.values = _values;
+    [_tabView reloadData];
+    _tabView.categoryView.listContainer = (id<JXCategoryViewListContainer>)self.pagingView.listContainerView;
+    _tabView.categoryView.delegate = self;
+  }
+}
+
+-(void)layoutSubviews {
+  [super layoutSubviews];
+  self.pagingView.frame = self.bounds;
+  self.tabView.frame = CGRectMake(0, 0, CGRectGetWidth(self.bounds), self.tabView.model.height);
+}
+
+-(RNTabView *)tabView {
+  if (!_tabView) {
+    _tabView = [[RNTabView alloc] initWithValues:_values tabViewStyle:_tabViewStyle];
+    _tabView.defaultIndex = _defaultIndex;
+    _tabView.frame = CGRectMake(0, 0, CGRectGetWidth(self.frame), _tabView.model.height);
+    _tabView.categoryView.listContainer = (id<JXCategoryViewListContainer>)self.pagingView.listContainerView;
+    _tabView.categoryView.delegate = self;
+  }
+  return _tabView;
+}
 
 - (void)didUpdateReactSubviews {
-//  if (self.reactSubviews.count != 3) {
-//    return;
-//  }
   self.headerView = self.reactSubviews.firstObject;
-  self.categoryContainerView = self.reactSubviews[1];
   [self.pagingView reloadData];
 }
-
 
 -(JXPagerView *)pagingView {
   if (!_pagingView) {
@@ -66,14 +99,21 @@
     _pagingView.mainTableView.backgroundColor = [UIColor clearColor];
     _pagingView.pinSectionHeaderVerticalOffset = 0;
     _pagingView.listContainerView.listCellBackgroundColor = [UIColor clearColor];
-    _pagingView.isListHorizontalScrollEnabled = self.scrollEnabled;
+    _pagingView.isListHorizontalScrollEnabled = YES;
     _pagingView.defaultSelectedIndex = self.defaultIndex;
     if (@available(iOS 15.0, *)) {
-        self.pagingView.mainTableView.sectionHeaderTopPadding = 0;
+        _pagingView.mainTableView.sectionHeaderTopPadding = 0;
     }
     [self addSubview:_pagingView];
   }
   return _pagingView;
+}
+
+- (void)categoryView:(JXCategoryBaseView *)categoryView didSelectedItemAtIndex:(NSInteger)index {
+  if (_onChange) {
+    NSDictionary *value = _values[index];
+    _onChange(@{@"tabName":value[@"name"],@"index":@(index)});
+  }
 }
 
 #pragma mark - JXPagingViewDelegate
@@ -87,20 +127,20 @@
 }
 
 - (NSUInteger)heightForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
-    return CGRectGetHeight(self.categoryContainerView.frame);
+  
+    return self.tabView.model.height;
 }
 
 - (UIView *)viewForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
-    return self.categoryContainerView;
+  return self.tabView;
 }
 
 - (NSInteger)numberOfListsInPagerView:(JXPagerView *)pagerView {
-
-  return self.reactSubviews.count - 2;
+  return self.reactSubviews.count - 1;
 }
 
 - (id<JXPagerViewListViewDelegate>)pagerView:(JXPagerView *)pagerView initListAtIndex:(NSInteger)index {
-  PagingViewContainer *view = [[PagingViewContainer alloc] initWithReactView:self.reactSubviews[index + 2]];
+  PagingViewContainer *view = [[PagingViewContainer alloc] initWithReactView:self.reactSubviews[index + 1]];
   return view;
 }
 

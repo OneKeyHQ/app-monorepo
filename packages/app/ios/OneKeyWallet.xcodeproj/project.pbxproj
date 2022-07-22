@@ -25,6 +25,8 @@
 		A284EFC427CE238D0070F4EA /* OKTools.m in Sources */ = {isa = PBXBuildFile; fileRef = A284EFC327CE238D0070F4EA /* OKTools.m */; };
 		A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */; };
 		A2D598AF282BFD0B00152C7C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */; };
+		A2DA064C288A8C5700357518 /* UIColor+Hex.m in Sources */ = {isa = PBXBuildFile; fileRef = A2DA064B288A8C5700357518 /* UIColor+Hex.m */; };
+		A2DA064F288A8D1900357518 /* RNTabView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2DA064E288A8D1900357518 /* RNTabView.m */; };
 		A2E533472885151100063227 /* PagingView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E533462885151100063227 /* PagingView.m */; };
 		A2E5334A2885157E00063227 /* PagingViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E533492885157E00063227 /* PagingViewManager.m */; };
 		A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */ = {isa = PBXBuildFile; fileRef = A2E5334C288515EA00063227 /* PagingViewContainer.m */; };
@@ -84,6 +86,10 @@
 		A2D02C022824EAF9005A45F0 /* SplashScreenManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SplashScreenManager.h; sourceTree = "<group>"; };
 		A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SplashScreenManager.m; sourceTree = "<group>"; };
 		A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "OneKeyWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		A2DA064A288A8C5700357518 /* UIColor+Hex.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UIColor+Hex.h"; sourceTree = "<group>"; };
+		A2DA064B288A8C5700357518 /* UIColor+Hex.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIColor+Hex.m"; sourceTree = "<group>"; };
+		A2DA064D288A8D1900357518 /* RNTabView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RNTabView.h; sourceTree = "<group>"; };
+		A2DA064E288A8D1900357518 /* RNTabView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RNTabView.m; sourceTree = "<group>"; };
 		A2E533452885151100063227 /* PagingView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PagingView.h; sourceTree = "<group>"; };
 		A2E533462885151100063227 /* PagingView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PagingView.m; sourceTree = "<group>"; };
 		A2E533482885157E00063227 /* PagingViewManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PagingViewManager.h; sourceTree = "<group>"; };
@@ -219,6 +225,8 @@
 				A24B8A6A27422EF200E321A9 /* NSString+OKAdd.m */,
 				A24B8A6B27422EF200E321A9 /* NSData+StringToData.h */,
 				A24B8A6D27422EF200E321A9 /* NSData+StringToData.m */,
+				A2DA064A288A8C5700357518 /* UIColor+Hex.h */,
+				A2DA064B288A8C5700357518 /* UIColor+Hex.m */,
 			);
 			name = Category;
 			path = OneKeyWallet/Category;
@@ -261,6 +269,8 @@
 		A2E53344288514A900063227 /* PagingView */ = {
 			isa = PBXGroup;
 			children = (
+				A2DA064D288A8D1900357518 /* RNTabView.h */,
+				A2DA064E288A8D1900357518 /* RNTabView.m */,
 				A2E533452885151100063227 /* PagingView.h */,
 				A2E533462885151100063227 /* PagingView.m */,
 				A2E533482885157E00063227 /* PagingViewManager.h */,
@@ -464,6 +474,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A24B8A7727422EF300E321A9 /* NSString+OKAdd.m in Sources */,
+				A2DA064F288A8D1900357518 /* RNTabView.m in Sources */,
+				A2DA064C288A8C5700357518 /* UIColor+Hex.m in Sources */,
 				A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */,
 				A2F6BE9928882FB9005798D7 /* RCTScrollView+swizzled.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,

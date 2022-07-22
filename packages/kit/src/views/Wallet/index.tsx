@@ -48,7 +48,7 @@ import AccountInfo, {
 import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import CollectiblesList from './Collectibles';
-// import HistoricalRecord from './HistoricalRecords';
+import HistoricalRecord from './HistoricalRecords';
 import { WalletHomeTabEnum } from './type';
 
 import type { TextStyle } from 'react-native';
@@ -274,19 +274,19 @@ const Home: FC = () => {
           name={WalletHomeTabEnum.History}
           label={intl.formatMessage({ id: 'transaction__history' })}
         >
-          {/* {platformEnv.isLegacyHistory ? (
+          {platformEnv.isLegacyHistory ? (
             <HistoricalRecord
               accountId={account?.id}
               networkId={network?.id}
-              isTab={isTab}
+              isTab
             />
-          ) : ( */}
-          <TxHistoryListView
-            accountId={account?.id}
-            networkId={network?.id}
-            isTab
-          />
-          {/* )} */}
+          ) : (
+            <TxHistoryListView
+              accountId={account?.id}
+              networkId={network?.id}
+              isHomeTab
+            />
+          )}
         </Tabs.Tab>
       </Tabs.Container>
       {backupToast()}
