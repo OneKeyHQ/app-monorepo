@@ -85,7 +85,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
     await serviceNetwork.deleteNetwork(id);
     setRemoveOpened(false);
     toast.show({ title: intl.formatMessage({ id: 'msg__network_removed' }) });
-    if (navigation.canGoBack()) {
+    if (navigation?.canGoBack?.()) {
       navigation.goBack();
     }
   }, [intl, toast, serviceNetwork, id, navigation]);
@@ -99,7 +99,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
         explorerURL: data.exploreUrl,
       });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
-      if (navigation.canGoBack()) {
+      if (navigation?.canGoBack?.()) {
         navigation.goBack();
       }
     },

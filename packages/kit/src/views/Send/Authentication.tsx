@@ -122,7 +122,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
               ).decodedTx
             : undefined,
         });
-        if (navigation.canGoBack()) {
+        if (navigation?.canGoBack?.()) {
           // onSuccess will close() modal, goBack() is NOT needed here.
           // navigation.getParent()?.goBack?.();
         }
