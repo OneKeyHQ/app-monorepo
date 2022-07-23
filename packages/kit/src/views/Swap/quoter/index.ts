@@ -27,7 +27,7 @@ export class SwapQuoter {
 
   mdex = new MdexQuoter();
 
-  quoters: Quoter[] = [this.mdex, this.simple, this.socket, this.swftc];
+  quoters: Quoter[] = [this.mdex, this.simple, this.swftc];
 
   prepare() {
     this.quoters.forEach((quoter) => {
