@@ -4,6 +4,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { enabledChainIds } from './config';
+import { QuoteData, QuoterType } from './typings';
 
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 export const feeRecipient = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
@@ -142,4 +143,9 @@ export function isNetworkEnabled(
     network.enabled &&
     enabledChainIds.includes(chainId)
   );
+}
+
+export function isNoCharge(data: QuoteData): boolean {
+  const list: QuoterType[] = [QuoterType.mdex, QuoterType.socket];
+  return list.includes(data.type);
 }

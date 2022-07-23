@@ -44,6 +44,7 @@ const RightAccountCreateButton: FC<Props> = ({
       leftIconName="UserAddSolid"
       size="xl"
       isDisabled={selectedNetworkId === AllNetwork}
+      isLoading={isLoading}
       onPress={() => {
         if (!activeWallet || isLoading) return;
         const networkSettings = activeNetwork?.settings;

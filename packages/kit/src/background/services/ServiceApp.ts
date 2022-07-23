@@ -33,6 +33,7 @@ class ServiceApp extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
     if (platformEnv.isExtensionBackground) {
+      this.initApp();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
     // TODO recheck last reset status and resetApp here

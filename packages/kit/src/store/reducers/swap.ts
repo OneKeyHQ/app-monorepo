@@ -21,6 +21,7 @@ type SwapState = {
   receivingAddress?: string;
   receivingName?: string;
   swftcSupportedTokens: Record<string, string[]>;
+  approvalSubmitted?: boolean;
 };
 
 const initialState: SwapState = {
@@ -71,8 +72,9 @@ export const swapSlice = createSlice({
       const network = state.inputTokenNetwork;
       state.inputTokenNetwork = state.outputTokenNetwork;
       state.outputTokenNetwork = network;
+      state.approvalSubmitted = false;
     },
-    reset(state) {
+    resetState(state) {
       state.inputToken = undefined;
       state.inputTokenNetwork = undefined;
       state.outputToken = undefined;
@@ -119,6 +121,9 @@ export const swapSlice = createSlice({
     ) {
       state.swftcSupportedTokens = action.payload;
     },
+    setApprovalSubmitted(state, action: PayloadAction<boolean>) {
+      state.approvalSubmitted = action.payload;
+    },
   },
 });
 
@@ -127,7 +132,7 @@ export const {
   setInputToken,
   setOutputToken,
   switchTokens,
-  reset,
+  resetState,
   refresh,
   setQuote,
   setLoading,
@@ -135,6 +140,7 @@ export const {
   setSelectedNetworkId,
   setReceiving,
   setSwftcSupportedTokens,
+  setApprovalSubmitted,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

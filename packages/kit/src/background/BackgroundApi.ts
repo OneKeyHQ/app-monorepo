@@ -13,6 +13,7 @@ import ServiceNetwork from './services/ServiceNetwork';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePassword from './services/ServicePassword';
 import ServicePromise from './services/ServicePromise';
+import ServiceSwap from './services/ServiceSwap';
 import ServiceToken from './services/ServiceToken';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
@@ -67,6 +68,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   servicePassword = new ServicePassword({
+    backgroundApi: this,
+  });
+
+  serviceSwap = new ServiceSwap({
     backgroundApi: this,
   });
 }

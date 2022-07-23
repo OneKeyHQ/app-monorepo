@@ -23,23 +23,23 @@ export class SwapQuoter {
 
   simple = new SimpleQuoter();
 
-  sockets = new SocketQuoter();
+  socket = new SocketQuoter();
 
   mdex = new MdexQuoter();
 
-  quotors: Quoter[] = [this.mdex, this.simple, this.swftc];
+  quoters: Quoter[] = [this.mdex, this.simple, this.swftc];
 
   prepare() {
-    this.quotors.forEach((quotor) => {
-      quotor.prepare?.();
+    this.quoters.forEach((quoter) => {
+      quoter.prepare?.();
     });
   }
 
   async fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined> {
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const current = this.quotors[i];
-      if (current.isSupported(params.networkOut, params.networkIn)) {
-        const result = await current.fetchQuote(params);
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const quoter = this.quoters[i];
+      if (quoter.isSupported(params.networkOut, params.networkIn)) {
+        const result = await quoter.fetchQuote(params);
         if (result) {
           return result;
         }
@@ -51,13 +51,13 @@ export class SwapQuoter {
     quoterType: QuoterType,
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const current = this.quotors[i];
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const quoter = this.quoters[i];
       if (
-        current.type === quoterType &&
-        current.isSupported(params.networkOut, params.networkIn)
+        quoter.type === quoterType &&
+        quoter.isSupported(params.networkOut, params.networkIn)
       ) {
-        const result = await current.buildTransaction(params);
+        const result = await quoter.buildTransaction(params);
         if (result) {
           return result;
         }
@@ -70,19 +70,20 @@ export class SwapQuoter {
       return tx.quoterType;
     }
     if (tx.thirdPartyOrderId) {
-      return 'swftc';
+      return QuoterType.swftc;
     }
-    return '0x';
+    return QuoterType.zeroX;
   }
 
   async queryTransactionStatus(
     tx: TransactionDetails,
   ): Promise<TransactionStatus | undefined> {
+    console.log('tx', tx);
     const quoterType = this.getQuoteType(tx);
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const current = this.quotors[i];
-      if (current.type === quoterType) {
-        return current.queryTransactionStatus(tx);
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const quoter = this.quoters[i];
+      if (quoter.type === quoterType) {
+        return quoter.queryTransactionStatus(tx);
       }
     }
     return undefined;

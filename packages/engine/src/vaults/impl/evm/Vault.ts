@@ -252,12 +252,13 @@ export default class Vault extends VaultBase {
         ...payload.swapInfo,
         extraInfo: null,
       };
+      action.type = IDecodedTxActionType.INTERNAL_SWAP;
       // Only support same chain swap
-      if (
-        payload.swapInfo.send.networkId === payload.swapInfo.receive.networkId
-      ) {
-        action.type = IDecodedTxActionType.INTERNAL_SWAP;
-      }
+      // if (
+      //   payload.swapInfo.send.networkId === payload.swapInfo.receive.networkId
+      // ) {
+      //   action.type = IDecodedTxActionType.INTERNAL_SWAP;
+      // }
     }
     const { gasInfo } = decodedTxLegacy;
     let feeInfo: IFeeInfoUnit;

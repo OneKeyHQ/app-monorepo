@@ -21,7 +21,7 @@ import { SwapRoutes } from './typings';
 const SwapHeader = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
+  const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const onHandleRefresh = useCallback(() => {
     onSwapQuoteCallback();

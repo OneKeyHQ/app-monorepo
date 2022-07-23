@@ -1,6 +1,7 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -127,7 +128,7 @@ type OrderInfo = {
 };
 
 export class SwftcQuoter implements Quoter {
-  type: QuoterType = 'swftc';
+  type: QuoterType = QuoterType.swftc;
 
   private client: Axios;
 
@@ -144,7 +145,7 @@ export class SwftcQuoter implements Quoter {
   private networkAddrRecordsLastUpdate = 0;
 
   constructor() {
-    this.client = axios.create({ timeout: 30 * 1000 });
+    this.client = axios.create({ timeout: 60 * 1000 });
   }
 
   prepare() {
@@ -184,22 +185,43 @@ export class SwftcQuoter implements Quoter {
     return data;
   }
 
-  private async requestCoins(): Promise<Coin[]> {
+  async getLocalCoins() {
+    let coins: Coin[] | undefined;
+    if (this.coins) {
+      coins = this.coins;
+    } else {
+      coins = await simpleDb.swap.getSwftcCoins();
+    }
+    return coins;
+  }
+
+  async saveLocalCoins(coins: Coin[]) {
+    await simpleDb.swap.setSwftcCoins(coins);
+    this.coins = coins;
+    this.coinsLastUpdate = Date.now();
+  }
+
+  private async getRemoteCoins(): Promise<Coin[]> {
     const url = 'https://www.swftc.info/api/v1/queryCoinList';
     const res = await this.client.post(url, { supportType: 'advanced' });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    this.coins = res.data.data as Coin[];
-    this.coinsLastUpdate = Date.now();
-    return this.coins;
+    const coins = res.data.data as Coin[];
+    return coins;
+  }
+
+  private async updateCoins() {
+    const coins = await this.getRemoteCoins();
+    this.saveLocalCoins(coins);
   }
 
   private async getCoins(): Promise<Coin[]> {
-    const { coins } = this;
+    let coins = await this.getLocalCoins();
     if (!coins) {
-      return this.requestCoins();
+      coins = await this.getRemoteCoins();
+      await this.saveLocalCoins(coins);
     }
     if (Date.now() - this.coinsLastUpdate > 1000 * 60 * 60) {
-      setTimeout(() => this.requestCoins(), 10);
+      setTimeout(() => this.updateCoins(), 10);
     }
     return coins;
   }
@@ -378,7 +400,7 @@ export class SwftcQuoter implements Quoter {
             });
           return {
             data: txdata as unknown as TransactionData,
-            orderId: orderRes.data.orderId,
+            attachment: { swftcOrderId: orderRes.data.orderId },
           };
         }
         const txdata =
@@ -394,7 +416,7 @@ export class SwftcQuoter implements Quoter {
           });
         return {
           data: txdata as unknown as TransactionData,
-          orderId: orderRes.data.orderId,
+          attachment: { swftcOrderId: orderRes.data.orderId },
         };
       }
       return { error: { code: orderRes.resCode, msg: orderRes.resMsg } };
@@ -437,13 +459,14 @@ export class SwftcQuoter implements Quoter {
   async queryTransactionStatus(
     tx: TransactionDetails,
   ): Promise<TransactionStatus | undefined> {
-    if (tx.thirdPartyOrderId) {
+    const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
+    if (swftcOrderId) {
       const res = await axios.post(
         'https://www.swftc.info/api/v2/queryOrderState',
         {
           equipmentNo: tx.from,
           sourceType: 'H5',
-          orderId: tx.thirdPartyOrderId,
+          orderId: swftcOrderId,
         },
       );
       // eslint-disable-next-line
