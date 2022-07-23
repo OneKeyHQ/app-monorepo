@@ -53,7 +53,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
   const interactInfo = useInteractWithInfo({ sourceInfo });
 
   const sendTx = useCallback(async () => {
-    debugLogger.sendTx('Authentication sendTx:', route.params);
+    debugLogger.sendTx.info('Authentication sendTx:', route.params);
     // TODO needs wait rpc call finished, close Modal will cause tx send fail
     const result = await backgroundApiProxy.engine.signAndSendEncodedTx({
       password,
@@ -61,7 +61,11 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
       accountId,
       encodedTx,
     });
-    debugLogger.sendTx('Authentication sendTx DONE:', route.params, result);
+    debugLogger.sendTx.info(
+      'Authentication sendTx DONE:',
+      route.params,
+      result,
+    );
     return result;
   }, [accountId, encodedTx, networkId, password, route.params]);
 

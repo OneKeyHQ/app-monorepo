@@ -182,7 +182,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     //   code: 3881,
     //   message: 'test custom error to dapp',
     // });
-    debugLogger.ethereum(
+    debugLogger.ethereum.info(
       'provider.handleMethods ====> ',
       payloadData.method,
       payload,
@@ -191,7 +191,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     ensureSerializable(result);
     // TODO non rpc result return in some chain provider
     const resultWrapped = this.rpcResult(result, payloadData);
-    debugLogger.ethereum(
+    debugLogger.ethereum.info(
       'provider.handleMethods RESULT:',
       payloadData,
       '\r\n ----> \r\n',
@@ -206,8 +206,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const request = (payload.data ?? {}) as IJsonRpcRequest;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { method, params } = request;
-
-    debugLogger.backgroundApi('bridgeReceiveHandler', scope, request, payload);
 
     if (!origin) {
       throw new Error('BackgroundApi [payload.origin] is required.');
@@ -240,16 +238,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     payload: IJsBridgeMessagePayload,
   ): Promise<any> => {
     const res = await this._bridgeReceiveHandler(payload);
-    debugLogger.backgroundApi(
-      'bridgeReceiveHandler->response',
-      payload.scope,
-      '\n',
-      payload,
-      '\n',
-      payload.data,
-      '\n -----> ',
-      res,
-    );
     return res;
   };
 

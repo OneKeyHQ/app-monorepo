@@ -39,8 +39,6 @@ const Collectibles = ({ address, network }: CollectiblesProps) => {
     isCollectibleSupported,
   });
 
-  // console.log('collectibles = ', collectibles);
-
   const handleSelectAsset = useCallback(
     (asset: MoralisNFT) => {
       if (!network) return;

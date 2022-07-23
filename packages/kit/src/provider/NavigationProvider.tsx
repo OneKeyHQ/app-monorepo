@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
 
 import { OverlayProvider } from '@react-native-aria/overlays';
 import {
@@ -18,6 +18,7 @@ import HardwarePopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle';
 import HardwareSpecialPopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle/SpecialPopup';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
@@ -53,6 +54,7 @@ if (platformEnv.isExtFirefox) {
 
 const NavigationApp = () => {
   useAutoNavigateOnMount();
+  const routeNameRef = useRef<string>();
   const [bgColor, textColor, dividerColor] = useThemeValue([
     'surface-subdued',
     'text-default',
@@ -93,6 +95,25 @@ const NavigationApp = () => {
       <NavigationContainer
         documentTitle={{
           formatter: () => 'OneKey',
+        }}
+        onReady={() => {
+          routeNameRef.current =
+            navigationRef?.current?.getCurrentRoute?.()?.name;
+        }}
+        onStateChange={() => {
+          const previousRouteName = routeNameRef.current;
+          const currentRouteName =
+            navigationRef?.current?.getCurrentRoute?.()?.name;
+
+          if (previousRouteName !== currentRouteName) {
+            debugLogger.navigation.info(
+              previousRouteName,
+              ' -> ',
+              currentRouteName,
+            );
+          }
+
+          routeNameRef.current = currentRouteName;
         }}
         ref={navigationRef}
         theme={navigationTheme}

@@ -56,13 +56,13 @@ function WebView({
     if (!jsBridge || !isFocused) {
       return;
     }
-    debugLogger.webview('webview isFocused and connectBridge', src);
+    debugLogger.webview.info('webview isFocused and connectBridge', src);
     // connect background jsBridge
     backgroundApiProxy.connectBridge(jsBridge);
 
     // Native App needs notify immediately
     if (platformEnv.isNative) {
-      debugLogger.webview('webview notify changed events1', src);
+      debugLogger.webview.info('webview notify changed events1', src);
       backgroundApiProxy.serviceAccount.notifyAccountsChanged();
       backgroundApiProxy.serviceNetwork.notifyChainChanged();
     }
@@ -71,7 +71,7 @@ function WebView({
     // Desktop needs timeout wait for webview DOM ready
     //  FIX: Error: The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called.
     const timer = setTimeout(() => {
-      debugLogger.webview('webview notify changed events2', src);
+      debugLogger.webview.info('webview notify changed events2', src);
       backgroundApiProxy.serviceAccount.notifyAccountsChanged();
       backgroundApiProxy.serviceNetwork.notifyChainChanged();
     }, 1500);

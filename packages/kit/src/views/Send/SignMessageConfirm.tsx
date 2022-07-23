@@ -53,7 +53,7 @@ const SignMessageConfirm = () => {
   });
 
   useEffect(() => {
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'SignMessageConfirm  >>>>  ',
       unsignedMessage,
       route.params,

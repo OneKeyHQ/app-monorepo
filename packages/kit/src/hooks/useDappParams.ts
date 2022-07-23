@@ -16,9 +16,9 @@ function useDappParams() {
 
   try {
     queryInfo = JSON.parse(query);
-    debugLogger.sendTx('useDappParams:', queryInfo);
+    debugLogger.sendTx.info('useDappParams:', queryInfo);
   } catch (error) {
-    debugLogger.sendTx('useDappParams:', query);
+    debugLogger.sendTx.info('useDappParams:', query);
     console.error(`parse dapp query error: ${query}`);
   }
 

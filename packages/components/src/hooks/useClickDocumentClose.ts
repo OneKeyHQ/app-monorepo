@@ -53,7 +53,6 @@ export default function useClickDocumentClose({
         if (!ele) {
           return;
         }
-        // console.log(`${name}: toggleVisible`, domId);
         toggleVisible();
       }, 150);
     };

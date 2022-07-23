@@ -24,7 +24,7 @@ import {
   hasHardwareSupported,
 } from '../../utils/localAuthentication';
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { delay } from '../utils';
+import { MAX_LOG_LENGTH, delay } from '../utils';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
@@ -36,7 +36,22 @@ class ServiceApp extends ServiceBase {
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
     // TODO recheck last reset status and resetApp here
-    console.log('TODO: recheck last reset status and resetApp here 22222');
+  }
+
+  logger: string[] = [];
+
+  @backgroundMethod()
+  async getLoggerInstance() {
+    return Promise.resolve(this.logger);
+  }
+
+  @backgroundMethod()
+  async addLogger(message: string) {
+    if (this.logger.length >= MAX_LOG_LENGTH) {
+      this.logger.shift();
+    }
+    this.logger.push(message);
+    return Promise.resolve(true);
   }
 
   @backgroundMethod()

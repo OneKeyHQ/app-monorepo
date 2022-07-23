@@ -140,13 +140,13 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
-    debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
+    debugLogger.ethereum.info('BgApi rpcCall:', request, { networkId });
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
       networkId,
       request,
     );
-    debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
+    debugLogger.ethereum.info('BgApi rpcCall RESULT:', request, {
       networkId,
       result,
     });
@@ -161,7 +161,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
       return result;
     };
-    // debugLogger.ethereum('notifyDappAccountsChanged', data);
+    // debugLogger.ethereum.info('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
@@ -208,7 +208,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
-    debugLogger.ethereum('eth_sendTransaction', request, transaction);
+    debugLogger.ethereum.info('eth_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
@@ -220,7 +220,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       },
     );
 
-    debugLogger.ethereum(
+    debugLogger.ethereum.info(
       'eth_sendTransaction DONE',
       result,
       request,
@@ -319,7 +319,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.backgroundApi(
+    debugLogger.backgroundApi.info(
       'ProviderApiEthereum.eth_requestAccounts',
       request,
     );
