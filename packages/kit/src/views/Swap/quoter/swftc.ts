@@ -1,6 +1,7 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -184,22 +185,43 @@ export class SwftcQuoter implements Quoter {
     return data;
   }
 
-  private async requestCoins(): Promise<Coin[]> {
+  async getLocalCoins() {
+    let coins: Coin[] | undefined;
+    if (this.coins) {
+      coins = this.coins;
+    } else {
+      coins = await simpleDb.swap.getSwftcCoins();
+    }
+    return coins;
+  }
+
+  async saveLocalCoins(coins: Coin[]) {
+    await simpleDb.swap.setSwftcCoins(coins);
+    this.coins = coins;
+    this.coinsLastUpdate = Date.now();
+  }
+
+  private async getRemoteCoins(): Promise<Coin[]> {
     const url = 'https://www.swftc.info/api/v1/queryCoinList';
     const res = await this.client.post(url, { supportType: 'advanced' });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    this.coins = res.data.data as Coin[];
-    this.coinsLastUpdate = Date.now();
-    return this.coins;
+    const coins = res.data.data as Coin[];
+    return coins;
+  }
+
+  private async updateCoins() {
+    const coins = await this.getRemoteCoins();
+    this.saveLocalCoins(coins);
   }
 
   private async getCoins(): Promise<Coin[]> {
-    const { coins } = this;
+    let coins = await this.getLocalCoins();
     if (!coins) {
-      return this.requestCoins();
+      coins = await this.getRemoteCoins();
+      await this.saveLocalCoins(coins);
     }
     if (Date.now() - this.coinsLastUpdate > 1000 * 60 * 60) {
-      setTimeout(() => this.requestCoins(), 10);
+      setTimeout(() => this.updateCoins(), 10);
     }
     return coins;
   }
