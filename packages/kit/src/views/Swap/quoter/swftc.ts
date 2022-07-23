@@ -128,7 +128,7 @@ type OrderInfo = {
 };
 
 export class SwftcQuoter implements Quoter {
-  type: QuoterType = 'swftc';
+  type: QuoterType = QuoterType.swftc;
 
   private client: Axios;
 

@@ -104,7 +104,7 @@ interface SupportedChain {
 }
 
 export class SocketQuoter implements Quoter {
-  type: QuoterType = 'socket';
+  type: QuoterType = QuoterType.socket;
 
   private client: Axios;
 

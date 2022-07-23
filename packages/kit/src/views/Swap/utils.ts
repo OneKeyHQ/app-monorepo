@@ -146,6 +146,6 @@ export function isNetworkEnabled(
 }
 
 export function isNoCharge(data: QuoteData): boolean {
-  const list: QuoterType[] = ['mdex', 'socket'];
+  const list: QuoterType[] = [QuoterType.mdex, QuoterType.socket];
   return list.includes(data.type);
 }

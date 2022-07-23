@@ -70,9 +70,9 @@ export class SwapQuoter {
       return tx.quoterType;
     }
     if (tx.thirdPartyOrderId) {
-      return 'swftc';
+      return QuoterType.swftc;
     }
-    return '0x';
+    return QuoterType.zeroX;
   }
 
   async queryTransactionStatus(

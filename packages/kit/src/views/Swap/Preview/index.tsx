@@ -90,7 +90,7 @@ const isCrosschainQuote = (data?: QuoteData): boolean => {
   if (!data) {
     return false;
   }
-  const channels: QuoterType[] = ['socket', 'swftc'];
+  const channels: QuoterType[] = [QuoterType.socket, QuoterType.swftc];
   return data.type && channels.includes(data.type);
 };
 

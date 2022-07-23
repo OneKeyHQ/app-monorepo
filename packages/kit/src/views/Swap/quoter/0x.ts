@@ -45,7 +45,7 @@ type QuoteResponse = {
 };
 
 export class SimpleQuoter implements Quoter {
-  type: QuoterType = '0x';
+  type: QuoterType = QuoterType.zeroX;
 
   private client: Axios;
 
@@ -100,7 +100,7 @@ export class SimpleQuoter implements Quoter {
     const data = res.data.data as QuoteResponse; // eslint-disable-line
 
     const result: QuoteData = {
-      type: '0x',
+      type: this.type,
       instantRate: data.price,
       allowanceTarget: data.allowanceTarget,
       buyAmount: data.buyAmount,

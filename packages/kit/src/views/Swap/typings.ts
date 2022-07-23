@@ -47,7 +47,13 @@ export enum SwapError {
   DepositMin = 'DepositMin',
 }
 
-export type QuoterType = '0x' | 'swftc' | 'socket' | 'mdex';
+export enum QuoterType {
+  swftc = 'swftc',
+  socket = 'socket',
+  mdex = 'mdex',
+  zeroX = '0x',
+}
+
 export type FieldType = 'INPUT' | 'OUTPUT';
 
 export type TransactionData = {
