@@ -4,7 +4,6 @@ const childProcess = require('child_process');
 const path = require('path');
 
 function execSync(cmd) {
-  console.log('execSyncCmd: \n    ', cmd);
   childProcess.execSync(cmd);
 }
 

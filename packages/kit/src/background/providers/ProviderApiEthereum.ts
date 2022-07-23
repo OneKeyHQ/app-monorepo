@@ -392,7 +392,6 @@ class ProviderApiEthereum extends ProviderApiBase {
    */
   @providerApiMethod()
   eth_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_sign', messages, req);
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.ETH_SIGN,
       message: messages[1],
@@ -420,7 +419,6 @@ class ProviderApiEthereum extends ProviderApiBase {
       }
     }
 
-    console.log('personal_sign', message, messages, req);
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
       message,
@@ -433,7 +431,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     req: IJsBridgeMessagePayload,
     ...messages: string[]
   ) {
-    console.log('personal_ecRecover: ', req, messages);
     const [message, signature] = messages;
     if (
       typeof message === 'string' &&
@@ -452,7 +449,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         message,
         signature,
       );
-      console.log('personal_ecRecover: ', req, messages, result);
+
       return result;
     }
     throw web3Errors.rpc.invalidParams(
@@ -462,7 +459,6 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_signTypedData', messages, req);
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.TYPED_DATA_V1,
       message: JSON.stringify(messages[0]),

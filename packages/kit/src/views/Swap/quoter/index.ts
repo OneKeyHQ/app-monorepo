@@ -78,7 +78,6 @@ export class SwapQuoter {
   async queryTransactionStatus(
     tx: TransactionDetails,
   ): Promise<TransactionStatus | undefined> {
-    console.log('tx', tx);
     const quoterType = this.getQuoteType(tx);
     for (let i = 0; i < this.quoters.length; i += 1) {
       const quoter = this.quoters[i];

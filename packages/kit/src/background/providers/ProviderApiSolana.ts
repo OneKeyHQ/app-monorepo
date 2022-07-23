@@ -74,7 +74,6 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
     // TODO: validate message is a transaction
-    console.log('signTransaction', payload, params);
     return Mocks.tx;
   }
 

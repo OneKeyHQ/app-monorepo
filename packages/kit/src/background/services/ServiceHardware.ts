@@ -262,7 +262,7 @@ class ServiceHardware extends ServiceBase {
       if (!firmware) return Promise.reject(new FirmwareDownloadFailed());
       return firmware;
     }
-    console.log(`DownloadFirmware error: ${url} ${response.statusText}`);
+
     return Promise.reject(new FirmwareDownloadFailed());
   }
 
@@ -278,7 +278,6 @@ class ServiceHardware extends ServiceBase {
     if (!binary) return Promise.reject(new FirmwareDownloadFailed());
 
     const hardwareSDK = await this.getSDKInstance();
-    console.log('installFirmware', connectId, firmwareType, binary.byteLength);
 
     // @ts-expect-error
     return hardwareSDK

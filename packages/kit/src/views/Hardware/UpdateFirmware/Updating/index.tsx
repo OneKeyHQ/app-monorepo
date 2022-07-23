@@ -269,8 +269,6 @@ const UpdatingModal: FC = () => {
   };
 
   const executeStep = () => {
-    console.log('UpdatingModal executeStep', progressStep);
-
     switch (progressStep) {
       case 'pre-check':
         setMaxProgress(5);
