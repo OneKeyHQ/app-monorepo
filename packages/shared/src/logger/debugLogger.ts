@@ -47,6 +47,7 @@ export const logger = RNLogger.createLogger({
 });
 
 export enum LoggerNames {
+  hardwareSDK = 'hardwareSDK',
   http = 'http',
   jsBridge = 'jsBridge',
   webview = 'webview',
@@ -69,6 +70,7 @@ const Cache = {
 };
 
 const debugLogger = {
+  [LoggerNames.hardwareSDK]: Cache.createLogger(LoggerNames.hardwareSDK),
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
   [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),
   [LoggerNames.http]: Cache.createLogger(LoggerNames.http),

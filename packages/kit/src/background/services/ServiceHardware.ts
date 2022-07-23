@@ -1,5 +1,6 @@
 import {
   CoreApi,
+  CoreMessage,
   DeviceSettingsParams,
   IDeviceType,
   UiResponseEvent,
@@ -33,6 +34,7 @@ import {
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -85,6 +87,9 @@ class ServiceHardware extends ServiceBase {
               }),
             );
           }, 0);
+        });
+        instance.on('LOG_EVENT', (messages: CoreMessage) => {
+          debugLogger.hardwareSDK.info(messages);
         });
       }
       return instance;

@@ -147,8 +147,6 @@ class DeviceUtils {
       return this.caputureErrorByMessage(msg) as Error.BridgeNetworkError;
     }
 
-    console.log('Device Utils Convert Device Error:', code, msg);
-
     switch (code) {
       case HardwareErrorCode.UnknownError:
         return new Error.UnknownHardwareError({ message: msg });
