@@ -17,7 +17,7 @@ import { enableFreeze } from 'react-native-screens';
 // It uses the React Suspense mechanism to prevent
 // parts of the component tree from rendering,
 // while keeping its state untouched.
-enableFreeze(true);
+enableFreeze(false);
 
 SplashScreen.preventAutoHideAsync();
 LogBox.ignoreAllLogs();
