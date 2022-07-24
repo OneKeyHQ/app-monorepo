@@ -1,36 +1,15 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Animated, Text, View } from 'react-native';
+import { Animated, Text } from 'react-native';
 import RNTypeWriter from 'react-native-typewriter';
 
 import { useThemeValue } from '../Provider/hooks';
 
 const [lineHeight, fontSize] = [56, 48];
 
-type NormalTextProps = { fadeOut?: boolean };
-
-export const NormalText: FC<NormalTextProps> = ({ children, fadeOut }) => {
-  const fadeOutAnim = useRef(new Animated.Value(1)).current;
+export const NormalText: FC = ({ children }) => {
   const color = useThemeValue('text-default');
-  useEffect(() => {
-    if (fadeOut) {
-      const animation = Animated.timing(fadeOutAnim, {
-        toValue: 0.3,
-        duration: 300,
-        useNativeDriver: false,
-      });
-      setTimeout(() => {
-        animation.start();
-      }, 150);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <Animated.Text style={{ opacity: fadeOutAnim, color }}>
-      {children}
-    </Animated.Text>
-  );
+  return <Text style={{ color }}>{children}</Text>;
 };
 
 export const Highlight: FC = ({ children }) => {
@@ -71,26 +50,47 @@ export const Caret: FC = () => {
   );
 };
 
-type TypeWriterProps = { pending?: boolean; onTypingEnd?: () => void };
+type TypeWriterProps = {
+  isPending?: boolean;
+  onTypingEnd?: () => void;
+  fadeOut?: boolean;
+};
 
 export const TypeWriter: FC<TypeWriterProps> = ({
   children,
   onTypingEnd,
-  pending,
+  isPending = true,
+  fadeOut,
 }) => {
+  const fadeOutAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (fadeOut) {
+      const animation = Animated.timing(fadeOutAnim, {
+        toValue: 0.3,
+        duration: 300,
+        useNativeDriver: false,
+      });
+      setTimeout(() => {
+        animation.start();
+      }, 150);
+    }
+  }, [fadeOut, fadeOutAnim]);
+
   const [start, setStart] = useState(false);
 
   useEffect(() => {
-    if (!pending) {
+    if (!isPending) {
       setTimeout(() => {
         setStart(true);
       }, 650);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isPending]);
+
+  // eslint-disable-next-line
+  const memo = useMemo(() => children, []);
 
   return (
-    <View style={{ minHeight: lineHeight }}>
+    <Animated.View style={{ minHeight: lineHeight, opacity: fadeOutAnim }}>
       {start ? (
         <RNTypeWriter
           typing={1}
@@ -105,11 +105,11 @@ export const TypeWriter: FC<TypeWriterProps> = ({
           maxDelay={12}
           onTypingEnd={onTypingEnd}
         >
-          {children}
+          {memo}
         </RNTypeWriter>
       ) : (
         <Caret />
       )}
-    </View>
+    </Animated.View>
   );
 };
