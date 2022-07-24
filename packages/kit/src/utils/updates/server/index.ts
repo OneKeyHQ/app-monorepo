@@ -121,8 +121,9 @@ function handleReleaseInfo(
 }
 
 export async function getReleaseInfo(): Promise<PackagesInfo | null> {
+  const key = Math.random().toString();
   return axios
-    .get<AppReleases>('https://data.onekey.so/config.json')
+    .get<AppReleases>(`https://data.onekey.so/config.json?nocache=${key}`)
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
       return handleReleaseInfo(releasesVersion);
@@ -155,8 +156,9 @@ export async function getChangeLog(
   oldVersion: string,
   newVersion: string,
 ): Promise<Changelog | undefined> {
+  const key = Math.random().toString();
   return axios
-    .get<AppReleases>('https://data.onekey.so/config.json')
+    .get<AppReleases>(`https://data.onekey.so/config.json?nocache=${key}`)
     .then((releasesVersionResponse) => {
       const changeLogs = releasesVersionResponse.data.changelog;
       return (

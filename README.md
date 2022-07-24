@@ -14,7 +14,7 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ?style=for-the-badge&labelColor=000)](https://twitter.com/OneKeyHQ)
 
 <p align="center">
-<img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_desktop_transparent.png?raw=true"/>
+<img src="https://github.com/rayston92/graph_bed/blob/master/img/repo-hero-bg.png?raw=true"/>
 </p>
 
 

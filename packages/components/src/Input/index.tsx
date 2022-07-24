@@ -24,6 +24,7 @@ import type { TypographyStyle } from '../Typography';
 type Props = {
   autoFocus?: boolean;
   isDisabled?: boolean;
+  isReadOnly?: boolean;
   leftText?: string;
   rightText?: string;
   rightSecondaryText?: string | ReactElement | null;
@@ -49,6 +50,7 @@ const Input = React.forwardRef<
     {
       autoFocus,
       isDisabled,
+      isReadOnly,
       leftText,
       rightText,
       leftIconName,
@@ -73,16 +75,8 @@ const Input = React.forwardRef<
     useImperativeHandle(ref, () => inputRef.current!);
     const shouldFocus = autoFocus && platformEnv.isRuntimeBrowser;
     useEffect(() => {
-      // node_modules/react-native-web/dist/exports/TextInput/index.js
-      //    supportedProps.autoFocus = supportedProps.autoFocus && 'autofocus';
-      //    console.log('render TextInput', component, supportedProps);
-
       if (shouldFocus) {
         // ** focus immediately in Modal cause modal slow animation
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        // inputRef.current?.focus?.();
-        //
         const timer = setTimeout(() => {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -235,6 +229,7 @@ const Input = React.forwardRef<
       <BaseInput
         ref={inputRef}
         selectionColor="text-default"
+        isReadOnly={isReadOnly}
         isDisabled={isDisabled}
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}

@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { getDeviceUUID } from '@onekeyfe/hd-core';
+import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -9,6 +9,7 @@ import {
   Container,
   Icon,
   Modal,
+  Switch,
   ToastManager,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -21,6 +22,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -41,22 +43,46 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const { engine, serviceHardware } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings() || {};
+  const { deviceUpdates } = useSettings();
 
   const [deviceConnectId, setDeviceConnectId] = useState<string>();
+  const [deviceId, setDeviceId] = useState<string>();
+  const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
+
+  const canOnDeviceInputPin = useMemo(() => {
+    const deviceType = getDeviceType(deviceFeatures);
+    if (deviceType === 'classic' || deviceType === 'mini') return true;
+    return false;
+  }, [deviceFeatures]);
 
   const updates = useMemo(
     () => deviceUpdates?.[deviceConnectId ?? ''],
     [deviceUpdates, deviceConnectId],
   );
 
+  const deviceType = getDeviceType(deviceFeatures);
+  const showHomescreenSetting = getHomescreenKeys(deviceType).length > 0;
+
+  const refreshDevicePayload = () => {
+    engine
+      .getHWDeviceByWalletId(walletId)
+      .then((device) => {
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
   useEffect(() => {
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
         setDeviceConnectId(device?.mac);
+        setDeviceId(device?.deviceId);
       } catch (err: any) {
-        if (navigation.canGoBack()) {
+        if (navigation?.canGoBack?.()) {
           navigation.goBack();
         }
 
@@ -100,7 +126,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                   params: {
                     walletId,
                     onSuccess: () => {
-                      if (navigation.canGoBack()) {
+                      if (navigation?.canGoBack?.()) {
                         navigation.goBack();
                       }
                     },
@@ -147,6 +173,30 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           })}
           describe={deviceFeatures?.ble_ver ?? '-'}
         />
+
+        {showHomescreenSetting && (
+          <Container.Item
+            titleColor="text-default"
+            describeColor="text-subdued"
+            title={intl.formatMessage({
+              id: 'modal__homescreen',
+            })}
+            hasArrow
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.OnekeyHardware,
+                params: {
+                  screen:
+                    OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
+                  params: {
+                    walletId,
+                    deviceType: getDeviceType(deviceFeatures),
+                  },
+                },
+              });
+            }}
+          />
+        )}
       </Container.Box>
 
       <Container.Box mt={6}>
@@ -167,6 +217,30 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'action__verify' })}
         />
+        {!!canOnDeviceInputPin && (
+          <Container.Item
+            titleColor="text-default"
+            title={intl.formatMessage({
+              id: 'content__enter_pin_in_app',
+            })}
+          >
+            <Switch
+              labelType="false"
+              isChecked={!onDeviceInputPin}
+              onToggle={() => {
+                if (deviceId) {
+                  serviceHardware
+                    .updateDevicePayload(deviceId, {
+                      onDeviceInputPin: !onDeviceInputPin,
+                    })
+                    .then(() => {
+                      refreshDevicePayload();
+                    });
+                }
+              }}
+            />
+          </Container.Item>
+        )}
       </Container.Box>
     </Box>
   );

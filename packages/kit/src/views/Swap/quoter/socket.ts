@@ -38,6 +38,7 @@ export interface SocketRoute {
   fromAmount: string;
   toAmount: string;
   recipient: string;
+  usedBridgeNames: string[];
 }
 export interface SocketQuoteResponse {
   fromChainId: number;
@@ -65,6 +66,7 @@ export interface SocketBridgeStatusParams {
   transactionHash: string;
   fromChainId: string;
   toChainId: string;
+  bridgeName?: string;
 }
 
 export interface SocketBridgeStatusResponse {
@@ -72,6 +74,10 @@ export interface SocketBridgeStatusResponse {
   destinationTxStatus: BridgeTxStatus;
   fromChainId: string;
   toChainId: string;
+  refuel?: {
+    destinationTransactionHash?: string;
+    status?: BridgeTxStatus;
+  };
 }
 
 const baseURL = 'https://api.socket.tech/v2';
@@ -98,7 +104,7 @@ interface SupportedChain {
 }
 
 export class SocketQuoter implements Quoter {
-  type: QuoterType = 'socket';
+  type: QuoterType = QuoterType.socket;
 
   private client: Axios;
 
@@ -233,6 +239,7 @@ export class SocketQuoter implements Quoter {
         instantRate,
         allowanceTarget,
         txData,
+        txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
       };
     }
     return undefined;
@@ -241,13 +248,13 @@ export class SocketQuoter implements Quoter {
   async buildTransaction(
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
-    const { txData } = params;
+    const { txData, txAttachment } = params;
     if (txData) {
-      return { data: txData };
+      return { data: txData, attachment: txAttachment };
     }
-    const quote = await this.fetchQuote(params);
-    if (quote?.txData) {
-      return { data: quote.txData };
+    const data = await this.fetchQuote(params);
+    if (data?.txData) {
+      return { data: data.txData, attachment: data.txAttachment };
     }
     return undefined;
   }
@@ -259,8 +266,9 @@ export class SocketQuoter implements Quoter {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const data = res.data.result as SocketBridgeStatusResponse;
     if (
-      data.sourceTxStatus === 'COMPLETED' &&
-      data.destinationTxStatus === 'COMPLETED'
+      (data.sourceTxStatus === 'COMPLETED' &&
+        data.destinationTxStatus === 'COMPLETED') ||
+      data.refuel?.status === 'COMPLETED'
     ) {
       return 'sucesss';
     }
@@ -275,7 +283,7 @@ export class SocketQuoter implements Quoter {
   async queryTransactionStatus(
     tx: TransactionDetails,
   ): Promise<TransactionStatus | undefined> {
-    const { nonce, networkId, accountId, tokens } = tx;
+    const { nonce, networkId, accountId, tokens, attachment } = tx;
     if (nonce && tokens) {
       const { from, to } = tokens;
       const fromChainId = getChainIdFromNetworkId(from.networkId);
@@ -292,6 +300,7 @@ export class SocketQuoter implements Quoter {
           fromChainId,
           toChainId,
           transactionHash: txid,
+          bridgeName: attachment?.socketUsedBridgeNames?.[0],
         });
         if (status === 'failed' || status === 'sucesss') {
           return status;

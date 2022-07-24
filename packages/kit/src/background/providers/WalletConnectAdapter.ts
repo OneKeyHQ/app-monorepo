@@ -267,7 +267,7 @@ class WalletConnectAdapter {
 
     // TODO convert url to origin
     const origin = this.getConnectorOrigin(connector);
-    debugLogger.walletConnect('new WalletConnect() by uri', {
+    debugLogger.walletConnect.info('new WalletConnect() by uri', {
       origin,
       network,
       uri,
@@ -288,20 +288,20 @@ class WalletConnectAdapter {
       const chainId = await this.getChainIdInteger(connector);
 
       if (connector.connected) {
-        debugLogger.walletConnect(
+        debugLogger.walletConnect.info(
           'walletConnect.connect -> updateSession',
           result,
         );
         connector.updateSession({ chainId, accounts: result });
       } else {
-        debugLogger.walletConnect(
+        debugLogger.walletConnect.info(
           'walletConnect.connect -> approveSession',
           result,
         );
         connector.approveSession({ chainId, accounts: result });
       }
     } catch (error) {
-      debugLogger.walletConnect('walletConnect.connect reject', error);
+      debugLogger.walletConnect.info('walletConnect.connect reject', error);
       connector.rejectSession(error as any);
     }
   }
@@ -322,7 +322,7 @@ class WalletConnectAdapter {
     if (!connector) {
       return;
     }
-    debugLogger.walletConnect('unregisterEvents >>>>>> ');
+    debugLogger.walletConnect.info('unregisterEvents >>>>>> ');
     // https://docs.walletconnect.com/client-api#register-event-subscription
     [
       'connect',
@@ -368,9 +368,9 @@ class WalletConnectAdapter {
     connector.on(
       'session_request',
       this.createEventHandler((error, payload: IJsonRpcRequest) => {
-        debugLogger.walletConnect('EVENT', 'session_request', payload);
+        debugLogger.walletConnect.info('EVENT', 'session_request', payload);
         const { peerMeta } = (payload.params as any[])?.[0] || {};
-        debugLogger.walletConnect('peerMeta', peerMeta);
+        debugLogger.walletConnect.info('peerMeta', peerMeta);
       }),
     );
 
@@ -378,7 +378,7 @@ class WalletConnectAdapter {
     connector.on(
       'session_update',
       this.createEventHandler((error, payload) => {
-        debugLogger.walletConnect('EVENT', 'session_update', payload);
+        debugLogger.walletConnect.info('EVENT', 'session_update', payload);
       }),
     );
 
@@ -386,7 +386,7 @@ class WalletConnectAdapter {
       'call_request',
       this.createEventHandler((error, payload) => {
         // tslint:disable-next-line
-        debugLogger.walletConnect('EVENT', 'call_request', payload);
+        debugLogger.walletConnect.info('EVENT', 'call_request', payload);
         // https://docs.walletconnect.com/client-api#send-custom-request
         // await window.$connector.sendCustomRequest({method:'eth_gasPrice'})
 
@@ -408,7 +408,7 @@ class WalletConnectAdapter {
     connector.on(
       'connect',
       this.createEventHandler((error, payload) => {
-        debugLogger.walletConnect('EVENT', 'connect', payload);
+        debugLogger.walletConnect.info('EVENT', 'connect', payload);
 
         // this.setState({ connected: true });
       }),
@@ -418,7 +418,7 @@ class WalletConnectAdapter {
     connector.on(
       'disconnect',
       this.createEventHandler((error, payload) => {
-        debugLogger.walletConnect('EVENT', 'disconnect', payload);
+        debugLogger.walletConnect.info('EVENT', 'disconnect', payload);
         this.disconnect();
       }),
     );

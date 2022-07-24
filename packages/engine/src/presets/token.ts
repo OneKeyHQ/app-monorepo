@@ -73,7 +73,6 @@ async function syncTokenList(
   // from remote
   const remoteList: Record<string, TokenList> = {};
   try {
-    console.log('get remote token list...');
     for (let i = 0; i < impls.length; i += 1) {
       const impl = impls[i];
       const response = await axios.get<TokenList>(

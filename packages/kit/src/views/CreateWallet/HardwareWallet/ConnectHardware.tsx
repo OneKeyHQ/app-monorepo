@@ -49,6 +49,8 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Wallet } from '../../../../../engine/src/types/wallet';
 import {
+  InitIframeLoadFail,
+  InitIframeTimeout,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '../../../utils/hardware/errors';
@@ -177,8 +179,8 @@ const ConnectHardwareModal: FC = () => {
 
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
+        const error = deviceUtils.convertDeviceError(response.payload);
         if (platformEnv.isNative) {
-          const error = deviceUtils.convertDeviceError(response.payload);
           if (
             !(error instanceof NeedBluetoothTurnedOn) &&
             !(error instanceof NeedBluetoothPermissions)
@@ -189,6 +191,18 @@ const ConnectHardwareModal: FC = () => {
               }),
             });
           }
+        } else if (
+          error instanceof InitIframeLoadFail ||
+          error instanceof InitIframeTimeout
+        ) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: error.key,
+              }),
+            },
+            { type: 'error' },
+          );
         }
         setIsSearching(false);
         return;

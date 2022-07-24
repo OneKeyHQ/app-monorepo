@@ -21,7 +21,6 @@ import TokenInput from './components/TokenInput';
 import TransactionRate from './components/TransactionRate';
 import {
   useSwap,
-  useSwapActionHandlers,
   useSwapEnabled,
   useSwapQuoteCallback,
   useSwapState,
@@ -42,8 +41,7 @@ const SwapContent = () => {
     independentField,
   } = useSwapState();
   const isSwapEnabled = useSwapEnabled();
-  const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
-  const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
+  const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { account, wallet, network } = useActiveWalletAccount();
   const { themeVariant } = useTheme();
 
@@ -67,18 +65,16 @@ const SwapContent = () => {
       },
     });
   }, [navigation]);
-  const onChangeInput = useCallback(
-    (value: string) => {
-      onUserInput('INPUT', value);
-    },
-    [onUserInput],
-  );
-  const onChangeOutput = useCallback(
-    (value: string) => {
-      onUserInput('OUTPUT', value);
-    },
-    [onUserInput],
-  );
+  const onChangeInput = useCallback((value: string) => {
+    backgroundApiProxy.serviceSwap.userInput('INPUT', value);
+  }, []);
+  const onChangeOutput = useCallback((value: string) => {
+    backgroundApiProxy.serviceSwap.userInput('OUTPUT', value);
+  }, []);
+
+  const onSwitchTokens = useCallback(() => {
+    backgroundApiProxy.serviceSwap.switchTokens();
+  }, []);
 
   useEffect(() => {
     backgroundApiProxy.dispatch(setQuote(undefined));

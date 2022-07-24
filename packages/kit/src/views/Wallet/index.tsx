@@ -214,7 +214,6 @@ const Home: FC = () => {
       <Tabs.Container
         initialTabName={homeTabName}
         onTabChange={({ tabName }) => {
-          // console.log('homeTab onTabChange', { index, tabName });
           backgroundApiProxy.dispatch(setHomeTabName(tabName));
         }}
         renderHeader={() => <AccountInfo />}

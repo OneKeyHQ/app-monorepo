@@ -266,3 +266,5 @@ export async function waitForDataLoaded({
     })();
   });
 }
+
+export const MAX_LOG_LENGTH = 1000;

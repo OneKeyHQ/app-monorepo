@@ -26,7 +26,10 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
-import { setReceiving } from '../../../store/reducers/swap';
+import {
+  setApprovalSubmitted,
+  setReceiving,
+} from '../../../store/reducers/swap';
 import { addTransaction } from '../../../store/reducers/swapTransactions';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import NetworkToken from '../components/NetworkToken';
@@ -38,8 +41,8 @@ import {
   useSwapState,
 } from '../hooks/useSwap';
 import { SwapQuoter } from '../quoter';
-import { FetchQuoteParams, QuoteData } from '../typings';
-import { TokenAmount, formatAmount } from '../utils';
+import { FetchQuoteParams, QuoteData, QuoterType } from '../typings';
+import { TokenAmount, formatAmount, isNoCharge } from '../utils';
 
 import { Timer } from './Timer';
 
@@ -51,7 +54,7 @@ function convertToSwapInfo(options: {
   inputAmount: TokenAmount;
   outputAmount: TokenAmount;
   account: BaseAccount;
-}) {
+}): ISwapInfo {
   const { swapQuote, quoteParams, inputAmount, outputAmount, account } =
     options;
   const {
@@ -83,6 +86,14 @@ function convertToSwapInfo(options: {
   return swapInfo;
 }
 
+const isCrosschainQuote = (data?: QuoteData): boolean => {
+  if (!data) {
+    return false;
+  }
+  const channels: QuoterType[] = [QuoterType.socket, QuoterType.swftc];
+  return data.type && channels.includes(data.type);
+};
+
 const Preview = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -90,12 +101,13 @@ const Preview = () => {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
-  const { address: receivingAddress } = useReceivingAddress();
+  const { address } = useReceivingAddress();
   const { account, network } = useActiveWalletAccount();
   const { inputToken, outputToken, inputTokenNetwork, outputTokenNetwork } =
     useSwapState();
   const { inputAmount, outputAmount, swapQuote } = useSwap();
   const params = useSwapQuoteRequestParams();
+  const receivingAddress = isCrosschainQuote(swapQuote) ? address : undefined;
 
   const onSubmit = useCallback(async () => {
     if (
@@ -121,6 +133,7 @@ const Preview = () => {
       activeNetwok: network,
       receivingAddress,
       txData: swapQuote.txData,
+      txAttachment: swapQuote.txAttachment,
     });
     if (res?.data) {
       const encodedTx: IEncodedTxEvm = {
@@ -160,10 +173,8 @@ const Preview = () => {
                       networkId: network.id,
                       quoterType: swapQuote.type,
                       nonce: data?.decodedTx?.nonce,
-                      thirdPartyOrderId: res.orderId,
-                      receivingAddress: res.orderId
-                        ? receivingAddress
-                        : undefined,
+                      attachment: res.attachment,
+                      receivingAddress,
                       tokens: {
                         rate: Number(swapQuote.instantRate),
                         from: {
@@ -180,6 +191,7 @@ const Preview = () => {
                     },
                   }),
                 );
+                backgroundApiProxy.dispatch(setApprovalSubmitted(false));
                 backgroundApiProxy.dispatch(
                   setReceiving({ address: undefined, name: undefined }),
                 );
@@ -188,12 +200,10 @@ const Preview = () => {
           },
         },
       });
-    } else if (res?.error) {
-      const msg =
-        res.error.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
-      toast.show({ title: msg });
     } else {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      const msg =
+        res?.error?.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
+      toast.show({ title: msg });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, account, network, swapQuote, addTransaction]);
@@ -308,7 +318,22 @@ const Preview = () => {
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage({ id: 'form__handling_fee' })}
             </Typography.Body2>
-            <Typography.Body2>0.875%</Typography.Body2>
+            <Typography.Body2>
+              {swapQuote && !isNoCharge(swapQuote)
+                ? '0.875%'
+                : intl.formatMessage({ id: 'content__no_charge' })}
+            </Typography.Body2>
+          </Box>
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            h="9"
+          >
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'title__channel' })}
+            </Typography.Body2>
+            <Typography.Body2>{swapQuote?.type}</Typography.Body2>
           </Box>
         </VStack>
       </Box>

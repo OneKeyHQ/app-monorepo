@@ -56,6 +56,8 @@
 	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Use Camera to scan QR Code.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Use Microphone to record videos.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to authenticate and unlock your wallet.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

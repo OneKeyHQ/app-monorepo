@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useAccountTokensBalance,
@@ -12,18 +10,7 @@ import {
   useAppSelector,
   useDebounce,
 } from '../../../hooks';
-import {
-  refresh,
-  reset,
-  setError,
-  setInputToken,
-  setLoading,
-  setOutputToken,
-  setQuote,
-  setSelectedNetworkId,
-  setTypedValue,
-  switchTokens,
-} from '../../../store/reducers/swap';
+import { setError, setLoading, setQuote } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
 import { networkRecords } from '../config';
 import { SwapQuoter } from '../quoter';
@@ -81,50 +68,6 @@ export function useSwapEnabled() {
 
 export function useSwapState() {
   return useAppSelector((s) => s.swap);
-}
-
-export function useSwapActionHandlers() {
-  const onRefresh = useCallback(() => {
-    backgroundApiProxy.dispatch(refresh());
-  }, []);
-  const onSwitchTokens = useCallback(() => {
-    backgroundApiProxy.dispatch(switchTokens());
-    backgroundApiProxy.dispatch(setQuote(undefined));
-  }, []);
-  const onUserInput = useCallback(
-    (independentField: 'INPUT' | 'OUTPUT', typedValue: string) => {
-      backgroundApiProxy.dispatch(
-        setTypedValue({ independentField, typedValue }),
-      );
-    },
-    [],
-  );
-  const onSelectToken = useCallback(
-    (token: Token, typedField: 'INPUT' | 'OUTPUT', network?: Network) => {
-      if (typedField === 'INPUT') {
-        backgroundApiProxy.dispatch(setInputToken({ token, network }));
-      } else {
-        backgroundApiProxy.dispatch(setOutputToken({ token, network }));
-      }
-    },
-    [],
-  );
-  const onReset = useCallback(() => {
-    backgroundApiProxy.dispatch(reset());
-  }, []);
-
-  const onSelectNetworkId = useCallback((networkId?: string) => {
-    backgroundApiProxy.dispatch(setSelectedNetworkId(networkId));
-  }, []);
-
-  return {
-    onUserInput,
-    onSelectToken,
-    onSwitchTokens,
-    onRefresh,
-    onReset,
-    onSelectNetworkId,
-  };
 }
 
 export function useTokenBalance(
@@ -206,25 +149,26 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
 }
 
 export const useSwapQuoteCallback = function (
-  options: { silent: boolean } = { silent: true },
+  options: { showLoading: boolean } = { showLoading: false },
 ) {
-  const { silent } = options;
+  const { showLoading } = options;
   const requestParams = useSwapQuoteRequestParams();
   const { accountId, networkId } = useActiveWalletAccount();
-  const refs = useRef({ accountId, networkId, loading: false });
   const params = useDebounce(requestParams, 500);
+  const refs = useRef({ accountId, networkId, params, loading: false });
 
   useEffect(() => {
     refs.current.accountId = accountId;
     refs.current.networkId = networkId;
-  }, [accountId, networkId]);
+    refs.current.params = params;
+  }, [accountId, networkId, params]);
 
   const onSwapQuote = useCallback(async () => {
     if (!params) {
       backgroundApiProxy.dispatch(setQuote(undefined));
       return;
     }
-    if (!silent) {
+    if (showLoading) {
       backgroundApiProxy.dispatch(setLoading(true));
     }
     backgroundApiProxy.dispatch(setError(undefined));
@@ -234,11 +178,13 @@ export const useSwapQuoteCallback = function (
     try {
       refs.current.accountId = accountId;
       refs.current.networkId = networkId;
+      refs.current.params = params;
       refs.current.loading = true;
       const data = await SwapQuoter.client.fetchQuote(params);
       if (
         refs.current.accountId === accountId &&
-        refs.current.networkId === networkId
+        refs.current.networkId === networkId &&
+        refs.current.params === params
       ) {
         if (data) {
           backgroundApiProxy.dispatch(setQuote(data));
@@ -250,11 +196,9 @@ export const useSwapQuoteCallback = function (
       backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
     } finally {
       refs.current.loading = false;
-      if (!silent) {
-        backgroundApiProxy.dispatch(setLoading(false));
-      }
+      backgroundApiProxy.dispatch(setLoading(false));
     }
-  }, [params, silent, accountId, networkId]);
+  }, [params, showLoading, accountId, networkId]);
   return onSwapQuote;
 };
 

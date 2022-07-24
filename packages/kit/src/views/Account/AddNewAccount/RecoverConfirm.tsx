@@ -84,8 +84,8 @@ const RecoverConfirm: FC = () => {
       onLoadingAccount?.(walletId, network, true);
     }
 
-    if (navigation.canGoBack()) {
-      navigation.getParent()?.goBack?.();
+    if (navigation?.canGoBack?.()) {
+      navigation?.getParent?.()?.goBack?.();
     }
   };
   const selectAllHandle = () => {

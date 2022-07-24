@@ -38,16 +38,12 @@ require('react-native-get-random-values');
 require('@ethersproject/shims');
 
 if (platformEnv.isNativeAndroid) {
-  // const consoleLog = console.log;
   const shimConsoleLog = (method) => {
     const originMethod = console[method];
     if (!originMethod) {
       return;
     }
     console[method] = (...args) => {
-      if (process.env.NODE_ENV !== 'production') {
-        // consoleLog(`android console.${method} shim`);
-      }
       args.forEach((item) => {
         if (item instanceof Error) {
           // sometimes error.stack cause Android hermes engine crash

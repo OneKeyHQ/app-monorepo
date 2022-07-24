@@ -67,7 +67,7 @@ const Protected: FC<ProtectedProps> = ({
   }, []);
 
   const safeGoBack = useCallback(() => {
-    if (navigation.canGoBack()) {
+    if (navigation?.canGoBack?.()) {
       navigation.goBack();
     }
   }, [navigation]);
@@ -175,6 +175,7 @@ const Protected: FC<ProtectedProps> = ({
         return;
       }
 
+      await serviceHardware.syncDeviceLabel(features, walletDetail.id);
       // device connect success
       setDeviceFeatures(features);
     }

@@ -1,5 +1,4 @@
 import { ipcRenderer } from 'electron';
-import logger from 'electron-log';
 import keytar from 'keytar';
 
 export type PrefType = 'camera' | 'bluetooth' | 'location';

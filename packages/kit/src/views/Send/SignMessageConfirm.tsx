@@ -53,7 +53,7 @@ const SignMessageConfirm = () => {
   });
 
   useEffect(() => {
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'SignMessageConfirm  >>>>  ',
       unsignedMessage,
       route.params,
@@ -65,7 +65,7 @@ const SignMessageConfirm = () => {
     async (options) => {
       const { close } = options;
       const msg = options.unsignedMessage;
-      console.log(msg);
+
       return navigation.navigate(SendRoutes.SendAuthentication, {
         ...route.params,
         unsignedMessage: msg,
