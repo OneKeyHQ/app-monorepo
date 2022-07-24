@@ -89,7 +89,9 @@ class ServiceHardware extends ServiceBase {
           }, 0);
         });
         instance.on('LOG_EVENT', (messages: CoreMessage) => {
-          debugLogger.hardwareSDK.info(messages);
+          if (Array.isArray(messages?.payload)) {
+            debugLogger.hardwareSDK.info(messages.payload);
+          }
         });
       }
       return instance;

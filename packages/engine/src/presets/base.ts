@@ -14,7 +14,7 @@ function parseVersion(ver: string): Version {
   return v;
 }
 
-function fmtVersion(ver: Version): string {
+export function fmtVersion(ver: Version): string {
   return `${ver.major}.${ver.minor}.${ver.patch}`;
 }
 
