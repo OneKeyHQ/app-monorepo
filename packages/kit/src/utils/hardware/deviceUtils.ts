@@ -9,6 +9,7 @@ import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import * as Error from './errors';
@@ -147,7 +148,11 @@ class DeviceUtils {
       return this.caputureErrorByMessage(msg) as Error.BridgeNetworkError;
     }
 
-    console.log('Device Utils Convert Device Error:', code, msg);
+    debugLogger.hardwareSDK.info(
+      'Device Utils Convert Device Error:',
+      code,
+      msg,
+    );
 
     switch (code) {
       case HardwareErrorCode.UnknownError:

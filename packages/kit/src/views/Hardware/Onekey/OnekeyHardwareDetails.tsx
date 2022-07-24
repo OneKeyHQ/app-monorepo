@@ -82,7 +82,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         setDeviceConnectId(device?.mac);
         setDeviceId(device?.deviceId);
       } catch (err: any) {
-        if (navigation.canGoBack()) {
+        if (navigation?.canGoBack?.()) {
           navigation.goBack();
         }
 
@@ -126,7 +126,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                   params: {
                     walletId,
                     onSuccess: () => {
-                      if (navigation.canGoBack()) {
+                      if (navigation?.canGoBack?.()) {
                         navigation.goBack();
                       }
                     },

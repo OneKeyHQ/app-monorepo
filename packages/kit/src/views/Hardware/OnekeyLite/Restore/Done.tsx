@@ -87,7 +87,7 @@ const OnekeyLiteRestoreDoneView: FC = () => {
             mnemonic={mnemonic}
             withEnableAuthentication={withEnableAuthentication}
             onSuccess={() => {
-              if (navigation.canGoBack()) {
+              if (navigation?.canGoBack?.()) {
                 navigation.goBack();
               }
               onSuccess?.();

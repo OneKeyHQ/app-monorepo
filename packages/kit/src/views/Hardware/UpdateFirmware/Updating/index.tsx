@@ -269,8 +269,6 @@ const UpdatingModal: FC = () => {
   };
 
   const executeStep = () => {
-    console.log('UpdatingModal executeStep', progressStep);
-
     switch (progressStep) {
       case 'pre-check':
         setMaxProgress(5);
@@ -503,14 +501,14 @@ const UpdatingModal: FC = () => {
         if (hasStepDone) {
           onSuccess?.();
         }
-        if (navigation.canGoBack()) navigation.getParent()?.goBack();
+        if (navigation?.canGoBack?.()) navigation.getParent()?.goBack();
       }}
       onSecondaryActionPress={() => {
         navigation.goBack();
       }}
       onPrimaryActionPress={() => {
         if (hasStepDone) {
-          if (navigation.canGoBack()) navigation.getParent()?.goBack();
+          if (navigation?.canGoBack?.()) navigation.getParent()?.goBack();
           onSuccess?.();
         } else if (stateViewInfo?.content?.nextState) {
           setStateViewInfo(stateViewInfo.content.nextState);

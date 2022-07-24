@@ -16,11 +16,11 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean } = {}) {
     }
     const parent = navigation.getParent();
     // parent is undefined in global.$navigationRef
-    if (parent?.canGoBack()) {
+    if (parent?.canGoBack?.()) {
       parent?.goBack();
       return;
     }
-    if (navigation?.canGoBack()) {
+    if (navigation?.canGoBack?.()) {
       navigation?.goBack();
       return;
     }
