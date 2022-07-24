@@ -1,4 +1,3 @@
-import { LOG_EVENT } from '@onekeyfe/hd-core';
 import memoizee from 'memoizee';
 
 import {
@@ -9,7 +8,7 @@ import store from '@onekeyhq/kit/src/store';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { ConnectSettings, CoreApi, CoreMessage } from '@onekeyfe/hd-core';
+import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
 
 // eslint-disable-next-line import/no-mutable-exports
 let HardwareSDK: CoreApi;
@@ -25,7 +24,7 @@ export const getHardwareSDKInstance = memoizee(
       }
 
       const settings: Partial<ConnectSettings> = {
-        debug: !!platformEnv.isNative,
+        debug: platformEnv.isDev && platformEnv.isNative,
       };
 
       if (platformEnv.isNative) {
@@ -41,11 +40,6 @@ export const getHardwareSDKInstance = memoizee(
       }
 
       try {
-        HardwareSDK.on(LOG_EVENT, (messages: CoreMessage) => {
-          if (Array.isArray(messages?.payload)) {
-            debugLogger.hardwareSDK.info(messages.payload.join(' '));
-          }
-        });
         await HardwareSDK.init(settings);
         debugLogger.hardwareSDK.info('HardwareSDK initialized success');
         initialized = true;

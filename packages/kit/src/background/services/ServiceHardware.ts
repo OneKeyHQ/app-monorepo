@@ -1,7 +1,9 @@
 import {
   CoreApi,
+  CoreMessage,
   DeviceSettingsParams,
   IDeviceType,
+  LOG_EVENT,
   UiResponseEvent,
   getDeviceType,
 } from '@onekeyfe/hd-core';
@@ -86,6 +88,12 @@ class ServiceHardware extends ServiceBase {
               }),
             );
           }, 0);
+        });
+
+        instance.on(LOG_EVENT, (messages: CoreMessage) => {
+          if (Array.isArray(messages?.payload)) {
+            debugLogger.hardwareSDK.info(messages.payload.join(' '));
+          }
         });
       }
       return instance;
