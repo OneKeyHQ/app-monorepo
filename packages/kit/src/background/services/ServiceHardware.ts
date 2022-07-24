@@ -3,6 +3,7 @@ import {
   CoreMessage,
   DeviceSettingsParams,
   IDeviceType,
+  LOG_EVENT,
   UiResponseEvent,
   getDeviceType,
 } from '@onekeyfe/hd-core';
@@ -88,9 +89,9 @@ class ServiceHardware extends ServiceBase {
             );
           }, 0);
         });
-        instance.on('LOG_EVENT', (messages: CoreMessage) => {
+        instance.on(LOG_EVENT, (messages: CoreMessage) => {
           if (Array.isArray(messages?.payload)) {
-            debugLogger.hardwareSDK.info(messages.payload);
+            debugLogger.hardwareSDK.info(messages.payload.join(' '));
           }
         });
       }
@@ -190,6 +191,7 @@ class ServiceHardware extends ServiceBase {
 
     const checkBridge = await this.checkBridge();
     if (typeof checkBridge === 'boolean' && !checkBridge) {
+      debugLogger.hardwareSDK.debug('need install bridge.');
       return Promise.reject(new NeedOneKeyBridge());
     }
     if (checkBridge instanceof BridgeTimeoutError) {
@@ -197,8 +199,12 @@ class ServiceHardware extends ServiceBase {
         ? new BridgeTimeoutErrorForDesktop()
         : checkBridge;
       if (platformEnv.isDesktop) {
+        debugLogger.hardwareSDK.debug(
+          'desktop bridge timeout, restart desktop bridge.',
+        );
         window.desktopApi.reloadBridgeProcess();
       }
+      debugLogger.hardwareSDK.debug('check bridge timeout.');
       // checkBridge should be an error
       return Promise.reject(error);
     }
