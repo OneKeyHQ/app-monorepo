@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useMemo } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
 import Modal from 'react-native-modal';
@@ -15,6 +15,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import RequestConfirmView from './RequestConfirm';
 import RequestPinView from './RequestPin';
+
+export type PopupType = 'normal' | 'input';
 
 export const CUSTOM_UI_RESPONSE = {
   // monorepo custom
@@ -49,86 +51,103 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
   const { uiRequest, payload } = hardwarePopup;
   const uiRequestMemo = useDeepCompareMemo(() => uiRequest, [uiRequest]);
 
-  const popupView = useMemo(() => {
-    const { dispatch, serviceHardware } = backgroundApiProxy;
+  const [popupType, setPopupType] = useState<PopupType>();
 
-    const handleCancelPopup = () => {
-      dispatch(closeHardwarePopup());
+  const [popupView, setPopupView] = useState<JSX.Element>();
 
-      try {
-        const connectId = payload?.deviceConnectId ?? '';
-        // Cancel the process
-        serviceHardware.cancel(connectId);
-        // Refresh the hardware screen
-        serviceHardware.getFeatures(connectId);
-      } catch (e) {
-        // TODO Collect the error
+  useEffect(() => {
+    (async () => {
+      // reset popup type
+      setPopupType('normal');
+
+      const { dispatch, engine, serviceHardware } = backgroundApiProxy;
+
+      const handleCancelPopup = () => {
+        dispatch(closeHardwarePopup());
+
+        try {
+          const connectId = payload?.deviceConnectId ?? '';
+          // Cancel the process
+          serviceHardware.cancel(connectId);
+          // Refresh the hardware screen
+          serviceHardware.getFeatures(connectId);
+        } catch (e) {
+          // TODO Collect the error
+        }
+      };
+
+      if (uiRequestMemo === UI_REQUEST.REQUEST_PIN) {
+        const deviceType = payload?.deviceType ?? 'classic';
+
+        let onDeviceInputPin = true;
+        if (payload?.deviceId) {
+          const device = await engine.getHWDeviceByDeviceId(payload?.deviceId);
+          onDeviceInputPin = device?.payload?.onDeviceInputPin ?? true;
+        }
+        setPopupType(onDeviceInputPin ? 'normal' : 'input');
+
+        return setPopupView(
+          <RequestPinView
+            deviceType={deviceType}
+            onDeviceInput={onDeviceInputPin}
+            onCancel={() => {
+              handleCancelPopup();
+            }}
+            onConfirm={(pin) => {
+              serviceHardware?.sendUiResponse({
+                type: UI_RESPONSE.RECEIVE_PIN,
+                payload: pin,
+              });
+              dispatch(closeHardwarePopup());
+            }}
+            onDeviceInputChange={(onDeviceInput) => {
+              setPopupType(onDeviceInput ? 'normal' : 'input');
+              if (!onDeviceInput) return;
+
+              serviceHardware.sendUiResponse({
+                type: UI_RESPONSE.RECEIVE_PIN,
+                payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+              });
+            }}
+          />,
+        );
       }
-    };
 
-    if (uiRequestMemo === UI_REQUEST.REQUEST_PIN) {
-      const deviceType = payload?.deviceType ?? 'classic';
-      const onDeviceInput = true;
-      if (onDeviceInput) {
-        serviceHardware.sendUiResponse({
-          type: UI_RESPONSE.RECEIVE_PIN,
-          payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
-        });
+      if (uiRequestMemo === UI_REQUEST.REQUEST_BUTTON) {
+        const deviceType = payload?.deviceType ?? 'classic';
+
+        return setPopupView(
+          <RequestConfirmView
+            deviceType={deviceType}
+            bootLoader={payload?.deviceBootLoaderMode}
+            onCancel={() => {
+              handleCancelPopup();
+            }}
+          />,
+        );
       }
 
-      return (
-        <RequestPinView
-          deviceType={deviceType}
-          onDeviceInput={onDeviceInput}
-          onCancel={() => {
-            handleCancelPopup();
-          }}
-          onConfirm={(pin) => {
-            serviceHardware?.sendUiResponse({
-              type: UI_RESPONSE.RECEIVE_PIN,
-              payload: pin,
-            });
-          }}
-        />
-      );
-    }
+      if (
+        uiRequestMemo !== UI_REQUEST.LOCATION_PERMISSION &&
+        uiRequestMemo !== UI_REQUEST.BLUETOOTH_PERMISSION
+      ) {
+        dispatch(closeHardwarePopup());
+      }
 
-    if (uiRequestMemo === UI_REQUEST.REQUEST_BUTTON) {
-      const deviceType = payload?.deviceType ?? 'classic';
-
-      return (
-        <RequestConfirmView
-          deviceType={deviceType}
-          bootLoader={payload?.deviceBootLoaderMode}
-          onCancel={() => {
-            handleCancelPopup();
-          }}
-        />
-      );
-    }
-
-    if (
-      uiRequestMemo !== UI_REQUEST.LOCATION_PERMISSION &&
-      uiRequestMemo !== UI_REQUEST.BLUETOOTH_PERMISSION
-    ) {
-      dispatch(closeHardwarePopup());
-    }
-
-    return null;
-  }, [
-    payload?.deviceBootLoaderMode,
-    payload?.deviceConnectId,
-    payload?.deviceType,
-    uiRequestMemo,
-  ]);
+      return setPopupView(undefined);
+    })();
+  }, [payload, uiRequestMemo]);
 
   if (!popupView) return null;
+
+  const nativeInputContentAlign = platformEnv.isNative ? 'flex-end' : 'center';
+  const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
   return (
     <Modal
       backdropColor="overlay"
-      animationOut="fadeOutDown"
-      animationIn="fadeInDown"
+      animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
+      animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
       animationOutTiming={300}
       backdropTransitionOutTiming={0}
       coverScreen
@@ -136,9 +155,12 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
       hideModalContentWhileAnimating
       isVisible={!!popupView}
       style={{
-        justifyContent: 'flex-start',
+        justifyContent:
+          popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
         alignItems: 'center',
-        top: platformEnv.isNativeIOS ? 16 : 10,
+        padding: 0,
+        margin: 0,
+        top: popupType === 'normal' ? modalTop : 0,
       }}
     >
       {popupView}

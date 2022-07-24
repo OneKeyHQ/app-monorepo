@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -87,6 +88,8 @@ async function prepareSendConfirmEncodedTx({
     if (sendConfirmParams.sourceInfo) {
       tx = removeFeeInfoInTx(tx);
     }
+    // Ensure IEncodedTxEvm's value is hex string.
+    tx.value = `0x${new BigNumber(tx.value).toString(16)}`;
     return Promise.resolve(tx);
   }
   return Promise.resolve(encodedTx);

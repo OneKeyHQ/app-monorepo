@@ -91,10 +91,10 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
 
   const isAutoConfirmed = useRef(false);
 
-  const balanceInsufficient = useMemo(() => {
-    console.log('SendConfirmModal nativeBalance >>>> ', nativeBalance);
-    return new BigNumber(nativeBalance).lt(new BigNumber(fee));
-  }, [fee, nativeBalance]);
+  const balanceInsufficient = useMemo(
+    () => new BigNumber(nativeBalance).lt(new BigNumber(fee)),
+    [fee, nativeBalance],
+  );
 
   const isWatchingAccount = useMemo(
     () => !!(accountId && accountId.startsWith('watching-')),

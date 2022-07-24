@@ -3,7 +3,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import { SwapError, SwapQuote } from '../../views/Swap/typings';
+import { QuoteData, SwapError } from '../../views/Swap/typings';
 
 type SwapState = {
   inputTokenNetwork?: Network | null;
@@ -13,7 +13,7 @@ type SwapState = {
   typedValue: string;
   independentField: 'INPUT' | 'OUTPUT';
   refreshRef: number;
-  quote?: SwapQuote;
+  quote?: QuoteData;
   quoteTime?: number;
   loading: boolean;
   error?: SwapError;
@@ -21,7 +21,7 @@ type SwapState = {
   receivingAddress?: string;
   receivingName?: string;
   swftcSupportedTokens: Record<string, string[]>;
-  noSupportCoins: Record<string, Record<string, Record<string, string[]>>>;
+  approvalSubmitted?: boolean;
 };
 
 const initialState: SwapState = {
@@ -32,7 +32,6 @@ const initialState: SwapState = {
   refreshRef: 0,
   loading: false,
   swftcSupportedTokens: {},
-  noSupportCoins: {},
 };
 
 export const swapSlice = createSlice({
@@ -73,8 +72,9 @@ export const swapSlice = createSlice({
       const network = state.inputTokenNetwork;
       state.inputTokenNetwork = state.outputTokenNetwork;
       state.outputTokenNetwork = network;
+      state.approvalSubmitted = false;
     },
-    reset(state) {
+    resetState(state) {
       state.inputToken = undefined;
       state.inputTokenNetwork = undefined;
       state.outputToken = undefined;
@@ -91,7 +91,7 @@ export const swapSlice = createSlice({
     refresh(state) {
       state.refreshRef += 1;
     },
-    setQuote(state, action: PayloadAction<SwapQuote | undefined>) {
+    setQuote(state, action: PayloadAction<QuoteData | undefined>) {
       state.quote = action.payload;
       if (action.payload) {
         state.quoteTime = Date.now();
@@ -121,13 +121,8 @@ export const swapSlice = createSlice({
     ) {
       state.swftcSupportedTokens = action.payload;
     },
-    setNoSupportCoins(
-      state,
-      action: PayloadAction<
-        Record<string, Record<string, Record<string, string[]>>>
-      >,
-    ) {
-      state.noSupportCoins = action.payload;
+    setApprovalSubmitted(state, action: PayloadAction<boolean>) {
+      state.approvalSubmitted = action.payload;
     },
   },
 });
@@ -137,7 +132,7 @@ export const {
   setInputToken,
   setOutputToken,
   switchTokens,
-  reset,
+  resetState,
   refresh,
   setQuote,
   setLoading,
@@ -145,7 +140,7 @@ export const {
   setSelectedNetworkId,
   setReceiving,
   setSwftcSupportedTokens,
-  setNoSupportCoins,
+  setApprovalSubmitted,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

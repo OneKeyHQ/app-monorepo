@@ -14,7 +14,7 @@ function parseVersion(ver: string): Version {
   return v;
 }
 
-function fmtVersion(ver: Version): string {
+export function fmtVersion(ver: Version): string {
   return `${ver.major}.${ver.minor}.${ver.patch}`;
 }
 
@@ -34,11 +34,7 @@ function cmpVersion(v1: Version, v2: Version): number {
 
 async function checkVersion(uri: string, ver: Version): Promise<string> {
   try {
-    console.log(`try to check version of ${uri}`);
     const response = await axios.get<string>(uri);
-    console.log(
-      `check version of ${uri}, ${fmtVersion(ver)} vs ${response.data}`,
-    );
     if (cmpVersion(ver, parseVersion(response.data)) === -1) {
       return response.data;
     }

@@ -51,7 +51,6 @@ function injectDevToolsButton() {
   let startLeft = 0;
   let startTop = 0;
   devToolsButton.addEventListener('dragstart', (event) => {
-    console.log('dragstart event', event);
     const { pageX, pageY } = event;
     startX = pageX;
     startY = pageY;
@@ -61,7 +60,6 @@ function injectDevToolsButton() {
   // dragover dragend
   devToolsButton.addEventListener('dragend', (event) => {
     event.preventDefault();
-    console.log('dragend event', event);
     const { pageX, pageY } = event;
     devToolsButton.style.left = `${startLeft + (pageX - startX)}px`;
     devToolsButton.style.top = `${startTop + (pageY - startY)}px`;

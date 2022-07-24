@@ -18,6 +18,7 @@ import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
+import HardwareHomescreen from '@onekeyhq/kit/src/views/Components/stories/HardwareHomescreen';
 import HeaderTabViewContainerGallery from '@onekeyhq/kit/src/views/Components/stories/HeaderTabViewContainer';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons';
@@ -110,6 +111,7 @@ export enum StackRoutes {
   ComponentPriceChart = 'component/PriceChart',
   ComponentTypeWriter = 'component/TypeWriter',
   ComponentOnboarding = 'component/Onboarding',
+  ComponentHomescreen = 'component/homescreen',
 }
 
 export type StackBasicRoutesParams = {
@@ -166,6 +168,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentPriceChart]: undefined;
   [StackRoutes.ComponentTypeWriter]: undefined;
   [StackRoutes.ComponentOnboarding]: undefined;
+  [StackRoutes.ComponentHomescreen]: undefined;
 };
 
 export const stackScreenList = [
@@ -242,6 +245,7 @@ export const stackScreenList = [
   },
   { name: StackRoutes.ComponentPriceChart, component: PriceChart },
   { name: StackRoutes.ComponentTypeWriter, component: TypeWriter },
+  { name: StackRoutes.ComponentHomescreen, component: HardwareHomescreen },
 ];
 
 const DevStack = createNativeStackNavigator();

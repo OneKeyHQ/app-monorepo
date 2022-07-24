@@ -9,7 +9,6 @@ import {
   JsBridgeDesktopHost,
 } from '@onekeyfe/onekey-cross-webview';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../utils/extUtils';
@@ -80,7 +79,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   ) {
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
-    const debugLoggerSettings = (await debugLogger?.debug?.load?.()) ?? '';
+    const debugLoggerSettings = '';
     const ethereum = this.backgroundApi.providers
       .ethereum as ProviderApiEthereum;
     return {

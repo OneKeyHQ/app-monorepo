@@ -1,5 +1,6 @@
 import RNRestart from 'react-native-restart';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -23,7 +24,7 @@ import {
   hasHardwareSupported,
 } from '../../utils/localAuthentication';
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { delay } from '../utils';
+import { MAX_LOG_LENGTH, delay } from '../utils';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
@@ -32,21 +33,38 @@ class ServiceApp extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
     if (platformEnv.isExtensionBackground) {
+      this.initApp();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
     // TODO recheck last reset status and resetApp here
-    console.log('TODO: recheck last reset status and resetApp here 22222');
+  }
+
+  logger: string[] = [];
+
+  @backgroundMethod()
+  async getLoggerInstance() {
+    return Promise.resolve(this.logger);
+  }
+
+  @backgroundMethod()
+  async addLogger(message: string) {
+    if (this.logger.length >= MAX_LOG_LENGTH) {
+      this.logger.shift();
+    }
+    this.logger.push(message);
+    return Promise.resolve(true);
   }
 
   @backgroundMethod()
   async checkLockStatus(offset = 0) {
     const { appSelector, engine } = this.backgroundApi;
-    const lastActivity = appSelector((s) => s.status.lastActivity);
+
     const enableAppLock = appSelector((s) => s.settings.enableAppLock);
     const appLockDuration = appSelector(
       (s) => s.settings.appLockDuration,
     ) as number;
 
+    const lastActivity = await simpleDb.lastActivity.getValue();
     const isPasswordSet = await engine.isMasterPasswordSet();
     const prerequisites = isPasswordSet && enableAppLock;
     if (!prerequisites) return;
@@ -56,6 +74,11 @@ class ServiceApp extends ServiceBase {
     if (isStale) {
       this.lock();
     }
+  }
+
+  @backgroundMethod()
+  async refreshLastActivity() {
+    return simpleDb.lastActivity.setValue(Date.now());
   }
 
   isUnlock(): boolean {

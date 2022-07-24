@@ -152,12 +152,7 @@ export const SettingsWebViews: FC = () => {
 
   return (
     <Box flex="1">
-      <WebView
-        src={currentUrl}
-        onSrcChange={(res) => {
-          console.log('onSrcChange', res);
-        }}
-      />
+      <WebView src={currentUrl} />
     </Box>
   );
 };

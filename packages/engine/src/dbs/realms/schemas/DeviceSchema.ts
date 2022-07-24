@@ -1,6 +1,6 @@
 import Realm from 'realm';
 
-import { Device } from '../../../types/device';
+import { DBDevice } from '../../../types/device';
 
 class DeviceSchema extends Realm.Object {
   /**
@@ -39,6 +39,11 @@ class DeviceSchema extends Realm.Object {
   public deviceType!: string;
 
   /**
+   * device config
+   */
+  public payloadJson!: string;
+
+  /**
    * timestamp of the device bonded with the host device.
    */
   public createdAt!: number;
@@ -59,12 +64,13 @@ class DeviceSchema extends Realm.Object {
       deviceId: 'string',
       deviceType: 'string',
       features: 'string',
+      payloadJson: 'string',
       createdAt: 'int',
       updatedAt: 'int',
     },
   };
 
-  get internalObj(): Device {
+  get internalObj(): DBDevice {
     return {
       id: this.id,
       name: this.name,
@@ -73,6 +79,7 @@ class DeviceSchema extends Realm.Object {
       deviceId: this.deviceId,
       deviceType: this.deviceType,
       features: this.features,
+      payloadJson: this.payloadJson,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

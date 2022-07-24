@@ -8,6 +8,7 @@ import HelpSelector from '../Help/HelpSelector';
 import { AboutSection } from './AboutSection';
 import { DefaultSection } from './DefaultSection';
 import { DevSettingSection } from './DevSetting';
+import { FooterAction } from './FooterSection';
 import { GenaralSection } from './GenaralSection';
 import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
@@ -24,8 +25,9 @@ export const Me = () => {
           <DefaultSection />
           <GenaralSection />
           <SecuritySection />
-          {devModeEnable ? <DevSettingSection /> : null}
           <AboutSection />
+          <FooterAction />
+          {devModeEnable ? <DevSettingSection /> : null}
         </Box>
       </ScrollView>
       <Box

@@ -148,7 +148,14 @@ const Provider: FC<UIProviderProps> = ({
           animated
         />
         <IntlProvider locale={locale} messages={LOCALES[locale]}>
-          <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>
+          <NativeBaseProvider
+            config={{
+              suppressColorAccessibilityWarning: true,
+            }}
+            theme={themeVar}
+          >
+            {children}
+          </NativeBaseProvider>
         </IntlProvider>
       </Context.Provider>
     </FontProvider>

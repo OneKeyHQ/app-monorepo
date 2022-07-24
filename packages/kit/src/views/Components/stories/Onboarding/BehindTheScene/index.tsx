@@ -1,6 +1,11 @@
 import React, { FC, useState } from 'react';
 
-import { TypeWriter } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  TypeWriter,
+  PresenceTransition,
+} from '@onekeyhq/components';
 
 import Layout from '../Layout';
 
@@ -22,6 +27,7 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
   const [processFourTypingEnd, setIsProcessFourTypingEnd] = useState(false);
   const [processFourDone, setIsProcessFourDone] = useState(false);
   const [allTypingEnd, setIsAllTypingEnd] = useState(false);
+  const [showLastAction, setIsShowLastAction] = useState(false);
 
   const handleProcessOneTypingEnd = () => {
     setIsProcessOneTypingEnd(true);
@@ -57,60 +63,89 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
 
   const handleAllTypingEnd = () => {
     setIsAllTypingEnd(true);
+
+    setTimeout(() => {
+      setIsShowLastAction(true);
+    }, 300);
   };
 
   return (
     <>
-      <Layout visible={visible} backButton={false}>
-        <TypeWriter onTypingEnd={handleProcessOneTypingEnd} pending={false}>
-          <TypeWriter.NormalText fadeOut={processOneDone}>
-            Creating your <TypeWriter.Highlight>wallet</TypeWriter.Highlight>
-          </TypeWriter.NormalText>
-        </TypeWriter>
-        {processOneTypingEnd ? (
+      <Layout
+        visible={visible}
+        backButton={false}
+        fullHeight
+        // secondaryContent={
+        //   showLastAction ? (
+        //     <PresenceTransition
+        //       as={Box}
+        //       mt="auto"
+        //       alignSelf={{ base: 'stretch', sm: 'flex-start' }}
+        //       visible={showLastAction}
+        //       initial={{ opacity: 0, scale: 0.95 }}
+        //       animate={{ opacity: 1, scale: 1, transition: { duration: 150 } }}
+        //     >
+        //       <Button type="primary" size="xl">
+        //         Let's go
+        //       </Button>
+        //     </PresenceTransition>
+        //   ) : undefined
+        // }
+      >
+        <Box minH={{ base: 480, sm: 320 }} justifyContent="flex-end">
           <TypeWriter
-            pending={!processOneDone}
-            onTypingEnd={handleProcessTwoTypingEnd}
+            onTypingEnd={handleProcessOneTypingEnd}
+            isPending={false}
+            fadeOut={processOneDone}
           >
-            <TypeWriter.NormalText fadeOut={processTwoDone}>
-              Generating your{' '}
+            <TypeWriter.NormalText>Creating your</TypeWriter.NormalText>{' '}
+            <TypeWriter.Highlight>wallet</TypeWriter.Highlight>
+          </TypeWriter>
+          {processOneTypingEnd ? (
+            <TypeWriter
+              isPending={!processOneDone}
+              onTypingEnd={handleProcessTwoTypingEnd}
+              fadeOut={processTwoDone}
+            >
+              <TypeWriter.NormalText>Generating your</TypeWriter.NormalText>{' '}
               <TypeWriter.Highlight>accounts</TypeWriter.Highlight>
-            </TypeWriter.NormalText>
-          </TypeWriter>
-        ) : undefined}
-        {processTwoTypingEnd ? (
-          <TypeWriter
-            pending={!processTwoDone}
-            onTypingEnd={handleProcessThreeTypingEnd}
-          >
-            <TypeWriter.NormalText fadeOut={processThreeDone}>
-              Verifying your <TypeWriter.Highlight>key</TypeWriter.Highlight>
-            </TypeWriter.NormalText>
-          </TypeWriter>
-        ) : undefined}
-        {processThreeTypingEnd ? (
-          <TypeWriter
-            pending={!processThreeDone}
-            onTypingEnd={handleProcessFourTypingEnd}
-          >
-            <TypeWriter.NormalText fadeOut={processFourDone}>
-              Backing up to <TypeWriter.Highlight>iCloud</TypeWriter.Highlight>
-            </TypeWriter.NormalText>
-          </TypeWriter>
-        ) : undefined}
-        {processFourTypingEnd ? (
-          <TypeWriter
-            pending={!processFourDone}
-            onTypingEnd={handleAllTypingEnd}
-          >
-            <TypeWriter.Highlight>
-              Your wallet is now ready. 🚀
-            </TypeWriter.Highlight>
-          </TypeWriter>
-        ) : undefined}
-        {allTypingEnd && <TypeWriter />}
+            </TypeWriter>
+          ) : undefined}
+          {processTwoTypingEnd ? (
+            <TypeWriter
+              isPending={!processTwoDone}
+              fadeOut={processThreeDone}
+              onTypingEnd={handleProcessThreeTypingEnd}
+            >
+              <TypeWriter.NormalText>Verifying your</TypeWriter.NormalText>{' '}
+              <TypeWriter.Highlight>key</TypeWriter.Highlight>
+            </TypeWriter>
+          ) : undefined}
+          {processThreeTypingEnd ? (
+            <TypeWriter
+              isPending={!processThreeDone}
+              fadeOut={processFourDone}
+              onTypingEnd={handleProcessFourTypingEnd}
+            >
+              <TypeWriter.NormalText>Backing up to</TypeWriter.NormalText>{' '}
+              <TypeWriter.Highlight>iCloud</TypeWriter.Highlight>
+            </TypeWriter>
+          ) : undefined}
+          {processFourTypingEnd ? (
+            <TypeWriter
+              isPending={!processFourDone}
+              onTypingEnd={handleAllTypingEnd}
+            >
+              <TypeWriter.NormalText>
+                Your wallet is now{' '}
+                <TypeWriter.Highlight>ready</TypeWriter.Highlight>. 🚀
+              </TypeWriter.NormalText>
+            </TypeWriter>
+          ) : undefined}
+          {allTypingEnd ? <TypeWriter /> : undefined}
+        </Box>
       </Layout>
-      <PinPanel />
+      {/* {showLastAction ? <PinPanel visible={showLastAction} /> : undefined} */}
     </>
   );
 };

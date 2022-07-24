@@ -90,11 +90,12 @@ const OnboardingGallery = () => {
     <ScrollView
       flex={1}
       _contentContainerStyle={{
-        flex: {
-          base:
-            isShowRecoveryPhraseView || isRecoveryPhraseView ? 1 : undefined,
-          sm: 1,
-        },
+        // flex: {
+        //   base:
+        //     isShowRecoveryPhraseView || isRecoveryPhraseView ? 1 : undefined,
+        //   sm: 1,
+        // },
+        minHeight: '100%',
         justifyContent: 'center',
         alignItems: 'center',
         px: 6,

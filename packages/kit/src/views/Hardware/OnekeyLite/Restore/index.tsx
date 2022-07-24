@@ -181,8 +181,6 @@ const Restore: FC = () => {
   };
 
   const handlerNfcConnectState = (event: NfcConnectUiState) => {
-    console.log('Onekey Lite Reset handler NfcConnectState', event);
-
     switch (event.code) {
       case 1:
         break;

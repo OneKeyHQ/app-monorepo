@@ -4,12 +4,11 @@ import { AppState } from 'react-native';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useInterval } from '../../hooks';
-import { refreshLastActivity } from '../../store/reducers/status';
 
 export const AppStateHeartbeat = () => {
   const refresh = useCallback(() => {
     if (AppState.currentState === 'active') {
-      backgroundApiProxy.dispatch(refreshLastActivity());
+      backgroundApiProxy.serviceApp.refreshLastActivity();
     }
   }, []);
   useInterval(refresh, 5 * 1000);

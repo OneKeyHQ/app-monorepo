@@ -1,41 +1,95 @@
 import { Network } from '@onekeyhq/engine/src/types/network';
 
-import { QuoteParams, Quoter, SwapQuote, TxParams, TxRes } from '../typings';
+import {
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  QuoteData,
+  Quoter,
+  QuoterType,
+  TransactionDetails,
+  TransactionStatus,
+} from '../typings';
 
 import { SimpleQuoter } from './0x';
+import { MdexQuoter } from './mdex';
+import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
 
 export class SwapQuoter {
-  static instance = new SwapQuoter();
+  static client = new SwapQuoter();
 
   swftc = new SwftcQuoter();
 
   simple = new SimpleQuoter();
 
-  quotors: Quoter[] = [this.simple, this.swftc];
+  socket = new SocketQuoter();
 
-  async getQuote(params: QuoteParams): Promise<SwapQuote | undefined> {
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const quotor = this.quotors[i];
-      if (quotor.isSupported(params.networkOut, params.networkIn)) {
-        const result = await quotor.getQuote(params);
-        return result;
+  mdex = new MdexQuoter();
+
+  quoters: Quoter[] = [this.mdex, this.simple, this.swftc];
+
+  prepare() {
+    this.quoters.forEach((quoter) => {
+      quoter.prepare?.();
+    });
+  }
+
+  async fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined> {
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const quoter = this.quoters[i];
+      if (quoter.isSupported(params.networkOut, params.networkIn)) {
+        const result = await quoter.fetchQuote(params);
+        if (result) {
+          return result;
+        }
       }
     }
   }
 
-  async encodeTx(params: TxParams): Promise<TxRes | undefined> {
-    for (let i = 0; i < this.quotors.length; i += 1) {
-      const quotor = this.quotors[i];
-      if (quotor.isSupported(params.networkOut, params.networkIn)) {
-        const result = await quotor.encodeTx(params);
-        return result;
+  async buildTransaction(
+    quoterType: QuoterType,
+    params: BuildTransactionParams,
+  ): Promise<BuildTransactionResponse | undefined> {
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const quoter = this.quoters[i];
+      if (
+        quoter.type === quoterType &&
+        quoter.isSupported(params.networkOut, params.networkIn)
+      ) {
+        const result = await quoter.buildTransaction(params);
+        if (result) {
+          return result;
+        }
       }
     }
   }
 
-  async getBaseInfo() {
-    return this.swftc.getBaseInfo();
+  getQuoteType(tx: TransactionDetails): QuoterType {
+    if (tx.quoterType) {
+      return tx.quoterType;
+    }
+    if (tx.thirdPartyOrderId) {
+      return QuoterType.swftc;
+    }
+    return QuoterType.zeroX;
+  }
+
+  async queryTransactionStatus(
+    tx: TransactionDetails,
+  ): Promise<TransactionStatus | undefined> {
+    const quoterType = this.getQuoteType(tx);
+    for (let i = 0; i < this.quoters.length; i += 1) {
+      const quoter = this.quoters[i];
+      if (quoter.type === quoterType) {
+        return quoter.queryTransactionStatus(tx);
+      }
+    }
+    return undefined;
+  }
+
+  async getSwftcSupportedTokens() {
+    return this.swftc.getGroupedCoins();
   }
 
   async getNoSupportCoins(network: Network, address: string) {
