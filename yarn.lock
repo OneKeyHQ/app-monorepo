@@ -3487,70 +3487,70 @@
     "@onekeyfe/cross-inpage-provider-core" "^0.0.10"
     "@onekeyfe/cross-inpage-provider-types" "^0.0.10"
 
-"@onekeyfe/hd-ble-sdk@0.1.16":
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-ble-sdk/-/hd-ble-sdk-0.1.16.tgz#6e4c62de7a9bc48541ce235e8d28c5783a95297d"
-  integrity sha512-KJ3wUwJjcEjDMdupSKi57xE+4VZ/FBSbeccFF93CSxLZ7mxOcKpxGvMar3AypYhtUpTmyIf4AyjWpMuuTffPgw==
+"@onekeyfe/hd-ble-sdk@0.1.17":
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-ble-sdk/-/hd-ble-sdk-0.1.17.tgz#52c8532770a6d772ccf8d3ac16a5a2fbfcc0da13"
+  integrity sha512-5cJd8TTMjuTI8UTAUq05uWJKwmxZCbGfMkt+NES19jD1Eo5bMZ6XVmwNsgEZ9GYGUX+evxCTnvhlUVfY9RCnig==
   dependencies:
-    "@onekeyfe/hd-core" "^0.1.16"
-    "@onekeyfe/hd-shared" "^0.1.16"
-    "@onekeyfe/hd-transport-react-native" "^0.1.16"
+    "@onekeyfe/hd-core" "^0.1.17"
+    "@onekeyfe/hd-shared" "^0.1.17"
+    "@onekeyfe/hd-transport-react-native" "^0.1.17"
 
-"@onekeyfe/hd-core@0.1.16", "@onekeyfe/hd-core@^0.1.16":
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-core/-/hd-core-0.1.16.tgz#4da6ba9d3b7156074f165a0c544bc87b18c8f79a"
-  integrity sha512-WfSeDkBnyqeQFK5UJP4b6pUqepEtbo0Q12onNgY4le5DcK1o7hKjUD1j0AWcJPn/HTh5U4n4hFA7DYjjUDr6+w==
+"@onekeyfe/hd-core@0.1.17", "@onekeyfe/hd-core@^0.1.17":
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-core/-/hd-core-0.1.17.tgz#f63de3d2ad6a7ad8f2659e1d085c7914c760db21"
+  integrity sha512-RMElxk1KxF4TU4BeaFsPiXKtOaYWg/b9X13/Hywjr9iPUfTV9IDrQcDfUT/eS+ueG5VmOCto+GI06BZWh37Pwg==
   dependencies:
-    "@onekeyfe/hd-shared" "^0.1.16"
-    "@onekeyfe/hd-transport" "^0.1.16"
+    "@onekeyfe/hd-shared" "^0.1.17"
+    "@onekeyfe/hd-transport" "^0.1.17"
     axios "^0.27.2"
     bignumber.js "^9.0.2"
     js-sha256 "^0.9.0"
     parse-uri "^1.0.7"
     semver "^7.3.7"
 
-"@onekeyfe/hd-shared@0.1.16", "@onekeyfe/hd-shared@^0.1.16":
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-shared/-/hd-shared-0.1.16.tgz#a013731ca28778a6a5efa3e0ffc889a39e772091"
-  integrity sha512-H8m+lspUxEN+nIeWJkcP6DvKupiKcM8t3zYW2v/XgW3e5bz1hAYBwlT9zOXuE7NDfLvgg9Yr+y3zkShBSo4qMQ==
+"@onekeyfe/hd-shared@0.1.17", "@onekeyfe/hd-shared@^0.1.17":
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-shared/-/hd-shared-0.1.17.tgz#a625131bc30610ac59062faf79ba9443415c526b"
+  integrity sha512-WRpj7y6UmaK5YWY9qcHFbQUPMIiO07+m4WVPcGTY22Mz7SlWq44LSA7kCHHTy//6QHce9Yfm4k8A84FZaprBOg==
 
-"@onekeyfe/hd-transport-http@^0.1.16":
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport-http/-/hd-transport-http-0.1.16.tgz#0d13e06d998dc1ec7c52c78babd03107ff379fac"
-  integrity sha512-wNTHSzljbxo4dprkSIAzjg49VSxipWx0acRd9BTRmYmIV18O+T4T/bJ5RG9IcJMjbbvcWl/fied/rKyXuSYInw==
+"@onekeyfe/hd-transport-http@^0.1.17":
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport-http/-/hd-transport-http-0.1.17.tgz#4857135666f21a1db0c3777f31ee6b799a2cf573"
+  integrity sha512-QobsaeSwsBdNI3g/DnnkbP5geqhZ15bjE1dURajsgLSQGnS2vRXPRWxV0Ai39oZArHdLEzIziXuP/QhwevblXw==
   dependencies:
-    "@onekeyfe/hd-shared" "^0.1.16"
-    "@onekeyfe/hd-transport" "^0.1.16"
+    "@onekeyfe/hd-shared" "^0.1.17"
+    "@onekeyfe/hd-transport" "^0.1.17"
     axios "^0.27.2"
 
-"@onekeyfe/hd-transport-react-native@^0.1.16":
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport-react-native/-/hd-transport-react-native-0.1.16.tgz#d5d6c69b76bf31ccb1169055d47eadc8d4a64425"
-  integrity sha512-t2xdKIBGdNG2u9lERlgrhb8QL9RRMpJ1QFMgPPqKHRjmHYE0dlpIjMX3rxckdexiDhhz0adYdDbYz9IBlpTChg==
+"@onekeyfe/hd-transport-react-native@^0.1.17":
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport-react-native/-/hd-transport-react-native-0.1.17.tgz#150b5440188fab373983282247ec0d427796d6e2"
+  integrity sha512-uZ5VqtLIJ5bA1a4bXFF7ockGpV84NdgFzCAoNdOyONuF6ckgVo1LUoEkhumtRHwL8KPAN29Cqr4kny0n1+XV4Q==
   dependencies:
-    "@onekeyfe/hd-shared" "^0.1.16"
-    "@onekeyfe/hd-transport" "^0.1.16"
+    "@onekeyfe/hd-shared" "^0.1.17"
+    "@onekeyfe/hd-transport" "^0.1.17"
     react-native-ble-manager "^8.1.0"
     react-native-ble-plx "^2.0.3"
 
-"@onekeyfe/hd-transport@^0.1.16":
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport/-/hd-transport-0.1.16.tgz#bfb52cc2818e4bec192289bc7c290c820d42901e"
-  integrity sha512-5eu4O4ICCuJsHwIHyMvye4xQaogTYg921N29TCfILqOuweenG/RV0ZK34bSGgWXGY5/TKTm160I0wBY7Bhd3Kw==
+"@onekeyfe/hd-transport@^0.1.17":
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport/-/hd-transport-0.1.17.tgz#16e4c61a07c9ef65b0bac042ec0339f3ea754b66"
+  integrity sha512-KbQvuFv97blVKFD20PSf6275rI5jOKes8kCTA75wMa4MSF0OGBmflhsALCMc4xagBjT3ZwZ4e0g7jnZsYMWBog==
   dependencies:
     bytebuffer "^5.0.1"
     long "^4.0.0"
     protobufjs "^6.11.2"
 
-"@onekeyfe/hd-web-sdk@0.1.16":
-  version "0.1.16"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-web-sdk/-/hd-web-sdk-0.1.16.tgz#5d5571a723c65efd22353239dab13e49c9cc8504"
-  integrity sha512-9KFvSW7FIB/O31xTv+d75PJ2ec5NYCVmRIuK+9UfS9FGSOU/NmULkk4qlLaTlugW5O2lLiICetSQj0BP11qkkA==
+"@onekeyfe/hd-web-sdk@0.1.17":
+  version "0.1.17"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-web-sdk/-/hd-web-sdk-0.1.17.tgz#76c3182eefc18ea4f0da85220bf02dc69f61da22"
+  integrity sha512-oZtwOYCfZw5UQqGYSNinsMA3R4b4FAnLCA9/vwEWAq+TT2Z/Sn8xXE4TYJFbzCFg5D403T5yNQZG2UJu+67PoA==
   dependencies:
     "@onekeyfe/cross-inpage-provider-core" "^0.0.14"
-    "@onekeyfe/hd-core" "^0.1.16"
-    "@onekeyfe/hd-shared" "^0.1.16"
-    "@onekeyfe/hd-transport-http" "^0.1.16"
+    "@onekeyfe/hd-core" "^0.1.17"
+    "@onekeyfe/hd-shared" "^0.1.17"
+    "@onekeyfe/hd-transport-http" "^0.1.17"
 
 "@onekeyfe/inpage-providers-hub@^0.0.10":
   version "0.0.10"
