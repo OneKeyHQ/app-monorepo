@@ -8,6 +8,7 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 import {
   AccountAlreadyExists,
   NotImplemented,
+  OneKeyAlreadyExistWalletError,
   OneKeyInternalError,
   TooManyDerivedAccounts,
   TooManyImportedAccounts,
@@ -924,11 +925,7 @@ class IndexedDBApi implements DBAPI {
               });
 
               if (hasExistWallet) {
-                reject(
-                  new OneKeyInternalError(
-                    `Hardware wallet ${walletId} already exists.`,
-                  ),
-                );
+                reject(new OneKeyAlreadyExistWalletError());
                 return;
               }
 
@@ -955,11 +952,7 @@ class IndexedDBApi implements DBAPI {
                 const getWalletRequest = walletStore.get(walletId);
                 getWalletRequest.onsuccess = (_wevent) => {
                   if (typeof getWalletRequest.result !== 'undefined') {
-                    reject(
-                      new OneKeyInternalError(
-                        `Hardware wallet ${walletId} already exists.`,
-                      ),
-                    );
+                    reject(new OneKeyAlreadyExistWalletError());
                     return;
                   }
 

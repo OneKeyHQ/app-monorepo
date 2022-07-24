@@ -5,6 +5,7 @@ import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
+import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ValidationFields } from '../../components/Protected/types';
@@ -34,13 +35,7 @@ type SettingsState = {
   refreshTimeStamp: number;
   autoRefreshTimeStamp: number;
   swapSlippagePercent: string;
-  validationState: {
-    [ValidationFields.Unlock]?: boolean;
-    [ValidationFields.Payment]?: boolean;
-    [ValidationFields.Wallet]?: boolean;
-    [ValidationFields.Account]?: boolean;
-    [ValidationFields.Secret]?: boolean;
-  };
+  enableHaptics: boolean;
   deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
@@ -50,6 +45,12 @@ type SettingsState = {
     preReleaseUpdate: boolean;
     updateDeviceBle: boolean;
     updateDeviceSys: boolean;
+  };
+  validationSetting: {
+    [ValidationFields.Account]?: boolean;
+    [ValidationFields.Payment]?: boolean;
+    [ValidationFields.Secret]?: boolean;
+    [ValidationFields.Wallet]?: boolean;
   };
 };
 
@@ -61,24 +62,24 @@ const initialState: SettingsState = {
   instanceId: uuid.v4() as string,
   enableAppLock: false,
   enableLocalAuthentication: false,
-  appLockDuration: 5,
+  appLockDuration: 240,
+  enableHaptics: defaultHapticStatus,
   selectedFiatMoneySymbol: 'usd',
   refreshTimeStamp: getTimeStamp(),
   autoRefreshTimeStamp: getTimeStamp(),
   swapSlippagePercent: '3',
-  validationState: {
-    [ValidationFields.Unlock]: true,
-    [ValidationFields.Payment]: true,
-    [ValidationFields.Wallet]: true,
-    [ValidationFields.Account]: true,
-    [ValidationFields.Secret]: true,
-  },
   deviceUpdates: {},
   devMode: {
     enable: false,
     preReleaseUpdate: false,
     updateDeviceBle: false,
     updateDeviceSys: false,
+  },
+  validationSetting: {
+    [ValidationFields.Account]: false,
+    [ValidationFields.Payment]: false,
+    [ValidationFields.Secret]: false,
+    [ValidationFields.Wallet]: false,
   },
 };
 
@@ -148,11 +149,11 @@ export const settingsSlice = createSlice({
       state,
       action: PayloadAction<{ key: ValidationFields; value: boolean }>,
     ) => {
-      if (!state.validationState) {
-        state.validationState = {};
+      if (!state.validationSetting) {
+        state.validationSetting = {};
       }
       const { key, value } = action.payload;
-      state.validationState[key] = value;
+      state.validationSetting[key] = value;
     },
     setDevMode(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, enable: action.payload };
@@ -190,6 +191,9 @@ export const settingsSlice = createSlice({
         state.deviceUpdates[connectId].ble = undefined;
       }
     },
+    setEnableHaptics(state, action: PayloadAction<boolean>) {
+      state.enableHaptics = action.payload;
+    },
   },
 });
 
@@ -212,6 +216,7 @@ export const {
   setUpdateDeviceSys,
   setDeviceUpdates,
   setDeviceDoneUpdate,
+  setEnableHaptics,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

@@ -24,6 +24,7 @@ import {
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -73,7 +74,7 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<UnsignedTx> {
+  buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<IUnsignedTxPro> {
     throw new Error('Method not implemented.');
   }
 
@@ -87,49 +88,6 @@ export default class Vault extends VaultBase {
     imported: KeyringImported,
     watching: KeyringWatching,
   };
-
-  private async _correctDbAccountAddress(dbAccount: DBAccount) {
-    dbAccount.address = await this.engine.providerManager.selectAccountAddress(
-      this.networkId,
-      dbAccount,
-    );
-  }
-
-  async simpleTransfer(
-    payload: {
-      to: string;
-      value: string;
-      tokenIdOnNetwork?: string;
-      extra?: { [key: string]: any };
-      gasPrice: string; // TODO remove gasPrice
-      gasLimit: string;
-    },
-    options: ISignCredentialOptions,
-  ) {
-    debugLogger.engine('CFX simpleTransfer', payload);
-    const { to, value, tokenIdOnNetwork, extra, gasLimit, gasPrice } = payload;
-    const { networkId } = this;
-    const network = await this.getNetwork();
-    const dbAccount = await this.getDbAccount();
-    // TODO what's this mean: correctDbAccountAddress
-    await this._correctDbAccountAddress(dbAccount);
-    const token = await this.engine.ensureTokenInDB(
-      networkId,
-      tokenIdOnNetwork ?? '',
-    );
-    const valueBN = new BigNumber(value);
-    const extraCombined = {
-      ...extra,
-      feeLimit: new BigNumber(gasLimit),
-      feePricePerUnit: new BigNumber(gasPrice),
-    };
-    // TODO buildUnsignedTx
-    const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
-      networkId,
-      fillUnsignedTx(network, dbAccount, to, valueBN, token, extraCombined),
-    );
-    return this.signAndSendTransaction(unsignedTx, options);
-  }
 
   async updateEncodedTx(
     encodedTx: IEncodedTx,

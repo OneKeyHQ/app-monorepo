@@ -83,7 +83,7 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
 
 const persistConfig = {
   key: 'ONEKEY_WALLET',
-  version: 1,
+  version: 2,
   // AsyncStorage not working in ext background (localStorage not available)
   storage: platformEnv.isExtensionUi ? mockStorage : appStorage,
   whitelist: persistWhiteList,

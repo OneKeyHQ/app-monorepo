@@ -7,7 +7,12 @@ import React, {
   useState,
 } from 'react';
 
-import { Box, VStack, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Box,
+  IconButton,
+  VStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -53,6 +58,7 @@ const AccountSelectorChildren: FC<{
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
   const { connected } = useAppSelector((s) => s.hardware);
+  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const { deviceUpdates } = useSettings();
 
   const [deviceStatus, setDeviceStatus] =
@@ -72,9 +78,11 @@ const AccountSelectorChildren: FC<{
 
   const activeWallet = useMemo(() => {
     const wallet =
-      wallets.find((_wallet) => _wallet.id === selectedWallet?.id) ?? null;
+      wallets.find((_wallet) => _wallet.id === selectedWallet?.id) ??
+      wallets.find((_wallet) => _wallet.id === defaultSelectedWallet?.id) ??
+      null;
     return wallet;
-  }, [selectedWallet?.id, wallets]);
+  }, [selectedWallet?.id, wallets, defaultSelectedWallet]);
 
   const refreshAccounts = useCallback(
     async (walletId?: string) => {
@@ -199,6 +207,10 @@ const AccountSelectorChildren: FC<{
     activeNetwork?.id,
   ]);
 
+  const onLock = useCallback(() => {
+    backgroundApiProxy.serviceApp.lock(true);
+  }, []);
+
   return (
     <>
       <LeftSide
@@ -230,14 +242,25 @@ const AccountSelectorChildren: FC<{
           loadingAccountWalletId={loadingAccountWalletId}
           refreshAccounts={refreshAccounts}
         />
-        <Box p={2}>
-          <RightAccountCreateButton
-            onLoadingAccount={onLoadingAccount}
-            isLoading={!!loadingAccountWalletId}
-            activeNetwork={activeNetwork}
-            selectedNetworkId={selectedNetworkId}
-            activeWallet={activeWallet}
-          />
+        <Box p={2} flexDirection="row">
+          <Box flex="1">
+            <RightAccountCreateButton
+              onLoadingAccount={onLoadingAccount}
+              isLoading={!!loadingAccountWalletId}
+              activeNetwork={activeNetwork}
+              selectedNetworkId={selectedNetworkId}
+              activeWallet={activeWallet}
+            />
+          </Box>
+          {isPasswordSet ? (
+            <IconButton
+              ml="3"
+              name="LockOutline"
+              size="lg"
+              minW="50px"
+              onPress={onLock}
+            />
+          ) : null}
         </Box>
       </VStack>
       {RemoveAccountDialog}

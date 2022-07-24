@@ -1,14 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  StackBasicRoutesParams,
-  StackRoutes,
-} from '@onekeyhq/kit/src/routes/Dev';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HelpSelector from '../Help/HelpSelector';
 
@@ -19,14 +12,6 @@ import { GenaralSection } from './GenaralSection';
 import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
 
-import type { CompositeNavigationProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = CompositeNavigationProp<
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Dev>,
-  NativeStackNavigationProp<StackBasicRoutesParams, StackRoutes.Developer>
->;
-
 export const Me = () => {
   const { enable: devModeEnable } = useSettings().devMode || {};
 
@@ -35,7 +20,7 @@ export const Me = () => {
     <Box bg="background-default" flex="1">
       <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
         <Box w="full" maxW={768} mx="auto" pb={inset.bottom}>
-          {!platformEnv.isExtFirefoxUiPopup && <UtilSection />}
+          <UtilSection />
           <DefaultSection />
           <GenaralSection />
           <SecuritySection />

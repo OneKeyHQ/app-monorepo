@@ -4,7 +4,11 @@ import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import { passwordSet, release } from '../../store/reducers/data';
+import {
+  passwordSet,
+  release,
+  setHandOperatedLock,
+} from '../../store/reducers/data';
 import {
   setEnableAppLock,
   setEnableLocalAuthentication,
@@ -27,8 +31,38 @@ import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 class ServiceApp extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
+    if (platformEnv.isExtensionBackground) {
+      setInterval(() => this.checkLockStatus(1), 60 * 1000);
+    }
     // TODO recheck last reset status and resetApp here
     console.log('TODO: recheck last reset status and resetApp here 22222');
+  }
+
+  @backgroundMethod()
+  async checkLockStatus(offset = 0) {
+    const { appSelector, engine } = this.backgroundApi;
+    const lastActivity = appSelector((s) => s.status.lastActivity);
+    const enableAppLock = appSelector((s) => s.settings.enableAppLock);
+    const appLockDuration = appSelector(
+      (s) => s.settings.appLockDuration,
+    ) as number;
+
+    const isPasswordSet = await engine.isMasterPasswordSet();
+    const prerequisites = isPasswordSet && enableAppLock;
+    if (!prerequisites) return;
+
+    const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
+    const isStale = idleDuration >= Math.min(240, appLockDuration + offset);
+    if (isStale) {
+      this.lock();
+    }
+  }
+
+  isUnlock(): boolean {
+    const { appSelector } = this.backgroundApi;
+    const isUnlock = appSelector((s) => s.data.isUnlock);
+    const isStatusUnlock = appSelector((s) => s.status.isUnlock);
+    return Boolean(isUnlock && isStatusUnlock);
   }
 
   restartApp() {
@@ -77,7 +111,7 @@ class ServiceApp extends ServiceBase {
     const { dispatch, serviceAccount, serviceNetwork } = this.backgroundApi;
     await this.initPassword();
     await this.initLocalAuthentication();
-    await this.initLock();
+    await this.checkLockStatus();
 
     const networks = await serviceNetwork.initNetworks();
     const wallets = await serviceAccount.initWallets();
@@ -97,28 +131,6 @@ class ServiceApp extends ServiceBase {
         activeNetworkId,
       }),
     );
-  }
-
-  @backgroundMethod()
-  async initLock() {
-    const { dispatch, appSelector, engine } = this.backgroundApi;
-    const {
-      enableAppLock,
-      appLockDuration,
-    }: { enableAppLock: boolean; appLockDuration: number } = appSelector(
-      (s) => s.settings,
-    );
-    const { lastActivity }: { lastActivity: number } = appSelector(
-      (s) => s.status,
-    );
-    const isPasswordSet = await engine.isMasterPasswordSet();
-    const prerequisites = isPasswordSet && enableAppLock;
-    if (!prerequisites) return;
-    const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
-    const isStale = idleDuration >= appLockDuration;
-    if (isStale) {
-      dispatch(lock());
-    }
   }
 
   @backgroundMethod()
@@ -176,6 +188,27 @@ class ServiceApp extends ServiceBase {
     const { engine } = this.backgroundApi;
     const result = await engine.verifyMasterPassword(password);
     return result;
+  }
+
+  @backgroundMethod()
+  lock(handOperated = false) {
+    const { dispatch, servicePassword } = this.backgroundApi;
+    servicePassword.clearData();
+    dispatch(setHandOperatedLock(handOperated));
+    dispatch(lock());
+  }
+
+  @backgroundMethod()
+  async unlock(password: string): Promise<boolean> {
+    const { dispatch, servicePassword } = this.backgroundApi;
+    const isOk = await servicePassword.verifyPassword(password);
+    if (isOk) {
+      await servicePassword.savePassword(password);
+      dispatch(setHandOperatedLock(false));
+      dispatch(unlock());
+      dispatch(release());
+    }
+    return isOk;
   }
 }
 

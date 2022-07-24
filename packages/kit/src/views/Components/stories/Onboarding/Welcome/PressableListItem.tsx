@@ -15,11 +15,13 @@ import {
 type PressableListItemProps = {
   icon: ICON_NAMES;
   label: string;
+  onPress?: () => void;
 } & IBoxProps;
 
 const PressableListItem: FC<PressableListItemProps> = ({
   icon,
   label,
+  onPress,
   children,
   ...rest
 }) => {
@@ -27,7 +29,7 @@ const PressableListItem: FC<PressableListItemProps> = ({
 
   return (
     <Pressable
-      flex={1}
+      flex={{ sm: 1 }}
       flexDir={{ base: 'row', sm: 'column' }}
       mx={2}
       px={{ base: 3, sm: 6 }}
@@ -38,6 +40,7 @@ const PressableListItem: FC<PressableListItemProps> = ({
       borderWidth={1}
       borderColor="divider"
       rounded="xl"
+      onPress={onPress}
       {...rest}
     >
       <Box mr={3}>

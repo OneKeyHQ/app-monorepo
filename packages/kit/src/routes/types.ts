@@ -87,9 +87,10 @@ export type HomeRoutesParams = {
     tokenId?: string;
     historyFilter?: (item: any) => boolean;
   };
-  [HomeRoutes.FaceId]: undefined;
+  [HomeRoutes.Protected]: undefined;
   [HomeRoutes.AddressBook]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
+  [HomeRoutes.VolumeHaptic]: undefined;
 };
 /** HomeStack */
 

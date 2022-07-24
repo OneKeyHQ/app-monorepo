@@ -2,10 +2,14 @@ import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
 import {
+  CloudinaryObject,
   MoralisChainMap,
   MoralisNFT,
 } from '@onekeyhq/engine/src/types/moralis';
-import { cloudinaryImageWithPublidId } from '@onekeyhq/kit/src/utils/imageUtils';
+import {
+  cloudinaryImageWithPublidId,
+  cloudinarySourceWithPublidId,
+} from '@onekeyhq/kit/src/utils/imageUtils';
 
 import { MoralisNFTsResp } from '../types/moralis';
 import { Network } from '../types/network';
@@ -33,7 +37,18 @@ export function getImageWithAsset(asset: MoralisNFT, size?: number): string {
     return cloudinaryImageWithPublidId(
       object?.publicId,
       object.resourceType,
-      object.format,
+      size,
+    );
+  }
+  return '';
+}
+
+export function getSourceWithAsset(asset: MoralisNFT, size?: number): string {
+  const object = asset.animationUrl ?? asset.imageUrl;
+  if (object) {
+    return cloudinarySourceWithPublidId(
+      object?.publicId,
+      object.resourceType,
       size,
     );
   }
@@ -53,21 +68,20 @@ export const getUserAssets = async (params: {
     return { chain: '', result: [] };
   }
   const chain = getMoralisChainWithNetWork(network);
-  let apiUrl = `${HostURL}/NFT/list?address=${address}&chain=${chain}&limit=10`;
+  let apiUrl = `${HostURL}/NFT/list?address=${address}&chain=${chain}`;
   if (cursor) {
-    apiUrl = `${apiUrl}&cursor=${cursor}`;
+    apiUrl = `${apiUrl}&cursor=${cursor}&limit=50`;
   }
   const result = await axios.get<MoralisNFTsResp>(apiUrl);
   return camelcaseKeys(result.data, { deep: true });
 };
 
-export async function getAssetDetail(
-  tokenAddress: string,
-  tokenId: string,
-  chain: string,
-): Promise<MoralisNFT> {
-  const apiUrl = `${HostURL}/NFT/detail?address=${tokenAddress}&tokenId=${tokenId}&chain=${chain}`;
-  const { data } = await axios.get<MoralisNFT>(apiUrl);
+export async function getAssetSources(
+  publicId: string,
+  resourceType: string,
+): Promise<CloudinaryObject> {
+  const apiUrl = `${HostURL}/NFT/image?publicId=${publicId}&type=${resourceType}`;
+  const { data } = await axios.get<CloudinaryObject>(apiUrl);
   const result = camelcaseKeys(data, { deep: true });
   return result;
 }
@@ -91,25 +105,4 @@ export async function getAssetDetail(
 //     return camelcaseKeys(data, { deep: true });
 //   }
 //   return {};
-// }
-
-// export function getCloudinaryObject(
-//   asset: MoralisNFT,
-//   type: 'image' | 'svg' | 'audio' | 'video',
-// ) {
-//   if (asset.image && asset.image.length > 0) {
-//     if (type === 'image') {
-//       return asset.image.find((cloudItem) => isImage([cloudItem.format]));
-//     }
-//     if (type === 'svg') {
-//       return asset.image.find((cloudItem) => isSVG([cloudItem.format]));
-//     }
-//     if (type === 'audio') {
-//       return asset.image.find((cloudItem) => isAudio([cloudItem.format]));
-//     }
-//     if (type === 'video') {
-//       return asset.image.find((cloudItem) => isVideo([cloudItem.format]));
-//     }
-//   }
-//   return undefined;
 // }

@@ -51,13 +51,13 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
     try {
       features = await serviceHardware.ensureConnected(device.mac);
     } catch (e: any) {
-      const { className, code } = e || {};
+      const { className, code, key } = e || {};
       if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
         DialogManager.show({ render: <NeedBridgeDialog /> });
         return;
       }
       if (!(className === OneKeyErrorClassNames.OneKeyAbortError)) {
-        showMessage();
+        showMessage(key);
       }
       setLoading(false);
       setConfirmConnected(false);

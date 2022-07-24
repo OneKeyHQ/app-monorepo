@@ -20,9 +20,9 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import { CustomOneKeyHardwareError } from '../../utils/hardware/errors';
 import NeedBridgeDialog from '../NeedBridgeDialog';
 
+import Session from './Session';
 import Setup from './Setup';
 import { ValidationFields } from './types';
-import Validation from './Validation';
 
 type ProtectedOptions = {
   isLocalAuthentication?: boolean;
@@ -232,7 +232,7 @@ const Protected: FC<ProtectedProps> = ({
   }
 
   if (hasPassword) {
-    return <Validation onOk={onValidationOk} field={field} />;
+    return <Session onOk={onValidationOk} field={field} />;
   }
   return <Setup onOk={onSetupOk} skipSavePassword={skipSavePassword} />;
 };

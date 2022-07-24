@@ -3,10 +3,11 @@ import React, { FC } from 'react';
 import { chunk } from 'lodash';
 import { Center, Column, Pressable, Row } from 'native-base';
 
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
+import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
 import Box from '../Box';
 import Icon from '../Icon';
+import { useProviderValue } from '../Provider/hooks';
 import Typography from '../Typography';
 
 type KeyType =
@@ -74,6 +75,7 @@ const Keyboard: FC<KeyboardProps> = ({
   itemHeight,
 }) => {
   const innerKeyArray = chunk(keys ?? defaultKeys, 3);
+  const { hapticsEnabled } = useProviderValue();
   const onPress = (item: KeyType) => {
     const prev = text;
     const inputText = text;
@@ -93,7 +95,9 @@ const Keyboard: FC<KeyboardProps> = ({
       }
     }
     if (onTextChange) {
-      setHaptics();
+      if (hapticsEnabled) {
+        enableHaptics();
+      }
       onTextChange(changeText);
     }
     return changeText;

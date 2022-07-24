@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import { Icon, Pressable, Typography, utils } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { setHaptics, useAppSelector, useNavigation } from '../../hooks';
+import { useAppSelector, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { setReceiving } from '../../store/reducers/swap';
 import { AddressBookRoutes } from '../AddressBook/routes';
@@ -16,7 +16,6 @@ const SwapReceiving = () => {
   const { address, name } = useReceivingAddress();
 
   const onPress = useCallback(() => {
-    setHaptics();
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.AddressBook,
       params: {

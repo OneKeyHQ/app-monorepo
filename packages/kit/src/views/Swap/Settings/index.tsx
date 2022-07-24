@@ -12,7 +12,6 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../../hooks/redux';
@@ -78,7 +77,6 @@ const Setting = () => {
             _pressed={{ bg: 'surface-pressed' }}
             borderRadius="full"
             onPress={() => {
-              setHaptics();
               onChange('1');
             }}
           >
@@ -94,7 +92,6 @@ const Setting = () => {
             _pressed={{ bg: 'surface-pressed' }}
             borderRadius="full"
             onPress={() => {
-              setHaptics();
               onChange('2');
             }}
           >
@@ -110,7 +107,6 @@ const Setting = () => {
             _pressed={{ bg: 'surface-pressed' }}
             borderRadius="full"
             onPress={() => {
-              setHaptics();
               onChange('3');
             }}
           >

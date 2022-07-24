@@ -16,7 +16,6 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -98,7 +97,6 @@ export const Mnemonic: FC<MnemonicProps> = ({
             shadow="depth.2"
             borderRadius="12"
             onPress={() => {
-              setHaptics();
               copyMnemonicToClipboard(mnemonic);
             }}
           >

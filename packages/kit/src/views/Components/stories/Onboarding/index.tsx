@@ -1,94 +1,164 @@
-import React, { useCallback } from 'react';
+import React, { useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Box, Center, IconButton, Text } from '@onekeyhq/components';
+import { ScrollView, useIsVerticalLayout } from '@onekeyhq/components';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
+import BehindTheScene from './BehindTheScene';
+import ConnectWallet from './ConnectWallet';
+import Drawer from './Drawer';
+import ImportWallet from './ImportWallet';
+import RecoveryPhrase from './RecoveryPhrase';
+import SetPassword from './SetPassword';
+import ShowRecoveryPhrase from './ShowRecoveryPhrase';
 import Welcome from './Welcome';
 
 const OnboardingGallery = () => {
-  const intl = useIntl();
   const insets = useSafeAreaInsets();
+  const isVerticalLayout = useIsVerticalLayout();
 
-  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
-  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+  const [isWelcomeView, setIsWelcomeView] = useState(true);
+  const [isImportWalletView, setIsImportWalletView] = useState(false);
+  const [isSetPasswordView, setIsSetPasswordView] = useState(false);
+  const [isConnectWalletView, setIsConnectWalletView] = useState(false);
+  const [isRecoveryPhraseView, setIsRecoveryPhraseView] = useState(false);
+  const [isShowRecoveryPhraseView, setIsShowRecoveryPhraseView] =
+    useState(false);
+  const [isShowBehindTheSceneView, setIsShowBehindTheSceneView] =
+    useState(false);
+  const [isShowDrawer, setIsShowDrawer] = useState(false);
 
-  const onOpenUserAgreement = useCallback(() => {
-    openUrl(
-      userAgreementUrl,
-      intl.formatMessage({
-        id: 'form__user_agreement',
-      }),
-    );
-  }, [intl, userAgreementUrl]);
+  const handleCreateWallet = () => {
+    setIsWelcomeView(false);
+    setIsSetPasswordView(true);
+  };
 
-  const onOpenPrivacyPolicy = useCallback(() => {
-    openUrl(
-      privacyPolicyUrl,
-      intl.formatMessage({
-        id: 'form__privacy_policy',
-      }),
-    );
-  }, [intl, privacyPolicyUrl]);
+  const handleImportWallet = () => {
+    setIsWelcomeView(false);
+    setIsImportWalletView(true);
+  };
+
+  const handleConnectWallet = () => {
+    setIsWelcomeView(false);
+    setIsConnectWalletView(true);
+  };
+
+  const handleConfirmPassword = () => {
+    setIsSetPasswordView(false);
+    setIsRecoveryPhraseView(true);
+  };
+
+  const handleShowRecoveryPhrase = () => {
+    setIsRecoveryPhraseView(false);
+    setIsShowRecoveryPhraseView(true);
+  };
+
+  const handleShowBehindTheScene = () => {
+    if (isVerticalLayout) {
+      setIsShowRecoveryPhraseView(false);
+    } else {
+      setIsRecoveryPhraseView(false);
+    }
+    setIsShowBehindTheSceneView(true);
+  };
+
+  const handleImportWalletBack = () => {
+    setIsImportWalletView(false);
+    setIsWelcomeView(true);
+  };
+
+  const handleSetPasswordBack = () => {
+    setIsSetPasswordView(false);
+    setIsWelcomeView(true);
+  };
+
+  const handleConnectWalletBack = () => {
+    setIsConnectWalletView(false);
+    setIsWelcomeView(true);
+  };
+
+  const handleRecoveryPhraseBack = () => {
+    setIsRecoveryPhraseView(false);
+    setIsSetPasswordView(true);
+  };
+
+  const handleShowRecoveryPhraseBack = () => {
+    setIsShowRecoveryPhraseView(false);
+    setIsRecoveryPhraseView(true);
+  };
 
   return (
-    <Center flex={1} px={6} pb={4 + insets.bottom} bgColor="background-default">
-      {/* Close button */}
-      <IconButton
-        position="absolute"
-        top={{ base: 4 + insets.top, sm: 8 }}
-        right={{ base: 4, sm: 8 }}
-        type="plain"
-        size="lg"
-        name="CloseOutline"
-        circle
+    <ScrollView
+      flex={1}
+      _contentContainerStyle={{
+        flex: {
+          base:
+            isShowRecoveryPhraseView || isRecoveryPhraseView ? 1 : undefined,
+          sm: 1,
+        },
+        justifyContent: 'center',
+        alignItems: 'center',
+        px: 6,
+        pt: 4 + insets.top,
+        pb: 4 + insets.bottom,
+        bgColor: 'background-default',
+      }}
+    >
+      {isWelcomeView ? (
+        <Welcome
+          onPressCreateWallet={handleCreateWallet}
+          onPressImportWallet={handleImportWallet}
+          onPressConnectWallet={handleConnectWallet}
+          visible={isWelcomeView}
+        />
+      ) : undefined}
+      {isImportWalletView ? (
+        <ImportWallet
+          onPressBackButton={handleImportWalletBack}
+          visible={isImportWalletView}
+          onPressDrawerTrigger={() => {
+            setIsShowDrawer(true);
+          }}
+        />
+      ) : undefined}
+      {isSetPasswordView ? (
+        <SetPassword
+          onPressBackButton={handleSetPasswordBack}
+          onPressConfirmButton={handleConfirmPassword}
+          visible={isSetPasswordView}
+        />
+      ) : undefined}
+      {isConnectWalletView ? (
+        <ConnectWallet
+          onPressBackButton={handleConnectWalletBack}
+          visible={isConnectWalletView}
+        />
+      ) : undefined}
+      {isRecoveryPhraseView ? (
+        <RecoveryPhrase
+          visible={isRecoveryPhraseView}
+          onPressBackButton={handleRecoveryPhraseBack}
+          onPressShowPhraseButton={handleShowRecoveryPhrase}
+          onPressSavedPhrase={handleShowBehindTheScene}
+        />
+      ) : undefined}
+      {isShowRecoveryPhraseView ? (
+        <ShowRecoveryPhrase
+          visible={isShowRecoveryPhraseView}
+          onPressBackButton={handleShowRecoveryPhraseBack}
+          onPressSavedPhrase={handleShowBehindTheScene}
+        />
+      ) : undefined}
+      {isShowBehindTheSceneView ? (
+        <BehindTheScene visible={isShowBehindTheSceneView} />
+      ) : undefined}
+
+      <Drawer
+        visible={isShowDrawer}
+        onClose={() => {
+          setIsShowDrawer(false);
+        }}
       />
-      {/* Content */}
-      <Box w="full" maxW={800}>
-        <Welcome />
-      </Box>
-      {/* Agreement and privacy */}
-      <Center
-        position="absolute"
-        w="full"
-        bottom={{ base: 4 + insets.bottom, sm: 8 }}
-      >
-        <Text
-          maxW={{ base: '300px', sm: 'auto' }}
-          mx="auto"
-          textAlign="center"
-          color="text-subdued"
-          typography="Caption"
-        >
-          {intl.formatMessage(
-            { id: 'content__agree_to_user_agreement_and_privacy_policy' },
-            {
-              a: (text) => (
-                <Text
-                  color="text-subdued"
-                  onPress={onOpenUserAgreement}
-                  typography="CaptionUnderline"
-                >
-                  {text}
-                </Text>
-              ),
-              b: (text) => (
-                <Text
-                  color="text-subdued"
-                  onPress={onOpenPrivacyPolicy}
-                  typography="CaptionUnderline"
-                >
-                  {text}
-                </Text>
-              ),
-            },
-          )}
-        </Text>
-      </Center>
-    </Center>
+    </ScrollView>
   );
 };
 

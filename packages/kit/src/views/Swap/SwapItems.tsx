@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 
 import { useNavigation } from '../../hooks';
-import { setHaptics } from '../../hooks/setHaptics';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,7 +23,6 @@ const SwapItems = () => {
   const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
   const onPress = useCallback(() => {
-    setHaptics();
     navigation.navigate(HomeRoutes.SwapHistory);
   }, [navigation]);
   return (

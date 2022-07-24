@@ -1,4 +1,9 @@
 import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+import {
   TokenInitialState,
   setAccountTokens,
   setAccountTokensBalances,
@@ -7,10 +12,27 @@ import {
 } from '../../store/reducers/tokens';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
-import ServiceBase from './ServiceBase';
+import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceToken extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    appEventBus.on(
+      AppEventBusNames.NetworkChanged,
+      this.refreshTokenBalance.bind(this),
+    );
+  }
+
+  refreshTokenBalance() {
+    const { appSelector } = this.backgroundApi;
+    const activeAccountId = appSelector((s) => s.general.activeAccountId);
+    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    if (activeAccountId && activeNetworkId) {
+      this.fetchTokenBalance({ activeAccountId, activeNetworkId });
+    }
+  }
+
   @backgroundMethod()
   async fetchTokens({
     activeAccountId,

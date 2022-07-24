@@ -15,9 +15,12 @@ export type ContextValue = {
   themeVariant: ThemeVariant;
   locale: LocaleSymbol;
   device: DeviceState;
+  hapticsEnabled: boolean;
 };
 
 export const Context = createContext<ContextValue>({} as ContextValue);
+
+export const useProviderValue = () => useContext(Context);
 
 export const useTheme = () => {
   const context = useContext(Context);

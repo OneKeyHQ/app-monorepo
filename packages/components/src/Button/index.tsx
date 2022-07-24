@@ -8,8 +8,10 @@ import React, {
 
 import { Text } from 'native-base';
 
-import { setHaptics } from '../../../kit/src/hooks/setHaptics';
+import { enableHaptics } from '@onekeyhq/shared/src/haptics';
+
 import Icon, { ICON_NAMES } from '../Icon';
+import { useProviderValue } from '../Provider/hooks';
 import { ThemeToken } from '../Provider/theme';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
@@ -137,6 +139,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
         bg: 'action-secondary-disabled',
         borderColor: 'border-disabled',
         cursor: 'not-allowed',
+        opacity: 1,
         _text: { color: 'text-disabled' },
       }}
       spinner={<Spinner size="sm" />}
@@ -199,6 +202,7 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
         borderColor: 'action-primary-disabled',
         color: 'text-disabled',
         cursor: 'not-allowed',
+        opacity: 1,
         _text: { color: 'text-disabled' },
       }}
       spinner={<Spinner size="sm" />}
@@ -249,7 +253,7 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: 'surface-pressed' }}
       _focus={{ bg: undefined }}
-      _disabled={{ color: 'text-disabled', cursor: 'not-allowed' }}
+      _disabled={{ color: 'text-disabled', cursor: 'not-allowed', opacity: 1 }}
       spinner={<Spinner size="sm" />}
       {...props}
     >
@@ -305,6 +309,7 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
         bg: 'action-critical-disabled',
         borderColor: 'action-critical-disabled',
         cursor: 'not-allowed',
+        opacity: 1,
         _text: { color: 'text-disabled' },
       }}
       _text={{
@@ -375,6 +380,7 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
         borderColor: 'border-disabled',
         _text: { color: 'text-disabled' },
         cursor: 'not-allowed',
+        opacity: 1,
       }}
       _loading={{
         borderColor: 'border-disabled',
@@ -463,6 +469,7 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
       onPress?.();
     }
   }, [onPress, onPromise, setLoading, isLoading]);
+  const { hapticsEnabled } = useProviderValue();
   useEffect(() => {
     if (typeof isLoading !== 'undefined') {
       setLoading(isLoading);
@@ -472,7 +479,10 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
     <Button
       {...props}
       onPress={() => {
-        setHaptics();
+        if (hapticsEnabled) {
+          enableHaptics();
+        }
+
         handlePress();
       }}
       isLoading={loading}

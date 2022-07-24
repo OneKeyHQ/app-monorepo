@@ -2,6 +2,14 @@ import querystring from 'querystring';
 
 import parse from 'url-parse';
 
+export const SUPPORTED_IMAGE_EXTENSIONS = [
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.svg',
+  '.gif',
+];
+
 export const SUPPORTED_AUDIO_EXTENSIONS = ['.mp3', '.wav'];
 
 export const SUPPORTED_VIDEO_EXTENSIONS = ['.mp4'];
@@ -41,6 +49,9 @@ export default function isSupportedUriExtension(
     return false;
   }
 }
+
+export const isImage = (uri?: string | null) =>
+  isSupportedUriExtension(SUPPORTED_IMAGE_EXTENSIONS, uri);
 
 export const isAudio = (uri?: string | null) =>
   isSupportedUriExtension(SUPPORTED_AUDIO_EXTENSIONS, uri);

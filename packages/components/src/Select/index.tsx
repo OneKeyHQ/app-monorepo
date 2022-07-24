@@ -12,15 +12,9 @@ import React, {
 import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
 import { ColorType } from 'native-base/lib/typescript/components/types';
-import {
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
 import { GestureResponderEvent } from 'react-native-modal';
 
-import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ChevronDown } from '../Icon/react/solid';
@@ -38,10 +32,9 @@ export interface CloseButtonProps {
 }
 
 export function CloseButton({ onClose }: CloseButtonProps) {
-  const { width, height } = useWindowDimensions();
   return (
     <TouchableWithoutFeedback onPress={onClose}>
-      <View style={{ width, height, ...StyleSheet.absoluteFillObject }} />
+      <View style={StyleSheet.absoluteFill} />
     </TouchableWithoutFeedback>
   );
 }
@@ -180,17 +173,15 @@ function Select<T = string>({
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
-  const toggleVisible = useCallback(
-    (vis?: boolean) => {
-      const newVisible =
-        typeof vis === 'boolean'
-          ? vis
-          : !(selectVisible === undefined ? visible : selectVisible);
-      setVisible(newVisible);
-      onVisibleChange?.(newVisible);
-    },
-    [onVisibleChange, selectVisible, visible],
-  );
+  const toggleVisible = useCallback(() => {
+    // if (platformEnv.isBrowser) {
+    //   const event = new Event('click');
+    //   window.dispatchEvent(event);
+    // }
+    const newVisible = !(selectVisible === undefined ? visible : selectVisible);
+    setVisible(newVisible);
+    onVisibleChange?.(newVisible);
+  }, [onVisibleChange, selectVisible, visible]);
 
   const [innerValue, setInnerValue] = useState<T | undefined>(defaultValue);
   const currentActiveValue = value ?? innerValue;
@@ -218,14 +209,14 @@ function Select<T = string>({
   const handleChange = useCallback(
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
       setInnerValue(v);
-      toggleVisible(false);
+      toggleVisible();
       setTimeout(() => onChange?.(v, option), 500);
     },
     [onChange, toggleVisible],
   );
 
   const handlePressFooter = useCallback(() => {
-    toggleVisible(false);
+    toggleVisible();
     onPressFooter?.();
   }, [onPressFooter, toggleVisible]);
 
@@ -252,7 +243,9 @@ function Select<T = string>({
       positionTranslateY,
       withReactModal,
       onModalHide: () => {
-        toggleVisible(false);
+        if (visible) {
+          toggleVisible();
+        }
         onModalHide?.();
       },
     };
@@ -264,7 +257,7 @@ function Select<T = string>({
     }
     return (
       <OverlayContainer>
-        <CloseButton onClose={() => toggleVisible()} />
+        <CloseButton onClose={toggleVisible} />
         <Desktop<T> {...childContainerProps} />
       </OverlayContainer>
     );
@@ -294,13 +287,7 @@ function Select<T = string>({
 
   return (
     <Box ref={triggerRef} position="relative" {...containerProps}>
-      <Pressable
-        onPress={() => {
-          setHaptics();
-          toggleVisible();
-        }}
-        {...triggerProps}
-      >
+      <Pressable onPress={toggleVisible} {...triggerProps}>
         {({ isHovered, isFocused, isPressed }) =>
           renderTrigger?.(
             activeOption,

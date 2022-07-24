@@ -99,6 +99,7 @@ export const TypeWriter: FC<TypeWriterProps> = ({
             fontSize,
             lineHeight,
             fontWeight: 'bold',
+            fontFamily: 'PlusJakartaSans-Bold',
           }}
           initialDelay={0}
           minDelay={12}

@@ -153,10 +153,14 @@ export const ReplyTicket: FC = () => {
                 ...prev.slice(imageIndex + 1),
               ];
             });
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__upload_failed' }),
-              type: 'error',
-            });
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__upload_failed' }),
+              },
+              {
+                type: 'error',
+              },
+            );
           }
         },
       );

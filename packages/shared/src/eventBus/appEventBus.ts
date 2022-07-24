@@ -4,6 +4,8 @@ const appEventBus = new CrossEventEmitter();
 
 enum AppEventBusNames {
   AccountNameChanged = 'AccountNameChanged',
+  NetworkChanged = 'NetworkChanged',
+  AccountChanged = 'AccountChanged',
 }
 
 export { appEventBus, AppEventBusNames };

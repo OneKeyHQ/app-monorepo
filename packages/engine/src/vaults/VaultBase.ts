@@ -30,6 +30,7 @@ import {
   IFeeInfoUnit,
   IHistoryTx,
   ITransferInfo,
+  IUnsignedTxPro,
 } from './types';
 import { VaultContext } from './VaultContext';
 
@@ -210,7 +211,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // TODO return { UnsignedTx, IEncodedTx } , IEncodedTx may be modified
   abstract buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTx,
-  ): Promise<UnsignedTx>;
+  ): Promise<IUnsignedTxPro>;
 
   abstract fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo>;
 
@@ -222,26 +223,32 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async signAndSendTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTx> {
     const signedTx = await this.signTransaction(unsignedTx, options);
-    return this.broadcastTransaction(signedTx.rawTx, options);
+    return this.broadcastTransaction({
+      ...signedTx,
+      txid: '',
+      encodedTx: unsignedTx.encodedTx,
+    });
   }
 
-  async broadcastTransaction(
-    rawTx: string,
-    options: ISignCredentialOptions,
-  ): Promise<ISignedTx> {
-    debugLogger.engine('broadcastTransaction START:', { rawTx });
+  async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+    debugLogger.engine('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
     // TODO RPC Error format return: EIP-1474 EIP-1193
     const txid = await this.engine.providerManager.broadcastTransaction(
       this.networkId,
-      rawTx,
+      signedTx.rawTx,
     );
-    debugLogger.engine('broadcastTransaction END:', { txid, rawTx });
+    debugLogger.engine('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
     return {
-      rawTx,
+      ...signedTx,
       txid,
     };
   }
