@@ -260,7 +260,6 @@ const DevScreen = () => {
     <DevStack.Navigator>
       <DevStack.Group
         screenOptions={{
-          headerShown: false,
           headerBackTitle: '',
           headerTitleAlign: 'center',
           headerStyle: {
