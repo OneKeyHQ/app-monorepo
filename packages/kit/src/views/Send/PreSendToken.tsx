@@ -46,7 +46,7 @@ function PreSendToken() {
             },
         children: account ? (
           <AssetsList
-            isTab
+            singleton
             hidePriceInfo
             ListHeaderComponent={<Box h={8} />}
             ListFooterComponent={<Box h={8} />}

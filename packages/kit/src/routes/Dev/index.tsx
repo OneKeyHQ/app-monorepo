@@ -19,7 +19,6 @@ import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
 import HardwareHomescreen from '@onekeyhq/kit/src/views/Components/stories/HardwareHomescreen';
-import HeaderTabViewContainerGallery from '@onekeyhq/kit/src/views/Components/stories/HeaderTabViewContainer';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons';
 import ImageViewerGallery from '@onekeyhq/kit/src/views/Components/stories/ImageViewer';
