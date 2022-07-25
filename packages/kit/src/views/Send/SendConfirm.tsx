@@ -88,8 +88,11 @@ async function prepareSendConfirmEncodedTx({
     if (sendConfirmParams.sourceInfo) {
       tx = removeFeeInfoInTx(tx);
     }
-    // Ensure IEncodedTxEvm's value is hex string.
-    tx.value = `0x${new BigNumber(tx.value).toString(16)}`;
+    const valueBn = new BigNumber(tx.value);
+    if (!valueBn.isNaN()) {
+      // Ensure IEncodedTxEvm's value is hex string.
+      tx.value = `0x${valueBn.toString(16)}`;
+    }
     return Promise.resolve(tx);
   }
   return Promise.resolve(encodedTx);
