@@ -77,11 +77,7 @@ const Container: FC<HomePageProps> = ({
       }}
     >
       {renderHeader?.()}
-      {Children.map(children, (child, index) => (
-        <View key={index} collapsable={false} top={0}>
-          {child}
-        </View>
-      ))}
+      {children}
     </NestedTabView>
   );
 };
