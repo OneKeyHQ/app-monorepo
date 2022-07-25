@@ -371,8 +371,6 @@ dependencies {
         implementation jscFlavor
     }
 
-    implementation project(':react-native-nested-scroll-view')
-
     implementation project(path: ':lib-keys-secret')
 
     // Custom Add Library
