@@ -114,9 +114,14 @@ if (platformEnv.isNative) {
 
 const DEBUG_LOGGER_STORAGE_KEY = '$$ONEKEY_DEBUG_LOGGER';
 
-async function loadDebugLoggerSettings() {
+async function getDebugLoggerSettings(): Promise<string> {
   const enabledKeysStr =
     (await appStorage.getItem(DEBUG_LOGGER_STORAGE_KEY)) || '';
+  return enabledKeysStr;
+}
+
+async function loadDebugLoggerSettings() {
+  const enabledKeysStr = await getDebugLoggerSettings();
   const enabledKeys: string[] = enabledKeysStr.split(',').filter(Boolean);
 
   Object.keys(LoggerNames).forEach((key) => {
@@ -140,5 +145,9 @@ async function saveDebugLoggerSettings() {
 
 loadDebugLoggerSettings();
 
-export { saveDebugLoggerSettings, loadDebugLoggerSettings };
+export {
+  saveDebugLoggerSettings,
+  loadDebugLoggerSettings,
+  getDebugLoggerSettings,
+};
 export default debugLogger;
