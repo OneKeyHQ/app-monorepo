@@ -48,7 +48,7 @@ export const dark = {
   'border-critical-default': '#CC2F26',
   'border-critical-subdued': '#7A1C17',
   'border-success-subdued': '#165526',
-  'border-warning-subdued': '#165526',
+  'border-warning-subdued': '#7A6200',
   'focused-default': '#33C641',
   'focused-critical': '#FF6259',
   'checkbox-border-disabled': '#4C4C5C',
