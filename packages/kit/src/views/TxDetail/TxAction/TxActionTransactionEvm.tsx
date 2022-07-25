@@ -36,7 +36,7 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
           content: (
             <TxActionElementAddressNormal
               address={encodedTx.data ?? ''}
-              numberOfLines={3}
+              numberOfLines={1}
               isShorten={false}
               flex={1}
             />
