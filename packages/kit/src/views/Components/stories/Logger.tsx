@@ -17,6 +17,7 @@ import { useNavigationBack } from '../../../hooks/useAppNavigation';
 
 function DebugLoggerSettings() {
   const [keys, setKeys] = React.useState<LoggerNames[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [checkedStatus, setCheckedStatus] = React.useState<
     Partial<Record<LoggerNames, boolean>>
   >({});
