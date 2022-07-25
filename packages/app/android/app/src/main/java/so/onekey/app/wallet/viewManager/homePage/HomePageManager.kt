@@ -37,14 +37,14 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         return HomePageView(reactContext)
     }
 
-    override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
-        return MapBuilder.builder<String, Any>().put(
-            "tabPageChange",
-            MapBuilder.of(
-                "phasedRegistrationNames",
-                MapBuilder.of("bubbled", "onChange")
+    override fun getExportedCustomBubblingEventTypeConstants(): Map<String, Any> {
+        return mapOf(
+            "tabPageChange" to mapOf(
+                "phasedRegistrationNames" to mapOf(
+                    "bubbled" to "onChange"
+                )
             )
-        ).build()
+        )
     }
 
     @ReactProp(name = "headerHeight")

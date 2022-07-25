@@ -12,6 +12,9 @@ import androidx.appcompat.widget.LinearLayoutCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.ReactContext
+import com.facebook.react.uimanager.events.RCTEventEmitter
 import com.google.android.material.appbar.CollapsingToolbarLayout
 import so.onekey.app.wallet.R
 import so.onekey.app.wallet.utils.Utils
@@ -39,13 +42,13 @@ open class HomePageLayout @JvmOverloads constructor(
         }
 
     fun onReceiveNativeEvent(index: Int, tabProps: TabProps) {
-//        val event = Arguments.createMap()
-//        event.putString("tabName", tabProps.name)
-//        event.putInt("index", index)
-//        val reactContext = context as ReactContext
-//        reactContext
-//            .getJSModule(RCTEventEmitter::class.java)
-//            .receiveEvent(id, "tabPageChange", event)
+        val event = Arguments.createMap()
+        event.putString("tabName", tabProps.name)
+        event.putInt("index", index)
+        val reactContext = context as ReactContext
+        reactContext
+            .getJSModule(RCTEventEmitter::class.java)
+            .receiveEvent(id, "tabPageChange", event)
     }
 
     fun setHeaderView(view: View, height: Int) {
