@@ -29,7 +29,6 @@ import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
-import OnboardingGallery from '@onekeyhq/kit/src/views/Components/stories/Onboarding/index';
 import PageActionsGallery from '@onekeyhq/kit/src/views/Components/stories/PageActions';
 import PinCodeGallery from '@onekeyhq/kit/src/views/Components/stories/PinCode';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
@@ -53,6 +52,7 @@ import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypeWriter from '@onekeyhq/kit/src/views/Components/stories/TypeWriter';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
+import OnboardingGallery from '@onekeyhq/kit/src/views/Onboarding/index';
 
 import PriceChart from '../../views/Components/stories/PriceChart';
 import renderCustomSubStackHeader from '../Stack/Header';
