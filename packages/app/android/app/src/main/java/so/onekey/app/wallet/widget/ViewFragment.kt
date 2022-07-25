@@ -25,17 +25,6 @@ class ViewFragment constructor(private val childView: View) : Fragment() {
             ViewGroup.LayoutParams.MATCH_PARENT
         )
         childView.layoutParams = params
-
-        fixViewTop()
-
-        childView.addOnLayoutChangeListener { v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom -> fixViewTop() }
     }
 
-    fun fixViewTop() {
-        Log.e("===: fixViewTop", "fixViewTop ${childView.top}  ${childView.bottom}")
-
-//        childView.top = 0
-//        childView.bottom = 0
-//        childView.invalidate()
-    }
 }

@@ -146,20 +146,4 @@ open class HomePageLayout @JvmOverloads constructor(
             tabDividerView.visibility = View.GONE
         }
     }
-
-    override fun requestLayout() {
-        super.requestLayout()
-        post(measureAndLayout)
-    }
-
-    private val measureAndLayout = Runnable {
-        val adapter = content.findViewById<ViewPager2>(R.id.viewpager)?.adapter
-        if (adapter is InnerPagerAdapter) {
-            adapter.fragmentArrayList.forEach {
-                if (it is ViewFragment) {
-                    it.fixViewTop()
-                }
-            }
-        }
-    }
 }

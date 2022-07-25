@@ -134,6 +134,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
                 )
             }
         }
+        parent.requestLayout()
     }
 
     override fun addViews(parent: HomePageView?, views: MutableList<View>?) {
@@ -142,4 +143,9 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
             addView(parent, view, index)
         }
     }
+
+    override fun needsCustomLayoutForChildren(): Boolean {
+        return true
+    }
+
 }
