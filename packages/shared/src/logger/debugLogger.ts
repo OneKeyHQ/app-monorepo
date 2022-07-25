@@ -143,7 +143,9 @@ async function saveDebugLoggerSettings() {
   }
 }
 
-loadDebugLoggerSettings();
+if (platformEnv.isDev) {
+  loadDebugLoggerSettings();
+}
 
 export {
   saveDebugLoggerSettings,
