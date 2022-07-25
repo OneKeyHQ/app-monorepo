@@ -13,6 +13,7 @@ import { stringify } from 'circular-json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import platformEnv from '../platformEnv';
+import appStorage from '../storage/appStorage';
 
 const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   transport: consoleTransport,
@@ -111,4 +112,33 @@ if (platformEnv.isNative) {
   removePreviousLogFile();
 }
 
+const DEBUG_LOGGER_STORAGE_KEY = '$$ONEKEY_DEBUG_LOGGER';
+
+async function loadDebugLoggerSettings() {
+  const enabledKeysStr =
+    (await appStorage.getItem(DEBUG_LOGGER_STORAGE_KEY)) || '';
+  const enabledKeys: string[] = enabledKeysStr.split(',').filter(Boolean);
+
+  Object.keys(LoggerNames).forEach((key) => {
+    if (platformEnv.isDev && !enabledKeys.includes(key)) {
+      // should enabled() first to create _enabledExtensions array
+      logger.enable(key);
+      logger.disable(key);
+    } else {
+      logger.enable(key);
+    }
+  });
+}
+
+async function saveDebugLoggerSettings() {
+  const enabledKeys: string[] = (logger._enabledExtensions as any) || [];
+  const enabledKeysStr = enabledKeys.join(',');
+  if (enabledKeysStr) {
+    await appStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
+  }
+}
+
+loadDebugLoggerSettings();
+
+export { saveDebugLoggerSettings, loadDebugLoggerSettings };
 export default debugLogger;
