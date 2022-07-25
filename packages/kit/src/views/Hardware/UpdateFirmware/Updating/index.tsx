@@ -233,6 +233,16 @@ const UpdatingModal: FC = () => {
     setProgressState('failure');
   };
 
+  const rebootBootSuccess = async () => {
+    // Waiting for the device to restart
+    if (device?.deviceType === 'touch') {
+      await sleep(8000);
+    } else {
+      await sleep(2000);
+    }
+    setProgressState('done');
+  };
+
   const nextStep = (): boolean => {
     if (suspendStep) {
       setProgressStep(suspendStep);
@@ -307,7 +317,15 @@ const UpdatingModal: FC = () => {
           .then((response) => {
             if (response) {
               const deviceType = getDeviceType(response);
-              if (!response.bootloader_mode && deviceType === 'mini') {
+              const isMini = deviceType === 'mini' && !response.bootloader_mode;
+              const isBoot183ClassicUpBle =
+                firmwareType === 'ble' &&
+                deviceType === 'classic' &&
+                !response.bootloader_mode &&
+                // @ts-expect-error
+                response.bootloader_version === '1.8.3';
+
+              if (isMini || isBoot183ClassicUpBle) {
                 setStateViewInfo({
                   type: 'manually-enter-bootloader-one',
                   content: {
@@ -378,17 +396,15 @@ const UpdatingModal: FC = () => {
           return;
         }
         serviceHardware
-          .rebootToBootloader(connectId)
-          .then(async () => {
-            // Waiting for the device to restart
-            if (device?.deviceType === 'touch') {
-              await sleep(8000);
-            } else {
-              await sleep(2000);
-            }
-            setProgressState('done');
+          .rebootToBootloader(platformEnv.isNative ? connectId : '')
+          .then(() => {
+            rebootBootSuccess();
           })
           .catch((e) => {
+            const { code } = e;
+            if (code === HardwareErrorCode.DeviceUnexpectedBootloaderMode) {
+              return rebootBootSuccess();
+            }
             handleErrors(progressStep, e);
           });
         break;
