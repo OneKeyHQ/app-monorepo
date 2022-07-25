@@ -90,4 +90,4 @@ const ConnectWallet: FC<ConnectWalletProps> = ({
 
 ConnectWallet.defaultProps = defaultProps;
 
-export default ConnectWallet;
+export default React.memo(ConnectWallet);

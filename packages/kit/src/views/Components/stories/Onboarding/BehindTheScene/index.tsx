@@ -1,10 +1,11 @@
-import React, { FC, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React, { FC, useCallback, useState } from 'react';
 
 import {
   Box,
   Button,
-  TypeWriter,
   PresenceTransition,
+  TypeWriter,
 } from '@onekeyhq/components';
 
 import Layout from '../Layout';
@@ -29,45 +30,45 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
   const [allTypingEnd, setIsAllTypingEnd] = useState(false);
   const [showLastAction, setIsShowLastAction] = useState(false);
 
-  const handleProcessOneTypingEnd = () => {
+  const handleProcessOneTypingEnd = useCallback(() => {
     setIsProcessOneTypingEnd(true);
 
     setTimeout(() => {
       setIsProcessOneDone(true);
     }, 1000);
-  };
+  }, []);
 
-  const handleProcessTwoTypingEnd = () => {
+  const handleProcessTwoTypingEnd = useCallback(() => {
     setIsProcessTwoTypingEnd(true);
 
     setTimeout(() => {
       setIsProcessTwoDone(true);
     }, 1000);
-  };
+  }, []);
 
-  const handleProcessThreeTypingEnd = () => {
+  const handleProcessThreeTypingEnd = useCallback(() => {
     setIsProcessThreeTypingEnd(true);
 
     setTimeout(() => {
       setIsProcessThreeDone(true);
     }, 1000);
-  };
+  }, []);
 
-  const handleProcessFourTypingEnd = () => {
+  const handleProcessFourTypingEnd = useCallback(() => {
     setIsProcessFourTypingEnd(true);
 
     setTimeout(() => {
       setIsProcessFourDone(true);
     }, 1000);
-  };
+  }, []);
 
-  const handleAllTypingEnd = () => {
+  const handleAllTypingEnd = useCallback(() => {
     setIsAllTypingEnd(true);
 
     setTimeout(() => {
       setIsShowLastAction(true);
     }, 300);
-  };
+  }, []);
 
   return (
     <>
@@ -152,4 +153,4 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
 
 BehindTheScene.defaultProps = defaultProps;
 
-export default BehindTheScene;
+export default React.memo(BehindTheScene);

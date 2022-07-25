@@ -4,11 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Box, Hidden, Icon, Text } from '@onekeyhq/components';
 
-type SecondaryContentProps = {};
-
 const defaultProps = {} as const;
 
-const SecondaryContent: FC<SecondaryContentProps> = () => {
+const SecondaryContent: FC = () => {
   const intl = useIntl();
 
   return (

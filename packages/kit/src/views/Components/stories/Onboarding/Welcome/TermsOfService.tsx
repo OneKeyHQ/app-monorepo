@@ -7,9 +7,7 @@ import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
-type TermsOfServiceProps = {};
-
-const TermsOfService: FC<TermsOfServiceProps> = ({}) => {
+const TermsOfService: FC = () => {
   const intl = useIntl();
   const insets = useSafeAreaInsets();
 

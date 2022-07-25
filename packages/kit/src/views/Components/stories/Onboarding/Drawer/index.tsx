@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -34,43 +34,55 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
 
-  const steps = [
-    {
-      index: '1',
-      desc: isVerticalLayout
-        ? intl.formatMessage({ id: 'content__native_metamask_tutorials_1' })
-        : intl.formatMessage({ id: 'content__ext_metamask_tutorials_1' }),
-      image: isVerticalLayout ? NativeStepOneImage : ExtStepOneImage,
-      imageHeight: isVerticalLayout ? '51px' : '56px',
-    },
-    {
-      index: '2',
-      desc: intl.formatMessage({ id: 'content__native_metamask_tutorials_2' }),
-      image: isVerticalLayout ? NativeStepTwoImage : ExtStepTwoImage,
-      imageHeight: isVerticalLayout ? '107px' : '103px',
-    },
-    {
-      index: '3',
-      desc: intl.formatMessage({ id: 'content__native_metamask_tutorials_3' }),
-      image: isVerticalLayout ? NativeStepThreeImage : ExtStepThreeImage,
-      imageHeight: isVerticalLayout ? '99px' : '110px',
-    },
-    {
-      index: '4',
-      desc: intl.formatMessage({ id: 'content__native_metamask_tutorials_4' }),
-      image: isVerticalLayout ? NativeStepFourImage : ExtStepFourImage,
-      imageHeight: isVerticalLayout ? '59px' : '66px',
-    },
-    {
-      index: '5',
-      desc: intl.formatMessage({ id: 'content__native_metamask_tutorials_5' }),
-    },
-  ];
+  const steps = useMemo(
+    () => [
+      {
+        index: '1',
+        desc: isVerticalLayout
+          ? intl.formatMessage({ id: 'content__native_metamask_tutorials_1' })
+          : intl.formatMessage({ id: 'content__ext_metamask_tutorials_1' }),
+        image: isVerticalLayout ? NativeStepOneImage : ExtStepOneImage,
+        imageHeight: isVerticalLayout ? '51px' : '56px',
+      },
+      {
+        index: '2',
+        desc: intl.formatMessage({
+          id: 'content__native_metamask_tutorials_2',
+        }),
+        image: isVerticalLayout ? NativeStepTwoImage : ExtStepTwoImage,
+        imageHeight: isVerticalLayout ? '107px' : '103px',
+      },
+      {
+        index: '3',
+        desc: intl.formatMessage({
+          id: 'content__native_metamask_tutorials_3',
+        }),
+        image: isVerticalLayout ? NativeStepThreeImage : ExtStepThreeImage,
+        imageHeight: isVerticalLayout ? '99px' : '110px',
+      },
+      {
+        index: '4',
+        desc: intl.formatMessage({
+          id: 'content__native_metamask_tutorials_4',
+        }),
+        image: isVerticalLayout ? NativeStepFourImage : ExtStepFourImage,
+        imageHeight: isVerticalLayout ? '59px' : '66px',
+      },
+      {
+        index: '5',
+        desc: intl.formatMessage({
+          id: 'content__native_metamask_tutorials_5',
+        }),
+      },
+    ],
+    [intl, isVerticalLayout],
+  );
 
   return (
     <>
       <PresenceTransition
         as={ZStack}
+        // @ts-expect-error
         position="absolute"
         top={0}
         right={0}
@@ -95,6 +107,7 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
         <PresenceTransition
           visible={visible}
           as={Box}
+          // @ts-expect-error
           top={0}
           right={0}
           bottom={0}

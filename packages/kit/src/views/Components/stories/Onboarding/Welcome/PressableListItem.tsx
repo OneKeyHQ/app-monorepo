@@ -34,6 +34,7 @@ const PressableListItem: FC<PressableListItemProps> = ({
       mx={2}
       px={{ base: 3, sm: 6 }}
       py={{ base: 4, sm: 6 }}
+      // @ts-expect-error
       bgColor="surface-default"
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}

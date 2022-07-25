@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,24 @@ type RecoveryPhraseProps = {
 
 const defaultProps = {} as const;
 
+const getListItemLeadingColor = (type: string) => {
+  if (type === 'critical')
+    return {
+      bgColor: 'surface-critical-default',
+      iconColor: 'icon-critical',
+    } as const;
+  if (type === 'warning')
+    return {
+      bgColor: 'surface-warning-default',
+      iconColor: 'icon-warning',
+    } as const;
+
+  return {
+    bgColor: 'decorative-surface-one',
+    iconColor: 'decorative-icon-one',
+  } as const;
+};
+
 const RecoveryPhrase: FC<RecoveryPhraseProps> = ({
   visible,
   onPressBackButton,
@@ -25,48 +43,34 @@ const RecoveryPhrase: FC<RecoveryPhraseProps> = ({
 }) => {
   const intl = useIntl();
 
-  const ListItemLeadingColor = (type: string) => {
-    if (type === 'critical')
-      return {
-        bgColor: 'surface-critical-default',
-        iconColor: 'icon-critical',
-      };
-    if (type === 'warning')
-      return {
-        bgColor: 'surface-warning-default',
-        iconColor: 'icon-warning',
-      };
-
-    return {
-      bgColor: 'decorative-surface-one',
-      iconColor: 'decorative-icon-one',
-    };
-  };
-
-  const lists = [
-    {
-      type: 'decorative',
-      icon: 'LockClosedOutline',
-      para: intl.formatMessage({ id: 'modal__attention_unlock' }),
-    },
-    {
-      type: 'decorative',
-      icon: 'DotsCircleHorizontalOutline',
-      para: intl.formatMessage({ id: 'content__recovery_phrase_restore' }),
-    },
-    {
-      type: 'critical',
-      icon: 'EyeOffOutline',
-      para: intl.formatMessage({ id: 'modal__attention_shh' }),
-    },
-    {
-      type: 'warning',
-      icon: 'ShieldCheckOutline',
-      para: intl.formatMessage({
-        id: 'backup__manual_backup_warning_never_ask',
-      }),
-    },
-  ];
+  const lists = useMemo(
+    () =>
+      [
+        {
+          type: 'decorative',
+          icon: 'LockClosedOutline',
+          para: intl.formatMessage({ id: 'modal__attention_unlock' }),
+        },
+        {
+          type: 'decorative',
+          icon: 'DotsCircleHorizontalOutline',
+          para: intl.formatMessage({ id: 'content__recovery_phrase_restore' }),
+        },
+        {
+          type: 'critical',
+          icon: 'EyeOffOutline',
+          para: intl.formatMessage({ id: 'modal__attention_shh' }),
+        },
+        {
+          type: 'warning',
+          icon: 'ShieldCheckOutline',
+          para: intl.formatMessage({
+            id: 'backup__manual_backup_warning_never_ask',
+          }),
+        },
+      ] as const,
+    [intl],
+  );
 
   return (
     <>
@@ -90,12 +94,12 @@ const RecoveryPhrase: FC<RecoveryPhraseProps> = ({
                 p={2.5}
                 mr={4}
                 rounded="full"
-                bgColor={ListItemLeadingColor(item.type)?.bgColor}
+                bgColor={getListItemLeadingColor(item.type)?.bgColor}
                 alignSelf="flex-start"
               >
                 <Icon
                   name={item.icon}
-                  color={ListItemLeadingColor(item.type)?.iconColor}
+                  color={getListItemLeadingColor(item.type)?.iconColor}
                   size={20}
                 />
               </Box>

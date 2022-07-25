@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -23,60 +23,59 @@ import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
 import LogoTrustWallet from '@onekeyhq/kit/assets/onboarding/logo_trustwallet.png';
 import LogoWalletConnect from '@onekeyhq/kit/assets/onboarding/logo_walletconnect.png';
 
-type SecondaryContentProps = {};
-
-const defaultProps = {} as const;
-
-const SecondaryContent: FC<SecondaryContentProps> = () => {
+const SecondaryContent: FC = () => {
   const intl = useIntl();
 
-  const options = [
-    {
-      logo: LogoMetaMask,
-      label: 'MetaMask',
-      available: true,
-    },
-    {
-      logo: LogoTrustWallet,
-      label: 'Trust Wallet',
-      available: true,
-    },
-    {
-      logo: LogoRainbow,
-      label: 'Rainbow',
-      available: true,
-    },
-    {
-      logo: LogoImToken,
-      label: 'imToken',
-      available: true,
-    },
-    {
-      logo: LogoTokenPocket,
-      label: 'Token Pocket',
-      available: true,
-    },
-    {
-      logo: LogoBitKeep,
-      label: 'BitKeep',
-      available: true,
-    },
-    {
-      logo: LogoWalletConnect,
-      label: 'WalletConenct',
-      available: true,
-    },
-    {
-      logo: LogoTrezor,
-      label: 'Trezor',
-      available: false,
-    },
-    {
-      logo: LogoLedger,
-      label: 'Ledger',
-      available: false,
-    },
-  ];
+  const options = useMemo(
+    () => [
+      {
+        logo: LogoMetaMask,
+        label: 'MetaMask',
+        available: true,
+      },
+      {
+        logo: LogoTrustWallet,
+        label: 'Trust Wallet',
+        available: true,
+      },
+      {
+        logo: LogoRainbow,
+        label: 'Rainbow',
+        available: true,
+      },
+      {
+        logo: LogoImToken,
+        label: 'imToken',
+        available: true,
+      },
+      {
+        logo: LogoTokenPocket,
+        label: 'Token Pocket',
+        available: true,
+      },
+      {
+        logo: LogoBitKeep,
+        label: 'BitKeep',
+        available: true,
+      },
+      {
+        logo: LogoWalletConnect,
+        label: 'WalletConenct',
+        available: true,
+      },
+      {
+        logo: LogoTrezor,
+        label: 'Trezor',
+        available: false,
+      },
+      {
+        logo: LogoLedger,
+        label: 'Ledger',
+        available: false,
+      },
+    ],
+    [],
+  );
 
   return (
     <>
@@ -98,6 +97,7 @@ const SecondaryContent: FC<SecondaryContentProps> = () => {
         >
           {options.map((option) => (
             <Pressable
+              key={option.label}
               flexDir={{ base: 'row', sm: 'column' }}
               w={{ sm: '1/3' }}
               alignItems="center"
@@ -152,6 +152,4 @@ const SecondaryContent: FC<SecondaryContentProps> = () => {
   );
 };
 
-SecondaryContent.defaultProps = defaultProps;
-
-export default SecondaryContent;
+export default React.memo(SecondaryContent);

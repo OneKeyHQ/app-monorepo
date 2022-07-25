@@ -1,17 +1,16 @@
 import React, { FC } from 'react';
-import Svg, { SvgProps, Path } from 'react-native-svg';
 
+import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
+import Svg, { Path, SvgProps } from 'react-native-svg';
 
 import {
   Box,
   Icon,
-  Text,
   PresenceTransition,
+  Text,
   useThemeValue,
 } from '@onekeyhq/components';
-
-import { LinearGradient } from 'expo-linear-gradient';
 
 function ExtensionIcon(props: SvgProps) {
   return (
@@ -46,6 +45,7 @@ const PinPanel: FC<PinPanelProps> = ({ visible }) => {
     <>
       <PresenceTransition
         as={Box}
+        // @ts-expect-error
         position="absolute"
         top={2}
         right={2}
