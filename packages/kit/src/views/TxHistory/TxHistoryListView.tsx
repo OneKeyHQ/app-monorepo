@@ -383,7 +383,7 @@ function TxHistoryListViewComponent({
 function TxHistoryListView(props: ITxHistoryListViewProps) {
   const { headerView, isHomeTab } = props;
   return (
-    <TxHistoryContextProvider headerView={headerView} isHomeTab={isHomeTab}>
+    <TxHistoryContextProvider headerView={headerView} isTab={isHomeTab}>
       <TxHistoryListViewComponent {...props} />
     </TxHistoryContextProvider>
   );

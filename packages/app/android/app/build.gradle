@@ -372,6 +372,7 @@ dependencies {
     }
 
     implementation project(path: ':lib-keys-secret')
+    implementation project(':lib-tabview')
 
     // Custom Add Library
     // Lifecycle
