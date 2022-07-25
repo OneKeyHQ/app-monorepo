@@ -10,6 +10,9 @@ import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.annotations.ReactProp
 import com.th3rdwave.safeareacontext.getReactContext
+import so.onekey.app.wallet.extensions.getBooleanOrNull
+import so.onekey.app.wallet.extensions.getIntOrNull
+import so.onekey.app.wallet.extensions.getStringOrNull
 import so.onekey.app.wallet.widget.ViewFragment
 import javax.annotation.Nullable
 
@@ -35,7 +38,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     }
 
     override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
-        return MapBuilder.builder<String,Any>().put(
+        return MapBuilder.builder<String, Any>().put(
             "tabPageChange",
             MapBuilder.of(
                 "phasedRegistrationNames",
@@ -55,14 +58,18 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     }
 
     @ReactProp(name = "tabViewStyle")
-    fun setTabViewStyle(view: HomePageView?, @Nullable style: ReadableMap?) {
+    fun setTabViewStyle(view: HomePageView?, style: ReadableMap?) {
         style?.apply {
-            val paddingX = getInt("paddingX")
-            val activeColor = getString("activeColor")
+            val paddingX = getIntOrNull("paddingX") ?: 0
             val tabHeight = getInt("height")
-            val inactiveColor = getString("inactiveColor")
+
+            val activeLabelColor = getString("activeLabelColor")
+            val labelColor = getString("labelColor")
+
+            val tabSpaceEqual = getBooleanOrNull("tabSpaceEqual") ?: true
             val indicatorColor = getString("indicatorColor")
             val backgroundColor = getString("backgroundColor")
+            val bottomLineColor = getStringOrNull("bottomLineColor")
 
             val labelStyle = getMap("labelStyle")
             val fontFamily = labelStyle?.getString("fontFamily")
@@ -73,10 +80,12 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
             view?.setTabViewStyle(
                 paddingX,
                 tabHeight,
-                activeColor,
-                inactiveColor,
+                tabSpaceEqual,
+                activeLabelColor,
+                labelColor,
                 indicatorColor,
                 backgroundColor,
+                bottomLineColor,
                 fontFamily,
                 fontWeight,
                 fontSize,
@@ -117,7 +126,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
             parent.setHeaderView(child, this.height)
         } else if (index <= mTabs.size) {
             child.let { mFragments.add(ViewFragment(it)) }
-            if(index == mTabs.size) {
+            if (index == mTabs.size) {
                 parent.setViewPager(
                     (getReactContext(parent).currentActivity as FragmentActivity),
                     mFragments,

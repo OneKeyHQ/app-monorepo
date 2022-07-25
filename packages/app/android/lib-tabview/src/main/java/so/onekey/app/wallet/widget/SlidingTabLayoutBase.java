@@ -305,7 +305,7 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
         mTitles.addAll(Arrays.asList(titles));
 
         notifyDataSetChanged();
-        setCurrentTab(mCurrentTab);
+        invalidate();
     }
 
     private void updateTabStyles() {

@@ -24,23 +24,22 @@
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:id="@+id/content"
-        android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <so.onekey.app.wallet.widget.SlidingTabLayout2
             android:id="@+id/layout_tab"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:background="#222831"
-            app:tl_indicator_color="#393E46"
-            app:tl_indicator_corner_radius="12dp"
-            app:tl_indicator_margin_left="1.5dp"
-            app:tl_indicator_margin_right="1.5dp"
-            app:tl_indicator_margin_top="1.5dp"
-            app:tl_indicator_margin_bottom="1.5dp"
-            app:tl_indicator_style="BLOCK" />
+            app:tl_textBold="BOTH"
+            app:tl_indicator_style="NORMAL" />
+
+        <View
+            android:id="@+id/view_tab_divider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp" />
 
         <androidx.viewpager2.widget.ViewPager2
             android:id="@+id/viewpager"

@@ -2,9 +2,8 @@ package so.onekey.app.wallet.widget
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -101,10 +100,12 @@ open class HomePageLayout @JvmOverloads constructor(
     fun setTabViewStyle(
         paddingX: Int,
         tabHeight: Int,
-        activeColor: String?,
-        inactiveColor: String?,
+        tabSpaceEqual: Boolean,
+        activeLabelColor: String?,
+        labelColor: String?,
         indicatorColor: String?,
         backgroundColor: String?,
+        bottomLineColor: String?,
         fontFamily: String?,
         fontWeight: String?,
         fontSize: Int?,
@@ -112,19 +113,16 @@ open class HomePageLayout @JvmOverloads constructor(
     ) {
         val tabLayout = content.findViewById<SlidingTabLayout2>(R.id.layout_tab)
 
-        tabLayout.isTabSpaceEqual = true
+        tabLayout.isTabSpaceEqual = tabSpaceEqual
         tabLayout.indicatorColor = Color.parseColor(indicatorColor)
+        tabLayout.background = ColorDrawable(Color.parseColor(backgroundColor))
 
-        tabLayout.background = GradientDrawable().also {
-            it.cornerRadius = Utils.dp2px(tabLayout.context, 12F).toFloat()
-            it.setColor(Color.parseColor(backgroundColor))
+        tabLayout.textUnselectColor = Color.parseColor(labelColor)
+        tabLayout.textSelectColor = Color.parseColor(activeLabelColor)
+
+        fontSize?.toFloat()?.let {
+            tabLayout.textsize = it
         }
-
-        tabLayout.textUnselectColor = Color.parseColor(inactiveColor)
-        tabLayout.textSelectColor = Color.parseColor(activeColor)
-
-        tabLayout.textBold = 2 // TEXT_BOLD_BOTH
-        tabLayout.textsize = fontSize?.toFloat() ?: 16f
 
         tabLayout.layoutParams = LinearLayoutCompat.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -135,6 +133,14 @@ open class HomePageLayout @JvmOverloads constructor(
         ).also {
             it.marginStart = Utils.dp2px(tabLayout.context, paddingX.toFloat())
             it.marginEnd = Utils.dp2px(tabLayout.context, paddingX.toFloat())
+        }
+
+        val tabDividerView = content.findViewById<View>(R.id.view_tab_divider)
+        if (bottomLineColor != null) {
+            tabDividerView.visibility = View.VISIBLE
+            tabDividerView.setBackgroundColor(Color.parseColor(bottomLineColor))
+        } else {
+            tabDividerView.visibility = View.GONE
         }
     }
 

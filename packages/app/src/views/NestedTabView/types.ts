@@ -15,6 +15,11 @@ type TabViewStyle = {
   indicatorColor?: string;
   bottomLineColor?: string;
   labelStyle?: FontProps;
+
+  // label
+  tabSpaceEqual?: boolean;
+  activeLabelColor?: string;
+  labelColor?: string;
 };
 
 export type TabProps = {

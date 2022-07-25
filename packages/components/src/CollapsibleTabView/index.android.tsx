@@ -36,13 +36,19 @@ const Container: FC<HomePageProps> = ({
     ({ name: child.props.name, label: child.props.label }),
   ) as TabProps[];
 
-  const [tabbarBgColor, activeLabelColor, labelColor, indicatorColor] =
-    useThemeValue([
-      'surface-neutral-default',
-      'text-default',
-      'text-subdued',
-      'surface-default',
-    ]);
+  const [
+    activeLabelColor,
+    labelColor,
+    indicatorColor,
+    bgColor,
+    bottomLineColor,
+  ] = useThemeValue([
+    'text-default',
+    'text-subdued',
+    'action-primary-default',
+    'surface-default',
+    'border-subdued',
+  ]);
 
   return (
     <NestedTabView
@@ -52,12 +58,12 @@ const Container: FC<HomePageProps> = ({
         flex: 1,
       }}
       tabViewStyle={{
-        paddingX: 16,
-        height: 36,
-        activeColor: activeLabelColor,
-        inactiveColor: labelColor,
+        height: 54,
         indicatorColor,
-        backgroundColor: tabbarBgColor,
+        backgroundColor: bgColor,
+        bottomLineColor,
+        activeLabelColor,
+        labelColor,
         labelStyle: Body2StrongProps,
       }}
       onChange={(e) => {

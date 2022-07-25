@@ -415,6 +415,11 @@ public final class Utils {
         return (int) (dpValue * scale + 0.5f);
     }
 
+    public static int sp2px(final @NotNull Context context, final Float sp) {
+        final float scale = context.getResources().getDisplayMetrics().scaledDensity;
+        return (int) (sp * scale + 0.5f);
+    }
+
     public static boolean isEmail(String email) {
         if (null == email || "".equals(email)) return false;
         // Pattern p = Pattern.compile("\\w+@(\\w+.)+[a-z]{2,3}"); //简单匹配
