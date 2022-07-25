@@ -63,7 +63,7 @@ export function useSwapEnabled() {
   const { network } = useActiveWalletAccount();
   const chainId = network?.extraInfo?.chainId;
   const index = String(+chainId);
-  return !!networkRecords[index];
+  return network?.impl === 'evm' && !!networkRecords[index];
 }
 
 export function useSwapState() {

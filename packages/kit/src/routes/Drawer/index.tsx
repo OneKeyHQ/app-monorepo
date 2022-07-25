@@ -29,7 +29,7 @@ const DrawerStackNavigator = () => {
         /**
          * fix drawer every render blink issue: https://github.com/react-navigation/react-navigation/issues/7515
          */
-        drawerType: 'back',
+        drawerType: platformEnv.isWeb ? 'back' : 'front',
         swipeEdgeWidth: 390,
         drawerStyle,
       }}
