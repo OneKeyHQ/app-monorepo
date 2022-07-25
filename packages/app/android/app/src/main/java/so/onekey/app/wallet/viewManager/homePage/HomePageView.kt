@@ -17,6 +17,8 @@ class HomePageView @JvmOverloads constructor(
         this.layoutParams = params;
     }
 
+
+
     override fun requestLayout() {
         super.requestLayout()
         post(measureAndLayout)
@@ -28,5 +30,6 @@ class HomePageView @JvmOverloads constructor(
             MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
         )
         layout(left, top, right, bottom)
+
     }
 }

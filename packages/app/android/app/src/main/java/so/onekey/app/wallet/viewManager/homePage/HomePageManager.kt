@@ -1,11 +1,23 @@
 package so.onekey.app.wallet.viewManager.homePage
 
+import android.util.Log
 import android.view.View
+import androidx.fragment.app.FragmentActivity
+import com.facebook.react.bridge.ReadableArray
+import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.common.MapBuilder
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.annotations.ReactProp
+import com.th3rdwave.safeareacontext.getReactContext
+import so.onekey.app.wallet.widget.ViewFragment
 import javax.annotation.Nullable
 
+
+data class TabProps(
+    var name: String,
+    var label: String,
+)
 
 class HomePageManager : ViewGroupManager<HomePageView>() {
     private val REACT_CLASS = "NestedTabView"
@@ -14,8 +26,22 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
 
     override fun getName() = REACT_CLASS
 
+    private val mTabs = mutableListOf<TabProps>()
+    private val mFragments = ArrayList<ViewFragment>()
+
     override fun createViewInstance(reactContext: ThemedReactContext): HomePageView {
+        Log.d("===: HomePageManager", "createViewInstance")
         return HomePageView(reactContext)
+    }
+
+    override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
+        return MapBuilder.builder<String,Any>().put(
+            "tabPageChange",
+            MapBuilder.of(
+                "phasedRegistrationNames",
+                MapBuilder.of("bubbled", "onChange")
+            )
+        ).build()
     }
 
     @ReactProp(name = "headerHeight")
@@ -23,21 +49,88 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         height?.let { this.height = it }
     }
 
+    @ReactProp(name = "scrollEnabled")
+    fun setScrollEnabled(view: HomePageView, @Nullable enable: Boolean?) {
+        view.setScrollEnabled(enable ?: false)
+    }
+
+    @ReactProp(name = "tabViewStyle")
+    fun setTabViewStyle(view: HomePageView?, @Nullable style: ReadableMap?) {
+        style?.apply {
+            val paddingX = getInt("paddingX")
+            val activeColor = getString("activeColor")
+            val tabHeight = getInt("height")
+            val inactiveColor = getString("inactiveColor")
+            val indicatorColor = getString("indicatorColor")
+            val backgroundColor = getString("backgroundColor")
+
+            val labelStyle = getMap("labelStyle")
+            val fontFamily = labelStyle?.getString("fontFamily")
+            val fontWeight = labelStyle?.getString("fontWeight")
+            val fontSize = labelStyle?.getInt("fontSize")
+            val lineHeight = labelStyle?.getInt("lineHeight")
+
+            view?.setTabViewStyle(
+                paddingX,
+                tabHeight,
+                activeColor,
+                inactiveColor,
+                indicatorColor,
+                backgroundColor,
+                fontFamily,
+                fontWeight,
+                fontSize,
+                lineHeight
+            )
+        }
+    }
+
+    @ReactProp(name = "values")
+    fun setTabs(view: HomePageView, @Nullable tabs: ReadableArray?) {
+        mTabs.clear()
+        tabs?.let {
+            val list = mutableListOf<TabProps>()
+            for (i in 0 until tabs.size()) {
+
+                val tab = tabs.getMap(i)
+                val name = tab.getString("name")
+                val label = tab.getString("label")
+
+                if (name != null && label != null) {
+                    mTabs.add(TabProps(name, label))
+                }
+            }
+        }
+    }
+
+    override fun onAfterUpdateTransaction(view: HomePageView) {
+        super.onAfterUpdateTransaction(view)
+        view.updateTabsTitle(mTabs)
+    }
+
     override fun addView(parent: HomePageView?, child: View?, index: Int) {
         if (parent == null) return
         if (child == null) return
 
         if (index == 0) {
+            mFragments.clear()
             parent.setHeaderView(child, this.height)
-        } else {
-            parent.setContentView(child)
+        } else if (index <= mTabs.size) {
+            child.let { mFragments.add(ViewFragment(it)) }
+            if(index == mTabs.size) {
+                parent.setViewPager(
+                    (getReactContext(parent).currentActivity as FragmentActivity),
+                    mFragments,
+                    mTabs
+                )
+            }
         }
     }
 
     override fun addViews(parent: HomePageView?, views: MutableList<View>?) {
         if (parent == null) return
-
-        views?.get(0)?.let { parent.setHeaderView(it, this.height) }
-        views?.get(1)?.let { parent.setContentView(it) }
+        views?.forEachIndexed { index, view ->
+            addView(parent, view, index)
+        }
     }
 }
