@@ -1,6 +1,5 @@
-import { Children, FC, Fragment, ReactChild, ReactNode, useMemo } from 'react';
+import { Children, FC, Fragment, ReactChild, ReactNode } from 'react';
 
-import { View } from 'native-base';
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
 
