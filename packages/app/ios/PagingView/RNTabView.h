@@ -17,6 +17,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic,copy)NSString *backgroundColor;
 @property(nonatomic,copy)NSString *inactiveColor;
 @property(nonatomic,copy)NSString *indicatorColor;
+@property(nonatomic,copy)NSString *bottomLineColor;
+
 @property(nonatomic,assign)CGFloat paddingX;
 @property(nonatomic,assign)CGFloat paddingY;
 
@@ -30,6 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic,strong)RNTabViewModel *model;
 
 @property (nonatomic, strong) JXCategoryTitleView *categoryView;
+@property (nonatomic, strong) UIView *bottomLineView;
 @property (nonatomic, strong) NSDictionary *tabViewStyle;
 @property (nonatomic, strong) NSArray *values;
 @property (nonatomic, assign) NSInteger defaultIndex;

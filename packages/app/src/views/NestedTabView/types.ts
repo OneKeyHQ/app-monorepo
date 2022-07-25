@@ -9,10 +9,11 @@ type TabViewStyle = {
   paddingX?: number;
   paddingY?: number;
 
-  backgroundColor: string;
+  backgroundColor?: string;
   activeColor?: string;
   inactiveColor?: string;
   indicatorColor?: string;
+  bottomLineColor?: string;
   labelStyle?: FontProps;
 };
 

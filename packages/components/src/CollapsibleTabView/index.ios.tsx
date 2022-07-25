@@ -36,12 +36,12 @@ const Container: FC<ContainerProps> = ({
   if (selectedIndex < 0) {
     selectedIndex = 0;
   }
-  const [tabbarBgColor, activeLabelColor, labelColor, indicatorColor] =
+  const [activeLabelColor, labelColor, indicatorColor, bottomLineColor] =
     useThemeValue([
-      'surface-neutral-default',
       'text-default',
       'text-subdued',
-      'surface-default',
+      'action-primary-default',
+      'border-subdued',
     ]);
 
   return (
@@ -60,12 +60,12 @@ const Container: FC<ContainerProps> = ({
         headerHeight={headerHeight}
         renderHeader={renderHeader}
         tabViewStyle={{
-          paddingX: 16,
-          height: 36,
+          paddingX: 0,
+          height: 54,
           activeColor: activeLabelColor,
           inactiveColor: labelColor,
           indicatorColor,
-          backgroundColor: tabbarBgColor,
+          bottomLineColor,
           labelStyle: Body2StrongProps,
         }}
       >

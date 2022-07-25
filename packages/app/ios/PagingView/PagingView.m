@@ -74,7 +74,7 @@
 -(void)layoutSubviews {
   [super layoutSubviews];
   self.pagingView.frame = self.bounds;
-  self.tabView.frame = CGRectMake(0, 0, CGRectGetWidth(self.bounds), self.tabView.model.height);
+  self.tabView.frame = CGRectMake(0, CGRectGetHeight(self.headerView.frame), CGRectGetWidth(self.bounds), self.tabView.model.height);
 }
 
 -(RNTabView *)tabView {
