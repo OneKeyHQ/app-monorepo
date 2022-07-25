@@ -88,18 +88,18 @@ class ProviderApiPrivate extends ProviderApiBase {
       time: Date.now(),
       delay: Date.now() - time,
       debugLoggerConfig: {
-        // ** pass full log settings string to dapp
+        // ** pass full logger settings string to Dapp
         config: debugLoggerSettings,
 
-        // ** or you can enable some dapp log keys manually
+        // ** or you can enable some Dapp logger keys manually
         enabledKeys: platformEnv.isDev
           ? [
               // 'jsBridge', 'extInjected', 'providerBase'
             ]
           : [],
 
-        // ** or you can update log settings in dapp console directly
-        //    ** (all settings in wallet should be disabled first)
+        // ** or you can update logger settings in Dapp console directly
+        //    ** (all logger settings in Wallet should be disabled first)
         /*
         window.localStorage.setItem('$$ONEKEY_DEBUG_LOGGER', 'jsBridge,ethereum');
         window.location.reload();
