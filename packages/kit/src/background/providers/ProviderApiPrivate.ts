@@ -9,6 +9,7 @@ import {
   JsBridgeDesktopHost,
 } from '@onekeyfe/onekey-cross-webview';
 
+import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../utils/extUtils';
@@ -79,7 +80,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   ) {
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
-    const debugLoggerSettings = '';
+    const debugLoggerSettings: string = await getDebugLoggerSettings();
     const ethereum = this.backgroundApi.providers
       .ethereum as ProviderApiEthereum;
     return {
@@ -87,11 +88,22 @@ class ProviderApiPrivate extends ProviderApiBase {
       time: Date.now(),
       delay: Date.now() - time,
       debugLoggerConfig: {
-        // TODO change in dapp localStorage
+        // ** pass full logger settings string to Dapp
         config: debugLoggerSettings,
-        enabledKeys: [
-          // 'jsBridge', 'extInjected', 'providerBase'
-        ],
+
+        // ** or you can enable some Dapp logger keys manually
+        enabledKeys: platformEnv.isDev
+          ? [
+              // 'jsBridge', 'extInjected', 'providerBase'
+            ]
+          : [],
+
+        // ** or you can update logger settings in Dapp console directly
+        //    ** (all logger settings in Wallet should be disabled first)
+        /*
+        window.localStorage.setItem('$$ONEKEY_DEBUG_LOGGER', 'jsBridge,ethereum');
+        window.location.reload();
+         */
       },
       walletInfo: {
         platform: process.env.ONEKEY_PLATFORM,
