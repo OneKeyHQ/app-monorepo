@@ -81,7 +81,8 @@
     "redux-flipper": "^2.0.1",
     "text-encoding": "^0.7.0",
     "v8-android-jit": "^10.100.1",
-    "vision-camera-code-scanner": "^0.2.0"
+    "vision-camera-code-scanner": "^0.2.0",
+    "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",

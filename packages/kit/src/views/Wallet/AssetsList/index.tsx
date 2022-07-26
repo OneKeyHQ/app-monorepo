@@ -3,7 +3,6 @@
 import React, { ComponentProps, useCallback } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
-import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -232,13 +231,13 @@ function AssetsList({
 
   return (
     <Container
-      contentContainerStyle={merge(
+      contentContainerStyle={[
         {
           paddingHorizontal: responsivePadding(),
           marginTop: 24,
         },
         contentContainerStyle,
-      )}
+      ]}
       data={accountTokens}
       renderItem={renderListItem}
       ListHeaderComponent={

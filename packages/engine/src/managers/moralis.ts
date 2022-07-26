@@ -55,7 +55,7 @@ export function getSourceWithAsset(asset: MoralisNFT, size?: number): string {
   return '';
 }
 
-const HostURL = 'https://fiat.onekey.so';
+const HostURL = 'https://fiat.onekeycn.com';
 
 export const getUserAssets = async (params: {
   address?: string | null;

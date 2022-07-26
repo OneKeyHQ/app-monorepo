@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState } from 'react';
 export type ITxHistoryContextData = {
   refresh?: () => void;
   isLoading?: boolean;
-  isHomeTab?: boolean;
+  isTab?: boolean;
   headerView?: JSX.Element | null;
 };
 
@@ -19,10 +19,10 @@ function TxHistoryContextProvider(
     children: JSX.Element;
   },
 ) {
-  const { children, isHomeTab, headerView, refresh } = props;
+  const { children, isTab, headerView, refresh } = props;
   const [context, setContext] = useState<ITxHistoryContextData>({
     isLoading: false,
-    isHomeTab,
+    isTab,
     headerView,
     refresh,
   });

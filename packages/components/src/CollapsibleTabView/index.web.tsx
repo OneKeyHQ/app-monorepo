@@ -16,9 +16,11 @@ import { StyleProp, ViewStyle } from 'react-native';
 import { Container as BaseContainer } from 'react-native-collapsible-tab-view';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
+import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
+
 import Box from '../Box';
 import FlatList from '../FlatList';
-import { useIsVerticalLayout } from '../Provider/hooks';
+import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 
@@ -77,67 +79,6 @@ export function useTabProps(
   return { options: memoizedOptions, names: memoizedTabNames };
 }
 
-const Context = createContext<string>('');
-
-const Tab: FC<TabProps> = ({ children, name }) => {
-  const activeTab = useContext(Context);
-  const isHidden = activeTab !== name;
-  return <Box display={isHidden ? 'none' : 'block'}>{children}</Box>;
-};
-
-type ContainerProps = ComponentProps<typeof BaseContainer> & {
-  onTabChange?: (options: { tabName: string; index: number | string }) => void;
-  onIndexChange?: (index: number | string) => void;
-  initialTabName?: string;
-};
-const Container: FC<ContainerProps> = ({
-  children,
-  containerStyle,
-  headerHeight,
-  renderHeader,
-  headerContainerStyle,
-  renderTabBar,
-  onTabChange,
-  onIndexChange,
-  initialTabName,
-}) => {
-  const { options, names } = useTabProps(children as any, Tab);
-
-  const [value, setValue] = React.useState(initialTabName || names[0]);
-  const handleChange = (event: React.SyntheticEvent, newValue: string) => {
-    setValue(newValue);
-    const index = names.findIndex((item) => item === newValue);
-
-    if (onTabChange) {
-      onTabChange({
-        index,
-        tabName: newValue,
-      });
-    }
-    if (onIndexChange) {
-      onIndexChange(index);
-    }
-  };
-
-  return (
-    <ScrollView>
-      <Box flex="1" style={containerStyle} w="100%">
-        <Box
-          h={headerHeight ? headerHeight + 48 : 'auto'}
-          position="relative"
-          style={[headerContainerStyle as StyleProp<ViewStyle>]}
-        >
-          {renderHeader?.({} as any)}
-          <Box position="absolute" bottom={0} left={0} right={0}>
-            {renderTabBar?.({ value, handleChange, options, names } as any)}
-          </Box>
-        </Box>
-        <Context.Provider value={value}>{children}</Context.Provider>
-      </Box>
-    </ScrollView>
-  );
-};
-
 export const MaterialTabBar: FC<MaterialTabsProps> = ({
   value,
   handleChange,
@@ -180,6 +121,82 @@ export const MaterialTabBar: FC<MaterialTabsProps> = ({
     >
       {tabItems}
     </MaterialTabs>
+  );
+};
+
+const Context = createContext<string>('');
+
+const Tab: FC<TabProps> = ({ children, name }) => {
+  const activeTab = useContext(Context);
+  const isHidden = activeTab !== name;
+  return <Box display={isHidden ? 'none' : 'block'}>{children}</Box>;
+};
+
+type ContainerProps = ComponentProps<typeof BaseContainer> & {
+  onTabChange?: (options: { tabName: string; index: number | string }) => void;
+  onIndexChange?: (index: number | string) => void;
+  initialTabName?: string;
+};
+const Container: FC<ContainerProps> = ({
+  children,
+  containerStyle,
+  headerHeight,
+  renderHeader,
+  headerContainerStyle,
+  onTabChange,
+  onIndexChange,
+  initialTabName,
+}) => {
+  const { options, names } = useTabProps(children as any, Tab);
+
+  const [value, setValue] = React.useState(initialTabName || names[0]);
+  const handleChange = (event: React.SyntheticEvent, newValue: string) => {
+    setValue(newValue);
+    const index = names.findIndex((item) => item === newValue);
+
+    if (onTabChange) {
+      onTabChange({
+        index,
+        tabName: newValue,
+      });
+    }
+    if (onIndexChange) {
+      onIndexChange(index);
+    }
+  };
+  const [activeLabelColor, labelColor, indicatorColor] = useThemeValue([
+    'text-default',
+    'text-subdued',
+    'action-primary-default',
+  ]);
+
+  return (
+    <ScrollView>
+      <Box flex="1" style={containerStyle} w="100%">
+        <Box
+          h={headerHeight ? headerHeight + 48 : 'auto'}
+          position="relative"
+          style={[headerContainerStyle as StyleProp<ViewStyle>]}
+        >
+          {renderHeader?.({} as any)}
+          <Box position="absolute" bottom={0} left={0} right={0}>
+            <MaterialTabBar
+              value={value}
+              activeColor={activeLabelColor}
+              inactiveColor={labelColor}
+              labelStyle={{
+                ...Body2StrongProps,
+              }}
+              indicatorStyle={{ backgroundColor: indicatorColor }}
+              handleChange={handleChange}
+              options={options}
+              names={names}
+            />
+          </Box>
+        </Box>
+        <Context.Provider value={value}>{children}</Context.Provider>
+      </Box>
+    </ScrollView>
   );
 };
 
