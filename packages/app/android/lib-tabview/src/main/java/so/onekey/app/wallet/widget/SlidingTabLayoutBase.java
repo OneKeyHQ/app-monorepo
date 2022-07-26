@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -298,7 +299,7 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
     }
 
     public void updateTabsTitle(String[] titles) {
-        if(titles == null || titles.length == 0) {
+        if (titles == null || titles.length == 0) {
             return;
         }
         mTitles.clear();
@@ -328,9 +329,11 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
                 }
 
                 if (mTextBold == TEXT_BOLD_BOTH) {
-                    tv_tab_title.getPaint().setFakeBoldText(true);
+                    Typeface typeface = Typeface.createFromAsset(getResources().getAssets(),"fonts/plus_jakarta_sans_bold.ttf");
+                    tv_tab_title.setTypeface(typeface);
                 } else if (mTextBold == TEXT_BOLD_NONE) {
-                    tv_tab_title.getPaint().setFakeBoldText(false);
+                    Typeface typeface = Typeface.createFromAsset(getResources().getAssets(), "fonts/plus_jakarta_sans_medium.ttf");
+                    tv_tab_title.setTypeface(typeface);
                 }
             }
         }
