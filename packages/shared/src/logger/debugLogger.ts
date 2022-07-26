@@ -79,9 +79,15 @@ export enum LoggerNames {
   common = 'common',
 }
 
+export type LoggerEntity = {
+  debug: (...args: any[]) => void;
+  info: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+};
+
 const Cache = {
-  createLogger(name: LoggerNames): ReturnType<typeof logger.extend> {
-    return logger.extend(name);
+  createLogger(name: LoggerNames): LoggerEntity {
+    return logger.extend(name) as LoggerEntity;
   },
 };
 
