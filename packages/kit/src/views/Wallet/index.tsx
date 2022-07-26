@@ -13,10 +13,8 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import {
-  MaterialTabBar,
   Tabs,
 } from '@onekeyhq/components/src/CollapsibleTabView';
-import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
@@ -67,17 +65,8 @@ NetInfo.configure({
 const Home: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
-  const [
-    tabbarBgColor,
-    activeLabelColor,
-    labelColor,
-    indicatorColor,
-    borderDefault,
-  ] = useThemeValue([
+  const [tabbarBgColor, borderDefault] = useThemeValue([
     'background-default',
-    'text-default',
-    'text-subdued',
-    'action-primary-default',
     'border-subdued',
   ]);
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
@@ -237,21 +226,6 @@ const Home: FC = () => {
           borderBottomWidth: 1,
           borderBottomColor: borderDefault,
         }}
-        renderTabBar={(props) => (
-          <MaterialTabBar
-            {...props}
-            activeColor={activeLabelColor}
-            inactiveColor={labelColor}
-            labelStyle={{
-              ...(Body2StrongProps as TextStyle),
-            }}
-            indicatorStyle={{ backgroundColor: indicatorColor }}
-            style={{
-              backgroundColor: tabbarBgColor,
-            }}
-            tabStyle={{ backgroundColor: tabbarBgColor }}
-          />
-        )}
       >
         <Tabs.Tab
           name={WalletHomeTabEnum.Tokens}
@@ -269,19 +243,19 @@ const Home: FC = () => {
           name={WalletHomeTabEnum.History}
           label={intl.formatMessage({ id: 'transaction__history' })}
         >
-          {platformEnv.isLegacyHistory ? (
+          {/* {platformEnv.isLegacyHistory ? (
             <HistoricalRecord
               accountId={account?.id}
               networkId={network?.id}
               isTab
             />
-          ) : (
-            <TxHistoryListView
-              accountId={account?.id}
-              networkId={network?.id}
-              isHomeTab
-            />
-          )}
+          ) : ( */}
+          <TxHistoryListView
+            accountId={account?.id}
+            networkId={network?.id}
+            isHomeTab
+          />
+          {/* )} */}
         </Tabs.Tab>
       </Tabs.Container>
       {backupToast()}
