@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native-logs/dist/transports/consoleTransport.js b/node_modules/react-native-logs/dist/transports/consoleTransport.js
+index c27ec18..e0a5ae4 100644
+--- a/node_modules/react-native-logs/dist/transports/consoleTransport.js
++++ b/node_modules/react-native-logs/dist/transports/consoleTransport.js
+@@ -44,7 +44,7 @@ const consoleTransport = (props) => {
+         msg = msg.replace(props.extension, `${extStart} ${props.extension} ${extEnd}`);
+     }
+     if ((_c = props.options) === null || _c === void 0 ? void 0 : _c.consoleFunc) {
+-        props.options.consoleFunc(msg.trim());
++        props.options.consoleFunc(msg.trim(), props);
+     }
+     else {
+         console.log(msg.trim());
