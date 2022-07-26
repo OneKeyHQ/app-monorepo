@@ -94,10 +94,14 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
 
     let isCompatibleNetwork = true;
     if (accountId && networkId) {
-      isCompatibleNetwork = isAccountCompatibleWithNetwork(
-        accountId,
-        networkId,
-      );
+      try {
+        isCompatibleNetwork = isAccountCompatibleWithNetwork(
+          accountId,
+          networkId,
+        );
+      } catch (error) {
+        console.error(error);
+      }
     }
 
     return {

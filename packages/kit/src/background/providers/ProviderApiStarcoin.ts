@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
@@ -55,7 +55,7 @@ export interface Transaction {
   to?: string;
   value?: string;
   gas?: string;
-  gasLimit?: number,
+  gasLimit?: number;
   gasPrice?: number;
   nonce?: string;
   maxFeePerGas?: string;
@@ -119,20 +119,25 @@ class ProviderApiStarcoin extends ProviderApiBase {
       chainId: '0x1',
       networkVersion: '1',
     };
-    if (network && network.impl === IMPL_STC && Object.keys(network.extraInfo).length) {
+    if (
+      network &&
+      network.impl === IMPL_STC &&
+      Object.keys(network.extraInfo).length
+    ) {
       networkInfo = network.extraInfo as EvmExtraInfo;
     } else {
       const request: IJsonRpcRequest = {
         id: 1,
         jsonrpc: '2.0',
         method: 'chain.id',
-        params: []
+        params: [],
       };
-      const result = await this.rpcCall(request)
-      if (result.id) {
+      const result = await this.rpcCall(request);
+      const resultId = (result as { id?: number | string })?.id;
+      if (resultId) {
         networkInfo = {
-          chainId: `0x${ result.id.toString(16) }`,
-          networkVersion: result.id.toString(),
+          chainId: `0x${resultId.toString(16)}`,
+          networkVersion: resultId.toString(),
         };
       }
     }
@@ -155,7 +160,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
 
-    debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
+    debugLogger.ethereum.info('BgApi rpcCall:', request, { networkId });
 
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
@@ -163,7 +168,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
       request,
     );
 
-    debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
+    debugLogger.ethereum.info('BgApi rpcCall RESULT:', request, {
       networkId,
       result,
     });
@@ -224,7 +229,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
-    debugLogger.ethereum('stc_sendTransaction', request, transaction);
+    debugLogger.ethereum.info('stc_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
@@ -236,7 +241,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
       },
     );
 
-    debugLogger.ethereum(
+    debugLogger.ethereum.info(
       'stc_sendTransaction DONE',
       result,
       request,
@@ -269,7 +274,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   ) {
     const type = params.type ?? '';
     if (type !== 'ERC20') {
-      throw new Error(`Asset of type '${ type }' not supported`);
+      throw new Error(`Asset of type '${type}' not supported`);
     }
     const result = await this.backgroundApi.serviceDapp?.openAddTokenModal(
       request,
@@ -334,9 +339,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async wallet_getPermissions(
-    request: IJsBridgeMessagePayload,
-  ) {
+  async wallet_getPermissions(request: IJsBridgeMessagePayload) {
     const result = [
       {
         caveats: [],
@@ -344,14 +347,14 @@ class ProviderApiStarcoin extends ProviderApiBase {
         id: request.id?.toString() ?? (uuid.v4() as string),
         invoker: request.origin as string,
         parentCapability: 'stc_accounts',
-      }
+      },
     ];
-    return Promise.resolve(result)
+    return Promise.resolve(result);
   }
 
   @providerApiMethod()
   async stc_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.backgroundApi(
+    debugLogger.backgroundApi.info(
       'ProviderApiStarcoin.stc_requestAccounts',
       request,
     );
@@ -526,7 +529,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     params: AddEthereumChainParameter,
   ) {
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
-    const networkId = `evm--${ parseInt(params.chainId) }`;
+    const networkId = `evm--${parseInt(params.chainId)}`;
     const included = networks.some((network) => network.id === networkId);
     if (included) {
       return this.wallet_switchEthereumChain(request, {
@@ -552,7 +555,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     params: SwitchEthereumChainParameter,
   ) {
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
-    const networkId = `evm--${ parseInt(params.chainId) }`;
+    const networkId = `evm--${parseInt(params.chainId)}`;
     const included = networks.some((network) => network.id === networkId);
     if (!included) {
       // throw new Error(
