@@ -52,6 +52,7 @@ export enum HomeRoutes {
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   Protected = 'Protected',
   AddressBook = 'AddressBook',
+  Onboarding = 'Onboarding',
   SwapHistory = 'SwapHistory',
   VolumeHaptic = 'VolumeHaptic',
 }

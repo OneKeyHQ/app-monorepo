@@ -17,6 +17,7 @@ import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
 import LogoTokenPocket from '@onekeyhq/kit/assets/onboarding/logo_tokenpocket.png';
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import Layout from '../Layout';
 
@@ -36,6 +37,7 @@ const Welcome: FC<WelcomeProps> = ({
   onPressConnectWallet,
   visible,
 }) => {
+  const navigation = useAppNavigation();
   const intl = useIntl();
   const insets = useSafeAreaInsets();
 
@@ -52,6 +54,7 @@ const Welcome: FC<WelcomeProps> = ({
       {/* Close button */}
       <IconButton
         position="absolute"
+        onPress={() => navigation.goBack()}
         top={{ base: 4 + insets.top, sm: 8 }}
         right={{ base: 4, sm: 8 }}
         type="plain"

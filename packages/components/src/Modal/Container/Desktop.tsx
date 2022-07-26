@@ -88,10 +88,10 @@ const DesktopModal = ({
   return (
     <Box
       position="absolute"
-      top="0"
-      left="0"
-      right="0"
-      bottom="0"
+      top="-1000px"
+      left="-1000px"
+      right="-1000px"
+      bottom="-1000px"
       justifyContent="center"
       alignItems="center"
       bg="rgba(0, 0, 0, 0.6)"

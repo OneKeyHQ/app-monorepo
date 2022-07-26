@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
+import Onboarding from '@onekeyhq/kit/src/views/Onboarding';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AppLock } from '../../components/AppLock';
@@ -61,8 +62,8 @@ const RootNavigatorContainer: FC = ({ children }) => {
         headerShown: false,
         presentation: 'transparentModal',
         ...(isVerticalLayout
-          ? TransitionPresets.ModalPresentationIOS
-          : TransitionPresets.ModalFadeTransition),
+          ? TransitionPresets.ScaleFromCenterAndroid
+          : TransitionPresets.FadeFromBottomAndroid),
       }}
     >
       {children}
@@ -91,7 +92,15 @@ const App = () => {
   return (
     <RootNavigatorContainer>
       <RootStack.Screen name={RootRoutes.Root} component={StackScreen} />
-      <RootStack.Screen name={RootRoutes.Welcome} component={Welcome} />
+      <RootStack.Screen
+        name={RootRoutes.Welcome}
+        component={Onboarding}
+        options={{
+          // @ts-expect-error
+          presentation: 'containedModal',
+          animation: 'fade',
+        }}
+      />
       <RootStack.Screen
         name={RootRoutes.Modal}
         component={ModalStackNavigator}

@@ -17,7 +17,7 @@ import Box from '../Box';
 import Button from '../Button';
 import FlatList from '../FlatList';
 import { LocaleIds } from '../locale';
-import { useUserDevice } from '../Provider/hooks';
+import { useIsVerticalLayout, useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import SortableList from '../SortableList';
@@ -119,6 +119,8 @@ const Modal = ({
   useEffect(() => {
     ModalRefStore.ref = modalRef;
   }, [modalRef]);
+
+  const isVerticalLayout = useIsVerticalLayout();
 
   const modalContent = useMemo(() => {
     let content = (
@@ -224,7 +226,8 @@ const Modal = ({
             borderBottomRadius={isSmallScreen ? 0 : '24px'}
             borderTopRadius={
               platformEnv.isExtensionUiStandaloneWindow ||
-              platformEnv.isNativeAndroid
+              platformEnv.isNativeAndroid ||
+              (platformEnv.isWeb && isVerticalLayout)
                 ? 0
                 : '24px'
             }
@@ -254,6 +257,7 @@ const Modal = ({
       </Desktop>
     );
   }, [
+    isVerticalLayout,
     size,
     onModalClose,
     headerShown,
