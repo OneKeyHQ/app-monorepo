@@ -65,7 +65,7 @@ export const fetchCurrencies = async () => {
     return;
   }
   const request1 = await axios
-    .get<CurrenciesPayload>('https://fiat.onekey.so/public/currencies.json')
+    .get<CurrenciesPayload>('https://fiat.onekeycn.com/public/currencies.json')
     .then((ret) => ret.data);
   const request2 = await axios
     .get<MoonpayCurrencyListPayload>(getCurrenciesListUri())
@@ -138,8 +138,8 @@ export const getAmountInputInfo = async (
 
 export const signMoonpayUrl = async (url: string) =>
   axios(
-    `https://fiat.onekey.so/moonpay/sign?url=${encodeURIComponent(url)}&mode=${
-      MoonpayModeData().modeCode
-    }`,
+    `https://fiat.onekeycn.com/moonpay/sign?url=${encodeURIComponent(
+      url,
+    )}&mode=${MoonpayModeData().modeCode}`,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   ).then((ret) => ret.data.data);

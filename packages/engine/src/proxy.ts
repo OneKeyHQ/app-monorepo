@@ -614,7 +614,7 @@ class ProviderController extends BaseProviderController {
 }
 
 class PriceController {
-  endpoint = 'https://fiat.onekey.so';
+  endpoint = 'https://fiat.onekeycn.com';
 
   CACHE_DURATION = 1000 * 30;
 

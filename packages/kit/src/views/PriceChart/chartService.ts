@@ -138,7 +138,7 @@ export function updateChartDom({
   }
 }
 
-const marketApi = 'https://fiat.onekey.so/market/chart';
+const marketApi = 'https://fiat.onekeycn.com/market/chart';
 
 interface MarketData {
   prices: [number, number][];
