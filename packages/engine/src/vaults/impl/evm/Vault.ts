@@ -134,6 +134,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
+    external: KeyringWatching,
   };
 
   private async _correctDbAccountAddress(dbAccount: DBAccount) {
@@ -529,6 +530,7 @@ export default class Vault extends VaultBase {
     );
 
     // TODO remove side effect here
+    // TODO not working in Ext
     encodedTx.nonce = nextNonce;
 
     return { ...unsignedTx, encodedTx };

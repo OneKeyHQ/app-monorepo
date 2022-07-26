@@ -124,9 +124,7 @@ export default class ServiceToken extends ServiceBase {
     tokenIds?: string[];
   }) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector(
-      (s) => s.tokens,
-    ) as TokenInitialState;
+    const { tokens, accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
     if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
@@ -162,9 +160,7 @@ export default class ServiceToken extends ServiceBase {
     tokenIds?: string[];
   }) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector(
-      (s) => s.tokens,
-    ) as TokenInitialState;
+    const { tokens, accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
     if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;

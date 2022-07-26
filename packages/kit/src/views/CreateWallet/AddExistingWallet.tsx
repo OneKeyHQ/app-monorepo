@@ -228,6 +228,7 @@ const AddExistingWallet = () => {
       hideSecondaryAction
     >
       <Box
+        testID="AddExistingWallet-Modal"
         display="flex"
         flexDirection="column"
         justifyContent={isSmallScreen ? 'space-between' : 'flex-start'}

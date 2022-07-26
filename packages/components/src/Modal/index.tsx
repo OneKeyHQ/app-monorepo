@@ -115,6 +115,18 @@ const Modal = ({
 }: ModalProps) => {
   const { size } = useUserDevice();
   const modalRef = useRef(null);
+  const onModalCloseRef = useRef(onModalClose);
+  onModalCloseRef.current = onModalClose;
+
+  useEffect(
+    () => () => {
+      if (onModalCloseRef.current) {
+        // TODO some bugs, trigger at SendConfirm Tx first time
+        // onModalCloseRef.current?.();
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     ModalRefStore.ref = modalRef;

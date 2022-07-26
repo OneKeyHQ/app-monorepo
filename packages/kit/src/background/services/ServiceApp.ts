@@ -60,9 +60,7 @@ class ServiceApp extends ServiceBase {
     const { appSelector, engine } = this.backgroundApi;
 
     const enableAppLock = appSelector((s) => s.settings.enableAppLock);
-    const appLockDuration = appSelector(
-      (s) => s.settings.appLockDuration,
-    ) as number;
+    const appLockDuration = appSelector((s) => s.settings.appLockDuration);
 
     const lastActivity = await simpleDb.lastActivity.getValue();
     const isPasswordSet = await engine.isMasterPasswordSet();
@@ -113,7 +111,7 @@ class ServiceApp extends ServiceBase {
     await persistor.purge();
     await engine.resetApp();
     if (platformEnv.isRuntimeBrowser) {
-      localStorage.clear();
+      window.localStorage.clear();
     }
     await appStorage.clear();
     dispatch({ type: 'LOGOUT', payload: undefined });

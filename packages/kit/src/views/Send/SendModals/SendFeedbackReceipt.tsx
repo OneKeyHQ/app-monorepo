@@ -17,6 +17,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WalletConnectDappSideTest } from '../../../components/WalletConnect/WalletConnectDappSideTest';
 import { useActiveWalletAccount, useInterval } from '../../../hooks';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { BaseSendModal } from '../components/BaseSendModal';

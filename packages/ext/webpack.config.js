@@ -22,7 +22,7 @@ const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 
 sourcemapServer.start();
 
-// FIX error:
+// FIX build error by withTM :
 //    Module parse failed: Unexpected token (7:11)
 //    You may need an appropriate loader to handle this file type
 const transpileModules = [
@@ -32,6 +32,8 @@ const transpileModules = [
   '@onekeyhq/engine',
   '@onekeyhq/app',
   'react-native-animated-splash-screen',
+  '@walletconnect/react-native-dapp',
+  '@onekeyhq/remote-console',
 ];
 
 // load the secrets

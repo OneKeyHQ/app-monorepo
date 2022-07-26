@@ -79,7 +79,8 @@ export {
 
 export { default as LottieView } from './LottieView';
 export * from './NumberInput';
-export * from './OverlayContainer';
+export * from './OverlayContainer'; // Portal, Overlay, OverlayContainer
+export { Portal } from 'react-native-portalize';
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
 export * from './Svg';

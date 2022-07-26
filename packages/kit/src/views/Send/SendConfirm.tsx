@@ -83,7 +83,7 @@ async function prepareSendConfirmEncodedTx({
     const encodedTxEvm = encodedTx as IEncodedTxEvm;
     // routeParams is not editable, so should create new one
     let tx = { ...encodedTxEvm };
-    tx.from = address || tx.from;
+    tx.from = tx.from || address;
     // remove gas price if encodedTx build by DAPP
     if (sendConfirmParams.sourceInfo) {
       tx = removeFeeInfoInTx(tx);
@@ -178,6 +178,7 @@ function SendConfirm() {
     pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
   });
 
+  // onSubmit, onConfirm
   const handleConfirm = useCallback<ITxConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/no-shadow
     async ({ close, encodedTx }) => {

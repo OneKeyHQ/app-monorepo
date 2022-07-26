@@ -2,7 +2,7 @@ import { Engine } from '@onekeyhq/engine';
 
 import BackgroundApiBase from './BackgroundApiBase';
 import { IBackgroundApi } from './IBackgroundApi';
-import WalletConnectAdapter from './providers/WalletConnectAdapter';
+import ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
 import ServiceAccount from './services/ServiceAccount';
 import ServiceApp from './services/ServiceApp';
 import ServiceCronJob from './services/ServiceCronJob';
@@ -23,7 +23,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   vaultFactory = this.engine.vaultFactory;
 
-  walletConnect = new WalletConnectAdapter({
+  walletConnect = new ProviderApiWalletConnect({
     backgroundApi: this,
   });
 

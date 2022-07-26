@@ -44,6 +44,7 @@ const AccountSection: FC<AccountSectionProps> = ({
     )}
     ListFooterComponent={() => (
       <LoadingSkeleton
+        // isLoading={true}
         isLoading={activeWallet?.id === loadingAccountWalletId}
       />
     )}

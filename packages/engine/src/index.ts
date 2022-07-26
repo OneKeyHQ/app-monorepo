@@ -99,7 +99,12 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { Wallet } from './types/wallet';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_WATCHING,
+  Wallet,
+  WalletType,
+} from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
@@ -858,24 +863,42 @@ class Engine {
   }
 
   @backgroundMethod()
-  async addWatchingAccount(
-    networkId: string,
-    target: string,
-    name: string,
-  ): Promise<Account> {
+  async addWatchingOrExternalAccount({
+    networkId,
+    address,
+    name,
+    walletType,
+    checkExists,
+  }: {
+    networkId: string;
+    address: string; // address
+    name: string;
+    walletType: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
+    checkExists?: boolean;
+  }): Promise<Account> {
     // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
     await this.validator.validateAccountNames([name]);
 
     const impl = getImplFromNetworkId(networkId);
-    const vault = await this.getWalletOnlyVault(networkId, 'watching');
+    const vault = await this.getWalletOnlyVault(networkId, walletType);
+
+    // create dbAccountInfo to save to DB
     const [dbAccount] = await vault.keyring.prepareAccounts({
-      target,
+      target: address,
       name,
+      accountIdPrefix: walletType,
     });
 
-    const a = await this.dbApi.addAccountToWallet('watching', dbAccount);
+    if (checkExists) {
+      const [existDbAccount] = await this.dbApi.getAccounts([dbAccount.id]);
+      if (existDbAccount && existDbAccount.id === dbAccount.id) {
+        return this.getAccount(dbAccount.id, networkId);
+      }
+    }
+
+    const a = await this.dbApi.addAccountToWallet(walletType, dbAccount);
 
     await this.addDefaultToken(a.id, impl);
 
@@ -1338,6 +1361,10 @@ class Engine {
       networkId,
     });
     const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
+    unsignedTx.payload = {
+      ...unsignedTx.payload,
+      encodedTx,
+    };
 
     return vault.signAndSendTransaction(unsignedTx, {
       password,

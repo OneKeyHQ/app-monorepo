@@ -141,7 +141,7 @@ class ServiceNetwork extends ServiceBase {
   initCheckingNetwork(networks: Network[]): string | null {
     const { appSelector } = this.backgroundApi;
     // first time read from local storage
-    const previousActiveNetworkId: string = appSelector(
+    const previousActiveNetworkId: string | null = appSelector(
       (s) => s.general.activeNetworkId,
     );
     const isValidNetworkId = networks.some(

@@ -1,7 +1,9 @@
 import { find, flatten } from 'lodash';
 
+import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
+import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
 import { Account } from '@onekeyhq/engine/src/types/account';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import {
   updateAccountDetail,
@@ -138,9 +140,7 @@ class ServiceAccount extends ServiceBase {
   initCheckingWallet(wallets: Wallet[]): string | null {
     const { appSelector } = this.backgroundApi;
     // first time read from local storage
-    const previousWalletId: string = appSelector(
-      (s) => s.general.activeWalletId,
-    );
+    const previousWalletId = appSelector((s) => s.general.activeWalletId);
     const isValidNetworkId = wallets.some(
       (wallet) => wallet.id === previousWalletId,
     );
@@ -161,6 +161,9 @@ class ServiceAccount extends ServiceBase {
     const wallets = await this.initWallets();
 
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    if (!activeNetworkId) {
+      return;
+    }
     for (const wallet of wallets) {
       // First find wallet & account compatible with currect network.
       if (wallet.accounts.length > 0) {
@@ -238,7 +241,7 @@ class ServiceAccount extends ServiceBase {
     names?: string[],
     purpose?: number,
   ) {
-    const { engine, dispatch } = this.backgroundApi;
+    const { engine } = this.backgroundApi;
     const accounts = await engine.addHdOrHwAccounts(
       password,
       walletId,
@@ -251,16 +254,21 @@ class ServiceAccount extends ServiceBase {
     if (!accounts.length) return;
 
     const activeAccount = accounts[0];
-    await this.initWallets();
-    await this.reloadAccountsByWalletIdNetworkId(walletId, networkId);
 
-    dispatch(
-      setActiveIds({
-        activeAccountId: activeAccount.id,
-        activeWalletId: walletId,
-        activeNetworkId: networkId,
-      }),
-    );
+    let walletType: WalletType = 'hd';
+    if (isHardwareWallet({ walletId })) {
+      walletType = 'hw';
+    }
+
+    await this.postAccountAdded({
+      networkId,
+      account: activeAccount,
+      walletType,
+      walletId,
+      checkOnBoarding: false,
+      checkPasswordSet: false,
+    });
+
     return accounts;
   }
 
@@ -279,61 +287,136 @@ class ServiceAccount extends ServiceBase {
       credential,
       name,
     );
-    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
-    if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
-    }
-    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
-    if (!data.isPasswordSet) {
-      dispatch(passwordSet());
-      dispatch(setEnableAppLock(true));
-    }
-    dispatch(unlock());
-    dispatch(release());
 
-    const wallets = await serviceAccount.initWallets();
-    const watchedWallet = wallets.find((wallet) => wallet.type === 'imported');
-    if (!watchedWallet) return;
-    await serviceAccount.reloadAccountsByWalletIdNetworkId(
-      watchedWallet?.id,
+    await this.postAccountAdded({
       networkId,
-    );
+      account,
+      walletType: 'imported',
+      checkOnBoarding: true,
+      checkPasswordSet: true,
+    });
 
-    dispatch(
-      setActiveIds({
-        activeAccountId: account.id,
-        activeWalletId: watchedWallet.id,
-        activeNetworkId: networkId,
-      }),
-    );
     return account;
   }
 
+  // networkId="evm--1"
   @backgroundMethod()
   async addWatchAccount(networkId: string, address: string, name: string) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
-    const account = await engine.addWatchingAccount(networkId, address, name);
+    const account = await engine.addWatchingOrExternalAccount({
+      networkId,
+      address,
+      name,
+      walletType: 'watching',
+    });
 
-    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
-    if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
+    await this.postAccountAdded({
+      networkId,
+      account,
+      walletType: 'watching',
+      checkOnBoarding: true,
+      checkPasswordSet: false,
+    });
+    return account;
+  }
+
+  @backgroundMethod()
+  async addExternalAccount({
+    impl,
+    chainId,
+    address,
+    name,
+  }: {
+    impl: string;
+    chainId: string | number;
+    address: string;
+    name: string;
+  }) {
+    const networkId = generateNetworkIdByChainId({
+      impl,
+      chainId,
+    });
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+
+    const account = await engine.addWatchingOrExternalAccount({
+      networkId,
+      address,
+      name,
+      walletType: 'external',
+      checkExists: true,
+    });
+
+    await this.postAccountAdded({
+      networkId,
+      account,
+      walletType: 'external',
+      checkOnBoarding: true,
+      checkPasswordSet: false,
+    });
+
+    return account;
+  }
+
+  async postAccountAdded({
+    networkId,
+    account,
+    walletType,
+    walletId,
+    checkOnBoarding,
+    checkPasswordSet,
+  }: {
+    networkId: string;
+    account: Account;
+    walletType: WalletType;
+    walletId?: string;
+    checkOnBoarding: boolean;
+    checkPasswordSet: boolean;
+  }) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+
+    if (checkOnBoarding) {
+      const status: { boardingCompleted: boolean } = appSelector(
+        (s) => s.status,
+      );
+      if (!status.boardingCompleted) {
+        dispatch(setBoardingCompleted());
+      }
     }
-    dispatch(unlock());
-    dispatch(release());
+
+    if (checkPasswordSet) {
+      const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+      if (!data.isPasswordSet) {
+        dispatch(passwordSet());
+        dispatch(setEnableAppLock(true));
+      }
+    }
+
+    if (checkOnBoarding || checkPasswordSet) {
+      dispatch(unlock());
+      dispatch(release());
+    }
 
     const wallets = await serviceAccount.initWallets();
-    const watchedWallet = wallets.find((wallet) => wallet.type === 'watching');
-    if (!watchedWallet) return;
+    let activeWallet: Wallet | undefined;
+    if (walletId) {
+      activeWallet = wallets.find((wallet) => wallet.id === walletId);
+    } else {
+      activeWallet = wallets.find((wallet) => wallet.type === walletType);
+    }
+
+    if (!activeWallet) return;
     await serviceAccount.reloadAccountsByWalletIdNetworkId(
-      watchedWallet?.id,
+      activeWallet?.id,
       networkId,
     );
 
     dispatch(
       setActiveIds({
         activeAccountId: account.id,
-        activeWalletId: watchedWallet.id,
+        activeWalletId: activeWallet.id,
         activeNetworkId: networkId,
       }),
     );
@@ -352,7 +435,7 @@ class ServiceAccount extends ServiceBase {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     const devices = await engine.getHWDevices();
-    const networkId = appSelector((s) => s.general.activeNetworkId);
+    const networkId = appSelector((s) => s.general.activeNetworkId) || '';
     const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
     let wallet = null;
     let account = null;
@@ -383,7 +466,7 @@ class ServiceAccount extends ServiceBase {
 
     [account] = await engine.getAccounts(wallet.accounts, networkId);
 
-    if (typeof account === 'undefined') {
+    if (typeof account === 'undefined' && networkId) {
       // Network is neither btc nor evm, account is not by default created.
       try {
         const accounts = await engine.addHdOrHwAccounts(
@@ -421,9 +504,7 @@ class ServiceAccount extends ServiceBase {
 
     const { appSelector } = this.backgroundApi;
     // first time read from local storage
-    const previousAccountId: string = appSelector(
-      (s) => s.general.activeAccountId,
-    );
+    const previousAccountId = appSelector((s) => s.general.activeAccountId);
     const isValidAccountId = accounts.some(
       (account) => account.id === previousAccountId,
     );

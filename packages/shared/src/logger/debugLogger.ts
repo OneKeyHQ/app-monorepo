@@ -70,7 +70,7 @@ const Cache = {
   },
 };
 
-const debugLogger = {
+const debugLogger: Record<LoggerNames, ReturnType<typeof logger.extend>> = {
   [LoggerNames.hardwareSDK]: Cache.createLogger(LoggerNames.hardwareSDK),
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
   [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),

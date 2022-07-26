@@ -2,6 +2,16 @@ import ToastBase, { ToastShowParams } from 'react-native-toast-message';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+/*
+ toast.show(
+        {
+          title: intl.formatMessage({ id: 'msg__verification_failure' }),
+        },
+        {
+          type: 'error', // success, error, info
+        },
+ )
+ */
 const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   /**
    * Show Toast at next process, avoid toast in modal dismiss issue.
@@ -12,7 +22,7 @@ const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
     ToastBase.show({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       text1: props.title,
-      type: 'success',
+      type: 'success', // success, error, info
       position: 'top',
       topOffset: platformEnv.isNativeIOS ? 64 : 40,
       props,

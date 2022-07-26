@@ -66,6 +66,7 @@ function normalizeConfig({ platform, config }) {
         // ***        like password, secretKey, etc.                ***
         'include': [
           'NODE_ENV',
+          'REMOTE_CONSOLE_SERVER',
           'VERSION',
           'BUILD_NUMBER',
           'ONEKEY_PLATFORM',
@@ -104,7 +105,7 @@ function normalizeConfig({ platform, config }) {
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
 
-  console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
+  // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
 
   return config;
 }

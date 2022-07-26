@@ -8,6 +8,7 @@ import {
 import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,6 +35,7 @@ import {
 } from './types';
 import { VaultContext } from './VaultContext';
 
+import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
 import type {
   ISignCredentialOptions,
@@ -323,6 +325,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async fixDecodedTx(decodedTx: IDecodedTx): Promise<IDecodedTx> {
     decodedTx.createdAt = decodedTx.createdAt ?? Date.now();
+
+    // TODO try catch and define utils function
+    const nonce = (decodedTx.encodedTx as IEncodedTxEvm)?.nonce;
+    decodedTx.nonce = !isNil(nonce)
+      ? new BigNumber(nonce).toNumber()
+      : decodedTx.nonce;
 
     // TODO fix tx action direction both at SendConfirm
     const accountAddress = decodedTx.owner;

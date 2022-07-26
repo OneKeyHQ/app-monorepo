@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
 import { SendRoutes } from '../../routes';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import { refreshWebviewGlobalKey } from '../../store/reducers/status';
@@ -76,7 +77,7 @@ export const Debug = () => {
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
-      <Box w="full" maxW={768} mx="auto" pb={inset.bottom}>
+      <Box w="full" maxW={768} mx="auto" pb={9}>
         <Box borderRadius="12" bg="surface-default">
           <Pressable
             p="4"
@@ -115,6 +116,7 @@ export const Debug = () => {
                 断开 Dapp 连接 ({connections.length}) {webviewKey}
               </Typography.Body1>
             </Pressable>
+            <WalletConnectDappSideTest {...pressableProps} />
             <Pressable
               {...pressableProps}
               onPress={() => {
@@ -220,6 +222,7 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 /*
+                // Approve Token
                var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
                await window.ethereum.request(p);
                  */
@@ -241,21 +244,20 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 /*
+                // Send Native Token
                 var p = {
-      "method": "eth_sendTransaction",
-      "params": [
-        {
-          "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
-          "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
-          "data": "0x",
-          "value": "0xa3b5840f4000"
-        }
-      ],
-      "jsonrpc": "2.0"
-    };
-
-
-                           await window.ethereum.request(p);
+                    "method": "eth_sendTransaction",
+                    "params": [
+                      {
+                        "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
+                        "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
+                        "data": "0x",
+                        "value": "0xa3b5840f4000"
+                      }
+                    ],
+                    "jsonrpc": "2.0"
+                  };
+                  await window.ethereum.request(p);
 
                  */
                 // @ts-ignore
@@ -273,7 +275,6 @@ export const Debug = () => {
       "method": "eth_sendTransaction",
       "params": [
         {
-          "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
           "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
           "data": "0x",
           "value": "0xa3b5840f4000"
@@ -283,7 +284,6 @@ export const Debug = () => {
     }
   },
   "encodedTx": {
-    "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
     "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
     "data": "0x",
     "value": "0xa3b5840f4000"

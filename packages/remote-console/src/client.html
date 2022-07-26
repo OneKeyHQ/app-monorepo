@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Title</title>
+  </head>
+  <body>
+    <script>
+      const ws = new WebSocket('ws://127.0.0.1:8136');
+      ws.addEventListener('message', (event) => {
+        console.log('receive: ', event.data);
+      });
+      window.$ws = ws;
+    </script>
+    <button onclick="$ws.send('hello world:'+Date.now())">send</button>
+  </body>
+</html>

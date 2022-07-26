@@ -1,0 +1,22 @@
+diff --git a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
+index a935e81..83eeb0a 100644
+--- a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
++++ b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
+@@ -175,9 +175,15 @@ class AnimatedSplash extends React.Component {
+ 
+ AnimatedSplash.propTypes = {
+   preload: PropTypes.bool,
+-  logoWidth: PropTypes.number,
++  logoWidth: PropTypes.oneOfType([
++    PropTypes.number,
++    PropTypes.string
++  ]),
+   children: PropTypes.element,
+-  logoHeight: PropTypes.number,
++  logoHeight: PropTypes.oneOfType([
++    PropTypes.number,
++    PropTypes.string
++  ]),
+   backgroundColor: PropTypes.string,
+   isLoaded: PropTypes.bool.isRequired,
+   disableBackgroundImage: PropTypes.bool,

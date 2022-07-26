@@ -35,6 +35,7 @@ import {
 import { DBNetwork } from '../../types/network';
 import { Token } from '../../types/token';
 import {
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
@@ -101,6 +102,7 @@ class RealmDB implements DBAPI {
         if (update || realm.empty) {
           realm.write(() => {
             if (realm.empty) {
+              // TODO remove?
               realm.create('Wallet', {
                 id: 'watching',
                 name: 'watching',
@@ -112,7 +114,14 @@ class RealmDB implements DBAPI {
             }
           });
         }
-        RealmDB.addImportAccountEntry(realm);
+
+        RealmDB.addSingletonWalletEntry({ realm, walletId: 'watching' });
+        RealmDB.addSingletonWalletEntry({ realm, walletId: 'imported' });
+        RealmDB.addSingletonWalletEntry({
+          realm,
+          walletId: 'external',
+        });
+
         const context = realm.objectForPrimaryKey<ContextSchema>(
           'Context',
           MAIN_CONTEXT,
@@ -719,6 +728,10 @@ class RealmDB implements DBAPI {
             if (wallet.accounts!.size > WATCHING_ACCOUNT_MAX_NUM) {
               throw new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM);
             }
+            wallet.nextAccountIds!.global += 1;
+            break;
+          }
+          case WALLET_TYPE_EXTERNAL: {
             wallet.nextAccountIds!.global += 1;
             break;
           }
@@ -1670,17 +1683,26 @@ class RealmDB implements DBAPI {
     return Promise.resolve();
   }
 
-  private static addImportAccountEntry(realm: Realm): void {
-    const importAccount = realm.objectForPrimaryKey<WalletSchema>(
+  private static addSingletonWalletEntry({
+    realm,
+    walletId,
+  }: {
+    realm: Realm;
+    walletId:
+      | typeof WALLET_TYPE_IMPORTED
+      | typeof WALLET_TYPE_WATCHING
+      | typeof WALLET_TYPE_EXTERNAL;
+  }): void {
+    const walletObject = realm.objectForPrimaryKey<WalletSchema>(
       'Wallet',
-      'imported',
+      walletId,
     );
-    if (typeof importAccount === 'undefined') {
+    if (typeof walletObject === 'undefined') {
       realm.write(() => {
         realm.create('Wallet', {
-          id: 'imported',
-          name: 'imported',
-          type: WALLET_TYPE_IMPORTED,
+          id: walletId,
+          name: walletId,
+          type: walletId,
           backuped: true,
           accounts: [],
           nextAccountIds: { 'global': 1 },

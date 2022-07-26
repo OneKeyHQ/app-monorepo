@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { IMPL_EVM, IMPL_STC, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getPresetNetworks, networkIsPreset } from '../presets';
@@ -128,6 +130,17 @@ function fromDBNetworkToNetwork(
   };
 }
 
+function generateNetworkIdByChainId({
+  impl,
+  chainId,
+}: {
+  impl: string;
+  chainId: string | number;
+}) {
+  const chainIdNum = new BigNumber(chainId).toNumber();
+  return `${impl}${SEPERATOR}${chainIdNum}`;
+}
+
 function getImplFromNetworkId(networkId: string): string {
   if (!networkId) {
     throw new OneKeyInternalError(
@@ -141,4 +154,9 @@ function getImplFromNetworkId(networkId: string): string {
   throw new OneKeyInternalError(`Invalid networkId ${networkId}.`);
 }
 
-export { getEVMNetworkToCreate, fromDBNetworkToNetwork, getImplFromNetworkId };
+export {
+  getEVMNetworkToCreate,
+  fromDBNetworkToNetwork,
+  getImplFromNetworkId,
+  generateNetworkIdByChainId,
+};
