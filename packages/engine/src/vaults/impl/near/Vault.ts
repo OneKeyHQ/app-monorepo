@@ -10,6 +10,7 @@ import {
   PartialTokenInfo,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
@@ -18,7 +19,7 @@ import memoizee from 'memoizee';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
-import { fillUnsignedTx } from '../../../proxy';
+import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import { DBAccount, DBVariantAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import { Token } from '../../../types/token';
@@ -159,6 +160,18 @@ export default class Vault extends VaultBase {
     // return nearApiJs.utils.key_pair.PublicKey.from(pubKeyBuffer);
     // }
     return '';
+  }
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const cli = await this._getNearCli();
+    try {
+      return await cli.rpc.call(
+        request.method,
+        request.params as Record<string, any> | Array<any>,
+      );
+    } catch (e) {
+      throw extractResponseError(e);
+    }
   }
 
   attachFeeInfoToEncodedTx(params: {

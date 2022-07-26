@@ -346,6 +346,7 @@ function SendConfirmProxy() {
     return ![
       IInjectedProviderNames.ethereum,
       IInjectedProviderNames.starcoin,
+      IInjectedProviderNames.near,
     ].includes(sourceInfo.scope as any); // network.settings.injectedProviderName
   }, [sourceInfo]);
 

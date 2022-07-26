@@ -4,6 +4,7 @@ import { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
 
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
+import ProviderApiNear from './ProviderApiNear';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 import ProviderApiStarcoin from './ProviderApiStarcoin';
@@ -24,6 +25,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.starcoin]: new ProviderApiStarcoin({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.near]: new ProviderApiNear({
       backgroundApi,
     }),
     // near
