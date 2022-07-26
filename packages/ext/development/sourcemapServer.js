@@ -11,7 +11,6 @@ function start() {
   const server = httpServer.createServer({
     root: `./build/${buildTargetBrowser}`,
   });
-  console.log('>>>>>>>>   Sourcemap Server Start: ');
   console.log(`   http://127.0.0.1:${port}`);
   server.listen(port, null);
 }

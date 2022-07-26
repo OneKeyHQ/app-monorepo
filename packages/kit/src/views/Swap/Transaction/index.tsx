@@ -60,6 +60,8 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
   const toNetwork = useNetwork(tx.tokens?.to.networkId);
   const receivingName = useAddressName({ address: tx.receivingAddress });
 
+  const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
+
   const onCopy = useCallback(
     (text: string) => {
       copyToClipboard(text);
@@ -228,7 +230,15 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
             />
           </Box>
         </Box>
-        {!tx.thirdPartyOrderId ? (
+        <Box mb="4">
+          <Typography.Body1Strong color="text-subdued">
+            {intl.formatMessage({ id: 'title__channel' })}
+          </Typography.Body1Strong>
+          <Box flexDirection="row">
+            <Typography.Body1Strong>{tx.quoterType}</Typography.Body1Strong>
+          </Box>
+        </Box>
+        {!swftcOrderId ? (
           <Box>
             <Typography.Body1Strong color="text-subdued">
               {intl.formatMessage({ id: 'content__hash' })}
@@ -245,25 +255,25 @@ const Transaction: FC<TransactionProps> = ({ tx }) => {
             </Box>
           </Box>
         ) : null}
-        {tx.thirdPartyOrderId ? (
+        {swftcOrderId ? (
           <Box>
             <Typography.Body1Strong color="text-subdued">
               {intl.formatMessage({ id: 'title__order_id' })}
             </Typography.Body1Strong>
             <Box flexDirection="row" alignItems="center">
               <Typography.Body1Strong>
-                {utils.shortenAddress(tx.thirdPartyOrderId)}
+                {utils.shortenAddress(swftcOrderId)}
               </Typography.Body1Strong>
               <IconButton
                 type="plain"
                 name="DuplicateOutline"
-                onPress={() => onCopy(tx.thirdPartyOrderId ?? '')}
+                onPress={() => onCopy(swftcOrderId ?? '')}
               />
             </Box>
           </Box>
         ) : null}
       </Box>
-      {tx.thirdPartyOrderId ? (
+      {swftcOrderId ? (
         <Box mt="6">
           <Alert
             alertType="info"

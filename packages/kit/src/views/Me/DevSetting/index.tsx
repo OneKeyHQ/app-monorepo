@@ -2,7 +2,13 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Container, Switch, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Container,
+  Switch,
+  Typography,
+  useTheme,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -14,6 +20,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const DevSettingSection = () => {
+  const { themeVariant } = useTheme();
   const {
     enable: devModeEnable,
     preReleaseUpdate,
@@ -39,7 +46,12 @@ export const DevSettingSection = () => {
             {intl.formatMessage({ id: 'form__dev_mode' })}
           </Typography.Subheading>
         </Box>
-        <Container.Box>
+        <Container.Box
+          borderWidth={themeVariant === 'light' ? 1 : undefined}
+          borderColor="border-subdued"
+          borderRadius="12"
+          bg="surface-default"
+        >
           <Container.Item
             title={intl.formatMessage({ id: 'form__dev_mode' })}
             titleColor="text-default"

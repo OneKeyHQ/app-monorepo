@@ -140,13 +140,13 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
-    debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
+    debugLogger.ethereum.info('BgApi rpcCall:', request, { networkId });
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
       networkId,
       request,
     );
-    debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
+    debugLogger.ethereum.info('BgApi rpcCall RESULT:', request, {
       networkId,
       result,
     });
@@ -161,7 +161,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
       return result;
     };
-    // debugLogger.ethereum('notifyDappAccountsChanged', data);
+    // debugLogger.ethereum.info('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
@@ -208,7 +208,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
-    debugLogger.ethereum('eth_sendTransaction', request, transaction);
+    debugLogger.ethereum.info('eth_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
@@ -220,7 +220,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       },
     );
 
-    debugLogger.ethereum(
+    debugLogger.ethereum.info(
       'eth_sendTransaction DONE',
       result,
       request,
@@ -335,7 +335,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.backgroundApi(
+    debugLogger.backgroundApi.info(
       'ProviderApiEthereum.eth_requestAccounts',
       request,
     );
@@ -408,7 +408,6 @@ class ProviderApiEthereum extends ProviderApiBase {
    */
   @providerApiMethod()
   eth_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_sign', messages, req);
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.ETH_SIGN,
       message: messages[1],
@@ -436,7 +435,6 @@ class ProviderApiEthereum extends ProviderApiBase {
       }
     }
 
-    console.log('personal_sign', message, messages, req);
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
       message,
@@ -449,7 +447,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     req: IJsBridgeMessagePayload,
     ...messages: string[]
   ) {
-    console.log('personal_ecRecover: ', req, messages);
     const [message, signature] = messages;
     if (
       typeof message === 'string' &&
@@ -468,7 +465,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         message,
         signature,
       );
-      console.log('personal_ecRecover: ', req, messages, result);
+
       return result;
     }
     throw web3Errors.rpc.invalidParams(
@@ -478,7 +475,6 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_signTypedData', messages, req);
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.TYPED_DATA_V1,
       message: JSON.stringify(messages[0]),

@@ -5,6 +5,7 @@ import {
   HARDWARE_SDK_TEST_IFRAME_SRC,
 } from '@onekeyhq/kit/src/config';
 import store from '@onekeyhq/kit/src/store';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
@@ -23,7 +24,7 @@ export const getHardwareSDKInstance = memoizee(
       }
 
       const settings: Partial<ConnectSettings> = {
-        debug: platformEnv.isDev,
+        debug: platformEnv.isDev && platformEnv.isNative,
       };
 
       if (platformEnv.isNative) {
@@ -40,6 +41,7 @@ export const getHardwareSDKInstance = memoizee(
 
       try {
         await HardwareSDK.init(settings);
+        debugLogger.hardwareSDK.info('HardwareSDK initialized success');
         initialized = true;
         resolve(HardwareSDK);
       } catch (e) {

@@ -254,7 +254,7 @@ export default class Vault extends VaultBase {
       },
     );
 
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'buildUnsignedTxFromEncodedTx >>>> buildUnsignedTx',
       unsignedTx,
     );

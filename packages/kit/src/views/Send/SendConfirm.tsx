@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -86,6 +87,11 @@ async function prepareSendConfirmEncodedTx({
     // remove gas price if encodedTx build by DAPP
     if (sendConfirmParams.sourceInfo) {
       tx = removeFeeInfoInTx(tx);
+    }
+    const valueBn = new BigNumber(tx.value);
+    if (!valueBn.isNaN()) {
+      // Ensure IEncodedTxEvm's value is hex string.
+      tx.value = `0x${valueBn.toString(16)}`;
     }
     return Promise.resolve(tx);
   }

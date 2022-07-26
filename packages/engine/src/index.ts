@@ -1395,7 +1395,7 @@ class Engine {
     const { networkId, accountId } = params;
     const vault = await this.getVault({ networkId, accountId });
     const txWithFee: IEncodedTx = await vault.attachFeeInfoToEncodedTx(params);
-    debugLogger.sendTx('attachFeeInfoToEncodedTx', txWithFee);
+    debugLogger.sendTx.info('attachFeeInfoToEncodedTx', txWithFee);
     return txWithFee;
   }
 
@@ -1494,7 +1494,7 @@ class Engine {
     // throw new Error('build encodedtx error test');
     const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromTransfer(transferInfoNew);
-    debugLogger.sendTx(
+    debugLogger.sendTx.info(
       'buildEncodedTxFromTransfer: ',
       transferInfoNew,
       result,
@@ -1947,12 +1947,6 @@ class Engine {
         {},
       );
     }
-  }
-
-  setFiat(symbol: string): Promise<void> {
-    // Set fiat symbol that is used throughout the app.
-    console.log(`setFiat ${symbol}`);
-    throw new NotImplemented();
   }
 
   @backgroundMethod()

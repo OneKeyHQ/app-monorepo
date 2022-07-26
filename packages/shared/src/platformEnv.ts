@@ -68,7 +68,6 @@ export type IPlatformEnv = {
   isExtensionUiPopup?: boolean;
   isExtensionUiExpandTab?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
-  isInjected?: boolean;
 
   isRuntimeBrowser?: boolean;
   isRuntimeFirefox?: boolean;
@@ -170,9 +169,6 @@ const isRuntimeChrome = (): boolean => {
   return false;
 };
 
-export const isInjected = (): boolean =>
-  process.env.ONEKEY_BUILD_TYPE === 'injected';
-
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml = (): boolean =>
   isExtension &&
@@ -253,8 +249,6 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiStandaloneWindow: isExtensionUiStandaloneWindow(),
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup(),
 
-  isInjected: isInjected(),
-
   isRuntimeBrowser: isRuntimeBrowser(),
   isRuntimeFirefox: isRuntimeFirefox(),
   isRuntimeChrome: isRuntimeChrome(),
@@ -264,9 +258,6 @@ const platformEnv: IPlatformEnv = {
 
 if (isDev) {
   global.$$platformEnv = platformEnv;
-
-  console.log('OneKey-Platform', platformEnv.symbol);
-  console.log('OneKey-Distribution-Channel', platformEnv.distributionChannel);
 }
 
 /*

@@ -49,8 +49,6 @@ class OnekeyLite {
         const version = parseInt(meta.slice(4, 6), 10);
         const enMnemonic = payload.slice(0, -8);
 
-        console.log('decodeMnemonic version: ', version);
-
         if (version === 1) {
           const deMnemonic = await backgroundApiProxy.engine.entropyToMnemonic(
             enMnemonic,
@@ -90,13 +88,7 @@ class OnekeyLite {
   addAccordListener() {
     if (Platform.OS !== 'android') return;
     const eventEmitter = new NativeEventEmitter(OKLiteManager);
-    return eventEmitter.addListener('nfc_active_connection', (event: any) => {
-      console.log(
-        'nfc_active_connection',
-        'A new NFC device is actively connected. ',
-        event,
-      );
-    });
+    return eventEmitter.addListener('nfc_active_connection', () => {});
   }
 
   getCardName(result: Callback<string>) {

@@ -96,7 +96,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             activeAccountId: activeAccount.id,
             activeNetworkId: activeNetwork.id,
           });
-          if (navigation.canGoBack()) {
+          if (navigation?.canGoBack?.()) {
             navigation.goBack();
           }
         }

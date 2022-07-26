@@ -6,7 +6,6 @@ import type { IEncodedTx } from '../../types';
 export default class VaultHelper extends VaultHelperBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   parseToNativeTx(_encodedTx: IEncodedTx): Promise<any> {
-    console.log('staticDecodeTx in CFX');
     throw new NotImplemented();
   }
 

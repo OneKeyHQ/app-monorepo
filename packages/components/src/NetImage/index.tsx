@@ -35,7 +35,7 @@ export const Image: FC<ImageProps> = ({ ...rest }) => {
   const { uri, resizeMode, preview, priority, borderRadius, bgColor } = rest;
   const width = rest.width ?? rest.size;
   const height = rest.height ?? rest.size;
-  // console.log('FastImage >>> ', FastImage, OKImage);
+
   if (platformEnv.isNative && !!FastImage) {
     return (
       <FastImage

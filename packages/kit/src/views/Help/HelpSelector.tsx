@@ -61,7 +61,6 @@ const HelpSelector: FC = () => {
 
   const openUrl = useCallback(
     (url: string, title?: string) => {
-      console.log('url', url, 'title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
         stackNavigation.navigate(HomeRoutes.SettingsWebviewScreen, {
           url,

@@ -178,7 +178,7 @@ export function useFeeInfoPayload({
         info,
         current,
       };
-      debugLogger.sendTx('useFeeInfoPayload: ', result);
+      debugLogger.sendTx.info('useFeeInfoPayload: ', result);
       return result;
     }, [
       accountId,

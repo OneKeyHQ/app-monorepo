@@ -84,7 +84,6 @@ function PreSendAddress() {
         isDisabled: submitDisabled,
       }}
       onPrimaryActionPress={() => {
-        console.log('PreSendAddress route params', route.params);
         navigation.navigate(SendRoutes.PreSendAmount, {
           ...transferInfo,
           to: getValues('to'),

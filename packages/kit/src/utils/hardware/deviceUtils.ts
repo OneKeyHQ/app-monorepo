@@ -9,15 +9,11 @@ import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
-
-/**
- * will delete packages/kit/src/utils/device
- * so declare it here
- */
 
 type IPollFn<T> = (time?: number) => T;
 
@@ -144,7 +140,19 @@ class DeviceUtils {
 
     const msg = error ?? message ?? 'Unknown error';
 
-    console.log('Device Utils Convert Device Error:', code, msg);
+    /**
+     * Catch some special errors
+     * they may have multiple error codes
+     */
+    if (this.caputureErrorByMessage(msg)) {
+      return this.caputureErrorByMessage(msg) as Error.BridgeNetworkError;
+    }
+
+    debugLogger.hardwareSDK.info(
+      'Device Utils Convert Device Error:',
+      code,
+      msg,
+    );
 
     switch (code) {
       case HardwareErrorCode.UnknownError:
@@ -186,6 +194,9 @@ class DeviceUtils {
         if (msg.indexOf('Unknown message') !== -1) {
           return new Error.UnknownMethod({ message: msg });
         }
+        if (msg.indexOf('Failure_UnexpectedMessage') !== -1) {
+          return new Error.UnknownMethod({ message: msg });
+        }
         return new Error.UnknownHardwareError({ message: msg });
       case HardwareErrorCode.PinInvalid:
         return new Error.InvalidPIN({ message: msg });
@@ -201,6 +212,14 @@ class DeviceUtils {
       default:
         return new Error.UnknownHardwareError({ message: msg });
     }
+  }
+
+  caputureErrorByMessage(message: string) {
+    if (typeof message !== 'string') return null;
+    if (message.includes('Bridge network error')) {
+      return new Error.BridgeNetworkError({ message });
+    }
+    return null;
   }
 }
 

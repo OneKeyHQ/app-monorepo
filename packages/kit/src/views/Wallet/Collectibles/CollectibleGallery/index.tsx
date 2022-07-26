@@ -85,8 +85,6 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     [collectibles, fetchData, isLoading, isSupported, renderEmpty, size],
   );
 
-  //   console.log('CollectibleView = ', CollectibleView.Packup);
-
   return view === CollectibleView.Packup ? (
     <PackupList
       onSelectCollectible={onSelectCollectible}

@@ -45,7 +45,7 @@ type QuoteResponse = {
 };
 
 export class MdexQuoter implements Quoter {
-  type: QuoterType = 'mdex';
+  type: QuoterType = QuoterType.mdex;
 
   private client: Axios;
 

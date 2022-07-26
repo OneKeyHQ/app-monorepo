@@ -26,9 +26,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
-// random 11122333333
-
-// console.log('=============', injectedNativeCode);
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
@@ -88,7 +85,6 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         const handleMessage = (event: any) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (event.errorCode !== -3) {
-            console.log('electronWebView load error');
             setDesktopLoadError(true);
           }
         };

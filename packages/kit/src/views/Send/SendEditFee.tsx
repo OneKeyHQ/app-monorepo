@@ -664,7 +664,7 @@ function ScreenSendEditFee({ ...rest }) {
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
 
   useEffect(() => {
-    debugLogger.sendTx('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
+    debugLogger.sendTx.info('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
   }, [encodedTx, feeInfoPayload]);
 
   const [feeType, setFeeType] = useState<FeeType>(FeeType.standard);
@@ -701,7 +701,7 @@ function ScreenSendEditFee({ ...rest }) {
         limit: data.gasLimit || '0',
       },
     };
-    debugLogger.sendTx('SendEditFee Confirm >>>> ', feeInfoSelected);
+    debugLogger.sendTx.info('SendEditFee Confirm >>>> ', feeInfoSelected);
     const { routes, index } = navigation.getState();
     const prevRouteName = routes[index - 1]?.name;
 

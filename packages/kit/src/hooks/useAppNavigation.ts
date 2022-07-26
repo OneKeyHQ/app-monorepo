@@ -40,7 +40,7 @@ export function useNavigationBack() {
   const navigationRef = useAppNavigation();
   const fallback = useNavigationGoHomeForceReload();
   return useCallback(() => {
-    if (navigationRef?.canGoBack()) {
+    if (navigationRef?.canGoBack?.()) {
       navigationRef?.goBack();
     } else {
       fallback();

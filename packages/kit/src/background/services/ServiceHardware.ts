@@ -1,7 +1,9 @@
 import {
   CoreApi,
+  CoreMessage,
   DeviceSettingsParams,
   IDeviceType,
+  LOG_EVENT,
   UiResponseEvent,
   getDeviceType,
 } from '@onekeyfe/hd-core';
@@ -20,6 +22,7 @@ import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   BridgeTimeoutError,
+  BridgeTimeoutErrorForDesktop,
   ConnectTimeout,
   InitIframeLoadFail,
   InitIframeTimeout,
@@ -32,6 +35,7 @@ import {
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -84,6 +88,12 @@ class ServiceHardware extends ServiceBase {
               }),
             );
           }, 0);
+        });
+
+        instance.on(LOG_EVENT, (messages: CoreMessage) => {
+          if (Array.isArray(messages?.payload)) {
+            debugLogger.hardwareSDK.info(messages.payload.join(' '));
+          }
         });
       }
       return instance;
@@ -182,15 +192,20 @@ class ServiceHardware extends ServiceBase {
 
     const checkBridge = await this.checkBridge();
     if (typeof checkBridge === 'boolean' && !checkBridge) {
+      debugLogger.hardwareSDK.debug('need install bridge.');
       return Promise.reject(new NeedOneKeyBridge());
     }
     if (checkBridge instanceof BridgeTimeoutError) {
       const error = platformEnv.isDesktop
-        ? checkBridge
-        : new NeedOneKeyBridge();
+        ? new BridgeTimeoutErrorForDesktop()
+        : checkBridge;
       if (platformEnv.isDesktop) {
+        debugLogger.hardwareSDK.debug(
+          'desktop bridge timeout, restart desktop bridge.',
+        );
         window.desktopApi.reloadBridgeProcess();
       }
+      debugLogger.hardwareSDK.debug('check bridge timeout.');
       // checkBridge should be an error
       return Promise.reject(error);
     }
@@ -261,7 +276,7 @@ class ServiceHardware extends ServiceBase {
       if (!firmware) return Promise.reject(new FirmwareDownloadFailed());
       return firmware;
     }
-    console.log(`DownloadFirmware error: ${url} ${response.statusText}`);
+
     return Promise.reject(new FirmwareDownloadFailed());
   }
 
@@ -277,7 +292,6 @@ class ServiceHardware extends ServiceBase {
     if (!binary) return Promise.reject(new FirmwareDownloadFailed());
 
     const hardwareSDK = await this.getSDKInstance();
-    console.log('installFirmware', connectId, firmwareType, binary.byteLength);
 
     // @ts-expect-error
     return hardwareSDK

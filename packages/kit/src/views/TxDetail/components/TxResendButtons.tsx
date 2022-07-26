@@ -54,7 +54,6 @@ function doSpeedUpOrCancelTx(props: {
     encodedTxEvm.to = encodedTxEvm.from;
     encodedTxEvm.value = '0';
     encodedTxEvm.data = '0x';
-    console.log('cancel TX >>>>>> :', encodedTxEvm);
   }
   if (actionType === 'speedUp') {
     //

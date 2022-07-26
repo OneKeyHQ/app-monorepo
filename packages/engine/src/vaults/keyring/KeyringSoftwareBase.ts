@@ -38,7 +38,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       password,
       unsignedTx.inputs.map((input) => input.address),
     );
-    debugLogger.engine('signTransaction', this.networkId, unsignedTx);
+    debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);
     return this.engine.providerManager.signTransaction(
       this.networkId,
       unsignedTx,
@@ -60,7 +60,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const [signer] = Object.values(
       await this.getSigners(password, [dbAccount.address]),
     );
-    debugLogger.engine('signMessage', this.networkId, messages);
+    debugLogger.engine.info('signMessage', this.networkId, messages);
     return Promise.all(
       messages.map((message) =>
         this.engine.providerManager.signMessage(

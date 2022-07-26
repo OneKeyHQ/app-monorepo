@@ -75,16 +75,8 @@ const Input = React.forwardRef<
     useImperativeHandle(ref, () => inputRef.current!);
     const shouldFocus = autoFocus && platformEnv.isRuntimeBrowser;
     useEffect(() => {
-      // node_modules/react-native-web/dist/exports/TextInput/index.js
-      //    supportedProps.autoFocus = supportedProps.autoFocus && 'autofocus';
-      //    console.log('render TextInput', component, supportedProps);
-
       if (shouldFocus) {
         // ** focus immediately in Modal cause modal slow animation
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        // inputRef.current?.focus?.();
-        //
         const timer = setTimeout(() => {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call

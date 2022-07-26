@@ -67,7 +67,6 @@ async function syncNetworkList(ver: Version): Promise<NetworkList | null> {
   // from remote
   let remoteList: NetworkList;
   try {
-    console.log('get remote network list...');
     const response = await axios.get<NetworkList>(
       `${REMOTE_URL}/networklist/onekey.networklist.json`,
     );

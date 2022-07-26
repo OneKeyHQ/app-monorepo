@@ -99,9 +99,7 @@ class AppUpdates {
           if (supported) {
             Linking.openURL('itms-apps://itunes.apple.com/app/id1609559473');
           } else {
-            this._openUrl(
-              `https://apps.apple.com/app/onekey-open-source-wallet/${versionInfo.package.download}`,
-            );
+            this._openUrl(versionInfo.package.download);
           }
         });
         break;

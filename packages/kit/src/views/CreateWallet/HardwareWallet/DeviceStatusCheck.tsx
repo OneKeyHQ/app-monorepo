@@ -42,7 +42,7 @@ const DeviceStatusCheckModal: FC = () => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const safeGoBack = useCallback(() => {
-    if (navigation.canGoBack()) {
+    if (navigation?.canGoBack?.()) {
       navigation.goBack();
     }
   }, [navigation]);

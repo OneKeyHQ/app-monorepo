@@ -76,7 +76,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
           console.error(error);
         });
     } else {
-      console.log('You did not allow permissions to camera');
+      // No permissions
     }
   }, [imageUri, intl, toast]);
 

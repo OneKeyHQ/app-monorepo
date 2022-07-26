@@ -1,26 +1,54 @@
 // FIX: Uncaught ReferenceError: global is not defined
 import 'core-js/es7/global';
+import * as FileSystem from 'expo-file-system';
+import { InteractionManager } from 'react-native';
+import {
+  logger as RNLogger,
+  consoleTransport,
+  fileAsyncTransport,
+} from 'react-native-logs';
+// eslint-disable-next-line import/order
+import { stringify } from 'circular-json';
 
-import platformEnv, { isInjected, isJest } from '../platformEnv';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import createDebug from './debug/index.js';
+import platformEnv from '../platformEnv';
+import appStorage from '../storage/appStorage';
 
-/*
-DEBUG=connect:bodyParser,connect:compress,connect:session
-DEBUG=connect:*
-DEBUG=*
-DEBUG=*,-connect:*
-
-debugLogger.debug.enable('jsBridge,dappProvider');
-debugLogger.debug.enable('');
-*/
-
-export type IDebugLoggerModule = {
-  enable: (ns: string) => void;
-  load: () => Promise<string>;
+const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
+  transport: consoleTransport,
+  transportOptions: {
+    consoleFunc: (msg: string) => {
+      backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
+      if (platformEnv.isDev) {
+        console.log(msg);
+      }
+    },
+  },
 };
 
-enum LoggerNames {
+const NATIVE_TRANSPORT_CONFIG = {
+  transport: fileAsyncTransport,
+  transportOptions: {
+    FS: FileSystem,
+    fileName: 'log.txt',
+    filePath: FileSystem.cacheDirectory,
+  },
+};
+
+export const logger = RNLogger.createLogger({
+  async: true,
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  asyncFunc: InteractionManager.runAfterInteractions,
+  stringifyFunc: stringify,
+  dateFormat: 'iso',
+  ...(platformEnv.isNative
+    ? NATIVE_TRANSPORT_CONFIG
+    : LOCAL_WEB_LIKE_TRANSPORT_CONFIG),
+});
+
+export enum LoggerNames {
+  hardwareSDK = 'hardwareSDK',
   http = 'http',
   jsBridge = 'jsBridge',
   webview = 'webview',
@@ -32,43 +60,20 @@ enum LoggerNames {
   walletConnect = 'walletConnect',
   engine = 'engine',
   sendTx = 'sendTx',
+  navigation = 'navigation',
+  redux = 'redux',
 }
 
-type Logger = (...args: unknown[]) => void;
-
-export type IDebugLogger = Record<LoggerNames, Logger> & {
-  debug: IDebugLoggerModule | null;
-};
-
 const Cache = {
-  cache: {} as Record<LoggerNames, unknown[][] | undefined>,
-  createLogger(name: LoggerNames): Logger {
-    return (...args: unknown[]) => {
-      if (isJest()) {
-        return;
-      }
-      const calls = this.cache[name];
-      if (calls) {
-        calls.push(args);
-      } else {
-        this.cache[name] = [args];
-      }
-    };
-  },
-  flush(name: LoggerNames, logger: Logger): void {
-    const calls = this.cache[name];
-    if (calls) {
-      for (const args of calls) {
-        logger(...args);
-      }
-    }
-    delete this.cache[name];
+  createLogger(name: LoggerNames): ReturnType<typeof logger.extend> {
+    return logger.extend(name);
   },
 };
 
-// https://github.com/debug-js/debug
-const debugLogger: IDebugLogger = {
-  debug: null,
+const debugLogger = {
+  [LoggerNames.hardwareSDK]: Cache.createLogger(LoggerNames.hardwareSDK),
+  [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
+  [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),
   [LoggerNames.http]: Cache.createLogger(LoggerNames.http),
   [LoggerNames.jsBridge]: Cache.createLogger(LoggerNames.jsBridge),
   [LoggerNames.webview]: Cache.createLogger(LoggerNames.webview),
@@ -86,33 +91,65 @@ const debugLogger: IDebugLogger = {
   [LoggerNames.sendTx]: Cache.createLogger(LoggerNames.sendTx),
 };
 
-async function initLoggerAsync() {
-  let debug;
-  if (process.env.NODE_ENV !== 'production') {
-    debug = await createDebug();
-    Object.assign(debugLogger, { debug });
-  }
-
-  const noop = () => null;
-  // override loggers
-  for (const key of Object.keys(LoggerNames)) {
-    const name = key as LoggerNames;
-    debugLogger[name] = debug ? (debug(name) as Logger) : noop;
-    // flush cache calls before debugLogger ready
-    Cache.flush(name, debugLogger[name]);
-  }
-}
-
-initLoggerAsync();
-
-if (isInjected()) {
-  // injected console
-  global.$onekey = global.$onekey || {};
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  global.$onekey.debugLogger = debugLogger;
-} else if (platformEnv.isDev) {
+if (platformEnv.isDev) {
   // internal console
   global.$$debugLogger = debugLogger;
 }
 
+if (platformEnv.isNative) {
+  const removePreviousLogFile = async () => {
+    try {
+      const filePath = `${FileSystem.cacheDirectory ?? ''}log.txt`;
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
+      if (fileInfo.exists) {
+        await FileSystem.deleteAsync(filePath);
+        debugLogger.backgroundApi.info('previous log file deleted at init');
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+  removePreviousLogFile();
+}
+
+const DEBUG_LOGGER_STORAGE_KEY = '$$ONEKEY_DEBUG_LOGGER';
+
+async function getDebugLoggerSettings(): Promise<string> {
+  const enabledKeysStr =
+    (await appStorage.getItem(DEBUG_LOGGER_STORAGE_KEY)) || '';
+  return enabledKeysStr;
+}
+
+async function loadDebugLoggerSettings() {
+  const enabledKeysStr = await getDebugLoggerSettings();
+  const enabledKeys: string[] = enabledKeysStr.split(',').filter(Boolean);
+
+  Object.keys(LoggerNames).forEach((key) => {
+    if (platformEnv.isDev && !enabledKeys.includes(key)) {
+      // should enabled() first to create _enabledExtensions array
+      logger.enable(key);
+      logger.disable(key);
+    } else {
+      logger.enable(key);
+    }
+  });
+}
+
+async function saveDebugLoggerSettings() {
+  const enabledKeys: string[] = (logger._enabledExtensions as any) || [];
+  const enabledKeysStr = enabledKeys.join(',');
+  if (enabledKeysStr) {
+    await appStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
+  }
+}
+
+if (platformEnv.isDev) {
+  loadDebugLoggerSettings();
+}
+
+export {
+  saveDebugLoggerSettings,
+  loadDebugLoggerSettings,
+  getDebugLoggerSettings,
+};
 export default debugLogger;

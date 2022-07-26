@@ -4,19 +4,18 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNativeToken } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import {
-  reset,
   setSelectedNetworkId,
   setSwftcSupportedTokens,
 } from '../../store/reducers/swap';
 
-import { useSwapActionHandlers, useSwapEnabled } from './hooks/useSwap';
+import { useSwapEnabled } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import { refs } from './refs';
 
 const AccountListener = () => {
   const { account } = useActiveWalletAccount();
   useEffect(() => {
-    backgroundApiProxy.dispatch(reset());
+    backgroundApiProxy.serviceSwap.resetState();
   }, [account]);
   return <></>;
 };
@@ -24,16 +23,15 @@ const AccountListener = () => {
 const NetworkListener = () => {
   const { network, accountId, networkId } = useActiveWalletAccount();
   const nativeToken = useNativeToken(networkId, accountId);
-  const { onSelectToken } = useSwapActionHandlers();
   const isSwapEnabled = useSwapEnabled();
   useEffect(() => {
-    backgroundApiProxy.dispatch(reset());
+    backgroundApiProxy.serviceSwap.resetState();
     if (!isSwapEnabled || !network) {
       return;
     }
     backgroundApiProxy.dispatch(setSelectedNetworkId(network.id));
     if (nativeToken) {
-      onSelectToken(nativeToken, 'INPUT', network);
+      backgroundApiProxy.serviceSwap.selectToken('INPUT', network, nativeToken);
     } else {
       backgroundApiProxy.serviceToken
         .fetchAccountTokens({
@@ -43,7 +41,11 @@ const NetworkListener = () => {
         .then((tokens) => {
           const native = tokens?.filter((token) => !token.tokenIdOnNetwork)[0];
           if (native && refs.inputIsDirty === false) {
-            onSelectToken(native, 'INPUT', network);
+            backgroundApiProxy.serviceSwap.selectToken(
+              'INPUT',
+              network,
+              native,
+            );
           }
         });
     }

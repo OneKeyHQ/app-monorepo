@@ -89,7 +89,6 @@ class ServiceHistory extends ServiceBase {
     const { engine } = this.backgroundApi;
     const vault = await engine.getVault({ networkId, accountId });
 
-    console.log('try updateHistoryStatus >>>>> ', items);
     const nonce = await vault.getAccountNonce();
     const statusList = await engine.providerManager.getTransactionStatuses(
       networkId,

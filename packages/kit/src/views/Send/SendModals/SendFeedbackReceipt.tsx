@@ -45,7 +45,6 @@ export function SendFeedbackReceipt() {
     }
     setCount((num) => {
       const newNum = num - 1;
-      console.log('SendFeedbackReceipt close interval', newNum);
       if (newNum <= 0) {
         doClose();
       }

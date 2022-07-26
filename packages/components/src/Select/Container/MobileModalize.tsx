@@ -104,7 +104,6 @@ function Mobile<T>({
       withReactModal={withReactModal}
       panGestureAnimatedValue={animated}
       adjustToContentHeight
-      onOverlayPress={console.log}
       ref={modalizeRef}
       snapPoint={480}
       withHandle={false}

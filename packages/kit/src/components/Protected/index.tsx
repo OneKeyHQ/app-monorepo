@@ -67,7 +67,7 @@ const Protected: FC<ProtectedProps> = ({
   }, []);
 
   const safeGoBack = useCallback(() => {
-    if (navigation.canGoBack()) {
+    if (navigation?.canGoBack?.()) {
       navigation.goBack();
     }
   }, [navigation]);

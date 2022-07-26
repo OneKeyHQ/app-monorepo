@@ -194,29 +194,24 @@ function TxHistoryListSectionList(props: {
 
   const sectionListProps: ComponentProps<typeof SectionList> = {
     renderItem,
-    // renderItem: () => <Box/>,
     renderSectionHeader,
     contentContainerStyle: {
       paddingHorizontal: responsivePadding,
       marginTop: 16,
     },
     sections,
-    // extraData: { isLoading },
     ListHeaderComponent: (
       <TxHistoryListViewHeader key="header" isEmpty={isEmpty} />
     ),
     ListEmptyComponent: <TxHistoryListViewEmpty key="empty" />,
     ListFooterComponent: <Box key="footer" h="20px" />,
     ItemSeparatorComponent: () => <Divider key="separator" />,
-    // ItemSeparatorComponent: () => <Box key="separator" h={4} />,
-    // ItemSeparatorComponent: null,
     keyExtractor: (tx: IHistoryTx, index: number) =>
       tx.id || index.toString(10),
     showsVerticalScrollIndicator: false,
     stickySectionHeadersEnabled: false,
   };
 
-  console.log(`TxHistoryListView render:`);
   return <SectionListComponent {...sectionListProps} />;
 }
 const TxHistoryListSectionsMemo = React.memo(TxHistoryListSectionList);
@@ -311,7 +306,6 @@ function TxHistoryListViewComponent({
           newTxList: data || [],
         })
       ) {
-        console.log('TxHistoryListView update historyListData >>>> ');
         setHistoryListData(data);
       }
     },
@@ -370,13 +364,6 @@ function TxHistoryListViewComponent({
       mutate();
     }
   }, [refreshHistoryTs, accountId, networkId, mutate, shouldDoRefresh]);
-
-  useEffect(
-    () => () => {
-      console.log('TxHistoryListView unmount');
-    },
-    [],
-  );
 
   if (!accountId || !networkId) {
     return null;

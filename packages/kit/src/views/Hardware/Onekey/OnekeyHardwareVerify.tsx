@@ -147,7 +147,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         if (!d?.mac) throw new Error();
         setDevice(d);
       } catch (err: any) {
-        if (navigation.canGoBack()) {
+        if (navigation?.canGoBack?.()) {
           navigation.goBack();
         }
 

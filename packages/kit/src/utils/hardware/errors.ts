@@ -54,6 +54,12 @@ export class BridgeTimeoutError extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_bridge_timeout';
 }
 
+export class BridgeTimeoutErrorForDesktop extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BridgeTimeoutError;
+
+  override key: LocaleIds = 'msg__hardware_bridge_timeout_for_desktop';
+}
+
 // 设备没有配对成功
 export class DeviceNotBonded extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleDeviceNotBonded;
@@ -110,15 +116,11 @@ export class DeviceNotFind extends OneKeyHardwareError {
 export class InitIframeLoadFail extends OneKeyHardwareError {
   override code = HardwareErrorCode.IFrameLoadFail;
 
-  override data = { reconnect: true };
-
   override key: LocaleIds = 'msg__hardware_init_iframe_load_error';
 }
 
 export class InitIframeTimeout extends OneKeyHardwareError {
   override code = HardwareErrorCode.IframeTimeout;
-
-  override data = { reconnect: true };
 
   override key: LocaleIds = 'msg__hardware_init_iframe_load_error';
 }

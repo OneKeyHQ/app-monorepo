@@ -1,6 +1,4 @@
 /* eslint-disable new-cap, @typescript-eslint/require-await */
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import {
   IMPL_BTC,
   IMPL_CFX,
@@ -88,7 +86,7 @@ export async function createVaultInstance(options: IVaultOptions) {
   const network = await engine.getNetwork(options.networkId);
   // TODO read from cache
   let vault: VaultBase | null = null;
-  debugLogger.engine('createVaultInstance', network, options);
+
   if (network.impl === IMPL_EVM) {
     // TODO remove ts ignore
     // @ts-ignore

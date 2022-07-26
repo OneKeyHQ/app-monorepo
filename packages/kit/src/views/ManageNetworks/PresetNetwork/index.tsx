@@ -118,7 +118,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       refData.current.preventRemove = true;
-      if (navigation.canGoBack()) {
+      if (navigation?.canGoBack?.()) {
         navigation.goBack();
       }
     },

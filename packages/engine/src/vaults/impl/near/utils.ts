@@ -222,7 +222,7 @@ export async function signTransaction(
   });
   const rawTx = serializeTransaction(signedTx);
 
-  debugLogger.engine('NEAR signTransaction', {
+  debugLogger.engine.info('NEAR signTransaction', {
     unsignedTx,
     signedTx,
     signer,

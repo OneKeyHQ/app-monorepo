@@ -12,12 +12,12 @@ import {
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
   useAccountTokensBalance,
   useActiveWalletAccount,
 } from '../../../../hooks';
 import { Token as TokenType } from '../../../../store/typings';
-import { useSwapActionHandlers } from '../../hooks/useSwap';
 import { formatAmount } from '../../utils';
 import NetworkToken from '../NetworkToken';
 
@@ -49,21 +49,20 @@ const TokenInput: FC<TokenInputProps> = ({
   const intl = useIntl();
   const { accountId } = useActiveWalletAccount();
   const balances = useAccountTokensBalance(tokenNetwork?.id ?? '', accountId);
-  const { onUserInput } = useSwapActionHandlers();
   const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : '0';
   const onMax = useCallback(() => {
     if (!token || !value) {
       return;
     }
     if (token.tokenIdOnNetwork) {
-      onUserInput(type, value);
+      backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
       const v = Math.max(0, Number(value) - 0.1);
       if (v > 0) {
-        onUserInput(type, String(v));
+        backgroundApiProxy.serviceSwap.userInput(type, String(v));
       }
     }
-  }, [token, value, onUserInput, type]);
+  }, [token, value, type]);
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';

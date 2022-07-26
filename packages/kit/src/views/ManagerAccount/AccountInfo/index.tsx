@@ -160,7 +160,7 @@ const ManagerAccountModal: FC = () => {
                         undefined,
                         () => {
                           refreshAccounts?.();
-                          if (navigation.canGoBack()) navigation.goBack();
+                          if (navigation?.canGoBack?.()) navigation.goBack();
                         },
                       );
                       return;
@@ -174,7 +174,7 @@ const ManagerAccountModal: FC = () => {
                           pwd,
                           () => {
                             refreshAccounts?.();
-                            if (navigation.canGoBack()) navigation.goBack();
+                            if (navigation?.canGoBack?.()) navigation.goBack();
                           },
                         );
                       },

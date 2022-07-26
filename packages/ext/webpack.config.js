@@ -34,9 +34,6 @@ const transpileModules = [
   'react-native-animated-splash-screen',
 ];
 
-// TODO use webpack 4.43.0
-console.log('============ webpack.version ', webpack.version);
-
 // load the secrets
 const secretsPath = path.join(__dirname, `secrets.${env.NODE_ENV}.js`);
 const secrets = fse.existsSync(secretsPath) ? secretsPath : false;
@@ -196,11 +193,6 @@ function createConfig() {
     };
   }
 
-  // console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
-  console.log('------- webpackConfig', {
-    devtool: webpackConfig.devtool,
-  });
-
   devUtils.cleanWebpackDebugFields(webpackConfig);
 
   webpackConfig = webpackTools.normalizeConfig({
@@ -218,10 +210,6 @@ function enableCodeSplitChunks({ config, name }) {
     maxSize: 4000000,
     // auto-gen chunk file name by module name or just increasing number
     name: name ? `vendors-${name}` : true,
-    // name: (module, chunks, cacheGroupKey) => {
-    //   console.log(cacheGroupKey);
-    //   return 'chunk-abc-';
-    // },
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
     automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name

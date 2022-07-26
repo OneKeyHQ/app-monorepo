@@ -21,7 +21,7 @@ const renderCustomSubStackHeader = ({
   navigation,
   route,
 }: NativeStackHeaderProps): ReactNode => {
-  const canGoBack = navigation.canGoBack();
+  const canGoBack = navigation?.canGoBack?.();
   const {
     headerTintColor,
     headerLeft,

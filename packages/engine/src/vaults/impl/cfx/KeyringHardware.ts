@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { NotImplemented } from '../../../errors';
@@ -16,14 +17,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     return OneKeyHardware.solanaSignTransaction(path, unsignedTx);
   }
 
-  signMessage(messages: any[], options: ISignCredentialOptions): any {
-    console.log(messages, options);
+  signMessage(_messages: any[], _options: ISignCredentialOptions): any {
+    throw new NotImplemented();
   }
 
   override prepareAccounts(
-    params: IPrepareHardwareAccountsParams,
+    _params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
-    console.log(params);
     throw new NotImplemented();
   }
 

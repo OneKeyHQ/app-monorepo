@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Box, Button } from '@onekeyhq/components';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -27,7 +27,7 @@ import { ApprovalState, SwapError } from './typings';
 
 const RetryQuoteButton = () => {
   const intl = useIntl();
-  const onQuote = useSwapQuoteCallback({ silent: false });
+  const onQuote = useSwapQuoteCallback({ showLoading: true });
   return (
     <Button size="xl" type="primary" key="network_error" onPress={onQuote}>
       {intl.formatMessage({ id: 'action__retry' })}
@@ -39,11 +39,23 @@ const SwapButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const isSwapEnabled = useSwapEnabled();
-  const { inputToken } = useSwapState();
+  const { inputToken, approvalSubmitted } = useSwapState();
   const limitsError = useInputLimitsError();
   const { account, network, wallet } = useActiveWalletAccount();
   const { swapQuote, isSwapLoading, error, approveState, inputAmount } =
     useSwap();
+
+  const showApproveFlow =
+    approveState === ApprovalState.NOT_APPROVED ||
+    approveState === ApprovalState.PENDING ||
+    (approvalSubmitted && approveState === ApprovalState.APPROVED);
+
+  let approveButtonText = intl.formatMessage({ id: 'title__approve' });
+  if (approveState === ApprovalState.PENDING) {
+    approveButtonText = intl.formatMessage({ id: 'title__approving' });
+  } else if (approvalSubmitted && approveState === ApprovalState.APPROVED) {
+    approveButtonText = intl.formatMessage({ id: 'title__approved' });
+  }
 
   const onApprove = useCallback(async () => {
     if (
@@ -71,6 +83,7 @@ const SwapButton = () => {
             feeInfoUseFeeInTx: false,
             encodedTx: { ...encodedTx, from: account?.address },
             onSuccess(tx) {
+              backgroundApiProxy.serviceSwap.setApprovalSubmitted(true);
               backgroundApiProxy.dispatch(
                 addTransaction({
                   accountId: account.id,
@@ -214,20 +227,32 @@ const SwapButton = () => {
       </Button>
     );
   }
-  if (
-    approveState === ApprovalState.NOT_APPROVED ||
-    approveState === ApprovalState.PENDING
-  ) {
+  if (showApproveFlow) {
     return (
-      <Button
-        size="xl"
-        type="primary"
-        isLoading={approveState === ApprovalState.PENDING}
-        onPress={onApprove}
-        key="approve"
-      >
-        {intl.formatMessage({ id: 'title__approve' })}
-      </Button>
+      <Box flexDirection="row">
+        <Button
+          size="xl"
+          type="primary"
+          flex="1"
+          isLoading={approveState === ApprovalState.PENDING}
+          isDisabled={
+            approveState !== ApprovalState.NOT_APPROVED || approvalSubmitted
+          }
+          onPress={onApprove}
+        >
+          {approveButtonText}
+        </Button>
+        <Button
+          size="xl"
+          ml="4"
+          flex="1"
+          type="primary"
+          onPress={onSubmit}
+          isDisabled={approveState !== ApprovalState.APPROVED}
+        >
+          {intl.formatMessage({ id: 'title__swap' })}
+        </Button>
+      </Box>
     );
   }
   return (

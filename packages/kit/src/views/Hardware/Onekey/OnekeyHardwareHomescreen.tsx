@@ -187,7 +187,7 @@ const OnekeyHardwareHomescreen: FC = () => {
     <Modal
       header={intl.formatMessage({ id: 'modal__homescreen' })}
       footer={footer}
-      height={isSmallScreen ? 'auto' : '640px'}
+      height={isSmallScreen ? 'auto' : '600px'}
       // @ts-expect-error
       flatListProps={flatlistProps}
     />
