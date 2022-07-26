@@ -86,11 +86,19 @@ const renderScrollComponent = (props: any) => <NestedScrollView {...props} />;
 export const Tabs = {
   Container,
   Tab: Fragment,
-  FlatList: (props: any) => (
-    <FlatList {...props} renderScrollComponent={renderScrollComponent} />
+  FlatList: ({ contentContainerStyle, ...props }: any) => (
+    <FlatList
+      contentContainerStyle={[contentContainerStyle, { minHeight: '100%' }]}
+      {...props}
+      renderScrollComponent={renderScrollComponent}
+    />
   ),
   ScrollView,
-  SectionList: (props: any) => (
-    <SectionList {...props} renderScrollComponent={renderScrollComponent} />
+  SectionList: ({ contentContainerStyle, ...props }: any) => (
+    <SectionList
+      contentContainerStyle={[contentContainerStyle, { minHeight: '100%' }]}
+      {...props}
+      renderScrollComponent={renderScrollComponent}
+    />
   ),
 };
