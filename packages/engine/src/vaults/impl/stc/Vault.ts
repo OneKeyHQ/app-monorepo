@@ -425,7 +425,7 @@ export default class Vault extends VaultBase {
           });
         }
       } catch (e) {
-        console.error(e);
+        debugLogger.common.error(e);
       }
 
       return Promise.resolve(null);

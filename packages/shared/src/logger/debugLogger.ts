@@ -62,6 +62,7 @@ export enum LoggerNames {
   sendTx = 'sendTx',
   navigation = 'navigation',
   redux = 'redux',
+  common = 'common',
 }
 
 const Cache = {
@@ -89,6 +90,7 @@ const debugLogger = {
   [LoggerNames.walletConnect]: Cache.createLogger(LoggerNames.walletConnect),
   [LoggerNames.engine]: Cache.createLogger(LoggerNames.engine),
   [LoggerNames.sendTx]: Cache.createLogger(LoggerNames.sendTx),
+  [LoggerNames.common]: Cache.createLogger(LoggerNames.common),
 };
 
 if (platformEnv.isDev) {

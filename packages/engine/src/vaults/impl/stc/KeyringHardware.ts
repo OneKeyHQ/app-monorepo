@@ -9,6 +9,7 @@ import {
 import { starcoin_types, utils } from '@starcoin/starcoin';
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
 import { OneKeyHardwareError } from '../../../errors';
@@ -84,12 +85,12 @@ export class KeyringHardware extends KeyringHardwareBase {
             messageHex,
           });
         } catch (error: any) {
-          console.error(error);
+          debugLogger.common.error(error);
           throw new OneKeyHardwareError(error);
         }
 
         if (!response.success) {
-          console.error(response.payload);
+          debugLogger.common.error(response.payload);
           throw deviceUtils.convertDeviceError(response.payload);
         }
         const { public_key, signature } = response.payload;
@@ -128,12 +129,12 @@ export class KeyringHardware extends KeyringHardwareBase {
           bundle: paths.map((path) => ({ path, showOnOneKey })),
         });
       } catch (error: any) {
-        console.error(error);
+        debugLogger.common.error(error);
         throw new OneKeyHardwareError(error);
       }
 
       if (!response.success) {
-        console.error(response.payload);
+        debugLogger.common.error(response.payload);
         throw deviceUtils.convertDeviceError(response.payload);
       }
 
@@ -148,11 +149,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         bundle: paths.map((path) => ({ path, showOnOneKey })),
       });
     } catch (error: any) {
-      console.error(error);
+      debugLogger.common.error(error);
       throw new OneKeyHardwareError(error);
     }
     if (!addressesResponse.success) {
-      console.error(addressesResponse.payload);
+      debugLogger.common.error(addressesResponse.payload);
       throw deviceUtils.convertDeviceError(addressesResponse.payload);
     }
 

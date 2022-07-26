@@ -4,6 +4,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { ISTCExplorerTransaction } from './types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 type IDecodedSTCPayload = {
   ScriptFunction: {
@@ -38,7 +39,7 @@ export async function getAddressHistoryFromExplorer(
     }>(requestURL);
     return response.data.contents;
   } catch (e) {
-    console.error(e);
+    debugLogger.common.error(e);
     return Promise.resolve([]);
   }
 }
@@ -97,7 +98,7 @@ export function extractTransactionInfo(tx: ISTCExplorerTransaction) {
         .toFixed(),
     };
   } catch (e) {
-    console.error(e);
+    debugLogger.common.error(e);
     return null;
   }
 }
