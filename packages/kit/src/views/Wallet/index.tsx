@@ -12,9 +12,7 @@ import {
   useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
-import {
-  Tabs,
-} from '@onekeyhq/components/src/CollapsibleTabView';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
@@ -46,10 +44,8 @@ import AccountInfo, {
 import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import CollectiblesList from './Collectibles';
-import HistoricalRecord from './HistoricalRecords';
+// import HistoricalRecord from './HistoricalRecords';
 import { WalletHomeTabEnum } from './type';
-
-import type { TextStyle } from 'react-native';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
