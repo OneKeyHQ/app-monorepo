@@ -10,16 +10,13 @@ devUtils.execSync(`
   mkdir -p ${buildFolder}/_dist/
 `);
 
-const buildVersion = 'beta';
-const version = `${process.env.VERSION || packageJson.version}-${
-  process.env.BUILD_NUMBER || buildVersion
-}`;
+const version = process.env.VERSION;
 
-const browsers = ['chrome', 'firefox'];
+const browsers = ['chrome-extension', 'firefox-addon'];
 browsers.forEach((browser) => {
   const cmd = `
   cd ${buildFolder}/${browser}
-  zip -r ../_dist/${browser}-${version}.zip ./
+  zip -r ../_dist/OneKey-Wallet-${version}-${browser}.zip ./
 `;
   devUtils.execSync(cmd);
 });
