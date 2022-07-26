@@ -66,8 +66,6 @@ const Container: FC<HomePageProps> = ({
         labelStyle: Body2StrongProps,
       }}
       onChange={(e) => {
-        console.log('===: NestedTabView onChange', e.nativeEvent);
-
         onTabChange?.({
           tabName: e.nativeEvent.tabName,
           index: e.nativeEvent.index,
