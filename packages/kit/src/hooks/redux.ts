@@ -8,6 +8,7 @@ import { appDispatch, appSelector } from '../store';
 
 import type { IAppState } from '../store';
 import type { INetwork } from '../store/reducers/runtime';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 export const useAppDispatch = () => {
   console.error(
@@ -100,7 +101,7 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
           networkId,
         );
       } catch (error) {
-        console.error(error);
+        debugLogger.common.error(error);
       }
     }
 
