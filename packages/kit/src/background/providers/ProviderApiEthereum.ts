@@ -253,7 +253,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   ) {
     const type = params.type ?? '';
     if (type !== 'ERC20') {
-      throw new Error(`Asset of type '${ type }' not supported`);
+      throw new Error(`Asset of type '${type}' not supported`);
     }
     const result = await this.backgroundApi.serviceDapp?.openAddTokenModal(
       request,
@@ -318,9 +318,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async wallet_getPermissions(
-    request: IJsBridgeMessagePayload,
-  ) {
+  async wallet_getPermissions(request: IJsBridgeMessagePayload) {
     const result = [
       {
         caveats: [],
@@ -328,9 +326,9 @@ class ProviderApiEthereum extends ProviderApiBase {
         id: request.id?.toString() ?? (uuid.v4() as string),
         invoker: request.origin as string,
         parentCapability: 'eth_accounts',
-      }
+      },
     ];
-    return Promise.resolve(result)
+    return Promise.resolve(result);
   }
 
   @providerApiMethod()
@@ -566,7 +564,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     params: AddEthereumChainParameter,
   ) {
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
-    const networkId = `evm--${ parseInt(params.chainId) }`;
+    const networkId = `evm--${parseInt(params.chainId)}`;
     const included = networks.some((network) => network.id === networkId);
     if (included) {
       return this.wallet_switchEthereumChain(request, {
@@ -592,7 +590,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     params: SwitchEthereumChainParameter,
   ) {
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
-    const networkId = `evm--${ parseInt(params.chainId) }`;
+    const networkId = `evm--${parseInt(params.chainId)}`;
     const included = networks.some((network) => network.id === networkId);
     if (!included) {
       // throw new Error(
