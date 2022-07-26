@@ -96,6 +96,9 @@
     _categoryView.backgroundColor = [UIColor colorWithHexString:_model.backgroundColor];
     _categoryView.titleColor = [UIColor colorWithHexString:_model.inactiveColor];
     _categoryView.titleFont = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    if (_model.labelStyle && _model.labelStyle[@"fontFamily"] && _model.labelStyle[@"fontSize"]) {
+      _categoryView.titleFont = [UIFont fontWithName:_model.labelStyle[@"fontFamily"] size:[_model.labelStyle[@"fontSize"] floatValue]];
+    }
     _categoryView.titleSelectedColor = [UIColor colorWithHexString:_model.activeColor];
     
     JXCategoryIndicatorLineView *lineView = [[JXCategoryIndicatorLineView alloc] init];
