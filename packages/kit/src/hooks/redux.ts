@@ -3,12 +3,12 @@ import { TypedUseSelectorHook, useSelector } from 'react-redux';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appDispatch, appSelector } from '../store';
 
 import type { IAppState } from '../store';
 import type { INetwork } from '../store/reducers/runtime';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 export const useAppDispatch = () => {
   console.error(
