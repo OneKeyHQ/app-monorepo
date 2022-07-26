@@ -3,8 +3,9 @@ import { bcs, encoding } from '@starcoin/starcoin';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { ISTCExplorerTransaction } from './types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { ISTCExplorerTransaction } from './types';
 
 type IDecodedSTCPayload = {
   ScriptFunction: {
