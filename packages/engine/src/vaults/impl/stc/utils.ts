@@ -3,6 +3,8 @@ import { bcs, encoding } from '@starcoin/starcoin';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { ISTCExplorerTransaction } from './types';
 
 type IDecodedSTCPayload = {
@@ -38,7 +40,7 @@ export async function getAddressHistoryFromExplorer(
     }>(requestURL);
     return response.data.contents;
   } catch (e) {
-    console.error(e);
+    debugLogger.common.error(e);
     return Promise.resolve([]);
   }
 }
@@ -97,7 +99,26 @@ export function extractTransactionInfo(tx: ISTCExplorerTransaction) {
         .toFixed(),
     };
   } catch (e) {
-    console.error(e);
+    debugLogger.common.error(e);
     return null;
+  }
+}
+
+export function decodeTokenData(data: string) {
+  let name;
+  let params;
+  try {
+    const txnPayload = encoding.decodeTransactionPayload(data) as Record<
+      string,
+      any
+    >;
+    const keys = Object.keys(txnPayload);
+    // eslint-disable-next-line prefer-destructuring
+    name = keys[0];
+    params = txnPayload[keys[0]];
+    return { name, params };
+  } catch (error) {
+    console.debug('Failed to decode transaction data.', error, data);
+    return { name, params };
   }
 }

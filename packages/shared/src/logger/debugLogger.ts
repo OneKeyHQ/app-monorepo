@@ -1,6 +1,7 @@
 // FIX: Uncaught ReferenceError: global is not defined
 import 'core-js/es7/global';
 import * as FileSystem from 'expo-file-system';
+import { isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
 import {
   logger as RNLogger,
@@ -18,10 +19,23 @@ import appStorage from '../storage/appStorage';
 const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   transport: consoleTransport,
   transportOptions: {
-    consoleFunc: (msg: string) => {
+    consoleFunc: (
+      msg: string,
+      props: {
+        msg: any;
+        rawMsg: any;
+        level: { severity: number; text: string };
+        extension?: string | null;
+        options?: any;
+      },
+    ) => {
       backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
       if (platformEnv.isDev) {
-        console.log(msg);
+        if (props?.level?.text === 'error') {
+          console.error(msg);
+        } else {
+          console.log(msg);
+        }
       }
     },
   },
@@ -62,6 +76,7 @@ export enum LoggerNames {
   sendTx = 'sendTx',
   navigation = 'navigation',
   redux = 'redux',
+  common = 'common',
 }
 
 const Cache = {
@@ -89,6 +104,7 @@ const debugLogger = {
   [LoggerNames.walletConnect]: Cache.createLogger(LoggerNames.walletConnect),
   [LoggerNames.engine]: Cache.createLogger(LoggerNames.engine),
   [LoggerNames.sendTx]: Cache.createLogger(LoggerNames.sendTx),
+  [LoggerNames.common]: Cache.createLogger(LoggerNames.common),
 };
 
 if (platformEnv.isDev) {
@@ -114,15 +130,18 @@ if (platformEnv.isNative) {
 
 const DEBUG_LOGGER_STORAGE_KEY = '$$ONEKEY_DEBUG_LOGGER';
 
-async function getDebugLoggerSettings(): Promise<string> {
-  const enabledKeysStr =
-    (await appStorage.getItem(DEBUG_LOGGER_STORAGE_KEY)) || '';
-  return enabledKeysStr;
+async function getDebugLoggerSettings(): Promise<string | undefined | null> {
+  return appStorage.getItem(DEBUG_LOGGER_STORAGE_KEY);
 }
 
 async function loadDebugLoggerSettings() {
   const enabledKeysStr = await getDebugLoggerSettings();
-  const enabledKeys: string[] = enabledKeysStr.split(',').filter(Boolean);
+  let enabledKeys: string[] = [];
+  if (isNil(enabledKeysStr)) {
+    enabledKeys = [LoggerNames.common];
+  } else {
+    enabledKeys = enabledKeysStr.split(',').filter(Boolean);
+  }
 
   Object.keys(LoggerNames).forEach((key) => {
     if (platformEnv.isDev && !enabledKeys.includes(key)) {
@@ -138,13 +157,11 @@ async function loadDebugLoggerSettings() {
 async function saveDebugLoggerSettings() {
   const enabledKeys: string[] = (logger._enabledExtensions as any) || [];
   const enabledKeysStr = enabledKeys.join(',');
-  if (enabledKeysStr) {
-    await appStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
-  }
+  await appStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
 }
 
 if (platformEnv.isDev) {
-  loadDebugLoggerSettings();
+  loadDebugLoggerSettings().then(() => saveDebugLoggerSettings());
 }
 
 export {

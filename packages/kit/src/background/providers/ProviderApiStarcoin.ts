@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
@@ -9,7 +9,7 @@ import {
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { IMPL_STC } from '@onekeyhq/engine/src/constants';
 import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
@@ -52,21 +52,22 @@ export interface Transaction {
   chainId?: number;
   data?: string;
   from: string;
-  gas?: string;
-  gasPrice?: string;
-  gasUsed?: string;
-  nonce?: string;
   to?: string;
   value?: string;
+  gas?: string;
+  gasLimit?: number;
+  gasPrice?: number;
+  nonce?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
   estimatedBaseFee?: string;
+  expiredSecs?: number;
 }
 
 export type WatchAssetParameters = {
   type: string; // The asset's interface, e.g. 'ERC20'
   options: {
-    address: string; // The hexadecimal Ethereum address of the token contract
+    address: string; // The hexadecimal Starcoin address of the token contract
     symbol?: string; // A ticker symbol or shorthand, up to 5 alphanumerical characters
     decimals?: number; // The number of asset decimals
     image?: string; // A string url of the token logo
@@ -105,24 +106,42 @@ function convertToEthereumChainResult(result: Network | undefined | null) {
 }
 
 @backgroundClass()
-class ProviderApiEthereum extends ProviderApiBase {
-  public providerName = IInjectedProviderNames.ethereum;
-
+class ProviderApiStarcoin extends ProviderApiBase {
+  public providerName = IInjectedProviderNames.starcoin;
   async _getCurrentUnlockState() {
     return Promise.resolve(true);
   }
 
-  _getCurrentNetworkExtraInfo(): EvmExtraInfo {
+  async _getCurrentNetworkExtraInfo(): Promise<EvmExtraInfo> {
     const { network } = getActiveWalletAccount();
-    // return a random chainId in non-evm, as empty string may cause dapp error
+    // Give default value to prevent UI crashing
     let networkInfo: EvmExtraInfo = {
-      chainId: '0x736d17dc',
-      networkVersion: '1936529372',
+      chainId: '0x1',
+      networkVersion: '1',
     };
-    if (network && network.impl === IMPL_EVM) {
+    if (
+      network &&
+      network.impl === IMPL_STC &&
+      Object.keys(network.extraInfo).length
+    ) {
       networkInfo = network.extraInfo as EvmExtraInfo;
+    } else {
+      const request: IJsonRpcRequest = {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'chain.id',
+        params: [],
+      };
+      const result = await this.rpcCall(request);
+      const resultId = (result as { id?: number | string })?.id;
+      if (resultId) {
+        networkInfo = {
+          chainId: `0x${resultId.toString(16)}`,
+          networkVersion: resultId.toString(),
+        };
+      }
     }
-    return networkInfo;
+    return Promise.resolve(networkInfo);
   }
 
   async _showSignMessageModal(
@@ -140,12 +159,15 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
+
     debugLogger.ethereum.info('BgApi rpcCall:', request, { networkId });
+
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
       networkId,
       request,
     );
+
     debugLogger.ethereum.info('BgApi rpcCall RESULT:', request, {
       networkId,
       result,
@@ -156,19 +178,19 @@ class ProviderApiEthereum extends ProviderApiBase {
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
       const result = {
-        method: 'metamask_accountsChanged',
-        params: await this.eth_accounts({ origin }),
+        method: 'starmask_accountsChanged',
+        params: await this.stc_accounts({ origin }),
       };
       return result;
     };
-    // debugLogger.ethereum.info('notifyDappAccountsChanged', data);
+    // debugLogger.ethereum('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async () => {
       const result = {
-        method: 'metamask_chainChanged',
+        method: 'starmask_chainChanged',
         params: {
           chainId: await this.eth_chainId(),
           networkVersion: await this.net_version(),
@@ -188,27 +210,26 @@ class ProviderApiEthereum extends ProviderApiBase {
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Approve.tsx").default} approve modal
    *
    * Example:
-   * const result = await ethereum.request({
-   *    method: 'eth_sendTransaction',
+   * const result = await starcoin.request({
+   *    method: 'stc_sendTransaction',
    *    params: [
    *      {
    *        from: accounts[0],
-   *        to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
-   *        value: '0x0',
-   *        gasLimit: '0x5028',
-   *        gasPrice: '0x2540be400',
-   *        type: '0x0',
+   *        to: '0x46ecE7c1e39fb6943059565E2621b312',
+   *        value: '0xf4240',  // 0.001 STC
+   *        gasLimit: 127845,
+   *        gasPrice: 1,
    *      },
    *    ],
    *  });
    */
   @permissionRequired()
   @providerApiMethod()
-  async eth_sendTransaction(
+  async stc_sendTransaction(
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
-    debugLogger.ethereum.info('eth_sendTransaction', request, transaction);
+    debugLogger.ethereum.info('stc_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
@@ -221,7 +242,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
 
     debugLogger.ethereum.info(
-      'eth_sendTransaction DONE',
+      'stc_sendTransaction DONE',
       result,
       request,
       transaction,
@@ -288,7 +309,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     const result: Permission[] = Object.keys(permissions).map(
       (permissionName) => {
-        if (permissionName === 'eth_accounts') {
+        if (permissionName === 'stc_accounts') {
           return {
             caveats: [
               {
@@ -325,38 +346,38 @@ class ProviderApiEthereum extends ProviderApiBase {
         date: Date.now(),
         id: request.id?.toString() ?? (uuid.v4() as string),
         invoker: request.origin as string,
-        parentCapability: 'eth_accounts',
+        parentCapability: 'stc_accounts',
       },
     ];
     return Promise.resolve(result);
   }
 
   @providerApiMethod()
-  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+  async stc_requestAccounts(request: IJsBridgeMessagePayload) {
     debugLogger.backgroundApi.info(
-      'ProviderApiEthereum.eth_requestAccounts',
+      'ProviderApiStarcoin.stc_requestAccounts',
       request,
     );
 
-    const accounts = await this.eth_accounts(request);
+    const accounts = await this.stc_accounts(request);
     if (accounts && accounts.length) {
       return accounts;
     }
 
     await this.backgroundApi.serviceDapp.openConnectionModal(request);
-    return this.eth_accounts(request);
+    return this.stc_accounts(request);
 
     // TODO show approval confirmation, skip in whitelist domain
   }
 
   @providerApiMethod()
-  async eth_coinbase(request: IJsBridgeMessagePayload): Promise<string | null> {
-    const accounts = await this.eth_accounts(request);
+  async stc_coinbase(request: IJsBridgeMessagePayload): Promise<string | null> {
+    const accounts = await this.stc_accounts(request);
     return accounts?.[0] || null;
   }
 
   @providerApiMethod()
-  async eth_accounts(request: IJsBridgeMessagePayload) {
+  async stc_accounts(request: IJsBridgeMessagePayload) {
     const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
       origin: request.origin as string,
     });
@@ -371,32 +392,17 @@ class ProviderApiEthereum extends ProviderApiBase {
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
    */
   @providerApiMethod()
-  eth_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
-    if (params[1].length === 66 || params[1].length === 67) {
-      // const rawSignature = await addUnapprovedMessage({
-      //   data: params[1]
-      //   from: params[0]
-      // // dapp metadata
-      //   ...{
-      //     url, title, icon
-      //   },
-      //   origin: req.origin
-      // })
-      // return signature
-      throw new Error('eth_signTransaction not supported yet');
-    }
-    throw web3Errors.rpc.invalidParams(
-      'eth_sign requires 32 byte message hash',
-    );
-  }
-
-  @providerApiMethod()
-  eth_subscribe() {
+  stc_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_unsubscribe() {
+  stc_subscribe() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  stc_unsubscribe() {
     throw web3Errors.rpc.methodNotSupported();
   }
 
@@ -405,27 +411,23 @@ class ProviderApiEthereum extends ProviderApiBase {
    * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]
    */
   @providerApiMethod()
-  eth_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.ETH_SIGN,
-      message: messages[1],
-      payload: messages,
-    });
+  stc_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
   async personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     let message = messages[0] as string;
 
-    const accounts = await this.eth_accounts(req);
+    const accounts = await this.stc_accounts(req);
     // FIX:  dydx use second param as message
     if (accounts && accounts.length) {
       const a = fixAddressCase({
-        impl: IMPL_EVM,
+        impl: IMPL_STC,
         address: messages[0] || '',
       });
       const b = fixAddressCase({
-        impl: IMPL_EVM,
+        impl: IMPL_STC,
         address: accounts[0] || '',
       });
       if (a && a === b && messages[1]) {
@@ -445,104 +447,67 @@ class ProviderApiEthereum extends ProviderApiBase {
     req: IJsBridgeMessagePayload,
     ...messages: string[]
   ) {
-    const [message, signature] = messages;
-    if (
-      typeof message === 'string' &&
-      typeof signature === 'string' &&
-      // Signature is 65-bytes in length, length of its hexstring is 132.
-      signature.length === 132
-    ) {
-      const { networkId } = getActiveWalletAccount();
-      // Not interacting with user's credential, only a static method, so any
-      // vault would do.
-      const evmWatchVault =
-        await this.backgroundApi.engine.vaultFactory.getChainOnlyVault(
-          networkId,
-        );
-      const result = await (evmWatchVault as VaultEvm).personalECRecover(
-        message,
-        signature,
-      );
-
-      return result;
-    }
-    throw web3Errors.rpc.invalidParams(
-      'personal_ecRecover requires a message and a 65 bytes signature.',
-    );
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V1,
-      message: JSON.stringify(messages[0]),
-      payload: messages,
-    });
+  stc_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData_v1(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    // @ts-ignore
-    return this.eth_signTypedData(req, ...messages);
+  stc_signTypedData_v1(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData_v3(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_signTypedData_v3', messages, req);
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V3,
-      message: messages[1],
-      payload: messages,
-    });
+  stc_signTypedData_v3(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_signTypedData_v4(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('eth_signTypedData_v4', messages, req);
-    return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V4,
-      message: messages[1],
-      payload: messages,
-    });
+  stc_signTypedData_v4(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
   async eth_chainId() {
-    const networkExtraInfo = this._getCurrentNetworkExtraInfo();
+    const networkExtraInfo = await this._getCurrentNetworkExtraInfo();
     return Promise.resolve(networkExtraInfo.chainId);
   }
 
   @providerApiMethod()
   async net_version() {
-    const networkExtraInfo = this._getCurrentNetworkExtraInfo();
+    const networkExtraInfo = await this._getCurrentNetworkExtraInfo();
     return Promise.resolve(networkExtraInfo.networkVersion);
   }
 
   @providerApiMethod()
-  async metamask_getProviderState(request: IJsBridgeMessagePayload) {
+  async starmask_getProviderState(request: IJsBridgeMessagePayload) {
+    const networkExtraInfo = await this._getCurrentNetworkExtraInfo();
     return {
-      accounts: await this.eth_accounts(request),
-      chainId: await this.eth_chainId(),
-      networkVersion: await this.net_version(),
+      accounts: await this.stc_accounts(request),
+      chainId: networkExtraInfo.chainId,
+      networkVersion: networkExtraInfo.networkVersion,
       isUnlocked: await this._getCurrentUnlockState(),
     };
   }
 
   // get and save Dapp site icon & title
   @providerApiMethod()
-  metamask_sendDomainMetadata() {
+  starmask_sendDomainMetadata() {
     // TODO
     return {};
   }
 
   @providerApiMethod()
-  metamask_logWeb3ShimUsage() {
+  starmask_logWeb3ShimUsage() {
     // TODO
     return {};
   }
 
   @providerApiMethod()
-  eth_subscription() {
+  stc_subscription() {
     // TODO
     return {};
   }
@@ -596,12 +561,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       // throw new Error(
       //   `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
       // );
-      return null;
-    }
-
-    const { network } = getActiveWalletAccount();
-    if (params.chainId === network?.extraInfo?.chainId) {
-      return convertToEthereumChainResult(network);
+      return false;
     }
 
     const result = await this.backgroundApi.serviceDapp?.openSwitchNetworkModal(
@@ -612,9 +572,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     return convertToEthereumChainResult(result as any);
   }
 
-  // TODO metamask_unlockStateChanged
+  // TODO starmask_unlockStateChanged
 
   // TODO throwMethodNotFound
 }
 
-export default ProviderApiEthereum;
+export default ProviderApiStarcoin;

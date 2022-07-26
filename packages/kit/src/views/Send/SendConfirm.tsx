@@ -343,7 +343,10 @@ function SendConfirmProxy() {
     }
     // dapp tx should check scope matched
     // TODO add injectedProviderName to vault settings
-    return sourceInfo.scope !== IInjectedProviderNames.ethereum; // network.settings.injectedProviderName
+    return ![
+      IInjectedProviderNames.ethereum,
+      IInjectedProviderNames.starcoin,
+    ].includes(sourceInfo.scope as any); // network.settings.injectedProviderName
   }, [sourceInfo]);
 
   if (isNetworkNotMatched) {

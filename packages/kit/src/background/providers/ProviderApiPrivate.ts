@@ -80,7 +80,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   ) {
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
-    const debugLoggerSettings: string = await getDebugLoggerSettings();
+    const debugLoggerSettings: string = (await getDebugLoggerSettings()) || '';
     const ethereum = this.backgroundApi.providers
       .ethereum as ProviderApiEthereum;
     return {

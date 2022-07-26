@@ -3,6 +3,7 @@ import { TypedUseSelectorHook, useSelector } from 'react-redux';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appDispatch, appSelector } from '../store';
 
@@ -94,10 +95,14 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
 
     let isCompatibleNetwork = true;
     if (accountId && networkId) {
-      isCompatibleNetwork = isAccountCompatibleWithNetwork(
-        accountId,
-        networkId,
-      );
+      try {
+        isCompatibleNetwork = isAccountCompatibleWithNetwork(
+          accountId,
+          networkId,
+        );
+      } catch (error) {
+        debugLogger.common.error(error);
+      }
     }
 
     return {

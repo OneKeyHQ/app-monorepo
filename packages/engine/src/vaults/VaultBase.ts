@@ -8,12 +8,20 @@ import {
 import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { InvalidAddress, InvalidTokenAddress, NotImplemented } from '../errors';
-import { Account } from '../types/account';
+import { HISTORY_CONSTS } from '../constants';
+import simpleDb from '../dbs/simple/simpleDb';
+import {
+  InvalidAddress,
+  InvalidTokenAddress,
+  NotImplemented,
+  PendingQueueTooLong,
+} from '../errors';
+import { Account, DBAccount } from '../types/account';
 import { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import { WalletType } from '../types/wallet';
 
@@ -445,5 +453,52 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       return IDecodedTxDirection.IN;
     }
     return IDecodedTxDirection.OTHER;
+  }
+
+  async getNextNonce(networkId: string, dbAccount: DBAccount): Promise<number> {
+    const onChainNonce =
+      (
+        await this.engine.providerManager.getAddresses(networkId, [
+          dbAccount.address,
+        ])
+      )[0]?.nonce ?? 0;
+
+    // TODO: Although 100 history items should be enough to cover all the
+    // pending transactions, we need to find a more reliable way.
+    const historyItems = await this.engine.getHistory(
+      networkId,
+      dbAccount.id,
+      undefined,
+      false,
+    );
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.history.getPendingNonceList({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
+    if (nextNonce > onChainNonce) {
+      for (let i = onChainNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
+
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
   }
 }

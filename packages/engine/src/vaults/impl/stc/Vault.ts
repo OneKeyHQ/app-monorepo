@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, @typescript-eslint/no-unused-vars */
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint-disable @typescript-eslint/require-await */
@@ -5,11 +6,13 @@
 import { StcClient } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/starcoin';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import { extractResponseError } from '../../../proxy';
 import { DBSimpleAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
@@ -39,7 +42,11 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { extractTransactionInfo, getAddressHistoryFromExplorer } from './utils';
+import {
+  decodeTokenData,
+  extractTransactionInfo,
+  getAddressHistoryFromExplorer,
+} from './utils';
 
 import type { IEncodedTxSTC } from './types';
 
@@ -54,25 +61,35 @@ export default class Vault extends VaultBase {
   };
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    let result: IDecodedTxLegacy;
     const { type, nativeTransfer } = decodedTx.actions[0];
-    if (
-      type !== IDecodedTxActionType.NATIVE_TRANSFER ||
-      typeof nativeTransfer === 'undefined'
-    ) {
+
+    if (type === IDecodedTxActionType.NATIVE_TRANSFER) {
+      result = {
+        txType: EVMDecodedTxType.NATIVE_TRANSFER,
+        symbol: 'UNKNOWN',
+        amount: nativeTransfer?.amount,
+        value: nativeTransfer?.amountValue,
+        fromAddress: nativeTransfer?.from,
+        toAddress: nativeTransfer?.to,
+        data: '',
+        total: '0', // not available
+      } as IDecodedTxLegacy;
+    } else if (type === IDecodedTxActionType.TRANSACTION) {
+      result = {
+        txType: EVMDecodedTxType.NATIVE_TRANSFER,
+        symbol: 'UNKNOWN',
+        fromAddress: decodedTx.owner,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        data: decodedTx.payload?.data,
+        total: '0', // not available
+      } as IDecodedTxLegacy;
+    } else {
       // shouldn't happen.
       throw new OneKeyInternalError('Incorrect decodedTx.');
     }
 
-    return Promise.resolve({
-      txType: EVMDecodedTxType.NATIVE_TRANSFER,
-      symbol: 'UNKNOWN',
-      amount: nativeTransfer.amount,
-      value: nativeTransfer.amountValue,
-      fromAddress: nativeTransfer.from,
-      toAddress: nativeTransfer.to,
-      data: '',
-      total: '0', // not available
-    } as IDecodedTxLegacy);
+    return Promise.resolve(result);
   }
 
   override async decodeTx(
@@ -82,29 +99,53 @@ export default class Vault extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const { data, to } = encodedTx;
+    let action: IDecodedTxAction | null = null;
+    if (to) {
+      const nativeTransfer: IDecodedTxActionNativeTransfer = {
+        tokenInfo: token,
+        from: encodedTx.from,
+        to: encodedTx.to,
+        amount: new BigNumber(encodedTx.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        amountValue: encodedTx.value,
+        extraInfo: null,
+      };
+      action = {
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        nativeTransfer,
+      };
+    } else if (data) {
+      // TODO:  display dataName and dataParamsStr on UI's confirmTransactionPage
+      const { name: dataName, params: dataParams } = decodeTokenData(data);
+      // eslint-disable-next-line no-unused-vars
+      const dataParamsStr = JSON.stringify(dataParams);
 
-    const nativeTransfer: IDecodedTxActionNativeTransfer = {
-      tokenInfo: token,
-      from: encodedTx.from,
-      to: encodedTx.to,
-      amount: new BigNumber(encodedTx.value)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      amountValue: encodedTx.value,
-      extraInfo: null,
-    };
+      action = {
+        type: IDecodedTxActionType.TRANSACTION,
+        direction: IDecodedTxDirection.SELF,
+        unknownAction: {
+          extraInfo: {},
+        },
+      };
+    } else {
+      // TODO: support other types
+      action = {
+        type: IDecodedTxActionType.TRANSACTION,
+        direction: IDecodedTxDirection.OTHER,
+        unknownAction: {
+          extraInfo: {},
+        },
+      };
+    }
 
     const result: IDecodedTx = {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [
-        {
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          nativeTransfer,
-        },
-      ],
+      actions: [action],
       status: IDecodedTxStatus.Pending, // TODO
       networkId: this.networkId,
       accountId: this.accountId,
@@ -113,7 +154,12 @@ export default class Vault extends VaultBase {
         limit: encodedTx.gasLimit,
       },
       extraInfo: null,
+      encodedTx,
+      payload: {
+        data: encodedTx.data,
+      },
     };
+
     return Promise.resolve(result);
   }
 
@@ -138,6 +184,12 @@ export default class Vault extends VaultBase {
     _approveInfo: IApproveInfo,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
+  }
+
+  private async getJsonRPCClient(): Promise<StcClient> {
+    return (await this.engine.providerManager.getClient(
+      this.networkId,
+    )) as StcClient;
   }
 
   updateEncodedTxTokenApprove(
@@ -170,19 +222,30 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const value = new BigNumber(encodedTx.value);
 
+    const { nonce } = encodedTx;
+    const nonceBN = new BigNumber(nonce ?? 'NaN');
+    const nextNonce: number = !nonceBN.isNaN()
+      ? nonceBN.toNumber()
+      : await this.getNextNonce(network.id, dbAccount);
     const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
       this.networkId,
       {
         inputs: [
           { address: dbAccount.address, value, publicKey: dbAccount.pub },
         ],
-        outputs: [{ address: encodedTx.to, value }],
-        // TODO: pending support
-        // nonce: encodedTx.nonce !== 'undefined' ? decodedTx.nonce : await this.getNextNonce(this.networkId, dbAccount),
+        outputs: encodedTx.to ? [{ address: encodedTx.to, value }] : [],
+        nonce: nextNonce,
         feePricePerUnit: new BigNumber(
           encodedTx.gasPrice || '0.000000001',
-        ).shiftedBy(network.decimals),
-        payload: {},
+        ).shiftedBy(network.feeDecimals),
+
+        payload: {
+          ...(encodedTx.data
+            ? {
+                data: encodedTx.data,
+              }
+            : {}),
+        },
         ...(typeof encodedTx.gasLimit !== 'undefined'
           ? {
               feeLimit: new BigNumber(encodedTx.gasLimit),
@@ -205,8 +268,7 @@ export default class Vault extends VaultBase {
     // avoid redundant network requests.
     const encodedTxWithFakePriceAndNonce = {
       ...encodedTx,
-      nonce: 1,
-      gasPrice: '1',
+      gasPrice: '0.000000001',
     };
 
     const [network, prices, unsignedTx] = await Promise.all([
@@ -224,6 +286,13 @@ export default class Vault extends VaultBase {
       limit: (unsignedTx.feeLimit || new BigNumber('0')).toFixed(),
       prices,
       defaultPresetIndex: '0',
+      extraInfo: {
+        ...(Object.keys(unsignedTx.tokensChangedTo || {}).length
+          ? {
+              tokensChangedTo: unsignedTx.tokensChangedTo,
+            }
+          : {}),
+      },
     };
   }
 
@@ -238,6 +307,7 @@ export default class Vault extends VaultBase {
     if (typeof limit !== 'string') {
       throw new OneKeyInternalError('Invalid fee limit');
     }
+    const network = await this.getNetwork();
 
     const encodedTxWithFee = {
       ...params.encodedTx,
@@ -355,7 +425,7 @@ export default class Vault extends VaultBase {
           });
         }
       } catch (e) {
-        console.error(e);
+        debugLogger.common.error(e);
       }
 
       return Promise.resolve(null);
@@ -365,6 +435,18 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const client = await this.getJsonRPCClient();
+    try {
+      return await client.rpc.call(
+        request.method,
+        request.params as Record<string, any> | Array<any>,
+      );
+    } catch (e) {
+      throw extractResponseError(e);
+    }
+  }
 
   createClientFromURL(url: string): StcClient {
     return new StcClient(url);

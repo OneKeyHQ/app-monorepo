@@ -703,56 +703,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTxWithFee);
   }
 
-  private async getNextNonce(
-    networkId: string,
-    dbAccount: DBAccount,
-  ): Promise<number> {
-    const onChainNonce =
-      (
-        await this.engine.providerManager.getAddresses(networkId, [
-          dbAccount.address,
-        ])
-      )[0]?.nonce ?? 0;
-
-    // TODO: Although 100 history items should be enough to cover all the
-    // pending transactions, we need to find a more reliable way.
-    const historyItems = await this.engine.getHistory(
-      networkId,
-      dbAccount.id,
-      undefined,
-      false,
-    );
-    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
-      accountId: this.accountId,
-      networkId,
-    });
-    const pendingNonceList = await simpleDb.history.getPendingNonceList({
-      accountId: this.accountId,
-      networkId,
-    });
-    let nextNonce = Math.max(
-      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
-      onChainNonce,
-    );
-    if (Number.isNaN(nextNonce)) {
-      nextNonce = onChainNonce;
-    }
-    if (nextNonce > onChainNonce) {
-      for (let i = onChainNonce; i < nextNonce; i += 1) {
-        if (!pendingNonceList.includes(i)) {
-          nextNonce = i;
-          break;
-        }
-      }
-    }
-
-    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
-      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
-    }
-
-    return nextNonce;
-  }
-
   async mmGetPublicKey(options: ISignCredentialOptions): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {

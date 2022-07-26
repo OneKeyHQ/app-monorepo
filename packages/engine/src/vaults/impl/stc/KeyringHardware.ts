@@ -1,14 +1,18 @@
+/* eslint-disable camelcase, @typescript-eslint/naming-convention */
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+import { arrayify } from '@ethersproject/bytes';
 import {
   buildSignedTx,
   buildUnsignedRawTx,
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
+import { starcoin_types, utils } from '@starcoin/starcoin';
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
+import { OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -63,11 +67,49 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw deviceUtils.convertDeviceError(response.payload);
   }
 
-  signMessage(
+  async signMessage(
     _messages: any[],
     _options: ISignCredentialOptions,
   ): Promise<string[]> {
-    throw new NotImplemented();
+    const dbAccount = await this.getDbAccount();
+    const connectId = await this.getHardwareConnectId();
+    const chainId = await this.getNetworkChainId();
+
+    return Promise.all(
+      _messages.map(async (message) => {
+        let response;
+        const { type, message: messageHex } = message;
+        try {
+          response = await HardwareSDK.starcoinSignMessage(connectId, {
+            path: dbAccount.path,
+            messageHex,
+          });
+        } catch (error: any) {
+          debugLogger.common.error(error);
+          throw new OneKeyHardwareError(error);
+        }
+
+        if (!response.success) {
+          debugLogger.common.error(response.payload);
+          throw deviceUtils.convertDeviceError(response.payload);
+        }
+        const { public_key, signature } = response.payload;
+        if (type === 1) {
+          // personal sign
+          const msgBytes = arrayify(messageHex);
+          const signingMessage = new starcoin_types.SigningMessage(msgBytes);
+          const signedMessageHex =
+            await utils.signedMessage.generateSignedMessage(
+              signingMessage,
+              parseInt(chainId),
+              public_key as string,
+              signature as string,
+            );
+          return signedMessageHex;
+        }
+        return signature as string;
+      }),
+    );
   }
 
   async prepareAccounts(
@@ -87,12 +129,12 @@ export class KeyringHardware extends KeyringHardwareBase {
           bundle: paths.map((path) => ({ path, showOnOneKey })),
         });
       } catch (error: any) {
-        console.error(error);
+        debugLogger.common.error(error);
         throw new OneKeyHardwareError(error);
       }
 
       if (!response.success) {
-        console.error(response.payload);
+        debugLogger.common.error(response.payload);
         throw deviceUtils.convertDeviceError(response.payload);
       }
 
@@ -107,11 +149,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         bundle: paths.map((path) => ({ path, showOnOneKey })),
       });
     } catch (error: any) {
-      console.error(error);
+      debugLogger.common.error(error);
       throw new OneKeyHardwareError(error);
     }
     if (!addressesResponse.success) {
-      console.error(addressesResponse.payload);
+      debugLogger.common.error(addressesResponse.payload);
       throw deviceUtils.convertDeviceError(addressesResponse.payload);
     }
 
