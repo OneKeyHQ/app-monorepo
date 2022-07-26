@@ -61,8 +61,8 @@ const RootNavigatorContainer: FC = ({ children }) => {
         headerShown: false,
         presentation: 'transparentModal',
         ...(isVerticalLayout
-          ? TransitionPresets.ModalPresentationIOS
-          : TransitionPresets.ModalFadeTransition),
+          ? TransitionPresets.ScaleFromCenterAndroid
+          : TransitionPresets.FadeFromBottomAndroid),
       }}
     >
       {children}
@@ -91,7 +91,15 @@ const App = () => {
   return (
     <RootNavigatorContainer>
       <RootStack.Screen name={RootRoutes.Root} component={StackScreen} />
-      <RootStack.Screen name={RootRoutes.Welcome} component={Welcome} />
+      <RootStack.Screen
+        name={RootRoutes.Welcome}
+        component={Welcome}
+        options={{
+          // @ts-expect-error
+          presentation: 'containedModal',
+          animation: 'fade',
+        }}
+      />
       <RootStack.Screen
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
