@@ -1,13 +1,11 @@
+/* eslint-disable no-unused-vars, @typescript-eslint/no-unused-vars */
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint-disable @typescript-eslint/require-await */
 
 import { StcClient } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/starcoin';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
@@ -63,7 +61,7 @@ export default class Vault extends VaultBase {
   };
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
-    let result: any;
+    let result: IDecodedTxLegacy;
     const { type, nativeTransfer } = decodedTx.actions[0];
 
     if (type === IDecodedTxActionType.NATIVE_TRANSFER) {
@@ -82,6 +80,7 @@ export default class Vault extends VaultBase {
         txType: EVMDecodedTxType.NATIVE_TRANSFER,
         symbol: 'UNKNOWN',
         fromAddress: decodedTx.owner,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         data: decodedTx.payload?.data,
         total: '0', // not available
       } as IDecodedTxLegacy;
@@ -120,6 +119,7 @@ export default class Vault extends VaultBase {
     } else if (data) {
       // TODO:  display dataName and dataParamsStr on UI's confirmTransactionPage
       const { name: dataName, params: dataParams } = decodeTokenData(data);
+      // eslint-disable-next-line no-unused-vars
       const dataParamsStr = JSON.stringify(dataParams);
 
       action = {

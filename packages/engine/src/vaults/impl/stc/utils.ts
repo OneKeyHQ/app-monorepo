@@ -111,6 +111,7 @@ export function decodeTokenData(data: string) {
       any
     >;
     const keys = Object.keys(txnPayload);
+    // eslint-disable-next-line prefer-destructuring
     name = keys[0];
     params = txnPayload[keys[0]];
     return { name, params };

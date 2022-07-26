@@ -1,3 +1,4 @@
+/* eslint-disable camelcase, @typescript-eslint/naming-convention */
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import { arrayify } from '@ethersproject/bytes';
@@ -10,7 +11,7 @@ import { starcoin_types, utils } from '@starcoin/starcoin';
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
+import { OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
