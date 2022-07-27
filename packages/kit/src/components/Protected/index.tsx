@@ -105,9 +105,19 @@ const Protected: FC<ProtectedProps> = ({
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        features = await serviceHardware.getFeatures(currentWalletDevice.mac, {
-          skipCheckUpdate: true,
-        });
+        const featuresCache = await serviceHardware.getFeatursByWalletId(
+          walletDetail.id,
+        );
+        if (featuresCache) {
+          features = featuresCache;
+        } else {
+          features = await serviceHardware.getFeatures(
+            currentWalletDevice.mac,
+            {
+              skipCheckUpdate: true,
+            },
+          );
+        }
       } catch (e: any) {
         safeGoBack();
 

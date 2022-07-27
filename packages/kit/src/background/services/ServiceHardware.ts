@@ -1,6 +1,7 @@
 import {
   CoreApi,
   CoreMessage,
+  DEVICE,
   DeviceSettingsParams,
   IDeviceType,
   LOG_EVENT,
@@ -62,6 +63,8 @@ class ServiceHardware extends ServiceBase {
 
   stopConnect = false;
 
+  featursCache: Record<string, IOneKeyDeviceFeatures> = {};
+
   @backgroundMethod()
   async getSDKInstance() {
     return getHardwareSDKInstance().then((instance) => {
@@ -96,9 +99,33 @@ class ServiceHardware extends ServiceBase {
             debugLogger.hardwareSDK.info(messages.payload.join(' '));
           }
         });
+
+        instance.on(
+          DEVICE.FEATURES,
+          async (features: IOneKeyDeviceFeatures) => {
+            if (!features || !features.device_id) return;
+
+            const wallets = await this.backgroundApi.engine.getWallets();
+            const device =
+              await this.backgroundApi.engine.getHWDeviceByDeviceId(
+                features.device_id,
+              );
+            if (!device) return;
+            const wallet = wallets.find(
+              (w) => w.associatedDevice === device.id,
+            );
+            if (!wallet) return;
+            this.featursCache[wallet.id] = features;
+          },
+        );
       }
       return instance;
     });
+  }
+
+  @backgroundMethod()
+  async getFeatursByWalletId(walletId: string) {
+    return Promise.resolve(this.featursCache[walletId] ?? null);
   }
 
   @backgroundMethod()
