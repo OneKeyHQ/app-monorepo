@@ -5,11 +5,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { KeyringBase } from './KeyringBase';
 
 export abstract class KeyringHardwareBase extends KeyringBase {
-  async getHardwareConnectId() {
-    const device = await this.engine.getHWDeviceByWalletId(this.vault.walletId);
-    return device?.mac ?? '';
-  }
-
   async getHardwareInfo() {
     const device = await this.engine.getHWDeviceByWalletId(this.vault.walletId);
     return {

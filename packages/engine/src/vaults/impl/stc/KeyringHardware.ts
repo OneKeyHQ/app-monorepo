@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase, @typescript-eslint/naming-convention */
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
@@ -34,7 +36,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     _options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     const dbAccount = await this.getDbAccount();
-    const connectId = await this.getHardwareConnectId();
     const chainId = await this.getNetworkChainId();
 
     const [rawTxn, rawUserTransactionBytes] = buildUnsignedRawTx(
@@ -50,10 +51,16 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyHardwareError(Error('senderPublicKey is required'));
     }
 
-    const response = await HardwareSDK.starcoinSignTransaction(connectId, {
-      path: dbAccount.path,
-      rawTx: Buffer.from(rawUserTransactionBytes).toString('hex'),
-    });
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    await this.getHardwareSDKInstance();
+    const response = await HardwareSDK.starcoinSignTransaction(
+      connectId,
+      deviceId,
+      {
+        path: dbAccount.path,
+        rawTx: Buffer.from(rawUserTransactionBytes).toString('hex'),
+      },
+    );
 
     if (response.success) {
       const { signature } = response.payload;
@@ -72,18 +79,23 @@ export class KeyringHardware extends KeyringHardwareBase {
     _options: ISignCredentialOptions,
   ): Promise<string[]> {
     const dbAccount = await this.getDbAccount();
-    const connectId = await this.getHardwareConnectId();
     const chainId = await this.getNetworkChainId();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    await this.getHardwareSDKInstance();
 
     return Promise.all(
       _messages.map(async (message) => {
         let response;
         const { type, message: messageHex } = message;
         try {
-          response = await HardwareSDK.starcoinSignMessage(connectId, {
-            path: dbAccount.path,
-            messageHex,
-          });
+          response = await HardwareSDK.starcoinSignMessage(
+            connectId,
+            deviceId,
+            {
+              path: dbAccount.path,
+              messageHex,
+            },
+          );
         } catch (error: any) {
           debugLogger.common.error(error);
           throw new OneKeyHardwareError(error);
@@ -119,13 +131,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'`);
     const isSearching = type === 'SEARCH_ACCOUNTS';
     const showOnOneKey = false;
-    const connectId = await this.getHardwareConnectId();
+    await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
 
     let pubkeys: Array<string> = [];
     if (!isSearching) {
       let response;
       try {
-        response = await HardwareSDK.starcoinGetPublicKey(connectId, {
+        response = await HardwareSDK.starcoinGetPublicKey(connectId, deviceId, {
           bundle: paths.map((path) => ({ path, showOnOneKey })),
         });
       } catch (error: any) {
@@ -145,9 +158,13 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let addressesResponse;
     try {
-      addressesResponse = await HardwareSDK.starcoinGetAddress(connectId, {
-        bundle: paths.map((path) => ({ path, showOnOneKey })),
-      });
+      addressesResponse = await HardwareSDK.starcoinGetAddress(
+        connectId,
+        deviceId,
+        {
+          bundle: paths.map((path) => ({ path, showOnOneKey })),
+        },
+      );
     } catch (error: any) {
       debugLogger.common.error(error);
       throw new OneKeyHardwareError(error);
@@ -179,8 +196,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async getAddress(params: IGetAddressParams): Promise<string> {
-    const connectId = await this.getHardwareConnectId();
-    const response = await HardwareSDK.starcoinGetAddress(connectId, {
+    await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const response = await HardwareSDK.starcoinGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
     });
