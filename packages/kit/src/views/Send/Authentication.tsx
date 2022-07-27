@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -11,10 +11,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
+import { useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
-import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendRoutes, SendRoutesParams } from './types';
@@ -201,24 +201,15 @@ export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
   const { walletId } = params;
-  const [isHwWallet, setIsHwWallet] = useState<boolean | null>(null);
-
-  useDisableNavigationAnimation({
-    condition: !!params.autoConfirmAfterFeeSaved,
-  });
-
-  useEffect(() => {
-    backgroundApiProxy.engine
-      .getWallet(walletId)
-      .then((w) => setIsHwWallet(w.type === 'hw'));
-  }, [walletId]);
+  const wallet = useGetWalletDetail(walletId);
+  const isHardware = wallet?.type === 'hw';
 
   // TODO all Modal close should reject dapp call
   return (
     <Modal height="598px" footer={null}>
       <DecodeTxButtonTest encodedTx={params.encodedTx} />
       {/* eslint-disable-next-line no-nested-ternary */}
-      {isHwWallet === null ? null : isHwWallet ? (
+      {isHardware ? (
         <SendAuth password="" />
       ) : (
         <Protected walletId={walletId} field={ValidationFields.Payment}>
