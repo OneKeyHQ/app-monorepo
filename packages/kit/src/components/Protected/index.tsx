@@ -14,7 +14,6 @@ import {
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { CustomOneKeyHardwareError } from '../../utils/hardware/errors';
@@ -106,9 +105,9 @@ const Protected: FC<ProtectedProps> = ({
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        features = await serviceHardware.ensureConnected(
-          currentWalletDevice.mac,
-        );
+        features = await serviceHardware.getFeatures(currentWalletDevice.mac, {
+          skipCheckUpdate: true,
+        });
       } catch (e: any) {
         safeGoBack();
 
@@ -144,32 +143,6 @@ const Protected: FC<ProtectedProps> = ({
       if (!features) {
         ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
-        });
-        safeGoBack();
-        return;
-      }
-      const connectDeviceUUID = getDeviceUUID(features);
-      const connectDeviceID = features.device_id;
-
-      /**
-       * New version of database, deviceId and uuid must be the same
-       */
-      const diffDeviceIdAndUUID =
-        currentWalletDevice.deviceId && currentWalletDevice.uuid
-          ? connectDeviceID !== currentWalletDevice.deviceId ||
-            connectDeviceUUID !== currentWalletDevice.uuid
-          : false;
-
-      /**
-       * Older versions of the database, uuid must be the same as device.id
-       */
-      const diffDeviceUUIDWithoutDeviceId =
-        !currentWalletDevice.deviceId &&
-        connectDeviceUUID !== currentWalletDevice.id;
-
-      if (diffDeviceIdAndUUID || diffDeviceUUIDWithoutDeviceId) {
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__hardware_not_same' }),
         });
         safeGoBack();
         return;
