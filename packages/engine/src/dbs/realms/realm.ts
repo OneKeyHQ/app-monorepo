@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Buffer } from 'buffer';
 
@@ -969,7 +970,7 @@ class RealmDB implements DBAPI {
       });
 
       if (hasExistWallet) {
-        throw new OneKeyAlreadyExistWalletError();
+        return await Promise.reject(new OneKeyAlreadyExistWalletError());
       }
 
       await this.insertDevice(
@@ -987,7 +988,9 @@ class RealmDB implements DBAPI {
         id,
       );
       if (typeof foundDevice === 'undefined') {
-        throw new OneKeyInternalError(`Device ${id} not found.`);
+        return await Promise.reject(
+          new OneKeyInternalError(`Device ${id} not found.`),
+        );
       }
       let wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -1007,12 +1010,13 @@ class RealmDB implements DBAPI {
           });
         });
       } else {
-        throw new OneKeyAlreadyExistWalletError();
+        return await Promise.reject(new OneKeyAlreadyExistWalletError());
       }
       return await Promise.resolve(wallet!.internalObj);
     } catch (error: any) {
-      console.error(error);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (error.className === 'OneKeyHardwareError') {
+        return Promise.reject(error);
+      }
       return Promise.reject(new OneKeyInternalError(error?.message ?? ''));
     }
   }
