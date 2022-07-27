@@ -27,19 +27,17 @@ const HardwareSpecialPopup: FC = () => {
       );
 
       if (check || platformEnv.isNativeIOS) {
-        setTimeout(() => {
-          DialogManager.show({
-            render: (
-              <PermissionDialog
-                type="bluetooth"
-                onClose={() => {
-                  navigationRef.current?.goBack?.();
-                  dispatch(closeHardwarePopup());
-                }}
-              />
-            ),
-          });
-        }, 0);
+        DialogManager.show({
+          render: (
+            <PermissionDialog
+              type="bluetooth"
+              onClose={() => {
+                navigationRef.current?.goBack?.();
+                dispatch(closeHardwarePopup());
+              }}
+            />
+          ),
+        });
         return;
       }
 
@@ -51,19 +49,17 @@ const HardwareSpecialPopup: FC = () => {
         result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
         result === PermissionsAndroid.RESULTS.DENIED
       ) {
-        setTimeout(() => {
-          DialogManager.show({
-            render: (
-              <PermissionDialog
-                type="location"
-                onClose={() => {
-                  navigationRef.current?.goBack?.();
-                  dispatch(closeHardwarePopup());
-                }}
-              />
-            ),
-          });
-        }, 0);
+        DialogManager.show({
+          render: (
+            <PermissionDialog
+              type="location"
+              onClose={() => {
+                navigationRef.current?.goBack?.();
+                dispatch(closeHardwarePopup());
+              }}
+            />
+          ),
+        });
       } else {
         dispatch(closeHardwarePopup());
       }
