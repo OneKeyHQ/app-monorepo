@@ -2,9 +2,12 @@ export function calculateGains({
   basePrice,
   price,
 }: {
-  basePrice: number;
-  price: number;
+  basePrice?: number;
+  price?: number;
 }) {
+  if (!basePrice || !price) {
+    return { gain: null, percentageGain: null, isPositive: false };
+  }
   let gain: number | string = price - basePrice;
   const isPositive = gain > 0;
   let percentageGain: number | string = basePrice
@@ -23,4 +26,3 @@ export function getSuggestedDecimals(price: number) {
     ? Math.min(8, price.toString().slice(2).slice().search(/[^0]/g) + 3)
     : 2;
 }
-

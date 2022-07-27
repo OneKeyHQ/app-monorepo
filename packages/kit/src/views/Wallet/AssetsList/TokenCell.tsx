@@ -4,7 +4,6 @@ import { FormattedNumber } from 'react-intl';
 
 import {
   Box,
-  Icon,
   Pressable,
   Skeleton,
   Text,
@@ -48,9 +47,15 @@ const TokenCell: FC<TokenCellProps> = ({
 
   const tokenId = token.tokenIdOnNetwork || 'main';
   const balance = balances[tokenId];
-  const chart = charts[tokenId];
-  const basePrice = chart[0][1];
-  const price = chart[chart.length - 1][1];
+  const chart = charts[tokenId] || [];
+  let price;
+  let basePrice;
+  if (chart.length > 1) {
+    // eslint-disable-next-line prefer-destructuring
+    basePrice = chart[0][1];
+    // eslint-disable-next-line prefer-destructuring
+    price = chart[chart.length - 1][1];
+  }
 
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const { gain, isPositive, percentageGain } = calculateGains({
@@ -98,7 +103,7 @@ const TokenCell: FC<TokenCellProps> = ({
         </Box>
         {!isVerticalLayout && !hidePriceInfo && (
           <Box mx={3} flexDirection="column" flex={1}>
-            {price ? (
+            {price !== undefined ? (
               <Typography.Body2Strong>
                 <FormattedNumber
                   value={price}
@@ -114,16 +119,23 @@ const TokenCell: FC<TokenCellProps> = ({
           </Box>
         )}
         <Box mx={3} flexDirection="column" flex={1}>
-          {price ? (
-            <Typography.Body2Strong>
-              <FormattedNumber
-                value={price}
-                currencyDisplay="narrowSymbol"
-                // eslint-disable-next-line react/style-prop-object
-                style="currency"
-                currency={selectedFiatMoneySymbol}
-              />
-            </Typography.Body2Strong>
+          {price !== undefined ? (
+            <>
+              <Typography.Body2Strong>
+                <FormattedNumber
+                  value={price * Number(balance)}
+                  currencyDisplay="narrowSymbol"
+                  // eslint-disable-next-line react/style-prop-object
+                  style="currency"
+                  currency={selectedFiatMoneySymbol}
+                />
+              </Typography.Body2Strong>
+              <Box>
+                <Typography.CaptionStrong>
+                  {percentageGain}
+                </Typography.CaptionStrong>
+              </Box>
+            </>
           ) : (
             <Skeleton shape="Body2" />
           )}
