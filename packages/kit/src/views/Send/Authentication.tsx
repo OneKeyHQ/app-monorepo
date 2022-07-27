@@ -11,7 +11,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import { useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
@@ -201,21 +200,14 @@ export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
   const { walletId } = params;
-  const wallet = useGetWalletDetail(walletId);
-  const isHardware = wallet?.type === 'hw';
 
   // TODO all Modal close should reject dapp call
   return (
     <Modal height="598px" footer={null}>
       <DecodeTxButtonTest encodedTx={params.encodedTx} />
-      {/* eslint-disable-next-line no-nested-ternary */}
-      {isHardware ? (
-        <SendAuth password="" />
-      ) : (
-        <Protected walletId={walletId} field={ValidationFields.Payment}>
-          {(password) => <SendAuth password={password} />}
-        </Protected>
-      )}
+      <Protected walletId={walletId} field={ValidationFields.Payment}>
+        {(password) => <SendAuth password={password} />}
+      </Protected>
     </Modal>
   );
 };

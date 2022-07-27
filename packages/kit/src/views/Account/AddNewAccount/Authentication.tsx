@@ -7,7 +7,6 @@ import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import { useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -45,32 +44,21 @@ export const HDAccountAuthentication: FC = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
   const { onDone, walletId } = route.params;
-  const wallet = useGetWalletDetail(walletId);
-  const isHardware = wallet?.type === 'hw';
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: false });
   }, []);
   return (
     <Modal footer={null}>
-      {isHardware ? (
-        <HDAccountAuthenticationDone
-          password=""
-          onDone={() => {
-            onDone('');
-          }}
-        />
-      ) : (
-        <Protected walletId={walletId} field={ValidationFields.Account}>
-          {(password) => (
-            <HDAccountAuthenticationDone
-              password={password}
-              onDone={() => {
-                onDone(password);
-              }}
-            />
-          )}
-        </Protected>
-      )}
+      <Protected walletId={walletId} field={ValidationFields.Account}>
+        {(password) => (
+          <HDAccountAuthenticationDone
+            password={password}
+            onDone={() => {
+              onDone(password);
+            }}
+          />
+        )}
+      </Protected>
     </Modal>
   );
 };
