@@ -7,7 +7,6 @@ import {
   Center,
   Divider,
   IconButton,
-  Typography,
   useTheme,
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -18,20 +17,21 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import { setQuote } from '../../store/reducers/swap';
 
 import TokenInput from './components/TokenInput';
-import TransactionRate from './components/TransactionRate';
 import {
-  useSwap,
+  useDerivedSwapState,
   useSwapEnabled,
   useSwapQuoteCallback,
   useSwapState,
 } from './hooks/useSwap';
 import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
-import SwapReceiving from './SwapReceiving';
+import SwapQuote from './SwapQuote';
 import { SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
+  const { themeVariant } = useTheme();
+  const navigation = useNavigation();
   const {
     inputToken,
     inputTokenNetwork,
@@ -39,16 +39,15 @@ const SwapContent = () => {
     outputTokenNetwork,
     typedValue,
     independentField,
+    loading,
   } = useSwapState();
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { account, wallet, network } = useActiveWalletAccount();
-  const { themeVariant } = useTheme();
+  const { formattedAmounts } = useDerivedSwapState();
 
   const isDisabled = !isSwapEnabled || !wallet || !account;
 
-  const { swapQuote, formattedAmounts, isSwapLoading } = useSwap();
-  const navigation = useNavigation();
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -96,111 +95,69 @@ const SwapContent = () => {
 
   return (
     <Center px="4">
-      <Box
-        bg="surface-default"
-        maxW="420"
-        w="full"
-        borderRadius="3xl"
-        p={4}
-        borderWidth={themeVariant === 'light' ? 1 : undefined}
-        borderColor="border-subdued"
-      >
+      <Box maxW="420" width="full">
         <Box
-          borderWidth={{ base: '0.5', md: '1' }}
-          borderColor="border-default"
-          bg="surface-subdued"
-          borderRadius={12}
-          position="relative"
+          bg="surface-default"
+          w="full"
+          borderRadius="xl"
+          py={5}
+          px={4}
+          borderWidth={themeVariant === 'light' ? 1 : undefined}
+          borderColor="border-subdued"
         >
-          <TokenInput
-            type="INPUT"
-            label={intl.formatMessage({ id: 'content__from' })}
-            token={inputToken}
-            tokenNetwork={inputTokenNetwork}
-            inputValue={formattedAmounts.INPUT}
-            onChange={onChangeInput}
-            onPress={onSelectInput}
-            containerProps={{ pt: '4', pb: '0' }}
-            isDisabled={isSwapLoading && independentField === 'OUTPUT'}
-            showMax={!!(inputToken && inputToken.tokenIdOnNetwork)}
-          />
-          <Box w="full" h="10" position="relative">
-            <Box position="absolute" w="full" h="full">
-              <Center w="full" h="full">
-                <Divider />
+          <Box position="relative">
+            <TokenInput
+              type="INPUT"
+              label={intl.formatMessage({ id: 'action__sell' })}
+              token={inputToken}
+              tokenNetwork={inputTokenNetwork}
+              inputValue={formattedAmounts.INPUT}
+              onChange={onChangeInput}
+              onPress={onSelectInput}
+              containerProps={{ pb: '0' }}
+              isDisabled={loading && independentField === 'OUTPUT'}
+            />
+            <Box w="full" h="10" position="relative">
+              <Box position="absolute" w="full" h="full">
+                <Center w="full" h="full">
+                  <Divider />
+                </Center>
+              </Box>
+              <Center>
+                <IconButton
+                  w="10"
+                  h="10"
+                  name="SwitchVerticalOutline"
+                  borderRadius="full"
+                  borderColor="border-disabled"
+                  borderWidth="0.5"
+                  disabled={disableSwitchTokens}
+                  bg="surface-default"
+                  onPress={onSwitchTokens}
+                  size="lg"
+                  bgColor="surface-neutral-subdued"
+                />
               </Center>
             </Box>
-            <Center>
-              <IconButton
-                w="10"
-                h="10"
-                name="SwitchVerticalOutline"
-                borderRadius="full"
-                borderColor="border-disabled"
-                borderWidth="0.5"
-                disabled={disableSwitchTokens}
-                bg="surface-default"
-                onPress={onSwitchTokens}
-                size="lg"
-              />
-            </Center>
-          </Box>
-          <TokenInput
-            type="OUTPUT"
-            label={intl.formatMessage({ id: 'content__to' })}
-            token={outputToken}
-            tokenNetwork={outputTokenNetwork}
-            inputValue={formattedAmounts.OUTPUT}
-            onChange={onChangeOutput}
-            onPress={onSelectOutput}
-            containerProps={{ pb: '4', pt: '0' }}
-            isDisabled={isSwapLoading && independentField === 'INPUT'}
-          />
-          {isDisabled ? <Box w="full" h="full" position="absolute" /> : null}
-        </Box>
-        {outputTokenNetwork &&
-        inputTokenNetwork &&
-        outputTokenNetwork?.id !== inputTokenNetwork?.id ? (
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            mt="2"
-          >
-            <Typography.Body2 color="text-subdued" mr="2">
-              {intl.formatMessage({ id: 'form__receiving_address' })}
-            </Typography.Body2>
-            <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <Box maxW="full">
-                <SwapReceiving />
-              </Box>
-            </Box>
-          </Box>
-        ) : null}
-        <Box
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          mt="2"
-          mb="4"
-        >
-          <Typography.Body2 color="text-subdued" mr="2">
-            {intl.formatMessage({ id: 'Rate' })}
-          </Typography.Body2>
-          <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <Box maxW="full">
-              <TransactionRate
-                tokenA={inputToken}
-                tokenB={outputToken}
-                rate={swapQuote?.instantRate}
-              />
-            </Box>
+            <TokenInput
+              type="OUTPUT"
+              label={intl.formatMessage({ id: 'action__receive' })}
+              token={outputToken}
+              tokenNetwork={outputTokenNetwork}
+              inputValue={formattedAmounts.OUTPUT}
+              onChange={onChangeOutput}
+              onPress={onSelectOutput}
+              containerProps={{ pt: '0' }}
+              isDisabled={loading && independentField === 'INPUT'}
+            />
+            {isDisabled ? <Box w="full" h="full" position="absolute" /> : null}
           </Box>
         </Box>
         <SwapAlert />
-        <SwapButton />
+        <Box my="6">
+          <SwapButton />
+        </Box>
+        <SwapQuote />
       </Box>
     </Center>
   );

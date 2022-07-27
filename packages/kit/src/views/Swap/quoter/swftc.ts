@@ -327,6 +327,14 @@ export class SwftcQuoter implements Quoter {
         },
         sellTokenAddress: getEvmTokenAddress(tokenIn),
         buyTokenAddress: getEvmTokenAddress(tokenOut),
+        providers: [
+          {
+            name: 'SwftBridge',
+            logoUrl:
+              'https://pbs.twimg.com/profile_images/1450736441265295360/LaEPWtaN_bigger.jpg',
+          },
+        ],
+        arrivalTime: 300,
         sellAmount: '',
         buyAmount: '',
       };

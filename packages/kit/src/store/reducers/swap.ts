@@ -50,14 +50,14 @@ export const swapSlice = createSlice({
     },
     setInputToken(
       state,
-      action: PayloadAction<{ token: Token; network?: Network | null }>,
+      action: PayloadAction<{ token?: Token; network?: Network | null }>,
     ) {
       state.inputToken = action.payload.token;
       state.inputTokenNetwork = action.payload.network;
     },
     setOutputToken(
       state,
-      action: PayloadAction<{ token: Token; network?: Network | null }>,
+      action: PayloadAction<{ token?: Token; network?: Network | null }>,
     ) {
       state.outputToken = action.payload.token;
       state.outputTokenNetwork = action.payload.network;
@@ -74,22 +74,32 @@ export const swapSlice = createSlice({
       state.outputTokenNetwork = network;
       state.approvalSubmitted = false;
     },
+    resetTypedValue(state) {
+      state.typedValue = '';
+    },
+    clearState(state) {
+      state.independentField = 'INPUT';
+      state.typedValue = '';
+      state.receivingAddress = undefined;
+      state.receivingName = undefined;
+      state.quote = undefined;
+      state.quoteTime = undefined;
+      state.error = undefined;
+    },
     resetState(state) {
       state.inputToken = undefined;
       state.inputTokenNetwork = undefined;
       state.outputToken = undefined;
       state.outputTokenNetwork = undefined;
-
       state.independentField = 'INPUT';
-      state.typedValue = '';
 
+      state.typedValue = '';
+      state.receivingAddress = undefined;
+      state.receivingName = undefined;
       state.quote = undefined;
       state.quoteTime = undefined;
       state.loading = false;
       state.error = undefined;
-    },
-    refresh(state) {
-      state.refreshRef += 1;
     },
     setQuote(state, action: PayloadAction<QuoteData | undefined>) {
       state.quote = action.payload;
@@ -132,8 +142,6 @@ export const {
   setInputToken,
   setOutputToken,
   switchTokens,
-  resetState,
-  refresh,
   setQuote,
   setLoading,
   setError,
@@ -141,6 +149,9 @@ export const {
   setReceiving,
   setSwftcSupportedTokens,
   setApprovalSubmitted,
+  resetTypedValue,
+  clearState,
+  resetState,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

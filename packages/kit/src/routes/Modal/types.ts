@@ -1,7 +1,7 @@
 export type { CreateAccountRoutesParams } from './CreateAccount';
 export type { ReceiveTokenRoutesParams } from './ReceiveToken';
 export type { SubmitRequestModalRoutesParams } from './SubmitRequest';
-export type { HistoryRequestModalRoutesParams } from './HistoryRequest';
+export type { HistoryRequestModalRoutesParams } from '../../views/Help/Request/types';
 export type { TransactionDetailRoutesParams } from './TransactionDetail';
 export type { OnekeyLiteChangePinRoutesParams } from './HardwareOnekeyLiteChangePin';
 export type { OnekeyLiteResetRoutesParams } from './HardwareOnekeyLiteReset';
@@ -19,7 +19,7 @@ export type { ManageNetworkRoutesParams } from './ManageNetwork';
 export type { OnekeyHardwareRoutesParams } from './HardwareOnekey';
 export type { HardwareUpdateRoutesParams } from './HardwareUpdate';
 export type { DiscoverRoutesParams } from './Discover';
-export type { SwapRoutesParams } from './Swap';
+export type { SwapRoutesParams } from '../../views/Swap/typings';
 export type { ScanQrcodeRoutesParams } from './ScanQrcode';
 export type { UpdateFeatureRoutesParams } from './UpdateFeature';
 export type { FiatPayModalRoutesParams } from './FiatPay';

@@ -1,8 +1,8 @@
-import React, { FC, useState } from 'react';
+import React, { ComponentProps, FC, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Icon, Pressable, Text, Typography } from '@onekeyhq/components';
+import { Icon, Pressable, Text } from '@onekeyhq/components';
 import { TypographyStyle } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -13,6 +13,7 @@ type TransactionRateProps = {
   tokenB?: Token;
   rate?: number | string;
   typography?: TypographyStyle;
+  color?: ComponentProps<typeof Text>['color'];
 };
 
 const formatRateAmount = (amount: string | number) => {
@@ -28,10 +29,15 @@ const TransactionRate: FC<TransactionRateProps> = ({
   tokenB,
   rate,
   typography = 'Body2',
+  color = 'text-default',
 }) => {
   const [isSwitched, setSwitched] = useState(false);
   if (!tokenA || !tokenB || !rate) {
-    return <Typography.Body2 color="text-default">---</Typography.Body2>;
+    return (
+      <Text typography={typography} color={color}>
+        ---
+      </Text>
+    );
   }
   const symbolA = tokenA.symbol;
   const symbolB = tokenB.symbol;
@@ -48,15 +54,10 @@ const TransactionRate: FC<TransactionRateProps> = ({
       alignItems="center"
       onPress={() => setSwitched((v) => !v)}
     >
-      <Text
-        typography={typography}
-        color="text-default"
-        textAlign="right"
-        mr="1"
-      >
+      <Text typography={typography} color={color} textAlign="right" mr="1">
         {title}
       </Text>
-      <Icon size={20} name="SwitchHorizontalSolid" />
+      <Icon size={12} name="SwitchHorizontalSolid" />
     </Pressable>
   );
 };

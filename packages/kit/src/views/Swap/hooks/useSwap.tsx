@@ -12,10 +12,14 @@ import {
 } from '../../../hooks';
 import { setError, setLoading, setQuote } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { networkRecords } from '../config';
+import { enabledChainIds } from '../config';
 import { SwapQuoter } from '../quoter';
 import { ApprovalState, FetchQuoteParams, SwapError } from '../typings';
-import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
+import {
+  getChainIdFromNetwork,
+  greaterThanZeroOrUndefined,
+  nativeTokenAddress,
+} from '../utils';
 
 import { useHasPendingApproval } from './useTransactions';
 
@@ -61,9 +65,8 @@ export function isStableCurrency(currency?: Token) {
 
 export function useSwapEnabled() {
   const { network } = useActiveWalletAccount();
-  const chainId = network?.extraInfo?.chainId;
-  const index = String(+chainId);
-  return network?.impl === 'evm' && !!networkRecords[index];
+  const chainId = getChainIdFromNetwork(network ?? undefined);
+  return network?.impl === 'evm' && enabledChainIds.includes(chainId);
 }
 
 export function useSwapState() {
@@ -260,15 +263,14 @@ export function useApproveState(
   }, [allowance, target, pendingApproval]);
 }
 
-export function useSwap() {
+export function useDerivedSwapState() {
   const {
     independentField,
     typedValue,
     inputToken,
-    inputTokenNetwork,
     outputToken,
+    inputTokenNetwork,
     outputTokenNetwork,
-    loading: isSwapLoading,
     quote: swapQuote,
     error: swapError,
   } = useSwapState();
@@ -312,12 +314,10 @@ export function useSwap() {
 
   return {
     error,
-    isSwapLoading,
     inputAmount,
     outputAmount,
     inputBalance,
     outputBalance,
-    swapQuote,
     formattedAmounts,
     approveState,
   };
@@ -325,12 +325,12 @@ export function useSwap() {
 
 export function useInputLimitsError(): Error | undefined {
   const intl = useIntl();
-  const { inputToken } = useSwapState();
-  const { inputAmount, swapQuote } = useSwap();
+  const { inputToken, quote } = useSwapState();
+  const { inputAmount } = useDerivedSwapState();
   return useMemo(() => {
     let message: string | undefined;
-    if (inputAmount && swapQuote && inputToken) {
-      const { max, min } = swapQuote?.limited ?? {};
+    if (inputAmount && quote && inputToken) {
+      const { max, min } = quote?.limited ?? {};
       if (min) {
         const tokenAmount = new TokenAmount(inputToken, min);
         if (tokenAmount.amount.gt(inputAmount.amount)) {
@@ -351,7 +351,7 @@ export function useInputLimitsError(): Error | undefined {
       }
     }
     return message ? new Error(message) : undefined;
-  }, [inputAmount, inputToken, swapQuote, intl]);
+  }, [inputAmount, inputToken, quote, intl]);
 }
 
 export function useSwftcTokens(
@@ -384,19 +384,31 @@ export function useSwftcTokens(
 }
 
 export function useReceivingAddress() {
-  const receivingAddress = useAppSelector((s) => s.swap.receivingAddress);
-  const receivingName = useAppSelector((s) => s.swap.receivingName);
   const { account } = useActiveWalletAccount();
+  const {
+    inputTokenNetwork,
+    outputTokenNetwork,
+    receivingAddress,
+    receivingName,
+  } = useSwapState();
   return useMemo(() => {
     let address: string | undefined;
     let name: string | undefined;
-    if (receivingAddress) {
-      address = receivingAddress;
-      name = receivingName;
-    } else {
-      address = account?.address;
-      name = account?.name;
+    if (outputTokenNetwork?.id !== inputTokenNetwork?.id) {
+      if (receivingAddress) {
+        address = receivingAddress;
+        name = receivingName;
+      } else {
+        address = account?.address;
+        name = account?.name;
+      }
     }
     return { address, name };
-  }, [receivingAddress, receivingName, account]);
+  }, [
+    receivingAddress,
+    receivingName,
+    account,
+    inputTokenNetwork,
+    outputTokenNetwork,
+  ]);
 }

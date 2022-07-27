@@ -63,6 +63,7 @@
     "react-native-gesture-handler": "^2.5.0",
     "react-native-get-random-values": "^1.8.0",
     "react-native-keyboard-manager": "^6.5.4-4",
+    "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git",
     "react-native-pager-view": "5.4.25",
     "react-native-randombytes": "^3.6.1",
     "react-native-reanimated": "npm:@onekeyfe/react-native-reanimated",
@@ -73,6 +74,7 @@
     "react-native-svg": "^12.3.0",
     "react-native-toast-message": "2.1.2",
     "react-native-v8": "^1.4.6",
+    "react-native-view-shot": "^3.3.0",
     "react-native-vision-camera": "^2.13.5",
     "react-native-web": "0.18.7",
     "react-native-webview": "11.18.1",
@@ -81,8 +83,7 @@
     "redux-flipper": "^2.0.2",
     "text-encoding": "^0.7.0",
     "v8-android-jit": "^10.100.1",
-    "vision-camera-code-scanner": "^0.2.0",
-    "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
+    "vision-camera-code-scanner": "^0.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",

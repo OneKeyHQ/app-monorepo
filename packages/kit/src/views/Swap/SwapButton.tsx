@@ -2,8 +2,10 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Button } from '@onekeyhq/components';
+import { Box, Button, useToast } from '@onekeyhq/components';
+import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
@@ -17,13 +19,61 @@ import { addTransaction } from '../../store/reducers/swapTransactions';
 import { SendRoutes } from '../Send/types';
 
 import {
+  useDerivedSwapState,
   useInputLimitsError,
-  useSwap,
+  useReceivingAddress,
   useSwapEnabled,
   useSwapQuoteCallback,
+  useSwapQuoteRequestParams,
   useSwapState,
 } from './hooks/useSwap';
-import { ApprovalState, SwapError } from './typings';
+import { SwapQuoter } from './quoter';
+import {
+  ApprovalState,
+  FetchQuoteParams,
+  QuoteData,
+  SwapError,
+  SwapRoutes,
+} from './typings';
+import { TokenAmount } from './utils';
+
+function convertToSwapInfo(options: {
+  swapQuote: QuoteData;
+  quoteParams: FetchQuoteParams;
+  inputAmount: TokenAmount;
+  outputAmount: TokenAmount;
+  account: BaseAccount;
+}): ISwapInfo {
+  const { swapQuote, quoteParams, inputAmount, outputAmount, account } =
+    options;
+  const {
+    networkIn,
+    networkOut,
+    tokenIn,
+    tokenOut,
+    slippagePercentage,
+    independentField,
+  } = quoteParams;
+  const swapInfo: ISwapInfo = {
+    accountAddress: account.address,
+    send: {
+      networkId: networkIn.id,
+      tokenInfo: tokenIn,
+      amount: inputAmount.typedValue,
+      amountValue: inputAmount.amount.toFixed(),
+    },
+    receive: {
+      networkId: networkOut.id,
+      tokenInfo: tokenOut,
+      amount: outputAmount.typedValue,
+      amountValue: outputAmount.amount.toFixed(),
+    },
+    slippagePercentage,
+    independentField,
+    swapQuote,
+  };
+  return swapInfo;
+}
 
 const RetryQuoteButton = () => {
   const intl = useIntl();
@@ -37,13 +87,23 @@ const RetryQuoteButton = () => {
 
 const SwapButton = () => {
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation();
   const isSwapEnabled = useSwapEnabled();
-  const { inputToken, approvalSubmitted } = useSwapState();
-  const limitsError = useInputLimitsError();
   const { account, network, wallet } = useActiveWalletAccount();
-  const { swapQuote, isSwapLoading, error, approveState, inputAmount } =
-    useSwap();
+  const {
+    inputToken,
+    approvalSubmitted,
+    quote,
+    loading,
+    inputTokenNetwork,
+    outputTokenNetwork,
+  } = useSwapState();
+  const { error, approveState, inputAmount, outputAmount } =
+    useDerivedSwapState();
+  const params = useSwapQuoteRequestParams();
+  const { address: receivingAddress } = useReceivingAddress();
+  const limitsError = useInputLimitsError();
 
   const showApproveFlow =
     approveState === ApprovalState.NOT_APPROVED ||
@@ -58,22 +118,16 @@ const SwapButton = () => {
   }
 
   const onApprove = useCallback(async () => {
-    if (
-      account &&
-      network &&
-      swapQuote &&
-      inputAmount &&
-      swapQuote.allowanceTarget
-    ) {
+    if (account && network && quote && inputAmount && quote.allowanceTarget) {
       const encodedTx =
         (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-          spender: swapQuote?.allowanceTarget,
+          spender: quote?.allowanceTarget,
           networkId: network.id,
           accountId: account.id,
           token: inputAmount.token.tokenIdOnNetwork,
           amount: 'unlimited',
         })) as IEncodedTxEvm;
-      const { allowanceTarget } = swapQuote;
+      const { allowanceTarget } = quote;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -110,18 +164,135 @@ const SwapButton = () => {
         },
       });
     }
-  }, [account, network, inputAmount, swapQuote, navigation]);
+  }, [account, network, inputAmount, quote, navigation]);
 
-  const onSubmit = useCallback(() => {
-    if (swapQuote && account) {
+  const onSubmit = useCallback(async () => {
+    if (
+      !params ||
+      !account ||
+      !network ||
+      !quote ||
+      !inputAmount ||
+      !outputAmount
+    ) {
+      return;
+    }
+    const swapInfo = convertToSwapInfo({
+      quoteParams: params,
+      inputAmount,
+      outputAmount,
+      swapQuote: quote,
+      account,
+    });
+    const res = await SwapQuoter.client.buildTransaction(quote.type, {
+      ...params,
+      activeAccount: account,
+      activeNetwok: network,
+      receivingAddress,
+      txData: quote.txData,
+      txAttachment: quote.txAttachment,
+    });
+    if (res?.data) {
+      const encodedTx: IEncodedTxEvm = {
+        ...res?.data,
+        from: account.address,
+      };
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
-          screen: SendRoutes.SwapPreview,
+          screen: SendRoutes.SendConfirm,
+          params: {
+            payloadInfo: {
+              type: 'InternalSwap',
+              swapInfo,
+            },
+            feeInfoEditable: true,
+            feeInfoUseFeeInTx: false,
+            encodedTx,
+            onDetail(txid) {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Swap,
+                params: {
+                  screen: SwapRoutes.Transaction,
+                  params: {
+                    txid,
+                  },
+                },
+              });
+            },
+            onSuccess: (tx, data) => {
+              if (
+                inputAmount &&
+                inputTokenNetwork &&
+                outputAmount &&
+                outputTokenNetwork
+              ) {
+                backgroundApiProxy.dispatch(
+                  addTransaction({
+                    accountId: account.id,
+                    networkId: network.id,
+                    transaction: {
+                      hash: tx.txid,
+                      from: account.address,
+                      addedTime: Date.now(),
+                      status: 'pending',
+                      type: 'swap',
+                      accountId: account.id,
+                      networkId: network.id,
+                      quoterType: quote.type,
+                      nonce: data?.decodedTx?.nonce,
+                      attachment: res.attachment,
+                      receivingAddress,
+                      providers: quote.providers,
+                      arrivalTime: quote.arrivalTime,
+                      tokens: {
+                        rate: Number(quote.instantRate),
+                        from: {
+                          networkId: inputTokenNetwork.id,
+                          token: inputAmount.token,
+                          amount: inputAmount.typedValue,
+                        },
+                        to: {
+                          networkId: outputTokenNetwork.id,
+                          token: outputAmount.token,
+                          amount: outputAmount.typedValue,
+                        },
+                      },
+                    },
+                  }),
+                );
+                backgroundApiProxy.serviceSwap.setApprovalSubmitted(false);
+                backgroundApiProxy.serviceSwap.clearState();
+                backgroundApiProxy.serviceToken.addAccountToken(
+                  network.id,
+                  account.id,
+                  inputAmount.token.tokenIdOnNetwork,
+                );
+                backgroundApiProxy.serviceToken.addAccountToken(
+                  network.id,
+                  account.id,
+                  outputAmount.token.tokenIdOnNetwork,
+                );
+              }
+            },
+          },
         },
       });
+    } else {
+      const msg =
+        res?.error?.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
+      toast.show({ title: msg });
     }
-  }, [swapQuote, navigation, account]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    params,
+    account,
+    network,
+    inputAmount,
+    outputAmount,
+    quote,
+    addTransaction,
+  ]);
 
   const onCreateWallet = useCallback(() => {
     navigation.navigate(RootRoutes.Onboarding);
@@ -242,7 +413,7 @@ const SwapButton = () => {
           ml="4"
           flex="1"
           type="primary"
-          onPress={onSubmit}
+          onPromise={onSubmit}
           isDisabled={approveState !== ApprovalState.APPROVED}
         >
           {intl.formatMessage({ id: 'title__swap' })}
@@ -250,13 +421,27 @@ const SwapButton = () => {
       </Box>
     );
   }
+
+  if (loading) {
+    return (
+      <Button
+        size="xl"
+        type="primary"
+        isDisabled
+        isLoading={loading}
+        key="loading"
+      >
+        {intl.formatMessage({ id: 'title__finding_the_best_channel' })}
+      </Button>
+    );
+  }
   return (
     <Button
+      key="submit"
       size="xl"
       type="primary"
-      isDisabled={!swapQuote}
-      isLoading={isSwapLoading}
-      onPress={onSubmit}
+      isDisabled={!quote}
+      onPromise={onSubmit}
     >
       {intl.formatMessage({ id: 'title__swap' })}
     </Button>

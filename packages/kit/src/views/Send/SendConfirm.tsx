@@ -220,6 +220,7 @@ function SendConfirm() {
         navigation.navigate(SendRoutes.SendFeedbackReceipt, {
           txid: tx.txid ?? 'unknown_txid',
           closeModal: close,
+          onDetail: routeParams.onDetail,
         });
 
         if (routeParams.onSuccess) {

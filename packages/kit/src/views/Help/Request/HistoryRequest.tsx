@@ -19,10 +19,6 @@ import {
 } from '@onekeyhq/components';
 import IconRequest from '@onekeyhq/kit/assets/3d_request.png';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
-import {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
-} from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -32,7 +28,11 @@ import { SubmitRequestRoutes } from '../../../routes';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 
 import { listUri } from './TicketService';
-import { TicketType } from './types';
+import {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+  TicketType,
+} from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

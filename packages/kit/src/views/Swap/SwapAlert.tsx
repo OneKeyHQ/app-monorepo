@@ -4,14 +4,18 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import { useInputLimitsError, useSwap, useSwapEnabled } from './hooks/useSwap';
+import {
+  useInputLimitsError,
+  useSwapEnabled,
+  useSwapState,
+} from './hooks/useSwap';
 import { SwapError } from './typings';
 
 const DepositLimitAlert = () => {
   const limitsError = useInputLimitsError();
   if (limitsError) {
     return (
-      <Box mb="6">
+      <Box mt="6">
         <Alert title={limitsError.message} alertType="warn" dismiss={false} />
       </Box>
     );
@@ -24,7 +28,7 @@ const NetworkDisabledAlert = () => {
   const isSwapEnabled = useSwapEnabled();
   if (!isSwapEnabled) {
     return (
-      <Box mb="6">
+      <Box mt="6">
         <Alert
           title={intl.formatMessage({ id: 'msg__wrong_network' })}
           description={intl.formatMessage({
@@ -41,10 +45,10 @@ const NetworkDisabledAlert = () => {
 
 const ErrorAlert = () => {
   const intl = useIntl();
-  const { error } = useSwap();
+  const { error } = useSwapState();
   if (error === SwapError.NotSupport) {
     return (
-      <Box mb="6">
+      <Box mt="6">
         <Alert
           title={intl.formatMessage({
             id: 'msg__this_transaction_is_not_supported',
@@ -57,7 +61,7 @@ const ErrorAlert = () => {
   }
   if (error === SwapError.QuoteFailed) {
     return (
-      <Box mb="6">
+      <Box mt="6">
         <Alert
           title={intl.formatMessage({
             id: 'msg__failed_to_get_price',

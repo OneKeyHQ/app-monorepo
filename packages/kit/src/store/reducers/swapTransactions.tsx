@@ -74,10 +74,17 @@ export const swapTransactionsSlice = createSlice({
         }
       });
     },
+    clearTransactions(state) {
+      state.transactions = {};
+    },
   },
 });
 
-export const { addTransaction, updateTransaction, archiveTransaction } =
-  swapTransactionsSlice.actions;
+export const {
+  addTransaction,
+  updateTransaction,
+  archiveTransaction,
+  clearTransactions,
+} = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

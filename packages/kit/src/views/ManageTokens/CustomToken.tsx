@@ -76,16 +76,12 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const onSubmit = useCallback(
     async (data: AddCustomTokenValues) => {
       if (activeNetwork && activeAccount) {
-        const preResult = await backgroundApiProxy.engine.preAddToken(
-          activeAccount.id,
+        const result = await backgroundApiProxy.serviceToken.addAccountToken(
           activeNetwork.id,
+          activeAccount.id,
           data.address,
         );
-        if (preResult) {
-          await backgroundApiProxy.engine.addTokenToAccount(
-            activeAccount.id,
-            preResult[1],
-          );
+        if (result) {
           toast.show({
             title: intl.formatMessage({
               id: 'msg__token_added',

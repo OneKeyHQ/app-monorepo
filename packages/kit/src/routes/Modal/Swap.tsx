@@ -3,7 +3,6 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Input from '@onekeyhq/kit/src/views/Swap/Input';
 import Output from '@onekeyhq/kit/src/views/Swap/Output';
-import Preview from '@onekeyhq/kit/src/views/Swap/Preview';
 import Settings from '@onekeyhq/kit/src/views/Swap/Settings';
 import {
   SwapRoutes,
@@ -11,6 +10,7 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import CustomToken from '../../views/ManageTokens/CustomToken';
+import Share from '../../views/Swap/Share';
 import SwftcHelp from '../../views/Swap/SwftcHelp';
 import Transaction from '../../views/Swap/Transaction';
 import Webview from '../../views/Swap/Webview';
@@ -33,10 +33,6 @@ const modalRoutes = [
     component: Settings,
   },
   {
-    name: SwapRoutes.Preview,
-    component: Preview,
-  },
-  {
     name: SwapRoutes.CustomToken,
     component: CustomToken,
   },
@@ -51,6 +47,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.SwftcHelp,
     component: SwftcHelp,
+  },
+  {
+    name: SwapRoutes.Share,
+    component: Share,
   },
 ];
 
@@ -74,6 +74,4 @@ const SwapModalStack = () => {
   );
 };
 
-export type { SwapRoutesParams };
-export { SwapRoutes };
 export default SwapModalStack;

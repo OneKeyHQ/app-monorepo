@@ -1,9 +1,7 @@
 import React, {
-  FC,
-  createContext,
   useCallback,
-  useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from 'react';
@@ -11,125 +9,30 @@ import React, {
 import { useNavigation } from '@react-navigation/core';
 import { format as dateFormat } from 'date-fns';
 import { useIntl } from 'react-intl';
-import {
-  ImageSourcePropType,
-  SectionListData,
-  SectionListRenderItem,
-} from 'react-native';
+import { SectionListData, SectionListRenderItem } from 'react-native';
 
 import {
   Box,
+  Center,
+  Dialog,
   Divider,
   Empty,
-  Image,
-  Pressable,
+  Icon,
+  IconButton,
   SectionList,
   Typography,
-  useTheme,
 } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/engine/src/types/token';
 import historyPNG from '@onekeyhq/kit/assets/3d_transaction_history.png';
-import boxPNG from '@onekeyhq/kit/assets/box.png';
 
-import {
-  useActiveWalletAccount,
-  useNetwork,
-  useRuntime,
-} from '../../../hooks/redux';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import PendingTransaction from '../components/PendingTransaction';
-import TokenPair from '../components/TokenPair';
-import TransactionStatus from '../components/TransactionStatus';
+import { clearTransactions } from '../../../store/reducers/swapTransactions';
 import { useTransactions } from '../hooks/useTransactions';
-import { SwapRoutes, TransactionDetails } from '../typings';
-import { formatAmount, isNetworkEnabled } from '../utils';
+import { TransactionDetails } from '../typings';
 
-type ContextValues = {
-  selectedNetwordId?: string;
-  setSelectNetworkId: (value?: string) => void;
-};
-
-const NetworkSelectorContext = createContext<ContextValues>({
-  selectedNetwordId: undefined,
-  setSelectNetworkId: () => {},
-});
-
-type ChainSelectorItemProps = {
-  label: string;
-  imageSource: ImageSourcePropType;
-  value?: string;
-};
-
-const ChainSelectorItem: FC<ChainSelectorItemProps> = ({
-  label,
-  imageSource,
-  value,
-}) => {
-  const { selectedNetwordId, setSelectNetworkId } = useContext(
-    NetworkSelectorContext,
-  );
-  const onPress = useCallback(() => {
-    setSelectNetworkId(value);
-  }, [setSelectNetworkId, value]);
-  return (
-    <Pressable
-      py="1"
-      pl="1"
-      pr="3"
-      flexDirection="row"
-      bg={
-        value === selectedNetwordId
-          ? 'surface-neutral-hovered'
-          : 'surface-neutral-subdued'
-      }
-      mr="3"
-      mb="3"
-      borderRadius="full"
-      onPress={onPress}
-    >
-      <Image w="5" h="5" mr="1" borderRadius="full" source={imageSource} />
-      <Typography.Body2Strong>{label}</Typography.Body2Strong>
-    </Pressable>
-  );
-};
-
-type ChainSelectorProps = {
-  items: ChainSelectorItemProps[];
-};
-
-const ChainSelector: FC<ChainSelectorProps> = ({ items }) => {
-  const intl = useIntl();
-  return (
-    <Box flexDirection="row" flexWrap="wrap" mx="4" mt="4">
-      <ChainSelectorItem
-        key="all"
-        label={intl.formatMessage({ id: 'option__all' })}
-        value={undefined}
-        imageSource={boxPNG}
-      />
-      {items.map((item) => (
-        <ChainSelectorItem key={item.value} {...item} />
-      ))}
-    </Box>
-  );
-};
-
-const ListHeaderComponent = () => {
-  const { networks } = useRuntime();
-  const { networkId } = useActiveWalletAccount();
-  const items = useMemo(() => {
-    const chains = networks.filter((network) =>
-      isNetworkEnabled(network, [networkId]),
-    );
-    return chains.map((item) => ({
-      label: item.shortName,
-      imageSource: { uri: item.logoURI },
-      value: item.id,
-    }));
-  }, [networks, networkId]);
-  return <ChainSelector items={items} />;
-};
+import { HistoryItem } from './HistoryItem';
+import Summary from './Summary';
 
 const ItemSeparatorComponent = () => (
   <Box mx="4">
@@ -150,111 +53,6 @@ const ListEmptyComponent = () => {
   );
 };
 
-type HistoryItemProps = {
-  isFirst?: boolean;
-  isLast?: boolean;
-  tx: TransactionDetails;
-};
-
-const HistoryItem: FC<HistoryItemProps> = ({ isFirst, isLast, tx }) => {
-  const intl = useIntl();
-  const { themeVariant } = useTheme();
-  const navigation = useNavigation();
-  const network = useNetwork(tx.networkId);
-  const onPress = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Swap,
-      params: {
-        screen: SwapRoutes.Transaction,
-        params: {
-          accountId: tx.accountId,
-          networkId: tx.networkId,
-          txid: tx.hash,
-        },
-      },
-    });
-  }, [navigation, tx.accountId, tx.networkId, tx.hash]);
-  const formatTokenAmount = useCallback(
-    ({ token, amount }: { token?: Token; amount?: string }) => {
-      if (!token || !amount) return '-';
-      return `${formatAmount(amount)} ${token.symbol.toUpperCase()}`;
-    },
-    [],
-  );
-
-  return (
-    <Box px="4">
-      <Pressable
-        bg="surface-default"
-        p="4"
-        flexDirection="row"
-        onPress={onPress}
-        borderTopRadius={isFirst ? '12' : undefined}
-        borderBottomRadius={isLast ? '12' : undefined}
-        borderLeftWidth={0.5}
-        borderRightWidth={0.5}
-        borderTopWidth={isFirst ? '0.5' : undefined}
-        borderBottomWidth={isLast ? '0.5' : undefined}
-        borderColor={
-          themeVariant === 'light' ? 'border-subdued' : 'transparent'
-        }
-      >
-        <Box mr="4" w="9" h="9" mt="1">
-          {tx.tokens ? (
-            <TokenPair from={tx.tokens.from.token} to={tx.tokens.to.token} />
-          ) : null}
-        </Box>
-        <Box flex="1">
-          <Box>
-            <Box
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Typography.Body1Strong mr="1">
-                {tx.tokens
-                  ? `${tx.tokens.from.token.symbol} → ${tx.tokens.to.token.symbol}`
-                  : intl.formatMessage({ id: 'title__swap' })}
-              </Typography.Body1Strong>
-              <Box flex="1">
-                <Typography.Body1Strong
-                  color="text-success"
-                  textAlign="right"
-                >{`+${formatTokenAmount({
-                  token: tx.tokens?.to.token,
-                  amount: tx.tokens?.to.amount,
-                })}`}</Typography.Body1Strong>
-              </Box>
-            </Box>
-            <Box
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Typography.Body1Strong color="text-subdued" mr="1" maxW="70%">
-                {network?.shortName ?? ''}
-              </Typography.Body1Strong>
-              <Box flex="1">
-                <Typography.Body1Strong
-                  color="text-subdued"
-                  textAlign="right"
-                >{`-${formatTokenAmount({
-                  token: tx.tokens?.from.token,
-                  amount: tx.tokens?.from.amount,
-                })}`}</Typography.Body1Strong>
-              </Box>
-            </Box>
-            <Box>
-              <TransactionStatus tx={tx} />
-            </Box>
-          </Box>
-        </Box>
-      </Pressable>
-      {tx.status === 'pending' ? <PendingTransaction tx={tx} /> : null}
-    </Box>
-  );
-};
-
 type TransactionSection = {
   title: string;
   data: TransactionDetails[];
@@ -270,8 +68,7 @@ const HistorySectionList = () => {
   const navigation = useNavigation();
   const { format } = useFormatDate();
   const { accountId } = useActiveWalletAccount();
-  const { selectedNetwordId } = useContext(NetworkSelectorContext);
-  const transactions = useTransactions(accountId, selectedNetwordId);
+  const transactions = useTransactions(accountId);
   const sections = useMemo(() => {
     const result: Record<string, TransactionDetails[]> = {};
     for (let i = 0; i < transactions.length; i += 1) {
@@ -316,7 +113,7 @@ const HistorySectionList = () => {
   );
 
   const contentContainerStyle = useMemo(
-    () => ({ maxWidth: 768, marginHorizontal: 'auto' }),
+    () => ({ maxWidth: 768, marginHorizontal: 'auto', width: '100%' }),
     [],
   );
 
@@ -327,24 +124,67 @@ const HistorySectionList = () => {
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}
       ItemSeparatorComponent={ItemSeparatorComponent}
-      ListHeaderComponent={ListHeaderComponent}
       ListFooterComponent={ListFooterComponent}
+      ListHeaderComponent={Summary}
       ListEmptyComponent={ListEmptyComponent}
     />
   );
 };
 
+const TrashButton = () => {
+  const intl = useIntl();
+  const [visible, setVisible] = useState(false);
+  const onPress = useCallback(() => {
+    setVisible(true);
+  }, []);
+  const onClear = useCallback(() => {
+    backgroundApiProxy.dispatch(clearTransactions());
+    setVisible(false);
+  }, []);
+  return (
+    <Box px="4">
+      <IconButton type="plain" name="TrashOutline" onPress={onPress} />
+      <Dialog
+        visible={visible}
+        contentProps={{
+          icon: (
+            <Center
+              p={3}
+              mb={4}
+              rounded="full"
+              bgColor="surface-critical-default"
+            >
+              <Icon name="TrashSolid" size={24} color="icon-critical" />
+            </Center>
+          ),
+          title: intl.formatMessage({ id: 'action__clear_swap_history' }),
+          content: intl.formatMessage({
+            id: 'action__clear_swap_history_desc',
+          }),
+        }}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__clear',
+          primaryActionProps: { type: 'destructive' },
+          onPrimaryActionPress: onClear,
+          onSecondaryActionPress() {
+            setVisible(false);
+          },
+        }}
+      />
+    </Box>
+  );
+};
+
 const History = () => {
-  const [selectedNetwordId, setSelectNetworkId] = useState<
-    string | undefined
-  >();
+  const navigation = useNavigation();
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: TrashButton,
+    });
+  }, [navigation]);
   return (
     <Box bg="background-default" w="full" h="full">
-      <NetworkSelectorContext.Provider
-        value={{ selectedNetwordId, setSelectNetworkId }}
-      >
-        <HistorySectionList />
-      </NetworkSelectorContext.Provider>
+      <HistorySectionList />
     </Box>
   );
 };

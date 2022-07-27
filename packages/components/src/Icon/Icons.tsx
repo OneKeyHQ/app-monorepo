@@ -7,6 +7,8 @@ import DiamondBadgeIllus from "./react/illus/DiamondBadge";
 import EmptyNftIllus from "./react/illus/EmptyNft";
 import FaceIdIllus from "./react/illus/FaceId";
 import FingerPrintIllus from "./react/illus/FingerPrint";
+import LogoIllus from "./react/illus/Logo";
+import LogoPrimaryIllus from "./react/illus/LogoPrimary";
 import MetamaskIllus from "./react/illus/Metamask";
 import NftPegIllus from "./react/illus/NftPeg";
 import StarBadgeIllus from "./react/illus/StarBadge";
@@ -93,6 +95,7 @@ import CurrencyPoundOutline from "./react/outline/CurrencyPound";
 import CurrencyRupeeOutline from "./react/outline/CurrencyRupee";
 import CurrencyYenOutline from "./react/outline/CurrencyYen";
 import CursorClickOutline from "./react/outline/CursorClick";
+import CustomerSupportOutline from "./react/outline/CustomerSupport";
 import DatabaseOutline from "./react/outline/Database";
 import DesktopComputerOutline from "./react/outline/DesktopComputer";
 import DeviceMobileOutline from "./react/outline/DeviceMobile";
@@ -523,6 +526,8 @@ export type ICON_NAMES =
   | "EmptyNftIllus"
   | "FaceIdIllus"
   | "FingerPrintIllus"
+  | "LogoIllus"
+  | "LogoPrimaryIllus"
   | "MetamaskIllus"
   | "NftPegIllus"
   | "StarBadgeIllus"
@@ -609,6 +614,7 @@ export type ICON_NAMES =
   | "CurrencyRupeeOutline"
   | "CurrencyYenOutline"
   | "CursorClickOutline"
+  | "CustomerSupportOutline"
   | "DatabaseOutline"
   | "DesktopComputerOutline"
   | "DeviceMobileOutline"
@@ -1039,6 +1045,8 @@ export default {
   EmptyNftIllus: EmptyNftIllus,
   FaceIdIllus: FaceIdIllus,
   FingerPrintIllus: FingerPrintIllus,
+  LogoIllus: LogoIllus,
+  LogoPrimaryIllus: LogoPrimaryIllus,
   MetamaskIllus: MetamaskIllus,
   NftPegIllus: NftPegIllus,
   StarBadgeIllus: StarBadgeIllus,
@@ -1125,6 +1133,7 @@ export default {
   CurrencyRupeeOutline: CurrencyRupeeOutline,
   CurrencyYenOutline: CurrencyYenOutline,
   CursorClickOutline: CursorClickOutline,
+  CustomerSupportOutline: CustomerSupportOutline,
   DatabaseOutline: DatabaseOutline,
   DesktopComputerOutline: DesktopComputerOutline,
   DeviceMobileOutline: DeviceMobileOutline,

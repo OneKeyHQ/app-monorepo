@@ -238,11 +238,12 @@ function AddTokenModal() {
   const onPrimaryActionPress = useCallback(
     async ({ close } = {}) => {
       if (activeAccount && activeNetwork) {
-        const addedToken = await backgroundApiProxy.engine.quickAddToken(
-          activeAccount.id,
-          activeNetwork.id,
-          address,
-        );
+        const addedToken =
+          await backgroundApiProxy.serviceToken.addAccountToken(
+            activeNetwork.id,
+            activeAccount.id,
+            address,
+          );
         toast.show({
           title: intl.formatMessage({
             id: 'msg__token_added',
