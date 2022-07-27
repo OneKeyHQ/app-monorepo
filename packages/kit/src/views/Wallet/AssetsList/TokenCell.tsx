@@ -1,5 +1,7 @@
 import { FC } from 'react';
 
+import { FormattedNumber } from 'react-intl';
+
 import {
   Box,
   Icon,
@@ -12,10 +14,14 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useSettings,
+} from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatBalance, FormatCurrency } from '../../../components/Format';
 import { useManageTokens } from '../../../hooks';
+import { calculateGains } from '../../../utils/priceUtils';
 
 interface TokenCellProps {
   borderTopRadius?: string | number;
@@ -37,12 +43,20 @@ const TokenCell: FC<TokenCellProps> = ({
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const { themeVariant } = useTheme();
-  const { prices, balances, charts } = useManageTokens();
+  const { balances, charts } = useManageTokens();
   const { network } = useActiveWalletAccount();
 
   const tokenId = token.tokenIdOnNetwork || 'main';
   const balance = balances[tokenId];
-  const price = prices[tokenId];
+  const chart = charts[tokenId];
+  const basePrice = chart[0][1];
+  const price = chart[chart.length - 1][1];
+
+  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+  const { gain, isPositive, percentageGain } = calculateGains({
+    basePrice,
+    price,
+  });
 
   const decimal =
     tokenId === 'main'
@@ -64,6 +78,9 @@ const TokenCell: FC<TokenCellProps> = ({
       <Box w="100%" flexDirection="row" alignItems="center">
         <Token size={8} src={token.logoURI} />
         <Box mx={3} flexDirection="column" flex={1}>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            {token.name}
+          </Text>
           {balance ? (
             <FormatBalance
               balance={balance}
@@ -72,40 +89,45 @@ const TokenCell: FC<TokenCellProps> = ({
                 fixed: decimal ?? 4,
               }}
               render={(ele) => (
-                <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {ele}
-                </Text>
+                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
               )}
             />
           ) : (
             <Skeleton shape={isVerticalLayout ? 'Body1' : 'Body2'} />
           )}
-          {balance && price ? (
-            <FormatCurrency
-              numbers={[balance, price]}
-              render={(ele) => (
-                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
-              )}
-            />
-          ) : (
-            <Skeleton shape="Body2" />
-          )}
         </Box>
         {!isVerticalLayout && !hidePriceInfo && (
-          <Box mx={3} flexDirection="row" flex={1}>
+          <Box mx={3} flexDirection="column" flex={1}>
             {price ? (
-              <FormatCurrency
-                numbers={[price]}
-                render={(ele) => (
-                  <Typography.Body2Strong>{ele}</Typography.Body2Strong>
-                )}
-              />
+              <Typography.Body2Strong>
+                <FormattedNumber
+                  value={price}
+                  currencyDisplay="narrowSymbol"
+                  // eslint-disable-next-line react/style-prop-object
+                  style="currency"
+                  currency={selectedFiatMoneySymbol}
+                />
+              </Typography.Body2Strong>
             ) : (
               <Skeleton shape="Body2" />
             )}
           </Box>
         )}
-        <Icon size={20} name="ChevronRightSolid" />
+        <Box mx={3} flexDirection="column" flex={1}>
+          {price ? (
+            <Typography.Body2Strong>
+              <FormattedNumber
+                value={price}
+                currencyDisplay="narrowSymbol"
+                // eslint-disable-next-line react/style-prop-object
+                style="currency"
+                currency={selectedFiatMoneySymbol}
+              />
+            </Typography.Body2Strong>
+          ) : (
+            <Skeleton shape="Body2" />
+          )}
+        </Box>
       </Box>
     </Pressable.Item>
   );
