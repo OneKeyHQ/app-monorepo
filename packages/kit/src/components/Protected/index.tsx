@@ -4,20 +4,11 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  DialogManager,
-  Spinner,
-  ToastManager,
-  Typography,
-} from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
+import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import { CustomOneKeyHardwareError } from '../../utils/hardware/errors';
-import NeedBridgeDialog from '../NeedBridgeDialog';
 
 import Session from './Session';
 import Setup from './Setup';
@@ -54,6 +45,7 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
+  const { captureHardwareError } = useHardwareError();
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -120,33 +112,7 @@ const Protected: FC<ProtectedProps> = ({
         }
       } catch (e: any) {
         safeGoBack();
-
-        const { className, key, code } = e || {};
-
-        if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
-          DialogManager.show({ render: <NeedBridgeDialog /> });
-          return;
-        }
-
-        if (className === OneKeyErrorClassNames.OneKeyAbortError) {
-          return;
-        }
-
-        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: key }),
-            },
-            { type: 'error' },
-          );
-        } else {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: 'action__connection_timeout' }),
-            },
-            { type: 'error' },
-          );
-        }
+        captureHardwareError(e);
         return;
       }
 
@@ -158,12 +124,19 @@ const Protected: FC<ProtectedProps> = ({
         return;
       }
 
-      await serviceHardware.syncDeviceLabel(features, walletDetail.id);
       // device connect success
       setDeviceFeatures(features);
     }
     loadDevices();
-  }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
+  }, [
+    isHardware,
+    engine,
+    walletDetail?.id,
+    intl,
+    safeGoBack,
+    serviceHardware,
+    captureHardwareError,
+  ]);
 
   const abortConnect = useCallback(
     () => serviceHardware.stopPolling(),

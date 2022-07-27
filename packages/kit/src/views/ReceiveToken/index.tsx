@@ -25,6 +25,7 @@ import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
@@ -38,6 +39,7 @@ const ReceiveToken = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<NavigationProps>();
+  const { captureHardwareError } = useHardwareError();
 
   const { address, name } = route.params ?? {};
 
@@ -75,26 +77,11 @@ const ReceiveToken = () => {
       setOnHardwareConfirmed(isSameAddress);
       console.log(res);
     } catch (e: any) {
-      const { className, key, message } = e;
-      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: key }),
-          },
-          { type: 'error' },
-        );
-      } else {
-        ToastManager.show(
-          {
-            title: message,
-          },
-          { type: 'default' },
-        );
-      }
+      captureHardwareError(e);
     } finally {
       setIsLoadingForHardware(false);
     }
-  }, [getAddress, intl, shownAddress]);
+  }, [getAddress, intl, shownAddress, captureHardwareError]);
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);

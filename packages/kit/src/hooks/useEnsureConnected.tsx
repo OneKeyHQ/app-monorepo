@@ -90,7 +90,6 @@ export function useEnsureConnected(params?: IUseEnsureConnected) {
       return false;
     }
 
-    await serviceHardware.syncDeviceLabel(features, walletId);
     setLoading(false);
     setConfirmConnected(true);
     return true;

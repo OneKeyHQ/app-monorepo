@@ -203,6 +203,8 @@ class DeviceUtils {
       case HardwareErrorCode.PinCancelled:
       case HardwareErrorCode.ActionCancelled:
         return new Error.UserCancel({ message: msg });
+      case HardwareErrorCode.BridgeNotInstalled:
+        return new Error.NeedOneKeyBridge({ message: msg });
       case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
         return new Error.NeedOneKeyBridge({ message: msg });
       case HardwareErrorCode.BridgeNetworkError:
