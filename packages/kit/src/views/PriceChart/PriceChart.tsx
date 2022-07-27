@@ -7,11 +7,7 @@ import { Box } from '@onekeyhq/components';
 import { useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 
-import {
-  MarketApiData,
-  PriceApiProps,
-  fetchHistoricalPrices,
-} from './chartService';
+import { MarketApiData, PriceApiProps, fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
 
@@ -38,7 +34,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
         setIsFetching(true);
-        let newData = await fetchHistoricalPrices({
+        let newData = await fetchChartData({
           contract,
           platform,
           days: TIMEOPTIONS_VALUE[newTimeIndex],
@@ -60,7 +56,6 @@ const PriceChart: React.FC<PriceChartProps> = ({
 
   useEffect(() => {
     refreshDataOnTimeChange(TIMEOPTIONS[0]);
-    // TODO refresh
   }, [refreshDataOnTimeChange]);
 
   return (

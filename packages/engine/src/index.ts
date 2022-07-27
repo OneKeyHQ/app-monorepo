@@ -1932,6 +1932,27 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getChart(
+    platform: string,
+    addresses: Array<string>,
+    days = '1',
+    vs_currency = 'usd',
+  ) {
+    // Get price chart data.
+    return this.priceManager.getCgkTokensChart(
+      platform,
+      addresses,
+      days,
+      vs_currency,
+    );
+  }
+
+  @backgroundMethod()
+  clearPriceCache() {
+    return this.priceManager.cache.clear();
+  }
+
+  @backgroundMethod()
   async listFiats(): Promise<Record<string, string>> {
     const ret: Record<string, string> = {};
     const fiatSymbolList = new Set(['usd', 'cny', 'jpy', 'hkd']);

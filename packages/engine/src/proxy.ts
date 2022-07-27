@@ -670,34 +670,7 @@ class PriceController {
     return ret;
   }
 
-  private async getCgkTokensPrice(
-    platform: string,
-    addresses: Array<string>,
-  ): Promise<Record<string, BigNumber>> {
-    if (addresses.length > CGK_BATCH_SIZE) {
-      return {};
-    }
-    const ret: Record<string, BigNumber> = {};
-    try {
-      const prices = await this.fetchApi<Record<string, { usd: number }>>(
-        `/simple/token_price/${platform}`,
-        {
-          contract_addresses: addresses.join(','),
-          vs_currencies: 'usd',
-        },
-      );
-      for (const [address, value] of Object.entries(prices)) {
-        if (typeof value.usd === 'number') {
-          ret[address] = new BigNumber(value.usd);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return ret;
-  }
-
-  private async getCgkTokensChart(
+  async getCgkTokensChart(
     platform: string,
     addresses: Array<string>,
     days = '1',

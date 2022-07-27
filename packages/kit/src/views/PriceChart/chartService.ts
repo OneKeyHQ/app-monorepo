@@ -1,4 +1,3 @@
-import axios from 'axios';
 import {
   BusinessDay,
   ChartOptions,
@@ -6,6 +5,8 @@ import {
   ISeriesApi,
   UTCTimestamp,
 } from 'lightweight-charts';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
@@ -138,40 +139,25 @@ export function updateChartDom({
   }
 }
 
-const marketApi = 'https://fiat.onekeycn.com/market/chart';
-
-interface MarketData {
-  prices: [number, number][];
-}
-
 export type PriceApiProps = {
   platform?: string;
   contract?: string;
   'vs_currency'?: string;
   days: string;
 };
-export const fetchHistoricalPrices = async ({
+export const fetchChartData = async ({
   platform = 'ethereum',
-  contract,
+  contract = 'main',
   // eslint-disable-next-line camelcase
   vs_currency = 'usd',
   days,
 }: PriceApiProps) => {
-  const params = new URLSearchParams({
+  const charts = await backgroundApiProxy.engine.getChart(
     platform,
+    [contract],
     days,
     vs_currency,
-  });
-  if (contract) {
-    params.append('contract', contract);
-  }
-  let result: [number, number][] = [];
-  try {
-    const res = await axios.get<MarketData>(
-      `${marketApi}?${params.toString()}`,
-    );
-    result = res.data.prices;
-    // eslint-disable-next-line no-empty
-  } catch (e) {}
-  return result;
+  );
+
+  return charts[contract];
 };
