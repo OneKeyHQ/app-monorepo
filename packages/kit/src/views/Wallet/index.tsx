@@ -1,6 +1,5 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
-import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -30,7 +29,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { setHomeTabName } from '../../store/reducers/status';
@@ -49,15 +47,6 @@ import { WalletHomeTabEnum } from './type';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
-// offline check url, CORS error in firefox
-// fix ERROR: internetReachability.ts:71 HEAD net::ERR_ABORTED 404 (Not Found)
-NetInfo.configure({
-  reachabilityUrl:
-    platformEnv.isExtension || platformEnv.isDesktop
-      ? 'https://defi.onekey.so/onestep/v1/test'
-      : '',
-});
-
 const Home: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
@@ -69,7 +58,6 @@ const Home: FC = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [offline, setOffline] = useState(false);
   const [backupMap, updateBackMap] = useState<
     Record<string, boolean | undefined>
   >({});
@@ -89,16 +77,6 @@ const Home: FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet?.id, wallet?.backuped]);
-
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setOffline(state.type === NetInfoStateType.none);
-    });
-    return () => {
-      unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   if (!wallet) {
     return (
@@ -131,7 +109,7 @@ const Home: FC = () => {
             {intl.formatMessage({ id: 'action__create_wallet' })}
           </Button>
         </Box>
-        <OfflineView offline={offline} />
+        <OfflineView />
       </Box>
     );
   }
@@ -189,7 +167,7 @@ const Home: FC = () => {
             {intl.formatMessage({ id: 'action__create_account' })}
           </Button>
         </Box>
-        <OfflineView offline={offline} />
+        <OfflineView />
       </Box>
     );
   }
@@ -255,7 +233,7 @@ const Home: FC = () => {
         </Tabs.Tab>
       </Tabs.Container>
       {backupToast()}
-      <OfflineView offline={offline} />
+      <OfflineView />
     </>
   );
 };

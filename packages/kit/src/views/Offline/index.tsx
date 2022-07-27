@@ -1,21 +1,28 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
+import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { Platform, useWindowDimensions } from 'react-native';
 
 import { Box, Icon, Typography } from '@onekeyhq/components';
 
-export type OfflineProps = {
-  offline: boolean;
-};
+NetInfo.configure({
+  reachabilityUrl: 'https://fiat.onekeycn.com/health',
+});
 
-const OfflineView: FC<OfflineProps> = ({ offline }) => {
+const OfflineView: FC = () => {
   const intl = useIntl();
-  const screenWidth = useWindowDimensions().width;
-  if (!['ios', 'android'].includes(Platform.OS)) {
-    return null;
-  }
+  const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setOffline(state.type === NetInfoStateType.none);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   if (!offline) {
     return null;
   }
@@ -23,7 +30,7 @@ const OfflineView: FC<OfflineProps> = ({ offline }) => {
     <Box
       position="absolute"
       height="36px"
-      width={`${screenWidth}px`}
+      w="full"
       bottom="20px"
       justifyContent="center"
       alignItems="center"
