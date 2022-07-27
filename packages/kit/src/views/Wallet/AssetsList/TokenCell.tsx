@@ -37,7 +37,7 @@ const TokenCell: FC<TokenCellProps> = ({
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const { themeVariant } = useTheme();
-  const { prices, balances } = useManageTokens();
+  const { prices, balances, charts } = useManageTokens();
   const { network } = useActiveWalletAccount();
 
   const tokenId = token.tokenIdOnNetwork || 'main';

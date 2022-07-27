@@ -13,6 +13,7 @@ import {
   useAccountTokensBalance,
   useNativeToken,
   useNetworkTokens,
+  useNetworkTokensChart,
   useNetworkTokensPrice,
 } from './useTokens';
 
@@ -29,6 +30,7 @@ export const useManageTokens = ({
   const accountTokens: Token[] = useAccountTokens(networkId, accountId);
   const balances = useAccountTokensBalance(networkId, accountId);
   const prices = useNetworkTokensPrice(networkId);
+  const charts = useNetworkTokensChart(networkId);
   const nativeToken = useNativeToken(networkId, accountId);
 
   const accountTokensMap = useMemo(() => {
@@ -133,6 +135,7 @@ export const useManageTokens = ({
     allTokens,
     prices,
     balances,
+    charts,
     getTokenBalance,
     getTokenPrice,
   };
