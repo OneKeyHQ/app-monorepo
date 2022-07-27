@@ -37,6 +37,8 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import lru from 'tiny-lru';
 
+import { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+
 import {
   IMPL_ALGO,
   IMPL_BTC,
@@ -618,7 +620,7 @@ class PriceController {
 
   CACHE_DURATION = 1000 * 30;
 
-  cache = lru(100);
+  cache = lru(300);
 
   req = new RestfulRequest(this.endpoint);
 
@@ -695,12 +697,49 @@ class PriceController {
     return ret;
   }
 
-  async getPrices(
+  private async getCgkTokensChart(
+    platform: string,
+    addresses: Array<string>,
+    days = '1',
+    vs_currency = 'usd',
+  ) {
+    if (addresses.length > CGK_BATCH_SIZE) {
+      return {};
+    }
+    const ret: Record<string, [number, number][]> = {};
+
+    try {
+      await Promise.all(
+        addresses.map(async (address) => {
+          const params = {
+            platform,
+            days,
+            vs_currency,
+            contract: address,
+          };
+          if (address === 'main') {
+            // @ts-ignore
+            delete params.contract;
+          }
+          const marketData = await this.fetchApi<{
+            prices: [number, number][];
+          }>(`/market/chart`, params);
+          ret[address] = marketData.prices;
+        }),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    return ret;
+  }
+
+  async getPricesAndCharts(
     networkId: string,
     tokenIdOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<Record<string, BigNumber>> {
-    const ret: Record<string, BigNumber> = {};
+  ): Promise<[Record<string, BigNumber>, Record<string, TokenChartData>]> {
+    const prices: Record<string, BigNumber> = {};
+    const charts: Record<string, TokenChartData> = {};
 
     const channels = (getPresetNetworks()[networkId]?.prices || []).reduce(
       (obj, item) => ({ ...obj, [item.channel]: item }),
@@ -712,19 +751,15 @@ class PriceController {
       platform: string;
     };
     if (typeof cgkChannel === 'undefined') {
-      return ret;
+      return [prices, charts];
     }
+    const { platform } = cgkChannel;
 
     if (withMain && typeof cgkChannel.native !== 'undefined') {
       try {
-        const response = await this.fetchApi<Record<string, { usd: number }>>(
-          '/simple/price',
-          {
-            ids: cgkChannel.native,
-            vs_currencies: 'usd',
-          },
-        );
-        ret.main = new BigNumber(response[cgkChannel.native].usd);
+        const response = await this.getCgkTokensChart(platform, ['main']);
+        charts.main = response.main;
+        prices.main = new BigNumber(charts.main[charts.main.length - 1][1]);
       } catch (e) {
         console.error(e);
       }
@@ -733,17 +768,19 @@ class PriceController {
     if (typeof cgkChannel.platform !== 'undefined') {
       const batchSize = CGK_BATCH_SIZE;
       for (let i = 0; i < tokenIdOnNetwork.length; i += batchSize) {
-        Object.assign(
-          ret,
-          await this.getCgkTokensPrice(
-            cgkChannel.platform,
-            tokenIdOnNetwork.slice(i, i + batchSize),
-          ),
+        const batchCharts = await this.getCgkTokensChart(
+          platform,
+          tokenIdOnNetwork.slice(i, i + batchSize),
         );
+        Object.keys(batchCharts).forEach((address) => {
+          const tempChart = batchCharts[address];
+          charts[address] = tempChart;
+          prices[address] = new BigNumber(tempChart[tempChart.length - 1][1]);
+        });
       }
     }
 
-    return ret;
+    return [prices, charts];
   }
 }
 

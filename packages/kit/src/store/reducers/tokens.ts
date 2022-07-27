@@ -4,10 +4,12 @@ import { merge } from 'lodash';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 export type TokenBalanceValue = string | undefined;
+export type TokenChartData = [number, number][];
 
 export type TokenInitialState = {
   tokens: Record<string, Token[]>;
   tokensPrice: Record<string, Record<string, string>>;
+  charts: Record<string, Record<string, TokenChartData>>;
   accountTokens: Record<string, Record<string, Token[]>>;
   accountTokensBalance: Record<
     string,
@@ -20,6 +22,7 @@ const initialState: TokenInitialState = {
   tokensPrice: {},
   accountTokens: {},
   accountTokensBalance: {},
+  charts: {},
 } as const;
 
 type TokenPayloadAction = {
@@ -31,6 +34,11 @@ type TokenPayloadAction = {
 type PricePayloadAction = {
   activeNetworkId?: string | null;
   prices: Record<string, string>;
+};
+
+type ChartPayloadAction = {
+  activeNetworkId?: string | null;
+  charts: Record<string, TokenChartData>;
 };
 
 type TokenBalancePayloadAction = {
@@ -49,6 +57,15 @@ export const tokensSlice = createSlice({
         return;
       }
       state.tokens[activeNetworkId] = tokens;
+    },
+    setCharts(state, action: PayloadAction<ChartPayloadAction>) {
+      const { activeNetworkId, charts } = action.payload;
+      if (!activeNetworkId) {
+        return;
+      }
+      state.charts = state.charts || {};
+      const oldCharts = state.charts[activeNetworkId] || {};
+      state.charts[activeNetworkId] = { ...oldCharts, ...charts };
     },
     setPrices(state, action: PayloadAction<PricePayloadAction>) {
       const { activeNetworkId, prices } = action.payload;
@@ -98,6 +115,7 @@ export const tokensSlice = createSlice({
 export const {
   setTokens,
   setPrices,
+  setCharts,
   setAccountTokens,
   setAccountTokensBalances,
 } = tokensSlice.actions;
