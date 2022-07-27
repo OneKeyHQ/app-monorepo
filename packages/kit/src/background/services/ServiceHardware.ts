@@ -62,6 +62,7 @@ class ServiceHardware extends ServiceBase {
 
   stopConnect = false;
 
+  @backgroundMethod()
   async getSDKInstance() {
     return getHardwareSDKInstance().then((instance) => {
       if (!this.registeredEvents) {

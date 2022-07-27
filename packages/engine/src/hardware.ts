@@ -38,12 +38,13 @@ import type { EVMTransaction, EVMTransactionEIP1559 } from '@onekeyfe/hd-core';
  */
 export async function ethereumGetAddress(
   connectId: string,
+  deviceId: string,
   path: string | number[],
   display = false,
 ): Promise<string> {
   let response;
   try {
-    response = await HardwareSDK.evmGetAddress(connectId, {
+    response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
       path,
       showOnOneKey: display,
     });
@@ -115,10 +116,12 @@ function getResultFromResponse<T>(response: Unsuccessful | Success<T>): T {
 
 export async function ethereumSignMessage({
   connectId,
+  deviceId,
   path,
   message,
 }: {
   connectId: string;
+  deviceId: string;
   path: string;
   message: IUnsignedMessageEvm;
 }): Promise<string> {
@@ -145,7 +148,7 @@ export async function ethereumSignMessage({
       messageHex = Buffer.from(message.message, 'utf-8').toString('hex');
     }
 
-    const res = await HardwareSDK.evmSignMessage(connectId, {
+    const res = await HardwareSDK.evmSignMessage(connectId, deviceId, {
       path,
       messageHex,
     });
@@ -179,7 +182,7 @@ export async function ethereumSignMessage({
       useV4,
     ).toString('hex');
 
-    const res = await HardwareSDK.evmSignTypedData(connectId, {
+    const res = await HardwareSDK.evmSignTypedData(connectId, deviceId, {
       path,
       metamaskV4Compat: !!useV4,
       data,
@@ -209,6 +212,7 @@ export async function ethereumSignMessage({
  */
 export async function ethereumSignTransaction(
   connectId: string,
+  deviceId: string,
   path: string,
   chainId: string,
   unsignedTx: UnsignedTx,
@@ -278,7 +282,7 @@ export async function ethereumSignTransaction(
   }
 
   try {
-    response = await HardwareSDK.evmSignTransaction(connectId, {
+    response = await HardwareSDK.evmSignTransaction(connectId, deviceId, {
       path,
       transaction: txToSign,
     });
@@ -309,6 +313,7 @@ export async function getXpubs(
   outputFormat: 'xpub' | 'pub' | 'address',
   type: IPrepareHardwareAccountsParams['type'],
   connectId: string,
+  deviceId: string,
 ): Promise<Array<{ path: string; info: string }>> {
   if (impl !== IMPL_EVM || outputFormat !== 'address') {
     return Promise.resolve([]);
@@ -319,7 +324,7 @@ export async function getXpubs(
   let response;
   try {
     if (isBundle) {
-      response = await HardwareSDK.evmGetAddress(connectId, {
+      response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
         bundle: paths.map((path) => ({
           path,
           /**
@@ -329,7 +334,7 @@ export async function getXpubs(
         })),
       });
     } else {
-      response = await HardwareSDK.evmGetAddress(connectId, {
+      response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
         path: paths[0],
         showOnOneKey: false,
       });

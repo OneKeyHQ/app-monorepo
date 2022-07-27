@@ -25,7 +25,6 @@ import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { useEnsureConnected } from '@onekeyhq/kit/src/hooks/useEnsureConnected';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
@@ -60,57 +59,42 @@ const ReceiveToken = () => {
     return hwAddress;
   }, [engine, accountId, networkId, walletId]);
 
-  const { ensureConnected, abortConnect, confirmConnected } =
-    useEnsureConnected();
-
-  useEffect(() => {
-    if (confirmConnected) {
-      setIsLoadingForHardware(true);
-      getAddress()
-        .then((res) => {
-          const isSameAddress = res === shownAddress;
-          if (!isSameAddress) {
-            ToastManager.show(
-              {
-                title: intl.formatMessage({ id: 'msg__not_the_same_wallet' }),
-              },
-              { type: 'default' },
-            );
-          }
-          setOnHardwareConfirmed(isSameAddress);
-        })
-        .catch((e: any) => {
-          const { className, key, message } = e;
-          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-            ToastManager.show(
-              {
-                title: intl.formatMessage({ id: key }),
-              },
-              { type: 'error' },
-            );
-          } else {
-            ToastManager.show(
-              {
-                title: message,
-              },
-              { type: 'default' },
-            );
-          }
-        })
-        .finally(() => setIsLoadingForHardware(false));
-    }
-  }, [confirmConnected, getAddress, intl, shownAddress]);
-
-  useEffect(() => () => abortConnect(), [abortConnect]);
-
   const confirmOnDevice = useCallback(async () => {
     setIsLoadingForHardware(true);
     try {
-      await ensureConnected(walletId);
+      const res = await getAddress();
+      const isSameAddress = res === shownAddress;
+      if (!isSameAddress) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: 'msg__not_the_same_wallet' }),
+          },
+          { type: 'default' },
+        );
+      }
+      setOnHardwareConfirmed(isSameAddress);
+      console.log(res);
+    } catch (e: any) {
+      const { className, key, message } = e;
+      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: key }),
+          },
+          { type: 'error' },
+        );
+      } else {
+        ToastManager.show(
+          {
+            title: message,
+          },
+          { type: 'default' },
+        );
+      }
     } finally {
       setIsLoadingForHardware(false);
     }
-  }, [ensureConnected, walletId]);
+  }, [getAddress, intl, shownAddress]);
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);
