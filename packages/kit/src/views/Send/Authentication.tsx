@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -201,18 +201,30 @@ export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
   const { walletId } = params;
+  const [isHwWallet, setIsHwWallet] = useState<boolean | null>(null);
 
   useDisableNavigationAnimation({
     condition: !!params.autoConfirmAfterFeeSaved,
   });
 
+  useEffect(() => {
+    backgroundApiProxy.engine
+      .getWallet(walletId)
+      .then((w) => setIsHwWallet(w.type === 'hw'));
+  }, [walletId]);
+
   // TODO all Modal close should reject dapp call
   return (
     <Modal height="598px" footer={null}>
       <DecodeTxButtonTest encodedTx={params.encodedTx} />
-      <Protected walletId={walletId} field={ValidationFields.Payment}>
-        {(password) => <SendAuth password={password} />}
-      </Protected>
+      {/* eslint-disable-next-line no-nested-ternary */}
+      {isHwWallet === null ? null : isHwWallet ? (
+        <SendAuth password="" />
+      ) : (
+        <Protected walletId={walletId} field={ValidationFields.Payment}>
+          {(password) => <SendAuth password={password} />}
+        </Protected>
+      )}
     </Modal>
   );
 };
