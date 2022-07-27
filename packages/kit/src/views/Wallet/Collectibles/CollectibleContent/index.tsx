@@ -9,11 +9,11 @@ import NFTImage from './NFTImage';
 import NFTSVG from './NFTSVG';
 import NFTVideo from './NFTVideo';
 import { NFTProps } from './type';
-import useUniqueToken from './useUniqueToken';
+// import useUniqueToken from './useUniqueToken';
 
 const CollectibleContent: FC<NFTProps> = ({ asset }) => {
-  const { supportsVideo, supportsAudio, supportsSVG, url } =
-    useUniqueToken(asset);
+  // const { supportsVideo, supportsAudio, supportsSVG, url } =
+  //   useUniqueToken(asset);
   const isSmallScreen = useIsVerticalLayout();
   const { width } = useWindowDimensions();
   const imageWidth = isSmallScreen ? width - 32 : 358;
@@ -21,18 +21,20 @@ const CollectibleContent: FC<NFTProps> = ({ asset }) => {
     width: imageWidth,
     height: imageWidth,
     asset,
-    url,
+    url: asset.nftscanUri,
   };
 
-  if (supportsSVG) {
-    return <NFTSVG {...shareProps} />;
-  }
-  if (supportsVideo) {
-    return <NFTVideo {...shareProps} />;
-  }
-  if (supportsAudio) {
-    return <NFTAudio {...shareProps} />;
-  }
+  // if (supportsSVG) {
+  //   return <NFTSVG {...shareProps} />;
+  // }
+  // if (supportsVideo) {
+  //   return <NFTVideo {...shareProps} />;
+  // }
+  // if (supportsAudio) {
+  //   return <NFTAudio {...shareProps} />;
+  // }
+  console.log();
+
   return <NFTImage {...shareProps} />;
 };
 

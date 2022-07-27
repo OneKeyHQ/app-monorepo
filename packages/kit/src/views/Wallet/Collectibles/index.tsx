@@ -1,13 +1,14 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/moralis';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nftscan';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import type {
   Collectible,
-  MoralisNFT,
-} from '@onekeyhq/engine/src/types/moralis';
-import { Network } from '@onekeyhq/engine/src/types/network';
+  NFTScanAsset,
+} from '@onekeyhq/engine/src/types/nftscan';
+import { useCollectiblesData } from '@onekeyhq/kit/src/hooks/useCollectiblesData';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -17,8 +18,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-
-import { useCollectiblesData } from '../../../hooks/useCollectiblesData';
 
 import CollectibleGallery from './CollectibleGallery';
 
@@ -41,7 +40,7 @@ const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
   });
 
   const handleSelectAsset = useCallback(
-    (asset: MoralisNFT) => {
+    (asset: NFTScanAsset) => {
       if (!network) return;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
@@ -56,6 +55,7 @@ const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
     },
     [navigation, network],
   );
+
   // Open Collection modal
   const handleSelectCollectible = useCallback(
     (collectible: Collectible) => {
