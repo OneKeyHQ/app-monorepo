@@ -1010,7 +1010,6 @@ class RealmDB implements DBAPI {
           });
         });
       } else {
-        console.log(3);
         return await Promise.reject(new OneKeyAlreadyExistWalletError());
       }
       return await Promise.resolve(wallet!.internalObj);
