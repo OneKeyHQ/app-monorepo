@@ -202,7 +202,7 @@ const Explorer: FC = () => {
             />
           ),
         });
-      }, 500);
+      });
 
       const isConfirm = await new Promise<boolean>((resolve) => {
         dappOpenConfirm = resolve;
