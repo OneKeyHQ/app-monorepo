@@ -137,8 +137,8 @@ class DeviceUtils {
      * Catch some special errors
      * they may have multiple error codes
      */
-    if (this.caputureErrorByMessage(msg)) {
-      return this.caputureErrorByMessage(msg) as Error.BridgeNetworkError;
+    if (this.caputureSpecialError(code, msg)) {
+      return this.caputureSpecialError(code, msg) as Error.ConnectTimeoutError;
     }
 
     debugLogger.hardwareSDK.info(
@@ -213,8 +213,14 @@ class DeviceUtils {
     }
   }
 
-  caputureErrorByMessage(message: string) {
+  caputureSpecialError(code: number, message: string) {
     if (typeof message !== 'string') return null;
+    if (
+      code === HardwareErrorCode.DeviceInitializeFailed &&
+      message.includes('ECONNABORTED')
+    ) {
+      return new Error.ConnectTimeoutError({ message });
+    }
     if (message.includes('Bridge network error')) {
       return new Error.BridgeNetworkError({ message });
     }
