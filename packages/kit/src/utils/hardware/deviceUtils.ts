@@ -204,6 +204,8 @@ class DeviceUtils {
         return new Error.BridgeNetworkError({ message: msg });
       case HardwareErrorCode.BridgeTimeoutError:
         return new Error.BridgeTimeoutError({ message: msg });
+      case HardwareErrorCode.PollingTimeout:
+        return new Error.ConnectTimeoutError({ message: msg });
       default:
         return new Error.UnknownHardwareError({ message: msg });
     }

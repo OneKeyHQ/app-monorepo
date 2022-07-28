@@ -31,7 +31,6 @@ import {
   NeedOneKeyBridge,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
-import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
@@ -51,8 +50,6 @@ type IPollFn<T> = (time?: number) => T;
 const MAX_CONNECT_TRY_COUNT = 5;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
-
-const CHECK_UPDATE_INTERVAL = 60 * 60 * 24 * 1000;
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {

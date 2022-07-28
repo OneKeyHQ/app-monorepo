@@ -60,6 +60,12 @@ export class BridgeTimeoutErrorForDesktop extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_bridge_timeout_for_desktop';
 }
 
+export class ConnectTimeoutError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.PollingTimeout;
+
+  override key: LocaleIds = 'msg__hardware_polling_connect_timeout_error';
+}
+
 // 设备没有配对成功
 export class DeviceNotBonded extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleDeviceNotBonded;
