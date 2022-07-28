@@ -7,6 +7,7 @@ import {
   TokenInitialState,
   setAccountTokens,
   setAccountTokensBalances,
+  setCharts,
   setPrices,
   setTokens,
 } from '../../store/reducers/tokens';
@@ -173,11 +174,12 @@ export default class ServiceToken extends ServiceBase {
       const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
     }
-    const prices = await engine.getPrices(
+    const [prices, charts] = await engine.getPricesAndCharts(
       activeNetworkId,
       Array.from(new Set(tokenIdsOnNetwork)),
     );
     dispatch(setPrices({ activeNetworkId, prices }));
+    dispatch(setCharts({ activeNetworkId, charts }));
     return prices;
   }
 }

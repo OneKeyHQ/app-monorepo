@@ -4,13 +4,10 @@ import { StyleProp, ViewStyle } from 'react-native';
 
 import { Box } from '@onekeyhq/components';
 
+import { useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 
-import {
-  MarketApiData,
-  PriceApiProps,
-  fetchHistoricalPrices,
-} from './chartService';
+import { MarketApiData, PriceApiProps, fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
 
@@ -23,29 +20,21 @@ const PriceChart: React.FC<PriceChartProps> = ({
   platform,
   style,
 }) => {
-  const dataMap = useRef<MarketApiData[][]>();
   const [isFetching, setIsFetching] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+  const { charts: reduxCachedCharts } = useManageTokens();
+  const initChartData = reduxCachedCharts[contract || 'main'] || [];
+  const dataMap = useRef<MarketApiData[][]>([initChartData]);
 
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
       let latestPriceData: MarketApiData;
-      if (!dataMap.current) {
-        setIsFetching(true);
-        const dayData = await fetchHistoricalPrices({
-          contract,
-          platform,
-          days: '1',
-          vs_currency: selectedFiatMoneySymbol,
-        });
-        dataMap.current = [dayData];
-      }
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
         setIsFetching(true);
-        let newData = await fetchHistoricalPrices({
+        let newData = await fetchChartData({
           contract,
           platform,
           days: TIMEOPTIONS_VALUE[newTimeIndex],

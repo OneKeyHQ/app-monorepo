@@ -19,6 +19,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
+import { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { getDeviceType, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
@@ -1910,14 +1911,14 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getPrices(
+  async getPricesAndCharts(
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<Record<string, string>> {
+  ): Promise<[Record<string, string>, Record<string, TokenChartData>]> {
     // Get price info.
     const ret: Record<string, string> = {};
-    const prices = await this.priceManager.getPrices(
+    const [prices, charts] = await this.priceManager.getPricesAndCharts(
       networkId,
       tokenIdsOnNetwork.filter(
         (tokenIdOnNetwork) => tokenIdOnNetwork.length > 0,
@@ -1927,7 +1928,28 @@ class Engine {
     Object.keys(prices).forEach((k) => {
       ret[k] = prices[k].toFixed();
     });
-    return ret;
+    return [ret, charts];
+  }
+
+  @backgroundMethod()
+  async getChart(
+    platform: string,
+    addresses: Array<string>,
+    days = '1',
+    vs_currency = 'usd',
+  ) {
+    // Get price chart data.
+    return this.priceManager.getCgkTokensChart(
+      platform,
+      addresses,
+      days,
+      vs_currency,
+    );
+  }
+
+  @backgroundMethod()
+  clearPriceCache() {
+    return this.priceManager.cache.clear();
   }
 
   @backgroundMethod()
