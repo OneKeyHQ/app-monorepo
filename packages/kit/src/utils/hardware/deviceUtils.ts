@@ -160,6 +160,8 @@ class DeviceUtils {
           return new Error.NotInBootLoaderMode();
         }
         return new Error.UnknownHardwareError({ message: msg });
+      case HardwareErrorCode.DeviceCheckDeviceIdError:
+        return new Error.DeviceNotSame({ message: msg });
       case HardwareErrorCode.DeviceNotFound:
         return new Error.DeviceNotFind({ message: msg });
       case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
@@ -205,6 +207,12 @@ class DeviceUtils {
       case HardwareErrorCode.BridgeNetworkError:
         return new Error.BridgeNetworkError({ message: msg });
       case HardwareErrorCode.BridgeTimeoutError:
+        if (platformEnv.isDesktop) {
+          debugLogger.hardwareSDK.debug(
+            'desktop bridge timeout, restart desktop bridge.',
+          );
+          window.desktopApi.reloadBridgeProcess();
+        }
         return new Error.BridgeTimeoutError({ message: msg });
       case HardwareErrorCode.PollingTimeout:
         return new Error.ConnectTimeoutError({ message: msg });

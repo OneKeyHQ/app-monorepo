@@ -111,6 +111,12 @@ export class FirmwareDownloadFailed extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_firmware_download_error';
 }
 
+export class DeviceNotSame extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceCheckDeviceIdError;
+
+  override key: LocaleIds = 'msg__hardware_not_same';
+}
+
 export class DeviceNotFind extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleDeviceNotBonded;
 

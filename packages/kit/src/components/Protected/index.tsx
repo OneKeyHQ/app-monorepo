@@ -8,6 +8,7 @@ import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Session from './Session';
@@ -102,6 +103,7 @@ const Protected: FC<ProtectedProps> = ({
         );
         if (featuresCache) {
           features = featuresCache;
+          debugLogger.hardwareSDK.debug('use features cache: ', featuresCache);
         } else {
           features = await serviceHardware.getFeatures(currentWalletDevice.mac);
         }
