@@ -183,6 +183,15 @@ function createMainWindow() {
     browserWindow.webContents.send('appState', 'background');
   });
 
+  // Prevents clicking on links to open new Windows
+  app.on('web-contents-created', (event, contents) => {
+    if (contents.getType() === 'webview') {
+      contents.on('new-window', (newWindowEvent: Event) => {
+        newWindowEvent.preventDefault();
+      });
+    }
+  });
+
   const filter = {
     urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
   };

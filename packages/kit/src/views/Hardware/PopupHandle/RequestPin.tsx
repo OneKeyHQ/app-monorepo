@@ -39,6 +39,11 @@ type PinOnSoftwareViewProps = {
 const PinOnSoftwareView: FC<PinOnSoftwareViewProps> = ({ onConfirm }) => {
   const intl = useIntl();
   const [value, setValue] = useState('');
+  const [displayValue, setDisplayValue] = useState('');
+
+  useEffect(() => {
+    setDisplayValue(value.replace(/\d/g, '●'));
+  }, [value]);
 
   return (
     <Box
@@ -57,11 +62,10 @@ const PinOnSoftwareView: FC<PinOnSoftwareViewProps> = ({ onConfirm }) => {
         <Input
           isReadOnly
           maxLength={PINCodeMaxLength}
-          type="password"
-          textSize="Heading"
+          type="text"
           rightIconName="BackspaceOutline"
           w="100%"
-          value={value}
+          value={displayValue}
           onPressRightIcon={() => setValue(value.slice(0, -1))}
         />
       </Box>

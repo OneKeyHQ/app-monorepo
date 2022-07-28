@@ -165,13 +165,21 @@ export const Discover: FC<DiscoverProps> = ({
   }, [navigation, intl]);
 
   const callback = useCallback(
-    (item: DAppItemType) => {
-      // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
-      if (platformEnv.isNative) {
-        navigation.goBack();
-      }
-      return onItemSelect?.(item) ?? Promise.resolve(false);
-    },
+    (item: DAppItemType) =>
+      // eslint-disable-next-line no-async-promise-executor
+      new Promise<boolean>(async (resolve) => {
+        if (onItemSelect) {
+          const agree = await onItemSelect(item);
+          if (agree) {
+            // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
+            if (platformEnv.isNative) {
+              navigation.goBack();
+            }
+          }
+          return resolve(agree);
+        }
+        return resolve(false);
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [onItemSelect],
   );

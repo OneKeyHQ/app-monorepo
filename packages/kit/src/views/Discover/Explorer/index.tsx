@@ -88,17 +88,6 @@ const Explorer: FC = () => {
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
   const [canGoForward, setCanGoForward] = useState<boolean>(false);
 
-  const {
-    canGoBack: webCanGoBack,
-    canGoForward: webCanGoForward,
-    goBack,
-    goForward,
-    stopLoading,
-    loading: webLoading,
-    url: webUrl,
-    title: webTitle,
-    favicon: webFavicon,
-  } = useWebviewRef(webviewRef, navigationStateChangeEvent);
   const [visibleMore, setVisibleMore] = useState(false);
 
   const [displayInitialPage, setDisplayInitialPage] = useState(true);
@@ -111,6 +100,26 @@ const Explorer: FC = () => {
   const [refreshKey, setRefreshKey] = useState<string>();
 
   const isVerticalLayout = useIsVerticalLayout();
+
+  const {
+    canGoBack: webCanGoBack,
+    canGoForward: webCanGoForward,
+    goBack,
+    goForward,
+    stopLoading,
+    loading: webLoading,
+    url: webUrl,
+    title: webTitle,
+    favicon: webFavicon,
+  } = useWebviewRef(webviewRef, navigationStateChangeEvent, (url: string) => {
+    setCurrentWebSite({ url });
+    dispatch(
+      addWebSiteHistory({
+        keyUrl: undefined,
+        webSite: { url },
+      }),
+    );
+  });
 
   useEffect(() => {
     if (platformEnv.isNative || platformEnv.isDesktop) {
@@ -202,7 +211,7 @@ const Explorer: FC = () => {
             />
           ),
         });
-      }, 500);
+      });
 
       const isConfirm = await new Promise<boolean>((resolve) => {
         dappOpenConfirm = resolve;
@@ -396,7 +405,7 @@ const Explorer: FC = () => {
               setWebviewRef(ref);
             }}
             onNavigationStateChange={setNavigationStateChangeEvent}
-            allowpopups={false}
+            allowpopups
           />
         )}
       </Box>

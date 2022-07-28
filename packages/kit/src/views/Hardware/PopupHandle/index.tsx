@@ -131,7 +131,9 @@ const HardwarePopup: FC<HardwarePopupProps> = () => {
         uiRequestMemo !== UI_REQUEST.LOCATION_PERMISSION &&
         uiRequestMemo !== UI_REQUEST.BLUETOOTH_PERMISSION
       ) {
-        dispatch(closeHardwarePopup());
+        setTimeout(() => {
+          dispatch(closeHardwarePopup());
+        });
       }
 
       return setPopupView(undefined);
