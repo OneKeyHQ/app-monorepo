@@ -30,7 +30,7 @@ export function useNetworkTokensPrice(networkId: string) {
 
 export function useNetworkTokensChart(networkId: string) {
   const charts = useAppSelector((s) => s.tokens.charts);
-  return useMemo(() => charts[networkId] ?? {}, [networkId, charts]);
+  return useMemo(() => charts?.[networkId] ?? {}, [networkId, charts]);
 }
 
 export function useNativeToken(networkId: string, accountId: string) {
