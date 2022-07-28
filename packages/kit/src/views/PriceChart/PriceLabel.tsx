@@ -5,11 +5,7 @@ import { FormattedNumber, useIntl } from 'react-intl';
 import { Box, Typography } from '@onekeyhq/components';
 
 import { useSettings } from '../../hooks/redux';
-import {
-  calculateGains,
-  getGains,
-  getSuggestedDecimals,
-} from '../../utils/priceUtils';
+import { calculateGains, getSuggestedDecimals } from '../../utils/priceUtils';
 
 type PriceLabelProps = {
   price: number;
@@ -23,7 +19,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
   const priceLabel = intl.formatMessage({
     id: 'content__price_uppercase',
   });
-  const { gain, percentageGain, isPositive } = calculateGains({
+  const { gainText, percentageGain, isPositive } = calculateGains({
     basePrice,
     price,
   });
@@ -50,7 +46,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
         <Typography.Body2Strong
           color={isPositive ? 'text-success' : 'text-critical'}
         >
-          {gain}({percentageGain})
+          {gainText}({percentageGain})
         </Typography.Body2Strong>
         <Typography.Body2Strong color="text-subdued" ml="8px">
           {time}
