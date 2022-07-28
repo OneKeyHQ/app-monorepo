@@ -11,6 +11,8 @@ export type ISimpleDbEntityLocalTokensData = {
   };
 };
 
+const unknownAccountName = 'unknown';
+
 export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDbEntityLocalTokensData> {
   entityName = 'localTokens';
 
@@ -28,9 +30,18 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDbEntit
     current.removed = current.removed.filter((id) => id !== token.id);
     await this.setRawData({
       ...data,
-      accountId: current,
+      [accountId]: current,
     });
     return token;
+  }
+
+  async addTokenToUnknownAccount(token: Token) {
+    return this.addToken(unknownAccountName, token);
+  }
+
+  async getUnknownAccountTokens() {
+    const data = await this.getData();
+    return data?.[unknownAccountName]?.added || [];
   }
 
   async removeToken(accountId: string, tokenId: string) {

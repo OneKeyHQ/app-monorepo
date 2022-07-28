@@ -16,6 +16,7 @@ import {
   Searchbar,
   Spinner,
   Token as TokenImage,
+  TokenVerifiedIcon,
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
@@ -177,6 +178,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     }
                   />
                   <Box ml="3">
+                  <Box flexDirection="row" alignItems="center">
                     <Text
                       maxW={56}
                       numberOfLines={2}
@@ -184,6 +186,8 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     >
                       {item.symbol}
                     </Text>
+                    <TokenVerifiedIcon token={item}/>
+                    </Box>
                     <Typography.Body2
                       maxW="56"
                       numberOfLines={1}
@@ -385,6 +389,7 @@ const ListRenderToken: FC<ListingTokenProps> = ({
           }
         />
         <Box ml="3">
+        <Box alignItems="center" flexDirection="row">
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             maxW="56"
@@ -393,6 +398,8 @@ const ListRenderToken: FC<ListingTokenProps> = ({
           >
             {item.symbol}
           </Text>
+          <TokenVerifiedIcon token={item} />
+          </Box>
           <Typography.Body2 numberOfLines={1} color="text-subdued">
             {item.name}
           </Typography.Body2>

@@ -6,6 +6,7 @@ import {
   AddToken,
   CustomToken,
   Listing,
+  VerifiedToken,
   ViewTokenModal,
 } from '../../views/ManageTokens';
 import {
@@ -33,6 +34,10 @@ const modalRoutes = [
   {
     name: ManageTokenRoutes.CustomToken,
     component: CustomToken,
+  },
+  {
+    name: ManageTokenRoutes.VerifiedToken,
+    component: VerifiedToken,
   },
 ];
 

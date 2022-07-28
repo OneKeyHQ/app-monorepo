@@ -1,4 +1,4 @@
-import { top50 } from '@qwang/token-50-token-list';
+import { Token as ServerToken, top50 } from '@qwang/token-50-token-list';
 
 import { IMPL_SOL, getSupportedImpls } from '../../../constants';
 import { getImplFromNetworkId } from '../../../managers/network';
@@ -32,23 +32,27 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   private async initTop50Tokens() {
     for (const { impl, chainId, tokens } of top50) {
-      const networkId = `${impl}--${chainId}`;
-      const normalizedTokens = tokens.map((t) => {
-        const { address, logoURI } = t;
-        const tokenAddress = caseSensitiveImpls.has(impl)
-          ? address
-          : address.toLowerCase();
-        return {
-          ...t,
-          id: `${networkId}--${tokenAddress}`,
-          networkId,
-          logoURI: logoURI || '',
-          tokenIdOnNetwork: tokenAddress,
-          address: tokenAddress,
-        };
-      });
-      await this.saveTokens(networkId, normalizedTokens);
+      await this.updateTokens(impl, chainId, tokens);
     }
+  }
+
+  async updateTokens(impl: string, chainId: number, tokens: ServerToken[]) {
+    const networkId = `${impl}--${chainId}`;
+    const normalizedTokens = tokens.map((t) => {
+      const { address = '', logoURI } = t;
+      const tokenAddress = caseSensitiveImpls.has(impl)
+        ? address
+        : address.toLowerCase();
+      return {
+        ...t,
+        id: `${networkId}--${tokenAddress}`,
+        networkId,
+        logoURI: logoURI || '',
+        tokenIdOnNetwork: tokenAddress,
+        address: tokenAddress,
+      };
+    });
+    await this.saveTokens(networkId, normalizedTokens);
   }
 
   async saveTokens(networkId: string, tokens: Token[]) {
@@ -81,7 +85,8 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
     if (typeof tokensMap !== 'object' || tokensMap === null) {
       return [];
     }
-    const tokens = tokensMap[networkId] ?? [];
+    let tokens = tokensMap[networkId] ?? [];
+    tokens = tokens.concat(await this.localTokens.getUnknownAccountTokens());
     const queryList = Object.entries(query || {});
     if (!queryList.length) {
       return tokens;
@@ -130,6 +135,10 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   async addTokenToAccount(accountId: string, token: Token) {
     return this.localTokens.addToken(accountId, token);
+  }
+
+  async addToken(token: Token) {
+    return this.localTokens.addTokenToUnknownAccount(token);
   }
 
   async removeTokenFromAccount(accountId: string, tokenId: string) {

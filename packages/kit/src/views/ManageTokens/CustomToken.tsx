@@ -84,7 +84,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         if (preResult) {
           await backgroundApiProxy.engine.addTokenToAccount(
             activeAccount.id,
-            preResult[1].id,
+            preResult[1],
           );
           toast.show({
             title: intl.formatMessage({

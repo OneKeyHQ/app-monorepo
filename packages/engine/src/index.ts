@@ -32,7 +32,6 @@ import {
   IMPL_BTC,
   IMPL_EVM,
   IMPL_NEAR,
-  IMPL_SOL,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
@@ -570,17 +569,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-              id: a.id,
-              name: a.name,
-              type: a.type,
-              path: a.path,
-              coinType: a.coinType,
-              tokens: [],
-              address: a.address,
-            }
+                id: a.id,
+                name: a.name,
+                type: a.type,
+                path: a.path,
+                coinType: a.coinType,
+                tokens: [],
+                address: a.address,
+              }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-              vault.getOutputAccount(),
-            ),
+                vault.getOutputAccount(),
+              ),
         ),
     );
   }
@@ -965,20 +964,13 @@ class Engine {
       }
 
       const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-      const token = await this.dbApi.getToken(tokenId);
-      if (typeof token !== 'undefined') {
-        // Already exists in db.
-        return token;
-      }
-
       const presetToken = await this.sdbTokens.getPresetToken(
         networkId,
         tokenIdOnNetwork,
       );
       if (typeof presetToken !== 'undefined') {
-        // Loose mode for history parsing, use only preset info, don't need to
-        // strictly fetch token info from blockchain.
-        return { ...presetToken, id: tokenId };
+        // Already exists in db.
+        return presetToken;
       }
 
       // Token is not preset, get its info from blockchain.
@@ -1000,6 +992,7 @@ class Engine {
         symbol: tokenInfo.symbol,
         decimals: tokenInfo.decimals,
         logoURI: '',
+        address: tokenIdOnNetwork,
       };
     },
     {
@@ -1020,18 +1013,14 @@ class Engine {
     if (!tokenIdOnNetwork) {
       return this.getNativeTokenInfo(networkId);
     }
-
     const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    const token = await this.dbApi.getToken(tokenId);
-    if (typeof token !== 'undefined') {
-      // Already exists in db.
-      return token;
-    }
-
     const presetToken = await this.sdbTokens.getPresetToken(
       networkId,
       tokenIdOnNetwork,
     );
+    if (presetToken) {
+      return presetToken;
+    }
     const vault = await this.getChainOnlyVault(networkId);
     let tokenInfo;
     try {
@@ -1042,30 +1031,12 @@ class Engine {
     if (typeof tokenInfo === 'undefined') {
       return;
     }
-
-    // If the token is not preset or it is not on solana, use the name and
-    // symbol retrieved from the network.
-    const useOnChainInfo =
-      typeof presetToken === 'undefined' ||
-      getImplFromNetworkId(networkId) !== IMPL_SOL;
-
-    return this.dbApi.addToken({
-      // Default values
+    return this.sdbTokens.addToken({
       logoURI: '',
       networkId,
       tokenIdOnNetwork,
-      // Override with preset if any
-      ...presetToken,
-      // Override with on-chain info
-      ...(useOnChainInfo
-        ? {
-          name: tokenInfo.name,
-          symbol: tokenInfo.symbol,
-        }
-        : {}),
-      // Important properties
       id: tokenId,
-      decimals: tokenInfo.decimals,
+      ...tokenInfo,
     } as Token);
   }
 
@@ -1078,6 +1049,7 @@ class Engine {
 
   @backgroundMethod()
   addTokenToAccount(accountId: string, token: Token): Promise<Token> {
+    console.log(token);
     // Add an token to account.
     if (
       !isAccountCompatibleWithNetwork(
