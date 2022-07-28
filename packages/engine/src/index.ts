@@ -42,6 +42,8 @@ import {
   ExportedSeedCredential,
   checkPassword,
 } from './dbs/base';
+import { SimpleDbEntityTokens } from './dbs/simple/entity/SimpleDbEntityPresetTokens';
+import simpleDb from './dbs/simple/simpleDb';
 import {
   NotImplemented,
   OneKeyHardwareError,
@@ -60,16 +62,8 @@ import {
 } from './managers/network';
 import { getNetworkIdFromTokenId } from './managers/token';
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
-import {
-  getPresetNetworks,
-  getPresetToken,
-  getPresetTokensOnNetwork,
-  networkIsPreset,
-} from './presets';
-import {
-  getDefaultStableTokens,
-  syncLatestNetworkList,
-} from './presets/network';
+import { getPresetNetworks, networkIsPreset } from './presets';
+import { syncLatestNetworkList } from './presets/network';
 import {
   PriceController,
   ProviderController,
@@ -123,6 +117,8 @@ import type { ITransferInfo } from './vaults/types';
 class Engine {
   public dbApi: DBAPI;
 
+  sdbTokens: SimpleDbEntityTokens;
+
   public providerManager: ProviderController;
 
   private priceManager: PriceController;
@@ -135,6 +131,7 @@ class Engine {
 
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
+    this.sdbTokens = simpleDb.token;
     this.priceManager = new PriceController();
     this.providerManager = new ProviderController((networkId) =>
       this.dbApi
@@ -195,9 +192,6 @@ class Engine {
           }
         }
       }
-
-      // add default token in background
-      this.addDefaultToken();
 
       const context = await this.dbApi.getContext();
       if (
@@ -576,17 +570,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-                id: a.id,
-                name: a.name,
-                type: a.type,
-                path: a.path,
-                coinType: a.coinType,
-                tokens: [],
-                address: a.address,
-              }
+              id: a.id,
+              name: a.name,
+              type: a.type,
+              path: a.path,
+              coinType: a.coinType,
+              tokens: [],
+              address: a.address,
+            }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-                vault.getOutputAccount(),
-              ),
+              vault.getOutputAccount(),
+            ),
         ),
     );
   }
@@ -977,7 +971,10 @@ class Engine {
         return token;
       }
 
-      const presetToken = getPresetToken(networkId, tokenIdOnNetwork);
+      const presetToken = await this.sdbTokens.getPresetToken(
+        networkId,
+        tokenIdOnNetwork,
+      );
       if (typeof presetToken !== 'undefined') {
         // Loose mode for history parsing, use only preset info, don't need to
         // strictly fetch token info from blockchain.
@@ -1031,7 +1028,10 @@ class Engine {
       return token;
     }
 
-    const presetToken = getPresetToken(networkId, tokenIdOnNetwork);
+    const presetToken = await this.sdbTokens.getPresetToken(
+      networkId,
+      tokenIdOnNetwork,
+    );
     const vault = await this.getChainOnlyVault(networkId);
     let tokenInfo;
     try {
@@ -1059,9 +1059,9 @@ class Engine {
       // Override with on-chain info
       ...(useOnChainInfo
         ? {
-            name: tokenInfo.name,
-            symbol: tokenInfo.symbol,
-          }
+          name: tokenInfo.name,
+          symbol: tokenInfo.symbol,
+        }
         : {}),
       // Important properties
       id: tokenId,
@@ -1070,57 +1070,26 @@ class Engine {
   }
 
   private async addDefaultToken(
-    accountId?: string,
-    impl?: string,
+    accountId: string,
+    impl: string,
   ): Promise<void> {
-    const tokens = getDefaultStableTokens();
-
-    let networkIds: string[] = Object.keys(tokens).filter((v) =>
-      getSupportedImpls().has(getImplFromNetworkId(v)),
-    );
-    if (accountId && impl) {
-      // filter for account
-      networkIds = networkIds.filter((v) => getImplFromNetworkId(v) === impl);
-    }
-    await Promise.all(
-      networkIds.reduce(
-        (waitingList: Array<Promise<void>>, networkId) =>
-          waitingList.concat(
-            tokens[networkId].map(async (tokenIdOnNetwork) => {
-              try {
-                const token = await this.ensureTokenInDB(
-                  networkId,
-                  tokenIdOnNetwork,
-                );
-                if (typeof token === 'undefined') {
-                  console.error('Token not added', networkId, tokenIdOnNetwork);
-                } else if (accountId && impl) {
-                  await this.addTokenToAccount(accountId, token.id);
-                }
-              } catch (e) {
-                console.error(e);
-              }
-            }),
-          ),
-        [],
-      ),
-    );
+    return this.sdbTokens.addDefaultToken(accountId, impl);
   }
 
   @backgroundMethod()
-  addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
+  addTokenToAccount(accountId: string, token: Token): Promise<Token> {
     // Add an token to account.
     if (
       !isAccountCompatibleWithNetwork(
         accountId,
-        getNetworkIdFromTokenId(tokenId),
+        getNetworkIdFromTokenId(token.id),
       )
     ) {
       throw new OneKeyInternalError(
-        `Cannot add token ${tokenId} to account ${accountId}: incompatible.`,
+        `Cannot add token ${token.id} to account ${accountId}: incompatible.`,
       );
     }
-    return this.dbApi.addTokenToAccount(accountId, tokenId);
+    return this.sdbTokens.addTokenToAccount(accountId, token);
   }
 
   @backgroundMethod()
@@ -1137,7 +1106,7 @@ class Engine {
       false,
     );
     if (typeof preResult !== 'undefined') {
-      ret = await this.addTokenToAccount(accountId, preResult[1].id);
+      ret = await this.addTokenToAccount(accountId, preResult[1]);
     }
     return ret;
   }
@@ -1145,7 +1114,7 @@ class Engine {
   @backgroundMethod()
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void> {
     // Remove token from an account.
-    return this.dbApi.removeTokenFromAccount(accountId, tokenId);
+    return this.sdbTokens.removeTokenFromAccount(accountId, tokenId);
   }
 
   @backgroundMethod()
@@ -1209,7 +1178,10 @@ class Engine {
     withMain = true,
   ): Promise<Array<Token>> {
     // Get token info by network and account.
-    const tokens = await this.dbApi.getTokens(networkId, accountId);
+    const tokens = await this.sdbTokens.getTokens({
+      networkId,
+      accountId,
+    });
     if (typeof accountId !== 'undefined') {
       if (withMain) {
         const nativeToken = await this.getNativeTokenInfo(networkId);
@@ -1220,8 +1192,9 @@ class Engine {
     const existingTokens = new Set(
       tokens.map((token: Token) => token.tokenIdOnNetwork),
     );
+    const tokensOnNetwork = await this.sdbTokens.getTokens({ networkId });
     return tokens.concat(
-      getPresetTokensOnNetwork(networkId).filter(
+      tokensOnNetwork.filter(
         (token1: Token) => !existingTokens.has(token1.tokenIdOnNetwork),
       ),
     );
@@ -1232,7 +1205,8 @@ class Engine {
     networkId: string,
     limit = 50,
   ): Promise<Array<Token>> {
-    return Promise.resolve(getPresetTokensOnNetwork(networkId).slice(0, limit));
+    const tokens = await this.sdbTokens.getTokens({ networkId });
+    return tokens.slice(0, limit);
   }
 
   @backgroundMethod()
@@ -1253,18 +1227,23 @@ class Engine {
       typeof normalizedAddress !== 'undefined'
     ) {
       // valid token address, return the specific token.
-      let token = await this.dbApi.getToken(
-        `${networkId}--${normalizedAddress}`,
+      let token = await this.sdbTokens.getPresetToken(
+        networkId,
+        normalizedAddress,
       );
       const addressesToTry = new Set([normalizedAddress, displayAddress]);
-      addressesToTry.forEach((address) => {
+      for (const address of addressesToTry) {
         if (typeof token === 'undefined') {
-          const presetToken = getPresetToken(networkId, address);
+          const presetToken = await this.sdbTokens.getPresetToken(
+            networkId,
+            address,
+          );
           if (typeof presetToken !== 'undefined') {
             token = presetToken;
+            break;
           }
         }
-      });
+      }
       return typeof token !== 'undefined' ? [token] : [];
     }
     const matchPattern = new RegExp(searchTerm, 'i');

@@ -3761,6 +3761,11 @@
   resolved "https://registry.yarnpkg.com/@protobufjs/utf8/-/utf8-1.1.0.tgz#a777360b5b39a1a2e5106f8e858f2fd2d060c570"
   integrity sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==
 
+"@qwang/token-50-token-list@0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@qwang/token-50-token-list/-/token-50-token-list-0.0.2.tgz#dd03cd5367c34382e10e7d7104d841d5e067e80a"
+  integrity sha512-H7nfgpGspHsQTdS2F1Q3aURbE86YZFf3KHMqR8gQQ5aFJSLcQOY4d+e/eIbrsFVuP5b/6jSECCyIY4z4xNFt5A==
+
 "@react-aria/checkbox@^3.2.1":
   version "3.2.3"
   resolved "https://registry.yarnpkg.com/@react-aria/checkbox/-/checkbox-3.2.3.tgz#be7f1f881e6d0fb554b5b20b9243e31e222207d5"
