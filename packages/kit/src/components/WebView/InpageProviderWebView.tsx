@@ -164,9 +164,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
                 src={src}
                 onSrcChange={onSrcChange}
                 receiveHandler={receiveHandler}
-                // Warning: Received `false` for a non-boolean attribute `allowpopups`.
-                // TODO string or boolean working ?
-                allowpopups={allowpopups}
+                // Warning: any string work, any bool not work
+                // @ts-expect-error
+                allowpopups={allowpopups ? 'true' : false}
               />
             ))}
           {isApp && (

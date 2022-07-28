@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const useWebviewRef = (
   webViewRef: IWebViewWrapperRef | null,
   navigationStateChangeEvent: any | null,
+  onOpenNewUrl: (url: string) => void,
 ) => {
   const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
   const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();
@@ -82,6 +83,15 @@ export const useWebviewRef = (
         const handleLoadStopMessage = () => {
           setLoading(false);
         };
+        const handleNewWindowMessage = (e: Event) => {
+          console.log('====: handleNewWindowMessage new-window:', e);
+
+          // @ts-expect-error
+          const { url } = e;
+          if (url) {
+            onOpenNewUrl(url);
+          }
+        };
 
         console.log('RN WebView addEventListener', !!electronWebView);
 
@@ -102,6 +112,7 @@ export const useWebviewRef = (
           'did-fail-load',
           handleLoadFailMessage,
         );
+        electronWebView.addEventListener('new-window', handleNewWindowMessage);
 
         return () => {
           electronWebView.removeEventListener(
@@ -120,6 +131,10 @@ export const useWebviewRef = (
           electronWebView.removeEventListener(
             'did-stop-loading',
             handleLoadStopMessage,
+          );
+          electronWebView.removeEventListener(
+            'new-window',
+            handleNewWindowMessage,
           );
         };
       } catch (error) {
