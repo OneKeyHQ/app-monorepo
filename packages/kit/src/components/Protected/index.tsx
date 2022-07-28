@@ -103,12 +103,7 @@ const Protected: FC<ProtectedProps> = ({
         if (featuresCache) {
           features = featuresCache;
         } else {
-          features = await serviceHardware.getFeatures(
-            currentWalletDevice.mac,
-            {
-              skipCheckUpdate: true,
-            },
-          );
+          features = await serviceHardware.getFeatures(currentWalletDevice.mac);
         }
       } catch (e: any) {
         safeGoBack();
@@ -137,20 +132,6 @@ const Protected: FC<ProtectedProps> = ({
     serviceHardware,
     captureHardwareError,
   ]);
-
-  const abortConnect = useCallback(
-    () => serviceHardware.stopPolling(),
-    [serviceHardware],
-  );
-
-  useEffect(
-    () => () => {
-      if (isHardware) {
-        abortConnect();
-      }
-    },
-    [isHardware, abortConnect],
-  );
 
   if (password) {
     return (

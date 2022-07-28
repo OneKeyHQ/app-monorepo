@@ -44,14 +44,6 @@ export const hardwareSlice = createSlice({
     closeHardwarePopup(state) {
       state.hardwarePopup = {};
     },
-    recordLastCheckUpdateTime(
-      state,
-      action: PayloadAction<{
-        connectId: string;
-      }>,
-    ) {
-      state.lastCheckUpdateTime[action.payload.connectId] = getTimeStamp();
-    },
   },
 });
 
@@ -60,7 +52,6 @@ export const {
   removeConnectedConnectId,
   setHardwarePopup,
   closeHardwarePopup,
-  recordLastCheckUpdateTime,
 } = hardwareSlice.actions;
 
 export default hardwareSlice.reducer;

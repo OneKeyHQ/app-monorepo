@@ -311,9 +311,7 @@ const UpdatingModal: FC = () => {
       case 'check-device-status':
         setMaxProgress(5);
         serviceHardware
-          .getFeatures(platformEnv.isNative ? connectId : '', {
-            skipCheckUpdate: true,
-          })
+          .getFeatures(platformEnv.isNative ? connectId : '')
           .then((response) => {
             if (response) {
               const deviceType = getDeviceType(response);

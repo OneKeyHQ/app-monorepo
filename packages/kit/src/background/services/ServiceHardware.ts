@@ -1,10 +1,14 @@
 import {
+  BleReleaseInfoEvent,
   CoreApi,
   CoreMessage,
   DEVICE,
   DeviceSettingsParams,
+  FIRMWARE,
+  FIRMWARE_EVENT,
   IDeviceType,
   LOG_EVENT,
+  ReleaseInfoEvent,
   UiResponseEvent,
   getDeviceType,
 } from '@onekeyfe/hd-core';
@@ -15,10 +19,7 @@ import {
   OneKeyHardwareError,
 } from '@onekeyhq/engine/src/errors';
 import { DevicePayload } from '@onekeyhq/engine/src/types/device';
-import {
-  recordLastCheckUpdateTime,
-  setHardwarePopup,
-} from '@onekeyhq/kit/src/store/reducers/hardware';
+import { setHardwarePopup } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
@@ -105,19 +106,34 @@ class ServiceHardware extends ServiceBase {
           async (features: IOneKeyDeviceFeatures) => {
             if (!features || !features.device_id) return;
 
-            const wallets = await this.backgroundApi.engine.getWallets();
-            const device =
-              await this.backgroundApi.engine.getHWDeviceByDeviceId(
-                features.device_id,
+            try {
+              const wallets = await this.backgroundApi.engine.getWallets();
+              const device =
+                await this.backgroundApi.engine.getHWDeviceByDeviceId(
+                  features.device_id,
+                );
+              if (!device) return;
+              const wallet = wallets.find(
+                (w) => w.associatedDevice === device.id,
               );
-            if (!device) return;
-            const wallet = wallets.find(
-              (w) => w.associatedDevice === device.id,
-            );
-            if (!wallet) return;
-            this.featursCache[wallet.id] = features;
+              if (!wallet) return;
+              this.featursCache[wallet.id] = features;
+            } catch {
+              // empty
+            }
           },
         );
+
+        instance.on(FIRMWARE_EVENT, (messages: CoreMessage) => {
+          if (messages.type === FIRMWARE.RELEASE_INFO) {
+            console.log('FIRMWARE.RELEASE_INFO: ', messages);
+            this._checkFirmwareUpdate(messages.payload as unknown as any);
+          }
+          if (messages.type === FIRMWARE.BLE_RELEASE_INFO) {
+            console.log('FIRMWARE.BLE_RELEASE_INFO: ', messages);
+            this._checkBleFirmwareUpdate(messages.payload as unknown as any);
+          }
+        });
       }
       return instance;
     });
@@ -147,28 +163,12 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeatures(
-    connectId: string,
-    options?: {
-      skipCheckUpdate?: boolean;
-    },
-  ) {
+  async getFeatures(connectId: string) {
     const hardwareSDK = await this.getSDKInstance();
     const response = await hardwareSDK?.getFeatures(connectId);
 
     if (response.success) {
       // this.backgroundApi.dispatch(addConnectedConnectId(connectId));
-
-      if (!options?.skipCheckUpdate) {
-        const existsFocused = await this._checkDeviceUpdate(
-          hardwareSDK,
-          connectId,
-        );
-
-        if (existsFocused) {
-          return null;
-        }
-      }
 
       this.connectedDeviceType = getDeviceType(response.payload);
       return response.payload;
@@ -435,96 +435,128 @@ class ServiceHardware extends ServiceBase {
     return arrayBuffer;
   }
 
-  async _checkDeviceUpdate(sdk: CoreApi, connectId: string): Promise<boolean> {
-    const hardware: { lastCheckUpdateTime: Record<string, number> } =
-      this.backgroundApi.appSelector((s) => s.hardware);
-    const lastCheckTime = hardware.lastCheckUpdateTime[connectId];
-
-    if (
-      lastCheckTime &&
-      getTimeStamp() - lastCheckTime < CHECK_UPDATE_INTERVAL
-    ) {
-      return Promise.resolve(false);
+  async getConnectId(features: IOneKeyDeviceFeatures) {
+    const deviceId = features.device_id;
+    if (!deviceId) return null;
+    try {
+      const device = await this.backgroundApi.engine.getHWDeviceByDeviceId(
+        deviceId,
+      );
+      if (!device) return null;
+      return device.mac;
+    } catch {
+      return null;
     }
+  }
 
-    const checkBleResult = await sdk.checkBLEFirmwareRelease(connectId);
+  async _checkFirmwareUpdate(
+    payload: ReleaseInfoEvent['payload'] & { features: IOneKeyDeviceFeatures },
+  ): Promise<void> {
+    const connectId = await this.getConnectId(payload.features);
+    if (!connectId) return;
 
-    let bleFirmware: BLEFirmwareInfo | undefined;
-    let firmware: SYSFirmwareInfo | undefined;
-
-    let hasBleUpgrade = false;
+    const firmware: SYSFirmwareInfo | undefined = payload.release;
     let hasSysUpgrade = false;
-
     let hasFirmwareForce = false;
-    let hasBleForce = false;
 
-    if (checkBleResult.success) {
-      bleFirmware = checkBleResult.payload.release;
-      switch (checkBleResult.payload.status) {
-        case 'required':
-          hasBleForce = true;
-          break;
-        case 'valid':
-        case 'none':
-          hasBleUpgrade = false;
-          break;
-        default:
-          hasBleUpgrade = true;
-          break;
-      }
-    }
-
-    const checkResult = await sdk.checkFirmwareRelease(connectId);
-
-    if (checkResult.success) {
-      firmware = checkResult.payload.release;
-      switch (checkResult.payload.status) {
-        case 'required':
-          hasFirmwareForce = true;
-          break;
-        case 'valid':
-        case 'none':
-          hasSysUpgrade = false;
-          break;
-        default:
-          hasSysUpgrade = true;
-          break;
-      }
+    switch (payload.status) {
+      case 'required':
+        hasFirmwareForce = true;
+        break;
+      case 'valid':
+      case 'none':
+        hasSysUpgrade = false;
+        break;
+      default:
+        hasSysUpgrade = true;
+        break;
     }
 
     const { dispatch } = this.backgroundApi;
     dispatch(
       setDeviceUpdates({
         connectId,
+        type: 'firmware',
         value: {
           forceFirmware: hasFirmwareForce,
-          forceBle: hasBleForce,
-          ble: hasBleUpgrade ? bleFirmware : undefined,
           firmware: hasSysUpgrade ? firmware : undefined,
         },
       }),
     );
-    dispatch(recordLastCheckUpdateTime({ connectId }));
 
     // dev
     const settings: { devMode: any } =
       this.backgroundApi.appSelector((s) => s.settings) || {};
-    const { enable, updateDeviceBle, updateDeviceSys } = settings.devMode || {};
+    const { enable, updateDeviceSys } = settings.devMode || {};
     if (enable) {
       dispatch(
         setDeviceUpdates({
           connectId,
+          type: 'firmware',
           value: {
             forceFirmware: hasFirmwareForce,
-            forceBle: hasBleForce,
-            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
             firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
           },
         }),
       );
     }
+  }
 
-    return Promise.resolve(hasFirmwareForce || hasBleForce);
+  async _checkBleFirmwareUpdate(
+    payload: BleReleaseInfoEvent['payload'] & {
+      features: IOneKeyDeviceFeatures;
+    },
+  ) {
+    const connectId = await this.getConnectId(payload.features);
+    if (!connectId) return;
+
+    const bleFirmware: BLEFirmwareInfo | undefined = payload.release;
+
+    let hasBleUpgrade = false;
+
+    let hasBleForce = false;
+
+    switch (payload.status) {
+      case 'required':
+        hasBleForce = true;
+        break;
+      case 'valid':
+      case 'none':
+        hasBleUpgrade = false;
+        break;
+      default:
+        hasBleUpgrade = true;
+        break;
+    }
+
+    const { dispatch } = this.backgroundApi;
+    dispatch(
+      setDeviceUpdates({
+        connectId,
+        type: 'ble',
+        value: {
+          forceBle: hasBleForce,
+          ble: hasBleUpgrade ? bleFirmware : undefined,
+        },
+      }),
+    );
+
+    // dev
+    const settings: { devMode: any } =
+      this.backgroundApi.appSelector((s) => s.settings) || {};
+    const { enable, updateDeviceBle } = settings.devMode || {};
+    if (enable) {
+      dispatch(
+        setDeviceUpdates({
+          connectId,
+          type: 'ble',
+          value: {
+            forceBle: hasBleForce,
+            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
+          },
+        }),
+      );
+    }
   }
 
   @backgroundMethod()

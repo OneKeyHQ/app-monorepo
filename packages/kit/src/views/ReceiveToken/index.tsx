@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';

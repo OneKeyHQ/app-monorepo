@@ -66,14 +66,7 @@ class DeviceUtils {
         return;
       }
 
-      const response = await searchDevices();
-
-      if (!response.success) {
-        const error = this.convertDeviceError(response.payload);
-        if (!error.data.reconnect) {
-          return Promise.reject(this.convertDeviceError(response.payload));
-        }
-      }
+      await searchDevices();
 
       return new Promise((resolve: (p: void) => void) =>
         setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
