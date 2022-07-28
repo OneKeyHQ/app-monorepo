@@ -215,7 +215,9 @@ const ConnectHardwareModal: FC = () => {
 
         setSearchedDevices(response.payload);
       },
-      (state) => (searchState.current = state),
+      (state) => {
+        searchState.current = state;
+      },
     );
   }, [intl, serviceHardware]);
 
