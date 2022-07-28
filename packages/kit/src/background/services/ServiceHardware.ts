@@ -1,6 +1,5 @@
 import {
   BleReleaseInfoEvent,
-  CoreApi,
   CoreMessage,
   DEVICE,
   DeviceSettingsParams,
@@ -115,6 +114,7 @@ class ServiceHardware extends ServiceBase {
               );
               if (!wallet) return;
               this.featursCache[wallet.id] = features;
+              this.syncDeviceLabel(features, wallet.id);
             } catch {
               // empty
             }
@@ -139,6 +139,16 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async getFeatursByWalletId(walletId: string) {
     return Promise.resolve(this.featursCache[walletId] ?? null);
+  }
+
+  @backgroundMethod()
+  async updateFeaturesCache(walletId: string, payload: Record<string, any>) {
+    if (!this.featursCache[walletId]) return;
+    this.featursCache[walletId] = {
+      ...this.featursCache[walletId],
+      ...payload,
+    };
+    return Promise.resolve(true);
   }
 
   @backgroundMethod()
@@ -432,6 +442,7 @@ class ServiceHardware extends ServiceBase {
     return arrayBuffer;
   }
 
+  @backgroundMethod()
   async getConnectId(features: IOneKeyDeviceFeatures) {
     const deviceId = features.device_id;
     if (!deviceId) return null;
@@ -446,6 +457,7 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async _checkFirmwareUpdate(
     payload: ReleaseInfoEvent['payload'] & { features: IOneKeyDeviceFeatures },
   ): Promise<void> {
@@ -499,6 +511,7 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async _checkBleFirmwareUpdate(
     payload: BleReleaseInfoEvent['payload'] & {
       features: IOneKeyDeviceFeatures;
