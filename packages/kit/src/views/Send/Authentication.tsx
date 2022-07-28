@@ -151,20 +151,26 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
           error?.code === -32603 &&
           typeof error?.data?.message === 'string'
         ) {
-          toast.show({
-            title:
-              error.data.message ||
-              intl.formatMessage({ id: 'transaction__failed' }),
-            description: error.data.message, // TODO toast description not working
-          });
+          toast.show(
+            {
+              title:
+                error.data.message ||
+                intl.formatMessage({ id: 'transaction__failed' }),
+              description: error.data.message, // TODO toast description not working
+            },
+            { type: 'error' },
+          );
         } else {
           const msg = error?.key
             ? intl.formatMessage({ id: error?.key as any }, error?.info ?? {})
             : error?.message ?? '';
-          toast.show({
-            title: msg || intl.formatMessage({ id: 'transaction__failed' }),
-            description: msg,
-          });
+          toast.show(
+            {
+              title: msg || intl.formatMessage({ id: 'transaction__failed' }),
+              description: msg,
+            },
+            { type: 'error' },
+          );
         }
       }, 600);
     }
