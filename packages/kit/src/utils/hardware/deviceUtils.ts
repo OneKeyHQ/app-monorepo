@@ -166,6 +166,8 @@ class DeviceUtils {
         return new Error.NotInBootLoaderMode({ message: msg });
       case HardwareErrorCode.DeviceInterruptedFromOutside:
         return new Error.UserCancelFromOutside({ message: msg });
+      case HardwareErrorCode.DeviceInterruptedFromUser:
+        return new Error.UserCancelFromOutside({ message: msg });
       case HardwareErrorCode.IFrameLoadFail:
         return new Error.InitIframeLoadFail({ message: msg });
       case HardwareErrorCode.IframeTimeout:
