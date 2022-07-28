@@ -13,20 +13,24 @@ import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
 export type HomePageProps = {
+  refresh?: boolean;
+  disableRefresh?: boolean;
   headerHeight: number;
   renderHeader?: () => ReactNode | undefined;
   children: ReactChild;
   onTabChange?: (options: { tabName: string; index: number | string }) => void;
   onIndexChange?: (index: number | string) => void;
+  onRefresh?: (refresh: boolean) => void;
 };
 
 // TODO: Compatible with the pad
 const Container: FC<HomePageProps> = ({
+  refresh,
   renderHeader,
   children,
   onTabChange,
   onIndexChange,
-  //   headerHeight,
+  onRefresh,
   ...props
 }) => {
   const tabs = Children.map(children, (child) =>
@@ -56,6 +60,8 @@ const Container: FC<HomePageProps> = ({
       style={{
         flex: 1,
       }}
+      disableRefresh
+      refresh={refresh}
       tabViewStyle={{
         height: 54,
         indicatorColor,
@@ -64,6 +70,12 @@ const Container: FC<HomePageProps> = ({
         activeLabelColor,
         labelColor,
         labelStyle: Body2StrongProps,
+      }}
+      onRefresh={(e) => {
+        const currentRefresh = e.nativeEvent.refresh;
+        setTimeout(() => {
+          onRefresh?.(currentRefresh);
+        }, 0);
       }}
       onChange={(e) => {
         onTabChange?.({

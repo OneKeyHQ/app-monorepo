@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.appcompat.widget.LinearLayoutCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.facebook.react.bridge.Arguments
@@ -64,6 +65,31 @@ open class HomePageLayout @JvmOverloads constructor(
         )
         params.collapseMode = CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PIN
         contentView.addView(view, params)
+    }
+
+    fun setEnableRefresh(enabled: Boolean) {
+        content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
+            it.isEnabled = enabled
+        }
+    }
+
+    fun setRefresh(refresh: Boolean) {
+        content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
+            it.isRefreshing = refresh
+        }
+    }
+
+    fun initRefreshListener() {
+        content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
+            it.setOnRefreshListener {
+                val event = Arguments.createMap()
+                event.putBoolean("refresh", true)
+                val reactContext = context as ReactContext
+                reactContext
+                    .getJSModule(RCTEventEmitter::class.java)
+                    .receiveEvent(id, "swipeRefreshChange", event)
+            }
+        }
     }
 
     fun setViewPager(
