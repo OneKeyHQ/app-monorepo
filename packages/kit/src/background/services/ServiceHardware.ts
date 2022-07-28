@@ -13,21 +13,15 @@ import {
 } from '@onekeyfe/hd-core';
 import axios from 'axios';
 
-import {
-  OneKeyHardwareAbortError,
-  OneKeyHardwareError,
-} from '@onekeyhq/engine/src/errors';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { DevicePayload } from '@onekeyhq/engine/src/types/device';
 import { setHardwarePopup } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   BridgeTimeoutError,
-  BridgeTimeoutErrorForDesktop,
-  ConnectTimeout,
   InitIframeLoadFail,
   InitIframeTimeout,
-  NeedOneKeyBridge,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
 import {
@@ -184,78 +178,6 @@ class ServiceHardware extends ServiceBase {
     const deviceError = deviceUtils.convertDeviceError(response.payload);
 
     return Promise.reject(deviceError);
-  }
-
-  @backgroundMethod()
-  async ensureConnected(connectId: string) {
-    let tryCount = 0;
-    let connected = false;
-    const poll: IPollFn<Promise<IOneKeyDeviceFeatures>> = async (
-      time = POLL_INTERVAL,
-    ) => {
-      if (connected) {
-        return Promise.resolve({} as IOneKeyDeviceFeatures);
-      }
-      if (this.stopConnect) {
-        return Promise.reject(new OneKeyHardwareAbortError());
-      }
-      tryCount += 1;
-      try {
-        const feature = await this.getFeatures(connectId);
-        if (feature) {
-          connected = true;
-          return await Promise.resolve(feature);
-        }
-      } catch (e) {
-        if (e instanceof OneKeyHardwareError && !e.data.reconnect) {
-          return Promise.reject(e);
-        }
-
-        if (tryCount > MAX_CONNECT_TRY_COUNT) {
-          return Promise.reject(e);
-        }
-      }
-
-      if (tryCount > MAX_CONNECT_TRY_COUNT) {
-        return Promise.reject(new ConnectTimeout());
-      }
-      return new Promise(
-        (resolve: (p: Promise<IOneKeyDeviceFeatures>) => void) =>
-          setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
-      );
-    };
-
-    const checkBridge = await this.checkBridge();
-    if (typeof checkBridge === 'boolean' && !checkBridge) {
-      debugLogger.hardwareSDK.debug('need install bridge.');
-      return Promise.reject(new NeedOneKeyBridge());
-    }
-    if (checkBridge instanceof BridgeTimeoutError) {
-      const error = platformEnv.isDesktop
-        ? new BridgeTimeoutErrorForDesktop()
-        : checkBridge;
-      if (platformEnv.isDesktop) {
-        debugLogger.hardwareSDK.debug(
-          'desktop bridge timeout, restart desktop bridge.',
-        );
-        window.desktopApi.reloadBridgeProcess();
-      }
-      debugLogger.hardwareSDK.debug('check bridge timeout.');
-      // checkBridge should be an error
-      return Promise.reject(error);
-    }
-
-    this.startPolling();
-    return poll();
-  }
-
-  @backgroundMethod()
-  stopPolling() {
-    this.stopConnect = true;
-  }
-
-  startPolling() {
-    this.stopConnect = false;
   }
 
   @backgroundMethod()
