@@ -1,10 +1,7 @@
 import memoizee from 'memoizee';
 
-import {
-  HARDWARE_SDK_IFRAME_SRC,
-  HARDWARE_SDK_TEST_IFRAME_SRC,
-} from '@onekeyhq/kit/src/config';
-import store from '@onekeyhq/kit/src/store';
+import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/kit/src/config';
+// import store from '@onekeyhq/kit/src/store';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,7 +21,8 @@ export const getHardwareSDKInstance = memoizee(
       }
 
       const settings: Partial<ConnectSettings> = {
-        debug: platformEnv.isDev && platformEnv.isNative,
+        // debug: platformEnv.isDev && platformEnv.isNative
+        debug: true,
       };
 
       if (platformEnv.isNative) {
@@ -33,10 +31,7 @@ export const getHardwareSDKInstance = memoizee(
       } else {
         HardwareSDK = (await import('@onekeyfe/hd-web-sdk'))
           .default as unknown as CoreApi;
-        const devMode = store.getState()?.settings?.devMode?.enable ?? false;
-        settings.connectSrc = devMode
-          ? HARDWARE_SDK_TEST_IFRAME_SRC
-          : HARDWARE_SDK_IFRAME_SRC;
+        settings.connectSrc = HARDWARE_SDK_IFRAME_SRC;
       }
 
       try {

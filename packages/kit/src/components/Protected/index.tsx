@@ -4,21 +4,12 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  DialogManager,
-  Spinner,
-  ToastManager,
-  Typography,
-} from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
+import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import { CustomOneKeyHardwareError } from '../../utils/hardware/errors';
-import NeedBridgeDialog from '../NeedBridgeDialog';
 
 import Session from './Session';
 import Setup from './Setup';
@@ -55,6 +46,7 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
+  const { captureHardwareError } = useHardwareError();
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -106,38 +98,18 @@ const Protected: FC<ProtectedProps> = ({
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        features = await serviceHardware.ensureConnected(
-          currentWalletDevice.mac,
+        const featuresCache = await serviceHardware.getFeatursByWalletId(
+          walletDetail.id,
         );
+        if (featuresCache) {
+          features = featuresCache;
+          debugLogger.hardwareSDK.debug('use features cache: ', featuresCache);
+        } else {
+          features = await serviceHardware.getFeatures(currentWalletDevice.mac);
+        }
       } catch (e: any) {
         safeGoBack();
-
-        const { className, key, code } = e || {};
-
-        if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
-          DialogManager.show({ render: <NeedBridgeDialog /> });
-          return;
-        }
-
-        if (className === OneKeyErrorClassNames.OneKeyAbortError) {
-          return;
-        }
-
-        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: key }),
-            },
-            { type: 'error' },
-          );
-        } else {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: 'action__connection_timeout' }),
-            },
-            { type: 'error' },
-          );
-        }
+        captureHardwareError(e);
         return;
       }
 
@@ -148,53 +120,20 @@ const Protected: FC<ProtectedProps> = ({
         safeGoBack();
         return;
       }
-      const connectDeviceUUID = getDeviceUUID(features);
-      const connectDeviceID = features.device_id;
 
-      /**
-       * New version of database, deviceId and uuid must be the same
-       */
-      const diffDeviceIdAndUUID =
-        currentWalletDevice.deviceId && currentWalletDevice.uuid
-          ? connectDeviceID !== currentWalletDevice.deviceId ||
-            connectDeviceUUID !== currentWalletDevice.uuid
-          : false;
-
-      /**
-       * Older versions of the database, uuid must be the same as device.id
-       */
-      const diffDeviceUUIDWithoutDeviceId =
-        !currentWalletDevice.deviceId &&
-        connectDeviceUUID !== currentWalletDevice.id;
-
-      if (diffDeviceIdAndUUID || diffDeviceUUIDWithoutDeviceId) {
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__hardware_not_same' }),
-        });
-        safeGoBack();
-        return;
-      }
-
-      await serviceHardware.syncDeviceLabel(features, walletDetail.id);
       // device connect success
       setDeviceFeatures(features);
     }
     loadDevices();
-  }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
-
-  const abortConnect = useCallback(
-    () => serviceHardware.stopPolling(),
-    [serviceHardware],
-  );
-
-  useEffect(
-    () => () => {
-      if (isHardware) {
-        abortConnect();
-      }
-    },
-    [isHardware, abortConnect],
-  );
+  }, [
+    isHardware,
+    engine,
+    walletDetail?.id,
+    intl,
+    safeGoBack,
+    serviceHardware,
+    captureHardwareError,
+  ]);
 
   if (password) {
     return (

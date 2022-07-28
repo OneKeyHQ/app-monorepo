@@ -59,9 +59,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       new Set(inputs.map((i) => (i.utxo as UTXO).txid)),
     );
     const prevTxs = await provider.collectTxs(prevTxids);
-    const connectId = await this.getHardwareConnectId();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    await this.getHardwareSDKInstance();
 
-    const response = await HardwareSDK.btcSignTransaction(connectId, {
+    const response = await HardwareSDK.btcSignTransaction(connectId, deviceId, {
       // useEmptyPassphrase: true,
       coin: 'btc',
       inputs: inputs.map((i) => this.buildHardwareInput(i, signers[i.address])),
@@ -101,8 +102,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let response;
     try {
-      const connectId = await this.getHardwareConnectId();
-      response = await HardwareSDK.btcGetPublicKey(connectId, {
+      const { connectId, deviceId } = await this.getHardwareInfo();
+      await this.getHardwareSDKInstance();
+      response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
         bundle: usedIndexes.map((index) => ({
           path: `m/${usedPurpose}'/${COIN_TYPE}'/${index}'`,
           showOnOneKey: false,
@@ -222,8 +224,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   };
 
   async getAddress(params: IGetAddressParams): Promise<string> {
-    const connectId = await this.getHardwareConnectId();
-
     const dbAccount = (await this.getDbAccount({
       noCache: true,
     })) as DBUTXOAccount;
@@ -236,7 +236,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       return '';
     }
 
-    const response = await HardwareSDK.btcGetAddress(connectId, {
+    await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const response = await HardwareSDK.btcGetAddress(connectId, deviceId, {
       path: `${path}/${pathSuffix}`,
       showOnOneKey: params.showOnOneKey,
       coin: 'btc',

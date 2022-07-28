@@ -66,14 +66,7 @@ class DeviceUtils {
         return;
       }
 
-      const response = await searchDevices();
-
-      if (!response.success) {
-        const error = this.convertDeviceError(response.payload);
-        if (!error.data.reconnect) {
-          return Promise.reject(this.convertDeviceError(response.payload));
-        }
-      }
+      await searchDevices();
 
       return new Promise((resolve: (p: void) => void) =>
         setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
@@ -144,8 +137,8 @@ class DeviceUtils {
      * Catch some special errors
      * they may have multiple error codes
      */
-    if (this.caputureErrorByMessage(msg)) {
-      return this.caputureErrorByMessage(msg) as Error.BridgeNetworkError;
+    if (this.caputureSpecialError(code, msg)) {
+      return this.caputureSpecialError(code, msg) as Error.ConnectTimeoutError;
     }
 
     debugLogger.hardwareSDK.info(
@@ -167,11 +160,15 @@ class DeviceUtils {
           return new Error.NotInBootLoaderMode();
         }
         return new Error.UnknownHardwareError({ message: msg });
+      case HardwareErrorCode.DeviceCheckDeviceIdError:
+        return new Error.DeviceNotSame({ message: msg });
       case HardwareErrorCode.DeviceNotFound:
         return new Error.DeviceNotFind({ message: msg });
       case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
         return new Error.NotInBootLoaderMode({ message: msg });
       case HardwareErrorCode.DeviceInterruptedFromOutside:
+        return new Error.UserCancelFromOutside({ message: msg });
+      case HardwareErrorCode.DeviceInterruptedFromUser:
         return new Error.UserCancelFromOutside({ message: msg });
       case HardwareErrorCode.IFrameLoadFail:
         return new Error.InitIframeLoadFail({ message: msg });
@@ -203,19 +200,35 @@ class DeviceUtils {
       case HardwareErrorCode.PinCancelled:
       case HardwareErrorCode.ActionCancelled:
         return new Error.UserCancel({ message: msg });
+      case HardwareErrorCode.BridgeNotInstalled:
+        return new Error.NeedOneKeyBridge({ message: msg });
       case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
         return new Error.NeedOneKeyBridge({ message: msg });
       case HardwareErrorCode.BridgeNetworkError:
         return new Error.BridgeNetworkError({ message: msg });
       case HardwareErrorCode.BridgeTimeoutError:
+        if (platformEnv.isDesktop) {
+          debugLogger.hardwareSDK.debug(
+            'desktop bridge timeout, restart desktop bridge.',
+          );
+          window.desktopApi.reloadBridgeProcess();
+        }
         return new Error.BridgeTimeoutError({ message: msg });
+      case HardwareErrorCode.PollingTimeout:
+        return new Error.ConnectTimeoutError({ message: msg });
       default:
         return new Error.UnknownHardwareError({ message: msg });
     }
   }
 
-  caputureErrorByMessage(message: string) {
+  caputureSpecialError(code: number, message: string) {
     if (typeof message !== 'string') return null;
+    if (
+      code === HardwareErrorCode.DeviceInitializeFailed &&
+      message.includes('ECONNABORTED')
+    ) {
+      return new Error.ConnectTimeoutError({ message });
+    }
     if (message.includes('Bridge network error')) {
       return new Error.BridgeNetworkError({ message });
     }

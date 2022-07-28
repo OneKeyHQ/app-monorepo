@@ -20,11 +20,13 @@ const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+    await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
     const chainId = await this.getNetworkChainId();
-    const connectId = await this.getHardwareConnectId();
+    const { connectId, deviceId } = await this.getHardwareInfo();
     return OneKeyHardware.ethereumSignTransaction(
       connectId,
+      deviceId,
       path,
       chainId,
       unsignedTx,
@@ -36,11 +38,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const path = await this.getAccountPath();
-    const connectId = await this.getHardwareConnectId();
+    const { connectId, deviceId } = await this.getHardwareInfo();
     return Promise.all(
       messages.map((message) =>
         OneKeyHardware.ethereumSignMessage({
           connectId,
+          deviceId,
           path,
           message,
         }),
@@ -51,7 +54,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    const connectId = await this.getHardwareConnectId();
+    await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
     const { indexes, names } = params;
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
     const addressInfos = await OneKeyHardware.getXpubs(
@@ -60,6 +64,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       'address',
       params.type,
       connectId,
+      deviceId,
     );
 
     const ret = [];
@@ -82,9 +87,11 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async getAddress(params: IGetAddressParams): Promise<string> {
-    const connectId = await this.getHardwareConnectId();
+    await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
     const address = await OneKeyHardware.ethereumGetAddress(
       connectId,
+      deviceId,
       params.path,
       params.showOnOneKey,
     );

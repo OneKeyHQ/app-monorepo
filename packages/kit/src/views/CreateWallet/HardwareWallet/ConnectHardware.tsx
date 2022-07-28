@@ -176,7 +176,6 @@ const ConnectHardwareModal: FC = () => {
       }
       return;
     }
-
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
         const error = deviceUtils.convertDeviceError(response.payload);

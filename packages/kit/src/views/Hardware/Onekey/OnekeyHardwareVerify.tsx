@@ -271,11 +271,7 @@ const OneKeyHardwareVerify: FC = () => {
           paddingTop: 24,
           paddingBottom: 24,
         },
-        children: (
-          <Protected walletId={walletId}>
-            {() => <OnekeyHardwareVerifyDetail walletId={walletId} />}
-          </Protected>
-        ),
+        children: <OnekeyHardwareVerifyDetail walletId={walletId} />,
       }}
     />
   );

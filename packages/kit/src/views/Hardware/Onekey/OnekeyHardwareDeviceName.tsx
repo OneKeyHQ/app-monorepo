@@ -84,6 +84,7 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
         label,
       });
       await engine.updateWalletName(walletId, label);
+      await serviceHardware.updateFeaturesCache(walletId, { label });
       /**
        * use dispatch action to refresh the wallet list
        */
