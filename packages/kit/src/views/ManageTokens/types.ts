@@ -3,6 +3,7 @@ export enum ManageTokenRoutes {
   AddToken = 'AddToken',
   ViewToken = 'ViewToken',
   CustomToken = 'CustomToken',
+  VerifiedToken = 'VerifiedToken',
 }
 
 export type ManageTokenRoutesParams = {
@@ -14,6 +15,7 @@ export type ManageTokenRoutesParams = {
         address: string;
         decimal: number;
         logoURI: string;
+        verified?: boolean;
       }
     | { query: string };
   [ManageTokenRoutes.ViewToken]: {
@@ -22,6 +24,10 @@ export type ManageTokenRoutesParams = {
     address: string;
     decimal: number;
     logoURI: string;
+    verified?: boolean;
+  };
+  [ManageTokenRoutes.VerifiedToken]: {
+    source: string[];
   };
   [ManageTokenRoutes.CustomToken]:
     | { address?: string; networkId?: string }
