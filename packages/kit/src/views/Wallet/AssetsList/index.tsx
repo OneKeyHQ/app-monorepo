@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { ComponentProps, useCallback } from 'react';
+import React, { ComponentProps, useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -33,6 +33,7 @@ import {
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { getTokenValues } from '../../../utils/priceUtils';
 
 import TokenCell from './TokenCell';
 
@@ -99,10 +100,24 @@ function AssetsList({
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   // const isSmallScreen = useIsVerticalLayout();
-  const { accountTokens } = useManageTokens();
+  const { accountTokens, balances, prices } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
+
+  const valueSortedTokens = useMemo(
+    () =>
+      accountTokens.slice().sort((a, b) => {
+        const [valA, valB] = getTokenValues({
+          tokens: [a, b],
+          prices,
+          balances,
+        });
+
+        return valB.comparedTo(valA);
+      }),
+    [accountTokens, balances, prices],
+  );
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
@@ -164,7 +179,7 @@ function AssetsList({
         },
         contentContainerStyle,
       ]}
-      data={accountTokens}
+      data={valueSortedTokens}
       renderItem={renderListItem}
       ListHeaderComponent={
         ListHeaderComponent ?? (

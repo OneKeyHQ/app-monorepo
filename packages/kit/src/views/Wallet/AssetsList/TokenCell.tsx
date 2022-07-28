@@ -1,5 +1,6 @@
 import { FC } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { FormattedNumber } from 'react-intl';
 
 import {
@@ -18,7 +19,7 @@ import {
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 
-import { FormatBalance, FormatCurrency } from '../../../components/Format';
+import { FormatBalance } from '../../../components/Format';
 import { useManageTokens } from '../../../hooks';
 import { calculateGains } from '../../../utils/priceUtils';
 
@@ -46,22 +47,36 @@ const TokenCell: FC<TokenCellProps> = ({
   const { network } = useActiveWalletAccount();
 
   const tokenId = token.tokenIdOnNetwork || 'main';
-  const balance = balances[tokenId];
+  const balance = balances[tokenId] || 0;
   const chart = charts[tokenId] || [];
   let price;
   let basePrice;
+  let tokenValue;
   if (chart.length > 1) {
     // eslint-disable-next-line prefer-destructuring
     basePrice = chart[0][1];
     // eslint-disable-next-line prefer-destructuring
     price = chart[chart.length - 1][1];
+    tokenValue = new BigNumber(balance).times(price).toNumber();
   }
 
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-  const { gain, isPositive, percentageGain } = calculateGains({
+  const { gain, percentageGain } = calculateGains({
     basePrice,
     price,
   });
+
+  let gainTextColor = 'text-success';
+  let gainTextBg = 'surface-success-subdued';
+  if (typeof gain === 'number') {
+    if (percentageGain === '0.00%') {
+      gainTextColor = 'text-subdued';
+      gainTextBg = 'surface-neutral-subdued';
+    } else if (gain < 0) {
+      gainTextColor = 'text-critical';
+      gainTextBg = 'surface-critical-subdued';
+    }
+  }
 
   const decimal =
     tokenId === 'main'
@@ -104,7 +119,7 @@ const TokenCell: FC<TokenCellProps> = ({
         {!isVerticalLayout && !hidePriceInfo && (
           <Box mx={3} flexDirection="column" flex={1}>
             {price !== undefined ? (
-              <Typography.Body2Strong>
+              <Typography.Body2Strong textAlign="right">
                 <FormattedNumber
                   value={price}
                   currencyDisplay="narrowSymbol"
@@ -119,23 +134,31 @@ const TokenCell: FC<TokenCellProps> = ({
           </Box>
         )}
         <Box mx={3} flexDirection="column" flex={1}>
-          {price !== undefined ? (
-            <>
-              <Typography.Body2Strong>
+          {tokenValue !== undefined ? (
+            <Box alignSelf="flex-end">
+              <Typography.Body2Strong textAlign="right">
                 <FormattedNumber
-                  value={price * Number(balance)}
+                  value={tokenValue}
                   currencyDisplay="narrowSymbol"
                   // eslint-disable-next-line react/style-prop-object
                   style="currency"
                   currency={selectedFiatMoneySymbol}
                 />
               </Typography.Body2Strong>
-              <Box>
-                <Typography.CaptionStrong>
+              <Box
+                mt="4px"
+                bg={gainTextBg}
+                px="6px"
+                py="2px"
+                borderRadius="6px"
+                justifyContent="center"
+                alignItems="center"
+              >
+                <Typography.CaptionStrong color={gainTextColor}>
                   {percentageGain}
                 </Typography.CaptionStrong>
               </Box>
-            </>
+            </Box>
           ) : (
             <Skeleton shape="Body2" />
           )}
