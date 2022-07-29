@@ -24,7 +24,7 @@ type AccountSectionProps = {
   activeNetwork: Network | null;
   activeAccount: AccountEngineType | null;
   loadingAccountWalletId: string;
-  refreshAccounts: (walletId?: string) => void;
+  refreshAccounts: (walletId: string, networkId: string) => void;
 };
 
 const AccountSection: FC<AccountSectionProps> = ({
