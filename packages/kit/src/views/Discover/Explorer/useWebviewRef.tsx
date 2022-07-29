@@ -141,7 +141,7 @@ export const useWebviewRef = (
         console.error(error);
       }
     }
-  }, [webViewRef?.innerRef]);
+  }, [onOpenNewUrl, webViewRef?.innerRef]);
 
   const canGoBack = useCallback((): boolean => {
     if (webViewRef?.innerRef) {
