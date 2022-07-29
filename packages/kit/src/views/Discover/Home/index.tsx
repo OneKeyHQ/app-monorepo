@@ -84,7 +84,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
             <NetImage
               width={isSmallScreen ? 270 : cardWidth}
               height={isSmallScreen ? 134 : 177}
-              uri={url}
+              src={url}
               borderRadius={12}
             />
             <Box mt="12px" flexDirection="row" alignItems="center">
@@ -342,4 +342,4 @@ export const Discover: FC<DiscoverProps> = ({
 const Home: FC<DiscoverProps> = ({ ...rest }) =>
   platformEnv.isNative ? <DiscoverNative {...rest} /> : <Discover {...rest} />;
 
-export default Home;
+export default React.memo(Home);
