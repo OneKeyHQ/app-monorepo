@@ -196,20 +196,12 @@ const AccountSelectorChildren: FC<{
   }, [activeWallet?.id, refreshAccounts, selectedNetworkId]);
 
   useEffect(() => {
-    InteractionManager.runAfterInteractions(() => {
-      setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
-    });
-  }, [activeNetwork?.id]);
-
-  useEffect(() => {
     if (!previousIsOpen && isOpen) {
-      InteractionManager.runAfterInteractions(() => {
-        const targetWallet =
-          wallets.find((wallet) => wallet.id === defaultSelectedWallet?.id) ??
-          null;
-        setSelectedWallet(targetWallet);
-        setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
-      });
+      const targetWallet =
+        wallets.find((wallet) => wallet.id === defaultSelectedWallet?.id) ??
+        null;
+      setSelectedWallet(targetWallet);
+      setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
     }
   }, [
     previousIsOpen,

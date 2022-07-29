@@ -82,6 +82,7 @@ export default function BottomTabBar({
               alignItems="center"
               px={0.5}
               py={1.5}
+              disabled={isFABOpen}
               onPress={isFABOpen ? undefined : onPress}
               _hover={{ bg: 'surface-hovered' }}
               rounded="xl"

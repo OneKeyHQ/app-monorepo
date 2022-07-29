@@ -17,7 +17,7 @@ const PressableItem: FC<PressableItemProps> = ({
   const { hapticsEnabled } = useProviderValue();
   const onPressOverride = React.useCallback(
     (e) => {
-      if (hapticsEnabled) {
+      if (hapticsEnabled && onPress) {
         enableHaptics();
       }
       autoHideSelectFunc(e);
