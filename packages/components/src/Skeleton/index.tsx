@@ -5,8 +5,10 @@ import ContentLoader, {
 } from 'react-content-loader/native';
 import { Rect } from 'react-native-svg';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../Box';
-import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
+import { useThemeValue } from '../Provider/hooks';
 
 import {
   Avatar,
@@ -132,15 +134,14 @@ const Skeleton = ({
 };
 
 export const CustomSkeleton: FC<ComponentProps<typeof Box>> = ({ ...rest }) => {
-  const isSmallScreen = useIsVerticalLayout();
   const backgroundColor = useThemeValue('surface-neutral-default');
   const foregroundColor = useThemeValue('surface-default');
   return (
     <Box overflow="hidden" {...rest}>
       <ContentLoader
         speed={1}
-        width={isSmallScreen ? undefined : 'full'}
-        height={isSmallScreen ? undefined : 'full'}
+        width={platformEnv.isNative ? undefined : '100%'}
+        height={platformEnv.isNative ? undefined : '100%'}
         backgroundColor={backgroundColor}
         foregroundColor={foregroundColor}
       >

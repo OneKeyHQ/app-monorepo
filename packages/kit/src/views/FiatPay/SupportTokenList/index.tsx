@@ -141,8 +141,9 @@ export const SupportTokenList: FC = () => {
       >
         <Box flexDirection="row" alignItems="center">
           <NetImage
-            uri={item.logoURI}
-            size={32}
+            src={item.logoURI}
+            width={32}
+            height={32}
             borderRadius={16}
             bgColor="icon-default"
           />

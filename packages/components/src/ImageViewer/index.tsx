@@ -22,7 +22,7 @@ import uuid from 'react-native-uuid';
 import { Icon, Pressable, Select, useToast } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Image as NetImage } from '../NetImage';
+import NetImage from '../NetImage';
 
 type ImageViewerProps = {
   visible: boolean;
@@ -103,7 +103,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
               width={imageSize.width}
               height={imageSize.height}
               resizeMode="cover"
-              uri={rest.src}
+              src={rest.src}
             />
           ) : (
             <Image
