@@ -581,17 +581,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-                id: a.id,
-                name: a.name,
-                type: a.type,
-                path: a.path,
-                coinType: a.coinType,
-                tokens: [],
-                address: a.address,
-              }
+              id: a.id,
+              name: a.name,
+              type: a.type,
+              path: a.path,
+              coinType: a.coinType,
+              tokens: [],
+              address: a.address,
+            }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-                vault.getOutputAccount(),
-              ),
+              vault.getOutputAccount(),
+            ),
         ),
     );
   }
@@ -980,31 +980,41 @@ class Engine {
         networkId,
         tokenIdOnNetwork,
       );
-      if (typeof presetToken !== 'undefined') {
+      if (presetToken) {
         // Already exists in db.
         return presetToken;
       }
-
-      // Token is not preset, get its info from blockchain.
-      const vault = await this.getChainOnlyVault(networkId);
-      let tokenInfo;
+      let tokenInfo:
+        | Partial<Pick<Token, 'name' | 'symbol' | 'decimals' | 'logoURI'>>
+        | undefined;
+      const [impl, chainId] = networkId.split('--');
       try {
-        [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
-      } catch (e) {
-        console.error(e);
+        tokenInfo = await fetchTokenDetail({
+          impl,
+          chainId: +chainId,
+          address: tokenIdOnNetwork,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+      if (!tokenInfo) {
+        const vault = await this.getChainOnlyVault(networkId);
+        try {
+          [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
+        } catch (e) {
+          console.error(e);
+        }
       }
       if (typeof tokenInfo === 'undefined') {
         return;
       }
       return {
         id: tokenId,
-        name: tokenInfo.name,
         networkId,
         tokenIdOnNetwork,
-        symbol: tokenInfo.symbol,
-        decimals: tokenInfo.decimals,
-        logoURI: '',
         address: tokenIdOnNetwork,
+        ...tokenInfo,
+        logoURI: tokenInfo.logoURI || ''
       };
     },
     {

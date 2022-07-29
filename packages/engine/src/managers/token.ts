@@ -5,7 +5,7 @@ import { ServerToken, Token } from '@onekeyhq/kit/src/store/typings';
 import { SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 
-const HostURL = 'http://localhost:9000';
+const HostURL = 'https://fiat.onekeycn.com';
 
 export interface TokenQuery {
   impl: string;
