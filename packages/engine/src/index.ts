@@ -581,17 +581,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-              id: a.id,
-              name: a.name,
-              type: a.type,
-              path: a.path,
-              coinType: a.coinType,
-              tokens: [],
-              address: a.address,
-            }
+                id: a.id,
+                name: a.name,
+                type: a.type,
+                path: a.path,
+                coinType: a.coinType,
+                tokens: [],
+                address: a.address,
+              }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-              vault.getOutputAccount(),
-            ),
+                vault.getOutputAccount(),
+              ),
         ),
     );
   }
@@ -985,7 +985,9 @@ class Engine {
         return presetToken;
       }
       let tokenInfo:
-        | Partial<Pick<Token, 'name' | 'symbol' | 'decimals' | 'logoURI'>>
+        | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
+            logoURI?: string;
+          })
         | undefined;
       const [impl, chainId] = networkId.split('--');
       try {
@@ -1014,7 +1016,7 @@ class Engine {
         tokenIdOnNetwork,
         address: tokenIdOnNetwork,
         ...tokenInfo,
-        logoURI: tokenInfo.logoURI || ''
+        logoURI: tokenInfo.logoURI || '',
       };
     },
     {
@@ -1044,7 +1046,9 @@ class Engine {
       return presetToken;
     }
     let tokenInfo:
-      | Partial<Pick<Token, 'name' | 'symbol' | 'decimals' | 'logoURI'>>
+      | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
+          logoURI?: string;
+        })
       | undefined;
     const [impl, chainId] = networkId.split('--');
     try {
