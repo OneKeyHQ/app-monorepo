@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
@@ -44,6 +44,7 @@ import {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
@@ -91,6 +92,10 @@ const ConnectHardwareModal: FC = () => {
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
 
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
+  /**
+   * Ensure that the search is completed for this round
+   */
+  const searchState = useRef<'start' | 'stop'>('stop');
   const [checkBonded, setCheckBonded] = useState(false);
   const [devices, setDevices] = useState<SearchDeviceInfo[]>([]);
 
@@ -176,39 +181,44 @@ const ConnectHardwareModal: FC = () => {
       }
       return;
     }
-    deviceUtils.startDeviceScan((response) => {
-      if (!response.success) {
-        const error = deviceUtils.convertDeviceError(response.payload);
-        if (platformEnv.isNative) {
-          if (
-            !(error instanceof NeedBluetoothTurnedOn) &&
-            !(error instanceof NeedBluetoothPermissions)
+    deviceUtils.startDeviceScan(
+      (response) => {
+        if (!response.success) {
+          const error = deviceUtils.convertDeviceError(response.payload);
+          if (platformEnv.isNative) {
+            if (
+              !(error instanceof NeedBluetoothTurnedOn) &&
+              !(error instanceof NeedBluetoothPermissions)
+            ) {
+              ToastManager.show({
+                title: intl.formatMessage({
+                  id: error.key,
+                }),
+              });
+            }
+          } else if (
+            error instanceof InitIframeLoadFail ||
+            error instanceof InitIframeTimeout
           ) {
-            ToastManager.show({
-              title: intl.formatMessage({
-                id: error.key,
-              }),
-            });
+            ToastManager.show(
+              {
+                title: intl.formatMessage({
+                  id: error.key,
+                }),
+              },
+              { type: 'error' },
+            );
           }
-        } else if (
-          error instanceof InitIframeLoadFail ||
-          error instanceof InitIframeTimeout
-        ) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({
-                id: error.key,
-              }),
-            },
-            { type: 'error' },
-          );
+          setIsSearching(false);
+          return;
         }
-        setIsSearching(false);
-        return;
-      }
 
-      setSearchedDevices(response.payload);
-    });
+        setSearchedDevices(response.payload);
+      },
+      (state) => {
+        searchState.current = state;
+      },
+    );
   }, [intl, serviceHardware]);
 
   useEffect(() => {
@@ -220,14 +230,25 @@ const ConnectHardwareModal: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleConnectDeviceWithDevice = useCallback(
-    (device: SearchDevice) => {
-      if (!deviceUtils || !device) return;
+  const waitPreviousSearchFinished = (device: SearchDevice) =>
+    new Promise<void>((resolve) => {
+      if (!deviceUtils) return;
       if (!device.connectId) return;
 
       deviceUtils.stopScan();
       setIsConnectingDeviceId(device.connectId);
+      const timer = setInterval(() => {
+        if (searchState.current === 'stop') {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 100);
+    });
 
+  const handleConnectDeviceWithDevice = useCallback(
+    async (device: SearchDevice) => {
+      await waitPreviousSearchFinished(device);
+      debugLogger.hardwareSDK.debug('========= will connect =========');
       const finishConnected = (result?: boolean) => {
         setIsConnectingDeviceId('');
         if (!result) {
@@ -249,7 +270,7 @@ const ConnectHardwareModal: FC = () => {
         });
       };
       serviceHardware
-        .connect(device.connectId)
+        .connect(device.connectId ?? '')
         .then((result) => {
           finishConnected(result);
         })
@@ -287,6 +308,7 @@ const ConnectHardwareModal: FC = () => {
           }
         });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [serviceHardware, navigation, intl, checkBonded],
   );
 

@@ -47,13 +47,16 @@ class DeviceUtils {
 
   startDeviceScan(
     callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
+    onSearchStateChange: (state: 'start' | 'stop') => void,
   ) {
     const searchDevices = async () => {
+      onSearchStateChange('start');
       const searchResponse =
         await backgroundApiProxy.serviceHardware?.searchDevices();
       callback(searchResponse);
 
       this.tryCount += 1;
+      onSearchStateChange('stop');
       return searchResponse;
     };
 

@@ -38,12 +38,6 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
-type IPollFn<T> = (time?: number) => T;
-
-const MAX_CONNECT_TRY_COUNT = 5;
-const POLL_INTERVAL = 1000;
-const POLL_INTERVAL_RATE = 1.5;
-
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   connectedDeviceType: IDeviceType = 'classic';
@@ -153,13 +147,20 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async connect(connectId: string) {
-    try {
-      const result = await this.getFeatures(connectId);
-      return result !== null;
-    } catch (e) {
-      if (e instanceof OneKeyHardwareError && !e.data.reconnect) {
-        return Promise.reject(e);
+    if (platformEnv.isNative) {
+      try {
+        const result = await this.getFeatures(connectId);
+        return result !== null;
+      } catch (e) {
+        if (e instanceof OneKeyHardwareError && !e.data.reconnect) {
+          return Promise.reject(e);
+        }
       }
+    } else {
+      /**
+       * USB does not need the extra getFeatures call
+       */
+      return Promise.resolve(true);
     }
   }
 
