@@ -2,7 +2,9 @@ import {
   BleReleaseInfoEvent,
   CoreMessage,
   DEVICE,
+  DeviceSendSupportFeatures,
   DeviceSettingsParams,
+  DeviceSupportFeaturesPayload,
   FIRMWARE,
   FIRMWARE_EVENT,
   IDeviceType,
@@ -20,6 +22,7 @@ import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   BridgeTimeoutError,
+  FirmwareVersionTooLow,
   InitIframeLoadFail,
   InitIframeTimeout,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
@@ -89,6 +92,7 @@ class ServiceHardware extends ServiceBase {
           DEVICE.FEATURES,
           async (features: IOneKeyDeviceFeatures) => {
             if (!features || !features.device_id) return;
+            console.log('DEVICE.FEATURESFEATURES,', features);
 
             try {
               const wallets = await this.backgroundApi.engine.getWallets();
@@ -119,6 +123,13 @@ class ServiceHardware extends ServiceBase {
             this._checkBleFirmwareUpdate(messages.payload as unknown as any);
           }
         });
+
+        instance.on(
+          DEVICE.SUPPORT_FEATURES,
+          (features: DeviceSupportFeaturesPayload) => {
+            this._checkDeviceSettings(features);
+          },
+        );
       }
       return instance;
     });
@@ -321,6 +332,36 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setOnDeviceInputPin(
+    connectId: string,
+    deviceId: string,
+    onDeviceInputPin: boolean,
+  ) {
+    // If open PIN input on the App
+    // Check whether the hardware supports it
+    if (!onDeviceInputPin) {
+      const payload = await this.getDeviceSupportFeatures(connectId);
+
+      if (!payload.inputPinOnSoftware) throw new FirmwareVersionTooLow();
+    }
+
+    return this.updateDevicePayload(deviceId, {
+      onDeviceInputPin,
+    });
+  }
+
+  @backgroundMethod()
+  async getDeviceSupportFeatures(connectId: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK?.deviceSupportFeatures(connectId).then((response) => {
+      if (!response.success) {
+        return Promise.reject(deviceUtils.convertDeviceError(response.payload));
+      }
+      return response.payload;
+    });
+  }
+
+  @backgroundMethod()
   async updateDevicePayload(deviceId: string, payload: DevicePayload) {
     await this.backgroundApi.engine.updateDevicePayload(deviceId, payload);
     return this.backgroundApi.engine.getHWDeviceByDeviceId(deviceId);
@@ -385,6 +426,19 @@ class ServiceHardware extends ServiceBase {
       return device.mac;
     } catch {
       return null;
+    }
+  }
+
+  async _checkDeviceSettings(payload: DeviceSendSupportFeatures['payload']) {
+    console.log('====: _checkDeviceSettings', payload);
+
+    const { inputPinOnSoftware, device } = payload;
+    const { deviceId } = device || {};
+
+    if (deviceId && !inputPinOnSoftware) {
+      await this.updateDevicePayload(deviceId, {
+        onDeviceInputPin: true,
+      });
     }
   }
 
