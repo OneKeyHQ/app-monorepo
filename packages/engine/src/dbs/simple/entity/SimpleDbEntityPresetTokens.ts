@@ -1,8 +1,8 @@
-import { Token as ServerToken, top50 } from '@qwang/token-50-token-list';
+// import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
 
 import { IMPL_SOL, getSupportedImpls } from '../../../constants';
 import { getImplFromNetworkId } from '../../../managers/network';
-import { Token } from '../../../types/token';
+import { ServerToken, Token } from '../../../types/token';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 import { SimpleDbEntityLocalTokens } from './SimpleDbEntityPresetLocalTokens';
@@ -30,11 +30,11 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
     }
   }
 
-  private async initTop50Tokens() {
-    for (const { impl, chainId, tokens } of top50) {
-      await this.updateTokens(impl, chainId, tokens);
-    }
-  }
+  // private async initTop50Tokens() {
+  //   for (const { impl, chainId, tokens } of top50) {
+  //     await this.updateTokens(impl, chainId, tokens);
+  //   }
+  // }
 
   async updateTokens(impl: string, chainId: number, tokens: ServerToken[]) {
     const networkId = `${impl}--${chainId}`;
@@ -77,16 +77,18 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
     if (accountId) {
       return this.getAccountTokens(networkId, accountId);
     }
-    let tokensMap = await this.getRawData();
-    if (!tokensMap) {
-      await this.initTop50Tokens();
-    }
-    tokensMap = await this.getRawData();
+    const tokensMap = await this.getRawData();
+    // if (!tokensMap) {
+    //   await this.initTop50Tokens();
+    // }
+    // tokensMap = await this.getRawData();
     if (typeof tokensMap !== 'object' || tokensMap === null) {
       return [];
     }
     let tokens = tokensMap[networkId] ?? [];
-    tokens = tokens.concat(await this.localTokens.getUnknownAccountTokens());
+    tokens = tokens.concat(
+      await this.localTokens.getUnknownAccountTokens(networkId),
+    );
     const queryList = Object.entries(query || {});
     if (!queryList.length) {
       return tokens;
@@ -130,7 +132,9 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
         tokens.push(l);
       }
     }
-    return tokens.filter((t) => !current.removed.includes(t.id));
+    return tokens
+      .filter((t) => !current.removed.includes(t.id))
+      .filter((t) => t.networkId === networkId);
   }
 
   async addTokenToAccount(accountId: string, token: Token) {

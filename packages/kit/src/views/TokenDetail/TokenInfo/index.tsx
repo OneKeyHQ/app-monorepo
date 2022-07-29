@@ -112,7 +112,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
                   textAlign={isVertical ? 'center' : 'left'}
                 >
                   {ele}
-                  <TokenVerifiedIcon token={token} />
+                  <TokenVerifiedIcon token={token || {}} />
                 </Typography.DisplayXLarge>
               )}
             />
