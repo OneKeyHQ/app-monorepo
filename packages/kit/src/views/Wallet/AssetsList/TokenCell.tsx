@@ -117,9 +117,9 @@ const TokenCell: FC<TokenCellProps> = ({
           )}
         </Box>
         {!isVerticalLayout && !hidePriceInfo && (
-          <Box mx={3} flexDirection="column" flex={1}>
+          <Box mx={3} flexDirection="column" flex={1} alignItems="flex-end">
             {price !== undefined ? (
-              <Typography.Body2Strong textAlign="right">
+              <Typography.Body2Strong>
                 <FormattedNumber
                   value={price}
                   currencyDisplay="narrowSymbol"
@@ -133,10 +133,10 @@ const TokenCell: FC<TokenCellProps> = ({
             )}
           </Box>
         )}
-        <Box mx={3} flexDirection="column" flex={1}>
+        <Box flexDirection="column" flex={1} alignItems="flex-end">
           {tokenValue !== undefined ? (
-            <Box alignSelf="flex-end">
-              <Typography.Body2Strong textAlign="right">
+            <>
+              <Typography.Body2Strong>
                 <FormattedNumber
                   value={tokenValue}
                   currencyDisplay="narrowSymbol"
@@ -158,7 +158,7 @@ const TokenCell: FC<TokenCellProps> = ({
                   {percentageGain}
                 </Typography.CaptionStrong>
               </Box>
-            </Box>
+            </>
           ) : (
             <Skeleton shape="Body2" />
           )}
