@@ -71,7 +71,7 @@ const Container: FC<HomePageProps> = ({
         labelColor,
         labelStyle: Body2StrongProps,
       }}
-      onRefresh={(e) => {
+      onRefreshCallBack={(e) => {
         const currentRefresh = e.nativeEvent.refresh;
         setTimeout(() => {
           onRefresh?.(currentRefresh);

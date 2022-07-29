@@ -46,7 +46,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
             ),
             "swipeRefreshChange" to mapOf(
                 "phasedRegistrationNames" to mapOf(
-                    "bubbled" to "onRefresh"
+                    "bubbled" to "onRefreshCallBack"
                 )
             )
         )
