@@ -59,7 +59,12 @@ import {
   getEVMNetworkToCreate,
   getImplFromNetworkId,
 } from './managers/network';
-import { getNetworkIdFromTokenId } from './managers/token';
+import {
+  checkTokenUpdate,
+  fetchTokenDetail,
+  fetchTokenTop2000,
+  getNetworkIdFromTokenId,
+} from './managers/token';
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { syncLatestNetworkList } from './presets/network';
@@ -111,6 +116,13 @@ import { VaultFactory } from './vaults/VaultFactory';
 
 import type VaultEvm from './vaults/impl/evm/Vault';
 import type { ITransferInfo } from './vaults/types';
+
+const updateTokenCache: {
+  [networkId: string]: {
+    loading: boolean;
+    timestamp: number;
+  };
+} = {};
 
 @backgroundClass()
 class Engine {
@@ -1021,22 +1033,36 @@ class Engine {
     if (presetToken) {
       return presetToken;
     }
-    const vault = await this.getChainOnlyVault(networkId);
-    let tokenInfo;
+    let tokenInfo:
+      | Partial<Pick<Token, 'name' | 'symbol' | 'decimals' | 'logoURI'>>
+      | undefined;
+    const [impl, chainId] = networkId.split('--');
     try {
-      [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
-    } catch (e) {
-      console.error(e);
+      tokenInfo = await fetchTokenDetail({
+        impl,
+        chainId: +chainId,
+        address: tokenIdOnNetwork,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+    if (!tokenInfo) {
+      const vault = await this.getChainOnlyVault(networkId);
+      try {
+        [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
+      } catch (e) {
+        console.error(e);
+      }
     }
     if (typeof tokenInfo === 'undefined') {
       return;
     }
     return this.sdbTokens.addToken({
-      logoURI: '',
       networkId,
       tokenIdOnNetwork,
       id: tokenId,
       ...tokenInfo,
+      logoURI: tokenInfo.logoURI || '',
     } as Token);
   }
 
@@ -1049,7 +1075,6 @@ class Engine {
 
   @backgroundMethod()
   addTokenToAccount(accountId: string, token: Token): Promise<Token> {
-    console.log(token);
     // Add an token to account.
     if (
       !isAccountCompatibleWithNetwork(
@@ -1149,6 +1174,8 @@ class Engine {
     accountId?: string,
     withMain = true,
   ): Promise<Array<Token>> {
+    // update tokens async
+    this.updateOnlineTokens(networkId);
     // Get token info by network and account.
     const tokens = await this.sdbTokens.getTokens({
       networkId,
@@ -1170,6 +1197,44 @@ class Engine {
         (token1: Token) => !existingTokens.has(token1.tokenIdOnNetwork),
       ),
     );
+  }
+
+  @backgroundMethod()
+  async updateOnlineTokens(networkId: string): Promise<void> {
+    const cache = updateTokenCache[networkId] || {
+      loading: false,
+      timestamp: 0,
+    };
+    const { loading, timestamp } = cache;
+    if (loading) {
+      return;
+    }
+    cache.loading = true;
+    // update cache fist to make loading check work
+    updateTokenCache[networkId] = cache;
+    try {
+      if (timestamp) {
+        const hasUpdate = await checkTokenUpdate(timestamp);
+        if (!hasUpdate) {
+          throw new Error('No update');
+        }
+      }
+      const [impl, chainId] = networkId.split('--');
+      const tokens = await fetchTokenTop2000({
+        impl,
+        chainId: +chainId,
+      });
+      if (!Array.isArray(tokens)) {
+        throw new Error('Data Error');
+      }
+      cache.timestamp = Date.now();
+      await this.sdbTokens.updateTokens(impl, +chainId, tokens);
+    } catch (error) {
+      console.error(error);
+      // pass
+    }
+    cache.loading = false;
+    updateTokenCache[networkId] = cache;
   }
 
   @backgroundMethod()

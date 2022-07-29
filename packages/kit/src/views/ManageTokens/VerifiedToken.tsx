@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   Divider,
   Icon,
   Modal,
+  Spinner,
   Text,
   Token as TokenImage,
   Typography,
@@ -33,11 +35,10 @@ const VerifiedTokens: React.FC = () => {
   useEffect(() => {
     fetchTokenSource()
       .then((s) => setSources(s))
-      .catch((e) => {
+      .catch(() => {
         // pass
-        console.log(e);
       });
-  });
+  }, [source]);
   const header = () => (
     <Box flexDirection="column" alignItems="center" mb={3}>
       <Icon size={44} name="BadgeCheckSolid" color="icon-success" />
@@ -91,6 +92,15 @@ const VerifiedTokens: React.FC = () => {
       </Box>
     );
   };
+  if (!sources.length) {
+    return (
+      <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={null}>
+        <Center flex={1}>
+          <Spinner size="lg" />
+        </Center>
+      </Modal>
+    );
+  }
   return (
     <Modal
       height="560px"

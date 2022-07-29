@@ -178,15 +178,15 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     }
                   />
                   <Box ml="3">
-                  <Box flexDirection="row" alignItems="center">
-                    <Text
-                      maxW={56}
-                      numberOfLines={2}
-                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    >
-                      {item.symbol}
-                    </Text>
-                    <TokenVerifiedIcon token={item}/>
+                    <Box flexDirection="row" alignItems="center">
+                      <Text
+                        maxW={56}
+                        numberOfLines={2}
+                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                      >
+                        {item.symbol}
+                      </Text>
+                      <TokenVerifiedIcon token={item} />
                     </Box>
                     <Typography.Body2
                       maxW="56"
@@ -389,16 +389,16 @@ const ListRenderToken: FC<ListingTokenProps> = ({
           }
         />
         <Box ml="3">
-        <Box alignItems="center" flexDirection="row">
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            maxW="56"
-            numberOfLines={2}
-            color="text-default"
-          >
-            {item.symbol}
-          </Text>
-          <TokenVerifiedIcon token={item} />
+          <Box alignItems="center" flexDirection="row">
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              maxW="56"
+              numberOfLines={2}
+              color="text-default"
+            >
+              {item.symbol}
+            </Text>
+            <TokenVerifiedIcon token={item} />
           </Box>
           <Typography.Body2 numberOfLines={1} color="text-subdued">
             {item.name}

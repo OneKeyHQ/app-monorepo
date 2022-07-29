@@ -119,7 +119,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                       >
                         {item.symbol} ({item.name})
                       </Text>
-                      <TokenVerifiedIcon token={item}/>
+                      <TokenVerifiedIcon token={item} />
                     </Box>
                     <Typography.Body2
                       maxW="56"
@@ -328,15 +328,15 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         <TokenImage size={8} src={item.logoURI} />
         <Box ml="3">
           <Box alignItems="center" flexDirection="row">
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            maxW="56"
-            numberOfLines={2}
-            color={isOwned ? 'text-disabled' : 'text-default'}
-          >
-            {item.symbol}({item.name})
-          </Text>
-          <TokenVerifiedIcon token={item} />
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              maxW="56"
+              numberOfLines={2}
+              color={isOwned ? 'text-disabled' : 'text-default'}
+            >
+              {item.symbol}({item.name})
+            </Text>
+            <TokenVerifiedIcon token={item} />
           </Box>
           <Typography.Body2
             numberOfLines={1}

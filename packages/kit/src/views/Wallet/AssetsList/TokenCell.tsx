@@ -9,6 +9,7 @@ import {
   Skeleton,
   Text,
   Token,
+  TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
   useTheme,
@@ -98,9 +99,12 @@ const TokenCell: FC<TokenCellProps> = ({
       <Box w="100%" flexDirection="row" alignItems="center">
         <Token size={8} src={token.logoURI} />
         <Box mx={3} flexDirection="column" flex={1}>
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            {token.name}
-          </Text>
+          <Box flexDirection="row" alignItems="center">
+            <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+              {token.name}
+            </Text>
+            <TokenVerifiedIcon token={token} />
+          </Box>
           {balance ? (
             <FormatBalance
               balance={balance}

@@ -265,10 +265,10 @@ const TokensView = ({ groupTokens, size, cornerToken }: TokensViewProps) => {
   );
 };
 
-export const TokenVerifiedIcon: React.FC<{ token?: IToken; size?: number }> = ({
-  token,
-  size = 16,
-}) => {
+export const TokenVerifiedIcon: React.FC<{
+  token?: Partial<IToken>;
+  size?: number;
+}> = ({ token, size = 16 }) => {
   const navigation = useNavigation();
   if (!token || !token.verified) {
     return null;

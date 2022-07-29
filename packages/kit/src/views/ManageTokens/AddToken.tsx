@@ -148,16 +148,21 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                   }
                 />
 
-                <Box alignItems="center" flexDirection="row" justifyContent="center" mt="4">
-                <Typography.PageHeading>
-                  {intl.formatMessage(
-                    { id: 'title__adding_str' },
-                    {
-                      0: symbol,
-                    },
-                  )}
-                </Typography.PageHeading>
-                <TokenVerifiedIcon token={token}/>
+                <Box
+                  alignItems="center"
+                  flexDirection="row"
+                  justifyContent="center"
+                  mt="4"
+                >
+                  <Typography.PageHeading>
+                    {intl.formatMessage(
+                      { id: 'title__adding_str' },
+                      {
+                        0: symbol,
+                      },
+                    )}
+                  </Typography.PageHeading>
+                  <TokenVerifiedIcon token={token} />
                 </Box>
 
                 <HStack justifyContent="center" alignItems="center" mt="16px">
