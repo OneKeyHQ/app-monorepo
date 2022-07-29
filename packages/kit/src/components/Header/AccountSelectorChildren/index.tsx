@@ -208,9 +208,16 @@ const AccountSelectorChildren: FC<{
           wallets.find((wallet) => wallet.id === defaultSelectedWallet?.id) ??
           null;
         setSelectedWallet(targetWallet);
+        setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
       });
     }
-  }, [previousIsOpen, isOpen, defaultSelectedWallet?.id, wallets]);
+  }, [
+    previousIsOpen,
+    isOpen,
+    defaultSelectedWallet?.id,
+    wallets,
+    activeNetwork?.id,
+  ]);
 
   const onLock = useCallback(() => {
     backgroundApiProxy.serviceApp.lock(true);
