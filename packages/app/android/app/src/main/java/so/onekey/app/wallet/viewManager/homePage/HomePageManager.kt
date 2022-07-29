@@ -33,7 +33,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     private val mFragments = ArrayList<ViewFragment>()
 
     override fun createViewInstance(reactContext: ThemedReactContext): HomePageView {
-        Log.d("===: HomePageManager", "createViewInstance")
+        Log.d("HomePageManager", "createViewInstance")
         return HomePageView(reactContext)
     }
 
@@ -43,6 +43,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
                 "phasedRegistrationNames" to mapOf(
                     "bubbled" to "onChange"
                 )
+            ),
+            "swipeRefreshChange" to mapOf(
+                "phasedRegistrationNames" to mapOf(
+                    "bubbled" to "onRefresh"
+                )
             )
         )
     }
@@ -50,6 +55,16 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     @ReactProp(name = "headerHeight")
     fun setHeaderHeight(view: HomePageView, @Nullable height: Int?) {
         height?.let { this.height = it }
+    }
+
+    @ReactProp(name = "disableRefresh")
+    fun setDisableRefresh(view: HomePageView, enable: Boolean) {
+        view.setEnableRefresh(!enable)
+    }
+
+    @ReactProp(name = "refresh")
+    fun setRefresh(view: HomePageView, refresh: Boolean) {
+        view.setRefresh(refresh)
     }
 
     @ReactProp(name = "scrollEnabled")

@@ -15,6 +15,8 @@ class HomePageView @JvmOverloads constructor(
 
         val params = LayoutParams(width, height);
         this.layoutParams = params;
+
+        initRefreshListener()
     }
 
 

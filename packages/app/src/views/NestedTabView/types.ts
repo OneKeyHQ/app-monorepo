@@ -35,7 +35,10 @@ export interface NativeNestedTabViewProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   tabViewStyle?: TabViewStyle;
+  refresh?: boolean;
+  disableRefresh?: boolean;
   onChange?: (
     e: NativeSyntheticEvent<{ tabName: string; index: number | string }>,
   ) => void;
+  onRefresh?: (e: NativeSyntheticEvent<{ refresh: boolean }>) => void;
 }
