@@ -20,9 +20,6 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
     skeleton ? 'loading' : null,
   );
   const [retryCount, updateRetryCount] = useState(0);
-  const updateState = useCallback((state: ImageState) => {
-    updateImageState(state);
-  }, []);
   const { preview } = rest;
   const onImagePress = useCallback(() => {
     if (onPress && rest.src && preview) {
@@ -36,9 +33,9 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
         updateRetryCount((prevCounter) => prevCounter + 1);
       }, retryDuring);
     } else {
-      updateState('fail');
+      updateImageState('fail');
     }
-  }, [retry, retryCount, retryDuring, updateState]);
+  }, [retry, retryCount, retryDuring]);
 
   const renderImage = useMemo(
     () => (
@@ -49,7 +46,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
       >
         <PlatformImage
           onLoad={() => {
-            updateState('success');
+            updateImageState('success');
           }}
           onError={onImageError}
           {...rest}
