@@ -5,7 +5,7 @@ import { getImplFromNetworkId } from '../../../managers/network';
 import { ServerToken, Token } from '../../../types/token';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
-import { SimpleDbEntityLocalTokens } from './SimpleDbEntityPresetLocalTokens';
+import { SimpleDbEntityLocalTokens } from './SimpleDbEntityLocalTokens';
 
 export type ISimpleDbEntityTokensData = {
   [key: string]: Token[];
