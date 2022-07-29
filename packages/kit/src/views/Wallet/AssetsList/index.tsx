@@ -97,9 +97,9 @@ function AssetsList({
     <TokenCell
       hidePriceInfo={hidePriceInfo}
       token={item}
-      borderTopRadius={index === 0 ? '12px' : '0px'}
+      borderTopRadius={0}
       borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
-      borderTopWidth={index === 0 ? 1 : 0}
+      borderTopWidth={0}
       borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
       onPress={() => {
         if (onTokenPress) {
