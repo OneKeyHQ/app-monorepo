@@ -205,8 +205,14 @@ class ServiceAccount extends ServiceBase {
     mnemonic?: string;
     avatar?: Avatar;
   }) {
-    const { dispatch, engine, appSelector, serviceAccount } =
-      this.backgroundApi;
+    const {
+      dispatch,
+      engine,
+      appSelector,
+      serviceAccount,
+      serviceApp,
+      servicePassword,
+    } = this.backgroundApi;
     const wallet = await engine.createHDWallet({
       password,
       mnemonic,
@@ -226,6 +232,10 @@ class ServiceAccount extends ServiceBase {
 
     await serviceAccount.initWallets();
     await serviceAccount.autoChangeAccount({ walletId: wallet.id });
+    const isOk = await serviceApp.verifyPassword(password);
+    if (isOk) {
+      servicePassword.savePassword(password);
+    }
     return wallet;
   }
 
@@ -271,8 +281,14 @@ class ServiceAccount extends ServiceBase {
     credential: string,
     name?: string,
   ) {
-    const { dispatch, engine, serviceAccount, appSelector } =
-      this.backgroundApi;
+    const {
+      dispatch,
+      engine,
+      serviceAccount,
+      serviceApp,
+      servicePassword,
+      appSelector,
+    } = this.backgroundApi;
     const account = await engine.addImportedAccount(
       password,
       networkId,
@@ -306,6 +322,10 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+    const isOk = await serviceApp.verifyPassword(password);
+    if (isOk) {
+      servicePassword.savePassword(password);
+    }
     return account;
   }
 

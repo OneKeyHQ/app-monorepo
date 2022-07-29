@@ -190,7 +190,8 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async updatePassword(oldPassword: string, newPassword: string) {
-    const { dispatch, engine, appSelector } = this.backgroundApi;
+    const { dispatch, engine, appSelector, servicePassword } =
+      this.backgroundApi;
     await engine.updatePassword(oldPassword, newPassword);
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     // TODO: Batch update in one action
@@ -204,6 +205,7 @@ class ServiceApp extends ServiceBase {
     }
     dispatch(unlock());
     dispatch(release());
+    await servicePassword.savePassword(newPassword);
   }
 
   @backgroundMethod()
