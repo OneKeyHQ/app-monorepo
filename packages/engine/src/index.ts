@@ -306,6 +306,17 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getWalletByDeviceId(deviceId: string): Promise<Wallet> {
+    const wallet = await this.dbApi.getWalletByDeviceId(deviceId);
+    if (typeof wallet !== 'undefined') {
+      return wallet;
+    }
+    throw new OneKeyInternalError(
+      `Wallet with device id ${deviceId} not found.`,
+    );
+  }
+
+  @backgroundMethod()
   async createHDWallet({
     password,
     mnemonic,

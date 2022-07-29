@@ -1,6 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 export type HardwareUiEventPayload = {

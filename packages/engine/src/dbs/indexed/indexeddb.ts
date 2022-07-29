@@ -807,6 +807,29 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
+  getWalletByDeviceId(deviceId: string): Promise<Wallet | undefined> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request: IDBRequest = db
+            .transaction([WALLET_STORE_NAME])
+            .objectStore(WALLET_STORE_NAME)
+            .openCursor();
+          request.onsuccess = (_event) => {
+            const cursor: IDBCursorWithValue =
+              request.result as IDBCursorWithValue;
+            if (cursor) {
+              const wallet: Wallet = cursor.value as Wallet;
+              if (wallet.associatedDevice === deviceId) {
+                resolve(wallet);
+              }
+              cursor.continue();
+            }
+          };
+        }),
+    );
+  }
+
   createHDWallet({
     password,
     rs,

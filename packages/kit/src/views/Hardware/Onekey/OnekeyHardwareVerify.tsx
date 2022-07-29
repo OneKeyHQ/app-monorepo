@@ -20,7 +20,6 @@ import {
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
 import { CERTIFICATE_URL } from '@onekeyhq/kit/src/config';
 import {
   OnekeyHardwareModalRoutes,

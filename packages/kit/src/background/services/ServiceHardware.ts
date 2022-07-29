@@ -140,6 +140,14 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async cleanFeaturesCache(walletId: string) {
+    if (this.featursCache[walletId]) {
+      delete this.featursCache[walletId];
+    }
+    return Promise.resolve(true);
+  }
+
+  @backgroundMethod()
   async searchDevices() {
     const hardwareSDK = await this.getSDKInstance();
     return hardwareSDK?.searchDevices();
