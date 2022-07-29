@@ -43,7 +43,7 @@ type RouteProps = RouteProp<
 
 const UpdatingModal: FC = () => {
   const intl = useIntl();
-  const { dispatch, serviceHardware } = backgroundApiProxy;
+  const { dispatch, serviceHardware, engine } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device, onSuccess } = useRoute<RouteProps>().params;
   const deviceUpdates = useSettings().deviceUpdates || {};
@@ -430,6 +430,11 @@ const UpdatingModal: FC = () => {
       case 'done-step':
         setMaxProgress(100);
         setProgress(100);
+        engine.getWalletByDeviceId(device?.id ?? '').then((wallet) => {
+          if (wallet) {
+            serviceHardware.cleanFeaturesCache(wallet.id);
+          }
+        });
         setProgressState('done');
         setStateViewInfo({ type: 'success' });
         break;

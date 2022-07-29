@@ -682,6 +682,22 @@ class RealmDB implements DBAPI {
     }
   }
 
+  getWalletByDeviceId(deviceId: string): Promise<Wallet | undefined> {
+    try {
+      const wallet = this.realm!.objects<WalletSchema>('Wallet').filtered(
+        'associatedDevice.id == $0',
+        deviceId,
+      );
+      if (wallet.length === 0) {
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve(wallet[0].internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
   /**
    * associate account with wallet
    * @param walletId
