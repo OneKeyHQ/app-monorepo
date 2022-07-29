@@ -37,6 +37,7 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import lru from 'tiny-lru';
 
+import { appSelector } from '@onekeyhq/kit/src/store';
 import { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 
 import {
@@ -726,7 +727,9 @@ class PriceController {
     if (typeof cgkChannel === 'undefined') {
       return [prices, charts];
     }
-    const { platform } = cgkChannel;
+    const networks: Network[] = appSelector((s) => s.runtime.networks);
+    const activeNetwork = networks.find((network) => network.id === networkId);
+    const platform = activeNetwork?.shortCode || 'eth';
 
     if (withMain && typeof cgkChannel.native !== 'undefined') {
       try {
