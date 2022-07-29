@@ -8,25 +8,11 @@ type NestedTabViewProps = {
 } & NativeNestedTabViewProps;
 
 const NestedTabView: FC<NestedTabViewProps> = ({
-  defaultIndex,
-  headerHeight,
-  values,
   renderHeader,
-  scrollEnabled,
-  style,
-  tabViewStyle,
-  onChange,
   children,
+  ...rest
 }) => (
-  <NativeNestedTabView
-    values={values}
-    onChange={onChange}
-    defaultIndex={defaultIndex}
-    headerHeight={headerHeight}
-    scrollEnabled={scrollEnabled}
-    style={style}
-    tabViewStyle={tabViewStyle}
-  >
+  <NativeNestedTabView {...rest}>
     {renderHeader?.()}
     {children}
   </NativeNestedTabView>

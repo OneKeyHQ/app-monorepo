@@ -12,11 +12,14 @@ import { Body2StrongProps } from '../Typography';
 const Context = createContext<string>('');
 
 type ContainerProps = {
+  refresh?: boolean;
+  disableRefresh?: boolean;
   headerHeight: number;
   initialTabName: string;
   renderHeader?: () => React.ReactNode;
   onTabChange?: (options: { tabName: string; index: number | string }) => void;
   onIndexChange?: (index: number | string) => void;
+  onRefresh?: (refresh: boolean) => void;
 };
 const Container: FC<ContainerProps> = ({
   children,
@@ -25,6 +28,9 @@ const Container: FC<ContainerProps> = ({
   onTabChange,
   onIndexChange,
   initialTabName,
+  onRefresh,
+  refresh,
+  disableRefresh = true,
 }) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
@@ -36,13 +42,19 @@ const Container: FC<ContainerProps> = ({
   if (selectedIndex < 0) {
     selectedIndex = 0;
   }
-  const [activeLabelColor, labelColor, indicatorColor, bottomLineColor] =
-    useThemeValue([
-      'text-default',
-      'text-subdued',
-      'action-primary-default',
-      'border-subdued',
-    ]);
+  const [
+    activeLabelColor,
+    labelColor,
+    indicatorColor,
+    bottomLineColor,
+    spinnerColor,
+  ] = useThemeValue([
+    'text-default',
+    'text-subdued',
+    'action-primary-default',
+    'border-subdued',
+    'text-default',
+  ]);
 
   return (
     <Context.Provider value={tabs[selectedIndex].name}>
@@ -50,12 +62,21 @@ const Container: FC<ContainerProps> = ({
         style={{ flex: 1 }}
         values={tabs}
         defaultIndex={selectedIndex}
+        disableRefresh={disableRefresh}
+        refresh={refresh}
+        spinnerColor={spinnerColor}
         onChange={(e) => {
           onTabChange?.({
             tabName: e.nativeEvent.tabName,
             index: e.nativeEvent.index,
           });
           onIndexChange?.(e.nativeEvent.index);
+        }}
+        onRefreshCallBack={(e) => {
+          const currentRefresh = e.nativeEvent.refresh;
+          setTimeout(() => {
+            onRefresh?.(currentRefresh);
+          }, 0);
         }}
         headerHeight={headerHeight}
         renderHeader={renderHeader}

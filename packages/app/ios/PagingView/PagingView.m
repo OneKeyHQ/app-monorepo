@@ -10,10 +10,13 @@
 #import "PagingViewContainer.h"
 #import <React/UIView+React.h>
 #import "RNTabView.h"
+#import "UIColor+Hex.h"
 
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
 @property (nonatomic, copy) RCTBubblingEventBlock onChange;
+@property (nonatomic, copy) RCTBubblingEventBlock onRefreshCallBack;
+
 @property (nonatomic, assign) CGFloat headerHeight;
 @property (nonatomic, assign) NSInteger defaultIndex;
 @property (nonatomic, assign) NSInteger pageIndex;
@@ -21,9 +24,15 @@
 
 @property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) RNTabView *tabView;
+@property (nonatomic, strong) UIRefreshControl *refreshControl;
 
 @property (nonatomic, strong) NSArray *values;
 @property (nonatomic, strong) NSDictionary *tabViewStyle;
+
+@property (nonatomic, assign) BOOL refresh;
+@property (nonatomic, assign) BOOL disableRefresh;
+@property (nonatomic, copy) NSString *spinnerColor;
+
 
 @end
 
@@ -68,6 +77,7 @@
     [_tabView reloadData];
     _tabView.categoryView.listContainer = (id<JXCategoryViewListContainer>)self.pagingView.listContainerView;
     _tabView.categoryView.delegate = self;
+    
   }
 }
 
@@ -75,6 +85,23 @@
   [super layoutSubviews];
   self.pagingView.frame = self.bounds;
   self.tabView.frame = CGRectMake(0, CGRectGetHeight(self.headerView.frame), CGRectGetWidth(self.bounds), self.tabView.model.height);
+}
+
+-(UIRefreshControl *)refreshControl {
+  if (!_refreshControl) {
+    _refreshControl = [[UIRefreshControl alloc] init];
+    [_refreshControl addTarget:self action:@selector(handleRefresh:) forControlEvents:UIControlEventValueChanged];
+    if (_spinnerColor) {
+      _refreshControl.tintColor = [UIColor colorWithHexString:_spinnerColor];
+    }
+  }
+  return _refreshControl;
+}
+
+- (void)handleRefresh:(id)sender{
+  if (_onRefreshCallBack) {
+    _onRefreshCallBack(@{@"refresh":@(YES)});
+  }
 }
 
 -(RNTabView *)tabView {
@@ -93,6 +120,43 @@
   [self.pagingView reloadData];
 }
 
+-(void)setRefresh:(BOOL)refresh {
+  if (_refresh != refresh) {
+    _refresh = refresh;
+    if (_refresh) {
+      [self.refreshControl beginRefreshing];
+    } else {
+      [self.refreshControl endRefreshing];
+    }
+  }
+}
+
+-(void)setSpinnerColor:(NSString *)spinnerColor {
+  _spinnerColor = spinnerColor;
+  if (_refreshControl) {
+    _refreshControl.tintColor = [UIColor colorWithHexString:_spinnerColor];
+    if (_refreshControl.isRefreshing) {
+      [_refreshControl endRefreshing];
+    }
+  }
+}
+
+-(void)setDisableRefresh:(BOOL)disableRefresh {
+  if (_disableRefresh != disableRefresh) {
+    _disableRefresh = disableRefresh;
+    if (_pagingView) {
+      if (disableRefresh) {
+        _pagingView.mainTableView.refreshControl = nil;
+        [self.refreshControl removeFromSuperview];
+      } else {
+        _pagingView.mainTableView.refreshControl = self.refreshControl;
+        [_pagingView.mainTableView addSubview:self.refreshControl];
+      }
+    }
+  }
+}
+
+
 -(JXPagerView *)pagingView {
   if (!_pagingView) {
     _pagingView = [[JXPagerView alloc] initWithDelegate:self];
@@ -103,6 +167,10 @@
     _pagingView.defaultSelectedIndex = self.defaultIndex;
     if (@available(iOS 15.0, *)) {
         _pagingView.mainTableView.sectionHeaderTopPadding = 0;
+    }
+    if (_disableRefresh == false) {
+      _pagingView.mainTableView.refreshControl = self.refreshControl;
+      [_pagingView.mainTableView addSubview:self.refreshControl];
     }
     [self addSubview:_pagingView];
   }
