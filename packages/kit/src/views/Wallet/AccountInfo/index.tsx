@@ -70,9 +70,50 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 
   return (
     <Box alignItems={isCenter ? 'center' : 'flex-start'}>
-      <Typography.Subheading color="text-subdued">
-        {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
-      </Typography.Subheading>
+      <Pressable
+        mt={4}
+        onPress={() => {
+          if (isHwWallet) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {},
+              },
+            });
+          } else {
+            copyContentToClipboard(account?.address);
+          }
+        }}
+      >
+        {({ isHovered, isPressed }) => (
+          <Box
+            py={{ base: 2, md: 1 }}
+            px={{ base: 3, md: 2 }}
+            rounded="xl"
+            bg={
+              // eslint-disable-next-line no-nested-ternary
+              isPressed
+                ? 'surface-neutral-pressed'
+                : isHovered
+                ? 'surface-neutral-default'
+                : 'transparent'
+            }
+            flexDirection="row"
+          >
+            <Text
+              typography={{ sm: 'Body2', md: 'CaptionStrong' }}
+              mr={2}
+              color="text-subdued"
+            >
+              {isHwWallet
+                ? intl.formatMessage({ id: 'action__copy_address' })
+                : shortenAddress(account?.address ?? '')}
+            </Text>
+            <Icon name="DuplicateOutline" size={isCenter ? 20 : 16} />
+          </Box>
+        )}
+      </Pressable>
       <Box flexDirection="row" mt={2}>
         {balances.main ? (
           <FormatBalance
@@ -104,46 +145,6 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           <Skeleton shape="Body2" />
         </Box>
       )}
-      <Pressable
-        mt={4}
-        onPress={() => {
-          if (isHwWallet) {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenRoutes.ReceiveToken,
-                params: {},
-              },
-            });
-          } else {
-            copyContentToClipboard(account?.address);
-          }
-        }}
-      >
-        {({ isHovered, isPressed }) => (
-          <Box
-            py={{ base: 2, md: 1 }}
-            px={{ base: 3, md: 2 }}
-            rounded="xl"
-            bg={
-              // eslint-disable-next-line no-nested-ternary
-              isPressed
-                ? 'surface-neutral-pressed'
-                : isHovered
-                ? 'surface-neutral-default'
-                : 'surface-neutral-subdued'
-            }
-            flexDirection="row"
-          >
-            <Text typography={{ sm: 'Body2', md: 'CaptionStrong' }} mr={2}>
-              {isHwWallet
-                ? intl.formatMessage({ id: 'action__copy_address' })
-                : shortenAddress(account?.address ?? '')}
-            </Text>
-            <Icon name="DuplicateSolid" size={isCenter ? 20 : 16} />
-          </Box>
-        )}
-      </Pressable>
     </Box>
   );
 };
@@ -274,7 +275,7 @@ const AccountInfo = () => {
     );
   }
   return (
-    <Box>
+    <>
       <DesktopDragZoneAbsoluteBar h={8} />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
@@ -290,7 +291,7 @@ const AccountInfo = () => {
           <AccountOption isSmallView={isSmallView} />
         </Box>
       </Box>
-    </Box>
+    </>
   );
 };
 
