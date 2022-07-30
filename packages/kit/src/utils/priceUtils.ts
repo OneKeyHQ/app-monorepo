@@ -52,3 +52,18 @@ export function getTokenValues({
     return new BigNumber(0);
   });
 }
+
+export function getSummedValues({
+  tokens,
+  prices,
+  balances,
+}: {
+  tokens: Token[];
+  prices: Record<string, string>;
+  balances: Record<string, TokenBalanceValue>;
+}) {
+  return getTokenValues({ tokens, prices, balances }).reduce(
+    (acc, value) => acc.plus(value.isNaN() ? 0 : value),
+    new BigNumber(0),
+  );
+}

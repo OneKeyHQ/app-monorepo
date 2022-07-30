@@ -5,6 +5,7 @@ import { Text as NBText } from 'native-base';
 import { useIsVerticalLayout } from '../Provider/hooks';
 
 export type TypographyStyle =
+  | 'Display2XLarge'
   | 'DisplayXLarge'
   | 'DisplayLarge'
   | 'DisplayMedium'
@@ -26,6 +27,12 @@ export type TypographyStyle =
 
 export type FontProps = ComponentProps<typeof NBText>;
 
+export const Display2XLargeProps = {
+  fontFamily: 'PlusJakartaSans-Bold',
+  fontWeight: '700',
+  fontSize: 32,
+  lineHeight: 40,
+};
 export const DisplayXLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
@@ -146,6 +153,7 @@ export const CaptionUnderlineProps = {
 
 export const getTypographyStyleProps = (style: TypographyStyle): FontProps => {
   const propsMap: Record<TypographyStyle, FontProps> = {
+    'Display2XLarge': Display2XLargeProps,
     'DisplayXLarge': DisplayXLargeProps,
     'DisplayLarge': DisplayLargeProps,
     'DisplayMedium': DisplayMediumProps,
@@ -167,6 +175,12 @@ export const getTypographyStyleProps = (style: TypographyStyle): FontProps => {
   };
   return propsMap[style];
 };
+
+export const Display2XLarge: FC<FontProps> = ({ children, ...rest }) => (
+  <NBText color="text-default" {...Display2XLargeProps} {...rest}>
+    {children}
+  </NBText>
+);
 
 export const DisplayXLarge: FC<FontProps> = ({ children, ...rest }) => (
   <NBText color="text-default" {...DisplayXLargeProps} {...rest}>
@@ -297,6 +311,7 @@ export const Text: FC<TextProps> = ({ typography, children, ...rest }) => {
 };
 
 const Typography = {
+  Display2XLarge,
   DisplayXLarge,
   DisplayLarge,
   DisplayMedium,

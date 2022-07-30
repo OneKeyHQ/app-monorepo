@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { FormattedNumber, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
 import { Box, Typography } from '@onekeyhq/components';
 
-import { useSettings } from '../../hooks/redux';
-import { calculateGains, getSuggestedDecimals } from '../../utils/priceUtils';
+import { FormatCurrencyNumber } from '../../components/Format';
+import { calculateGains } from '../../utils/priceUtils';
 
 type PriceLabelProps = {
   price: number;
@@ -15,7 +15,6 @@ type PriceLabelProps = {
 
 const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
   const intl = useIntl();
-  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const priceLabel = intl.formatMessage({
     id: 'content__price_uppercase',
   });
@@ -24,23 +23,13 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
     price,
   });
 
-  const decimals = getSuggestedDecimals(price);
-
   return (
     <Box flexDirection="column">
       <Typography.Subheading color="text-subdued">
         {priceLabel}
       </Typography.Subheading>
       <Typography.DisplayXLarge mt="4px" mb="4px">
-        <FormattedNumber
-          value={price}
-          currencyDisplay="narrowSymbol"
-          // eslint-disable-next-line react/style-prop-object
-          style="currency"
-          minimumFractionDigits={2}
-          maximumFractionDigits={decimals}
-          currency={selectedFiatMoneySymbol}
-        />
+        <FormatCurrencyNumber value={price} />
       </Typography.DisplayXLarge>
       <Box flexDirection="row">
         <Typography.Body2Strong

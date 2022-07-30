@@ -34,7 +34,7 @@
     "expo": "^45.0.5",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
-    "react-native-web": "0.18.6",
+    "react-native-web": "0.18.7",
     "electron-log": "^4.4.8"
   },
   "devDependencies": {

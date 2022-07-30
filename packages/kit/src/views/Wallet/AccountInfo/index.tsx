@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -22,6 +22,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
   FormatBalance,
   FormatCurrency,
+  FormatCurrencyNumber,
 } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
@@ -38,14 +39,15 @@ import {
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
+import { getSummedValues } from '../../../utils/priceUtils';
+
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 298;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 214;
 
-type AccountAmountInfoProps = { isCenter: boolean };
-const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
+const AccountAmountInfo: FC = () => {
   const intl = useIntl();
   const toast = useToast();
 
@@ -53,7 +55,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 
   const { account, network: activeNetwork, wallet } = useActiveWalletAccount();
 
-  const { prices, balances } = useManageTokens({
+  const { accountTokens, prices, balances } = useManageTokens({
     pollingInterval: 15000,
   });
 
@@ -68,27 +70,55 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
     [toast, intl],
   );
 
+  const summedValue = useMemo(() => {
+    const displayValue = getSummedValues({
+      tokens: accountTokens,
+      balances,
+      prices,
+    }).toNumber();
+
+    return Number.isNaN(displayValue) ? (
+      <Skeleton shape="DisplayXLarge" />
+    ) : (
+      <Typography.Display2XLarge>
+        <FormatCurrencyNumber value={displayValue} />
+      </Typography.Display2XLarge>
+    );
+  }, [accountTokens, balances, prices]);
+
   return (
-    <Box alignItems={isCenter ? 'center' : 'flex-start'}>
-      <Typography.Subheading color="text-subdued">
-        {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
-      </Typography.Subheading>
+    <Box alignItems="flex-start">
+      <Pressable
+        mt={4}
+        flexDirection="row"
+        alignItems="center"
+        onPress={() => {
+          if (isHwWallet) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {},
+              },
+            });
+          } else {
+            copyContentToClipboard(account?.address);
+          }
+        }}
+      >
+        <Text
+          typography={{ sm: 'Body2', md: 'CaptionStrong' }}
+          mr={2}
+          color="text-subdued"
+        >
+          {isHwWallet
+            ? intl.formatMessage({ id: 'action__copy_address' })
+            : shortenAddress(account?.address ?? '')}
+        </Text>
+        <Icon name="DuplicateOutline" size={16} />
+      </Pressable>
       <Box flexDirection="row" mt={2}>
-        {balances.main ? (
-          <FormatBalance
-            balance={balances.main}
-            suffix={activeNetwork?.symbol?.toUpperCase?.()}
-            as={Typography.DisplayXLarge}
-            formatOptions={{
-              fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
-            }}
-            render={(ele) => (
-              <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
-            )}
-          />
-        ) : (
-          <Skeleton shape="DisplayXLarge" />
-        )}
+        {summedValue}
       </Box>
       {prices.main && balances.main ? (
         <FormatCurrency
@@ -104,46 +134,6 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           <Skeleton shape="Body2" />
         </Box>
       )}
-      <Pressable
-        mt={4}
-        onPress={() => {
-          if (isHwWallet) {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenRoutes.ReceiveToken,
-                params: {},
-              },
-            });
-          } else {
-            copyContentToClipboard(account?.address);
-          }
-        }}
-      >
-        {({ isHovered, isPressed }) => (
-          <Box
-            py={{ base: 2, md: 1 }}
-            px={{ base: 3, md: 2 }}
-            rounded="xl"
-            bg={
-              // eslint-disable-next-line no-nested-ternary
-              isPressed
-                ? 'surface-neutral-pressed'
-                : isHovered
-                ? 'surface-neutral-default'
-                : 'surface-neutral-subdued'
-            }
-            flexDirection="row"
-          >
-            <Text typography={{ sm: 'Body2', md: 'CaptionStrong' }} mr={2}>
-              {isHwWallet
-                ? intl.formatMessage({ id: 'action__copy_address' })
-                : shortenAddress(account?.address ?? '')}
-            </Text>
-            <Icon name="DuplicateSolid" size={isCenter ? 20 : 16} />
-          </Box>
-        )}
-      </Pressable>
     </Box>
   );
 };
@@ -266,7 +256,7 @@ const AccountInfo = () => {
         bgColor="background-default"
         h={FIXED_VERTICAL_HEADER_HEIGHT}
       >
-        <AccountAmountInfo isCenter={isSmallView} />
+        <AccountAmountInfo />
         <Box mt={8}>
           <AccountOption isSmallView={isSmallView} />
         </Box>
@@ -274,7 +264,7 @@ const AccountInfo = () => {
     );
   }
   return (
-    <Box>
+    <>
       <DesktopDragZoneAbsoluteBar h={8} />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
@@ -285,12 +275,12 @@ const AccountInfo = () => {
         alignItems="center"
         bgColor="background-default"
       >
-        <AccountAmountInfo isCenter={isSmallView} />
+        <AccountAmountInfo />
         <Box>
           <AccountOption isSmallView={isSmallView} />
         </Box>
       </Box>
-    </Box>
+    </>
   );
 };
 
