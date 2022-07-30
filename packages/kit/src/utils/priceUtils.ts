@@ -63,7 +63,7 @@ export function getSummedValues({
   balances: Record<string, TokenBalanceValue>;
 }) {
   return getTokenValues({ tokens, prices, balances }).reduce(
-    (acc, value) => acc.plus(value),
+    (acc, value) => acc.plus(value.isNaN() ? 0 : value),
     new BigNumber(0),
   );
 }
