@@ -18,12 +18,13 @@ import {
   dappSaveSiteConnection,
 } from '../../store/reducers/dapp';
 import extUtils from '../../utils/extUtils';
+import { DappConnectionModalRoutes } from '../../views/DappModals/types';
 import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
 import { ManageTokenRoutes } from '../../views/ManageTokens/types';
 import { SendRoutes } from '../../views/Send/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
-import { ensureSerializable } from '../utils';
+import { ensureSerializable, scopeMatchNetwork } from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -131,7 +132,15 @@ class ServiceDapp extends ServiceBase {
         resolve,
         reject,
       });
-      const routeNames = [RootRoutes.Modal, ...screens];
+      const { network } = getActiveWalletAccount();
+      let modalScreens = screens;
+      if (!scopeMatchNetwork(request.scope, network?.impl)) {
+        modalScreens = [
+          ModalRoutes.DappConnectionModal,
+          DappConnectionModalRoutes.NetworkNotMatchModal,
+        ];
+      }
+      const routeNames = [RootRoutes.Modal, ...modalScreens];
       const sourceInfo = {
         id,
         origin: request.origin,

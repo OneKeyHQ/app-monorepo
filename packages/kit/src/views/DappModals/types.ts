@@ -14,10 +14,12 @@ export type DappApproveRoutesParams = {
 
 export enum DappConnectionModalRoutes {
   ConnectionModal = 'ConnectionModal',
+  NetworkNotMatchModal = 'NetworkNotMatchModal',
 }
 
 export type DappConnectionRoutesParams = {
   [DappConnectionModalRoutes.ConnectionModal]: undefined;
+  [DappConnectionModalRoutes.NetworkNotMatchModal]: undefined;
 };
 
 export enum DappMulticallModalRoutes {
