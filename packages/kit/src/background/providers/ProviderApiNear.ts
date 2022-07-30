@@ -7,7 +7,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 import { IMPL_NEAR } from '@onekeyhq/engine/src/constants';
-import Vault from '@onekeyhq/engine/src/vaults/impl/near/Vault';
+import VaultNear from '@onekeyhq/engine/src/vaults/impl/near/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
@@ -68,7 +68,7 @@ class ProviderApiNear extends ProviderApiBase {
       allKeys?: string[];
     }[];
   }> {
-    const { networkId, accountId } = getActiveWalletAccount();
+    const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     const connectedAccounts =
       this.backgroundApi.serviceDapp?.getConnectedAccounts({
         origin: request.origin as string,
@@ -76,10 +76,13 @@ class ProviderApiNear extends ProviderApiBase {
     if (!connectedAccounts) {
       return { accounts: [] };
     }
+    if (networkImpl !== IMPL_NEAR) {
+      return { accounts: [] };
+    }
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
-    })) as Vault;
+    })) as VaultNear;
     const address = await vault.getAccountAddress();
     const addresses = connectedAccounts.map((account) => account.address);
     if (!addresses.includes(address)) {
