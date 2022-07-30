@@ -76,6 +76,7 @@ const ListHeader: FC = () => {
       shadow={undefined}
       borderTopRadius="12px"
       borderWidth={1}
+      borderBottomWidth={0}
       borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
       disabled
       // onPress={onPress}
