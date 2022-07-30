@@ -1,5 +1,6 @@
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
+import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
 import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
 import { SimpleDbEntitySwap } from './entity/SimpleDbEntitySwap';
 
@@ -11,6 +12,8 @@ class SimpleDb {
   lastActivity = new SimpleDbEntityLastActivity();
 
   swap = new SimpleDbEntitySwap();
+
+  token = new SimpleDbEntityTokens();
 }
 
 const simpleDb = new SimpleDb();

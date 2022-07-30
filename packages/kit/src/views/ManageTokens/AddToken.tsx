@@ -11,6 +11,7 @@ import {
   Image,
   KeyboardDismissView,
   Modal,
+  TokenVerifiedIcon,
   Typography,
   useToast,
 } from '@onekeyhq/components';
@@ -58,7 +59,8 @@ function ViewTokenModal(props: IViewTokenModalProps) {
     useActiveWalletAccount();
   const intl = useIntl();
   const { sourceInfo } = useDappParams();
-  const { name, symbol, decimal, address, logoURI } = useRouteParams();
+  const token = useRouteParams();
+  const { name, symbol, decimal, address, logoURI } = token;
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -146,14 +148,22 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                   }
                 />
 
-                <Typography.PageHeading mt="4">
-                  {intl.formatMessage(
-                    { id: 'title__adding_str' },
-                    {
-                      0: symbol,
-                    },
-                  )}
-                </Typography.PageHeading>
+                <Box
+                  alignItems="center"
+                  flexDirection="row"
+                  justifyContent="center"
+                  mt="4"
+                >
+                  <Typography.PageHeading>
+                    {intl.formatMessage(
+                      { id: 'title__adding_str' },
+                      {
+                        0: symbol,
+                      },
+                    )}
+                  </Typography.PageHeading>
+                  <TokenVerifiedIcon token={token} />
+                </Box>
 
                 <HStack justifyContent="center" alignItems="center" mt="16px">
                   <Typography.Body1 mr="18px">

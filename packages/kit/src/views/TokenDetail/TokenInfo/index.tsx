@@ -8,6 +8,7 @@ import {
   Box,
   IconButton,
   Token,
+  TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -111,6 +112,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
                   textAlign={isVertical ? 'center' : 'left'}
                 >
                   {ele}
+                  <TokenVerifiedIcon token={token || {}} />
                 </Typography.DisplayXLarge>
               )}
             />
@@ -123,10 +125,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       </Box>
     ),
     [
+      token,
       isVertical,
-      token?.logoURI,
-      token?.tokenIdOnNetwork,
-      token?.symbol,
       network?.logoURI,
       network?.symbol,
       network?.tokenDisplayDecimals,

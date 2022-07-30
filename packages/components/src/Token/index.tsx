@@ -2,7 +2,13 @@ import React, { FC, useMemo } from 'react';
 
 import { Box, Center, Column, Image, Row, ZStack } from 'native-base';
 
+import { Token as IToken } from '@onekeyhq/engine/src/types/token';
+import { useNavigation } from '@onekeyhq/kit/src/hooks';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
+
 import Icon from '../Icon';
+import Pressable from '../Pressable';
 import { useThemeValue } from '../Provider/hooks';
 import Typography from '../Typography';
 import { CDN_PREFIX } from '../utils';
@@ -256,6 +262,33 @@ const TokensView = ({ groupTokens, size, cornerToken }: TokensViewProps) => {
       {tokenList}
       {cornerTokenView}
     </ZStack>
+  );
+};
+
+export const TokenVerifiedIcon: React.FC<{
+  token?: Partial<IToken>;
+  size?: number;
+}> = ({ token, size = 16 }) => {
+  const navigation = useNavigation();
+  if (!token || !token.verified) {
+    return null;
+  }
+
+  const toVerifiedTokenPage = () => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageToken,
+      params: {
+        screen: ManageTokenRoutes.VerifiedToken,
+        params: {
+          source: token.source || [],
+        },
+      },
+    });
+  };
+  return (
+    <Pressable p="6px" onPress={toVerifiedTokenPage}>
+      <Icon size={size} name="BadgeCheckSolid" color="icon-success" />
+    </Pressable>
   );
 };
 

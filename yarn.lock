@@ -3466,11 +3466,6 @@
   resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-types/-/cross-inpage-provider-types-0.0.16.tgz#72b3779dfa7f6e18402a33ca44445fdaaaf4082e"
   integrity sha512-BYaz7Hk8ZzWHhv+ztL2+UPIK8IommFjkYjKupp0mxOgSsg4pyt80r6iSU/fqhOvOLaANXUVRwRhUNfuqwsVnCQ==
 
-"@onekeyfe/default-token-list@1.5.0":
-  version "1.5.0"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/default-token-list/-/default-token-list-1.5.0.tgz#cd7e42e032f4fe13adc8479722d3f53da96ff09e"
-  integrity sha512-uvBOWqoturZWcAx3Msb9phuB/518mABTm6ad4fuZhFpr5A2hesCko52+hVhSF6VW9mY1zTl5UIpNzuwEfM/qVQ==
-
 "@onekeyfe/desktop-bridge-injected@^0.0.16":
   version "0.0.16"
   resolved "https://registry.yarnpkg.com/@onekeyfe/desktop-bridge-injected/-/desktop-bridge-injected-0.0.16.tgz#73599ff91763582848a54bba5eea645b7a807693"
