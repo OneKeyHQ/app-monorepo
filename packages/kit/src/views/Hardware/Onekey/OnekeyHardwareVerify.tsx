@@ -17,6 +17,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -38,7 +39,7 @@ type HardwareVerifyDetail = {
 
 const ErrorMessage: FC<{ messageKey: string }> = ({ messageKey }) => {
   const intl = useIntl();
-  let message = intl.formatMessage({ id: 'action__verify_request_failed' });
+  let message = intl.formatMessage({ id: messageKey as LocaleIds });
   if (messageKey === 'SN_MISMATCH') {
     message = intl.formatMessage({ id: 'action__verify_sn_mismatch' });
   }
@@ -61,6 +62,10 @@ const ErrorMessage: FC<{ messageKey: string }> = ({ messageKey }) => {
 
   if (messageKey === 'CERT_INVALID') {
     message = intl.formatMessage({ id: 'action__verify_cert_invalid' });
+  }
+
+  if (messageKey === 'HARDWARE_ERROR') {
+    message = intl.formatMessage({ id: 'msg__hardware_default_error' });
   }
 
   return (
@@ -98,11 +103,29 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
 
     const ts = getTimeStamp();
     const dataHex = hexlify(ts).replace(/^0x/, '');
-    const sigResponse = await serviceHardware.getDeviceCertWithSig(
-      deviceConnectId,
-      dataHex,
-    );
+
+    let sigResponse = null;
     try {
+      sigResponse = await serviceHardware.getDeviceCertWithSig(
+        deviceConnectId,
+        dataHex,
+      );
+    } catch (err: any) {
+      const { className, key } = err || {};
+      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+        ToastManager.show({
+          title: intl.formatMessage({ id: key }),
+        });
+      }
+      setRequestState({
+        isLoading: false,
+        errorKey: key ?? 'HARDWARE_ERROR',
+        success: false,
+      });
+    }
+
+    try {
+      if (!sigResponse) return;
       const { data } = await axios.post<{
         success: boolean;
         sn?: string;
@@ -133,7 +156,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         success: false,
       });
     }
-  }, [serviceHardware, device?.mac, device?.deviceType, device?.uuid]);
+  }, [serviceHardware, device?.mac, device?.deviceType, device?.uuid, intl]);
 
   useEffect(() => {
     handleGetDeviceSigResponse();
