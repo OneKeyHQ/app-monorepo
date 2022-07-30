@@ -1,6 +1,6 @@
 import { FC, useMemo } from 'react';
 
-import { FormattedNumber, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -22,8 +22,9 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
+import { FormatCurrencyNumber } from '../../../components/Format';
 import { useManageTokens, useNavigation } from '../../../hooks';
-import { useActiveWalletAccount, useSettings } from '../../../hooks/redux';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import { getSummedValues } from '../../../utils/priceUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -42,7 +43,6 @@ const ListHeader: FC = () => {
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
-  const { selectedFiatMoneySymbol } = useSettings();
 
   const { accountTokens, balances, prices } = useManageTokens();
 
@@ -58,17 +58,11 @@ const ListHeader: FC = () => {
         {Number.isNaN(displayValue) ? (
           ' '
         ) : (
-          <FormattedNumber
-            value={displayValue}
-            currencyDisplay="narrowSymbol"
-            // eslint-disable-next-line react/style-prop-object
-            style="currency"
-            currency={selectedFiatMoneySymbol}
-          />
+          <FormatCurrencyNumber value={displayValue} />
         )}
       </Text>
     );
-  }, [accountTokens, balances, prices, selectedFiatMoneySymbol]);
+  }, [accountTokens, balances, prices]);
 
   return (
     <Pressable.Item

@@ -1,7 +1,6 @@
 import { FC } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { FormattedNumber } from 'react-intl';
 
 import {
   Box,
@@ -14,12 +13,12 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import {
-  useActiveWalletAccount,
-  useSettings,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
-import { FormatBalance } from '../../../components/Format';
+import {
+  FormatBalance,
+  FormatCurrencyNumber,
+} from '../../../components/Format';
 import { useManageTokens } from '../../../hooks';
 import { calculateGains } from '../../../utils/priceUtils';
 
@@ -60,7 +59,6 @@ const TokenCell: FC<TokenCellProps> = ({
     tokenValue = new BigNumber(balance).times(price).toNumber();
   }
 
-  const { selectedFiatMoneySymbol } = useSettings();
   const { gain, percentageGain } = calculateGains({
     basePrice,
     price,
@@ -120,13 +118,7 @@ const TokenCell: FC<TokenCellProps> = ({
           <Box flexDirection="column" flex={1} alignItems="flex-end">
             {price !== undefined ? (
               <Typography.Body2Strong>
-                <FormattedNumber
-                  value={price}
-                  currencyDisplay="narrowSymbol"
-                  // eslint-disable-next-line react/style-prop-object
-                  style="currency"
-                  currency={selectedFiatMoneySymbol}
-                />
+                <FormatCurrencyNumber value={price} />
               </Typography.Body2Strong>
             ) : (
               <Skeleton shape="Body2" />
@@ -137,13 +129,7 @@ const TokenCell: FC<TokenCellProps> = ({
           {tokenValue !== undefined ? (
             <>
               <Typography.Body2Strong>
-                <FormattedNumber
-                  value={tokenValue}
-                  currencyDisplay="narrowSymbol"
-                  // eslint-disable-next-line react/style-prop-object
-                  style="currency"
-                  currency={selectedFiatMoneySymbol}
-                />
+                <FormatCurrencyNumber value={tokenValue} />
               </Typography.Body2Strong>
               <Box
                 mt="4px"

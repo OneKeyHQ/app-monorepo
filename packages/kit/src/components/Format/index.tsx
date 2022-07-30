@@ -3,6 +3,7 @@ import React, { FC, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
+import { FormattedNumber } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
 import {
@@ -13,6 +14,7 @@ import {
 
 import { useManageTokens } from '../../hooks';
 import { Token } from '../../store/typings';
+import { getSuggestedDecimals } from '../../utils/priceUtils';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */
@@ -294,6 +296,33 @@ export function FormatBalanceToken({
           </Text>
         ))
       }
+    />
+  );
+}
+
+export function FormatCurrencyNumber({
+  decimals,
+  value,
+}: {
+  value: number | BigNumber;
+  decimals?: number;
+}) {
+  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+  const map = useAppSelector((s) => s.fiatMoney.map);
+  const fiat = map[selectedFiatMoneySymbol];
+  const maxDecimals =
+    decimals ??
+    getSuggestedDecimals(value instanceof BigNumber ? value.toNumber() : value);
+
+  return (
+    <FormattedNumber
+      value={new BigNumber(fiat).multipliedBy(value).toNumber()}
+      currencyDisplay="narrowSymbol"
+      // eslint-disable-next-line react/style-prop-object
+      style="currency"
+      minimumFractionDigits={2}
+      maximumFractionDigits={maxDecimals}
+      currency={selectedFiatMoneySymbol}
     />
   );
 }
