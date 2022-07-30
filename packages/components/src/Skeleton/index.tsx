@@ -47,7 +47,8 @@ type SkeletonProps = {
     | 'DisplayMedium'
     | 'PageHeading'
     | 'DisplayLarge'
-    | 'DisplayXLarge';
+    | 'DisplayXLarge'
+    | 'Display2XLarge';
 } & IContentLoaderProps;
 
 const defaultProps = {
