@@ -52,7 +52,7 @@ const TokenCell: FC<TokenCellProps> = ({
   let price;
   let basePrice;
   let tokenValue;
-  if (chart.length > 1) {
+  if (chart.length > 0) {
     // eslint-disable-next-line prefer-destructuring
     basePrice = chart[0][1];
     // eslint-disable-next-line prefer-destructuring
