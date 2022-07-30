@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 
@@ -81,6 +82,7 @@ export default function BottomTabBar({
               alignItems="center"
               px={0.5}
               py={1.5}
+              disabled={isFABOpen}
               onPress={isFABOpen ? undefined : onPress}
               _hover={{ bg: 'surface-hovered' }}
               rounded="xl"
@@ -99,7 +101,13 @@ export default function BottomTabBar({
               <Icon
                 // @ts-expect-error
                 name={options?.tabBarIcon?.() as ICON_NAMES}
-                color={isActive && !isFABOpen ? 'icon-pressed' : 'icon-subdued'}
+                color={
+                  isFABOpen
+                    ? 'icon-disabled'
+                    : isActive
+                    ? 'icon-pressed'
+                    : 'icon-subdued'
+                }
                 size={28}
               />
             </Pressable>
