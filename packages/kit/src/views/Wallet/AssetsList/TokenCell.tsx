@@ -60,7 +60,7 @@ const TokenCell: FC<TokenCellProps> = ({
     tokenValue = new BigNumber(balance).times(price).toNumber();
   }
 
-  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+  const { selectedFiatMoneySymbol } = useSettings();
   const { gain, percentageGain } = calculateGains({
     basePrice,
     price,
@@ -97,7 +97,7 @@ const TokenCell: FC<TokenCellProps> = ({
     >
       <Box w="100%" flexDirection="row" alignItems="center">
         <Token size={8} src={token.logoURI} />
-        <Box mx={3} flexDirection="column" flex={1}>
+        <Box ml="12px" flexDirection="column" flex={1}>
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {token.name}
           </Text>
@@ -117,7 +117,7 @@ const TokenCell: FC<TokenCellProps> = ({
           )}
         </Box>
         {!isVerticalLayout && !hidePriceInfo && (
-          <Box mx={3} flexDirection="column" flex={1} alignItems="flex-end">
+          <Box flexDirection="column" flex={1} alignItems="flex-end">
             {price !== undefined ? (
               <Typography.Body2Strong>
                 <FormattedNumber

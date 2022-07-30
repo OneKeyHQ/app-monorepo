@@ -1,6 +1,6 @@
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
+import { FormattedNumber, useIntl } from 'react-intl';
 
 import {
   Box,
@@ -22,7 +22,9 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
-import { useNavigation } from '../../../hooks';
+import { useManageTokens, useNavigation } from '../../../hooks';
+import { useSettings } from '../../../hooks/redux';
+import { getSummedValues } from '../../../utils/priceUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -34,11 +36,35 @@ type NavigationProps = NativeStackNavigationProp<
 
 const ListHeader: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  // const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
   const isVerticalLayout = useIsVerticalLayout();
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
+  const gapWidth = isVerticalLayout ? '12px' : '20px';
+  const { selectedFiatMoneySymbol } = useSettings();
+
+  const { accountTokens, balances, prices } = useManageTokens();
+
+  const summedValue = useMemo(
+    () => (
+      <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
+        <FormattedNumber
+          value={getSummedValues({
+            tokens: accountTokens,
+            balances,
+            prices,
+          }).toNumber()}
+          currencyDisplay="narrowSymbol"
+          // eslint-disable-next-line react/style-prop-object
+          style="currency"
+          currency={selectedFiatMoneySymbol}
+        />
+      </Text>
+    ),
+    [accountTokens, balances, prices, selectedFiatMoneySymbol],
+  );
+
   return (
     <Pressable.Item
       p={4}
@@ -48,100 +74,73 @@ const ListHeader: FC = () => {
       borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
       disabled
       // onPress={onPress}
+      flexDirection="column"
     >
-      <Box w="100%" flexDirection="row" alignItems="center">
-        <Box flexDirection="row" alignItems="center">
-          <Box
-            w={iconOuterWidth}
-            h={iconOuterWidth}
-            borderRadius="50%"
-            bg="decorative-icon-one"
-            justifyContent="center"
-            alignItems="center"
-            mr={isVerticalLayout ? '8px' : '12px'}
-          >
-            {/* <Box w="12px" h="12px"> */}
-            <Icon
-              size={iconInnerWidth}
-              color="icon-on-primary"
-              name="DatabaseOutline"
-            />
-            {/* </Box> */}
-          </Box>
-          <Text typography={{ sm: 'Body1Strong', md: 'Heading' }}>
-            {intl.formatMessage({
-              id: 'asset__tokens',
-            })}
-          </Text>
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <Box
+          w={iconOuterWidth}
+          h={iconOuterWidth}
+          borderRadius="50%"
+          bg="decorative-icon-one"
+          justifyContent="center"
+          alignItems="center"
+          mr={isVerticalLayout ? '8px' : '12px'}
+        >
+          <Icon
+            size={iconInnerWidth}
+            color="icon-on-primary"
+            name="DatabaseOutline"
+          />
         </Box>
-
-        {/* <Token size={8} src={token.logoURI} />
-        <Box mx={3} flexDirection="column" flex={1}>
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            {token.name}
-          </Text>
-          {balance ? (
-            <FormatBalance
-              balance={balance}
-              suffix={token.symbol}
-              formatOptions={{
-                fixed: decimal ?? 4,
-              }}
-              render={(ele) => (
-                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
-              )}
+        <Text typography={{ sm: 'Body1Strong', md: 'Heading' }}>
+          {intl.formatMessage({
+            id: 'asset__tokens',
+          })}
+        </Text>
+        {!isVerticalLayout && (
+          <Box flexDirection="row" alignItems="center">
+            <Box
+              mx="8px"
+              my="auto"
+              w="4px"
+              h="4px"
+              borderRadius="50%"
+              bg="text-default"
             />
-          ) : (
-            <Skeleton shape={isVerticalLayout ? 'Body1' : 'Body2'} />
-          )}
-        </Box>
-        {!isVerticalLayout && !hidePriceInfo && (
-          <Box mx={3} flexDirection="column" flex={1}>
-            {price !== undefined ? (
-              <Typography.Body2Strong textAlign="right">
-                <FormattedNumber
-                  value={price}
-                  currencyDisplay="narrowSymbol"
-                  // eslint-disable-next-line react/style-prop-object
-                  style="currency"
-                  currency={selectedFiatMoneySymbol}
-                />
-              </Typography.Body2Strong>
-            ) : (
-              <Skeleton shape="Body2" />
-            )}
+            {summedValue}
           </Box>
         )}
-        <Box mx={3} flexDirection="column" flex={1}>
-          {tokenValue !== undefined ? (
-            <Box alignSelf="flex-end">
-              <Typography.Body2Strong textAlign="right">
-                <FormattedNumber
-                  value={tokenValue}
-                  currencyDisplay="narrowSymbol"
-                  // eslint-disable-next-line react/style-prop-object
-                  style="currency"
-                  currency={selectedFiatMoneySymbol}
-                />
-              </Typography.Body2Strong>
-              <Box
-                mt="4px"
-                bg={gainTextBg}
-                px="6px"
-                py="2px"
-                borderRadius="6px"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <Typography.CaptionStrong color={gainTextColor}>
-                  {percentageGain}
-                </Typography.CaptionStrong>
-              </Box>
-            </Box>
-          ) : (
-            <Skeleton shape="Body2" />
-          )}
-        </Box> */}
+        <Box ml="auto">{/* TODO token count */}</Box>
+      </Box>
+      <Box mt={isVerticalLayout ? '8px' : '16px'}>
+        {isVerticalLayout ? (
+          summedValue
+        ) : (
+          <Box flexDirection="row" w="full">
+            <Typography.Subheading color="text-subdued" flex={1}>
+              {intl.formatMessage({ id: 'title__assets' })}
+            </Typography.Subheading>
+            <Typography.Subheading
+              ml="44px"
+              color="text-subdued"
+              flex={1}
+              textAlign="right"
+            >
+              {intl.formatMessage({ id: 'content__price_uppercase' })}
+            </Typography.Subheading>
+            <Typography.Subheading
+              color="text-subdued"
+              flex={1}
+              textAlign="right"
+            >
+              {intl.formatMessage({ id: 'form__value' })}
+            </Typography.Subheading>
+          </Box>
+        )}
       </Box>
     </Pressable.Item>
   );
