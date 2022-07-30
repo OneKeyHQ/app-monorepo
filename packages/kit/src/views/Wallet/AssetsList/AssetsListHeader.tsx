@@ -23,7 +23,7 @@ import {
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
 import { useManageTokens, useNavigation } from '../../../hooks';
-import { useSettings } from '../../../hooks/redux';
+import { useActiveWalletAccount, useSettings } from '../../../hooks/redux';
 import { getSummedValues } from '../../../utils/priceUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -154,6 +154,8 @@ const ListHeader: FC = () => {
 const AssetsListHeader: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const { network } = useActiveWalletAccount();
+  const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
   return (
     <>
       <Box
@@ -165,7 +167,7 @@ const AssetsListHeader: FC = () => {
         <Typography.Heading>
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
-        <Box flexDirection="row">
+        {tokenEnabled && (
           <IconButton
             onPress={() =>
               navigation.navigate(RootRoutes.Modal, {
@@ -182,7 +184,7 @@ const AssetsListHeader: FC = () => {
               {intl.formatMessage({ id: 'title__settings' })}
             </Typography.Button2>
           </IconButton>
-        </Box>
+        )}
       </Box>
       <ListHeader />
       <Divider />
