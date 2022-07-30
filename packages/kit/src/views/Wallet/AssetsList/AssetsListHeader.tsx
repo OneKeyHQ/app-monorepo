@@ -41,7 +41,7 @@ const ListHeader: FC = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
-  const gapWidth = isVerticalLayout ? '12px' : '20px';
+  const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
   const { selectedFiatMoneySymbol } = useSettings();
 
   const { accountTokens, balances, prices } = useManageTokens();
@@ -84,7 +84,7 @@ const ListHeader: FC = () => {
         <Box
           w={iconOuterWidth}
           h={iconOuterWidth}
-          borderRadius="50%"
+          borderRadius={iconBorderRadius}
           bg="decorative-icon-one"
           justifyContent="center"
           alignItems="center"
@@ -108,7 +108,7 @@ const ListHeader: FC = () => {
               my="auto"
               w="4px"
               h="4px"
-              borderRadius="50%"
+              borderRadius="2px"
               bg="text-default"
             />
             {summedValue}
