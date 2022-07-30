@@ -12,12 +12,7 @@ import React, {
 import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
 import { ColorType } from 'native-base/lib/typescript/components/types';
-import {
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
 import { GestureResponderEvent } from 'react-native-modal';
 
 import Box from '../Box';
@@ -37,10 +32,9 @@ export interface CloseButtonProps {
 }
 
 export function CloseButton({ onClose }: CloseButtonProps) {
-  const { width, height } = useWindowDimensions();
   return (
     <TouchableWithoutFeedback onPress={onClose}>
-      <View style={{ width, height, ...StyleSheet.absoluteFillObject }} />
+      <View style={StyleSheet.absoluteFill} />
     </TouchableWithoutFeedback>
   );
 }
