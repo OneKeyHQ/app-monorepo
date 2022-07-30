@@ -46,24 +46,29 @@ const ListHeader: FC = () => {
 
   const { accountTokens, balances, prices } = useManageTokens();
 
-  const summedValue = useMemo(
-    () => (
+  const summedValue = useMemo(() => {
+    const displayValue = getSummedValues({
+      tokens: accountTokens,
+      balances,
+      prices,
+    }).toNumber();
+
+    return (
       <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-        <FormattedNumber
-          value={getSummedValues({
-            tokens: accountTokens,
-            balances,
-            prices,
-          }).toNumber()}
-          currencyDisplay="narrowSymbol"
-          // eslint-disable-next-line react/style-prop-object
-          style="currency"
-          currency={selectedFiatMoneySymbol}
-        />
+        {Number.isNaN(displayValue) ? (
+          ' '
+        ) : (
+          <FormattedNumber
+            value={displayValue}
+            currencyDisplay="narrowSymbol"
+            // eslint-disable-next-line react/style-prop-object
+            style="currency"
+            currency={selectedFiatMoneySymbol}
+          />
+        )}
       </Text>
-    ),
-    [accountTokens, balances, prices, selectedFiatMoneySymbol],
-  );
+    );
+  }, [accountTokens, balances, prices, selectedFiatMoneySymbol]);
 
   return (
     <Pressable.Item
