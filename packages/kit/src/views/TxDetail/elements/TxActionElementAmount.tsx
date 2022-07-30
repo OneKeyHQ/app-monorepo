@@ -1,5 +1,6 @@
 import React, { ComponentProps, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { Text } from '@onekeyhq/components';
@@ -32,8 +33,10 @@ export function TxActionElementAmount(props: ITxActionAmountProps) {
     };
   }, [direction]);
 
+  const amountBN = useMemo(() => new BigNumber(amount), [amount]);
+
   const amountText = useMemo((): string => {
-    if (!isNil(decimals)) {
+    if (!isNil(decimals) && !amountBN.isNaN()) {
       return (
         formatBalanceDisplay(amount, '', {
           fixed: decimals,
@@ -41,7 +44,7 @@ export function TxActionElementAmount(props: ITxActionAmountProps) {
       );
     }
     return amount;
-  }, [amount, decimals]);
+  }, [amount, amountBN, decimals]);
 
   const content = (
     <Text color={directionMeta.color} {...others}>

@@ -158,8 +158,11 @@ class ProviderApiStarcoin extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    const { networkId } = getActiveWalletAccount();
+    const { networkId, networkImpl } = getActiveWalletAccount();
 
+    if (networkImpl !== IMPL_STC) {
+      return;
+    }
     debugLogger.ethereum.info('BgApi rpcCall:', request, { networkId });
 
     // TODO error if networkId empty, or networkImpl not EVM

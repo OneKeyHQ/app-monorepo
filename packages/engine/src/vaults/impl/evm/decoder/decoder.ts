@@ -159,72 +159,77 @@ class EVMTxDecoder {
       | EVMDecodedItemERC20Approve
       | null = null;
 
+    // erc20 or erc721
     if (itemBuilder.protocol === 'erc20') {
       const token = await this.engine.findToken({
         networkId,
         tokenIdOnNetwork: itemBuilder.toAddress,
       });
-      if (!token) {
-        throw new Error(`Token ${itemBuilder.toAddress} not found`);
+      // erc20 Token
+      if (token) {
+        switch (txType) {
+          case EVMDecodedTxType.TOKEN_TRANSFER: {
+            let from = tx.from?.toLowerCase() || '';
+            let recipient = tx.to?.toLowerCase() || '';
+            let value = ethers.BigNumber.from(0);
+
+            // Function:  transfer(address _to, uint256 _value)
+            if (txDesc?.name === 'transfer') {
+              from = tx.from?.toLowerCase() || '';
+              recipient = (txDesc?.args[0] as string).toLowerCase();
+              value = txDesc?.args[1] as ethers.BigNumber;
+            }
+
+            // Function:  transferFrom(address from, address to, uint256 value)
+            if (txDesc?.name === 'transferFrom') {
+              from = (txDesc?.args[0] as string).toLowerCase();
+              recipient = (txDesc?.args[1] as string).toLowerCase();
+              value = txDesc?.args[2] as ethers.BigNumber;
+            }
+
+            const amount = EVMTxDecoder.formatValue(value, token.decimals);
+            infoBuilder = {
+              type: EVMDecodedTxType.TOKEN_TRANSFER,
+              value: value.toString(),
+              amount,
+              from,
+              recipient,
+              token,
+            } as EVMDecodedItemERC20Transfer;
+            if (
+              (await vault?.fixAddressCase(infoBuilder.recipient)) ===
+              (await vault?.fixAddressCase(accountAddress || ''))
+            ) {
+              itemBuilder.fromType = 'IN';
+            }
+            break;
+          }
+          case EVMDecodedTxType.TOKEN_APPROVE: {
+            // Function:  approve(address _spender, uint256 _value)
+            const spender = (txDesc?.args[0] as string).toLowerCase();
+            const value = txDesc?.args[1] as ethers.BigNumber;
+            const amount = EVMTxDecoder.formatValue(value, token.decimals);
+            infoBuilder = {
+              type: EVMDecodedTxType.TOKEN_APPROVE,
+              spender,
+              amount,
+              value: value.toString(),
+              token,
+              isUInt256Max: amount === InfiniteAmountText,
+            } as EVMDecodedItemERC20Approve;
+            break;
+          }
+          default: {
+            // TODO: handle others erc20 tx
+            break;
+          }
+        }
+        itemBuilder.info = infoBuilder;
+      } else {
+        // Maybe erc721, fallback to contract call type
+        itemBuilder.protocol = 'erc721';
+        itemBuilder.txType = EVMDecodedTxType.ERC721_TRANSFER;
       }
-      switch (txType) {
-        case EVMDecodedTxType.TOKEN_TRANSFER: {
-          let from = tx.from?.toLowerCase() || '';
-          let recipient = tx.to?.toLowerCase() || '';
-          let value = ethers.BigNumber.from(0);
-
-          // Function:  transfer(address _to, uint256 _value)
-          if (txDesc?.name === 'transfer') {
-            from = tx.from?.toLowerCase() || '';
-            recipient = (txDesc?.args[0] as string).toLowerCase();
-            value = txDesc?.args[1] as ethers.BigNumber;
-          }
-
-          // Function:  transferFrom(address from, address to, uint256 value)
-          if (txDesc?.name === 'transferFrom') {
-            from = (txDesc?.args[0] as string).toLowerCase();
-            recipient = (txDesc?.args[1] as string).toLowerCase();
-            value = txDesc?.args[2] as ethers.BigNumber;
-          }
-
-          const amount = EVMTxDecoder.formatValue(value, token.decimals);
-          infoBuilder = {
-            type: EVMDecodedTxType.TOKEN_TRANSFER,
-            value: value.toString(),
-            amount,
-            from,
-            recipient,
-            token,
-          } as EVMDecodedItemERC20Transfer;
-          if (
-            (await vault?.fixAddressCase(infoBuilder.recipient)) ===
-            (await vault?.fixAddressCase(accountAddress || ''))
-          ) {
-            itemBuilder.fromType = 'IN';
-          }
-          break;
-        }
-        case EVMDecodedTxType.TOKEN_APPROVE: {
-          // Function:  approve(address _spender, uint256 _value)
-          const spender = (txDesc?.args[0] as string).toLowerCase();
-          const value = txDesc?.args[1] as ethers.BigNumber;
-          const amount = EVMTxDecoder.formatValue(value, token.decimals);
-          infoBuilder = {
-            type: EVMDecodedTxType.TOKEN_APPROVE,
-            spender,
-            amount,
-            value: value.toString(),
-            token,
-            isUInt256Max: amount === InfiniteAmountText,
-          } as EVMDecodedItemERC20Approve;
-          break;
-        }
-        default: {
-          // TODO: handle others erc20 tx
-          break;
-        }
-      }
-      itemBuilder.info = infoBuilder;
     }
 
     return itemBuilder;
