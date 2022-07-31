@@ -181,8 +181,8 @@ const Home: FC = () => {
         // @ts-ignore fix type when remove react-native-collapsible-tab-view
         refreshing={refreshing}
         onRefresh={async () => {
+          setRefreshing(true);
           if (account.id && network?.id) {
-            setRefreshing(true);
             await backgroundApiProxy.serviceToken.fetchAccountTokens({
               activeAccountId: account.id,
               activeNetworkId: network.id,
@@ -190,8 +190,8 @@ const Home: FC = () => {
               withPrice: true,
               wait: true,
             });
-            setRefreshing(false);
           }
+          setTimeout(() => setRefreshing(false), 10);
         }}
         onTabChange={({ tabName }) => {
           backgroundApiProxy.dispatch(setHomeTabName(tabName));
