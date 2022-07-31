@@ -11,8 +11,17 @@ export function calculateGains({
   basePrice?: number;
   price?: number;
 }) {
+  let gainTextColor = 'text-subdued';
+  let gainTextBg = 'surface-neutral-subdued';
   if (!basePrice || !price) {
-    return { gain: null, percentageGain: null, isPositive: false };
+    return {
+      gain: 0,
+      gainText: '0.00',
+      percentageGain: '0.00%',
+      isPositive: false,
+      gainTextColor,
+      gainTextBg,
+    };
   }
   const gain = price - basePrice;
   const isPositive = gain > 0;
@@ -24,15 +33,13 @@ export function calculateGains({
     ? `+${percentageGain.toFixed(2)}%`
     : `${percentageGain.toFixed(2)}%`;
 
-  let gainTextColor = 'text-success';
-  let gainTextBg = 'surface-success-subdued';
   if (typeof gain === 'number') {
-    if (percentageGain === '0.00%') {
-      gainTextColor = 'text-subdued';
-      gainTextBg = 'surface-neutral-subdued';
-    } else if (gain < 0) {
+    if (gain < 0) {
       gainTextColor = 'text-critical';
       gainTextBg = 'surface-critical-subdued';
+    } else if (gain > 0) {
+      gainTextColor = 'text-success';
+      gainTextBg = 'surface-success-subdued';
     }
   }
 
