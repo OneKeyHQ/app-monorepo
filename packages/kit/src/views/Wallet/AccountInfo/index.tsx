@@ -39,7 +39,7 @@ import {
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
-import { getSummedValues } from '../../../utils/priceUtils';
+import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -53,9 +53,9 @@ const AccountAmountInfo: FC = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { account, network: activeNetwork, wallet } = useActiveWalletAccount();
+  const { account, wallet } = useActiveWalletAccount();
 
-  const { accountTokens, prices, balances } = useManageTokens({
+  const { accountTokens, prices, balances, charts } = useManageTokens({
     pollingInterval: 15000,
   });
 
@@ -70,21 +70,59 @@ const AccountAmountInfo: FC = () => {
     [toast, intl],
   );
 
-  const summedValue = useMemo(() => {
+  const [summedValue, summedValueComp] = useMemo(() => {
     const displayValue = getSummedValues({
       tokens: accountTokens,
       balances,
       prices,
     }).toNumber();
 
-    return Number.isNaN(displayValue) ? (
-      <Skeleton shape="DisplayXLarge" />
-    ) : (
-      <Typography.Display2XLarge>
-        <FormatCurrencyNumber value={displayValue} />
-      </Typography.Display2XLarge>
-    );
+    return [
+      displayValue,
+      Number.isNaN(displayValue) ? (
+        <Skeleton shape="DisplayXLarge" />
+      ) : (
+        <Typography.Display2XLarge>
+          <FormatCurrencyNumber value={displayValue} />
+        </Typography.Display2XLarge>
+      ),
+    ];
   }, [accountTokens, balances, prices]);
+
+  const changedValueComp = useMemo(() => {
+    const basePrices: Record<string, number> = {};
+    accountTokens.forEach((token) => {
+      const tokenId = token.tokenIdOnNetwork || 'main';
+      const balance = balances[tokenId];
+      if (typeof balance !== 'undefined') {
+        basePrices[tokenId] = charts[tokenId][0][1] ?? 0;
+      }
+    });
+    const displayBaseValue = getSummedValues({
+      tokens: accountTokens,
+      balances,
+      prices: basePrices,
+    }).toNumber();
+
+    const { gain, percentageGain, gainTextColor } = calculateGains({
+      basePrice: displayBaseValue,
+      price: summedValue,
+    });
+
+    return Number.isNaN(displayBaseValue) ? (
+      <Skeleton shape="Body1" />
+    ) : (
+      <>
+        <Typography.Body1Strong color={gainTextColor} mr="4px">
+          {percentageGain}
+        </Typography.Body1Strong>
+        <Typography.Body1Strong color="text-subdued">
+          (<FormatCurrencyNumber onlyNumber value={gain} decimals={2} />){' '}
+          {intl.formatMessage({ id: 'content__today' })}
+        </Typography.Body1Strong>
+      </>
+    );
+  }, [accountTokens, balances, charts, intl, summedValue]);
 
   return (
     <Box alignItems="flex-start">
@@ -118,22 +156,11 @@ const AccountAmountInfo: FC = () => {
         <Icon name="DuplicateOutline" size={16} />
       </Pressable>
       <Box flexDirection="row" mt={2}>
-        {summedValue}
+        {summedValueComp}
       </Box>
-      {prices.main && balances.main ? (
-        <FormatCurrency
-          numbers={[
-            prices?.main,
-            balances.main,
-            !balances.main ? undefined : 1,
-          ]}
-          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
-        />
-      ) : (
-        <Box mt={1}>
-          <Skeleton shape="Body2" />
-        </Box>
-      )}
+      <Box flexDirection="row" mt={4}>
+        {changedValueComp}
+      </Box>
     </Box>
   );
 };

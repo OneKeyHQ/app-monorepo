@@ -24,7 +24,26 @@ export function calculateGains({
     ? `+${percentageGain.toFixed(2)}%`
     : `${percentageGain.toFixed(2)}%`;
 
-  return { gain, gainText, percentageGain, isPositive };
+  let gainTextColor = 'text-success';
+  let gainTextBg = 'surface-success-subdued';
+  if (typeof gain === 'number') {
+    if (percentageGain === '0.00%') {
+      gainTextColor = 'text-subdued';
+      gainTextBg = 'surface-neutral-subdued';
+    } else if (gain < 0) {
+      gainTextColor = 'text-critical';
+      gainTextBg = 'surface-critical-subdued';
+    }
+  }
+
+  return {
+    gain,
+    gainText,
+    gainTextColor,
+    gainTextBg,
+    percentageGain,
+    isPositive,
+  };
 }
 
 export function getSuggestedDecimals(price: number) {
@@ -39,7 +58,7 @@ export function getTokenValues({
   balances,
 }: {
   tokens: Token[];
-  prices: Record<string, string>;
+  prices: Record<string, string | number>;
   balances: Record<string, TokenBalanceValue>;
 }) {
   return tokens.map((token) => {
@@ -59,7 +78,7 @@ export function getSummedValues({
   balances,
 }: {
   tokens: Token[];
-  prices: Record<string, string>;
+  prices: Record<string, string | number>;
   balances: Record<string, TokenBalanceValue>;
 }) {
   return getTokenValues({ tokens, prices, balances }).reduce(
