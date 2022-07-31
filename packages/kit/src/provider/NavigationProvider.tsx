@@ -9,7 +9,12 @@ import {
 import { createURL } from 'expo-linking';
 import { Host } from 'react-native-portalize';
 
-import { Box, DialogManager, useThemeValue } from '@onekeyhq/components';
+import {
+  Box,
+  DialogManager,
+  useIsVerticalLayout,
+  useThemeValue,
+} from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import RootStack from '@onekeyhq/kit/src/routes/Root';
@@ -55,24 +60,32 @@ if (platformEnv.isExtFirefox) {
 const NavigationApp = () => {
   useAutoNavigateOnMount();
   const routeNameRef = useRef<string>();
+  const isVerticalLayout = useIsVerticalLayout();
   const [bgColor, textColor, dividerColor] = useThemeValue([
     'surface-subdued',
     'text-default',
     'divider',
   ]);
 
+  /**
+   * native-android & vertical layout web or ext
+   */
+  const showFixedBg =
+    platformEnv.isNativeAndroid ||
+    (isVerticalLayout && (platformEnv.isWeb || platformEnv.isExtension));
+
   const navigationTheme = useMemo(
     () => ({
       ...DefaultTheme,
       colors: {
         ...DefaultTheme.colors,
-        background: platformEnv.isNativeAndroid ? bgColor : 'transparent',
+        background: showFixedBg ? bgColor : 'transparent',
         card: bgColor,
         text: textColor,
         border: dividerColor,
       },
     }),
-    [bgColor, textColor, dividerColor],
+    [bgColor, textColor, dividerColor, showFixedBg],
   );
 
   const { instanceId } = useSettings();

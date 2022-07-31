@@ -10,10 +10,10 @@ import {
   Divider,
   Empty,
   Modal,
-  NetImage,
   Pressable,
   Searchbar,
   Text,
+  Token as TokenImage,
 } from '@onekeyhq/components';
 import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -140,13 +140,7 @@ export const SupportTokenList: FC = () => {
         }}
       >
         <Box flexDirection="row" alignItems="center">
-          <NetImage
-            src={item.logoURI}
-            width={32}
-            height={32}
-            borderRadius={16}
-            bgColor="icon-default"
-          />
+          <TokenImage size={8} src={item.logoURI} />
           <Text typography="Body1Strong" ml="12px">
             {item.symbol}
           </Text>
