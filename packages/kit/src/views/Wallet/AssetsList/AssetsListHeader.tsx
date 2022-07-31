@@ -4,9 +4,9 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Divider,
   Icon,
-  IconButton,
   Pressable,
   Text,
   Typography,
@@ -163,7 +163,7 @@ const AssetsListHeader: FC = () => {
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
         {tokenEnabled && (
-          <IconButton
+          <Button
             onPress={() =>
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.ManageToken,
@@ -171,14 +171,14 @@ const AssetsListHeader: FC = () => {
               })
             }
             size="sm"
-            name="CogSolid"
+            leftIconName="CogSolid"
             type="plain"
-            circle
+            mr={-3}
           >
             <Typography.Button2>
               {intl.formatMessage({ id: 'title__settings' })}
             </Typography.Button2>
-          </IconButton>
+          </Button>
         )}
       </Box>
       <ListHeader />
