@@ -1,4 +1,4 @@
-import { Children, FC, Fragment, ReactChild, ReactNode } from 'react';
+import { Children, FC, Fragment } from 'react';
 
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
@@ -12,20 +12,12 @@ import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
-export type HomePageProps = {
-  refresh?: boolean;
-  disableRefresh?: boolean;
-  headerHeight: number;
-  renderHeader?: () => ReactNode | undefined;
-  children: ReactChild;
-  onTabChange?: (options: { tabName: string; index: number | string }) => void;
-  onIndexChange?: (index: number | string) => void;
-  onRefresh?: (refresh: boolean) => void;
-};
+import { ContainerProps } from './types';
 
 // TODO: Compatible with the pad
-const Container: FC<HomePageProps> = ({
-  refresh,
+const Container: FC<ContainerProps> = ({
+  disableRefresh,
+  refreshing,
   renderHeader,
   children,
   onTabChange,
@@ -60,8 +52,8 @@ const Container: FC<HomePageProps> = ({
       style={{
         flex: 1,
       }}
-      disableRefresh
-      refresh={refresh}
+      disableRefresh={disableRefresh}
+      refresh={refreshing}
       tabViewStyle={{
         height: 54,
         indicatorColor,
@@ -71,10 +63,9 @@ const Container: FC<HomePageProps> = ({
         labelColor,
         labelStyle: Body2StrongProps,
       }}
-      onRefreshCallBack={(e) => {
-        const currentRefresh = e.nativeEvent.refresh;
+      onRefreshCallBack={() => {
         setTimeout(() => {
-          onRefresh?.(currentRefresh);
+          onRefresh?.();
         }, 0);
       }}
       onChange={(e) => {

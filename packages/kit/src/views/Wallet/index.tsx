@@ -61,6 +61,8 @@ const Home: FC = () => {
   const [backupMap, updateBackMap] = useState<
     Record<string, boolean | undefined>
   >({});
+  const [refreshing, setRefreshing] = useState(false);
+
   const backupToast = useCallback(() => {
     if (wallet && !wallet?.backuped && backupMap[wallet?.id] === undefined) {
       return (
@@ -176,6 +178,21 @@ const Home: FC = () => {
     <>
       <Tabs.Container
         initialTabName={homeTabName}
+        // @ts-ignore fix type when remove react-native-collapsible-tab-view
+        refreshing={refreshing}
+        onRefresh={async () => {
+          if (account.id && network?.id) {
+            setRefreshing(true);
+            await backgroundApiProxy.serviceToken.fetchAccountTokens({
+              activeAccountId: account.id,
+              activeNetworkId: network.id,
+              withBalance: true,
+              withPrice: true,
+              wait: true,
+            });
+            setRefreshing(false);
+          }
+        }}
         onTabChange={({ tabName }) => {
           backgroundApiProxy.dispatch(setHomeTabName(tabName));
         }}

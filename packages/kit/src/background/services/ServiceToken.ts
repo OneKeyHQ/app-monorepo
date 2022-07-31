@@ -76,28 +76,38 @@ export default class ServiceToken extends ServiceBase {
     activeNetworkId,
     withBalance,
     withPrice,
+    wait,
   }: {
     activeAccountId: string;
     activeNetworkId: string;
     withBalance?: boolean;
     withPrice?: boolean;
+    wait?: boolean;
   }) {
     const { engine, dispatch } = this.backgroundApi;
     const tokens = await engine.getTokens(activeNetworkId, activeAccountId);
     dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
+    const waitPromises = [];
     if (withBalance) {
-      this.fetchTokenBalance({
-        activeAccountId,
-        activeNetworkId,
-        tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
-      });
+      waitPromises.push(
+        this.fetchTokenBalance({
+          activeAccountId,
+          activeNetworkId,
+          tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+        }),
+      );
     }
     if (withPrice) {
-      this.fetchPrices({
-        activeNetworkId,
-        activeAccountId,
-        tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
-      });
+      waitPromises.push(
+        this.fetchPrices({
+          activeNetworkId,
+          activeAccountId,
+          tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+        }),
+      );
+    }
+    if (wait) {
+      await Promise.all(waitPromises);
     }
     return tokens;
   }
