@@ -19,11 +19,7 @@ import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import {
-  FormatBalance,
-  FormatCurrency,
-  FormatCurrencyNumber,
-} from '@onekeyhq/kit/src/components/Format';
+import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';

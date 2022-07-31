@@ -59,7 +59,7 @@ const TokenCell: FC<TokenCellProps> = ({
     tokenValue = new BigNumber(balance).times(price).toNumber();
   }
 
-  const { gain, percentageGain, gainTextBg, gainTextColor } = calculateGains({
+  const { percentageGain, gainTextBg, gainTextColor } = calculateGains({
     basePrice,
     price,
   });
