@@ -304,11 +304,14 @@ export function FormatCurrencyNumber({
   decimals,
   value,
 }: {
-  value: number | BigNumber;
+  value: number | BigNumber | '' | null | undefined;
   decimals?: number;
 }) {
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const map = useAppSelector((s) => s.fiatMoney.map);
+  if (typeof value !== 'number' && !(value instanceof BigNumber)) {
+    return null;
+  }
   const fiat = map[selectedFiatMoneySymbol];
   const maxDecimals =
     decimals ??

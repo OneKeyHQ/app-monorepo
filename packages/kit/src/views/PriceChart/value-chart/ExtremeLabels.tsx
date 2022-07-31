@@ -3,6 +3,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useChartData } from '@onekeyfe/react-native-animated-charts';
 import { Text, View } from 'react-native';
 
+import { FormatCurrencyNumber } from '../../../components/Format';
+
 function trim(val: number) {
   return Math.min(Math.max(val, 0.05), 0.95);
 }
@@ -22,9 +24,7 @@ function formatNative(value: number | string) {
   } else {
     val = value;
   }
-  const decimals =
-    val < 1 ? Math.min(8, String(val).slice(2).slice().search(/[^0]/g) + 3) : 2;
-  return val.toFixed(decimals);
+  return val;
 }
 
 const CenteredLabel = ({
@@ -114,7 +114,7 @@ const ExtremeLabels = React.memo(
             }}
             width={width}
           >
-            {formatNative(smallestY.y)}
+            <FormatCurrencyNumber value={formatNative(smallestY.y)} />
           </CenteredLabel>
         ) : null}
         {positionMax ? (
@@ -126,7 +126,7 @@ const ExtremeLabels = React.memo(
             }}
             width={width}
           >
-            {formatNative(greatestY.y)}
+            <FormatCurrencyNumber value={formatNative(greatestY.y)} />
           </CenteredLabel>
         ) : null}
       </>
