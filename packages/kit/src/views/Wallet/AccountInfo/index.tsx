@@ -33,6 +33,7 @@ import {
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
+  TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import {
   SendRoutes,
@@ -179,7 +180,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="NavSendSolid"
+          name="ArrowUpSolid"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -212,7 +213,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="NavReceiveSolid"
+          name="ArrowDownSolid"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -235,6 +236,29 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           }
         >
           {intl.formatMessage({ id: 'action__receive' })}
+        </Typography.CaptionStrong>
+      </Box>
+      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="SwitchHorizontalSolid"
+          type="basic"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={() => {
+            navigation.getParent()?.navigate(TabRoutes.Swap);
+          }}
+        />
+        <Typography.CaptionStrong
+          textAlign="center"
+          mt="8px"
+          color={
+            wallet?.type === 'watching' || !account
+              ? 'text-disabled'
+              : 'text-default'
+          }
+        >
+          {intl.formatMessage({ id: 'title__swap' })}
         </Typography.CaptionStrong>
       </Box>
 
