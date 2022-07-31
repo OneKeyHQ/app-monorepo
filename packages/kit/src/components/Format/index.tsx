@@ -303,12 +303,17 @@ export function FormatBalanceToken({
 export function FormatCurrencyNumber({
   decimals,
   value,
+  onlyNumber,
 }: {
-  value: number | BigNumber;
+  value: number | BigNumber | '' | null | undefined;
   decimals?: number;
+  onlyNumber?: boolean;
 }) {
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const map = useAppSelector((s) => s.fiatMoney.map);
+  if (typeof value !== 'number' && !(value instanceof BigNumber)) {
+    return null;
+  }
   const fiat = map[selectedFiatMoneySymbol];
   const maxDecimals =
     decimals ??
@@ -319,7 +324,7 @@ export function FormatCurrencyNumber({
       value={new BigNumber(fiat).multipliedBy(value).toNumber()}
       currencyDisplay="narrowSymbol"
       // eslint-disable-next-line react/style-prop-object
-      style="currency"
+      style={onlyNumber ? 'decimal' : 'currency'}
       minimumFractionDigits={2}
       maximumFractionDigits={maxDecimals}
       currency={selectedFiatMoneySymbol}

@@ -19,11 +19,7 @@ import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import {
-  FormatBalance,
-  FormatCurrency,
-  FormatCurrencyNumber,
-} from '@onekeyhq/kit/src/components/Format';
+import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
@@ -33,13 +29,14 @@ import {
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
+  TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import {
   SendRoutes,
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
-import { getSummedValues } from '../../../utils/priceUtils';
+import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -53,9 +50,9 @@ const AccountAmountInfo: FC = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { account, network: activeNetwork, wallet } = useActiveWalletAccount();
+  const { account, wallet } = useActiveWalletAccount();
 
-  const { accountTokens, prices, balances } = useManageTokens({
+  const { accountTokens, prices, balances, charts } = useManageTokens({
     pollingInterval: 15000,
   });
 
@@ -70,21 +67,59 @@ const AccountAmountInfo: FC = () => {
     [toast, intl],
   );
 
-  const summedValue = useMemo(() => {
+  const [summedValue, summedValueComp] = useMemo(() => {
     const displayValue = getSummedValues({
       tokens: accountTokens,
       balances,
       prices,
     }).toNumber();
 
-    return Number.isNaN(displayValue) ? (
-      <Skeleton shape="DisplayXLarge" />
-    ) : (
-      <Typography.Display2XLarge>
-        <FormatCurrencyNumber value={displayValue} />
-      </Typography.Display2XLarge>
-    );
+    return [
+      displayValue,
+      Number.isNaN(displayValue) ? (
+        <Skeleton shape="DisplayXLarge" />
+      ) : (
+        <Typography.Display2XLarge>
+          <FormatCurrencyNumber value={displayValue} />
+        </Typography.Display2XLarge>
+      ),
+    ];
   }, [accountTokens, balances, prices]);
+
+  const changedValueComp = useMemo(() => {
+    const basePrices: Record<string, number> = {};
+    accountTokens.forEach((token) => {
+      const tokenId = token.tokenIdOnNetwork || 'main';
+      const balance = balances[tokenId];
+      if (typeof balance !== 'undefined') {
+        basePrices[tokenId] = charts[tokenId][0][1] ?? 0;
+      }
+    });
+    const displayBaseValue = getSummedValues({
+      tokens: accountTokens,
+      balances,
+      prices: basePrices,
+    }).toNumber();
+
+    const { gain, percentageGain, gainTextColor } = calculateGains({
+      basePrice: displayBaseValue,
+      price: summedValue,
+    });
+
+    return Number.isNaN(displayBaseValue) ? (
+      <Skeleton shape="Body1" />
+    ) : (
+      <>
+        <Typography.Body1Strong color={gainTextColor} mr="4px">
+          {percentageGain}
+        </Typography.Body1Strong>
+        <Typography.Body1Strong color="text-subdued">
+          (<FormatCurrencyNumber onlyNumber value={gain} decimals={2} />){' '}
+          {intl.formatMessage({ id: 'content__today' })}
+        </Typography.Body1Strong>
+      </>
+    );
+  }, [accountTokens, balances, charts, intl, summedValue]);
 
   return (
     <Box alignItems="flex-start">
@@ -118,22 +153,11 @@ const AccountAmountInfo: FC = () => {
         <Icon name="DuplicateOutline" size={16} />
       </Pressable>
       <Box flexDirection="row" mt={2}>
-        {summedValue}
+        {summedValueComp}
       </Box>
-      {prices.main && balances.main ? (
-        <FormatCurrency
-          numbers={[
-            prices?.main,
-            balances.main,
-            !balances.main ? undefined : 1,
-          ]}
-          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
-        />
-      ) : (
-        <Box mt={1}>
-          <Skeleton shape="Body2" />
-        </Box>
-      )}
+      <Box flexDirection="row" mt={4}>
+        {changedValueComp}
+      </Box>
     </Box>
   );
 };
@@ -152,7 +176,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="NavSendSolid"
+          name="ArrowUpSolid"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -185,7 +209,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="NavReceiveSolid"
+          name="ArrowDownSolid"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -208,6 +232,29 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           }
         >
           {intl.formatMessage({ id: 'action__receive' })}
+        </Typography.CaptionStrong>
+      </Box>
+      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="SwitchHorizontalSolid"
+          type="basic"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={() => {
+            navigation.getParent()?.navigate(TabRoutes.Swap);
+          }}
+        />
+        <Typography.CaptionStrong
+          textAlign="center"
+          mt="8px"
+          color={
+            wallet?.type === 'watching' || !account
+              ? 'text-disabled'
+              : 'text-default'
+          }
+        >
+          {intl.formatMessage({ id: 'title__swap' })}
         </Typography.CaptionStrong>
       </Box>
 

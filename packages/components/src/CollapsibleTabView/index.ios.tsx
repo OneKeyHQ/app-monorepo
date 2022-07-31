@@ -9,19 +9,12 @@ import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
+import { ContainerProps } from './types';
+
 const Context = createContext<string>('');
 
-type ContainerProps = {
-  refresh?: boolean;
-  disableRefresh?: boolean;
-  headerHeight: number;
-  initialTabName: string;
-  renderHeader?: () => React.ReactNode;
-  onTabChange?: (options: { tabName: string; index: number | string }) => void;
-  onIndexChange?: (index: number | string) => void;
-  onRefresh?: (refresh: boolean) => void;
-};
 const Container: FC<ContainerProps> = ({
+  disableRefresh,
   children,
   headerHeight,
   renderHeader,
@@ -29,8 +22,7 @@ const Container: FC<ContainerProps> = ({
   onIndexChange,
   initialTabName,
   onRefresh,
-  refresh,
-  disableRefresh = true,
+  refreshing,
 }) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
@@ -63,7 +55,7 @@ const Container: FC<ContainerProps> = ({
         values={tabs}
         defaultIndex={selectedIndex}
         disableRefresh={disableRefresh}
-        refresh={refresh}
+        refresh={refreshing}
         spinnerColor={spinnerColor}
         onChange={(e) => {
           onTabChange?.({
@@ -72,10 +64,9 @@ const Container: FC<ContainerProps> = ({
           });
           onIndexChange?.(e.nativeEvent.index);
         }}
-        onRefreshCallBack={(e) => {
-          const currentRefresh = e.nativeEvent.refresh;
+        onRefreshCallBack={() => {
           setTimeout(() => {
-            onRefresh?.(currentRefresh);
+            onRefresh?.();
           }, 0);
         }}
         headerHeight={headerHeight}

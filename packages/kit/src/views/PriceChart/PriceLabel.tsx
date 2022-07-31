@@ -18,7 +18,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
   const priceLabel = intl.formatMessage({
     id: 'content__price_uppercase',
   });
-  const { gainText, percentageGain, isPositive } = calculateGains({
+  const { gainText, percentageGain, gainTextColor } = calculateGains({
     basePrice,
     price,
   });
@@ -32,9 +32,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
         <FormatCurrencyNumber value={price} />
       </Typography.DisplayXLarge>
       <Box flexDirection="row">
-        <Typography.Body2Strong
-          color={isPositive ? 'text-success' : 'text-critical'}
-        >
+        <Typography.Body2Strong color={gainTextColor}>
           {gainText}({percentageGain})
         </Typography.Body2Strong>
         <Typography.Body2Strong color="text-subdued" ml="8px">
