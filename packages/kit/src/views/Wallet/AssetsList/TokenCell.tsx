@@ -59,22 +59,10 @@ const TokenCell: FC<TokenCellProps> = ({
     tokenValue = new BigNumber(balance).times(price).toNumber();
   }
 
-  const { gain, percentageGain } = calculateGains({
+  const { percentageGain, gainTextBg, gainTextColor } = calculateGains({
     basePrice,
     price,
   });
-
-  let gainTextColor = 'text-success';
-  let gainTextBg = 'surface-success-subdued';
-  if (typeof gain === 'number') {
-    if (percentageGain === '0.00%') {
-      gainTextColor = 'text-subdued';
-      gainTextBg = 'surface-neutral-subdued';
-    } else if (gain < 0) {
-      gainTextColor = 'text-critical';
-      gainTextBg = 'surface-critical-subdued';
-    }
-  }
 
   const decimal =
     tokenId === 'main'

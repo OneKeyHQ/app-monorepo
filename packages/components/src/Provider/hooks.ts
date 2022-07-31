@@ -74,7 +74,7 @@ export function useSafeAreaInsets() {
   const { size } = useUserDevice();
   const safeArea = useRNSafeAreaInsets();
   return useMemo(() => {
-    if (['SMALL', 'NORMAL'].includes(size)) {
+    if (['SMALL'].includes(size)) {
       return safeArea;
     }
     return Object.assign(safeArea, {
