@@ -165,7 +165,7 @@ const OnekeyHardwareHomescreen: FC = () => {
       <Box
         px={{ base: 4, md: 6 }}
         mb={{ base: `${bottom}px` }}
-        height="82px"
+        height={isSmallScreen ? '82px' : '70px'}
         alignItems="center"
         flexDir="row"
         justifyContent={isSmallScreen ? 'center' : 'flex-end'}
