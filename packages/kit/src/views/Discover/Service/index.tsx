@@ -5,16 +5,26 @@ import { RankingsPayload, SyncRequestPayload } from '../type';
 const host = 'https://dapp-server.onekey.so';
 // const host = 'https://dapp-test-server.onekey.so';
 
-const syncUri = (timestamp: number, locale: string) =>
-  `${host}/api/v1.0/sync/${locale.replace(/-/g, '_')}/${timestamp}`;
-
-const rankingsUri = () => `${host}/api/v1.0/rankings`;
-
 export const imageUrl = (id: string) =>
   `https://dapp-server.onekey.so/gallery/${id}`;
 
-export const requestSync = async (timestamp: number, locale: string) =>
-  axios.get<SyncRequestPayload>(syncUri(timestamp, locale));
+export async function requestSync(timestamp: number, locale: string) {
+  const apiUri = `${host}/api/v1.0/sync/${locale.replace(
+    /-/g,
+    '_',
+  )}/${timestamp}`;
+  const data = await axios
+    .get<SyncRequestPayload>(apiUri)
+    .then((resp) => resp.data)
+    .catch(() => '404');
+  return data;
+}
 
-export const requestRankings = async () =>
-  axios.get<RankingsPayload>(rankingsUri());
+export async function requestRankings() {
+  const apiUri = `${host}/api/v1.0/rankings`;
+  const data = await axios
+    .get<RankingsPayload>(apiUri)
+    .then((resp) => resp.data)
+    .catch(() => '404');
+  return data;
+}
