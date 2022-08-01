@@ -18,10 +18,14 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
   const intl = useIntl();
 
   const details: Array<ITxActionElementDetail | null> = [
-    {
-      title: intl.formatMessage({ id: 'content__from' }),
-      content: <TxActionElementAddressNormal address={encodedTx?.from || ''} />,
-    },
+    encodedTx?.from
+      ? {
+          title: intl.formatMessage({ id: 'content__from' }),
+          content: (
+            <TxActionElementAddressNormal address={encodedTx?.from || ''} />
+          ),
+        }
+      : null,
     encodedTx?.to
       ? {
           title: intl.formatMessage({ id: 'content__to' }),
