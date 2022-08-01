@@ -144,6 +144,12 @@ export class NetworkError extends OneKeyHardwareError {
   override key: LocaleIds = 'title__no_connection_desc';
 }
 
+export class NotSupportPassphraseError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceNotSupportPassphrase;
+
+  override key: LocaleIds = 'message__not_support_passphrase_yet';
+}
+
 // 未知错误
 export class UnknownHardwareError extends OneKeyHardwareError {
   override data = { reconnect: true };

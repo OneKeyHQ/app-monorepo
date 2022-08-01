@@ -173,6 +173,8 @@ class DeviceUtils {
         return new Error.UserCancelFromOutside({ message: msg });
       case HardwareErrorCode.DeviceInterruptedFromUser:
         return new Error.UserCancelFromOutside({ message: msg });
+      case HardwareErrorCode.DeviceNotSupportPassphrase:
+        return new Error.NotSupportPassphraseError({ message: msg });
       case HardwareErrorCode.IFrameLoadFail:
         return new Error.InitIframeLoadFail({ message: msg });
       case HardwareErrorCode.IframeTimeout:
