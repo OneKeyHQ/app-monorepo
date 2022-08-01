@@ -45,8 +45,10 @@ export type IAssetsListProps = Omit<
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
+  noHeader?: boolean;
 };
 function AssetsList({
+  noHeader,
   singleton,
   hidePriceInfo,
   ListHeaderComponent,
@@ -97,7 +99,7 @@ function AssetsList({
     <TokenCell
       hidePriceInfo={hidePriceInfo}
       token={item}
-      borderTopRadius={0}
+      borderTopRadius={noHeader ? '12px' : 0}
       borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
       borderTopWidth={0}
       borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
