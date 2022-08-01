@@ -18,15 +18,8 @@ import {
   useAppSelector,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
+import { ModalScreenProps, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';

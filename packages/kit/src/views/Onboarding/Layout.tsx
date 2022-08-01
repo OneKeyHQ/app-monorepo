@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useCallback, useState } from 'react';
+import React, { FC, ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { IBoxProps } from 'native-base';
@@ -13,6 +13,10 @@ import {
 } from '@onekeyhq/components';
 
 import { useOnboardingClose } from './hooks';
+import {
+  OnboardingContextProvider,
+  useOnboardingContext,
+} from './OnboardingContext';
 
 type LayoutProps = {
   backButton?: boolean;
@@ -79,6 +83,7 @@ const Layout: FC<LayoutProps> = ({
   const isFocus = useIsFocused();
   const insets = useSafeAreaInsets();
   const { onboardingGoBack } = useOnboardingClose();
+  const context = useOnboardingContext();
 
   const onClosePress = useCallback(() => {
     setIsClosing(true);
@@ -86,11 +91,18 @@ const Layout: FC<LayoutProps> = ({
     setTimeout(onboardingGoBack, 200);
   }, [onboardingGoBack]);
 
+  const finalVisible = useMemo(() => {
+    if (isClosing) {
+      return false;
+    }
+    return visible ?? context?.visible ?? isFocus;
+  }, [context?.visible, isClosing, isFocus, visible]);
+
   return (
     <LayoutScrollView>
       <PresenceTransition
         as={Box}
-        visible={isClosing ? false : visible ?? isFocus}
+        visible={finalVisible}
         initial={{
           opacity: 0,
           translateX: scaleFade ? 0 : 24,
@@ -190,4 +202,12 @@ const Layout: FC<LayoutProps> = ({
 
 Layout.defaultProps = defaultProps;
 
-export default Layout;
+function LayoutContainer(props: LayoutProps) {
+  return (
+    <OnboardingContextProvider>
+      <Layout {...props} />
+    </OnboardingContextProvider>
+  );
+}
+
+export default LayoutContainer;

@@ -38,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
+import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -359,13 +360,12 @@ function AddExistingWalletView(
   );
 }
 
-function OnboardingAddExistingWallet({
-  onNavigateModal,
-}: {
-  onNavigateModal: () => void;
-}) {
+function OnboardingAddExistingWallet() {
   const onboardingDone = useOnboardingDone();
   const navigation = useAppNavigation();
+
+  const context = useOnboardingContext();
+  const forceVisibleUnfocused = context?.forceVisibleUnfocused;
 
   const onMultipleResults = useCallback(
     (p: IAddImportedOrWatchingAccountModalParams) => {
@@ -373,7 +373,7 @@ function OnboardingAddExistingWallet({
         'OnboardingAddExistingWallet > onMultipleResults',
         p.checkResults,
       );
-      onNavigateModal();
+      forceVisibleUnfocused?.();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateWallet,
         params: {
@@ -382,7 +382,7 @@ function OnboardingAddExistingWallet({
         },
       });
     },
-    [navigation, onNavigateModal],
+    [forceVisibleUnfocused, navigation],
   );
 
   const onAddWatchingDone = useCallback(() => {
@@ -398,7 +398,7 @@ function OnboardingAddExistingWallet({
       debugLogger.onBoarding.info(
         'OnboardingAddExistingWallet > onAddMnemonicAuth',
       );
-      onNavigateModal();
+      forceVisibleUnfocused?.();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateWallet,
         params: {
@@ -407,7 +407,7 @@ function OnboardingAddExistingWallet({
         },
       });
     },
-    [navigation, onNavigateModal],
+    [forceVisibleUnfocused, navigation],
   );
 
   const onAddImportedAuth = useCallback(
@@ -419,7 +419,7 @@ function OnboardingAddExistingWallet({
           name: p.name,
         },
       );
-      onNavigateModal();
+      forceVisibleUnfocused?.();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateWallet,
         params: {
@@ -428,7 +428,7 @@ function OnboardingAddExistingWallet({
         },
       });
     },
-    [navigation, onNavigateModal],
+    [forceVisibleUnfocused, navigation],
   );
 
   const viewProps = useAddExistingWallet({

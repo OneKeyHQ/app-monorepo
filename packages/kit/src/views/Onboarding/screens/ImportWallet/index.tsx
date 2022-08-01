@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { OverlayContainer } from '@onekeyhq/components';
 
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
-import { useOnboardingLayoutVisible } from '../../hooks';
 import Layout from '../../Layout';
 
 import Drawer from './ImportWalletGuideDrawer';
@@ -19,22 +18,16 @@ const ImportWallet = () => {
   const onPressDrawerTrigger = useCallback(() => {
     setDrawerVisible(true);
   }, []);
-  const { visible, customVisibleRef } = useOnboardingLayoutVisible();
-
-  const onNavigateModal = useCallback(() => {
-    customVisibleRef.current = true;
-  }, [customVisibleRef]);
 
   return (
     <>
       <Layout
-        visible={visible}
         title={intl.formatMessage({ id: 'action__import_wallet' })}
         secondaryContent={
           <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
         }
       >
-        <OnboardingAddExistingWallet onNavigateModal={onNavigateModal} />
+        <OnboardingAddExistingWallet />
         <OverlayContainer>
           <Drawer
             visible={drawerVisible}

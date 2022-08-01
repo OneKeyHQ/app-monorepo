@@ -11,6 +11,7 @@ export function useOnboardingLayoutVisible() {
   const isFocus = useIsFocused();
   const customVisibleRef = useRef<boolean | undefined>();
   if (isFocus) {
+    // reset to undefined when route focused
     customVisibleRef.current = undefined;
   }
 
