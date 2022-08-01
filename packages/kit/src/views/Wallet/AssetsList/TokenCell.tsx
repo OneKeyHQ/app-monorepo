@@ -84,7 +84,10 @@ const TokenCell: FC<TokenCellProps> = ({
       <Box w="100%" flexDirection="row" alignItems="center">
         <Token size={8} src={token.logoURI} />
         <Box ml="12px" flexDirection="column" flex={1}>
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            isTruncated
+          >
             {token.name}
           </Text>
           {balance ? (
