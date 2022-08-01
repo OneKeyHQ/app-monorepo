@@ -157,6 +157,17 @@ const LeftSide: FC<LeftSideProps> = ({
       </ScrollView>
       <Box p={2}>
         <IconButton
+          testID="WalletAddOutline-Welcome"
+          type="primary"
+          name="WalletAddOutline"
+          circle
+          size="xl"
+          onPress={() => navigation.navigate(RootRoutes.Welcome)}
+        />
+      </Box>
+      <Box p={2}>
+        <IconButton
+          testID="WalletAddOutline-CreateWallet-GuideModal"
           type="primary"
           name="WalletAddOutline"
           circle

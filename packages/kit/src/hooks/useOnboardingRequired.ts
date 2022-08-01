@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -7,9 +7,11 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../routes/types';
+import { wait } from '../utils/helper';
 
 import { useAppSelector } from './redux';
 import useNavigation from './useNavigation';
+import { useNavigationActions } from './useNavigationActions';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
@@ -19,7 +21,7 @@ export function closeExtensionWindowIfOnboardingFinished() {
   }
 }
 
-export const useOnboardingFinished = () => {
+export const useOnboardingRequired = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
   useEffect(() => {
@@ -29,3 +31,19 @@ export const useOnboardingFinished = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 };
+
+export function useOnboardingDone() {
+  // TODO should set s.status.boardingCompleted=true ?
+  const { closeDrawer, resetToRoot } = useNavigationActions();
+  const onboardingDone = useCallback(
+    async ({ delay = 0 }: { delay?: number } = {}) => {
+      closeDrawer();
+      await wait(delay);
+      resetToRoot();
+      await wait(delay);
+      closeExtensionWindowIfOnboardingFinished();
+    },
+    [closeDrawer, resetToRoot],
+  );
+  return onboardingDone;
+}

@@ -3,8 +3,9 @@ import React, { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Text } from 'react-native';
 import RNTypeWriter from 'react-native-typewriter';
 
-import { useThemeValue } from '../Provider/hooks';
+import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const [lineHeight, fontSize] = [56, 48];
 
 export const NormalText: FC = ({ children }) => {
@@ -20,6 +21,8 @@ export const Highlight: FC = ({ children }) => {
 export const Caret: FC = () => {
   const TypingAnim = useRef(new Animated.Value(0)).current;
   const highlightColor = useThemeValue('interactive-default');
+  const isVerticalLayout = useIsVerticalLayout();
+
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -41,7 +44,7 @@ export const Caret: FC = () => {
     <Animated.View
       style={{
         width: 32,
-        height: lineHeight,
+        height: isVerticalLayout ? 48 : 56,
         borderBottomWidth: 4,
         borderBottomColor: highlightColor,
         opacity: TypingAnim,
@@ -53,18 +56,20 @@ export const Caret: FC = () => {
 type TypeWriterProps = {
   isPending?: boolean;
   onTypingEnd?: () => void;
-  fadeOut?: boolean;
+  isFadeOut?: boolean;
 };
 
 export const TypeWriter: FC<TypeWriterProps> = ({
   children,
   onTypingEnd,
   isPending = true,
-  fadeOut,
+  isFadeOut,
 }) => {
   const fadeOutAnim = useRef(new Animated.Value(1)).current;
+  const isVerticalLayout = useIsVerticalLayout();
+
   useEffect(() => {
-    if (fadeOut) {
+    if (isFadeOut) {
       const animation = Animated.timing(fadeOutAnim, {
         toValue: 0.3,
         duration: 300,
@@ -74,7 +79,7 @@ export const TypeWriter: FC<TypeWriterProps> = ({
         animation.start();
       }, 150);
     }
-  }, [fadeOut, fadeOutAnim]);
+  }, [isFadeOut, fadeOutAnim]);
 
   const [start, setStart] = useState(false);
 
@@ -86,19 +91,24 @@ export const TypeWriter: FC<TypeWriterProps> = ({
     }
   }, [isPending]);
 
+  const textColor = useThemeValue('text-default');
+
   // eslint-disable-next-line
   const memo = useMemo(() => children, []);
 
   return (
-    <Animated.View style={{ minHeight: lineHeight, opacity: fadeOutAnim }}>
+    <Animated.View
+      style={{ minHeight: isVerticalLayout ? 48 : 56, opacity: fadeOutAnim }}
+    >
       {start ? (
         <RNTypeWriter
           typing={1}
           style={{
-            color: '#E2E2E8',
-            fontSize,
-            lineHeight,
+            color: textColor,
+            fontSize: isVerticalLayout ? 42 : 48,
+            lineHeight: isVerticalLayout ? 48 : 56,
             fontWeight: 'bold',
+            fontFamily: 'PlusJakartaSans-Bold',
           }}
           initialDelay={0}
           minDelay={12}

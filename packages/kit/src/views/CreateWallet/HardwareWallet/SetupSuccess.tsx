@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
 import { useNavigationActions } from '../../../hooks';
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,

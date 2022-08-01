@@ -24,7 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance, FormatCurrencyToken } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks/redux';
-import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
+import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { FeeInfoInputForTransfer } from './FeeInfoInput';
@@ -73,7 +73,7 @@ const buildEncodedTxFromTransferDebounced = debounce(
 
 const Transaction = () => {
   // const encodedTxRef = useRef<any>(null);
-  useOnboardingFinished();
+  useOnboardingRequired();
   const [encodedTx, setEncodedTx] = useState(null);
   const [transferError, setTransferError] = useState<Error | null>(null);
   const navigation = useNavigation<NavigationProps>();

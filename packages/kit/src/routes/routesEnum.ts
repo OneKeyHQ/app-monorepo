@@ -1,3 +1,8 @@
+/*
+Error: Couldn't find a 'component', 'getComponent' or 'children' prop for the screen 'CreateWallet'. This can happen if you passed 'undefined'. You likely forgot to export your component from the file it's defined in, or mixed up default import and named import when importing.
+
+**** please import enums directly here to avoid errors above ***
+ */
 /** Modal */
 export enum ModalRoutes {
   CreateAccount = 'CreateAccount',
@@ -52,6 +57,7 @@ export enum HomeRoutes {
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   Protected = 'Protected',
   AddressBook = 'AddressBook',
+  Onboarding = 'Onboarding',
   SwapHistory = 'SwapHistory',
   VolumeHaptic = 'VolumeHaptic',
 }
@@ -64,4 +70,34 @@ export enum TabRoutes {
   Developer = 'developer',
   Send = 'send',
   Receive = 'receive',
+}
+
+export enum CreateWalletModalRoutes {
+  CreateWalletModal = 'CreateWalletModal',
+  ConnectHardwareModal = 'ConnectHardwareModal',
+  AppWalletDoneModal = 'AppWalletDoneModal',
+  SetupSuccessModal = 'SetupSuccessModal',
+  SetupHardwareModal = 'SetupHardwareModal',
+  SetupNewDeviceModal = 'SetupNewDeviceModal',
+  DeviceStatusCheckModal = 'DeviceStatusCheckModal',
+  RestoreHardwareWalletModal = 'RestoreHardwareWalletModal',
+  RestoreHardwareWalletDescriptionModal = 'RestoreHardwareWalletDescriptionModal',
+
+  CreateWatchedAccount = 'CreateWatchedAccount',
+  CreateImportedAccount = 'CreateImportedAccount',
+
+  // Onekey Lite backup
+  OnekeyLiteRestorePinCodeVerifyModal = 'OnekeyLiteRestorePinCodeVerifyModal',
+  OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
+  OnekeyLiteRestoreDoneModal = 'OnekeyLiteRestoreDoneModal',
+  OnekeyLiteBackupPinCodeVerifyModal = 'OnekeyLiteBackupPinCodeVerifyModal',
+  OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
+
+  AddExistingWalletModal = 'AddExistingWalletModal',
+  GuideModal = 'GuideModal',
+  AddImportedOrWatchingAccountModal = 'AddImportedOrWatchingAccountModal',
+  AddImportedAccountDoneModal = 'AddImportedAccountDoneModal',
+  AttentionsModal = 'AttentionsModal',
+  MnemonicModal = 'MnemonicModal',
+  NewWalletModal = 'NewWalletModal',
 }

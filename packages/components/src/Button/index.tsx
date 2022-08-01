@@ -139,6 +139,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
         bg: 'action-secondary-disabled',
         borderColor: 'border-disabled',
         cursor: 'not-allowed',
+        opacity: 1,
         _text: { color: 'text-disabled' },
       }}
       spinner={<Spinner size="sm" />}
@@ -201,6 +202,7 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
         borderColor: 'action-primary-disabled',
         color: 'text-disabled',
         cursor: 'not-allowed',
+        opacity: 1,
         _text: { color: 'text-disabled' },
       }}
       spinner={<Spinner size="sm" />}
@@ -251,7 +253,7 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: 'surface-pressed' }}
       _focus={{ bg: undefined }}
-      _disabled={{ color: 'text-disabled', cursor: 'not-allowed' }}
+      _disabled={{ color: 'text-disabled', cursor: 'not-allowed', opacity: 1 }}
       spinner={<Spinner size="sm" />}
       {...props}
     >
@@ -307,6 +309,7 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
         bg: 'action-critical-disabled',
         borderColor: 'action-critical-disabled',
         cursor: 'not-allowed',
+        opacity: 1,
         _text: { color: 'text-disabled' },
       }}
       _text={{
@@ -377,6 +380,7 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
         borderColor: 'border-disabled',
         _text: { color: 'text-disabled' },
         cursor: 'not-allowed',
+        opacity: 1,
       }}
       _loading={{
         borderColor: 'border-disabled',
