@@ -13,7 +13,10 @@ import {
   Pressable,
   useToast,
 } from '@onekeyhq/components';
-import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+import {
+  useIsVerticalLayout,
+  useSafeAreaInsets,
+} from '@onekeyhq/components/src/Provider/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OnekeyHardwareModalRoutes,
@@ -40,6 +43,7 @@ const OnekeyHardwareHomescreen: FC = () => {
   const navigation = useNavigation();
   const { walletId, deviceType } = useRoute<RouteProps>().params;
   const [connectId, setConnectId] = useState('');
+  const { bottom } = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<HomescreenItem[]>([]);
@@ -160,8 +164,8 @@ const OnekeyHardwareHomescreen: FC = () => {
     () => (
       <Box
         px={{ base: 4, md: 6 }}
-        mb={{ base: isSmallScreen ? 10 : 0 }}
-        height="70px"
+        mb={{ base: `${bottom}px` }}
+        height="82px"
         alignItems="center"
         flexDir="row"
         justifyContent={isSmallScreen ? 'center' : 'flex-end'}
@@ -181,7 +185,7 @@ const OnekeyHardwareHomescreen: FC = () => {
         </Button>
       </Box>
     ),
-    [handleConfirm, loading, isSmallScreen, intl],
+    [handleConfirm, loading, isSmallScreen, intl, bottom],
   );
 
   return (
