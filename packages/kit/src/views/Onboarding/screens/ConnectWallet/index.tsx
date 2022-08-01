@@ -89,7 +89,7 @@ const ConnectWallet = () => {
             OneKey{'\n'}
             {intl.formatMessage({ id: 'wallet__hardware_wallet' })}
           </Text>
-          <Box>
+          <Box alignSelf="flex-start">
             {hardwareDisabled ? (
               <Badge
                 title={intl.formatMessage({ id: 'badge__coming_soon' })}
