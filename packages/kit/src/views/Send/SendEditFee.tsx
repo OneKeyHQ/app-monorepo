@@ -229,6 +229,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
             rightText=""
             bgColor="surface-neutral-subdued"
             size={isSmallScreen ? 'xl' : undefined}
+            isReadOnly
           />
         </Form.Item>
       )}

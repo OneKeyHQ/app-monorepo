@@ -179,7 +179,6 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       if (enableLocalAuthentication) {
         savePassword(values.password);
       }
-      await backgroundApiProxy.servicePassword.savePassword(values.password);
       // if oldPassword is empty. set password
       if (!oldPassword) {
         toast.show({

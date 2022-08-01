@@ -7,6 +7,8 @@ import React, {
   useState,
 } from 'react';
 
+import { InteractionManager } from 'react-native';
+
 import {
   Box,
   IconButton,
@@ -85,7 +87,7 @@ const AccountSelectorChildren: FC<{
   }, [selectedWallet?.id, wallets, defaultSelectedWallet]);
 
   const refreshAccounts = useCallback(
-    async (walletId?: string) => {
+    async (walletId: string, networkId: string) => {
       if (!walletId) {
         return;
       }
@@ -94,7 +96,7 @@ const AccountSelectorChildren: FC<{
       );
 
       let accountsGroup: AccountGroup[] = [];
-      if (selectedNetworkId === AllNetwork) {
+      if (networkId === AllNetwork) {
         accountsGroup = (
           await engine.getWalletAccountsGroupedByNetwork(walletId)
         )
@@ -105,7 +107,7 @@ const AccountSelectorChildren: FC<{
           }, [] as AccountGroup[])
           .filter((group) => group.data.length > 0);
       } else {
-        const network = networksMap.get(selectedNetworkId);
+        const network = networksMap.get(networkId);
         if (!network || !walletId) return;
         const currentWallet = await engine.getWallet(walletId);
         const data = await engine.getAccounts(
@@ -126,7 +128,7 @@ const AccountSelectorChildren: FC<{
       }));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedNetworkId],
+    [],
   );
 
   const onLoadingAccount = useCallback(
@@ -138,9 +140,10 @@ const AccountSelectorChildren: FC<{
         setLoadingAccountWalletId('');
         const targetWallet =
           wallets.find((wallet) => wallet.id === walletId) ?? null;
+        if (!targetWallet) return null;
         setSelectedWallet(targetWallet);
         setSelectedNetworkId(networkId);
-        refreshAccounts(targetWallet?.id);
+        refreshAccounts(targetWallet.id, networkId);
       }
     },
     [wallets, refreshAccounts],
@@ -186,9 +189,11 @@ const AccountSelectorChildren: FC<{
 
   /** every time change active wallet */
   useEffect(() => {
-    if (!isOpen) return;
-    refreshAccounts(activeWallet?.id);
-  }, [activeWallet?.id, refreshAccounts, isOpen]);
+    if (!activeWallet?.id || !selectedNetworkId) return;
+    InteractionManager.runAfterInteractions(() => {
+      refreshAccounts(activeWallet.id, selectedNetworkId);
+    });
+  }, [activeWallet?.id, refreshAccounts, selectedNetworkId]);
 
   useEffect(() => {
     if (!previousIsOpen && isOpen) {
@@ -202,7 +207,6 @@ const AccountSelectorChildren: FC<{
     previousIsOpen,
     isOpen,
     defaultSelectedWallet?.id,
-    refreshAccounts,
     wallets,
     activeNetwork?.id,
   ]);

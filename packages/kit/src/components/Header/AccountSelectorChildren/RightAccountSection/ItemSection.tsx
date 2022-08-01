@@ -33,7 +33,7 @@ type Props = {
   activeWallet: Wallet | null;
   activeNetwork: Network | null;
   activeAccount: AccountEngineType | null;
-  refreshAccounts: (walletId?: string) => void;
+  refreshAccounts: (walletId: string, networkId: string) => void;
 };
 
 const AccountSectionItem: FC<Props> = ({
@@ -60,7 +60,12 @@ const AccountSectionItem: FC<Props> = ({
               <AccountModifyNameDialog
                 visible
                 account={item}
-                onDone={() => refreshAccounts(activeWallet?.id)}
+                onDone={() =>
+                  refreshAccounts(
+                    activeWallet?.id ?? '',
+                    activeNetwork?.id ?? '',
+                  )
+                }
               />
             ),
           });
@@ -75,7 +80,11 @@ const AccountSectionItem: FC<Props> = ({
                 walletId: activeWallet?.id ?? '',
                 accountId: item.id,
                 networkId: activeNetwork?.id ?? '',
-                refreshAccounts: () => refreshAccounts(activeWallet?.id),
+                refreshAccounts: () =>
+                  refreshAccounts(
+                    activeWallet?.id ?? '',
+                    activeNetwork?.id ?? '',
+                  ),
               },
             },
           });
@@ -86,7 +95,11 @@ const AccountSectionItem: FC<Props> = ({
               activeWallet?.id ?? '',
               item.id,
               undefined,
-              () => refreshAccounts(activeWallet?.id),
+              () =>
+                refreshAccounts(
+                  activeWallet?.id ?? '',
+                  activeNetwork?.id ?? '',
+                ),
             );
           } else {
             showVerify(
@@ -95,7 +108,11 @@ const AccountSectionItem: FC<Props> = ({
                   activeWallet?.id ?? '',
                   item.id,
                   pwd,
-                  () => refreshAccounts(activeWallet?.id),
+                  () =>
+                    refreshAccounts(
+                      activeWallet?.id ?? '',
+                      activeNetwork?.id ?? '',
+                    ),
                 );
               },
               () => {},

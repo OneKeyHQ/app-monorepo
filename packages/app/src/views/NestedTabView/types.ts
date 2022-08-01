@@ -37,8 +37,9 @@ export interface NativeNestedTabViewProps {
   tabViewStyle?: TabViewStyle;
   refresh?: boolean;
   disableRefresh?: boolean;
+  spinnerColor?: string;
+  onRefreshCallBack?: (e: NativeSyntheticEvent<{ refresh: boolean }>) => void;
   onChange?: (
     e: NativeSyntheticEvent<{ tabName: string; index: number | string }>,
   ) => void;
-  onRefresh?: (e: NativeSyntheticEvent<{ refresh: boolean }>) => void;
 }

@@ -19,6 +19,16 @@ const traverseData = (prev: AnimatedChartData, data: MarketApiData[]) => {
   if (!data || data.length === 0) {
     return prev;
   }
+  // some data only has one point like "frapped usdt"
+  if (data.length === 1) {
+    const dummyData = new Array(100)
+      .fill(0)
+      .map(() => ({ x: data[0][0], y: data[0][1] }));
+    return {
+      nativePoints: dummyData,
+      points: dummyData,
+    };
+  }
   const filtered = data
     .filter(([, value]) => value)
     .map(([time, value]) => ({ x: time, y: value }));

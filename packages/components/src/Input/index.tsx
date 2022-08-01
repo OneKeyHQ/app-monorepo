@@ -273,6 +273,7 @@ const Input = React.forwardRef<
         fontSize={textProps.fontSize}
         fontWeight={textProps.fontWeight}
         fontFamily={textProps.fontFamily}
+        editable={!isReadOnly && !isDisabled}
         {...props}
         // WEB autofocus in Modal cause modal slow animation, and background jump
         autoFocus={platformEnv.isRuntimeBrowser ? false : autoFocus}

@@ -1,7 +1,13 @@
 // import React from 'react';
 
+import IdentityAssertion from '../../components/IdentityAssertion';
+
 import Explorer from './Explorer';
 
-const Discover = Explorer;
-
-export default Discover;
+export default function Discover() {
+  return (
+    <IdentityAssertion>
+      <Explorer />
+    </IdentityAssertion>
+  );
+}

@@ -82,7 +82,7 @@ const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
   }
   return (
     <Box size={`${size}px`} {...props} overflow="hidden">
-      <NetImage width={size} height={size} uri={url} />
+      <NetImage width={size} height={size} src={url} />
     </Box>
   );
 };

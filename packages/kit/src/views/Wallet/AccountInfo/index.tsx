@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,10 +19,7 @@ import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import {
-  FormatBalance,
-  FormatCurrency,
-} from '@onekeyhq/kit/src/components/Format';
+import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
@@ -32,11 +29,14 @@ import {
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
+  TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import {
   SendRoutes,
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
+
+import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -44,16 +44,15 @@ type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
 export const FIXED_VERTICAL_HEADER_HEIGHT = 298;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 214;
 
-type AccountAmountInfoProps = { isCenter: boolean };
-const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
+const AccountAmountInfo: FC = () => {
   const intl = useIntl();
   const toast = useToast();
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { account, network: activeNetwork, wallet } = useActiveWalletAccount();
+  const { account, wallet } = useActiveWalletAccount();
 
-  const { prices, balances } = useManageTokens({
+  const { accountTokens, prices, balances, charts } = useManageTokens({
     pollingInterval: 15000,
   });
 
@@ -68,44 +67,66 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
     [toast, intl],
   );
 
-  return (
-    <Box alignItems={isCenter ? 'center' : 'flex-start'}>
-      <Typography.Subheading color="text-subdued">
-        {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
-      </Typography.Subheading>
-      <Box flexDirection="row" mt={2}>
-        {balances.main ? (
-          <FormatBalance
-            balance={balances.main}
-            suffix={activeNetwork?.symbol?.toUpperCase?.()}
-            as={Typography.DisplayXLarge}
-            formatOptions={{
-              fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
-            }}
-            render={(ele) => (
-              <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
-            )}
-          />
-        ) : (
-          <Skeleton shape="DisplayXLarge" />
-        )}
-      </Box>
-      {prices.main && balances.main ? (
-        <FormatCurrency
-          numbers={[
-            prices?.main,
-            balances.main,
-            !balances.main ? undefined : 1,
-          ]}
-          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
-        />
+  const [summedValue, summedValueComp] = useMemo(() => {
+    const displayValue = getSummedValues({
+      tokens: accountTokens,
+      balances,
+      prices,
+    }).toNumber();
+
+    return [
+      displayValue,
+      Number.isNaN(displayValue) ? (
+        <Skeleton shape="DisplayXLarge" />
       ) : (
-        <Box mt={1}>
-          <Skeleton shape="Body2" />
-        </Box>
-      )}
+        <Typography.Display2XLarge>
+          <FormatCurrencyNumber decimals={2} value={displayValue} />
+        </Typography.Display2XLarge>
+      ),
+    ];
+  }, [accountTokens, balances, prices]);
+
+  const changedValueComp = useMemo(() => {
+    const basePrices: Record<string, number> = {};
+    accountTokens.forEach((token) => {
+      const tokenId = token.tokenIdOnNetwork || 'main';
+      const balance = balances[tokenId];
+      if (typeof balance !== 'undefined') {
+        basePrices[tokenId] = charts[tokenId]?.[0][1] ?? 0;
+      }
+    });
+    const displayBaseValue = getSummedValues({
+      tokens: accountTokens,
+      balances,
+      prices: basePrices,
+    }).toNumber();
+
+    const { gain, percentageGain, gainTextColor } = calculateGains({
+      basePrice: displayBaseValue,
+      price: summedValue,
+    });
+
+    return Number.isNaN(displayBaseValue) ? (
+      <Skeleton shape="Body1" />
+    ) : (
+      <>
+        <Typography.Body1Strong color={gainTextColor} mr="4px">
+          {percentageGain}
+        </Typography.Body1Strong>
+        <Typography.Body1Strong color="text-subdued">
+          (<FormatCurrencyNumber onlyNumber value={gain} decimals={2} />){' '}
+          {intl.formatMessage({ id: 'content__today' })}
+        </Typography.Body1Strong>
+      </>
+    );
+  }, [accountTokens, balances, charts, intl, summedValue]);
+
+  return (
+    <Box alignItems="flex-start">
       <Pressable
         mt={4}
+        flexDirection="row"
+        alignItems="center"
         onPress={() => {
           if (isHwWallet) {
             navigation.navigate(RootRoutes.Modal, {
@@ -120,30 +141,23 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           }
         }}
       >
-        {({ isHovered, isPressed }) => (
-          <Box
-            py={{ base: 2, md: 1 }}
-            px={{ base: 3, md: 2 }}
-            rounded="xl"
-            bg={
-              // eslint-disable-next-line no-nested-ternary
-              isPressed
-                ? 'surface-neutral-pressed'
-                : isHovered
-                ? 'surface-neutral-default'
-                : 'surface-neutral-subdued'
-            }
-            flexDirection="row"
-          >
-            <Text typography={{ sm: 'Body2', md: 'CaptionStrong' }} mr={2}>
-              {isHwWallet
-                ? intl.formatMessage({ id: 'action__copy_address' })
-                : shortenAddress(account?.address ?? '')}
-            </Text>
-            <Icon name="DuplicateSolid" size={isCenter ? 20 : 16} />
-          </Box>
-        )}
+        <Text
+          typography={{ sm: 'Body2', md: 'CaptionStrong' }}
+          mr={2}
+          color="text-subdued"
+        >
+          {isHwWallet
+            ? intl.formatMessage({ id: 'action__copy_address' })
+            : shortenAddress(account?.address ?? '')}
+        </Text>
+        <Icon name="DuplicateOutline" size={16} />
       </Pressable>
+      <Box flexDirection="row" mt={2}>
+        {summedValueComp}
+      </Box>
+      <Box flexDirection="row" mt={4}>
+        {changedValueComp}
+      </Box>
     </Box>
   );
 };
@@ -162,7 +176,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="NavSendSolid"
+          name="ArrowUpSolid"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -195,7 +209,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="NavReceiveSolid"
+          name="ArrowDownSolid"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -218,6 +232,29 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           }
         >
           {intl.formatMessage({ id: 'action__receive' })}
+        </Typography.CaptionStrong>
+      </Box>
+      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="SwitchHorizontalSolid"
+          type="basic"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={() => {
+            navigation.getParent()?.navigate(TabRoutes.Swap);
+          }}
+        />
+        <Typography.CaptionStrong
+          textAlign="center"
+          mt="8px"
+          color={
+            wallet?.type === 'watching' || !account
+              ? 'text-disabled'
+              : 'text-default'
+          }
+        >
+          {intl.formatMessage({ id: 'title__swap' })}
         </Typography.CaptionStrong>
       </Box>
 
@@ -266,7 +303,7 @@ const AccountInfo = () => {
         bgColor="background-default"
         h={FIXED_VERTICAL_HEADER_HEIGHT}
       >
-        <AccountAmountInfo isCenter={isSmallView} />
+        <AccountAmountInfo />
         <Box mt={8}>
           <AccountOption isSmallView={isSmallView} />
         </Box>
@@ -274,7 +311,7 @@ const AccountInfo = () => {
     );
   }
   return (
-    <Box>
+    <>
       <DesktopDragZoneAbsoluteBar h={8} />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
@@ -285,12 +322,12 @@ const AccountInfo = () => {
         alignItems="center"
         bgColor="background-default"
       >
-        <AccountAmountInfo isCenter={isSmallView} />
+        <AccountAmountInfo />
         <Box>
           <AccountOption isSmallView={isSmallView} />
         </Box>
       </Box>
-    </Box>
+    </>
   );
 };
 

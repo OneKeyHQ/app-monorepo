@@ -29,6 +29,40 @@ type TextShapeProps = {
 } & ComponentProps<typeof Rect>;
 
 /*
+  Display2XLarge
+*/
+type Display2XLargeProps = TextShapeProps;
+
+const Display2XLargeDefaultProps = {
+  width: 146,
+  height: 20,
+  rounded: 10,
+  x: 0,
+  y: 0,
+} as const;
+
+const Display2XLarge: FC<Display2XLargeProps> = ({
+  width,
+  height,
+  rounded,
+  x,
+  y,
+  ...rest
+}) => (
+  <Rect
+    x={x}
+    y={Number(y) + 9}
+    width={width}
+    height={height}
+    rx={rounded}
+    ry={rounded}
+    {...rest}
+  />
+);
+
+Display2XLarge.defaultProps = Display2XLargeDefaultProps;
+
+/*
   DisplayXLarge
 */
 type DisplayXLargeProps = TextShapeProps;
