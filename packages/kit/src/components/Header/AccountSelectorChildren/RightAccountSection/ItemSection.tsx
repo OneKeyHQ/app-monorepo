@@ -142,9 +142,9 @@ const AccountSectionItem: FC<Props> = ({
     <>
       <Pressable
         px={2}
-        onPress={() => {
-          serviceNetwork.changeActiveNetwork(section?.title?.id);
-          serviceAccount.changeActiveAccount({
+        onPress={async () => {
+          await serviceNetwork.changeActiveNetwork(section?.title?.id);
+          await serviceAccount.changeActiveAccount({
             accountId: item.id,
             walletId: activeWallet?.id ?? '',
           });

@@ -214,6 +214,13 @@ class ProviderApiNear extends ProviderApiBase {
       .$private as ProviderApiPrivate;
     return privateProvider.wallet_getConnectWalletInfo(req);
   }
+
+  @providerApiMethod()
+  wallet_sendSiteMetadata() {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    return privateProvider.wallet_sendSiteMetadata();
+  }
 }
 
 export default ProviderApiNear;
