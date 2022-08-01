@@ -11,11 +11,11 @@ import axios from 'axios';
 
 import { Box, Center, Image, NetImage, Spinner } from '@onekeyhq/components';
 import NFTEmptyImg from '@onekeyhq/components/img/nft_empty.png';
-import { getImageWithAsset } from '@onekeyhq/engine/src/managers/moralis';
-import type { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+// import { getImageWithAsset } from '@onekeyhq/engine/src/managers/nftscan';
+import type { NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
 
 type Props = {
-  asset: MoralisNFT;
+  asset: NFTScanAsset;
   size: number;
 } & ComponentProps<typeof Box>;
 
@@ -63,8 +63,9 @@ const useValidImageUrl = (url: string) => {
 };
 
 const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
-  const imageUrl = getImageWithAsset(asset, 150);
-  const url = useValidImageUrl(imageUrl);
+  // const imageUrl = getImageWithAsset(asset, 150);
+  // const url = asset.nftscanUri ?? asset.imageUri ?? '';
+  const url = asset.nftscanUri ?? '';
 
   if (url === 'loading') {
     return (

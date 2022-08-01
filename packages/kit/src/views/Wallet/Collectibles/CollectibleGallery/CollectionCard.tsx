@@ -2,16 +2,16 @@ import React, { ComponentProps, memo } from 'react';
 import type { FC } from 'react';
 
 import { Row } from 'native-base';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
   Center,
   Text,
+  useIsVerticalLayout,
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
-import { Collectible, MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import { Collectible, NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
 
 import CollectibleListImage from './CollectibleListImage';
 
@@ -35,7 +35,7 @@ const CountView: FC<{ count: number; size: number }> = ({ count, size }) => (
 );
 
 type SubItemListProps = {
-  assets: MoralisNFT[];
+  assets: NFTScanAsset[];
   width: number;
 };
 const SubItemList: FC<SubItemListProps> = ({ width, assets }) => {
@@ -75,12 +75,12 @@ const SubItemList: FC<SubItemListProps> = ({ width, assets }) => {
 };
 
 const CollectionCard: FC<Props> = ({ collectible, ...rest }) => {
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
-  const dimensions = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
+  const { screenWidth } = useUserDevice();
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
   const width = isSmallScreen
-    ? Math.floor((dimensions.width - MARGIN * 3) / 2)
+    ? Math.floor((screenWidth - MARGIN * 3) / 2)
     : 177;
   const { themeVariant } = useTheme();
   const contentSize = width - 2 * padding;
@@ -105,7 +105,7 @@ const CollectionCard: FC<Props> = ({ collectible, ...rest }) => {
         mt={`${padding}px`}
         numberOfLines={1}
       >
-        {collectible.collection.name}
+        {collectible.contractName}
       </Text>
       {/* <Text typography="Body2" height="20px" /> */}
       {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}

@@ -1,8 +1,8 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { Collectible, MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { Collectible, NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
 import CollectibleDetail from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectibleDetailModal';
 import Collection from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectionModal';
 
@@ -19,7 +19,7 @@ export type CollectiblesRoutesParams = {
     network: Network;
   };
   [CollectiblesModalRoutes.CollectibleDetailModal]: {
-    asset: MoralisNFT;
+    asset: NFTScanAsset;
     network: Network;
     // address?: string | null;
   };

@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getUserAssets } from '@onekeyhq/engine/src/managers/moralis';
+import { getAllNFTs } from '@onekeyhq/engine/src/managers/nftscan';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import {
   Collectible,
-  MoralisMetadata,
-  MoralisNFT,
-  MoralisNFTsResp,
-} from '@onekeyhq/engine/src/types/moralis';
-import { Network } from '@onekeyhq/engine/src/types/network';
+  NFTScanNFTsResp,
+} from '@onekeyhq/engine/src/types/nftscan';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { cursorMapSet } from '../store/reducers/data';
@@ -17,103 +15,62 @@ import { useAppSelector } from './redux';
 const cacheMainKey = (address: string, network: Network) =>
   `${address.toLowerCase()}-${network.id}`.toLowerCase();
 
-// userAddress-networkId -> collectionName -> Collectible
-const USER_COLLECTIBLE_CACHE = new Map<string, Map<string, Collectible>>();
+// userAddress-networkId -> collection Address -> Collection[]
+const USER_COLLECTIBLE_CACHE = new Map<string, Collectible[]>();
 
 export const getCollectibleCache = (key: string) => {
-  const collectibles =
-    USER_COLLECTIBLE_CACHE.get(key) ?? new Map<string, Collectible>();
-  return Array.from(collectibles.values());
+  const collectibles = USER_COLLECTIBLE_CACHE.get(key) ?? [];
+  return collectibles;
 };
 
-export const updateAssetDateToCache = (
-  address: string,
-  network: Network,
-  asset: MoralisNFT,
-  metadata: MoralisMetadata,
-) => {
-  if (asset.name) {
-    const mainKey = cacheMainKey(address, network);
-    const mainKeyData = USER_COLLECTIBLE_CACHE.get(mainKey);
-    if (mainKeyData) {
-      const collectionData = mainKeyData.get(asset.name);
-      if (collectionData) {
-        const { assets } = collectionData;
-        if (assets && assets?.length > 0) {
-          collectionData.assets = assets.map((item) => {
-            if (
-              item.tokenHash === asset.tokenHash &&
-              item.tokenAddress === asset.tokenAddress
-            ) {
-              item.assetName = metadata.name ?? metadata.title;
-              item.description = metadata.description;
-              item.attributes = metadata.attributes;
-            }
-            return item;
-          });
-          mainKeyData.set(asset.name, collectionData);
-          USER_COLLECTIBLE_CACHE.set(mainKey, mainKeyData);
-        }
-      }
-    }
-  }
-};
+// export const updateAssetDateToCache = (
+//   address: string,
+//   network: Network,
+//   asset: MoralisNFT,
+//   metadata: MoralisMetadata,
+// ) => {
+//   if (asset.name) {
+//     const mainKey = cacheMainKey(address, network);
+//     const mainKeyData = USER_COLLECTIBLE_CACHE.get(mainKey);
+//     if (mainKeyData) {
+//       const collectionData = mainKeyData.get(asset.name);
+//       if (collectionData) {
+//         const { assets } = collectionData;
+//         if (assets && assets?.length > 0) {
+//           collectionData.assets = assets.map((item) => {
+//             if (
+//               item.tokenHash === asset.tokenHash &&
+//               item.tokenAddress === asset.tokenAddress
+//             ) {
+//               item.assetName = metadata.name ?? metadata.title;
+//               item.description = metadata.description;
+//               item.attributes = metadata.attributes;
+//             }
+//             return item;
+//           });
+//           mainKeyData.set(asset.name, collectionData);
+//           USER_COLLECTIBLE_CACHE.set(mainKey, mainKeyData);
+//         }
+//       }
+//     }
+//   }
+// };
 
-export const useCollectibleCache = (
-  userAddress: string,
-  network: Network,
-  collectionAddress: string,
-) => {
-  const mainKey = `${userAddress.toLowerCase()}-${network.id}`.toLowerCase();
-  const cache = useMemo(
-    () => USER_COLLECTIBLE_CACHE.get(mainKey)?.get(collectionAddress),
-    [collectionAddress, mainKey],
-  );
+export const useCollectibleCache = (userAddress: string, network: Network) => {
+  const mainKey = cacheMainKey(userAddress, network);
+  const cache = useMemo(() => USER_COLLECTIBLE_CACHE.get(mainKey), [mainKey]);
   return cache;
 };
 
 export const parseCollectiblesData = (
-  nftsResp: MoralisNFTsResp,
+  nftsResp: NFTScanNFTsResp,
   mainKey: string,
-): Collectible[] => {
-  const collectibles =
-    USER_COLLECTIBLE_CACHE.get(mainKey) ?? new Map<string, Collectible>();
-  try {
-    const assets = nftsResp.result;
-    if (assets) {
-      assets.forEach((asset) => {
-        const uniqueName = asset.name;
-        if (uniqueName) {
-          const collectible = collectibles.get(uniqueName);
-          if (collectible) {
-            if (
-              !collectible.assets.find(
-                (item) =>
-                  item.tokenAddress === asset.tokenAddress &&
-                  item.tokenId === asset.tokenId,
-              )
-            ) {
-              collectible.assets.push(asset);
-            }
-          } else {
-            collectibles.set(uniqueName, {
-              id: uniqueName,
-              chain: nftsResp.chain,
-              assets: [asset],
-              collection: {
-                name: asset.name,
-              },
-            });
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.log(error);
+) => {
+  const collectibles = USER_COLLECTIBLE_CACHE.get(mainKey) ?? [];
+  const { data } = nftsResp;
+  if (collectibles) {
+    USER_COLLECTIBLE_CACHE.set(mainKey, data ?? []);
   }
-  // Use lowercase address in case of case-insensitive address
-  USER_COLLECTIBLE_CACHE.set(mainKey, collectibles);
-  return Array.from(collectibles.values());
 };
 
 type UseCollectiblesDataArgs = {
@@ -128,14 +85,14 @@ type UseCollectiblesDataReturn = {
   fetchData: () => void;
 };
 
-const updateCursor = (key: string, cursor: string) => {
-  backgroundApiProxy.dispatch(cursorMapSet({ key, cursor }));
-};
+// const updateCursor = (key: string, cursor: string) => {
+//   backgroundApiProxy.dispatch(cursorMapSet({ key, cursor }));
+// };
 
-const useCursorStatus = (key: string) => {
-  const cursorMap = useAppSelector((s) => s.data.cursorMap);
-  return cursorMap[key];
-};
+// const useCursorStatus = (key: string) => {
+//   const cursorMap = useAppSelector((s) => s.data.cursorMap);
+//   return cursorMap[key];
+// };
 
 export const useCollectiblesData = ({
   address,
@@ -149,41 +106,33 @@ export const useCollectiblesData = ({
     return cacheMainKey(address, network);
   }, [address, network]);
 
-  const cursor = useCursorStatus(mainKey);
-
+  // const cursor = useCursorStatus(mainKey);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const getData = useCallback(async () => {
     if (isCollectibleSupported && mainKey) {
-      if (cursor !== '') {
-        const result = await getUserAssets({
-          address,
-          network,
-          cursor: cursor !== 'begin' ? cursor : undefined,
-        });
-        parseCollectiblesData(result, mainKey);
-        if (
-          result.success === false ||
-          result.cursor === '' ||
-          result.cursor === null
-        ) {
-          updateCursor(mainKey, '');
-        } else if (result.cursor && result.cursor?.length > 0) {
-          updateCursor(mainKey, result.cursor);
-        }
-      }
+      const result = await getAllNFTs({
+        address,
+        network,
+      });
+      parseCollectiblesData(result, mainKey);
+      setIsLoading(false);
     }
-  }, [address, cursor, isCollectibleSupported, mainKey, network]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCollectibleSupported, mainKey]);
 
   const fetchData = useCallback(() => {
-    if (mainKey) {
-      updateCursor(mainKey, 'begin');
-    }
-  }, [mainKey]);
+    setIsLoading(true);
+  }, []);
 
   useEffect(() => {
-    getData();
-  }, [getData, isCollectibleSupported, mainKey]);
+    if (isLoading) {
+      getData();
+    }
+  }, [getData, isCollectibleSupported, isLoading, mainKey]);
 
   return useMemo(() => {
+    console.log('return = ', mainKey);
+
     if (!isCollectibleSupported || !mainKey) {
       return {
         fetchData,
@@ -193,9 +142,9 @@ export const useCollectiblesData = ({
     }
     const collectibles = getCollectibleCache(mainKey);
     return {
-      isLoading: cursor === 'begin' || cursor === undefined,
+      isLoading,
       fetchData,
       collectibles,
     };
-  }, [cursor, fetchData, isCollectibleSupported, mainKey]);
+  }, [fetchData, isCollectibleSupported, isLoading, mainKey]);
 };

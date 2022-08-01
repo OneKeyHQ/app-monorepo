@@ -12,6 +12,7 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { parseNFTMetaData } from '@onekeyhq/engine/src/managers/nftscan';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -50,8 +51,8 @@ const CollectibleDetailModal: FC = () => {
         CollectiblesModalRoutes.CollectibleDetailModal
       >
     >();
-  const { asset, network } = route.params;
-
+  const { network } = route.params;
+  const asset = parseNFTMetaData(route.params.asset);
   const shareProps: Props = {
     imageContent: <CollectibleContent asset={asset} />,
     content: asset && (
@@ -59,11 +60,11 @@ const CollectibleDetailModal: FC = () => {
         {/* Asset name and collection name */}
         <VStack>
           <Typography.DisplayLarge fontWeight="700">
-            {asset.assetName}
+            {asset.contractName}
           </Typography.DisplayLarge>
-          {!!asset.name && (
+          {!!asset.contractName && (
             <Typography.Body2 color="text-subdued">
-              {asset.name}
+              {asset.contractName}
             </Typography.Body2>
           )}
         </VStack>
@@ -159,7 +160,7 @@ const CollectibleDetailModal: FC = () => {
               </Box>
             </>
           )}
-          {!!asset.tokenAddress && (
+          {!!asset.contractAddress && (
             <>
               <Divider />
               <Box
@@ -182,7 +183,7 @@ const CollectibleDetailModal: FC = () => {
                   numberOfLines={999}
                   selectable
                 >
-                  {asset.tokenAddress}
+                  {asset.contractAddress}
                 </Typography.Body1Strong>
               </Box>
             </>
@@ -199,7 +200,7 @@ const CollectibleDetailModal: FC = () => {
       size="2xl"
       footer={null}
       height="640px"
-      header={asset.assetName ?? ''}
+      header={asset.contractName ?? ''}
       staticChildrenProps={{
         flex: 1,
         pt: '24px',

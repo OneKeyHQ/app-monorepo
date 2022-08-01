@@ -81,7 +81,9 @@
 
 - (void)layoutSubviews {
   [super layoutSubviews];
+  CGFloat categoryWidth = CGRectGetWidth(self.bounds) - _model.paddingX * 2;
   _categoryView.frame = CGRectMake(_model.paddingX, 0, CGRectGetWidth(self.bounds) - _model.paddingX * 2, _model.height - 1);
+  _categoryView.cellWidth = categoryWidth / self.values.count;
   self.bottomLineView.frame = CGRectMake(_model.paddingX, CGRectGetMaxY(_categoryView.frame), CGRectGetWidth(_categoryView.frame), 1);
 }
 
