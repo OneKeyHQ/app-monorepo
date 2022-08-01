@@ -16,9 +16,9 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 const IdentityAssertion: FC = ({ children }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { wallet, account } = useActiveWalletAccount();
+  const { walletId, accountId, wallet } = useActiveWalletAccount();
 
-  if (!wallet) {
+  if (!walletId) {
     return (
       <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
@@ -52,7 +52,7 @@ const IdentityAssertion: FC = ({ children }) => {
       </Box>
     );
   }
-  if (!account) {
+  if (!accountId) {
     return (
       <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
@@ -71,7 +71,7 @@ const IdentityAssertion: FC = ({ children }) => {
             leftIconName="PlusOutline"
             type="primary"
             onPress={() => {
-              if (wallet.type === 'imported') {
+              if (wallet?.type === 'imported') {
                 return navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.CreateWallet,
                   params: {
@@ -80,7 +80,7 @@ const IdentityAssertion: FC = ({ children }) => {
                   },
                 });
               }
-              if (wallet.type === 'watching') {
+              if (wallet?.type === 'watching') {
                 return navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.CreateWallet,
                   params: {
@@ -95,7 +95,7 @@ const IdentityAssertion: FC = ({ children }) => {
                 params: {
                   screen: CreateAccountModalRoutes.CreateAccountForm,
                   params: {
-                    walletId: wallet.id,
+                    walletId,
                   },
                 },
               });
