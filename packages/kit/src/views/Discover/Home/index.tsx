@@ -17,7 +17,6 @@ import {
   FlatList,
   NetImage,
   Pressable,
-  Spinner,
   Typography,
   useIsVerticalLayout,
   useLocale,
@@ -129,8 +128,6 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   );
 };
 
-type PageStatusType = 'network' | 'loading' | 'data';
-
 export const Discover: FC<DiscoverProps> = ({
   onItemSelect: propOnItemSelect,
   ...rest
@@ -143,17 +140,11 @@ export const Discover: FC<DiscoverProps> = ({
   } else {
     onItemSelect = propOnItemSelect;
   }
-
+  const { syncData, rankData } = useDiscover();
   const { locale } = useLocale();
-  const [flatListData, updateFlatListData] = useState<SectionDataType[]>([]);
   const navigation = useNavigation();
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const { syncData, rankData } = useDiscover();
-  const [pageStatus, setPageStatus] = useState<PageStatusType>(
-    rankData && rankData.tags.length > 0 ? 'data' : 'loading',
-  );
-
   useLayoutEffect(() => {
     if (platformEnv.isNative) {
       navigation.setOptions({
@@ -202,100 +193,109 @@ export const Discover: FC<DiscoverProps> = ({
 
   const generaListData = useCallback(
     (
-      syncResponceData: SyncRequestPayload,
-      rankResponceData: RankingsPayload,
+      syncResponceData?: SyncRequestPayload,
+      rankResponceData?: RankingsPayload,
     ) => {
-      const listData: SectionDataType[] = [];
-      const { increment, banners } = syncResponceData;
-      const { tags, special } = rankResponceData;
-      if (increment) {
-        if (banners) {
-          const dAppItems = banners.map((item) => {
-            const dApp = increment[item.dapp];
-            return { pic: item.pic, ...dApp, id: item.dapp };
-          });
-          listData.push({ type: 'banner', title: 'Explore', data: dAppItems });
-        }
-        const newTags = [
-          {
-            name: intl.formatMessage({ id: 'title__leaderboard' }),
-            dapps: special.daily,
-          },
-          {
-            name: intl.formatMessage({ id: 'title__newly_added' }),
-            dapps: special.new,
-          },
-          ...tags,
-        ];
-
-        newTags.forEach((item) => {
-          const { dapps } = item;
-          const dAppItems = dapps.map((key) => ({
-            ...increment[key],
-            id: key,
-          }));
-          if (dAppItems.length > 0) {
+      if (syncResponceData && rankResponceData) {
+        const listData: SectionDataType[] = [];
+        const { increment, banners } = syncResponceData;
+        const { tags, special } = rankResponceData;
+        if (increment) {
+          if (banners) {
+            const dAppItems = banners.map((item) => {
+              const dApp = increment[item.dapp];
+              return { pic: item.pic, ...dApp, id: item.dapp };
+            });
             listData.push({
-              type: listData.length % 2 === 1 ? 'card' : 'list',
-              title: item.name,
+              type: 'banner',
+              title: 'Explore',
               data: dAppItems,
             });
           }
-        });
+          const newTags = [
+            {
+              name: intl.formatMessage({ id: 'title__leaderboard' }),
+              dapps: special.daily,
+            },
+            {
+              name: intl.formatMessage({ id: 'title__newly_added' }),
+              dapps: special.new,
+            },
+            ...tags,
+          ];
+
+          newTags.forEach((item) => {
+            const { dapps } = item;
+            const dAppItems = dapps.map((key) => ({
+              ...increment[key],
+              id: key,
+            }));
+            if (dAppItems.length > 0) {
+              listData.push({
+                type: listData.length % 2 === 1 ? 'card' : 'list',
+                title: item.name,
+                data: dAppItems,
+              });
+            }
+          });
+        }
+        return listData;
       }
-      return listData;
+      return [];
     },
     [intl],
   );
 
-  const getData = useCallback(() => {
-    if (rankData && rankData.tags.length > 0) {
-      setPageStatus('data');
-      updateFlatListData(() => [...generaListData(syncData, rankData)]);
-    } else {
-      setPageStatus('loading');
-    }
+  const [flatListData, updateFlatListData] = useState<SectionDataType[]>(
+    generaListData(syncData, rankData),
+  );
+
+  const getData = useCallback(async () => {
     if (platformEnv.isNative) {
-      requestRankings()
-        .then((response2) => {
-          setPageStatus('data');
-          dispatch(updateRankData(response2.data));
-          updateFlatListData(() => [
-            ...generaListData(syncData, response2.data),
-          ]);
-        })
-        .catch(() => {
-          setPageStatus(rankData ? 'data' : 'network');
-        });
+      const rankDataResult = await requestRankings();
+      if (typeof rankDataResult === 'string') {
+        updateFlatListData(() => []);
+      } else {
+        dispatch(updateRankData(rankDataResult));
+        updateFlatListData(() => generaListData(syncData, rankDataResult));
+      }
     } else {
-      requestSync(0, locale)
-        .then((response) => {
-          if (response.data.timestamp > syncData.timestamp) {
-            dispatch(updateSyncData(response.data));
-          }
-          requestRankings()
-            .then((response2) => {
-              setPageStatus('data');
-              dispatch(updateRankData(response2.data));
-              updateFlatListData(() => [
-                ...generaListData(response.data, response2.data),
-              ]);
-            })
-            .catch(() => {
-              setPageStatus(rankData ? 'data' : 'network');
-            });
-        })
-        .catch(() => {
-          setPageStatus(rankData ? 'data' : 'network');
-        });
+      const [syncDataResult, rankDataResult] = await Promise.all([
+        requestSync(0, locale),
+        requestRankings(),
+      ]);
+
+      if (
+        typeof syncDataResult === 'string' ||
+        typeof rankDataResult === 'string'
+      ) {
+        updateFlatListData(() => []);
+      } else {
+        dispatch(updateSyncData(syncDataResult));
+        dispatch(updateRankData(rankDataResult));
+        updateFlatListData(() =>
+          generaListData(syncDataResult, rankDataResult),
+        );
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, generaListData, locale]);
+  }, [dispatch, locale]);
 
-  const noData = () => {
-    switch (pageStatus) {
-      case 'network':
-        return (
+  useEffect(() => {
+    getData();
+  }, [getData]);
+
+  return (
+    <Box flex="1" bg="background-default">
+      <FlatList
+        contentContainerStyle={{
+          paddingBottom: 24,
+          paddingTop: 24,
+        }}
+        data={flatListData}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => `${item.type ?? ''}${index}`}
+        ListEmptyComponent={
           <Empty
             imageUrl={IconWifi}
             title={intl.formatMessage({ id: 'title__no_connection' })}
@@ -307,34 +307,8 @@ export const Discover: FC<DiscoverProps> = ({
             })}
             handleAction={() => getData()}
           />
-        );
-      case 'loading':
-        return <Spinner size="sm" />;
-      default:
-        return null;
-    }
-  };
-  useEffect(() => {
-    getData();
-  }, [getData]);
-
-  return (
-    <Box flex="1" bg="background-default">
-      {pageStatus === 'data' ? (
-        <FlatList
-          contentContainerStyle={{
-            paddingBottom: 24,
-            paddingTop: 24,
-          }}
-          data={flatListData}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.type ?? ''}${index}`}
-        />
-      ) : (
-        <Box flex={1} flexDirection="column" justifyContent="center">
-          {noData()}
-        </Box>
-      )}
+        }
+      />
     </Box>
   );
 };
