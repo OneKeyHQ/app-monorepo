@@ -89,6 +89,7 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.Protected]: undefined;
   [HomeRoutes.AddressBook]: undefined;
+  [HomeRoutes.Onboarding]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
   [HomeRoutes.VolumeHaptic]: undefined;
 };

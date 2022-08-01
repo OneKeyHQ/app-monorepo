@@ -16,7 +16,7 @@ import {
 
 import logo from '../../../assets/logo.png';
 import { useHelpLink, useNavigationActions } from '../../hooks';
-import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingFinished';
+import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingRequired';
 import { CreateWalletModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
 import { openUrl } from '../../utils/openUrl';

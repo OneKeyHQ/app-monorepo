@@ -176,14 +176,13 @@ export const getTypographyStyleProps = (style: TypographyStyle): FontProps => {
   return propsMap[style];
 };
 
-export const Display2XLarge: FC<FontProps> = ({ children, ...rest }) => (
-  <NBText color="text-default" {...Display2XLargeProps} {...rest}>
+export const DisplayXLarge: FC<FontProps> = ({ children, ...rest }) => (
+  <NBText color="text-default" {...DisplayXLargeProps} {...rest}>
     {children}
   </NBText>
 );
-
-export const DisplayXLarge: FC<FontProps> = ({ children, ...rest }) => (
-  <NBText color="text-default" {...DisplayXLargeProps} {...rest}>
+export const Display2XLarge: FC<FontProps> = ({ children, ...rest }) => (
+  <NBText color="text-default" {...Display2XLargeProps} {...rest}>
     {children}
   </NBText>
 );

@@ -27,13 +27,16 @@ type ProtectedProps = {
   walletId: string | null;
   field?: ValidationFields;
   children: (password: string, options: ProtectedOptions) => React.ReactNode;
+  hideTitle?: boolean;
 };
 
+// Protected
 const Protected: FC<ProtectedProps> = ({
   children,
   skipSavePassword,
   field,
   walletId,
+  hideTitle,
 }) => {
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
@@ -172,9 +175,17 @@ const Protected: FC<ProtectedProps> = ({
   }
 
   if (hasPassword) {
-    return <Session onOk={onValidationOk} field={field} />;
+    return (
+      <Session onOk={onValidationOk} field={field} hideTitle={hideTitle} />
+    );
   }
-  return <Setup onOk={onSetupOk} skipSavePassword={skipSavePassword} />;
+  return (
+    <Setup
+      onOk={onSetupOk}
+      skipSavePassword={skipSavePassword}
+      hideTitle={hideTitle}
+    />
+  );
 };
 
 export default Protected;
