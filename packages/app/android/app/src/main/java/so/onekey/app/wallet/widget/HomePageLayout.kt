@@ -16,17 +16,18 @@ import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.events.RCTEventEmitter
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.CollapsingToolbarLayout
 import so.onekey.app.wallet.R
 import so.onekey.app.wallet.utils.Utils
 import so.onekey.app.wallet.viewManager.homePage.TabProps
-import so.onekey.app.wallet.widget.SlidingTabLayout2.InnerPagerAdapter
 
 open class HomePageLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     private val mTabProps = mutableListOf<TabProps>()
+    private var mRefreshEnabled = true
 
     private val mPageChangeCallback = object : OnPageChangeCallback() {
         override fun onPageSelected(position: Int) {
@@ -68,6 +69,7 @@ open class HomePageLayout @JvmOverloads constructor(
     }
 
     fun setEnableRefresh(enabled: Boolean) {
+        mRefreshEnabled = enabled
         content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
             it.isEnabled = enabled
         }
@@ -89,6 +91,17 @@ open class HomePageLayout @JvmOverloads constructor(
                     .getJSModule(RCTEventEmitter::class.java)
                     .receiveEvent(id, "swipeRefreshChange", event)
             }
+
+            content.findViewById<AppBarLayout>(R.id.appbar)
+                ?.addOnOffsetChangedListener(object : AppBarLayout.OnOffsetChangedListener {
+                    override fun onOffsetChanged(appBarLayout: AppBarLayout?, verticalOffset: Int) {
+                        if (verticalOffset >= 0) {
+                            it.isEnabled = mRefreshEnabled
+                        } else {
+                            it.isEnabled = false
+                        }
+                    }
+                })
         }
     }
 
@@ -122,8 +135,11 @@ open class HomePageLayout @JvmOverloads constructor(
         if (mTabProps.isEmpty()) {
             return
         }
-        content.findViewById<SlidingTabLayout2>(R.id.layout_tab)
-            ?.updateTabsTitle(mTabs.map { it.label }.toTypedArray())
+        content.findViewById<SlidingTabLayout2>(R.id.layout_tab)?.let {
+            it.updateTabsTitle(mTabs.map { it.label }.toTypedArray())
+            // Refresh when the main thread is busy
+            it.postInvalidate()
+        }
     }
 
     fun setTabViewStyle(
