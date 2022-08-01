@@ -14,6 +14,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import type { Collectible } from '@onekeyhq/engine/src/types/moralis';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { CollectibleGalleryProps, CollectibleView } from '../types';
@@ -33,15 +34,17 @@ const CollectiblesHeader = ({ view, onPress }: CollectiblesHeaderProps) => {
       <Typography.Heading>
         {intl.formatMessage({ id: 'asset__collectibles' })}
       </Typography.Heading>
-      <IconButton
-        name={
-          view === CollectibleView.Expand ? 'PackupOutline' : 'ExpandOutline'
-        }
-        size="sm"
-        circle
-        type="plain"
-        onPress={onPress}
-      />
+      {!platformEnv.isNativeAndroid && (
+        <IconButton
+          name={
+            view === CollectibleView.Expand ? 'PackupOutline' : 'ExpandOutline'
+          }
+          size="sm"
+          circle
+          type="plain"
+          onPress={onPress}
+        />
+      )}
     </HStack>
   );
 };
