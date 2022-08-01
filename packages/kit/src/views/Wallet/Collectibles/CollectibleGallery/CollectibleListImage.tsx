@@ -9,82 +9,107 @@ import React, {
 
 import axios from 'axios';
 
-import { Box, Center, Image, NetImage, Spinner } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  CustomSkeleton,
+  Image,
+  NetImage,
+  Spinner,
+} from '@onekeyhq/components';
 import NFTEmptyImg from '@onekeyhq/components/img/nft_empty.png';
-import { getImageWithAsset } from '@onekeyhq/engine/src/managers/moralis';
-import type { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import {
+  getImageWithAsset,
+  s3SourceUri,
+  syncImage,
+} from '@onekeyhq/engine/src/managers/nftscan';
+import type { NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
 
 type Props = {
-  asset: MoralisNFT;
+  asset: NFTScanAsset;
   size: number;
 } & ComponentProps<typeof Box>;
 
-const useValidImageUrl = (url: string) => {
-  const maxRetryCount = 5;
-  const [retryCount, updateCount] = useState(0);
-  const [isValid, setIsValid] = useState(false);
-  const checkUrl = useCallback(async () => {
-    if (url === '') {
-      return;
-    }
+const FallbackElement: FC<ComponentProps<typeof Box>> = ({
+  size,
+  ...props
+}) => (
+  <Center size={size} {...props} overflow="hidden">
+    <Image size={size} source={NFTEmptyImg} />
+  </Center>
+);
+
+const MemoFallbackElement = React.memo(FallbackElement);
+
+type ImageState = null | 'uploading' | 'fail' | 'success';
+const useUrlData = (asset: NFTScanAsset) => {
+  const [imageState, setImageState] = useState<ImageState>(null);
+  const s3url = s3SourceUri(asset.contractAddress, asset.contractTokenId);
+
+  const checkUrlValid = useCallback(async () => {
     const contentType = await axios
-      .head(url, { timeout: 1000 })
+      .head(s3url, { timeout: 1000 })
       .then((resp) => resp.headers['content-type'])
       .catch(() => '404');
-    const valid = contentType.startsWith('image');
-    const timeOut = Math.floor(retryCount / 5 + 1) * 5000;
-    setIsValid(valid);
-    setTimeout(() => {
-      if (!valid) {
-        updateCount((prev) => prev + 1);
+    const state = contentType !== '404' ? 'success' : 'uploading';
+    setImageState(state);
+  }, [s3url]);
+
+  const uploadImage = useCallback(async () => {
+    const uploadSource = getImageWithAsset(asset);
+    if (uploadSource) {
+      const uploadUrl = await syncImage({
+        contractAddress: asset.contractAddress,
+        tokenId: asset.contractTokenId,
+        imageURI: uploadSource,
+      });
+      if (uploadUrl.length > 0) {
+        setImageState('success');
       }
-    }, timeOut);
-  }, [retryCount, url]);
+    }
+  }, [asset]);
 
   useEffect(() => {
-    if (!isValid && retryCount < maxRetryCount) {
-      checkUrl();
+    if (imageState === null) {
+      checkUrlValid();
+    } else if (imageState === 'uploading') {
+      // upload
+      uploadImage();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkUrl, isValid]);
+  }, [checkUrlValid, imageState, uploadImage]);
 
-  return useMemo(() => {
-    if (url === '') {
-      return '';
-    }
-    if (isValid) {
-      return url;
-    }
-    if (retryCount < maxRetryCount && !isValid) {
-      return 'loading';
-    }
-    return '';
-  }, [isValid, retryCount, url]);
-};
-
-const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
-  const imageUrl = getImageWithAsset(asset, 150);
-  const url = useValidImageUrl(imageUrl);
-
-  if (url === 'loading') {
-    return (
-      <Center size={`${size}px`} {...props}>
-        <Spinner size="sm" />
-      </Center>
-    );
-  }
-  if (url === '') {
-    return (
-      <Center size={`${size}px`} {...props} overflow="hidden">
-        <Image size={`${size}px`} source={NFTEmptyImg} />
-      </Center>
-    );
-  }
-  return (
-    <Box size={`${size}px`} {...props} overflow="hidden">
-      <NetImage width={size} height={size} src={url} />
-    </Box>
+  return useMemo(
+    () => ({
+      url: s3url,
+      imageState,
+    }),
+    [imageState, s3url],
   );
+};
+const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
+  // const url = getImageWithAsset(asset);
+
+  const { url, imageState } = useUrlData(asset);
+
+  if (imageState === 'success') {
+    return (
+      <Box size={`${size}px`} {...props} overflow="hidden">
+        <NetImage
+          retry={3}
+          width={`${size}px`}
+          height={`${size}px`}
+          src={url}
+          fallbackElement={
+            <MemoFallbackElement size={`${size}px`} {...props} />
+          }
+        />
+      </Box>
+    );
+  }
+  if (imageState === 'fail') {
+    return <MemoFallbackElement size={`${size}px`} {...props} />;
+  }
+  return <CustomSkeleton size={`${size}px`} {...props} />;
 };
 
 export default CollectibleListImage;

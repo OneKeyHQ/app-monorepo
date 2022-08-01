@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { Pressable } from 'native-base';
+import Reanimated from 'react-native-reanimated';
 
 import { Box, CustomSkeleton, ImageViewer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -9,7 +10,7 @@ import { PlatformImage } from './PlatformImage';
 import { ImageProps, ImageState } from './type';
 
 export const Image: FC<ImageProps & { onPress?: () => void }> = ({
-  retry = 3,
+  retry = 0,
   retryDuring = 5000,
   fallbackElement,
   onPress,

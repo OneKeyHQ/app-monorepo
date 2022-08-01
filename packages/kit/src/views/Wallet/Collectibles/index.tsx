@@ -2,12 +2,12 @@ import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/moralis';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nftscan';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import type {
   Collectible,
-  MoralisNFT,
-} from '@onekeyhq/engine/src/types/moralis';
-import { Network } from '@onekeyhq/engine/src/types/network';
+  NFTScanAsset,
+} from '@onekeyhq/engine/src/types/nftscan';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -18,19 +18,17 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import { useCollectiblesData } from '../../../hooks/useCollectiblesData';
-
 import CollectibleGallery from './CollectibleGallery';
+import { useCollectiblesData } from './useCollectiblesData';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 export type CollectiblesProps = {
   address?: string | null;
   network?: Network | null;
-  isTab?: boolean;
 };
 
-const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
+function CollectibleListView({ address, network }: CollectiblesProps) {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isCollectibleSupported = isCollectibleSupportedChainId(network?.id);
 
@@ -39,9 +37,10 @@ const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
     address,
     isCollectibleSupported,
   });
+  console.log('collectibles = ', collectibles);
 
   const handleSelectAsset = useCallback(
-    (asset: MoralisNFT) => {
+    (asset: NFTScanAsset) => {
       if (!network) return;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
@@ -56,6 +55,7 @@ const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
     },
     [navigation, network],
   );
+
   // Open Collection modal
   const handleSelectCollectible = useCallback(
     (collectible: Collectible) => {
@@ -77,7 +77,6 @@ const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
 
   return (
     <CollectibleGallery
-      isTab={isTab}
       collectibles={collectibles}
       fetchData={fetchData}
       isLoading={isLoading}
@@ -86,6 +85,6 @@ const Collectibles = ({ address, network, isTab }: CollectiblesProps) => {
       onSelectAsset={handleSelectAsset}
     />
   );
-};
+}
 
-export default Collectibles;
+export default React.memo(CollectibleListView);

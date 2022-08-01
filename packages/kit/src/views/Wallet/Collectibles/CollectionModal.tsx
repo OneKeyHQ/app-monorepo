@@ -8,10 +8,12 @@ import {
   Box,
   HStack,
   Modal,
+  NetImage,
   Pressable,
-  useUserDevice,
+  Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import { NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
 import {
   ModalRoutes,
   ModalScreenProps,
@@ -28,11 +30,11 @@ import CollectibleCard from './CollectibleGallery/CollectibleCard';
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 type CollectionModalProps = {
-  onSelectAsset: (asset: MoralisNFT) => void;
+  onSelectAsset: (asset: NFTScanAsset) => void;
 };
 
 const CollectionModal: FC<CollectionModalProps> = () => {
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
+  const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const dimensions = useWindowDimensions();
 
@@ -47,7 +49,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
 
   // Open Asset detail modal
   const handleSelectAsset = React.useCallback(
-    (asset: MoralisNFT) => {
+    (asset: NFTScanAsset) => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
@@ -66,31 +68,43 @@ const CollectionModal: FC<CollectionModalProps> = () => {
   const cardWidth = isSmallScreen
     ? Math.floor((dimensions.width - 16 * 3) / 2)
     : (800 - 96) / 4;
+
   return (
     <Modal
       size="2xl"
       footer={null}
       height="640px"
-      header={collectible.collection.name ?? ''}
       scrollViewProps={{
         pt: 4,
         children: (
           <Box>
-            {/* <CollectionImage src={collectible.collection.imageUrl} /> */}
-            {/* <Typography.Heading mt="3" width="full" textAlign="center">
-              {collectible.collection.name}
-            </Typography.Heading> */}
-            {/* <Typography.Body2 my="6" color="text-subdued">
-              {collectible.collection.description}
-            </Typography.Body2> */}
+            <Box alignItems="center" mb="8px">
+              <NetImage
+                src={collectible.logoUrl ?? ''}
+                width="56px"
+                height="56px"
+                borderRadius="28px"
+              />
+            </Box>
+            {collectible.contractName && (
+              <Typography.Heading mt="3" width="full" textAlign="center">
+                {collectible.contractName}
+              </Typography.Heading>
+            )}
+
+            {collectible.description && (
+              <Typography.Body2 my="6" color="text-subdued">
+                {collectible.description}
+              </Typography.Body2>
+            )}
+
             <HStack flexWrap="wrap">
               {collectible.assets.map((asset, itemIndex) => {
-                // const marginRight = itemIndex % 2 === 0 ? 0 : 16;
                 const marginRight =
                   itemIndex % numofColumn < numofColumn - 1 ? 16 : 0;
                 return (
                   <Pressable
-                    key={asset.tokenAddress + asset.tokenId}
+                    key={asset.contractAddress + asset.tokenId}
                     onPress={() => {
                       handleSelectAsset(asset);
                     }}

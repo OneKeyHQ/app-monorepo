@@ -18,6 +18,11 @@
 {
   self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
  
+  NSArray *directoryPaths =
+      NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
+  NSLog(@"1111 = %@",directoryPaths);
+  
+  
 #ifdef DEBUG
 #else
   NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];

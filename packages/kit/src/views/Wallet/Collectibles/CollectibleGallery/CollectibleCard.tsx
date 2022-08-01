@@ -1,24 +1,36 @@
 import React, { ComponentProps, memo } from 'react';
 import type { FC } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import {
+  Box,
+  Text,
+  useIsVerticalLayout,
+  useTheme,
+  useUserDevice,
+} from '@onekeyhq/components';
+import { NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
 
-import { Box, Text, useTheme, useUserDevice } from '@onekeyhq/components';
-import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 
 import CollectibleListImage from './CollectibleListImage';
 
 type Props = ComponentProps<typeof Box> & {
-  asset: MoralisNFT;
+  asset: NFTScanAsset;
 };
 
 const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
-  const dimensions = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
+  const { screenWidth } = useUserDevice();
+
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
-  const width = isSmallScreen
-    ? Math.floor((dimensions.width - MARGIN * 3) / 2)
+
+  const pageWidth = isSmallScreen
+    ? screenWidth
+    : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
+  // const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
+  const cardWidth = isSmallScreen
+    ? Math.floor((pageWidth - MARGIN * 3) / 2)
     : 177;
   const { themeVariant } = useTheme();
 
@@ -31,14 +43,14 @@ const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
       borderRadius="12px"
       borderColor="border-subdued"
       borderWidth={themeVariant === 'light' ? 1 : undefined}
-      width={width}
+      width={cardWidth}
       mb="16px"
       {...rest}
     >
       <CollectibleListImage
         asset={asset}
         borderRadius="6px"
-        size={width - 2 * padding}
+        size={cardWidth - 2 * padding}
       />
       <Text
         typography="Body2"
@@ -46,7 +58,7 @@ const CollectibleCard: FC<Props> = ({ asset, ...rest }) => {
         mt={`${padding}px`}
         numberOfLines={1}
       >
-        {asset.assetName}
+        {asset.name}
       </Text>
       {/* <Text typography="Body2" height="20px" /> */}
       {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}

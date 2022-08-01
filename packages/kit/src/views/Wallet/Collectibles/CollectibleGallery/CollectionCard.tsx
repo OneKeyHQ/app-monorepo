@@ -2,16 +2,16 @@ import React, { ComponentProps, memo } from 'react';
 import type { FC } from 'react';
 
 import { Row } from 'native-base';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
   Center,
   Text,
+  useIsVerticalLayout,
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
-import { Collectible, MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import { Collectible, NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
 
 import CollectibleListImage from './CollectibleListImage';
 
@@ -35,15 +35,20 @@ const CountView: FC<{ count: number; size: number }> = ({ count, size }) => (
 );
 
 type SubItemListProps = {
-  assets: MoralisNFT[];
+  collectible: Collectible;
   width: number;
 };
-const SubItemList: FC<SubItemListProps> = ({ width, assets }) => {
+
+const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
   const subItemSize = (width - 9) / 2;
-  const filterAssets = assets.filter((item, index) => index < 4);
+  const filterAssets = collectible.assets.filter((item, index) => index < 4);
   if (filterAssets.length === 1) {
     return (
-      <CollectibleListImage asset={assets[0]} borderRadius="6px" size={width} />
+      <CollectibleListImage
+        asset={collectible.assets[0]}
+        borderRadius="6px"
+        size={width}
+      />
     );
   }
   return (
@@ -67,20 +72,20 @@ const SubItemList: FC<SubItemListProps> = ({ width, assets }) => {
           />
         );
       })}
-      {assets.length > 4 ? (
-        <CountView size={subItemSize} count={assets.length} />
+      {collectible.assets.length > 4 ? (
+        <CountView size={subItemSize} count={collectible.assets.length} />
       ) : null}
     </Row>
   );
 };
 
 const CollectionCard: FC<Props> = ({ collectible, ...rest }) => {
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
-  const dimensions = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
+  const { screenWidth } = useUserDevice();
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
   const width = isSmallScreen
-    ? Math.floor((dimensions.width - MARGIN * 3) / 2)
+    ? Math.floor((screenWidth - MARGIN * 3) / 2)
     : 177;
   const { themeVariant } = useTheme();
   const contentSize = width - 2 * padding;
@@ -98,14 +103,14 @@ const CollectionCard: FC<Props> = ({ collectible, ...rest }) => {
       flexDirection="column"
       {...rest}
     >
-      <SubItemList assets={collectible.assets} width={contentSize} />
+      <SubItemList collectible={collectible} width={contentSize} />
       <Text
         typography="Body2"
         height="20px"
         mt={`${padding}px`}
         numberOfLines={1}
       >
-        {collectible.collection.name}
+        {collectible.contractName}
       </Text>
       {/* <Text typography="Body2" height="20px" /> */}
       {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}
