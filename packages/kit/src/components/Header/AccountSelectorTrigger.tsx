@@ -76,12 +76,7 @@ const AccountSelectorTrigger: FC<Props> = ({
     return (
       <Button
         onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.CreateWallet,
-            params: {
-              screen: CreateWalletModalRoutes.GuideModal,
-            },
-          });
+          navigation.navigate(RootRoutes.Welcome);
         }}
       >
         {intl.formatMessage({ id: 'action__create_wallet' })}

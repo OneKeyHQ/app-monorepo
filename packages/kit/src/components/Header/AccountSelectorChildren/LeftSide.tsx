@@ -168,18 +168,10 @@ const LeftSide: FC<LeftSideProps> = ({
       <Box p={2}>
         <IconButton
           testID="WalletAddOutline-CreateWallet-GuideModal"
-          type="primary"
           name="WalletAddOutline"
           circle
           size="xl"
-          onPress={() =>
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.GuideModal,
-              },
-            })
-          }
+          onPress={() => navigation.navigate(RootRoutes.Welcome)}
         />
       </Box>
     </VStack>
