@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import {
   isArray,
   isBoolean,
@@ -268,3 +269,25 @@ export async function waitForDataLoaded({
 }
 
 export const MAX_LOG_LENGTH = 1000;
+
+const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
+  {
+    'ethereum': 'evm',
+    'near': 'near',
+    'conflux': 'cfx',
+    'solana': 'sol',
+    'starcoin': 'stc',
+    'sollet': undefined,
+    '$hardware_sdk': undefined,
+    '$private': undefined,
+  };
+
+export const scopeMatchNetwork = (
+  scope?: IInjectedProviderNamesStrings,
+  impl?: string,
+) => {
+  if (scope && impl) {
+    return scopeNetwork[scope] === impl;
+  }
+  return true;
+};

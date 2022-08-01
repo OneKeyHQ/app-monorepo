@@ -2,6 +2,7 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
+import NetworkNotMatch from '@onekeyhq/kit/src/views/DappModals/NetworkNotMatch';
 
 import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
 import {
@@ -18,6 +19,10 @@ const modalRoutes = [
   {
     name: DappConnectionModalRoutes.ConnectionModal,
     component: Connection,
+  },
+  {
+    name: DappConnectionModalRoutes.NetworkNotMatchModal,
+    component: NetworkNotMatch,
   },
 ];
 

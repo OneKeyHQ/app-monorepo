@@ -1,36 +1,21 @@
 import React, { FC, useCallback, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
-  Button,
-  Empty,
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
-import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  CreateAccountModalRoutes,
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import IdentityAssertion from '../../components/IdentityAssertion';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -42,12 +27,9 @@ import AccountInfo, {
 import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import CollectiblesList from './Collectibles';
-// import HistoricalRecord from './HistoricalRecords';
 import { WalletHomeTabEnum } from './type';
 
-type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-
-const Home: FC = () => {
+const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
   const [tabbarBgColor, borderDefault] = useThemeValue([
@@ -57,7 +39,6 @@ const Home: FC = () => {
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const [backupMap, updateBackMap] = useState<
     Record<string, boolean | undefined>
   >({});
@@ -80,100 +61,6 @@ const Home: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet?.id, wallet?.backuped]);
 
-  if (!wallet) {
-    return (
-      <Box flex="1" justifyContent="center" bg="background-default">
-        <Empty
-          imageUrl={IconWallet}
-          title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
-          subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
-        />
-        <Box
-          position="relative"
-          w={{ md: 'full' }}
-          alignItems="center"
-          h="56px"
-          justifyContent="center"
-        >
-          <Button
-            leftIconName="PlusOutline"
-            type="primary"
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
-                params: {
-                  screen: CreateWalletModalRoutes.GuideModal,
-                },
-              });
-            }}
-            size="lg"
-          >
-            {intl.formatMessage({ id: 'action__create_wallet' })}
-          </Button>
-        </Box>
-        <OfflineView />
-      </Box>
-    );
-  }
-
-  if (!account) {
-    return (
-      <Box flex="1" justifyContent="center" bg="background-default">
-        <Empty
-          imageUrl={IconAccount}
-          title={intl.formatMessage({ id: 'empty__no_account_title' })}
-          subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
-        />
-        <Box
-          position="relative"
-          w={{ md: 'full' }}
-          alignItems="center"
-          h="56px"
-          justifyContent="center"
-        >
-          <Button
-            leftIconName="PlusOutline"
-            type="primary"
-            onPress={() => {
-              if (wallet.type === 'imported') {
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateWallet,
-                  params: {
-                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                    params: { mode: 'imported' },
-                  },
-                });
-              }
-              if (wallet.type === 'watching') {
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateWallet,
-                  params: {
-                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                    params: { mode: 'watching' },
-                  },
-                });
-              }
-
-              return navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateAccount,
-                params: {
-                  screen: CreateAccountModalRoutes.CreateAccountForm,
-                  params: {
-                    walletId: wallet.id,
-                  },
-                },
-              });
-            }}
-            size="lg"
-          >
-            {intl.formatMessage({ id: 'action__create_account' })}
-          </Button>
-        </Box>
-        <OfflineView />
-      </Box>
-    );
-  }
-
   return (
     <>
       <Tabs.Container
@@ -182,7 +69,7 @@ const Home: FC = () => {
         refreshing={refreshing}
         onRefresh={async () => {
           setRefreshing(true);
-          if (account.id && network?.id) {
+          if (account?.id && network?.id) {
             backgroundApiProxy.engine.clearPriceCache();
             await backgroundApiProxy.serviceToken.fetchAccountTokens({
               activeAccountId: account.id,
@@ -251,9 +138,17 @@ const Home: FC = () => {
         </Tabs.Tab>
       </Tabs.Container>
       {backupToast()}
-      <OfflineView />
     </>
   );
 };
 
-export default Home;
+export default function Wallet() {
+  return (
+    <>
+      <IdentityAssertion>
+        <WalletTabs />
+      </IdentityAssertion>
+      <OfflineView />
+    </>
+  );
+}
