@@ -9,6 +9,7 @@ import {
   PresenceTransition,
   ScrollView,
   Text,
+  useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 
@@ -79,6 +80,7 @@ const Layout: FC<LayoutProps> = ({
   const isFocus = useIsFocused();
   const insets = useSafeAreaInsets();
   const { onboardingGoBack } = useOnboardingClose();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const onClosePress = useCallback(() => {
     setIsClosing(true);
@@ -103,7 +105,10 @@ const Layout: FC<LayoutProps> = ({
       ) : null}
       <PresenceTransition
         as={Box}
-        visible={isClosing ? false : visible ?? isFocus}
+        visible={
+          // eslint-disable-next-line no-nested-ternary
+          isVerticalLayout ? true : isClosing ? false : visible ?? isFocus
+        }
         initial={{
           opacity: 0,
           translateX: scaleFade ? 0 : 24,

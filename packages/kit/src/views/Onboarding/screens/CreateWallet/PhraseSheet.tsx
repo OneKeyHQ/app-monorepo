@@ -59,8 +59,9 @@ const PhraseSheet: FC<PhraseSheetProps> = ({
             bg="surface-default"
             _hover={{ bg: 'surface-hovered' }}
             _pressed={{ bg: 'surface-pressed' }}
-            shadow="depth.2"
             borderRadius="12"
+            borderWidth={1}
+            borderColor="divider"
             onPress={() => copyMnemonicToClipboard(mnemonic)}
           >
             <ScrollView>

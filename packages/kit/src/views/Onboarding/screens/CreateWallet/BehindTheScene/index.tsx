@@ -80,10 +80,22 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
 
   const { processInfoList, processDefaultStates } = useMemo(() => {
     const list: Array<IProcessInfo> = [
-      { text: 'Creating your ', highlight: 'wallet' },
-      { text: 'Generating your ', highlight: 'accounts' },
-      { text: 'Verifying your ', highlight: 'key' },
-      { text: 'Backing up to ', highlight: 'iCloud' },
+      {
+        text: intl.formatMessage({ id: 'content__creating_your' }),
+        highlight: intl.formatMessage({ id: 'content__wallet_lowercase' }),
+      },
+      {
+        text: intl.formatMessage({ id: 'content__generating_your' }),
+        highlight: intl.formatMessage({ id: 'content__accounts_lowercase' }),
+      },
+      {
+        text: intl.formatMessage({ id: 'content__encrypting_your' }),
+        highlight: intl.formatMessage({ id: 'content__data_lowercase' }),
+      },
+      {
+        text: intl.formatMessage({ id: 'content__backing_up_to' }),
+        highlight: 'iCloud',
+      },
     ];
     const defaultStates = list.reduce<IProcessStates>(
       (prev, current, index) => {
@@ -220,12 +232,17 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
         alignSelf={{ base: 'stretch', sm: 'flex-start' }}
         visible={lastActionVisible}
         initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1, transition: { duration: 150 } }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          transition: { duration: 150, delay: 150 },
+        }}
       >
         <Button
           onPromise={() => onboardingDone({ delay: 600 })}
           type="primary"
           size="xl"
+          minW={160}
         >
           Let's go
         </Button>
@@ -292,8 +309,11 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
               onTypingEnd={handleProcessFinalTypingEnd}
             >
               <TypeWriter.NormalText>
-                Your wallet is now{' '}
-                <TypeWriter.Highlight>ready</TypeWriter.Highlight>. 🚀
+                {intl.formatMessage({ id: 'content__your_wallet_is_now' })}{' '}
+                <TypeWriter.Highlight>
+                  {intl.formatMessage({ id: 'content__ready_lowercase' })}
+                </TypeWriter.Highlight>{' '}
+                🚀
               </TypeWriter.NormalText>
             </TypeWriter>
           ) : undefined}
@@ -301,7 +321,7 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
           {processFinalTypingEnd ? <TypeWriter /> : undefined}
 
           {lastActionVisible && !isVerticalLayout ? (
-            <Box mt={4}>{finishButton}</Box>
+            <Box mt={16}>{finishButton}</Box>
           ) : undefined}
         </Box>
       </Layout>

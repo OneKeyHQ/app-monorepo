@@ -83,10 +83,6 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
       <Form>
         <Form.Item
           name="password"
-          label={intl.formatMessage({
-            id: 'form__password',
-            defaultMessage: 'Password',
-          })}
           defaultValue=""
           control={control}
           rules={{
@@ -114,14 +110,18 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
             },
           }}
         >
-          <Form.PasswordInput autoFocus />
+          <Form.PasswordInput
+            autoFocus
+            placeholder={intl.formatMessage(
+              {
+                id: 'form__rule_at_least_int_digits',
+              },
+              { 0: 8 },
+            )}
+          />
         </Form.Item>
         <Form.Item
           name="confirmPassword"
-          label={intl.formatMessage({
-            id: 'Confirm_password',
-            defaultMessage: 'Confirm Password',
-          })}
           defaultValue=""
           control={control}
           rules={{
@@ -146,6 +146,9 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
           <Form.PasswordInput
             // press enter key to submit
             onSubmitEditing={handleSubmit(onSubmit)}
+            placeholder={intl.formatMessage({
+              id: 'Confirm_password',
+            })}
           />
         </Form.Item>
         {isOk ? (
