@@ -80,7 +80,7 @@ const AccountAmountInfo: FC = () => {
         <Skeleton shape="DisplayXLarge" />
       ) : (
         <Typography.Display2XLarge>
-          <FormatCurrencyNumber value={displayValue} />
+          <FormatCurrencyNumber decimals={2} value={displayValue} />
         </Typography.Display2XLarge>
       ),
     ];
