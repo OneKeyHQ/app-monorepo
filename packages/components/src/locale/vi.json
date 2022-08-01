@@ -149,7 +149,7 @@
   "action__select_token": "Chọn mã thông báo",
   "action__sell": "Bán",
   "action__send": "Gửi",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "Gửi bằng {0}",
   "action__share": "Đăng lại",
   "action__show_more": "Cho xem nhiều hơn",
   "action__show_recovery_phrase": "Hiển thị cụm từ khôi phục",

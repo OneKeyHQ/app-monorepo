@@ -149,7 +149,7 @@
   "action__select_token": "Виберіть маркер",
   "action__sell": "Продати",
   "action__send": "Надіслати",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "Надіслати за допомогою {0}",
   "action__share": "Поділіться",
   "action__show_more": "Показати більше",
   "action__show_recovery_phrase": "Показати фразу відновлення",

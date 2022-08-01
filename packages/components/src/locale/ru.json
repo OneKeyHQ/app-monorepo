@@ -149,7 +149,7 @@
   "action__select_token": "Выберите маркер",
   "action__sell": "Продать",
   "action__send": "Отправить",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "Отправить с помощью {0}",
   "action__share": "Поделиться",
   "action__show_more": "Показать больше",
   "action__show_recovery_phrase": "Показать фразу восстановления",

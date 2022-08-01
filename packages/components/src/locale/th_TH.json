@@ -149,7 +149,7 @@
   "action__select_token": "เลือกโทเค็น",
   "action__sell": "ขาย",
   "action__send": "ส่ง",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "ส่งด้วย {0}",
   "action__share": "แบ่งปัน",
   "action__show_more": "แสดงมากขึ้น",
   "action__show_recovery_phrase": "แสดงวลีกู้คืน",

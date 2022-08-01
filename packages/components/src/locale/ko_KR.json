@@ -149,7 +149,7 @@
   "action__select_token": "토큰 선택",
   "action__sell": "팔다",
   "action__send": "보내다",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "{0} 와(과) 보내기",
   "action__share": "공유하다",
   "action__show_more": "자세히보기",
   "action__show_recovery_phrase": "복구 문구 표시",

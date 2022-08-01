@@ -149,7 +149,7 @@
   "action__select_token": "टोकन चुनें",
   "action__sell": "बेचना",
   "action__send": "भेजना",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "{0} के साथ भेजें",
   "action__share": "साझा करना",
   "action__show_more": "और दिखाओ",
   "action__show_recovery_phrase": "पुनर्प्राप्ति वाक्यांश दिखाएं",

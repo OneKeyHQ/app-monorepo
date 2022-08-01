@@ -149,7 +149,7 @@
   "action__select_token": "حدد رمز",
   "action__sell": "يبيع",
   "action__send": "يرسل",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "إرسال مع {0}",
   "action__share": "شارك",
   "action__show_more": "أظهر المزيد",
   "action__show_recovery_phrase": "إظهار عبارة الاسترداد",

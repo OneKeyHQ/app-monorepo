@@ -149,7 +149,7 @@
   "action__select_token": "選擇代幣",
   "action__sell": "賣",
   "action__send": "發送",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "使用 {0} 發送",
   "action__share": "分享",
   "action__show_more": "顯示更多",
   "action__show_recovery_phrase": "查看助記詞",

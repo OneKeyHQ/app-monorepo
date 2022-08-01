@@ -127,6 +127,8 @@ type OrderInfo = {
   orderId: string;
 };
 
+const baseUrl = 'https://fiat.onekeycn.com/swft';
+
 export class SwftcQuoter implements Quoter {
   type: QuoterType = QuoterType.swftc;
 
@@ -202,8 +204,11 @@ export class SwftcQuoter implements Quoter {
   }
 
   private async getRemoteCoins(): Promise<Coin[]> {
-    const url = 'https://www.swftc.info/api/v1/queryCoinList';
-    const res = await this.client.post(url, { supportType: 'advanced' });
+    const url = `${baseUrl}/queryCoinList`;
+    const res = await this.client.post(
+      url,
+      // { supportType: 'advanced' }
+    );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const coins = res.data.data as Coin[];
     return coins;
@@ -296,11 +301,12 @@ export class SwftcQuoter implements Quoter {
     if (fromNetwork && toNetwork) {
       const depositCoinCode = coins[fromNetwork]?.[fromToken]?.coinCode;
       const receiveCoinCode = coins[toNetwork]?.[toToken]?.coinCode;
+      const url = `${baseUrl}/getBaseInfo`;
       if (depositCoinCode && receiveCoinCode) {
-        const result = await this.client.post(
-          'https://www.swftc.info/api/v1/getBaseInfo',
-          { depositCoinCode, receiveCoinCode },
-        );
+        const result = await this.client.post(url, {
+          depositCoinCode,
+          receiveCoinCode,
+        });
         // eslint-disable-next-line
         const rate = result.data.data as CoinRate;
         return { depositCoinCode, receiveCoinCode, rate };
@@ -443,10 +449,8 @@ export class SwftcQuoter implements Quoter {
       sourceType: 'H5',
       sourceFlag: 'ONEKEY',
     };
-    const res = await this.client.post(
-      'https://www.swftc.info/api/v2/accountExchange',
-      data,
-    );
+    const url = `${baseUrl}/accountExchange`;
+    const res = await this.client.post(url, data);
     // eslint-disable-next-line
     const orderData = res.data as {
       data?: OrderInfo;
@@ -461,14 +465,12 @@ export class SwftcQuoter implements Quoter {
   ): Promise<TransactionStatus | undefined> {
     const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
     if (swftcOrderId) {
-      const res = await axios.post(
-        'https://www.swftc.info/api/v2/queryOrderState',
-        {
-          equipmentNo: tx.from,
-          sourceType: 'H5',
-          orderId: swftcOrderId,
-        },
-      );
+      const url = `${baseUrl}/queryOrderState`;
+      const res = await axios.post(url, {
+        equipmentNo: tx.from,
+        sourceType: 'H5',
+        orderId: swftcOrderId,
+      });
       // eslint-disable-next-line
       const receipt = res.data.data as SwftcTransactionReceipt;
       if (receipt.tradeState === 'complete') {

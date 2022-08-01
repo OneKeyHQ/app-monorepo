@@ -149,7 +149,7 @@
   "action__select_token": "Seleccionar ficha",
   "action__sell": "Vender",
   "action__send": "Enviar",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "Enviar con {0}",
   "action__share": "Compartir",
   "action__show_more": "Mostrar más",
   "action__show_recovery_phrase": "Mostrar frase de recuperación",

@@ -149,7 +149,7 @@
   "action__select_token": "选择代币",
   "action__sell": "出售",
   "action__send": "发送",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "使用 {0} 发送",
   "action__share": "分享",
   "action__show_more": "显示更多",
   "action__show_recovery_phrase": "查看助记词",

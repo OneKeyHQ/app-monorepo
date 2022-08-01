@@ -149,7 +149,7 @@
   "action__select_token": "Токеныг сонгоно уу",
   "action__sell": "Зарна",
   "action__send": "Илгээх",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "{0} илгээх",
   "action__share": "Хуваалцах",
   "action__show_more": "Дэлгэрэнгүй харуулах",
   "action__show_recovery_phrase": "Сэргээх хэллэгийг харуулах",

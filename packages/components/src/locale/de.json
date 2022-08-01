@@ -149,7 +149,7 @@
   "action__select_token": "Token auswählen",
   "action__sell": "Verkaufen",
   "action__send": "Senden",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "Senden mit {0}",
   "action__share": "Freigabe",
   "action__show_more": "Zeig mehr",
   "action__show_recovery_phrase": "Recovery-Phrase anzeigen",

@@ -149,7 +149,7 @@
   "action__select_token": "トークンの選択",
   "action__sell": "販売する",
   "action__send": "送信",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "{0}で送信",
   "action__share": "シェア",
   "action__show_more": "もっと見せる",
   "action__show_recovery_phrase": "回復フレーズを表示する",

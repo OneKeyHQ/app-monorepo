@@ -149,7 +149,7 @@
   "action__select_token": "Seleziona il gettone",
   "action__sell": "Vendere",
   "action__send": "Invia",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "Invia con {0}",
   "action__share": "Condividi",
   "action__show_more": "Mostra di più",
   "action__show_recovery_phrase": "Mostra la frase di recupero",

@@ -149,7 +149,7 @@
   "action__select_token": "Piliin ang Token",
   "action__sell": "Ibenta",
   "action__send": "Ipadala",
-  "action__send_width_str": "Send width {0}",
+  "action__send_with_str": "Ipadala gamit ang {0}",
   "action__share": "Ibahagi",
   "action__show_more": "Magpakita ng Higit Pa",
   "action__show_recovery_phrase": "Ipakita ang Recovery Phrase",
