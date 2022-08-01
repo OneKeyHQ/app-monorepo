@@ -1193,7 +1193,7 @@ class Engine {
 
     return {
       id: dbNetwork.id,
-      name: dbNetwork.name,
+      name: dbNetwork.symbol,
       networkId,
       tokenIdOnNetwork: '',
       symbol: dbNetwork.symbol,
