@@ -73,7 +73,6 @@ export enum TabRoutes {
 }
 
 export enum CreateWalletModalRoutes {
-  CreateWalletModal = 'CreateWalletModal',
   ConnectHardwareModal = 'ConnectHardwareModal',
   AppWalletDoneModal = 'AppWalletDoneModal',
   SetupSuccessModal = 'SetupSuccessModal',
@@ -94,7 +93,6 @@ export enum CreateWalletModalRoutes {
   OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
 
   AddExistingWalletModal = 'AddExistingWalletModal',
-  GuideModal = 'GuideModal',
   AddImportedOrWatchingAccountModal = 'AddImportedOrWatchingAccountModal',
   AddImportedAccountDoneModal = 'AddImportedAccountDoneModal',
   AttentionsModal = 'AttentionsModal',

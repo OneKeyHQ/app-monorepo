@@ -21,7 +21,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppLock } from '../../components/AppLock';
 import appUpdates from '../../utils/updates/AppUpdates';
 import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
-import WelcomeLegacy from '../../views/Welcome';
 import ModalStackNavigator from '../Modal';
 import {
   UpdateFeatureModalRoutes,
@@ -94,7 +93,6 @@ const App = () => {
       <RootStack.Screen name={RootRoutes.Root} component={StackScreen} />
       <RootStack.Screen
         name={RootRoutes.Welcome}
-        // component={WelcomeLegacy} // legacy
         component={RouteOnboarding}
         options={{
           // @ts-expect-error
