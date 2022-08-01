@@ -5,7 +5,6 @@ import { StyleProp, ViewStyle } from 'react-native';
 import { Box } from '@onekeyhq/components';
 
 import { useManageTokens } from '../../hooks';
-import { useSettings } from '../../hooks/redux';
 
 import { MarketApiData, PriceApiProps, fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
@@ -22,7 +21,6 @@ const PriceChart: React.FC<PriceChartProps> = ({
 }) => {
   const [isFetching, setIsFetching] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
-  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const { charts: reduxCachedCharts } = useManageTokens();
   const initChartData = reduxCachedCharts[contract || 'main'] || [];
   const dataMap = useRef<MarketApiData[][]>([initChartData]);
@@ -38,7 +36,6 @@ const PriceChart: React.FC<PriceChartProps> = ({
           contract,
           platform,
           days: TIMEOPTIONS_VALUE[newTimeIndex],
-          vs_currency: selectedFiatMoneySymbol,
         });
         const dayData = dataMap.current[0];
         if (dayData.length && newData.length) {
@@ -51,7 +48,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
       setSelectedTimeIndex(newTimeIndex);
       setIsFetching(false);
     },
-    [contract, platform, selectedFiatMoneySymbol, dataMap],
+    [contract, platform, dataMap],
   );
 
   useEffect(() => {

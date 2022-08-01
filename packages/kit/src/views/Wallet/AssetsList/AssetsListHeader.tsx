@@ -58,7 +58,7 @@ const ListHeader: FC = () => {
         {Number.isNaN(displayValue) ? (
           ' '
         ) : (
-          <FormatCurrencyNumber value={displayValue} />
+          <FormatCurrencyNumber decimals={2} value={displayValue} />
         )}
       </Text>
     );
