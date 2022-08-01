@@ -213,27 +213,27 @@ const DiscoverNative: FC<DiscoverProps> = ({
     [dappHistory.length, onItemSelectHistory, themeVariant],
   );
 
-  const getData = useCallback(async () => {
+  const getData = useCallback(() => {
     setPageStatus(
       Object.keys(syncData.increment).length > 0 ? 'data' : 'loading',
     );
-    const [syncDataResult, rankDataResult] = await Promise.all([
-      requestSync(0, locale),
-      requestRankings(),
-    ]);
-    if (
-      typeof syncDataResult === 'string' ||
-      typeof rankDataResult === 'string'
-    ) {
-      setPageStatus(
-        Object.keys(syncData.increment).length > 0 ? 'data' : 'network',
-      );
-    } else {
-      setPageStatus('data');
-      dispatch(updateSyncData(syncDataResult));
-      dispatch(updateRankData(rankDataResult));
-    }
-  }, [dispatch, locale, syncData.increment]);
+    requestSync(0, locale)
+      .then((response) => {
+        if (response.data.timestamp > syncData.timestamp) {
+          dispatch(updateSyncData(response.data));
+        }
+        setPageStatus('data');
+        requestRankings().then((response2) => {
+          dispatch(updateRankData(response2.data));
+        });
+      })
+      .catch(() => {
+        setPageStatus(
+          Object.keys(syncData.increment).length > 0 ? 'data' : 'network',
+        );
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, locale]);
 
   const noData = () => {
     switch (pageStatus) {
