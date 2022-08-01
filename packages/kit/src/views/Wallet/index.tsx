@@ -3,6 +3,7 @@ import React, { FC, useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
@@ -110,7 +111,7 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.Tokens}
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
-          <AssetsList />
+          <AssetsList ListFooterComponent={<Box h={16} />} />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.Collectibles}
