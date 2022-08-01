@@ -88,6 +88,19 @@ const Layout: FC<LayoutProps> = ({
 
   return (
     <LayoutScrollView>
+      {showCloseButton ? (
+        <IconButton
+          position="absolute"
+          onPress={onClosePress}
+          top={{ base: insets.top + 4, sm: 8 }}
+          right={{ base: 4, sm: 8 }}
+          type="plain"
+          size="lg"
+          name="CloseOutline"
+          circle
+          zIndex={9999}
+        />
+      ) : null}
       <PresenceTransition
         as={Box}
         visible={isClosing ? false : visible ?? isFocus}
@@ -108,19 +121,6 @@ const Layout: FC<LayoutProps> = ({
         mb={{ base: 'auto', sm: 0 }}
         {...rest}
       >
-        {showCloseButton ? (
-          <IconButton
-            position="absolute"
-            onPress={onClosePress}
-            top={{ base: insets.top, sm: 1 }}
-            right={{ base: 0, sm: 0 }}
-            type="plain"
-            size="lg"
-            name="CloseOutline"
-            circle
-            zIndex={9999}
-          />
-        ) : null}
         <Box
           minH={640}
           flex={{ base: fullHeight ? 1 : undefined, sm: 'initial' }}
