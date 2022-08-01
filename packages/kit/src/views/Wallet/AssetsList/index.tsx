@@ -99,7 +99,7 @@ function AssetsList({
     <TokenCell
       hidePriceInfo={hidePriceInfo}
       token={item}
-      borderTopRadius={noHeader ? '12px' : 0}
+      borderTopRadius={noHeader && index === 0 ? '12px' : 0}
       borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
       borderTopWidth={0}
       borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
