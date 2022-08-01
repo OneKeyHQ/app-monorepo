@@ -221,6 +221,9 @@ class EVMTxDecoder {
           }
           default: {
             // TODO: handle others erc20 tx
+            // fallback to contract call type
+            itemBuilder.protocol = undefined;
+            itemBuilder.txType = EVMDecodedTxType.TRANSACTION;
             break;
           }
         }
