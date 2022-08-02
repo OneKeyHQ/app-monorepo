@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import React from 'react';
+
 import {
   TypeWriter as BaseTypeWriter,
   Highlight,
@@ -16,3 +19,5 @@ type ITypeWriter = typeof BaseTypeWriter & {
 
 const TypeWriter = Base as ITypeWriter;
 export default TypeWriter;
+// @ts-ignore
+// export default React.memo(TypeWriter) as ITypeWriter;

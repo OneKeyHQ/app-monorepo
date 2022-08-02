@@ -33,14 +33,14 @@ import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_clos
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import {
   CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
   ModalRoutes,
-  ModalScreenProps,
   RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  ModalScreenProps,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';

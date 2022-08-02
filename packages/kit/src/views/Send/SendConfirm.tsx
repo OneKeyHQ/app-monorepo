@@ -17,7 +17,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
-import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
+import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { wait } from '../../utils/helper';
 import { TxDetailView } from '../TxDetail/TxDetailView';
 
@@ -121,7 +121,7 @@ function useSendConfirmEncodedTx({
 }
 
 function SendConfirm() {
-  useOnboardingFinished();
+  useOnboardingRequired();
   useReloadAccountBalance();
   const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
   const { accountId, networkId, walletId, networkImpl, account } =

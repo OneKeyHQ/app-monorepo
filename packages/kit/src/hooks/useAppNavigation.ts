@@ -36,14 +36,18 @@ export function useNavigationGoHomeForceReload() {
   }, [navigation]);
 }
 
-export function useNavigationBack() {
+export function useNavigationBack({
+  fallback,
+}: { fallback?: () => void } = {}) {
   const navigationRef = useAppNavigation();
-  const fallback = useNavigationGoHomeForceReload();
+  const reloadFullPage = useNavigationGoHomeForceReload();
   return useCallback(() => {
     if (navigationRef?.canGoBack?.()) {
       navigationRef?.goBack();
-    } else {
+    } else if (fallback) {
       fallback();
+    } else {
+      reloadFullPage();
     }
-  }, [navigationRef, fallback]);
+  }, [navigationRef, fallback, reloadFullPage]);
 }

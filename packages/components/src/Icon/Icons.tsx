@@ -81,6 +81,7 @@ import CogOutline from "./react/outline/Cog";
 import CollectionOutline from "./react/outline/Collection";
 import ColorSwatchOutline from "./react/outline/ColorSwatch";
 import CompassOutline from "./react/outline/Compass";
+import ConnectOutline from "./react/outline/Connect";
 import CreditCardOutline from "./react/outline/CreditCard";
 import CubeOutline from "./react/outline/Cube";
 import CubeTransparentOutline from "./react/outline/CubeTransparent";
@@ -364,6 +365,7 @@ import EmojiHappySolid from "./react/solid/EmojiHappy";
 import EmojiSadSolid from "./react/solid/EmojiSad";
 import ExclamationSolid from "./react/solid/Exclamation";
 import ExclamationCircleSolid from "./react/solid/ExclamationCircle";
+import ExtensionsSolid from "./react/solid/Extensions";
 import ExternalLinkSolid from "./react/solid/ExternalLink";
 import EyeSolid from "./react/solid/Eye";
 import EyeOffSolid from "./react/solid/EyeOff";
@@ -438,6 +440,7 @@ import PhoneIncomingSolid from "./react/solid/PhoneIncoming";
 import PhoneMissedCallSolid from "./react/solid/PhoneMissedCall";
 import PhoneOutgoingSolid from "./react/solid/PhoneOutgoing";
 import PhotographSolid from "./react/solid/Photograph";
+import PinSolid from "./react/solid/Pin";
 import PlaySolid from "./react/solid/Play";
 import PlusSolid from "./react/solid/Plus";
 import PlusCircleSolid from "./react/solid/PlusCircle";
@@ -593,6 +596,7 @@ export type ICON_NAMES =
   | "CollectionOutline"
   | "ColorSwatchOutline"
   | "CompassOutline"
+  | "ConnectOutline"
   | "CreditCardOutline"
   | "CubeOutline"
   | "CubeTransparentOutline"
@@ -876,6 +880,7 @@ export type ICON_NAMES =
   | "EmojiSadSolid"
   | "ExclamationSolid"
   | "ExclamationCircleSolid"
+  | "ExtensionsSolid"
   | "ExternalLinkSolid"
   | "EyeSolid"
   | "EyeOffSolid"
@@ -950,6 +955,7 @@ export type ICON_NAMES =
   | "PhoneMissedCallSolid"
   | "PhoneOutgoingSolid"
   | "PhotographSolid"
+  | "PinSolid"
   | "PlaySolid"
   | "PlusSolid"
   | "PlusCircleSolid"
@@ -1105,6 +1111,7 @@ export default {
   CollectionOutline: CollectionOutline,
   ColorSwatchOutline: ColorSwatchOutline,
   CompassOutline: CompassOutline,
+  ConnectOutline: ConnectOutline,
   CreditCardOutline: CreditCardOutline,
   CubeOutline: CubeOutline,
   CubeTransparentOutline: CubeTransparentOutline,
@@ -1388,6 +1395,7 @@ export default {
   EmojiSadSolid: EmojiSadSolid,
   ExclamationSolid: ExclamationSolid,
   ExclamationCircleSolid: ExclamationCircleSolid,
+  ExtensionsSolid: ExtensionsSolid,
   ExternalLinkSolid: ExternalLinkSolid,
   EyeSolid: EyeSolid,
   EyeOffSolid: EyeOffSolid,
@@ -1462,6 +1470,7 @@ export default {
   PhoneMissedCallSolid: PhoneMissedCallSolid,
   PhoneOutgoingSolid: PhoneOutgoingSolid,
   PhotographSolid: PhotographSolid,
+  PinSolid: PinSolid,
   PlaySolid: PlaySolid,
   PlusSolid: PlusSolid,
   PlusCircleSolid: PlusCircleSolid,
