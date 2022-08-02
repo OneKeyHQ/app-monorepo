@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { memo } from 'react';
 
+import { PortalHost, PortalProvider } from '@gorhom/portal';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { DialogManager } from '@onekeyhq/components';
@@ -152,7 +153,7 @@ const modalStackScreenList = [
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
 const ModalStackNavigator = () => (
-  <>
+  <PortalProvider>
     <ModalStack.Navigator
       screenOptions={{
         headerShown: false,
@@ -170,7 +171,7 @@ const ModalStackNavigator = () => (
     {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
     {platformEnv.isNativeIOS && <DialogManager.Holder />}
     {platformEnv.isNativeIOS && <HardwarePopup />}
-  </>
+  </PortalProvider>
 );
 
 export default memo(ModalStackNavigator);

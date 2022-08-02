@@ -12,6 +12,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import SelectBottonBar from '@onekeyhq/components/src/SelectBottonBar';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -82,6 +83,7 @@ const Guide = () => {
             {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
           </Button>
         </Box>
+        <SelectBottonBar>asdasdasd</SelectBottonBar>
       </Box>
     </Modal>
   );
