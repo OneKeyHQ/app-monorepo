@@ -1,4 +1,4 @@
-import React, { FC, forwardRef, useCallback, useMemo } from 'react';
+import React, { forwardRef, useCallback } from 'react';
 
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 

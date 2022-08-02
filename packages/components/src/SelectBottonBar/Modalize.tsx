@@ -1,5 +1,4 @@
 import React, {
-  FC,
   ForwardedRef,
   MutableRefObject,
   forwardRef,

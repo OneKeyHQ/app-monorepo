@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from 'react';
 
-import { PortalHost, PortalProvider } from '@gorhom/portal';
+import { PortalProvider } from '@gorhom/portal';
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -156,10 +156,7 @@ const Provider: FC<UIProviderProps> = ({
             }}
             theme={themeVar}
           >
-            <PortalProvider>
-              {children}
-              {/* <PortalHost name="CustomPortalHost" /> */}
-            </PortalProvider>
+            <PortalProvider>{children}</PortalProvider>
           </NativeBaseProvider>
         </IntlProvider>
       </Context.Provider>
