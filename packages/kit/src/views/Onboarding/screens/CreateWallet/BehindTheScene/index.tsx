@@ -66,7 +66,7 @@ type IProcessStateInfoUpdate = {
   done?: boolean;
 };
 type IProcessStates = Record<number, IProcessStateInfo>;
-type IProcessInfo = { text: string; highlight: string };
+type IProcessInfo = { text: string };
 const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
   const onboardingDone = useOnboardingDone();
   const route = useRoute<RouteProps>();
