@@ -50,10 +50,10 @@ async function fetchWithTimeout(
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
+  // @ts-expect-error
   const response = await fetch(url, {
     ...options,
-    // @ts-expect-error
-    signal: controller.signal,
+    signal: controller.signal as any,
   });
   clearTimeout(id);
   return response;
