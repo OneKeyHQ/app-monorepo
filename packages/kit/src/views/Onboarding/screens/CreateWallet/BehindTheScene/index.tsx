@@ -81,20 +81,16 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
   const { processInfoList, processDefaultStates } = useMemo(() => {
     const list: Array<IProcessInfo> = [
       {
-        text: intl.formatMessage({ id: 'content__creating_your' }),
-        highlight: intl.formatMessage({ id: 'content__wallet_lowercase' }),
+        text: 'content__creating_your_wallet',
       },
       {
-        text: intl.formatMessage({ id: 'content__generating_your' }),
-        highlight: intl.formatMessage({ id: 'content__accounts_lowercase' }),
+        text: 'content__generating_your_accounts',
       },
       {
-        text: intl.formatMessage({ id: 'content__encrypting_your' }),
-        highlight: intl.formatMessage({ id: 'content__data_lowercase' }),
+        text: 'content__encrypting_your_data',
       },
       {
-        text: intl.formatMessage({ id: 'content__backing_up_to' }),
-        highlight: 'iCloud',
+        text: 'content__backing_up_to_icloud',
       },
     ];
     const defaultStates = list.reduce<IProcessStates>(
@@ -288,12 +284,17 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
                 isPending={isPending}
                 isFadeOut={isFadeOut}
               >
-                <TypeWriter.NormalText>
-                  {processInfo.text}
-                </TypeWriter.NormalText>{' '}
-                <TypeWriter.Highlight>
-                  {processInfo.highlight}
-                </TypeWriter.Highlight>
+                {intl.formatMessage(
+                  { id: processInfo.text },
+                  {
+                    a: (text) => (
+                      <TypeWriter.NormalText>{text}</TypeWriter.NormalText>
+                    ),
+                    b: (text) => (
+                      <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
+                    ),
+                  },
+                )}
               </TypeWriter>
             );
           })}
@@ -309,10 +310,14 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
               onTypingEnd={handleProcessFinalTypingEnd}
             >
               <TypeWriter.NormalText>
-                {intl.formatMessage({ id: 'content__your_wallet_is_now' })}{' '}
-                <TypeWriter.Highlight>
-                  {intl.formatMessage({ id: 'content__ready_lowercase' })}
-                </TypeWriter.Highlight>{' '}
+                {intl.formatMessage(
+                  { id: 'content__your_wallet_is_now_ready' },
+                  {
+                    b: (text) => (
+                      <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
+                    ),
+                  },
+                )}{' '}
                 🚀
               </TypeWriter.NormalText>
             </TypeWriter>
