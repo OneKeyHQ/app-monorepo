@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  HomeRoutes,
   ModalScreenProps,
   RootRoutes,
   RootRoutesParams,
@@ -10,6 +11,7 @@ import {
 import { wait } from '../utils/helper';
 
 import { useAppSelector } from './redux';
+import useAppNavigation from './useAppNavigation';
 import useNavigation from './useNavigation';
 import { useNavigationActions } from './useNavigationActions';
 
@@ -46,4 +48,15 @@ export function useOnboardingDone() {
     [closeDrawer, resetToRoot],
   );
   return onboardingDone;
+}
+
+export function useNavigateToOnboarding() {
+  const navigation = useAppNavigation();
+
+  // ** Modal can NOT be closed in RootRoutes.Onboarding
+  // navigation.navigate(RootRoutes.Onboarding);
+
+  navigation.navigate(RootRoutes.Root, {
+    screen: HomeRoutes.HomeOnboarding,
+  });
 }

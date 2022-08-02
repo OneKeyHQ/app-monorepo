@@ -256,8 +256,7 @@ const DevScreen = () => {
           headerStyle: {
             backgroundColor: bgColor,
           },
-          header:
-            Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
+          header: renderCustomSubStackHeader,
           headerTintColor: textColor,
         }}
       >

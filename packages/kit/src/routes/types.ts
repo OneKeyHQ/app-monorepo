@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
+import { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
+
 import * as SubModalRoutesParams from './Modal/types';
 // define enum here to avoid cycle import
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
@@ -14,7 +16,6 @@ import type {
   ParamListBase,
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 
 export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
@@ -67,6 +68,7 @@ export type TabRoutesParams = {
 export type HomeRoutesParams = {
   [HomeRoutes.InitialTab]: undefined;
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
+  [HomeRoutes.HomeOnboarding]: undefined;
   [HomeRoutes.ScreenTokenDetail]: {
     accountId: string;
     networkId: string;
@@ -90,7 +92,6 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.Protected]: undefined;
   [HomeRoutes.AddressBook]: undefined;
-  [HomeRoutes.Onboarding]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
   [HomeRoutes.VolumeHaptic]: undefined;
 };
@@ -102,7 +103,10 @@ export type RootRoutesParams = {
   [RootRoutes.Root]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [RootRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
   [RootRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
-  [RootRoutes.Onboarding]: NavigatorScreenParams<IOnboardingRoutesParams>;
+  // TODO remove, use HomeRoutes.HomeOnboarding instead
+  [RootRoutes.Onboarding]:
+    | NavigatorScreenParams<IOnboardingRoutesParams>
+    | undefined;
 };
 
 export type RootScreenProps<T extends keyof RootRoutesParams> =

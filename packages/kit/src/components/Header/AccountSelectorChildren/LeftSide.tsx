@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -161,7 +161,12 @@ const LeftSide: FC<LeftSideProps> = ({
           name="WalletAddOutline"
           circle
           size="xl"
-          onPress={() => navigation.navigate(RootRoutes.Onboarding)}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Onboarding);
+            // navigation.navigate(RootRoutes.Root, {
+            //   screen: HomeRoutes.HomeOnboarding,
+            // });
+          }}
         />
       </Box>
     </VStack>

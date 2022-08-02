@@ -48,6 +48,7 @@ export enum HomeRoutes {
   // InitialTab = 'overview',
   InitialTab = 'home',
   Dev = 'dev',
+  HomeOnboarding = 'HomeOnboarding',
   ScreenTokenDetail = 'TokenDetailScreen',
   DebugScreen = 'Debug',
   SettingsWebviewScreen = 'SettingsWebviewScreen',
@@ -57,7 +58,6 @@ export enum HomeRoutes {
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   Protected = 'Protected',
   AddressBook = 'AddressBook',
-  Onboarding = 'Onboarding',
   SwapHistory = 'SwapHistory',
   VolumeHaptic = 'VolumeHaptic',
 }

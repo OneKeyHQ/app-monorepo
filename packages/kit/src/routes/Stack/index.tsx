@@ -22,6 +22,7 @@ import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
 import SwapHistory from '../../views/Swap/History';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
@@ -104,6 +105,10 @@ const Dashboard = () => {
           component={Drawer}
         />
         <StackNavigator.Screen name={HomeRoutes.Dev} component={Dev} />
+        <StackNavigator.Screen
+          name={HomeRoutes.HomeOnboarding}
+          component={RouteOnboarding}
+        />
       </StackNavigator.Group>
       <StackNavigator.Group
         screenOptions={{
