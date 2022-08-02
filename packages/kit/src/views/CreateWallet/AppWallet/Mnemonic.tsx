@@ -157,7 +157,7 @@ const MnemonicContainer = () => {
   const { mnemonic, password, withEnableAuthentication } = route.params ?? {};
   const toast = useToast();
   const intl = useIntl();
-  const { closeDrawer, resetToRoot } = useNavigationActions();
+  const { closeDrawer, openRootHome } = useNavigationActions();
   const onPromise = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceAccount.createHDWallet({
@@ -175,7 +175,7 @@ const MnemonicContainer = () => {
     }
     closeDrawer();
     await wait(600);
-    resetToRoot();
+    openRootHome();
     await wait(600);
     closeExtensionWindowIfOnboardingFinished();
   }, [
@@ -185,7 +185,7 @@ const MnemonicContainer = () => {
     closeDrawer,
     intl,
     toast,
-    resetToRoot,
+    openRootHome,
   ]);
   return <Mnemonic mnemonic={mnemonic} onPromise={onPromise} />;
 };

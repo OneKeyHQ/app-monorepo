@@ -41,7 +41,7 @@ const Done: FC<DoneProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { closeDrawer, resetToRoot } = useNavigationActions();
+  const { closeDrawer, openRootHome } = useNavigationActions();
   useEffect(() => {
     async function main() {
       try {
@@ -62,7 +62,7 @@ const Done: FC<DoneProps> = ({
         });
       }
       closeDrawer();
-      resetToRoot();
+      openRootHome();
       closeExtensionWindowIfOnboardingFinished();
     }
     main();

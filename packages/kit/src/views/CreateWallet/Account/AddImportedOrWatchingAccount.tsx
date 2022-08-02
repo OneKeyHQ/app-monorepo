@@ -46,7 +46,7 @@ const AddImportedOrWatchingAccount = () => {
   const intl = useIntl();
   const toast = useToast();
 
-  const { closeDrawer, resetToRoot } = useNavigationActions();
+  const { closeDrawer, openRootHome } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { control, handleSubmit, getValues, watch } =
@@ -127,7 +127,7 @@ const AddImportedOrWatchingAccount = () => {
             name,
           );
           closeDrawer();
-          resetToRoot();
+          openRootHome();
           closeExtensionWindowIfOnboardingFinished();
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
@@ -143,7 +143,7 @@ const AddImportedOrWatchingAccount = () => {
       possibleAddTypes,
       defaultAccountNames,
       closeDrawer,
-      resetToRoot,
+      openRootHome,
       toast,
       intl,
     ],

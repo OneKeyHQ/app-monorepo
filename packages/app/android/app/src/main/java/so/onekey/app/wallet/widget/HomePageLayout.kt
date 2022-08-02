@@ -58,6 +58,10 @@ open class HomePageLayout @JvmOverloads constructor(
         return content.findViewById<ViewGroup>(R.id.toolbar)?.getChildAt(0)
     }
 
+    fun removeHeaderView() {
+        content.findViewById<ViewGroup>(R.id.toolbar)?.removeAllViews()
+    }
+
     fun setHeaderView(view: View, height: Int) {
         val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
         contentView.removeAllViews()
