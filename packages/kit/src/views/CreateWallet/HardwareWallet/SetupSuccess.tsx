@@ -20,7 +20,7 @@ type RouteProps = RouteProp<
 const SetupSuccessModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { resetToRoot } = useNavigationActions();
+  const { openRootHome } = useNavigationActions();
   // const isSmallScreen = useIsVerticalLayout();
 
   const { device } = route?.params;
@@ -56,7 +56,7 @@ const SetupSuccessModal: FC = () => {
       header={device.name ?? ''}
       headerDescription={intl.formatMessage({ id: 'content__activated' })}
       secondaryActionTranslationId="action__close"
-      onSecondaryActionPress={resetToRoot}
+      onSecondaryActionPress={openRootHome}
       staticChildrenProps={{
         flex: '1',
         p: 6,

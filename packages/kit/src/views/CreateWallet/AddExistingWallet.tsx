@@ -43,7 +43,7 @@ const AddExistingWallet = () => {
   const intl = useIntl();
   const toast = useToast();
 
-  const { closeDrawer, resetToRoot } = useNavigationActions();
+  const { closeDrawer, openRootHome } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const isSmallScreen = useIsVerticalLayout();
@@ -153,7 +153,7 @@ const AddExistingWallet = () => {
             accountName,
           );
           closeDrawer();
-          resetToRoot();
+          openRootHome();
           closeExtensionWindowIfOnboardingFinished();
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
@@ -178,7 +178,7 @@ const AddExistingWallet = () => {
       activeNetworkId,
       closeDrawer,
       intl,
-      resetToRoot,
+      openRootHome,
       toast,
       wallets,
     ],

@@ -182,17 +182,29 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     override fun removeViewAt(parent: HomePageView?, index: Int) {
         if (parent == null) return
         if (index == 0) {
-            parent.setHeaderView(View(parent.context), 0)
+            parent.removeHeaderView()
         } else if (index <= mTabs.size) {
             mFragments.removeAt(index - 1)
-            if (index == mTabs.size) {
-                parent.setViewPager(
-                    (getReactContext(parent).currentActivity as FragmentActivity),
-                    mFragments,
-                    mTabs
-                )
+        }
+    }
+
+    override fun removeView(parent: HomePageView?, view: View?) {
+        if (parent == null) return
+        if (view == null) return
+        if (parent.getHeaderView() == view) {
+            parent.removeHeaderView()
+        } else {
+            val index = mFragments.indexOfFirst { it.childView == view }
+            if (index != -1) {
+                mFragments.removeAt(index)
             }
         }
+    }
+
+    override fun removeAllViews(parent: HomePageView?) {
+        if (parent == null) return
+        parent.removeHeaderView()
+        mFragments.clear()
     }
 
     override fun needsCustomLayoutForChildren(): Boolean {
