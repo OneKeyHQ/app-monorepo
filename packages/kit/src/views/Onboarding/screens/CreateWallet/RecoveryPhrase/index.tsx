@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Icon, Text } from '@onekeyhq/components';
 
+import { wait } from '../../../../../utils/helper';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { IOnboardingRoutesParams } from '../../../routes/types';
@@ -67,16 +68,16 @@ const RecoveryPhrase = () => {
           para: intl.formatMessage({ id: 'content__recovery_phrase_restore' }),
         },
         {
-          type: 'critical',
-          icon: 'EyeOffOutline',
-          para: intl.formatMessage({ id: 'modal__attention_shh' }),
-        },
-        {
           type: 'warning',
           icon: 'ShieldCheckOutline',
           para: intl.formatMessage({
             id: 'backup__manual_backup_warning_never_ask',
           }),
+        },
+        {
+          type: 'critical',
+          icon: 'EyeOffOutline',
+          para: intl.formatMessage({ id: 'modal__attention_shh' }),
         },
       ] as const,
     [intl],

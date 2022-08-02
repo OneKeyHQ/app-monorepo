@@ -101,7 +101,7 @@ export type RootRoutesParams = {
   [RootRoutes.Root]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [RootRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
   [RootRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
-  [RootRoutes.Welcome]: undefined;
+  [RootRoutes.Onboarding]: undefined;
 };
 
 export type RootScreenProps<T extends keyof RootRoutesParams> =

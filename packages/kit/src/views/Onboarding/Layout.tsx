@@ -11,6 +11,7 @@ import {
   Text,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOnboardingClose } from './hooks';
 import {
@@ -92,6 +93,10 @@ const Layout: FC<LayoutProps> = ({
   }, [onboardingGoBack]);
 
   const finalVisible = useMemo(() => {
+    if (platformEnv.isNative) {
+      return true;
+    }
+    // closing animation fade out
     if (isClosing) {
       return false;
     }
@@ -100,6 +105,19 @@ const Layout: FC<LayoutProps> = ({
 
   return (
     <LayoutScrollView>
+      {showCloseButton ? (
+        <IconButton
+          position="absolute"
+          onPress={onClosePress}
+          top={{ base: insets.top + 4, sm: 8 }}
+          right={{ base: 4, sm: 8 }}
+          type="plain"
+          size="lg"
+          name="CloseOutline"
+          circle
+          zIndex={9999}
+        />
+      ) : null}
       <PresenceTransition
         as={Box}
         visible={finalVisible}
@@ -120,19 +138,6 @@ const Layout: FC<LayoutProps> = ({
         mb={{ base: 'auto', sm: 0 }}
         {...rest}
       >
-        {showCloseButton ? (
-          <IconButton
-            position="absolute"
-            onPress={onClosePress}
-            top={{ base: insets.top, sm: 1 }}
-            right={{ base: 0, sm: 0 }}
-            type="plain"
-            size="lg"
-            name="CloseOutline"
-            circle
-            zIndex={9999}
-          />
-        ) : null}
         <Box
           minH={640}
           flex={{ base: fullHeight ? 1 : undefined, sm: 'initial' }}

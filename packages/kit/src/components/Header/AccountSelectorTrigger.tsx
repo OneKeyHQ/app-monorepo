@@ -69,7 +69,7 @@ const AccountSelectorTrigger: FC<Props> = ({
     return (
       <Button
         onPress={() => {
-          navigation.navigate(RootRoutes.Welcome);
+          navigation.navigate(RootRoutes.Onboarding);
         }}
       >
         {intl.formatMessage({ id: 'action__create_wallet' })}

@@ -99,7 +99,7 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
             bottom={0}
             left={0}
             bgColor="backdrop"
-            opacity={0.3}
+            opacity={0.75}
             onPress={onClose}
           />
         ) : null}

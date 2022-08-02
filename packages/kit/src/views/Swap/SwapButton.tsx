@@ -124,7 +124,7 @@ const SwapButton = () => {
   }, [swapQuote, navigation, account]);
 
   const onCreateWallet = useCallback(() => {
-    navigation.navigate(RootRoutes.Welcome);
+    navigation.navigate(RootRoutes.Onboarding);
   }, [navigation]);
 
   const onCreateAccount = useCallback(() => {

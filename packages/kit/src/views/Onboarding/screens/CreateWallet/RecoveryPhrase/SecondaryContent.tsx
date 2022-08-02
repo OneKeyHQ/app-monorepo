@@ -48,6 +48,7 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
               }}
               style={{
                 flex: 1,
+                alignSelf: 'stretch',
               }}
             >
               <PhraseSheet

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -11,7 +11,10 @@ import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
 import LogoTokenPocket from '@onekeyhq/kit/assets/onboarding/logo_tokenpocket.png';
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { RootRoutes } from '../../../../routes/routesEnum';
+import extUtils from '../../../../utils/extUtils';
 import Layout from '../../Layout';
 import { EOnboardingRoutes } from '../../routes/enums';
 import { IOnboardingRoutesParams } from '../../routes/types';
@@ -28,6 +31,16 @@ const Welcome = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   // const navigation = useAppNavigation();
   const navigation = useNavigation<NavigationProps>();
+
+  useEffect(() => {
+    if (platformEnv.isExtensionUiPopup) {
+      extUtils.openExpandTab({
+        routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
+        params: {},
+      });
+      window.close();
+    }
+  }, []);
 
   const intl = useIntl();
   // const goBack = useNavigationBack();

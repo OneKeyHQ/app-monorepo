@@ -26,7 +26,7 @@ export const useOnboardingRequired = () => {
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
   useEffect(() => {
     if (!boardingCompleted) {
-      navigation.replace(RootRoutes.Welcome);
+      navigation.replace(RootRoutes.Onboarding);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

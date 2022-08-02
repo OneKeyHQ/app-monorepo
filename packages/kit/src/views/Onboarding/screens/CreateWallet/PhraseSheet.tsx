@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
+import { wait } from '../../../../utils/helper';
+
 type PhraseSheetProps = {
   onPressSavedPhrase?: () => void;
   mnemonic: string;
@@ -45,6 +47,11 @@ const PhraseSheet: FC<PhraseSheetProps> = ({
     [toast, intl],
   );
 
+  const onPressSavedPhrasePromise = useCallback(async () => {
+    onPressSavedPhrase?.();
+    await wait(3000);
+  }, [onPressSavedPhrase]);
+
   return (
     <>
       <Box alignSelf="stretch" flex={1} {...rest}>
@@ -59,8 +66,9 @@ const PhraseSheet: FC<PhraseSheetProps> = ({
             bg="surface-default"
             _hover={{ bg: 'surface-hovered' }}
             _pressed={{ bg: 'surface-pressed' }}
-            shadow="depth.2"
             borderRadius="12"
+            borderWidth={1}
+            borderColor="divider"
             onPress={() => copyMnemonicToClipboard(mnemonic)}
           >
             <ScrollView>
@@ -106,7 +114,7 @@ const PhraseSheet: FC<PhraseSheetProps> = ({
         <Button
           type="primary"
           size={isVerticalLayout ? 'xl' : 'base'}
-          onPress={onPressSavedPhrase}
+          onPromise={onPressSavedPhrasePromise}
         >
           {intl.formatMessage({ id: 'action__i_have_saved_the_phrase' })}
         </Button>

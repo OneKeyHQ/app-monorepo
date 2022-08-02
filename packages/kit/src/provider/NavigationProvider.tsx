@@ -6,7 +6,6 @@ import {
   NavigationContainer,
   NavigationContainerRef,
 } from '@react-navigation/native';
-import { createURL } from 'expo-linking';
 import { Host } from 'react-native-portalize';
 
 import {
@@ -26,9 +25,9 @@ import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
+import linking from '../routes/linking';
 
-const prefix = createURL('/');
+import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = React.createRef<RootNavContainerRef>();
@@ -40,22 +39,6 @@ declare global {
 
 // update navigationRef.current at <NavigationContainer />
 global.$navigationRef = navigationRef;
-
-const linking = {
-  prefixes: [prefix],
-};
-let enableLinkingRoute =
-  platformEnv.isDev || platformEnv.isNative || platformEnv.isExtension;
-
-// firefox: popup window trigger resize issue
-if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
-  enableLinkingRoute = false;
-}
-// firefox: router back auto-reload navigation issue
-//        may be caused by @react-navigation+native+6.0.6.patch
-if (platformEnv.isExtFirefox) {
-  enableLinkingRoute = false;
-}
 
 const NavigationApp = () => {
   useAutoNavigateOnMount();
@@ -130,7 +113,7 @@ const NavigationApp = () => {
         }}
         ref={navigationRef}
         theme={navigationTheme}
-        linking={enableLinkingRoute ? linking : undefined}
+        linking={linking}
       >
         <Host>
           <OverlayProvider>

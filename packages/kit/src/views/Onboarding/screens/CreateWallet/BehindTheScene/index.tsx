@@ -22,8 +22,10 @@ import {
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import { useDisableNavigationBack } from '../../../../../hooks/useDisableNavigationBack';
 import {
   closeExtensionWindowIfOnboardingFinished,
   useOnboardingDone,
@@ -66,24 +68,33 @@ type IProcessStateInfoUpdate = {
   done?: boolean;
 };
 type IProcessStates = Record<number, IProcessStateInfo>;
-type IProcessInfo = { text: string; highlight: string };
+type IProcessInfo = { text: string };
 const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
   const onboardingDone = useOnboardingDone();
   const route = useRoute<RouteProps>();
   const toast = useToast();
   const intl = useIntl();
   const { onboardingGoBack } = useOnboardingClose();
-  const { password, mnemonic, withEnableAuthentication } = route.params;
+  const { password, mnemonic, withEnableAuthentication } = route.params || {};
   const isVerticalLayout = useIsVerticalLayout();
+  useDisableNavigationBack({ condition: true });
 
   const isWalletCreatedRef = useRef(false);
 
   const { processInfoList, processDefaultStates } = useMemo(() => {
     const list: Array<IProcessInfo> = [
-      { text: 'Creating your ', highlight: 'wallet' },
-      { text: 'Generating your ', highlight: 'accounts' },
-      { text: 'Verifying your ', highlight: 'key' },
-      { text: 'Backing up to ', highlight: 'iCloud' },
+      {
+        text: 'content__creating_your_wallet',
+      },
+      {
+        text: 'content__generating_your_accounts',
+      },
+      {
+        text: 'content__encrypting_your_data',
+      },
+      {
+        text: 'content__backing_up_to_icloud',
+      },
     ];
     const defaultStates = list.reduce<IProcessStates>(
       (prev, current, index) => {
@@ -108,16 +119,25 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
   );
 
   const startCreatingWallet = useCallback(async () => {
+    if (!password || !mnemonic) {
+      return false;
+    }
     try {
+      await wait(1000);
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,
       });
+      await wait(300);
       if (withEnableAuthentication) {
         backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
         await savePassword(password);
       }
-      toast.show({ title: intl.formatMessage({ id: 'msg__account_created' }) });
+      if (platformEnv.isDev) {
+        toast.show({
+          title: intl.formatMessage({ id: 'msg__account_created' }),
+        });
+      }
       return true;
     } catch (e) {
       debugLogger.common.error(e);
@@ -212,25 +232,31 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
   );
 
   const finishButton = useMemo(
-    () => (
-      <PresenceTransition
-        as={Box}
-        // @ts-ignore
-        mt="auto"
-        alignSelf={{ base: 'stretch', sm: 'flex-start' }}
-        visible={lastActionVisible}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1, transition: { duration: 150 } }}
-      >
-        <Button
-          onPromise={() => onboardingDone({ delay: 600 })}
-          type="primary"
-          size="xl"
+    () =>
+      platformEnv.isExtension ? null : (
+        <PresenceTransition
+          as={Box}
+          // @ts-ignore
+          mt="auto"
+          alignSelf={{ base: 'stretch', sm: 'flex-start' }}
+          visible={lastActionVisible}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{
+            opacity: 1,
+            scale: 1,
+            transition: { duration: 150, delay: 150 },
+          }}
         >
-          Let's go
-        </Button>
-      </PresenceTransition>
-    ),
+          <Button
+            onPromise={() => onboardingDone({ delay: 600 })}
+            type="primary"
+            size="xl"
+            minW={160}
+          >
+            Let's go
+          </Button>
+        </PresenceTransition>
+      ),
     [lastActionVisible, onboardingDone],
   );
 
@@ -271,12 +297,17 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
                 isPending={isPending}
                 isFadeOut={isFadeOut}
               >
-                <TypeWriter.NormalText>
-                  {processInfo.text}
-                </TypeWriter.NormalText>{' '}
-                <TypeWriter.Highlight>
-                  {processInfo.highlight}
-                </TypeWriter.Highlight>
+                {intl.formatMessage(
+                  { id: processInfo.text as any },
+                  {
+                    a: (text) => (
+                      <TypeWriter.NormalText>{text}</TypeWriter.NormalText>
+                    ),
+                    b: (text) => (
+                      <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
+                    ),
+                  },
+                )}
               </TypeWriter>
             );
           })}
@@ -292,8 +323,15 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
               onTypingEnd={handleProcessFinalTypingEnd}
             >
               <TypeWriter.NormalText>
-                Your wallet is now{' '}
-                <TypeWriter.Highlight>ready</TypeWriter.Highlight>. 🚀
+                {intl.formatMessage(
+                  { id: 'content__your_wallet_is_now_ready' },
+                  {
+                    b: (text) => (
+                      <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
+                    ),
+                  },
+                )}{' '}
+                🚀
               </TypeWriter.NormalText>
             </TypeWriter>
           ) : undefined}
@@ -301,11 +339,13 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
           {processFinalTypingEnd ? <TypeWriter /> : undefined}
 
           {lastActionVisible && !isVerticalLayout ? (
-            <Box mt={4}>{finishButton}</Box>
+            <Box mt={16}>{finishButton}</Box>
           ) : undefined}
         </Box>
       </Layout>
-      {/* {showLastAction ? <PinPanel visible={showLastAction} /> : undefined} */}
+      {lastActionVisible && platformEnv.isExtension ? (
+        <PinPanel visible={lastActionVisible} />
+      ) : undefined}
     </>
   );
 };

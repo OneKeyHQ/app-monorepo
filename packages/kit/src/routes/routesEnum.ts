@@ -42,7 +42,7 @@ export enum RootRoutes {
   Root = 'root',
   Modal = 'modal',
   Tab = 'tab',
-  Welcome = 'Welcome',
+  Onboarding = 'Onboarding',
 }
 export enum HomeRoutes {
   // InitialTab = 'overview',

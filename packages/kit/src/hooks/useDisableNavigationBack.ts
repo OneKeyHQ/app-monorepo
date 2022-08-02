@@ -10,6 +10,8 @@ function useDisableNavigationBack({ condition }: { condition: boolean }) {
     // disable animation if auto navigate
     if (condition) {
       navigation.setOptions({
+        gestureEnabled: false,
+
         // node_modules/@react-navigation/native-stack/src/types.tsx
         // @ts-ignore
         headerLeft: null,

@@ -4,13 +4,15 @@ import { useNavigation } from '@react-navigation/core';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
-import { Center, Spinner } from '@onekeyhq/components';
+import { Box, Button, Center, Spinner } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
 } from '../../../../../components/Protected';
 import { useData } from '../../../../../hooks/redux';
+import { useDisableNavigationAnimation } from '../../../../../hooks/useDisableNavigationAnimation';
+import { usePromiseResult } from '../../../../../hooks/usePromiseResult';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { IOnboardingRoutesParams } from '../../../routes/types';
@@ -34,6 +36,8 @@ function RedirectToRecoveryPhrase({
   useEffect(() => {
     (async function () {
       const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
+
+      // return;
 
       navigation.replace(EOnboardingRoutes.RecoveryPhrase, {
         password,
@@ -74,7 +78,12 @@ const SetPassword = () => {
 
   return (
     <>
-      <Layout title={title} secondaryContent={<SecondaryContent />}>
+      <Layout
+        // make sure Spinner display
+        fullHeight
+        title={title}
+        secondaryContent={isPasswordSet ? null : <SecondaryContent />}
+      >
         <Protected
           hideTitle
           walletId={null}

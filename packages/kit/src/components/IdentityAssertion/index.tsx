@@ -37,7 +37,7 @@ const IdentityAssertion: FC = ({ children }) => {
             leftIconName="PlusOutline"
             type="primary"
             onPress={() => {
-              navigation.navigate(RootRoutes.Welcome);
+              navigation.navigate(RootRoutes.Onboarding);
             }}
             size="lg"
           >
