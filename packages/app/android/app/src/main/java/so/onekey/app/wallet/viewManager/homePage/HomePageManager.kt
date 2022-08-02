@@ -3,6 +3,7 @@ package so.onekey.app.wallet.viewManager.homePage
 import android.util.Log
 import android.view.View
 import androidx.fragment.app.FragmentActivity
+import androidx.recyclerview.widget.RecyclerView
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.common.MapBuilder
@@ -31,10 +32,17 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
 
     private val mTabs = mutableListOf<TabProps>()
     private val mFragments = ArrayList<ViewFragment>()
+    private var mAdapter: RecyclerView.Adapter<*>? = null
 
     override fun createViewInstance(reactContext: ThemedReactContext): HomePageView {
         Log.d("HomePageManager", "createViewInstance")
-        return HomePageView(reactContext)
+        return HomePageView(reactContext).also {
+            mAdapter = it.setViewPager(
+                (getReactContext(it).currentActivity as FragmentActivity),
+                mFragments,
+                mTabs
+            )
+        }
     }
 
     override fun getExportedCustomBubblingEventTypeConstants(): Map<String, Any> {
@@ -127,6 +135,19 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         }
     }
 
+    override fun getChildCount(parent: HomePageView): Int {
+        // harderView and tabViews
+        return 1 + mFragments.size
+    }
+
+    override fun getChildAt(parent: HomePageView?, index: Int): View {
+        return if (index == 0) {
+            parent?.getHeaderView()!!
+        } else {
+            mFragments[index - 1].childView
+        }
+    }
+
     override fun onAfterUpdateTransaction(view: HomePageView) {
         super.onAfterUpdateTransaction(view)
         view.updateTabsTitle(mTabs)
@@ -135,18 +156,17 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     override fun addView(parent: HomePageView?, child: View?, index: Int) {
         if (parent == null) return
         if (child == null) return
-
         if (index == 0) {
             mFragments.clear()
             parent.setHeaderView(child, this.height)
         } else if (index <= mTabs.size) {
-            child.let { mFragments.add(ViewFragment(it)) }
-            if (index == mTabs.size) {
-                parent.setViewPager(
-                    (getReactContext(parent).currentActivity as FragmentActivity),
-                    mFragments,
-                    mTabs
-                )
+            child.let {
+                mFragments.add(index - 1, ViewFragment(it))
+            }
+
+            parent.updateTabsTitle(mTabs)
+            parent.post {
+                mAdapter?.notifyItemChanged(index - 1)
             }
         }
         parent.requestLayout()
@@ -156,6 +176,22 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         if (parent == null) return
         views?.forEachIndexed { index, view ->
             addView(parent, view, index)
+        }
+    }
+
+    override fun removeViewAt(parent: HomePageView?, index: Int) {
+        if (parent == null) return
+        if (index == 0) {
+            parent.setHeaderView(View(parent.context), 0)
+        } else if (index <= mTabs.size) {
+            mFragments.removeAt(index - 1)
+            if (index == mTabs.size) {
+                parent.setViewPager(
+                    (getReactContext(parent).currentActivity as FragmentActivity),
+                    mFragments,
+                    mTabs
+                )
+            }
         }
     }
 

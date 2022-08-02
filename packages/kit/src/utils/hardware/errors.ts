@@ -87,6 +87,12 @@ export class NeedBluetoothPermissions extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_bluetooth_requires_permission_error';
 }
 
+export class BleWriteCharacteristicError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BleWriteCharacteristicError;
+
+  override key: LocaleIds = 'msg__hardware_device_need_restart';
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 

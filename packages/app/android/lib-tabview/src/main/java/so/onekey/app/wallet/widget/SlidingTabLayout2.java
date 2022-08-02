@@ -1,24 +1,7 @@
 package so.onekey.app.wallet.widget;
 
 import android.content.Context;
-import android.content.res.TypedArray;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.Rect;
-import android.graphics.drawable.GradientDrawable;
-import android.os.Bundle;
-import android.os.Parcelable;
 import android.util.AttributeSet;
-import android.util.SparseArray;
-import android.util.TypedValue;
-import android.view.Gravity;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.HorizontalScrollView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
@@ -26,7 +9,6 @@ import androidx.lifecycle.Lifecycle;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -114,9 +96,9 @@ public class SlidingTabLayout2 extends SlidingTabLayoutBase {
             throw new IllegalStateException("ViewPager can not be NULL !");
         }
 
-        if (titles == null || titles.size() == 0) {
-            throw new IllegalStateException("Titles can not be EMPTY !");
-        }
+//        if (titles == null || titles.size() == 0) {
+//            throw new IllegalStateException("Titles can not be EMPTY !");
+//        }
 
         registerVpListener(vp);
         this.mViewPager.setAdapter(new InnerPagerAdapter(fa, fragments, fa.getLifecycle()));
