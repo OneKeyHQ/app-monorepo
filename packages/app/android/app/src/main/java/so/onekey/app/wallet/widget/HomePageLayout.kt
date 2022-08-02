@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.appcompat.widget.LinearLayoutCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
@@ -51,6 +52,10 @@ open class HomePageLayout @JvmOverloads constructor(
         reactContext
             .getJSModule(RCTEventEmitter::class.java)
             .receiveEvent(id, "tabPageChange", event)
+    }
+
+    fun getHeaderView(): View? {
+        return content.findViewById<ViewGroup>(R.id.toolbar)?.getChildAt(0)
     }
 
     fun setHeaderView(view: View, height: Int) {
@@ -109,7 +114,7 @@ open class HomePageLayout @JvmOverloads constructor(
         fragmentActivity: FragmentActivity,
         fragments: List<ViewFragment>,
         titles: List<TabProps>
-    ) {
+    ): RecyclerView.Adapter<*>? {
         mTabProps.clear()
         mTabProps.addAll(titles)
 
@@ -125,6 +130,7 @@ open class HomePageLayout @JvmOverloads constructor(
 
         viewpager.unregisterOnPageChangeCallback(mPageChangeCallback)
         viewpager.registerOnPageChangeCallback(mPageChangeCallback)
+        return viewpager.adapter
     }
 
     fun setScrollEnabled(enabled: Boolean) {
@@ -132,9 +138,8 @@ open class HomePageLayout @JvmOverloads constructor(
     }
 
     fun updateTabsTitle(mTabs: MutableList<TabProps>) {
-        if (mTabProps.isEmpty()) {
-            return
-        }
+        mTabProps.clear()
+        mTabProps.addAll(mTabs)
         content.findViewById<SlidingTabLayout2>(R.id.layout_tab)?.let {
             it.updateTabsTitle(mTabs.map { it.label }.toTypedArray())
             // Refresh when the main thread is busy

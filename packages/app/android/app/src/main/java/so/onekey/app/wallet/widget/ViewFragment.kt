@@ -9,7 +9,7 @@ import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
 import so.onekey.app.wallet.R
 
-class ViewFragment constructor(private val childView: View) : Fragment() {
+class ViewFragment constructor(val childView: View) : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
