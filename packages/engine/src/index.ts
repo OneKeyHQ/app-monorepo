@@ -1960,7 +1960,7 @@ class Engine {
 
   @backgroundMethod()
   clearPriceCache() {
-    return this.priceManager.cache.clear();
+    return Promise.resolve(this.priceManager.cache.clear());
   }
 
   @backgroundMethod()
