@@ -72,13 +72,7 @@ const RightChainSelector: FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledNetworks, isVerticalLayout, intl, activeWallet]);
   console.log(options);
-  return (
-    <SelectBottonBar>
-      {options.map((i) => (
-        <Box key={i.value}>{i.value}</Box>
-      ))}
-    </SelectBottonBar>
-  );
+  return <SelectBottonBar />;
 };
 
 export default memo(RightChainSelector);
