@@ -15,6 +15,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
+import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -37,6 +38,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showHomeBalanceSettings } from '../../Overlay/BottomSheetSettings';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -79,9 +81,19 @@ const AccountAmountInfo: FC = () => {
       Number.isNaN(displayValue) ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
-        <Typography.Display2XLarge>
-          <FormatCurrencyNumber decimals={2} value={displayValue} />
-        </Typography.Display2XLarge>
+        <>
+          <Typography.Display2XLarge>
+            <FormatCurrencyNumber decimals={2} value={displayValue} />
+          </Typography.Display2XLarge>
+          <PressableItem
+            w="10px"
+            alignItems="center"
+            justifyContent="center"
+            onPress={showHomeBalanceSettings}
+          >
+            <Icon name="ChevronDownSolid" />
+          </PressableItem>
+        </>
       ),
     ];
   }, [accountTokens, balances, prices]);
