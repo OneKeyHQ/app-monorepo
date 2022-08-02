@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from 'react';
 
+import { PortalHost, PortalProvider } from '@gorhom/portal';
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -147,6 +148,7 @@ const Provider: FC<UIProviderProps> = ({
           backgroundColor={COLORS[themeVariant]['background-default']}
           animated
         />
+
         <IntlProvider locale={locale} messages={LOCALES[locale]}>
           <NativeBaseProvider
             config={{
@@ -154,7 +156,10 @@ const Provider: FC<UIProviderProps> = ({
             }}
             theme={themeVar}
           >
-            {children}
+            <PortalProvider>
+              {children}
+              {/* <PortalHost name="CustomPortalHost" /> */}
+            </PortalProvider>
           </NativeBaseProvider>
         </IntlProvider>
       </Context.Provider>

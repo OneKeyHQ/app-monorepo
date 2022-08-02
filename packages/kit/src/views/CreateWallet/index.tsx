@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Box,
   HStack,
   Icon,
   Image,
@@ -13,6 +14,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import SelectBottonBar from '@onekeyhq/components/src/SelectBottonBar';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -112,6 +114,11 @@ const CreateWalletModal: FC = () => {
           </Typography.Caption>
         </PressableItem>
       </VStack>
+      <SelectBottonBar>
+        {[1, 2, 3, 4].map((i) => (
+          <Box key={i}>{i}</Box>
+        ))}
+      </SelectBottonBar>
     </VStack>
   );
 

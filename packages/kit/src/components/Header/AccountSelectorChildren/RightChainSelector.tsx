@@ -11,6 +11,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
+import SelectBottonBar from '@onekeyhq/components/src/SelectBottonBar';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -81,93 +82,98 @@ const RightChainSelector: FC<Props> = ({
     return networks;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledNetworks, isVerticalLayout, intl, activeWallet]);
-
+  console.log(options);
   return (
-    <Select
-      setPositionOnlyMounted
-      positionTranslateY={4}
-      dropdownPosition="right"
-      value={selectedNetworkId}
-      onChange={setSelectedNetworkId}
-      title={intl.formatMessage({ id: 'network__networks' })}
-      options={options}
-      isTriggerPlain
-      footerText={intl.formatMessage({ id: 'action__customize_network' })}
-      footerIcon="PencilSolid"
-      onPressFooter={() => {
-        setTimeout(() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ManageNetwork,
-            params: {
-              screen: ManageNetworkRoutes.Listing,
-              // params: { onEdited: refreshAccounts },
-            },
-          });
-        }, 500);
-      }}
-      renderTrigger={(activeOption, isHovered, visible) => (
-        <Box
-          display="flex"
-          flexDirection="row"
-          alignItems="center"
-          py={2}
-          pl="3"
-          pr="2.5"
-          borderWidth="1"
-          borderColor={
-            // eslint-disable-next-line no-nested-ternary
-            visible
-              ? 'focused-default'
-              : isHovered
-              ? 'border-hovered'
-              : 'border-default'
-          }
-          borderRadius="xl"
-          bg={
-            // eslint-disable-next-line no-nested-ternary
-            visible
-              ? 'surface-selected'
-              : // eslint-disable-next-line no-nested-ternary
-              isHovered
-              ? 'surface-hovered'
-              : 'surface-default'
-          }
-        >
-          <Box
-            display="flex"
-            flex={1}
-            flexDirection="row"
-            alignItems="center"
-            mr="1"
-          >
-            {!!activeOption.tokenProps && (
-              <Box mr="3">
-                <Token
-                  size={activeOption.description ? 8 : 6}
-                  {...activeOption.tokenProps}
-                />
-              </Box>
-            )}
-            {!!activeOption.iconProps && (
-              <Box mr="3">
-                <Icon {...activeOption.iconProps} size={24} />
-              </Box>
-            )}
-            <Box flex={1}>
-              <Text
-                typography={{ sm: 'Body1', md: 'Body2' }}
-                numberOfLines={1}
-                flex={1}
-                isTruncated
-              >
-                {activeOption.label ?? '-'}
-              </Text>
-            </Box>
-          </Box>
-          <Icon size={20} name="ChevronDownSolid" />
-        </Box>
-      )}
-    />
+    <SelectBottonBar>
+      {options.map((i) => (
+        <Box key={i.value}>{i.value}</Box>
+      ))}
+    </SelectBottonBar>
+    // <Select
+    //   setPositionOnlyMounted
+    //   positionTranslateY={4}
+    //   dropdownPosition="right"
+    //   value={selectedNetworkId}
+    //   onChange={setSelectedNetworkId}
+    //   title={intl.formatMessage({ id: 'network__networks' })}
+    //   options={options}
+    //   isTriggerPlain
+    //   footerText={intl.formatMessage({ id: 'action__customize_network' })}
+    //   footerIcon="PencilSolid"
+    //   onPressFooter={() => {
+    //     setTimeout(() => {
+    //       navigation.navigate(RootRoutes.Modal, {
+    //         screen: ModalRoutes.ManageNetwork,
+    //         params: {
+    //           screen: ManageNetworkRoutes.Listing,
+    //           // params: { onEdited: refreshAccounts },
+    //         },
+    //       });
+    //     }, 500);
+    //   }}
+    //   renderTrigger={(activeOption, isHovered, visible) => (
+    //     <Box
+    //       display="flex"
+    //       flexDirection="row"
+    //       alignItems="center"
+    //       py={2}
+    //       pl="3"
+    //       pr="2.5"
+    //       borderWidth="1"
+    //       borderColor={
+    //         // eslint-disable-next-line no-nested-ternary
+    //         visible
+    //           ? 'focused-default'
+    //           : isHovered
+    //           ? 'border-hovered'
+    //           : 'border-default'
+    //       }
+    //       borderRadius="xl"
+    //       bg={
+    //         // eslint-disable-next-line no-nested-ternary
+    //         visible
+    //           ? 'surface-selected'
+    //           : // eslint-disable-next-line no-nested-ternary
+    //           isHovered
+    //           ? 'surface-hovered'
+    //           : 'surface-default'
+    //       }
+    //     >
+    //       <Box
+    //         display="flex"
+    //         flex={1}
+    //         flexDirection="row"
+    //         alignItems="center"
+    //         mr="1"
+    //       >
+    //         {!!activeOption.tokenProps && (
+    //           <Box mr="3">
+    //             <Token
+    //               size={activeOption.description ? 8 : 6}
+    //               {...activeOption.tokenProps}
+    //             />
+    //           </Box>
+    //         )}
+    //         {!!activeOption.iconProps && (
+    //           <Box mr="3">
+    //             <Icon {...activeOption.iconProps} size={24} />
+    //           </Box>
+    //         )}
+    //         <Box flex={1}>
+    //           <Text
+    //             typography={{ sm: 'Body1', md: 'Body2' }}
+    //             numberOfLines={1}
+    //             flex={1}
+    //             isTruncated
+    //           >
+    //             {activeOption.label ?? '-'}
+    //           </Text>
+    //         </Box>
+    //       </Box>
+    //       <Icon size={20} name="ChevronDownSolid" />
+    //     </Box>
+    //   )}
+    // />
   );
 };
 

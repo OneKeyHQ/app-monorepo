@@ -15,6 +15,7 @@ import {
   VStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import SelectBottonBar from '@onekeyhq/components/src/SelectBottonBar';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -246,6 +247,7 @@ const AccountSelectorChildren: FC<{
           loadingAccountWalletId={loadingAccountWalletId}
           refreshAccounts={refreshAccounts}
         />
+        <SelectBottonBar />
         <Box p={2} flexDirection="row">
           <Box flex="1">
             <RightAccountCreateButton
