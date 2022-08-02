@@ -189,6 +189,8 @@ class DeviceUtils {
         return new Error.NeedBluetoothPermissions({ message: msg });
       case HardwareErrorCode.BleDeviceNotBonded:
         return new Error.DeviceNotBonded({ message: msg });
+      case HardwareErrorCode.BleWriteCharacteristicError:
+        return new Error.BleWriteCharacteristicError({ message: msg });
       case HardwareErrorCode.RuntimeError:
         if (msg.indexOf('EIP712 blind sign is disabled') !== -1) {
           return new Error.OpenBlindSign({ message: msg });
