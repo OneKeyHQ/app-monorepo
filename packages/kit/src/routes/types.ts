@@ -14,6 +14,7 @@ import type {
   ParamListBase,
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
+import { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 
 export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
@@ -101,7 +102,7 @@ export type RootRoutesParams = {
   [RootRoutes.Root]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [RootRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
   [RootRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
-  [RootRoutes.Onboarding]: undefined;
+  [RootRoutes.Onboarding]: NavigatorScreenParams<IOnboardingRoutesParams>;
 };
 
 export type RootScreenProps<T extends keyof RootRoutesParams> =

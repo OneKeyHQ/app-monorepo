@@ -39,6 +39,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
+import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -398,12 +399,11 @@ function OnboardingAddExistingWallet() {
       debugLogger.onBoarding.info(
         'OnboardingAddExistingWallet > onAddMnemonicAuth',
       );
-      forceVisibleUnfocused?.();
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
+      // forceVisibleUnfocused?.();
+      navigation.navigate(RootRoutes.Onboarding, {
+        screen: EOnboardingRoutes.SetPassword,
         params: {
-          screen: CreateWalletModalRoutes.AppWalletDoneModal,
-          params: p,
+          mnemonic: p.mnemonic,
         },
       });
     },
@@ -462,6 +462,7 @@ function OneKeyLiteRecoveryButton() {
   );
 }
 
+// AddExistingWalletInModal
 const AddExistingWallet = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const onboardingDone = useOnboardingDone();

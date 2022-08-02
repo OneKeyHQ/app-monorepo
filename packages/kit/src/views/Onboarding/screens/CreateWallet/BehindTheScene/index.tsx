@@ -123,7 +123,7 @@ const BehindTheScene: FC<BehindTheSceneProps> = ({ visible }) => {
       return false;
     }
     try {
-      await wait(1000);
+      await wait(1500);
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,

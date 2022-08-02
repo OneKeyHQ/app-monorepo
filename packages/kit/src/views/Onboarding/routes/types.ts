@@ -5,6 +5,9 @@ export type IOnboardingRecoveryPhraseParams = {
   withEnableAuthentication?: boolean;
   mnemonic: string;
 };
+export type IOnboardingSetPasswordParams = {
+  mnemonic?: string;
+};
 export type IOnboardingRoutesParams = {
   [EOnboardingRoutes.Welcome]: undefined;
 
@@ -13,7 +16,7 @@ export type IOnboardingRoutesParams = {
 
   [EOnboardingRoutes.ImportWallet]: undefined;
 
-  [EOnboardingRoutes.SetPassword]: undefined;
+  [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams;
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;
   [EOnboardingRoutes.ShowRecoveryPhrase]: IOnboardingRecoveryPhraseParams;
   [EOnboardingRoutes.BehindTheScene]: IOnboardingRecoveryPhraseParams;
