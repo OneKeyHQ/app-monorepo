@@ -17,45 +17,53 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 
+type IConsoleFuncProps = {
+  msg: any;
+  rawMsg: any;
+  level: { severity: number; text: string };
+  extension?: string | null;
+  options?: any;
+};
+
+function logToConsole(props: IConsoleFuncProps) {
+  if (platformEnv.isDev) {
+    const prefix = `${[
+      fnsFormat(new Date(), 'HH:mm:ss.SSS'),
+      props?.extension || '',
+      props?.level?.text || '',
+    ]
+      .filter(Boolean)
+      .join(' | ')} : `;
+    const logContent = [prefix, ...props.rawMsg];
+    if (props?.level?.text === 'error') {
+      console.error(...logContent);
+    } else {
+      console.log(...logContent);
+    }
+  }
+}
+
 const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
-  transport: consoleTransport,
+  transport: [consoleTransport],
   transportOptions: {
-    consoleFunc: (
-      msg: string,
-      props: {
-        msg: any;
-        rawMsg: any;
-        level: { severity: number; text: string };
-        extension?: string | null;
-        options?: any;
-      },
-    ) => {
+    consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
-      if (platformEnv.isDev) {
-        const prefix = `${[
-          fnsFormat(new Date(), 'HH:mm:ss.SSS'),
-          props?.extension || '',
-          props?.level?.text || '',
-        ]
-          .filter(Boolean)
-          .join(' | ')} : `;
-        const logContent = [prefix, ...props.rawMsg];
-        if (props?.level?.text === 'error') {
-          console.error(...logContent);
-        } else {
-          console.log(...logContent);
-        }
-      }
+      logToConsole(props);
     },
   },
 };
 
 const NATIVE_TRANSPORT_CONFIG = {
-  transport: fileAsyncTransport,
+  transport: platformEnv.isDev
+    ? [fileAsyncTransport, consoleTransport]
+    : [fileAsyncTransport],
   transportOptions: {
     FS: FileSystem,
     fileName: 'log.txt',
     filePath: FileSystem.cacheDirectory,
+    consoleFunc: (msg: string, props: IConsoleFuncProps) => {
+      logToConsole(props);
+    },
   },
 };
 

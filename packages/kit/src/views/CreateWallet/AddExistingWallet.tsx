@@ -363,7 +363,7 @@ function AddExistingWalletView(
 
 function OnboardingAddExistingWallet() {
   const onboardingDone = useOnboardingDone();
-  const navigation = useAppNavigation();
+  const navigation = useNavigation();
 
   const context = useOnboardingContext();
   const forceVisibleUnfocused = context?.forceVisibleUnfocused;

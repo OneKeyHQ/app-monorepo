@@ -14,6 +14,14 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean } = {}) {
     if (onClose) {
       onClose();
     }
+
+    // ** only pop current screen
+    // if (navigation?.canGoBack?.()) {
+    //   navigation?.goBack?.();
+    //   return;
+    // }
+
+    // ** close Modal should close full stack screens
     const parent = navigation.getParent();
     // parent is undefined in global.$navigationRef
     if (parent?.canGoBack?.()) {
