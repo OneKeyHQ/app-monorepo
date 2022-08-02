@@ -11,6 +11,7 @@
 #import <React/UIView+React.h>
 #import "RNTabView.h"
 #import "UIColor+Hex.h"
+#import <React/RCTUtils.h>
 
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
@@ -32,6 +33,9 @@
 @property (nonatomic, assign) BOOL refresh;
 @property (nonatomic, assign) BOOL disableRefresh;
 @property (nonatomic, copy) NSString *spinnerColor;
+
+@property (nonatomic, assign) BOOL isOpenDrawer;
+@property (nonatomic, assign) CGFloat offsetY;
 
 
 @end
@@ -185,6 +189,32 @@
 }
 
 #pragma mark - JXPagingViewDelegate
+
+
+- (void)pagerView:(JXPagerView *)pagerView mainTableViewWillBeginDragging:(UIScrollView *)scrollView{
+  UIWindow *window = RCTKeyWindow();
+  CGRect rect = [self convertRect:self.frame toView:window];
+
+  if (CGRectGetMinX(rect) > 0) {
+    self.isOpenDrawer = YES;
+    self.offsetY = scrollView.contentOffset.y;
+  } else {
+    self.isOpenDrawer = NO;
+  }
+}
+
+
+- (void)pagerView:(JXPagerView *)pagerView mainTableViewDidScroll:(UIScrollView *)scrollView {
+  if (self.isOpenDrawer) {
+    CGPoint offset = scrollView.contentOffset;
+    offset.y = self.offsetY;
+    [scrollView setContentOffset:offset];
+  }
+}
+
+- (void)pagerView:(JXPagerView *)pagerView mainTableViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
+  self.isOpenDrawer = NO;
+}
 
 - (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {
     return self.headerView;
