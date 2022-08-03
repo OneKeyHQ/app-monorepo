@@ -7,6 +7,7 @@ import {
   NavigationContainerRef,
 } from '@react-navigation/native';
 import { Host } from 'react-native-portalize';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
   Box,
@@ -116,9 +117,12 @@ const NavigationApp = () => {
         linking={linking}
       >
         <Host>
-          <OverlayProvider>
-            <RootStack />
-          </OverlayProvider>
+          {/* TODO migrate all global popups to rootsibling */}
+          <RootSiblingParent>
+            <OverlayProvider>
+              <RootStack />
+            </OverlayProvider>
+          </RootSiblingParent>
         </Host>
       </NavigationContainer>
       <Box

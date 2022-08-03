@@ -52,6 +52,7 @@ type SettingsState = {
     [ValidationFields.Secret]?: boolean;
     [ValidationFields.Wallet]?: boolean;
   };
+  hideSmallBalance?: boolean;
 };
 
 const initialState: SettingsState = {
@@ -81,6 +82,7 @@ const initialState: SettingsState = {
     [ValidationFields.Secret]: false,
     [ValidationFields.Wallet]: false,
   },
+  hideSmallBalance: false,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -214,6 +216,9 @@ export const settingsSlice = createSlice({
     setEnableHaptics(state, action: PayloadAction<boolean>) {
       state.enableHaptics = action.payload;
     },
+    setHideSmallBalance(state, action: PayloadAction<boolean>) {
+      state.hideSmallBalance = action.payload;
+    },
   },
 });
 
@@ -237,6 +242,7 @@ export const {
   setDeviceUpdates,
   setDeviceDoneUpdate,
   setEnableHaptics,
+  setHideSmallBalance,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

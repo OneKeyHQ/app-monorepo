@@ -1,6 +1,7 @@
 import React, { ComponentProps, useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 
 import {
   Divider,
@@ -15,7 +16,10 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import {
   HomeRoutes,
@@ -59,21 +63,31 @@ function AssetsList({
   const isVerticalLayout = useIsVerticalLayout();
   // const isSmallScreen = useIsVerticalLayout();
   const { accountTokens, balances, prices } = useManageTokens();
+
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const valueSortedTokens = useMemo(
-    () =>
-      accountTokens.slice().sort((a, b) => {
-        const [valA, valB] = getTokenValues({
-          tokens: [a, b],
-          prices,
-          balances,
-        });
-
-        return valB.comparedTo(valA);
-      }),
-    [accountTokens, balances, prices],
-  );
+  const valueSortedTokens = useMemo(() => {
+    const tokenValues = new Map<TokenType, BigNumber>();
+    return (
+      accountTokens
+        .filter((t) => {
+          const [v] = getTokenValues({
+            tokens: [t],
+            prices,
+            balances,
+          });
+          if (hideSmallBalance && v.isLessThan(1)) {
+            return false;
+          }
+          tokenValues.set(t, v);
+          return true;
+        })
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        .sort((a, b) => tokenValues.get(a)!.comparedTo(tokenValues.get(b)!))
+    );
+  }, [accountTokens, balances, hideSmallBalance, prices]);
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
