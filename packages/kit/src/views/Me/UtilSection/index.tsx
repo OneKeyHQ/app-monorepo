@@ -71,7 +71,9 @@ export const UtilSection = () => {
               py={4}
               px={{ base: 4, md: 6 }}
               onPress={() => {
-                extUtils.openExpandTab({ routes: '' });
+                backgroundApiProxy.serviceApp.openExtensionExpandTab({
+                  routes: '',
+                });
               }}
             >
               <Icon name="ArrowsExpandOutline" />

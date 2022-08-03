@@ -13,6 +13,7 @@ import LogoTokenPocket from '@onekeyhq/kit/assets/onboarding/logo_tokenpocket.pn
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { RootRoutes } from '../../../../routes/routesEnum';
 import extUtils from '../../../../utils/extUtils';
 import Layout from '../../Layout';
@@ -34,7 +35,7 @@ const Welcome = () => {
 
   useEffect(() => {
     if (platformEnv.isExtensionUiPopup) {
-      extUtils.openExpandTab({
+      backgroundApiProxy.serviceApp.openExtensionExpandTab({
         routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
         params: {},
       });

@@ -35,6 +35,7 @@ import { listUri } from './TicketService';
 import { TicketType } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 type NavigationProps = NativeStackNavigationProp<
   HistoryRequestModalRoutesParams,
@@ -71,7 +72,7 @@ export const HistoryRequest: FC = () => {
 
   const SubmitRequestAction = () => {
     if (platformEnv.isExtensionUiPopup) {
-      extUtils.openExpandTab({
+      backgroundApiProxy.serviceApp.openExtensionExpandTab({
         routes: [RootRoutes.Modal, ModalRoutes.SubmitRequest],
         params: {
           screen: SubmitRequestRoutes.SubmitRequestModal,

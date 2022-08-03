@@ -5,6 +5,7 @@ import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
+import { RootRoutes } from '../../routes/routesEnum';
 import {
   passwordSet,
   release,
@@ -19,10 +20,12 @@ import {
   setBoardingCompleted,
   unlock,
 } from '../../store/reducers/status';
+import extUtils, { OpenUrlRouteInfo } from '../../utils/extUtils';
 import {
   getPassword,
   hasHardwareSupported,
 } from '../../utils/localAuthentication';
+import { EOnboardingRoutes } from '../../views/Onboarding/routes/enums';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { MAX_LOG_LENGTH, delay } from '../utils';
 
@@ -33,6 +36,7 @@ class ServiceApp extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
     if (platformEnv.isExtensionBackground) {
+      this.autoOpenOnboardingIfExtensionInstalled();
       this.initApp();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
@@ -124,6 +128,31 @@ class ServiceApp extends ServiceBase {
     await delay(1500);
     // restartApp() MUST be called from background in Ext
     this.restartApp();
+  }
+
+  @backgroundMethod()
+  openExtensionExpandTab(routeInfo: OpenUrlRouteInfo) {
+    extUtils.openExpandTab(routeInfo);
+  }
+
+  autoOpenOnboardingIfExtensionInstalled() {
+    if (!platformEnv.isExtension) {
+      return;
+    }
+    chrome.runtime.onInstalled.addListener((details) => {
+      if (details.reason === 'install') {
+        console.log('This is a first install!');
+        extUtils.openExpandTab({
+          routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
+          params: {},
+        });
+      } else if (details.reason === 'update') {
+        const thisVersion = chrome.runtime.getManifest()?.version;
+        console.log(
+          `Updated from ${details?.previousVersion || ''} to ${thisVersion}!`,
+        );
+      }
+    });
   }
 
   /**

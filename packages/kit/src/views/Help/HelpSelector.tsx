@@ -31,6 +31,7 @@ import { useHelpLink } from '../../hooks/useHelpLink';
 import extUtils from '../../utils/extUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 type NavigationProps = ModalScreenProps<SubmitRequestModalRoutesParams> &
   ModalScreenProps<HistoryRequestModalRoutesParams>;
@@ -152,7 +153,7 @@ const HelpSelector: FC = () => {
       switch (value) {
         case 'submit_request':
           if (platformEnv.isExtensionUiPopup) {
-            extUtils.openExpandTab({
+            backgroundApiProxy.serviceApp.openExtensionExpandTab({
               routes: [RootRoutes.Modal, ModalRoutes.SubmitRequest],
               params: {
                 screen: SubmitRequestRoutes.SubmitRequestModal,
