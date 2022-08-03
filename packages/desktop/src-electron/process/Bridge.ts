@@ -42,4 +42,51 @@ class BridgeProcess extends BaseProcess {
   }
 }
 
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit & { timeout: number },
+) {
+  const { timeout = 3000 } = options;
+
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  // @ts-expect-error
+  const response = await fetch(url, {
+    ...options,
+    signal: controller.signal as any,
+  });
+  clearTimeout(id);
+  return response;
+}
+
+export const BridgeHeart = {
+  timer: null as ReturnType<typeof setInterval> | null,
+  start: (callback: () => void) => {
+    const checkBridge = async () => {
+      try {
+        const resp = await fetchWithTimeout('http://127.0.0.1:21320/', {
+          method: 'POST',
+          headers: {
+            Origin: 'https://electron.onekey.so',
+          },
+          timeout: 3000,
+        });
+        logger.debug(`Heart Checking (${resp.status})`);
+        if (resp.status !== 200) {
+          // check bridge failed, restart it
+          callback?.();
+        }
+      } catch (err: any) {
+        logger.error(
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `Bridge heart check error, will restart bridge process: ${err.message}`,
+        );
+        callback?.();
+      }
+    };
+
+    BridgeHeart.timer = setInterval(checkBridge, 10000);
+  },
+};
+
 export default BridgeProcess;
