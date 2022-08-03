@@ -20,18 +20,20 @@ class HomePageView @JvmOverloads constructor(
     }
 
 
-
     override fun requestLayout() {
         super.requestLayout()
         post(measureAndLayout)
     }
 
     private val measureAndLayout = Runnable {
-        measure(
-            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
-        )
-        layout(left, top, right, bottom)
-
+        try {
+            measure(
+                MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
+            )
+            layout(left, top, right, bottom)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

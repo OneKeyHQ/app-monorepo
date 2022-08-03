@@ -309,7 +309,7 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
         invalidate();
     }
 
-    private void updateTabStyles() {
+    public void updateTabStyles() {
         for (int i = 0; i < mTabCount; i++) {
             View v = mTabsContainer.getChildAt(i);
             //            v.setPadding((int) mTabPadding, v.getPaddingTop(), (int) mTabPadding, v.getPaddingBottom());
