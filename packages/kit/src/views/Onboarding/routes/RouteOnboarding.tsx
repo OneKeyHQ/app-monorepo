@@ -2,6 +2,9 @@ import React, { useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import Toast from '@onekeyhq/components/src/Toast/Custom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import { OnboardingContextProvider } from '../OnboardingContext';
 import ConnectWallet from '../screens/ConnectWallet';
@@ -66,13 +69,16 @@ export function RouteOnboarding() {
     [],
   );
   return (
-    // <OnboardingContextProvider> should wrap <Layout />
-    <StackNavigator.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
-    </StackNavigator.Navigator>
+    <>
+      {/* <OnboardingContextProvider> should wrap <Layout /> */}
+      <StackNavigator.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
+      </StackNavigator.Navigator>
+      {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
+    </>
   );
 }

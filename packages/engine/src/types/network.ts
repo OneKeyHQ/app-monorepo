@@ -88,11 +88,14 @@ type UpdateNetworkParams = UpdateEVMNetworkParams;
 
 type EIP1559Fee = {
   baseFee: string;
+
   maxPriorityFeePerGas: string; // in GWEI
   maxPriorityFeePerGasValue?: string;
+
   maxFeePerGas: string; // in GWEI
   maxFeePerGasValue?: string;
-  gasPrice?: string;
+
+  gasPrice?: string; // in GWEI
   gasPriceValue?: string;
 };
 

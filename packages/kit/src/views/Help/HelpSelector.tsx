@@ -27,11 +27,11 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useHelpLink } from '../../hooks/useHelpLink';
 import extUtils from '../../utils/extUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 type NavigationProps = ModalScreenProps<SubmitRequestModalRoutesParams> &
   ModalScreenProps<HistoryRequestModalRoutesParams>;

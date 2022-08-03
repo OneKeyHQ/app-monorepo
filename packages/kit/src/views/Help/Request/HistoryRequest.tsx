@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { SubmitRequestRoutes } from '../../../routes';
@@ -35,7 +36,6 @@ import { listUri } from './TicketService';
 import { TicketType } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 type NavigationProps = NativeStackNavigationProp<
   HistoryRequestModalRoutesParams,

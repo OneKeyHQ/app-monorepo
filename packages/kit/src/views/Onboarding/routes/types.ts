@@ -1,5 +1,4 @@
 import { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
-
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { EOnboardingRoutes } from './enums';
