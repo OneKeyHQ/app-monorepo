@@ -156,10 +156,6 @@ function AssetsList({
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}
-      ListEmptyComponent={() =>
-        // TODO 
-        null
-      }
       showsVerticalScrollIndicator={false}
     />
   );

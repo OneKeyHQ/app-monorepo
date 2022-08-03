@@ -14,7 +14,6 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { setHideSmallBalance } from '../../store/reducers/settings';
 import { showOverlayFactory } from '../../utils/overlayUtils';
 
