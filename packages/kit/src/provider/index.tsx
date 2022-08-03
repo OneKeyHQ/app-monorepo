@@ -2,10 +2,6 @@ import React, { FC } from 'react';
 
 import axios from 'axios';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import {
-  RootSiblingParent,
-  setSiblingWrapper,
-} from 'react-native-root-siblings';
 import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
 
@@ -15,10 +11,6 @@ import store from '@onekeyhq/kit/src/store';
 import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
 import ThemeApp from './ThemeProvider';
-
-setSiblingWrapper((sibling) => (
-  <ReduxProvider store={store}>{sibling}</ReduxProvider>
-));
 
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => (
@@ -37,9 +29,7 @@ const KitProvider: FC = () => (
         <ThemeApp>
           <AppLoading>
             <ErrorBoundary>
-              <RootSiblingParent>
-                <NavigationApp />
-              </RootSiblingParent>
+              <NavigationApp />
             </ErrorBoundary>
           </AppLoading>
         </ThemeApp>
