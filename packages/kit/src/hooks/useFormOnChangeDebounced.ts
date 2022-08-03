@@ -9,15 +9,15 @@ function useFormOnChangeDebounced<T>({
   useFormReturn,
   wait = 500,
   revalidate = true,
+  clearErrorIfEmpty = false,
   onChange,
 }: {
   useFormReturn: UseFormReturn<T, any>;
   wait?: number;
   revalidate?: boolean;
+  clearErrorIfEmpty?: boolean;
   onChange?: WatchObserver<T>;
 }) {
-  // TODO clearErrors if validate success
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { watch, trigger, formState, clearErrors } = useFormReturn;
   const loadingRef = useRef<boolean>(false);
   const [values, setValues] = useState<T>();
@@ -31,6 +31,14 @@ function useFormOnChangeDebounced<T>({
           if (onChange) {
             onChange(formValues, { name, type });
           }
+
+          if (clearErrorIfEmpty) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (formValues?.[name] === '') {
+              clearErrors(name);
+            }
+          }
+
           if (revalidate) {
             // eslint-disable-next-line no-void
             void trigger(name);

@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,10 +9,12 @@ import {
   KeyboardDismissView,
   Typography,
   useForm,
+  useToast,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
+import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 type FieldValues = {
   password: string;
@@ -31,12 +33,8 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
   const { isOk } = useLocalAuthentication();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
-  const {
-    control,
-    handleSubmit,
-    formState: { isValid },
-    getValues,
-  } = useForm<FieldValues>({
+  const toast = useToast();
+  const useFormReturn = useForm<FieldValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     defaultValues: {
@@ -44,14 +42,35 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
       confirmPassword: '',
     },
   });
+  const { control, handleSubmit, getValues } = useFormReturn;
+  const { formValues, isValid } = useFormOnChangeDebounced({
+    useFormReturn,
+    revalidate: false,
+    clearErrorIfEmpty: true,
+  });
+  const submitDisabled = useMemo(
+    () => !formValues?.password || !formValues?.confirmPassword,
+    [formValues?.confirmPassword, formValues?.password],
+  );
   const onSubmit = useCallback(
     async (values: FieldValues) => {
+      if (values.password !== values.confirmPassword) {
+        toast.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__password_needs_to_be_the_same',
+            }),
+          },
+          { type: 'error' },
+        );
+        return;
+      }
       if (boardingCompleted && !skipSavePassword) {
         await backgroundApiProxy.serviceApp.updatePassword('', values.password);
       }
       onOk?.(values.password, values.withEnableAuthentication);
     },
-    [onOk, boardingCompleted, skipSavePassword],
+    [boardingCompleted, skipSavePassword, onOk, toast, intl],
   );
   const text =
     authenticationType === 'FACIAL'
@@ -86,7 +105,6 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
           defaultValue=""
           control={control}
           rules={{
-            required: intl.formatMessage({ id: 'form__field_is_required' }),
             minLength: {
               value: 8,
               message: intl.formatMessage({
@@ -101,7 +119,7 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
             },
             validate: (value) => {
               const confirmPassword = getValues('confirmPassword');
-              if (!confirmPassword) return undefined;
+              if (!confirmPassword || !value) return undefined;
               return confirmPassword !== value
                 ? intl.formatMessage({
                     id: 'msg__password_needs_to_be_the_same',
@@ -112,6 +130,8 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
         >
           <Form.PasswordInput
             autoFocus
+            // press enter key to submit
+            onSubmitEditing={handleSubmit(onSubmit)}
             placeholder={intl.formatMessage(
               {
                 id: 'form__rule_at_least_int_digits',
@@ -125,7 +145,6 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
           defaultValue=""
           control={control}
           rules={{
-            required: intl.formatMessage({ id: 'form__field_is_required' }),
             minLength: {
               value: 8,
               message: intl.formatMessage({
@@ -134,7 +153,7 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
             },
             validate: (value) => {
               const password = getValues('password');
-              if (!password) return undefined;
+              if (!password || !value) return undefined;
               return password !== value
                 ? intl.formatMessage({
                     id: 'msg__password_needs_to_be_the_same',
@@ -171,7 +190,7 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
           type="primary"
           size="xl"
           onPress={handleSubmit(onSubmit)}
-          isDisabled={!isValid}
+          isDisabled={submitDisabled}
         >
           {intl.formatMessage({
             id: 'action__continue',

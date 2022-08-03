@@ -15,6 +15,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
+import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
@@ -31,10 +32,16 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
   const enableLocalAuthentication = useAppSelector(
     (s) => s.settings.enableLocalAuthentication,
   );
-  const { control, handleSubmit, setError } = useForm<FieldValues>({
+  const useFormReturn = useForm<FieldValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     defaultValues: { password: '' },
+  });
+  const { control, handleSubmit, setError } = useFormReturn;
+  const { formValues } = useFormOnChangeDebounced({
+    useFormReturn,
+    revalidate: false,
+    clearErrorIfEmpty: true,
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     const isOk = await backgroundApiProxy.serviceApp.verifyPassword(
@@ -94,7 +101,6 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
           defaultValue=""
           control={control}
           rules={{
-            required: intl.formatMessage({ id: 'form__field_is_required' }),
             minLength: {
               value: 8,
               message: intl.formatMessage({
@@ -115,7 +121,12 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
             onSubmitEditing={onSubmit}
           />
         </Form.Item>
-        <Button type="primary" size="xl" onPress={onSubmit}>
+        <Button
+          isDisabled={!formValues?.password}
+          type="primary"
+          size="xl"
+          onPress={onSubmit}
+        >
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',
