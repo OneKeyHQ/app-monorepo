@@ -32,6 +32,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
+import EmptyList from './EmptyList';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -151,8 +152,13 @@ function AssetsList({
       ]}
       data={valueSortedTokens}
       renderItem={renderListItem}
-      ListHeaderComponent={ListHeaderComponent ?? <AssetsListHeader />}
+      ListHeaderComponent={
+        ListHeaderComponent ?? (
+          <AssetsListHeader showSubheader={valueSortedTokens.length > 0} />
+        )
+      }
       ItemSeparatorComponent={Divider}
+      ListEmptyComponent={EmptyList}
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}
