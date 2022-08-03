@@ -128,7 +128,7 @@ const updateTokenCache: {
 class Engine {
   public dbApi: DBAPI;
 
-  sdbTokens: SimpleDbEntityTokens;
+  public sdbTokens: SimpleDbEntityTokens;
 
   public providerManager: ProviderController;
 
@@ -1188,8 +1188,9 @@ class Engine {
     accountId?: string,
     withMain = true,
   ): Promise<Array<Token>> {
-    // update tokens async
-    this.updateOnlineTokens(networkId);
+    if (accountId) {
+      await this.updateOnlineTokens(networkId);
+    }
     // Get token info by network and account.
     const tokens = await this.sdbTokens.getTokens({
       networkId,

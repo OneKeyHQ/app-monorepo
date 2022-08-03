@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -16,6 +16,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
@@ -50,6 +51,7 @@ export const Debug = () => {
   const intl = useIntl();
   const inset = useSafeAreaInsets();
   const [uri, setUri] = useState('');
+  const [fiatEndpoint, setFiatEndpoint] = useState('');
   const navigation = useNavigation<NavigationProps>();
   const connections = useAppSelector((s) => s.dapp.connections);
   const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
@@ -73,6 +75,12 @@ export const Debug = () => {
       }),
     });
   }, [navigation, intl]);
+
+  useEffect(() => {
+    simpleDb.debugConfig
+      .getData('fiatEndpoint')
+      .then((val) => setFiatEndpoint(val));
+  }, []);
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -295,6 +303,28 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>NativeTransfer</Typography.Body1>
+            </Pressable>
+            <HStack>
+              <Input
+                value={fiatEndpoint}
+                onChangeText={(t) => setFiatEndpoint(t)}
+                placeholder="FiatEndPoint"
+                clearButtonMode="always"
+                onSubmitEditing={() => {
+                  simpleDb.debugConfig.setData({
+                    fiatEndpoint,
+                  });
+                }}
+              />
+            </HStack>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                simpleDb.token.clearTokens();
+                simpleDb.token.clearLocalAddedTokens();
+              }}
+            >
+              <Typography.Body1>Clear Local Cached Tokens</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>

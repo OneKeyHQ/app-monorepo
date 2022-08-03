@@ -168,4 +168,12 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
       }
     }
   }
+
+  async clearTokens() {
+    return this.setRawData({});
+  }
+
+  async clearLocalAddedTokens() {
+    return this.localTokens.clear();
+  }
 }

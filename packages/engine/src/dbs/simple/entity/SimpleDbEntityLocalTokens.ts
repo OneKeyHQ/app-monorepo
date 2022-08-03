@@ -64,4 +64,8 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDbEntit
   async getData() {
     return (await this.getRawData()) || {};
   }
+
+  async clear() {
+    return this.setRawData({});
+  }
 }
