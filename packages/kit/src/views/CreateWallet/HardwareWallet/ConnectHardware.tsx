@@ -195,6 +195,8 @@ const ConnectHardwareModal: FC = () => {
                   id: error.key,
                 }),
               });
+            } else {
+              deviceUtils.stopScan();
             }
           } else if (
             error instanceof InitIframeLoadFail ||
@@ -208,6 +210,7 @@ const ConnectHardwareModal: FC = () => {
               },
               { type: 'error' },
             );
+            deviceUtils.stopScan();
           }
           setIsSearching(false);
           return;
