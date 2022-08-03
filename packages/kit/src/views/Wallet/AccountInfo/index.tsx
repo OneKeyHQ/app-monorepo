@@ -87,7 +87,6 @@ const AccountAmountInfo: FC = () => {
             <FormatCurrencyNumber decimals={2} value={displayValue} />
           </Typography.Display2XLarge>
           <Button
-            w="10px"
             type="plain"
             alignItems="center"
             justifyContent="center"
