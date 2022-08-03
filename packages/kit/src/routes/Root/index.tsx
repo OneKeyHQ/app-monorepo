@@ -95,8 +95,8 @@ const App = () => {
         name={RootRoutes.Onboarding}
         component={RouteOnboarding}
         options={{
+          presentation: 'card',
           // @ts-expect-error
-          // presentation: 'containedModal', // sub Modal can NOT be closed
           animation: 'fade',
         }}
       />
