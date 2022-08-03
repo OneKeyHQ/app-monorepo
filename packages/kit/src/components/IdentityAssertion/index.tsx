@@ -37,12 +37,7 @@ const IdentityAssertion: FC = ({ children }) => {
             leftIconName="PlusOutline"
             type="primary"
             onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
-                params: {
-                  screen: CreateWalletModalRoutes.GuideModal,
-                },
-              });
+              navigation.navigate(RootRoutes.Onboarding);
             }}
             size="lg"
           >

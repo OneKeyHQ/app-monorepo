@@ -3,6 +3,7 @@ import React, { FC, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Button,
   Form,
   KeyboardDismissView,
@@ -22,9 +23,10 @@ type FieldValues = {
 type SetupProps = {
   skipSavePassword?: boolean;
   onOk?: (text: string, withEnableAuthentication?: boolean) => void;
+  hideTitle?: boolean;
 };
 
-const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
+const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
   const intl = useIntl();
   const { isOk } = useLocalAuthentication();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
@@ -35,7 +37,8 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
     formState: { isValid },
     getValues,
   } = useForm<FieldValues>({
-    mode: 'onChange',
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
     defaultValues: {
       password: '',
       confirmPassword: '',
@@ -58,27 +61,28 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
       : intl.formatMessage({ id: 'content__touch_id' });
 
   return (
-    <KeyboardDismissView px={{ base: 4, md: 0 }}>
-      <Typography.DisplayLarge textAlign="center" mb={2}>
-        🔐{' '}
-        {intl.formatMessage({
-          id: 'title__set_password',
-          defaultMessage: 'Set Password',
-        })}
-      </Typography.DisplayLarge>
-      <Typography.Body1 textAlign="center" color="text-subdued">
-        {intl.formatMessage({
-          id: 'Only_you_can_unlock_your_wallet',
-          defaultMessage: 'Only you can unlock your wallet',
-        })}
-      </Typography.Body1>
-      <Form mt="8">
+    <KeyboardDismissView px={{ base: hideTitle ? 0 : 4, md: 0 }}>
+      {!hideTitle ? (
+        <Box mb="8">
+          <Typography.DisplayLarge textAlign="center" mb={2}>
+            🔐{' '}
+            {intl.formatMessage({
+              id: 'title__set_password',
+              defaultMessage: 'Set Password',
+            })}
+          </Typography.DisplayLarge>
+          <Typography.Body1 textAlign="center" color="text-subdued">
+            {intl.formatMessage({
+              id: 'Only_you_can_unlock_your_wallet',
+              defaultMessage: 'Only you can unlock your wallet',
+            })}
+          </Typography.Body1>
+        </Box>
+      ) : null}
+
+      <Form>
         <Form.Item
           name="password"
-          label={intl.formatMessage({
-            id: 'form__password',
-            defaultMessage: 'Password',
-          })}
           defaultValue=""
           control={control}
           rules={{
@@ -106,14 +110,18 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
             },
           }}
         >
-          <Form.PasswordInput autoFocus />
+          <Form.PasswordInput
+            autoFocus
+            placeholder={intl.formatMessage(
+              {
+                id: 'form__rule_at_least_int_digits',
+              },
+              { 0: 8 },
+            )}
+          />
         </Form.Item>
         <Form.Item
           name="confirmPassword"
-          label={intl.formatMessage({
-            id: 'Confirm_password',
-            defaultMessage: 'Confirm Password',
-          })}
           defaultValue=""
           control={control}
           rules={{
@@ -138,6 +146,9 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
           <Form.PasswordInput
             // press enter key to submit
             onSubmitEditing={handleSubmit(onSubmit)}
+            placeholder={intl.formatMessage({
+              id: 'Confirm_password',
+            })}
           />
         </Form.Item>
         {isOk ? (

@@ -27,6 +27,8 @@ import {
 import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
+
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 type RouteProps = RouteProp<
@@ -120,43 +122,15 @@ const DeviceStatusCheckModal: FC = () => {
         return;
       }
 
-      try {
-        await serviceAccount.createHWWallet({
-          features,
-          connectId: device.connectId ?? '',
-        });
-      } catch (e: any) {
-        safeGoBack();
-        const { className, key, message } = e || {};
-
-        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: key }),
-            },
-            {
-              type: 'error',
-            },
-          );
-        } else {
-          ToastManager.show(
-            {
-              title: message,
-            },
-            {
-              type: 'default',
-            },
-          );
-        }
-        return;
-      }
-
-      safeGoBack();
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
+      navigation.navigate(RootRoutes.Onboarding, {
+        screen: EOnboardingRoutes.BehindTheScene,
         params: {
-          screen: CreateWalletModalRoutes.SetupSuccessModal,
-          params: { device },
+          password: '',
+          mnemonic: '',
+          hardwareCreating: {
+            device,
+            features,
+          },
         },
       });
     }

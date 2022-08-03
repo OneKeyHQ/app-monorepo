@@ -1,2 +1,2 @@
 declare module 'electron-config';
-declare module "react-native-typewriter"
+declare module 'react-native-typewriter';

@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import { UseFormReturn, WatchObserver } from 'react-hook-form';
 
+import { useDebounce } from './useDebounce';
+
 function useFormOnChangeDebounced<T>({
   useFormReturn,
   wait = 500,
@@ -14,7 +16,9 @@ function useFormOnChangeDebounced<T>({
   revalidate?: boolean;
   onChange?: WatchObserver<T>;
 }) {
-  const { watch, trigger, formState } = useFormReturn;
+  // TODO clearErrors if validate success
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { watch, trigger, formState, clearErrors } = useFormReturn;
   const loadingRef = useRef<boolean>(false);
   const [values, setValues] = useState<T>();
 
@@ -43,14 +47,18 @@ function useFormOnChangeDebounced<T>({
     return () => subscription.unsubscribe();
   }, [onChange, revalidate, trigger, wait, watch]);
 
+  const isValid = useDebounce(
+    formState.isValid &&
+      !Object.keys(formState.errors).length &&
+      !formState.isValidating,
+    100,
+  );
+
   return {
     loadingRef,
     isLoading: loadingRef.current,
     formValues: values,
-    isValid:
-      formState.isValid &&
-      !Object.keys(formState.errors).length &&
-      !formState.isValidating,
+    isValid,
   };
 }
 export { useFormOnChangeDebounced };

@@ -107,6 +107,7 @@ export enum StackRoutes {
   ComponentPopover = 'component/Popover',
   ComponentPriceChart = 'component/PriceChart',
   ComponentTypeWriter = 'component/TypeWriter',
+  ComponentOnboarding = 'component/Onboarding',
   ComponentHomescreen = 'component/homescreen',
 }
 
@@ -162,6 +163,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentPopover]: undefined;
   [StackRoutes.ComponentPriceChart]: undefined;
   [StackRoutes.ComponentTypeWriter]: undefined;
+  [StackRoutes.ComponentOnboarding]: undefined;
   [StackRoutes.ComponentHomescreen]: undefined;
 };
 
@@ -254,8 +256,7 @@ const DevScreen = () => {
           headerStyle: {
             backgroundColor: bgColor,
           },
-          header:
-            Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
+          header: renderCustomSubStackHeader,
           headerTintColor: textColor,
         }}
       >

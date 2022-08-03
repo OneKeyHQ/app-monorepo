@@ -54,7 +54,7 @@ const TypeWriterGallery = () => {
       <TypeWriter
         onTypingEnd={handleProcessOneTypingEnd}
         isPending={false}
-        fadeOut={processOneDone}
+        isFadeOut={processOneDone}
       >
         <TypeWriter.NormalText>Creating your</TypeWriter.NormalText>{' '}
         <TypeWriter.Highlight>wallet</TypeWriter.Highlight>
@@ -63,7 +63,7 @@ const TypeWriterGallery = () => {
         <TypeWriter
           isPending={!processOneDone}
           onTypingEnd={handleProcessTwoTypingEnd}
-          fadeOut={processTwoDone}
+          isFadeOut={processTwoDone}
         >
           <TypeWriter.NormalText>Generating your</TypeWriter.NormalText>{' '}
           <TypeWriter.Highlight>accounts</TypeWriter.Highlight>
@@ -72,7 +72,7 @@ const TypeWriterGallery = () => {
       {processTwoTypingEnd && (
         <TypeWriter
           isPending={!processTwoDone}
-          fadeOut={processThreeDone}
+          isFadeOut={processThreeDone}
           onTypingEnd={handleProcessThreeTypingEnd}
         >
           <TypeWriter.NormalText>Verifying your</TypeWriter.NormalText>{' '}
@@ -82,7 +82,7 @@ const TypeWriterGallery = () => {
       {processThreeTypingEnd && (
         <TypeWriter
           isPending={!processThreeDone}
-          fadeOut={processFourDone}
+          isFadeOut={processFourDone}
           onTypingEnd={handleProcessFourTypingEnd}
         >
           <TypeWriter.NormalText>Backing up to</TypeWriter.NormalText>{' '}

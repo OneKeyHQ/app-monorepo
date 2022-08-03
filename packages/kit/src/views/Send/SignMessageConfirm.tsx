@@ -18,7 +18,7 @@ import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
-import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
+import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 
 import { MsgConfirmBlind } from './confirmViews/MsgConfirmBlind';
 import {
@@ -37,7 +37,7 @@ type NavigationProps = NavigationProp<
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SignMessageConfirm>;
 
 const SignMessageConfirm = () => {
-  useOnboardingFinished();
+  useOnboardingRequired();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const toast = useToast();

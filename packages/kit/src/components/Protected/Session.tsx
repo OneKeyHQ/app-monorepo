@@ -1,6 +1,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Center, Spinner } from '@onekeyhq/components';
+import { Box, Center, Spinner } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -12,9 +12,10 @@ import Validation from './Validation';
 type SessionProps = {
   field?: ValidationFields;
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
+  hideTitle?: boolean;
 };
 
-const Session: FC<SessionProps> = ({ field, onOk }) => {
+const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
   const [loaded, setLoaded] = useState(false);
   const [hasvPw, setHasPw] = useState<boolean | undefined>();
   const validationSetting = useAppSelector((s) => s.settings.validationSetting);
@@ -50,11 +51,11 @@ const Session: FC<SessionProps> = ({ field, onOk }) => {
   );
 
   if (isSkip) {
-    return <Validation onOk={onSubmit} />;
+    return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
   }
   if (loaded) {
     if (!hasvPw) {
-      return <Validation onOk={onSubmit} />;
+      return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
     }
   }
 

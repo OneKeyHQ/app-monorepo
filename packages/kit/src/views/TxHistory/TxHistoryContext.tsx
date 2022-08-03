@@ -19,13 +19,24 @@ function TxHistoryContextProvider(
     children: JSX.Element;
   },
 ) {
-  const { children, isTab, headerView, refresh } = props;
+  const { children, isLoading = false, isTab, headerView, refresh } = props;
   const [context, setContext] = useState<ITxHistoryContextData>({
-    isLoading: false,
+    isLoading,
     isTab,
     headerView,
     refresh,
   });
+
+  // useEffect(() => {
+  //   setContext((ctx) => ({
+  //     ...ctx,
+  //     isLoading,
+  //     isTab,
+  //     headerView,
+  //     refresh,
+  //   }));
+  // }, [isLoading, isTab, headerView, refresh]);
+
   return (
     <TxHistoryContext.Provider value={{ context, setContext }}>
       {children}

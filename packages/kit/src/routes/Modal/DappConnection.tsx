@@ -4,7 +4,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
 import NetworkNotMatch from '@onekeyhq/kit/src/views/DappModals/NetworkNotMatch';
 
-import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
+import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import {
   DappConnectionModalRoutes,
   DappConnectionRoutesParams,
@@ -27,7 +27,7 @@ const modalRoutes = [
 ];
 
 const DappConnectionStack = () => {
-  useOnboardingFinished();
+  useOnboardingRequired();
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <DappConnectionModalNavigator.Navigator

@@ -1,5 +1,6 @@
 // FIX: Uncaught ReferenceError: global is not defined
 import 'core-js/es7/global';
+import { format as fnsFormat } from 'date-fns';
 import * as FileSystem from 'expo-file-system';
 import { isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
@@ -16,37 +17,53 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 
+type IConsoleFuncProps = {
+  msg: any;
+  rawMsg: any;
+  level: { severity: number; text: string };
+  extension?: string | null;
+  options?: any;
+};
+
+function logToConsole(props: IConsoleFuncProps) {
+  if (platformEnv.isDev) {
+    const prefix = `${[
+      fnsFormat(new Date(), 'HH:mm:ss.SSS'),
+      props?.extension || '',
+      props?.level?.text || '',
+    ]
+      .filter(Boolean)
+      .join(' | ')} : `;
+    const logContent = [prefix, ...props.rawMsg];
+    if (props?.level?.text === 'error') {
+      console.error(...logContent);
+    } else {
+      console.log(...logContent);
+    }
+  }
+}
+
 const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
-  transport: consoleTransport,
+  transport: [consoleTransport],
   transportOptions: {
-    consoleFunc: (
-      msg: string,
-      props: {
-        msg: any;
-        rawMsg: any;
-        level: { severity: number; text: string };
-        extension?: string | null;
-        options?: any;
-      },
-    ) => {
+    consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
-      if (platformEnv.isDev) {
-        if (props?.level?.text === 'error') {
-          console.error(msg);
-        } else {
-          console.log(msg);
-        }
-      }
+      logToConsole(props);
     },
   },
 };
 
 const NATIVE_TRANSPORT_CONFIG = {
-  transport: fileAsyncTransport,
+  transport: platformEnv.isDev
+    ? [fileAsyncTransport, consoleTransport]
+    : [fileAsyncTransport],
   transportOptions: {
     FS: FileSystem,
     fileName: 'log.txt',
     filePath: FileSystem.cacheDirectory,
+    consoleFunc: (msg: string, props: IConsoleFuncProps) => {
+      logToConsole(props);
+    },
   },
 };
 
@@ -62,6 +79,7 @@ export const logger = RNLogger.createLogger({
 });
 
 export enum LoggerNames {
+  onBoarding = 'onBoarding',
   hardwareSDK = 'hardwareSDK',
   http = 'http',
   jsBridge = 'jsBridge',
@@ -82,6 +100,7 @@ export enum LoggerNames {
 export type LoggerEntity = {
   debug: (...args: any[]) => void;
   info: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
   error: (...args: any[]) => void;
 };
 
@@ -93,6 +112,7 @@ const Cache = {
 
 const debugLogger = {
   [LoggerNames.hardwareSDK]: Cache.createLogger(LoggerNames.hardwareSDK),
+  [LoggerNames.onBoarding]: Cache.createLogger(LoggerNames.onBoarding),
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
   [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),
   [LoggerNames.http]: Cache.createLogger(LoggerNames.http),

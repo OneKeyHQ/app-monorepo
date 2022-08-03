@@ -124,12 +124,7 @@ const SwapButton = () => {
   }, [swapQuote, navigation, account]);
 
   const onCreateWallet = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateWallet,
-      params: {
-        screen: CreateWalletModalRoutes.GuideModal,
-      },
-    });
+    navigation.navigate(RootRoutes.Onboarding);
   }, [navigation]);
 
   const onCreateAccount = useCallback(() => {

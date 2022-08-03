@@ -19,8 +19,8 @@ function buildExtRouteUrl(
   const pathStr = ([] as string[]).concat(routes).join('/');
   const paramsStr = new URLSearchParams(params).toString();
   let hash = '';
-  if (pathStr && paramsStr) {
-    hash = `#/${pathStr}?${paramsStr}`;
+  if (pathStr || paramsStr) {
+    hash = `#/${pathStr || ''}?${paramsStr || ''}`;
   }
   if (hash && IS_LAZY_NAVIGATE_SUB_ROUTER) {
     const navigateRouterHash = encodeURIComponent(hash);
