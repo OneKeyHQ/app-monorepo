@@ -79,6 +79,7 @@ function useAddExistingWallet({
   });
   const { isValid } = useFormOnChangeDebounced<AddExistingWalletValues>({
     useFormReturn,
+    revalidate: false,
   });
   const { control, handleSubmit, setValue, trigger } = useFormReturn;
   const submitDisabled = !isValid;
