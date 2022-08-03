@@ -83,13 +83,17 @@ export function getSummedValues({
   tokens,
   prices,
   balances,
+  hideSmallBalance = false,
 }: {
   tokens: Token[];
   prices: Record<string, string | number>;
   balances: Record<string, TokenBalanceValue>;
+  hideSmallBalance?: boolean;
 }) {
-  return getTokenValues({ tokens, prices, balances }).reduce(
-    (acc, value) => acc.plus(value.isNaN() ? 0 : value),
-    new BigNumber(0),
-  );
+  return getTokenValues({ tokens, prices, balances }).reduce((acc, value) => {
+    if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
+      return acc;
+    }
+    return acc.plus(value);
+  }, new BigNumber(0));
 }

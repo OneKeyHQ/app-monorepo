@@ -16,13 +16,15 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -51,6 +53,8 @@ const AccountAmountInfo: FC = () => {
   const intl = useIntl();
   const toast = useToast();
 
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { account, wallet } = useActiveWalletAccount();
@@ -75,6 +79,7 @@ const AccountAmountInfo: FC = () => {
       tokens: accountTokens,
       balances,
       prices,
+      hideSmallBalance,
     }).toNumber();
 
     return [
@@ -96,7 +101,7 @@ const AccountAmountInfo: FC = () => {
         </>
       ),
     ];
-  }, [accountTokens, balances, prices]);
+  }, [accountTokens, balances, hideSmallBalance, prices]);
 
   const changedValueComp = useMemo(() => {
     const basePrices: Record<string, number> = {};
@@ -111,6 +116,7 @@ const AccountAmountInfo: FC = () => {
       tokens: accountTokens,
       balances,
       prices: basePrices,
+      hideSmallBalance,
     }).toNumber();
 
     const { gain, percentageGain, gainTextColor } = calculateGains({
@@ -131,7 +137,7 @@ const AccountAmountInfo: FC = () => {
         </Typography.Body1Strong>
       </>
     );
-  }, [accountTokens, balances, charts, intl, summedValue]);
+  }, [accountTokens, balances, charts, hideSmallBalance, intl, summedValue]);
 
   return (
     <Box alignItems="flex-start">
