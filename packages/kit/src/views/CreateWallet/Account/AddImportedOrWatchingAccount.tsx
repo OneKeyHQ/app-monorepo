@@ -22,7 +22,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -52,7 +52,7 @@ const AddImportedOrWatchingAccount = () => {
   const { control, handleSubmit, getValues, watch } =
     useForm<AddImportedOrWatchingAccountValues>();
   const {
-    params: { text, checkResults },
+    params: { text, checkResults, onSuccess },
   } = useRoute<RouteProps>();
 
   const { activeNetworkId } = useGeneral();
@@ -117,6 +117,7 @@ const AddImportedOrWatchingAccount = () => {
             privatekey: text,
             networkId: values.networkId,
             name,
+            onSuccess,
           },
         );
       } else if (importType === UserInputCategory.WATCHING) {
@@ -138,10 +139,11 @@ const AddImportedOrWatchingAccount = () => {
       }
     },
     [
-      navigation,
-      text,
       possibleAddTypes,
       defaultAccountNames,
+      navigation,
+      text,
+      onSuccess,
       closeDrawer,
       openRootHome,
       toast,

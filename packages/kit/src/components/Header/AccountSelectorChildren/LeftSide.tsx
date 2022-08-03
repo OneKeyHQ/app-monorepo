@@ -11,8 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -157,18 +156,17 @@ const LeftSide: FC<LeftSideProps> = ({
       </ScrollView>
       <Box p={2}>
         <IconButton
+          testID="WalletAddOutline-Welcome"
           type="primary"
           name="WalletAddOutline"
           circle
           size="xl"
-          onPress={() =>
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.GuideModal,
-              },
-            })
-          }
+          onPress={() => {
+            navigation.navigate(RootRoutes.Onboarding);
+            // navigation.navigate(RootRoutes.Root, {
+            //   screen: HomeRoutes.HomeOnboarding,
+            // });
+          }}
         />
       </Box>
     </VStack>

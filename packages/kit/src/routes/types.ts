@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
+import { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
+
 import * as SubModalRoutesParams from './Modal/types';
 // define enum here to avoid cycle import
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
@@ -66,6 +68,7 @@ export type TabRoutesParams = {
 export type HomeRoutesParams = {
   [HomeRoutes.InitialTab]: undefined;
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
+  [HomeRoutes.HomeOnboarding]: undefined;
   [HomeRoutes.ScreenTokenDetail]: {
     accountId: string;
     networkId: string;
@@ -100,7 +103,10 @@ export type RootRoutesParams = {
   [RootRoutes.Root]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [RootRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
   [RootRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
-  [RootRoutes.Welcome]: undefined;
+  // TODO remove, use HomeRoutes.HomeOnboarding instead
+  [RootRoutes.Onboarding]:
+    | NavigatorScreenParams<IOnboardingRoutesParams>
+    | undefined;
 };
 
 export type RootScreenProps<T extends keyof RootRoutesParams> =

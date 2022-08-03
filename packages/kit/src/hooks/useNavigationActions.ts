@@ -55,7 +55,7 @@ export function useNavigationActions() {
     navigation.dispatch(
       CommonActions.reset({
         index: 1,
-        routes: [{ name: RootRoutes.Welcome }],
+        routes: [{ name: RootRoutes.Onboarding }],
       }),
     );
   }, [navigation]);

@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
@@ -107,6 +106,7 @@ export enum StackRoutes {
   ComponentPopover = 'component/Popover',
   ComponentPriceChart = 'component/PriceChart',
   ComponentTypeWriter = 'component/TypeWriter',
+  ComponentOnboarding = 'component/Onboarding',
   ComponentHomescreen = 'component/homescreen',
 }
 
@@ -162,6 +162,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentPopover]: undefined;
   [StackRoutes.ComponentPriceChart]: undefined;
   [StackRoutes.ComponentTypeWriter]: undefined;
+  [StackRoutes.ComponentOnboarding]: undefined;
   [StackRoutes.ComponentHomescreen]: undefined;
 };
 
@@ -254,8 +255,7 @@ const DevScreen = () => {
           headerStyle: {
             backgroundColor: bgColor,
           },
-          header:
-            Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
+          header: renderCustomSubStackHeader,
           headerTintColor: textColor,
         }}
       >

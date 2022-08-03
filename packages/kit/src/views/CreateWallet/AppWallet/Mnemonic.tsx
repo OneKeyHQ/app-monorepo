@@ -19,7 +19,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { Account } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
@@ -15,7 +16,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
 import { useNavigation, useNavigationActions } from '../../../hooks';
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingFinished';
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { savePassword } from '../../../utils/localAuthentication';
 
@@ -30,6 +31,7 @@ type DoneProps = {
   name: string;
   networkId: string;
   withEnableAuthentication?: boolean;
+  onSuccess?: (options: { account: Account }) => void;
 };
 
 const Done: FC<DoneProps> = ({
@@ -38,6 +40,7 @@ const Done: FC<DoneProps> = ({
   networkId,
   password,
   withEnableAuthentication,
+  onSuccess,
 }) => {
   const intl = useIntl();
   const toast = useToast();
@@ -45,15 +48,21 @@ const Done: FC<DoneProps> = ({
   useEffect(() => {
     async function main() {
       try {
-        await backgroundApiProxy.serviceAccount.addImportedAccount(
-          password,
-          networkId,
-          privatekey,
-          name,
-        );
+        const accountAdded =
+          await backgroundApiProxy.serviceAccount.addImportedAccount(
+            password,
+            networkId,
+            privatekey,
+            name,
+          );
         if (withEnableAuthentication) {
           backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
           await savePassword(password);
+        }
+        if (accountAdded) {
+          onSuccess?.({
+            account: accountAdded,
+          });
         }
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
@@ -78,7 +87,7 @@ const Done: FC<DoneProps> = ({
 export const AddImportedAccountDone = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
-  const { privatekey, name, networkId } = route.params ?? {};
+  const { privatekey, name, networkId, onSuccess } = route.params ?? {};
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: false });
   }, [navigation]);
@@ -96,6 +105,7 @@ export const AddImportedAccountDone = () => {
             name={name}
             networkId={networkId}
             password={password}
+            onSuccess={onSuccess}
           />
         )}
       </Protected>

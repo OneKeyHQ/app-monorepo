@@ -3,18 +3,22 @@ import { useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import { UseFormReturn, WatchObserver } from 'react-hook-form';
 
+import { useDebounce } from './useDebounce';
+
 function useFormOnChangeDebounced<T>({
   useFormReturn,
   wait = 500,
   revalidate = true,
+  clearErrorIfEmpty = false,
   onChange,
 }: {
   useFormReturn: UseFormReturn<T, any>;
   wait?: number;
   revalidate?: boolean;
+  clearErrorIfEmpty?: boolean;
   onChange?: WatchObserver<T>;
 }) {
-  const { watch, trigger, formState } = useFormReturn;
+  const { watch, trigger, formState, clearErrors } = useFormReturn;
   const loadingRef = useRef<boolean>(false);
   const [values, setValues] = useState<T>();
 
@@ -27,6 +31,14 @@ function useFormOnChangeDebounced<T>({
           if (onChange) {
             onChange(formValues, { name, type });
           }
+
+          if (clearErrorIfEmpty) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (formValues?.[name] === '') {
+              clearErrors(name);
+            }
+          }
+
           if (revalidate) {
             // eslint-disable-next-line no-void
             void trigger(name);
@@ -41,16 +53,28 @@ function useFormOnChangeDebounced<T>({
       debounceValidate(formValues, { name, type });
     });
     return () => subscription.unsubscribe();
-  }, [onChange, revalidate, trigger, wait, watch]);
+  }, [
+    clearErrorIfEmpty,
+    clearErrors,
+    onChange,
+    revalidate,
+    trigger,
+    wait,
+    watch,
+  ]);
+
+  const isValid = useDebounce(
+    formState.isValid &&
+      !Object.keys(formState.errors).length &&
+      !formState.isValidating,
+    100,
+  );
 
   return {
     loadingRef,
     isLoading: loadingRef.current,
     formValues: values,
-    isValid:
-      formState.isValid &&
-      !Object.keys(formState.errors).length &&
-      !formState.isValidating,
+    isValid,
   };
 }
 export { useFormOnChangeDebounced };

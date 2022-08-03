@@ -4,6 +4,7 @@ import React, { FC, useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Button,
   Center,
   Form,
@@ -14,6 +15,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
+import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
@@ -21,16 +23,25 @@ type FieldValues = { password: string };
 
 type ValidationProps = {
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
+  hideTitle?: boolean;
 };
 
-const Validation: FC<ValidationProps> = ({ onOk }) => {
+const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
   const intl = useIntl();
   const ref = useRef<any>();
   const enableLocalAuthentication = useAppSelector(
     (s) => s.settings.enableLocalAuthentication,
   );
-  const { control, handleSubmit, setError } = useForm<FieldValues>({
+  const useFormReturn = useForm<FieldValues>({
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
     defaultValues: { password: '' },
+  });
+  const { control, handleSubmit, setError } = useFormReturn;
+  const { formValues } = useFormOnChangeDebounced({
+    useFormReturn,
+    revalidate: false,
+    clearErrorIfEmpty: true,
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     const isOk = await backgroundApiProxy.serviceApp.verifyPassword(
@@ -68,24 +79,28 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
   }, []);
 
   return (
-    <KeyboardDismissView px={{ base: 4, md: 0 }}>
-      <Typography.DisplayLarge textAlign="center" mb={2}>
-        {intl.formatMessage({
-          id: 'Verify_Password',
-        })}
-      </Typography.DisplayLarge>
-      <Typography.Body1 textAlign="center" color="text-subdued">
-        {intl.formatMessage({
-          id: 'Verify_password_to_continue',
-        })}
-      </Typography.Body1>
-      <Form mt="8">
+    <KeyboardDismissView px={{ base: hideTitle ? 0 : 4, md: 0 }}>
+      {!hideTitle ? (
+        <Box mb="8">
+          <Typography.DisplayLarge textAlign="center" mb={2}>
+            {intl.formatMessage({
+              id: 'Verify_Password',
+            })}
+          </Typography.DisplayLarge>
+          <Typography.Body1 textAlign="center" color="text-subdued">
+            {intl.formatMessage({
+              id: 'Verify_password_to_continue',
+            })}
+          </Typography.Body1>
+        </Box>
+      ) : null}
+
+      <Form>
         <Form.Item
           name="password"
           defaultValue=""
           control={control}
           rules={{
-            required: intl.formatMessage({ id: 'form__field_is_required' }),
             minLength: {
               value: 8,
               message: intl.formatMessage({
@@ -106,7 +121,12 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
             onSubmitEditing={onSubmit}
           />
         </Form.Item>
-        <Button type="primary" size="xl" onPress={onSubmit}>
+        <Button
+          isDisabled={!formValues?.password}
+          type="primary"
+          size="xl"
+          onPress={onSubmit}
+        >
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',

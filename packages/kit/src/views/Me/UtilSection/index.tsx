@@ -11,7 +11,6 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -71,7 +70,9 @@ export const UtilSection = () => {
               py={4}
               px={{ base: 4, md: 6 }}
               onPress={() => {
-                extUtils.openExpandTab({ routes: '' });
+                backgroundApiProxy.serviceApp.openExtensionExpandTab({
+                  routes: '',
+                });
               }}
             >
               <Icon name="ArrowsExpandOutline" />

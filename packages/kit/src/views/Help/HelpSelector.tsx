@@ -27,8 +27,8 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useHelpLink } from '../../hooks/useHelpLink';
-import extUtils from '../../utils/extUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -152,7 +152,7 @@ const HelpSelector: FC = () => {
       switch (value) {
         case 'submit_request':
           if (platformEnv.isExtensionUiPopup) {
-            extUtils.openExpandTab({
+            backgroundApiProxy.serviceApp.openExtensionExpandTab({
               routes: [RootRoutes.Modal, ModalRoutes.SubmitRequest],
               params: {
                 screen: SubmitRequestRoutes.SubmitRequestModal,

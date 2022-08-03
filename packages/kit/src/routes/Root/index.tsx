@@ -20,7 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AppLock } from '../../components/AppLock';
 import appUpdates from '../../utils/updates/AppUpdates';
-import Welcome from '../../views/Welcome';
+import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
 import ModalStackNavigator from '../Modal';
 import {
   UpdateFeatureModalRoutes,
@@ -37,7 +37,7 @@ const RootNavigatorContainer: FC = ({ children }) => {
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
   const initialRouteName = boardingCompleted
     ? RootRoutes.Root
-    : RootRoutes.Welcome;
+    : RootRoutes.Onboarding;
   if (platformEnv.isNative) {
     return (
       <RootNativeStack.Navigator
@@ -92,11 +92,11 @@ const App = () => {
     <RootNavigatorContainer>
       <RootStack.Screen name={RootRoutes.Root} component={StackScreen} />
       <RootStack.Screen
-        name={RootRoutes.Welcome}
-        component={Welcome}
+        name={RootRoutes.Onboarding}
+        component={RouteOnboarding}
         options={{
           // @ts-expect-error
-          presentation: 'containedModal',
+          // presentation: 'containedModal', // sub Modal can NOT be closed
           animation: 'fade',
         }}
       />

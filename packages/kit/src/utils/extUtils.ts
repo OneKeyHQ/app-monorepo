@@ -1,10 +1,13 @@
+import { isNil } from 'lodash';
+
 import {
   UI_HTML_DEFAULT_MIN_HEIGHT,
   UI_HTML_DEFAULT_MIN_WIDTH,
 } from '../../../ext/src/ui/popupSizeFix';
 import { IS_LAZY_NAVIGATE_SUB_ROUTER } from '../views/Send/sendConfirmConsts';
 
-type OpenUrlRouteInfo = {
+let expandTabId: number | undefined;
+export type OpenUrlRouteInfo = {
   routes: string | string[];
   params?: any;
 };
@@ -19,8 +22,11 @@ function buildExtRouteUrl(
   const pathStr = ([] as string[]).concat(routes).join('/');
   const paramsStr = new URLSearchParams(params).toString();
   let hash = '';
-  if (pathStr && paramsStr) {
-    hash = `#/${pathStr}?${paramsStr}`;
+  if (pathStr || paramsStr) {
+    hash = `#/${pathStr || ''}`;
+    if (paramsStr) {
+      hash = `${hash}?${paramsStr || ''}`;
+    }
   }
   if (hash && IS_LAZY_NAVIGATE_SUB_ROUTER) {
     const navigateRouterHash = encodeURIComponent(hash);
@@ -35,15 +41,51 @@ function openUrl(url: string) {
   window.open(url, '_blank');
 }
 
-function openUrlInTab(url: string) {
-  return chrome.tabs.create({
-    url,
+async function getTabById(tabId: number): Promise<chrome.tabs.Tab> {
+  return new Promise((resolve) => {
+    chrome.tabs.get(tabId, resolve);
   });
 }
 
-function openExpandTab(routeInfo: OpenUrlRouteInfo) {
+async function openUrlInTab(
+  url: string,
+  options: { tabId?: number } = {},
+): Promise<chrome.tabs.Tab | undefined> {
+  let existingTab: chrome.tabs.Tab | undefined;
+  if (!isNil(options.tabId)) {
+    existingTab = await getTabById(options.tabId);
+  }
+
+  return new Promise((resolve) => {
+    if (existingTab && existingTab.id) {
+      // TODO close tab or update tab
+      chrome.tabs.update(
+        existingTab.id,
+        {
+          url,
+          active: true, // focus this tab
+        },
+        resolve,
+      );
+      return;
+    }
+
+    chrome.tabs.create(
+      {
+        url,
+      },
+      resolve,
+    );
+  });
+}
+
+async function openExpandTab(
+  routeInfo: OpenUrlRouteInfo,
+): Promise<chrome.tabs.Tab | undefined> {
   const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
-  return openUrlInTab(url);
+  const tab = await openUrlInTab(url, { tabId: expandTabId });
+  expandTabId = tab?.id;
+  return tab;
 }
 
 function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {

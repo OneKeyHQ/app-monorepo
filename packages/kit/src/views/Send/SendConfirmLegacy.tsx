@@ -17,7 +17,7 @@ import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
-import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
+import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { wait } from '../../utils/helper';
 import { SwapQuoteTx } from '../Swap/typings';
 
@@ -79,7 +79,7 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 }
 
 const TransactionConfirm = () => {
-  useOnboardingFinished();
+  useOnboardingRequired();
   // do not remove this line, call account balance fetch
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { balances } = useManageTokens({
