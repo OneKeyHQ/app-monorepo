@@ -237,9 +237,9 @@ const BehindTheScene = () => {
       {
         text: 'content__encrypting_your_data',
       },
-      {
-        text: 'content__backing_up_to_icloud',
-      },
+      // {
+      //   text: 'content__backing_up_to_icloud',
+      // },
     ];
     const defaultStates = list.reduce<IProcessStates>(
       (prev, current, index) => {
@@ -347,7 +347,7 @@ const BehindTheScene = () => {
           animate={{
             opacity: 1,
             scale: 1,
-            transition: { duration: 150, delay: 150 },
+            transition: { duration: 300, delay: 150 },
           }}
         >
           <Button
