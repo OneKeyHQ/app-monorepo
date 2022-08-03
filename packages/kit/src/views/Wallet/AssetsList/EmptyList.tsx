@@ -57,10 +57,10 @@ const EmptyList: FC = () => {
               <Icon name="NavBuySolid" color="icon-on-primary" />
             </LinearGradient>
           </Box>
-          <Typography.DisplayMedium mb="4px">
+          <Typography.DisplayMedium mb="4px" textAlign="center">
             {intl.formatMessage({ id: 'action__buy_crypto' })}
           </Typography.DisplayMedium>
-          <Typography.Body2 mb="4px" color="text-subdued">
+          <Typography.Body2 mb="4px" color="text-subdued" textAlign="center">
             {intl.formatMessage({ id: 'action__buy_crypto_desc' })}
           </Typography.Body2>
         </Box>
@@ -87,10 +87,10 @@ const EmptyList: FC = () => {
           >
             <Icon name="ViewGridAddSolid" />
           </Center>
-          <Typography.DisplayMedium mb="4px">
+          <Typography.DisplayMedium mb="4px" textAlign="center">
             {intl.formatMessage({ id: 'action__add_tokens' })}
           </Typography.DisplayMedium>
-          <Typography.Body2 mb="4px" color="text-subdued">
+          <Typography.Body2 mb="4px" color="text-subdued" textAlign="center">
             {intl.formatMessage({ id: 'action__add_tokens_desc' })}
           </Typography.Body2>
         </Box>
