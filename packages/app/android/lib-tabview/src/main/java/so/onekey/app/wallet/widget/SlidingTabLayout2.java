@@ -2,6 +2,7 @@ package so.onekey.app.wallet.widget;
 
 import android.content.Context;
 import android.util.AttributeSet;
+
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
@@ -48,8 +49,8 @@ public class SlidingTabLayout2 extends SlidingTabLayoutBase {
             throw new IllegalStateException("ViewPager or ViewPager adapter can not be NULL !");
         }
 
-        if (titles == null || titles.size() == 0) {
-            throw new IllegalStateException("Titles can not be EMPTY !");
+        if (titles == null) {
+            throw new IllegalStateException("Titles can not be Null !");
         }
 
         if (titles.size() != vp.getAdapter().getItemCount()) {
@@ -105,15 +106,6 @@ public class SlidingTabLayout2 extends SlidingTabLayoutBase {
         mTitles = new ArrayList<>();
         mTitles.addAll(titles);
         notifyDataSetChanged();
-    }
-
-    /** 关联ViewPager,用于连适配器都不想自己实例化的情况 */
-    public void setViewPager(ViewPager2 vp, String[] titles, FragmentActivity fa,
-                             List<Fragment> fragments) {
-
-        ArrayList<String> arrayList = new ArrayList<>();
-        Collections.addAll(arrayList,titles);
-        setViewPager(vp, arrayList, fa, fragments);
     }
 
     //setter and getter
