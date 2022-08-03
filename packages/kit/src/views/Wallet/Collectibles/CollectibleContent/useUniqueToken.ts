@@ -1,47 +1,125 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-// import { getAssetSources } from '@onekeyhq/engine/src/managers/nftscan';
-import { NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
-import { isAudio, isSVG, isVideo } from '@onekeyhq/kit/src/utils/uriUtils';
+import axios from 'axios';
 
+import {
+  getContentWithAsset,
+  s3SourceUri,
+  syncImage,
+} from '@onekeyhq/engine/src/managers/nftscan';
+import { NFTScanAsset } from '@onekeyhq/engine/src/types/nftscan';
+
+type ComponentType =
+  | 'unknown'
+  | 'Audio'
+  | 'Video'
+  | 'Image'
+  | 'SVG'
+  | undefined;
+
+export function componentTypeWithContentType(contentType: string) {
+  if (
+    contentType === 'image/jpeg' ||
+    contentType === 'image/gif' ||
+    contentType === 'image/png' ||
+    contentType === 'image/jpg'
+  ) {
+    return 'Image';
+  }
+  if (contentType === 'image/svg') {
+    return 'SVG';
+  }
+  if (contentType === 'video/mp4') {
+    return 'Video';
+  }
+  if (contentType === 'audio/wav' || contentType === 'audio/mpeg') {
+    return 'Audio';
+  }
+}
+
+export function getComponentTypeWithAsset(asset: NFTScanAsset): ComponentType {
+  const { contentType, contentUri } = asset;
+  if (contentUri?.startsWith('data:image/svg+xml;base64')) {
+    return 'SVG';
+  }
+  if (contentType) {
+    return componentTypeWithContentType(contentType);
+  }
+}
+
+type UploadState = null | 'uploading' | 'fail' | 'success';
 type UniqueTokenResult = {
-  supportsAudio: boolean;
-  supportsVideo: boolean;
-  supportsSVG: boolean;
+  componentType: ComponentType;
+  uploadState: UploadState;
   url?: string;
 };
 
-// export default function useUniqueToken(asset: NFTScanAsset): UniqueTokenResult {
-//   const [source, setSource] = useState(asset.animationUrl ?? asset.imageUrl);
+export default function useUniqueToken(asset: NFTScanAsset): UniqueTokenResult {
+  const [uploadState, setUploadState] = useState<UploadState>(null);
+  const s3url = s3SourceUri(asset.contractAddress, asset.contractTokenId);
+  const [componentType, setComponentType] = useState<ComponentType>(
+    getComponentTypeWithAsset(asset),
+  );
 
-//   const getData = useCallback(async () => {
-//     if (source && !source?.secureUrl) {
-//       const result = await getAssetSources(
-//         source.publicId,
-//         source.resourceType,
-//       );
-//       if (result.secureUrl) {
-//         setSource(result);
-//       }
-//     }
-//   }, [source]);
+  const checkContentType = useCallback(async () => {
+    const uploadSource = getContentWithAsset(asset);
+    if (uploadSource) {
+      const contentType = await axios
+        .head(uploadSource, { timeout: 1000 })
+        .then((resp) => resp.headers['content-type'])
+        .catch(() => '404');
+      if (contentType === '404') {
+        setComponentType('unknown');
+      } else {
+        setComponentType(componentTypeWithContentType(contentType));
+      }
+    }
+  }, [asset]);
 
-//   useEffect(() => {
-//     getData();
-//   }, [getData]);
+  const checkUrlValid = useCallback(async () => {
+    const contentType = await axios
+      .head(s3url, { timeout: 1000 })
+      .then((resp) => resp.headers['content-type'])
+      .catch(() => '404');
+    const state = contentType !== '404' ? 'success' : 'uploading';
+    setUploadState(state);
+  }, [s3url]);
 
-//   return useMemo((): UniqueTokenResult => {
-//     if (source && source?.secureUrl && source.resourceType !== 'raw') {
-//       const url = source.secureUrl;
-//       const supportsAudio = isAudio(url);
-//       const supportsVideo = isVideo(url);
-//       const supportsSVG = isSVG(url);
-//       return { supportsAudio, supportsVideo, supportsSVG, url };
-//     }
-//     return {
-//       supportsAudio: false,
-//       supportsVideo: false,
-//       supportsSVG: false,
-//     };
-//   }, [source]);
-// }
+  const uploadImage = useCallback(async () => {
+    const uploadSource = getContentWithAsset(asset);
+    if (uploadSource) {
+      const data = await syncImage({
+        contractAddress: asset.contractAddress,
+        tokenId: asset.contractTokenId,
+        imageURI: uploadSource,
+      });
+      if (data) {
+        setUploadState('success');
+      }
+    }
+  }, [asset]);
+
+  useEffect(() => {
+    if (componentType === undefined) {
+      checkContentType();
+    }
+  }, [checkContentType, componentType]);
+
+  useEffect(() => {
+    if (uploadState === null) {
+      checkUrlValid();
+    } else if (uploadState === 'uploading') {
+      // upload
+      uploadImage();
+    }
+  }, [checkUrlValid, uploadState, uploadImage]);
+
+  return useMemo(
+    () => ({
+      uploadState,
+      componentType,
+      s3url,
+    }),
+    [uploadState, componentType, s3url],
+  );
+}

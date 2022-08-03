@@ -41,75 +41,50 @@ const FallbackElement: FC<ComponentProps<typeof Box>> = ({
 
 const MemoFallbackElement = React.memo(FallbackElement);
 
-type ImageState = null | 'uploading' | 'fail' | 'success';
-const useUrlData = (asset: NFTScanAsset) => {
-  const [imageState, setImageState] = useState<ImageState>(null);
-  const s3url = s3SourceUri(asset.contractAddress, asset.contractTokenId);
+const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
+  // const { url, imageState } = useUrlData(asset);
+  const url = s3SourceUri(asset.contractAddress, asset.contractTokenId, true);
 
-  const checkUrlValid = useCallback(async () => {
-    const contentType = await axios
-      .head(s3url, { timeout: 1000 })
-      .then((resp) => resp.headers['content-type'])
-      .catch(() => '404');
-    const state = contentType !== '404' ? 'success' : 'uploading';
-    setImageState(state);
-  }, [s3url]);
+  // const [uploadState, setUploadState] = useState<boolean | null>(null);
+  const [isUpload, setIsupload] = useState<boolean | null>(null);
 
   const uploadImage = useCallback(async () => {
     const uploadSource = getImageWithAsset(asset);
     if (uploadSource) {
-      const uploadUrl = await syncImage({
+      const uploadData = await syncImage({
         contractAddress: asset.contractAddress,
         tokenId: asset.contractTokenId,
         imageURI: uploadSource,
       });
-      if (uploadUrl.length > 0) {
-        setImageState('success');
+      if (uploadData) {
+        setIsupload(true);
+      } else {
+        setIsupload(false);
       }
+    } else {
+      setIsupload(false);
     }
   }, [asset]);
 
-  useEffect(() => {
-    if (imageState === null) {
-      checkUrlValid();
-    } else if (imageState === 'uploading') {
-      // upload
-      uploadImage();
-    }
-  }, [checkUrlValid, imageState, uploadImage]);
+  useEffect(() => {}, []);
 
-  return useMemo(
-    () => ({
-      url: s3url,
-      imageState,
-    }),
-    [imageState, s3url],
-  );
-};
-const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
-  // const url = getImageWithAsset(asset);
-
-  const { url, imageState } = useUrlData(asset);
-
-  if (imageState === 'success') {
-    return (
-      <Box size={`${size}px`} {...props} overflow="hidden">
-        <NetImage
-          retry={3}
-          width={`${size}px`}
-          height={`${size}px`}
-          src={url}
-          fallbackElement={
-            <MemoFallbackElement size={`${size}px`} {...props} />
-          }
-        />
-      </Box>
-    );
-  }
-  if (imageState === 'fail') {
+  if (isUpload === false) {
     return <MemoFallbackElement size={`${size}px`} {...props} />;
   }
-  return <CustomSkeleton size={`${size}px`} {...props} />;
+  const key = isUpload === null ? 'upload null key' : 'upload true key';
+  return (
+    <Box size={`${size}px`} {...props} overflow="hidden">
+      <NetImage
+        key={isUpload}
+        retry={0}
+        skeleton
+        width={`${size}px`}
+        height={`${size}px`}
+        src={url}
+        // onErrorWithTask={uploadImage}
+      />
+    </Box>
+  );
 };
 
 export default CollectibleListImage;

@@ -1,7 +1,6 @@
 import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { Pressable } from 'native-base';
-import Reanimated from 'react-native-reanimated';
 
 import { Box, CustomSkeleton, ImageViewer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,10 +9,12 @@ import { PlatformImage } from './PlatformImage';
 import { ImageProps, ImageState } from './type';
 
 export const Image: FC<ImageProps & { onPress?: () => void }> = ({
+  disableRetry,
   retry = 0,
   retryDuring = 5000,
   fallbackElement,
   onPress,
+  onErrorWithTask,
   skeleton = false,
   ...rest
 }) => {
@@ -29,6 +30,9 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   }, [onPress, preview, rest.src]);
 
   const onImageError = useCallback(() => {
+    if (onErrorWithTask && retryCount === 0) {
+      onErrorWithTask();
+    }
     if (retryCount < retry) {
       setTimeout(() => {
         updateRetryCount((prevCounter) => prevCounter + 1);
@@ -36,7 +40,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
     } else {
       updateImageState('fail');
     }
-  }, [retry, retryCount, retryDuring]);
+  }, [onErrorWithTask, retry, retryCount, retryDuring]);
 
   const renderImage = useMemo(
     () => (

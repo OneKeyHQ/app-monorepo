@@ -20,9 +20,11 @@ export type ImageProps = {
   bgColor?: ThemeToken;
   preview?: boolean;
   skeleton?: boolean;
+  disableRetry?: boolean;
   retry?: number;
   retryDuring?: number;
   fallbackElement?: JSX.Element;
+  onErrorWithTask?: () => void;
 } & NBImageProps &
   FastImageProps;
 
