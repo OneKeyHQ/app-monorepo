@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import { Box, Icon, Text } from '@onekeyhq/components';
 
-import { wait } from '../../../../../utils/helper';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { IOnboardingRoutesParams } from '../../../routes/types';

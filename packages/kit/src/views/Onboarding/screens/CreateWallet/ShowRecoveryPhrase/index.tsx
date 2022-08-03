@@ -5,7 +5,6 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
-import { wait } from '../../../../../utils/helper';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { IOnboardingRoutesParams } from '../../../routes/types';

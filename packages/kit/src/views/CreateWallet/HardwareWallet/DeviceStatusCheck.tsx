@@ -40,7 +40,7 @@ const DeviceStatusCheckModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
-  const { serviceAccount, serviceHardware } = backgroundApiProxy;
+  const { serviceHardware } = backgroundApiProxy;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const safeGoBack = useCallback(() => {

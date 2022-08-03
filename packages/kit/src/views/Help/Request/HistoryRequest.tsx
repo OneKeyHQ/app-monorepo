@@ -30,7 +30,6 @@ import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { SubmitRequestRoutes } from '../../../routes';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import extUtils from '../../../utils/extUtils';
 
 import { listUri } from './TicketService';
 import { TicketType } from './types';

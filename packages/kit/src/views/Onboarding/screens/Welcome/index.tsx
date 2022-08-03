@@ -15,7 +15,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { RootRoutes } from '../../../../routes/routesEnum';
-import extUtils from '../../../../utils/extUtils';
 import Layout from '../../Layout';
 import { EOnboardingRoutes } from '../../routes/enums';
 import { IOnboardingRoutesParams } from '../../routes/types';

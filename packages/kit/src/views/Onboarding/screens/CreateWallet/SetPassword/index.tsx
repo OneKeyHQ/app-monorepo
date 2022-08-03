@@ -5,21 +5,16 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Center, Spinner } from '@onekeyhq/components';
+import { Center, Spinner } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
 } from '../../../../../components/Protected';
 import { useData } from '../../../../../hooks/redux';
-import { useDisableNavigationAnimation } from '../../../../../hooks/useDisableNavigationAnimation';
-import { usePromiseResult } from '../../../../../hooks/usePromiseResult';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import {
-  IOnboardingRoutesParams,
-  IOnboardingSetPasswordParams,
-} from '../../../routes/types';
+import { IOnboardingRoutesParams } from '../../../routes/types';
 
 import SecondaryContent from './SecondaryContent';
 

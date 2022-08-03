@@ -6,7 +6,6 @@ import Toast from '@onekeyhq/components/src/Toast/Custom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
-import { OnboardingContextProvider } from '../OnboardingContext';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
 import RecoveryPhrase from '../screens/CreateWallet/RecoveryPhrase';

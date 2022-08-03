@@ -35,7 +35,6 @@ import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';

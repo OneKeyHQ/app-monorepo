@@ -53,7 +53,15 @@ function useFormOnChangeDebounced<T>({
       debounceValidate(formValues, { name, type });
     });
     return () => subscription.unsubscribe();
-  }, [onChange, revalidate, trigger, wait, watch]);
+  }, [
+    clearErrorIfEmpty,
+    clearErrors,
+    onChange,
+    revalidate,
+    trigger,
+    wait,
+    watch,
+  ]);
 
   const isValid = useDebounce(
     formState.isValid &&

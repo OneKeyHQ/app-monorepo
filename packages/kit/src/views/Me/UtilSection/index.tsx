@@ -11,7 +11,6 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

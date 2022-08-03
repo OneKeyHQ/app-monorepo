@@ -43,7 +43,7 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
     },
   });
   const { control, handleSubmit, getValues } = useFormReturn;
-  const { formValues, isValid } = useFormOnChangeDebounced({
+  const { formValues } = useFormOnChangeDebounced({
     useFormReturn,
     revalidate: false,
     clearErrorIfEmpty: true,
