@@ -42,19 +42,19 @@ export const DevSettingSection = () => {
     <>
       <Box w="full" mb="6">
         <Box pb="2">
-          <Typography.Subheading color="text-subdued">
+          <Typography.Subheading color="text-critical">
             {intl.formatMessage({ id: 'form__dev_mode' })}
           </Typography.Subheading>
         </Box>
         <Container.Box
           borderWidth={themeVariant === 'light' ? 1 : undefined}
-          borderColor="border-subdued"
+          borderColor="border-critical-default"
           borderRadius="12"
           bg="surface-default"
         >
           <Container.Item
             title={intl.formatMessage({ id: 'form__dev_mode' })}
-            titleColor="text-default"
+            titleColor="text-critical"
           >
             <Switch
               labelType="false"
@@ -64,7 +64,7 @@ export const DevSettingSection = () => {
           </Container.Item>
           <Container.Item
             title={intl.formatMessage({ id: 'form__dev_pre_update' })}
-            titleColor="text-default"
+            titleColor="text-critical"
           >
             <Switch
               labelType="false"
@@ -76,7 +76,7 @@ export const DevSettingSection = () => {
             title={intl.formatMessage({
               id: 'action__test_update_ble_firmware',
             })}
-            titleColor="text-default"
+            titleColor="text-critical"
           >
             <Switch
               labelType="false"
@@ -88,7 +88,7 @@ export const DevSettingSection = () => {
           </Container.Item>
           <Container.Item
             title={intl.formatMessage({ id: 'action__test_update_firmware' })}
-            titleColor="text-default"
+            titleColor="text-critical"
           >
             <Switch
               labelType="false"
@@ -100,7 +100,7 @@ export const DevSettingSection = () => {
           </Container.Item>
           <Container.Item
             title={intl.formatMessage({ id: 'form__dev_platform_channel' })}
-            titleColor="text-default"
+            titleColor="text-critical"
             subDescribe={[
               `${platformEnv.symbol ?? ''} / ${
                 platformEnv.distributionChannel ?? ''
