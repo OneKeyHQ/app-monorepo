@@ -282,11 +282,19 @@ const ConnectHardwareModal: FC = () => {
               const bonded = await deviceUtils.checkDeviceBonded(
                 device.connectId ?? '',
               );
+              setCheckBonded(false);
               if (bonded) {
-                setCheckBonded(false);
+                debugLogger.hardwareSDK.debug(
+                  'Android device was bonded, will connect',
+                );
                 serviceHardware.connect(device.connectId ?? '').then((r) => {
                   setTimeout(() => finishConnected(r), 1000);
                 });
+              } else {
+                debugLogger.hardwareSDK.debug(
+                  'Android device check bonded timeout',
+                );
+                finishConnected(false);
               }
             }
           } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
