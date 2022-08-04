@@ -148,7 +148,9 @@ const ListHeader: FC = () => {
   );
 };
 
-const AssetsListHeader: FC = () => {
+const AssetsListHeader: FC<{ showSubheader?: boolean }> = ({
+  showSubheader,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();
@@ -183,8 +185,12 @@ const AssetsListHeader: FC = () => {
           </Button>
         )}
       </Box>
-      <ListHeader />
-      <Divider />
+      {showSubheader && (
+        <>
+          <ListHeader />
+          <Divider />
+        </>
+      )}
     </>
   );
 };
