@@ -62,7 +62,6 @@ function AssetsList({
   onTokenPress,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
-  // const isSmallScreen = useIsVerticalLayout();
   const { accountTokens, balances, prices } = useManageTokens();
 
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
@@ -86,7 +85,7 @@ function AssetsList({
           return true;
         })
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        .sort((a, b) => tokenValues.get(a)!.comparedTo(tokenValues.get(b)!))
+        .sort((a, b) => tokenValues.get(b)!.comparedTo(tokenValues.get(a)!))
     );
   }, [accountTokens, balances, hideSmallBalance, prices]);
 

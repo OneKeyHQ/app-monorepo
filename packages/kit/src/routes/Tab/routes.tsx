@@ -20,6 +20,7 @@ import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
 
@@ -44,6 +45,10 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.ScreenTokenDetail,
         component: TokenDetail,
+      },
+      {
+        name: HomeRoutes.FullTokenListScreen,
+        component: FullTokenList,
       },
     ],
   },

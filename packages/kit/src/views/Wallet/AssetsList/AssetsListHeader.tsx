@@ -33,13 +33,14 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
   RootRoutes.Root
 > &
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
 
 const ListHeader: FC = () => {
   const intl = useIntl();
-  // const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
   const isVerticalLayout = useIsVerticalLayout();
+  const { account, network } = useActiveWalletAccount();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
@@ -74,8 +75,12 @@ const ListHeader: FC = () => {
       borderWidth={1}
       borderBottomWidth={0}
       borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
-      disabled
-      // onPress={onPress}
+      onPress={() => {
+        navigation.navigate(HomeRoutes.FullTokenListScreen, {
+          accountId: account?.id,
+          networkId: network?.id,
+        });
+      }}
       flexDirection="column"
     >
       <Box
