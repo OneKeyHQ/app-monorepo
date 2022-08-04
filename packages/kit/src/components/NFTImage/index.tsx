@@ -2,7 +2,7 @@ import React, { ComponentProps, FC, useCallback } from 'react';
 
 import axios from 'axios';
 
-import NetImage from '../NetImage';
+import NetImage from '@onekeyhq/components/src/NetImage';
 
 const testFiatServiceURL = 'https://fiat.onekeytest.com';
 
@@ -19,7 +19,6 @@ const NFTImage: FC<Props> = ({ nftSource, ...rest }) => {
   const { s3Url } = rest;
   const uploadImage = useCallback(async () => {
     if (nftSource?.url) {
-      console.log('uploadImage');
       const apiUrl = `${testFiatServiceURL}/NFT/sync`;
       const uploadData = await axios.post(apiUrl, {
         contractAddress: nftSource.contractAddress,

@@ -52,7 +52,6 @@ export { default as PageActions } from './PageActions';
 export { default as Form } from './Form';
 export { default as Image } from './Image';
 export { default as NetImage } from './NetImage';
-export { default as NFTImage } from './NFTImage';
 
 export { default as ImageViewer } from './ImageViewer';
 export { default as SortableList } from './SortableList';

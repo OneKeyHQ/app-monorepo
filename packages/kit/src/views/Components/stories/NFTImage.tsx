@@ -1,6 +1,8 @@
 import React from 'react';
 
-import { Center, NFTImage } from '@onekeyhq/components';
+import { Center } from '@onekeyhq/components';
+
+import NFTImage from '../../../components/NFTImage';
 
 const NFTImageGallery = () => {
   // const { contractAddress, contractTokenId } = asset;
