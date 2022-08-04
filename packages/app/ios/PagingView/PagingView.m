@@ -34,7 +34,7 @@
 @property (nonatomic, assign) BOOL disableRefresh;
 @property (nonatomic, copy) NSString *spinnerColor;
 
-@property (nonatomic, assign) BOOL isOpenDrawer;
+@property (nonatomic, assign) BOOL isDragging;
 @property (nonatomic, assign) CGFloat offsetY;
 
 
@@ -190,22 +190,15 @@
 
 #pragma mark - JXPagingViewDelegate
 
-
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewWillBeginDragging:(UIScrollView *)scrollView{
-  UIWindow *window = RCTKeyWindow();
-  CGRect rect = [self convertRect:self.frame toView:window];
-
-  if (CGRectGetMinX(rect) > 0) {
-    self.isOpenDrawer = YES;
-    self.offsetY = scrollView.contentOffset.y;
-  } else {
-    self.isOpenDrawer = NO;
-  }
+  self.offsetY = scrollView.contentOffset.y;
+  self.isDragging = YES;
 }
 
-
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewDidScroll:(UIScrollView *)scrollView {
-  if (self.isOpenDrawer) {
+  UIWindow *window = RCTKeyWindow();
+  CGRect rect = [self convertRect:self.frame toView:window];
+  if (self.isDragging && CGRectGetMinX(rect) > 0) {
     CGPoint offset = scrollView.contentOffset;
     offset.y = self.offsetY;
     [scrollView setContentOffset:offset];
@@ -213,7 +206,7 @@
 }
 
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
-  self.isOpenDrawer = NO;
+  self.isDragging = NO;
 }
 
 - (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {
