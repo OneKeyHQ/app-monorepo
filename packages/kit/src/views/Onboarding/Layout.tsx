@@ -47,6 +47,7 @@ function LayoutScrollView({ children }: { children: any }) {
   return (
     <ScrollView
       flex={1}
+      bounces={false}
       _contentContainerStyle={{
         // flex: {
         //   base:

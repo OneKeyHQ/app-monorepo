@@ -95,8 +95,8 @@ const App = () => {
         name={RootRoutes.Onboarding}
         component={RouteOnboarding}
         options={{
-          presentation: 'card',
           // @ts-expect-error
+          presentation: 'fullScreenModal',
           animation: 'fade',
         }}
       />
