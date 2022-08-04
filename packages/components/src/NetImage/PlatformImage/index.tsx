@@ -22,7 +22,6 @@ export const PlatformImage: FC<InnerImageProps> = ({
   onLoad,
   onLoadStart,
   onError,
-  imageKey,
   ...rest
 }) => {
   const width = NBPropToFastImageProp(rest.width);

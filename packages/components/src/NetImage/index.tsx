@@ -9,10 +9,11 @@ import { PlatformImage } from './PlatformImage';
 import { ImageProps, ImageState } from './type';
 
 export const Image: FC<ImageProps & { onPress?: () => void }> = ({
-  retry = 3,
+  retry = 0,
   retryDuring = 5000,
   fallbackElement,
   onPress,
+  onErrorWithTask,
   skeleton = false,
   ...rest
 }) => {
@@ -20,27 +21,34 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
     skeleton ? 'loading' : null,
   );
   const [retryCount, updateRetryCount] = useState(0);
-  const { preview } = rest;
+  const { preview, src } = rest;
   const onImagePress = useCallback(() => {
     if (onPress && rest.src && preview) {
       onPress();
     }
   }, [onPress, preview, rest.src]);
 
-  const onImageError = useCallback(() => {
-    if (retryCount < retry) {
+  const onImageError = useCallback(async () => {
+    if (onErrorWithTask && retryCount === 0) {
+      const success = await onErrorWithTask();
+      if (success) {
+        updateRetryCount((prevCounter) => prevCounter + 1);
+      } else {
+        updateImageState('fail');
+      }
+    } else if (retryCount < retry) {
       setTimeout(() => {
         updateRetryCount((prevCounter) => prevCounter + 1);
       }, retryDuring);
     } else {
       updateImageState('fail');
     }
-  }, [retry, retryCount, retryDuring]);
+  }, [onErrorWithTask, retry, retryCount, retryDuring]);
 
   const renderImage = useMemo(
     () => (
       <Pressable
-        key={`retry count key${retryCount}`}
+        key={`retry count key${retryCount}}`}
         onPress={onImagePress}
         disabled={!preview}
       >
@@ -50,6 +58,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
           }}
           onError={onImageError}
           {...rest}
+          src={src && `${src}?t=${Date.now()}`}
         />
       </Pressable>
     ),
