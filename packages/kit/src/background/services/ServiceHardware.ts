@@ -430,8 +430,6 @@ class ServiceHardware extends ServiceBase {
   }
 
   async _checkDeviceSettings(payload: DeviceSendSupportFeatures['payload']) {
-    console.log('====: _checkDeviceSettings', payload);
-
     const { inputPinOnSoftware, device } = payload;
     const { deviceId } = device || {};
 
