@@ -106,7 +106,7 @@ export const DevSettingSection = () => {
           <Container.Item
             title="useTestFiatEndpoint"
             subDescribe={fiatEndpoint}
-            titleColor="text-default"
+            titleColor="text-critical"
           >
             <Switch
               labelType="false"
