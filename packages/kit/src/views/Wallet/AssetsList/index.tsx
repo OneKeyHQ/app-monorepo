@@ -32,6 +32,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
+import EmptyList from './EmptyList';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -114,9 +115,9 @@ function AssetsList({
       hidePriceInfo={hidePriceInfo}
       token={item}
       borderTopRadius={noHeader && index === 0 ? '12px' : 0}
-      borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
+      borderRadius={index === valueSortedTokens?.length - 1 ? '12px' : '0px'}
       borderTopWidth={0}
-      borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
+      borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
       onPress={() => {
         if (onTokenPress) {
           onTokenPress({ token: item });
@@ -151,8 +152,13 @@ function AssetsList({
       ]}
       data={valueSortedTokens}
       renderItem={renderListItem}
-      ListHeaderComponent={ListHeaderComponent ?? <AssetsListHeader />}
+      ListHeaderComponent={
+        ListHeaderComponent ?? (
+          <AssetsListHeader showSubheader={valueSortedTokens.length > 0} />
+        )
+      }
       ItemSeparatorComponent={Divider}
+      ListEmptyComponent={EmptyList}
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}

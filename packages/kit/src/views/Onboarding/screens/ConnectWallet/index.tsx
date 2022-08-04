@@ -2,15 +2,7 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Box,
-  Icon,
-  Image,
-  Pressable,
-  Text,
-  VStack,
-} from '@onekeyhq/components';
+import { Badge, Box, Icon, Image, Pressable, Text } from '@onekeyhq/components';
 import DeviceMobile from '@onekeyhq/kit/assets/onboarding/device_classic_touch.png';
 import DeviceAll from '@onekeyhq/kit/assets/onboarding/device_mini_classic_touch.png';
 import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
