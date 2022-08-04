@@ -806,7 +806,7 @@
   "modal__firmware_updated": "อัปเดตเฟิร์มแวร์",
   "modal__follow_the_instructions_on_your_device_screen": "ทำตามคำแนะนำบนหน้าจออุปกรณ์ของคุณ",
   "modal__for_your_eyes_only": "เพื่อดวงตาของคุณเท่านั้น",
-  "modal__for_your_eyes_only_desc": "อย่าแบ่งปันวลีกู้คืน ใครก็ตามที่มีคำเหล่านี้จะสามารถเข้าถึงกระเป๋าสตางค์ของคุณได้อย่างเต็มที่",
+  "modal__for_your_eyes_only_desc": "อย่าแบ่งปันวลีกู้คืน",
   "modal__homescreen": "หน้าจอหลัก",
   "modal__input_pin_code": "กรุณาใส่ PIN บนอุปกรณ์",
   "modal__install_onekey_bridge": "ติดตั้ง OneKey Bridge",

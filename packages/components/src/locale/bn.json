@@ -806,7 +806,7 @@
   "modal__firmware_updated": "ফার্মওয়্যার আপডেট করা হয়েছে",
   "modal__follow_the_instructions_on_your_device_screen": "আপনার ডিভাইসের স্ক্রিনে নির্দেশাবলী অনুসরণ করুন",
   "modal__for_your_eyes_only": "শুধুমাত্র আপনার চোখের জন্য",
-  "modal__for_your_eyes_only_desc": "পুনরুদ্ধার বাক্যাংশ শেয়ার করবেন না. এই শব্দগুলির সাথে যে কেউ আপনার ওয়ালেটে সম্পূর্ণ অ্যাক্সেস পাবে৷",
+  "modal__for_your_eyes_only_desc": "পুনরুদ্ধার বাক্যাংশ শেয়ার করবেন না.",
   "modal__homescreen": "মূল পর্দা",
   "modal__input_pin_code": "অনুগ্রহ করে ডিভাইসে পিন লিখুন",
   "modal__install_onekey_bridge": "ওয়ানকি ব্রিজ ইনস্টল করুন",

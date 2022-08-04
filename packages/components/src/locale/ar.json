@@ -806,7 +806,7 @@
   "modal__firmware_updated": "تم تحديث البرنامج الثابت",
   "modal__follow_the_instructions_on_your_device_screen": "اتبع التعليمات التي تظهر على شاشة جهازك",
   "modal__for_your_eyes_only": "فقط لاجل عينيك",
-  "modal__for_your_eyes_only_desc": "لا تشارك عبارة الاسترداد. سيتمكن أي شخص لديه هذه الكلمات من الوصول الكامل إلى محفظتك.",
+  "modal__for_your_eyes_only_desc": "لا تشارك عبارة الاسترداد.",
   "modal__homescreen": "الشاشة الرئيسية",
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",

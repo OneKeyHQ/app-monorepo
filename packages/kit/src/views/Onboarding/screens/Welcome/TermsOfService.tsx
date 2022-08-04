@@ -35,8 +35,10 @@ const TermsOfService: FC = () => {
   return (
     <Center
       position="absolute"
+      bottom={{ base: insets.bottom, sm: 8 }}
       w="full"
-      bottom={{ base: 4 + insets.bottom, sm: 8 }}
+      pb="16px"
+      bgColor="background-default"
     >
       <Text
         maxW={{ base: '300px', sm: 'auto' }}

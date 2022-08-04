@@ -806,7 +806,7 @@
   "modal__firmware_updated": "Firmware aktualisiert",
   "modal__follow_the_instructions_on_your_device_screen": "Befolgen Sie die Anweisungen auf dem Bildschirm Ihres Geräts",
   "modal__for_your_eyes_only": "Nur für Ihre Augen",
-  "modal__for_your_eyes_only_desc": "Teilen Sie niemals den Wiederherstellungssatz. Jeder mit diesen Wörtern hat vollen Zugriff auf Ihre Brieftasche.",
+  "modal__for_your_eyes_only_desc": "Teilen Sie niemals die Wiederherstellungsphrase.",
   "modal__homescreen": "Startbildschirm",
   "modal__input_pin_code": "Bitte geben Sie die PIN auf dem Gerät ein",
   "modal__install_onekey_bridge": "Installieren Sie OneKey Bridge",

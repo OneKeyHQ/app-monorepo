@@ -806,7 +806,7 @@
   "modal__firmware_updated": "固件已升级",
   "modal__follow_the_instructions_on_your_device_screen": "请按照设备屏幕上的说明进行操作",
   "modal__for_your_eyes_only": "最高机密",
-  "modal__for_your_eyes_only_desc": "永远不要分享助记词。任何人拥有这些助记词都能完全访问您的钱包。",
+  "modal__for_your_eyes_only_desc": "永远不要分享助记词。",
   "modal__homescreen": "主屏幕",
   "modal__input_pin_code": "请在设备上输入 PIN 码",
   "modal__install_onekey_bridge": "安装 OneKey Bridge",

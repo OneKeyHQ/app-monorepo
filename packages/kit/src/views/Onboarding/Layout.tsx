@@ -10,6 +10,7 @@ import {
   ScrollView,
   Text,
   useSafeAreaInsets,
+  useUserDevice,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -58,8 +59,8 @@ function LayoutScrollView({ children }: { children: any }) {
         justifyContent: 'center',
         alignItems: 'center',
         px: 6,
-        pt: 4 + insets.top,
-        pb: 4 + insets.bottom,
+        pt: `${16 + insets.top}px`,
+        pb: `${16 + insets.bottom}px`,
         bgColor: 'background-default',
       }}
     >
@@ -86,6 +87,7 @@ const Layout: FC<LayoutProps> = ({
   const insets = useSafeAreaInsets();
   const { onboardingGoBack } = useOnboardingClose();
   const context = useOnboardingContext();
+  const isSmallHeight = useUserDevice().screenHeight <= 667;
 
   const onClosePress = useCallback(() => {
     setIsClosing(true);
@@ -110,7 +112,7 @@ const Layout: FC<LayoutProps> = ({
         <IconButton
           position="absolute"
           onPress={onClosePress}
-          top={{ base: insets.top + 4, sm: 8 }}
+          top={{ base: `${insets.top + 16}px`, sm: 8 }}
           right={{ base: 4, sm: 8 }}
           type="plain"
           size="lg"
@@ -140,7 +142,7 @@ const Layout: FC<LayoutProps> = ({
         {...rest}
       >
         <Box
-          minH={640}
+          minH={isSmallHeight ? '560px' : '640px'}
           flex={{ base: fullHeight ? 1 : undefined, sm: 'initial' }}
         >
           {backButton ? (

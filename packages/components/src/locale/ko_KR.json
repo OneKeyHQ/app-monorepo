@@ -806,7 +806,7 @@
   "modal__firmware_updated": "펌웨어 업데이트됨",
   "modal__follow_the_instructions_on_your_device_screen": "장치 화면의 지침을 따릅니다.",
   "modal__for_your_eyes_only": "당신의 눈만을 위해",
-  "modal__for_your_eyes_only_desc": "복구 문구를 공유하지 마십시오. 이 단어를 가진 사람은 지갑에 대한 전체 액세스 권한을 갖게 됩니다.",
+  "modal__for_your_eyes_only_desc": "복구 문구를 공유하지 마십시오.",
   "modal__homescreen": "홈 화면",
   "modal__input_pin_code": "장치에 PIN을 입력하십시오",
   "modal__install_onekey_bridge": "OneKey 브리지 설치",

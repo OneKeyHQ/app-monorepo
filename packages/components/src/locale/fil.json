@@ -806,7 +806,7 @@
   "modal__firmware_updated": "Na-update ang Firmware",
   "modal__follow_the_instructions_on_your_device_screen": "Sundin ang mga tagubilin sa screen ng iyong device",
   "modal__for_your_eyes_only": "Para sa Iyong mga Mata Lamang",
-  "modal__for_your_eyes_only_desc": "Huwag kailanman ibahagi ang parirala sa pagbawi. Ang sinumang may mga salitang ito ay magkakaroon ng ganap na access sa iyong wallet.",
+  "modal__for_your_eyes_only_desc": "Huwag kailanman ibahagi ang parirala sa pagbawi.",
   "modal__homescreen": "Home screen",
   "modal__input_pin_code": "Pakilagay ang PIN sa Device",
   "modal__install_onekey_bridge": "I-install ang OneKey Bridge",
