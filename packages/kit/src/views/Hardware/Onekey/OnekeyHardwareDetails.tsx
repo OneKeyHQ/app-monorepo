@@ -9,6 +9,7 @@ import {
   Container,
   Icon,
   Modal,
+  Switch,
   ToastManager,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -45,14 +46,14 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const { deviceUpdates } = useSettings();
 
   const [deviceConnectId, setDeviceConnectId] = useState<string>();
-  // const [deviceId, setDeviceId] = useState<string>();
-  // const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
+  const [deviceId, setDeviceId] = useState<string>();
+  const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
 
-  // const canOnDeviceInputPin = useMemo(() => {
-  //   const deviceType = getDeviceType(deviceFeatures);
-  //   if (deviceType === 'classic' || deviceType === 'mini') return true;
-  //   return false;
-  // }, [deviceFeatures]);
+  const canOnDeviceInputPin = useMemo(() => {
+    const deviceType = getDeviceType(deviceFeatures);
+    if (deviceType === 'classic' || deviceType === 'mini') return true;
+    return false;
+  }, [deviceFeatures]);
 
   const updates = useMemo(
     () => deviceUpdates?.[deviceConnectId ?? ''],
@@ -62,24 +63,24 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const deviceType = getDeviceType(deviceFeatures);
   const showHomescreenSetting = getHomescreenKeys(deviceType).length > 0;
 
-  // const refreshDevicePayload = () => {
-  //   engine
-  //     .getHWDeviceByWalletId(walletId)
-  //     .then((device) => {
-  //       setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
-  //     })
-  //     .catch((err) => {
-  //       console.log(err);
-  //     });
-  // };
+  const refreshDevicePayload = () => {
+    engine
+      .getHWDeviceByWalletId(walletId)
+      .then((device) => {
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
 
   useEffect(() => {
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(walletId);
-        // setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
+        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
         setDeviceConnectId(device?.mac);
-        // setDeviceId(device?.deviceId);
+        setDeviceId(device?.deviceId);
       } catch (err: any) {
         if (navigation?.canGoBack?.()) {
           navigation.goBack();
@@ -216,7 +217,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'action__verify' })}
         />
-        {/* {!!canOnDeviceInputPin && (
+        {!!canOnDeviceInputPin && (
           <Container.Item
             titleColor="text-default"
             title={intl.formatMessage({
@@ -227,19 +228,33 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
               labelType="false"
               isChecked={!onDeviceInputPin}
               onToggle={() => {
-                if (deviceId) {
+                if (deviceId && deviceConnectId) {
+                  const newOnDeviceInputPin = !onDeviceInputPin;
+                  setOnDeviceInputPin(newOnDeviceInputPin);
                   serviceHardware
-                    .updateDevicePayload(deviceId, {
-                      onDeviceInputPin: !onDeviceInputPin,
+                    .setOnDeviceInputPin(
+                      deviceConnectId,
+                      deviceId,
+                      newOnDeviceInputPin,
+                    )
+                    .catch((e: any) => {
+                      const { key } = e || {};
+
+                      ToastManager.show(
+                        {
+                          title: intl.formatMessage({ id: key }),
+                        },
+                        { type: 'error' },
+                      );
                     })
-                    .then(() => {
+                    .finally(() => {
                       refreshDevicePayload();
                     });
                 }
               }}
             />
           </Container.Item>
-        )} */}
+        )}
       </Container.Box>
     </Box>
   );
