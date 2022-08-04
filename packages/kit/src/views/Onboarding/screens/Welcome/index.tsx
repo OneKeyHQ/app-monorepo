@@ -108,9 +108,10 @@ const Welcome = () => {
           >
             <Box
               flexDir="row"
-              position="absolute"
-              top={{ base: 21, sm: 33 }}
-              right={{ base: 44, sm: 25 }}
+              position={{ sm: 'absolute' }}
+              top={{ base: 1, sm: 33 }}
+              right={{ sm: 25 }}
+              ml={2}
             >
               {logos.map((logo, index) => (
                 <Image
