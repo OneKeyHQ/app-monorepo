@@ -1123,9 +1123,15 @@ class Engine {
   }
 
   @backgroundMethod()
-  removeTokenFromAccount(accountId: string, tokenId: string): Promise<void> {
+  async removeTokenFromAccount(
+    accountId: string,
+    tokenId: string,
+  ): Promise<void> {
     // Remove token from an account.
-    return this.sdbTokens.removeTokenFromAccount(accountId, tokenId);
+    await Promise.all([
+      this.sdbTokens.removeTokenFromAccount(accountId, tokenId),
+      this.dbApi.removeTokenFromAccount(accountId, tokenId),
+    ]);
   }
 
   @backgroundMethod()
@@ -1188,14 +1194,28 @@ class Engine {
     accountId?: string,
     withMain = true,
   ): Promise<Array<Token>> {
-    if (accountId) {
-      await this.updateOnlineTokens(networkId);
-    }
+    await this.updateOnlineTokens(networkId);
     // Get token info by network and account.
     const tokens = await this.sdbTokens.getTokens({
       networkId,
       accountId,
     });
+    const legacyAccountTokens = await this.dbApi.getTokens(
+      networkId,
+      accountId,
+    );
+    for (const t of legacyAccountTokens) {
+      const presetToken = await this.sdbTokens.getPresetToken(
+        networkId,
+        t.tokenIdOnNetwork,
+      );
+      if (
+        presetToken &&
+        !tokens.find((token) => token.tokenIdOnNetwork === t.tokenIdOnNetwork)
+      ) {
+        tokens.push(presetToken);
+      }
+    }
     if (typeof accountId !== 'undefined') {
       if (withMain) {
         const nativeToken = await this.getNativeTokenInfo(networkId);
