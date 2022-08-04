@@ -17,9 +17,6 @@ const moduleResolverAliasForAllWebPlatform = {
   'react-native-keyboard-manager': fullPath(
     './module-resolver/react-native-keyboard-manager-mock',
   ),
-  'react-native-cloud-fs': fullPath(
-    './module-resolver/react-native-cloud-fs-mock',
-  ),
 };
 
 function normalizeConfig({ platform, config }) {

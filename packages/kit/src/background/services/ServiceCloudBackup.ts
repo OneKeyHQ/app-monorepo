@@ -5,16 +5,15 @@ import {
 import * as FileSystem from 'expo-file-system';
 import { debounce } from 'lodash';
 import memoizee from 'memoizee';
-import RNCloudFs from 'react-native-cloud-fs';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import * as CloudFs from '@onekeyhq/shared/src/cloudfs';
 import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   incrBackupRequests,
@@ -93,10 +92,6 @@ class ServiceCloudBackup extends ServiceBase {
     return this.backupUUID;
   }
 
-  private async isAvailable(): Promise<boolean> {
-    return !!platformEnv.isNativeIOS && RNCloudFs.isAvailable();
-  }
-
   private async getDataForBackup(password: string) {
     const publicBackupData: PublicBackupData = {
       contacts: {},
@@ -170,7 +165,7 @@ class ServiceCloudBackup extends ServiceBase {
       const { enabled, backupRequests, isAvailable } = appSelector(
         (s) => s.cloudBackup,
       );
-      const availableStatus = await this.isAvailable();
+      const availableStatus = await CloudFs.isAvailable();
       if (availableStatus !== isAvailable) {
         dispatch(setIsAvailable(availableStatus));
       }
@@ -209,7 +204,7 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async getBackupStatus() {
-    if (!(await this.isAvailable())) {
+    if (!(await CloudFs.isAvailable())) {
       return { hasPreviousBackups: false };
     }
     await this.syncCloud();
@@ -456,49 +451,22 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async removeBackup(backupUUID: string) {
-    if (platformEnv.isNativeIOS) {
-      const {
-        files: [file],
-      }: { files: Array<{ isFile: boolean }> } = await RNCloudFs.listFiles({
-        scope: 'hidden',
-        targetPath: this.getBackupPath(backupUUID),
-      });
-      if (file && file.isFile) {
-        await RNCloudFs.deleteFromCloud(file);
-        this.listBackups.clear();
-      }
+    const removed = await CloudFs.deleteFile(this.getBackupPath(backupUUID));
+    if (removed) {
+      this.listBackups.clear();
     }
   }
 
-  private syncCloud = memoizee(
-    async () => {
-      if (platformEnv.isNativeIOS) {
-        return RNCloudFs.syncCloud();
-      }
-      return true;
-    },
-    {
-      promise: true,
-      maxAge: 1000 * 30,
-    },
-  );
+  private syncCloud = memoizee(async () => CloudFs.sync(), {
+    promise: true,
+    maxAge: 1000 * 30,
+  });
 
   private listBackups = memoizee(
-    async () => {
-      if (platformEnv.isNativeIOS) {
-        const { files }: { files: Array<{ isFile: boolean; name: string }> } =
-          await RNCloudFs.listFiles({
-            scope: 'hidden',
-            targetPath: 'onekey/',
-          });
-        return files
-          .filter((file) => file.isFile)
-          .map(({ name }) =>
-            name.replace(/^\./, '').replace(/\.backup.*$/, ''),
-          );
-      }
-      return [];
-    },
+    async () =>
+      (await CloudFs.listFiles('onekey/')).map((filename) =>
+        filename.replace(/^\./, '').replace(/\.backup.*$/, ''),
+      ),
     {
       promise: true,
       maxAge: 1000 * 30,
@@ -507,7 +475,7 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     (backupUUID: string) =>
-      RNCloudFs.getIcloudDocument(this.getBackupFilename(backupUUID)),
+      CloudFs.downloadFromCloud(this.getBackupFilename(backupUUID)),
     {
       promise: true,
       maxAge: 1000 * 30,
@@ -516,27 +484,19 @@ class ServiceCloudBackup extends ServiceBase {
   );
 
   private async saveDataToCloud(data: string) {
-    if (platformEnv.isNativeIOS) {
-      const backupUUID = await this.ensureUUID();
-      if (!backupUUID) {
-        throw Error('Invalid backup uuid.');
-      }
-      const localTempFilePath = this.getTempFilePath(backupUUID);
-      await FileSystem.writeAsStringAsync(localTempFilePath, data);
-      debugLogger.cloudBackup.debug(
-        `Backup file ${localTempFilePath} written.`,
-      );
-      await RNCloudFs.copyToCloud({
-        mimeType: null,
-        scope: 'hidden',
-        sourcePath: { path: localTempFilePath },
-        targetPath: this.getBackupPath(backupUUID),
-      });
-      await FileSystem.deleteAsync(localTempFilePath, { idempotent: true });
-      debugLogger.cloudBackup.debug(
-        `Backup file ${localTempFilePath} deleted.`,
-      );
+    const backupUUID = await this.ensureUUID();
+    if (!backupUUID) {
+      throw Error('Invalid backup uuid.');
     }
+    const localTempFilePath = this.getTempFilePath(backupUUID);
+    await FileSystem.writeAsStringAsync(localTempFilePath, data);
+    debugLogger.cloudBackup.debug(`Backup file ${localTempFilePath} written.`);
+    await CloudFs.uploadToCloud(
+      localTempFilePath,
+      this.getBackupPath(backupUUID),
+    );
+    await FileSystem.deleteAsync(localTempFilePath, { idempotent: true });
+    debugLogger.cloudBackup.debug(`Backup file ${localTempFilePath} deleted.`);
   }
 }
 
