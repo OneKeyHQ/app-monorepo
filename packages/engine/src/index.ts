@@ -581,17 +581,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-                id: a.id,
-                name: a.name,
-                type: a.type,
-                path: a.path,
-                coinType: a.coinType,
-                tokens: [],
-                address: a.address,
-              }
+              id: a.id,
+              name: a.name,
+              type: a.type,
+              path: a.path,
+              coinType: a.coinType,
+              tokens: [],
+              address: a.address,
+            }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-                vault.getOutputAccount(),
-              ),
+              vault.getOutputAccount(),
+            ),
         ),
     );
   }
@@ -986,8 +986,8 @@ class Engine {
       }
       let tokenInfo:
         | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-            logoURI?: string;
-          })
+          logoURI?: string;
+        })
         | undefined;
       const [impl, chainId] = networkId.split('--');
       try {
@@ -997,7 +997,7 @@ class Engine {
           address: tokenIdOnNetwork,
         });
       } catch (error) {
-        console.error(error);
+        debugLogger.engine.error('fetchTokenDetail', error);
       }
       if (!tokenInfo) {
         const vault = await this.getChainOnlyVault(networkId);
@@ -1047,8 +1047,8 @@ class Engine {
     }
     let tokenInfo:
       | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-          logoURI?: string;
-        })
+        logoURI?: string;
+      })
       | undefined;
     const [impl, chainId] = networkId.split('--');
     try {
@@ -1065,7 +1065,7 @@ class Engine {
       try {
         [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
       } catch (e) {
-        console.error(e);
+        debugLogger.engine.error('fetchTokenInfos', e);
       }
     }
     if (typeof tokenInfo === 'undefined') {
@@ -1240,10 +1240,7 @@ class Engine {
       loading: false,
       timestamp: 0,
     };
-    const { loading, timestamp } = cache;
-    if (loading) {
-      return;
-    }
+    const { timestamp } = cache;
     cache.loading = true;
     // update cache fist to make loading check work
     updateTokenCache[networkId] = cache;
@@ -1251,22 +1248,29 @@ class Engine {
       if (timestamp) {
         const hasUpdate = await checkTokenUpdate(timestamp);
         if (!hasUpdate) {
-          throw new Error('No update');
+          cache.loading = false;
+          updateTokenCache[networkId] = cache;
+          return;
         }
       }
-      const [impl, chainId] = networkId.split('--');
+      const networkMap = getPresetNetworks();
+      const network = networkMap[networkId];
+      if (typeof network?.chainId === 'undefined') {
+        cache.loading = false;
+        updateTokenCache[networkId] = cache;
+        return;
+      }
+      const { impl, chainId } = network;
       const tokens = await fetchTokenTop2000({
         impl,
         chainId: +chainId,
       });
-      if (!Array.isArray(tokens)) {
-        throw new Error('Data Error');
+      if (tokens.length) {
+        cache.timestamp = Date.now();
+        await this.sdbTokens.updateTokens(impl, +chainId, tokens);
       }
-      cache.timestamp = Date.now();
-      await this.sdbTokens.updateTokens(impl, +chainId, tokens);
     } catch (error) {
-      console.error(error);
-      // pass
+      debugLogger.engine.error('updateOnlineTokens', error);
     }
     cache.loading = false;
     updateTokenCache[networkId] = cache;

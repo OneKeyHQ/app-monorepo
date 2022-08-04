@@ -9,15 +9,15 @@ import {
   Typography,
   useTheme,
 } from '@onekeyhq/components';
-import { getFiatEndpoint } from '@onekeyhq/engine/src/managers/token';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setDevMode,
+  setEnableTestFiatEndpoint,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceSys,
-  setUseTestFiatEndpoint,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -28,7 +28,7 @@ export const DevSettingSection = () => {
     preReleaseUpdate,
     updateDeviceBle,
     updateDeviceSys,
-    useTestFiatEndpoint,
+    enableTestFiatEndpoint: useTestFiatEndpoint,
   } = useSettings().devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -104,7 +104,7 @@ export const DevSettingSection = () => {
             />
           </Container.Item>
           <Container.Item
-            title="useTestFiatEndpoint"
+            title="enableTestFiatEndpoint"
             subDescribe={fiatEndpoint}
             titleColor="text-critical"
           >
@@ -112,7 +112,7 @@ export const DevSettingSection = () => {
               labelType="false"
               isChecked={useTestFiatEndpoint}
               onToggle={() => {
-                dispatch(setUseTestFiatEndpoint(!useTestFiatEndpoint));
+                dispatch(setEnableTestFiatEndpoint(!useTestFiatEndpoint));
               }}
             />
           </Container.Item>

@@ -33,11 +33,7 @@ const VerifiedTokens: React.FC = () => {
   const { source = [] } = route.params;
 
   useEffect(() => {
-    fetchTokenSource()
-      .then((s) => setSources(s))
-      .catch(() => {
-        // pass
-      });
+    fetchTokenSource().then((s) => setSources(s));
   }, [source]);
 
   const header = useMemo(
