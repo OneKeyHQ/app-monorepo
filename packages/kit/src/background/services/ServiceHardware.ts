@@ -92,7 +92,6 @@ class ServiceHardware extends ServiceBase {
           DEVICE.FEATURES,
           async (features: IOneKeyDeviceFeatures) => {
             if (!features || !features.device_id) return;
-            console.log('DEVICE.FEATURESFEATURES,', features);
 
             try {
               const wallets = await this.backgroundApi.engine.getWallets();
@@ -115,11 +114,9 @@ class ServiceHardware extends ServiceBase {
 
         instance.on(FIRMWARE_EVENT, (messages: CoreMessage) => {
           if (messages.type === FIRMWARE.RELEASE_INFO) {
-            console.log('FIRMWARE.RELEASE_INFO: ', messages);
             this._checkFirmwareUpdate(messages.payload as unknown as any);
           }
           if (messages.type === FIRMWARE.BLE_RELEASE_INFO) {
-            console.log('FIRMWARE.BLE_RELEASE_INFO: ', messages);
             this._checkBleFirmwareUpdate(messages.payload as unknown as any);
           }
         });

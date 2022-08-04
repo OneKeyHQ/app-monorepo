@@ -3,15 +3,12 @@ import React, { FC, useEffect, useMemo, useState } from 'react';
 import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import semver from 'semver';
 
 import {
   Box,
   Container,
-  DialogManager,
   Icon,
   Modal,
-  Spinner,
   Switch,
   ToastManager,
 } from '@onekeyhq/components';
