@@ -115,9 +115,9 @@ function AssetsList({
       hidePriceInfo={hidePriceInfo}
       token={item}
       borderTopRadius={noHeader && index === 0 ? '12px' : 0}
-      borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
+      borderRadius={index === valueSortedTokens?.length - 1 ? '12px' : '0px'}
       borderTopWidth={0}
-      borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
+      borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
       onPress={() => {
         if (onTokenPress) {
           onTokenPress({ token: item });
