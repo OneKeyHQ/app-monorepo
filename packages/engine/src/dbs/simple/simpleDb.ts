@@ -1,4 +1,3 @@
-import { SimpleDbEntityDebugConfig } from './entity/SimpleDbEntityDebugConfig';
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
 import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
@@ -15,8 +14,6 @@ class SimpleDb {
   swap = new SimpleDbEntitySwap();
 
   token = new SimpleDbEntityTokens();
-
-  debugConfig = new SimpleDbEntityDebugConfig();
 }
 
 const simpleDb = new SimpleDb();

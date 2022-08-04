@@ -1,7 +1,6 @@
 import { HasName } from './base';
 
-export interface ServerToken {
-  _id: string;
+export type ServerToken = {
   name: string;
   symbol: string;
   address: string;
@@ -16,13 +15,9 @@ export interface ServerToken {
   source: string[];
   checked: boolean;
   marketCap: number;
-  createdAt: string;
-  updatedAt: string;
-  __v: number;
-}
+};
 
 export type Token = HasName & {
-  _id?: string;
   networkId: string;
   tokenIdOnNetwork: string;
   symbol: string;
