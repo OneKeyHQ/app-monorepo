@@ -61,7 +61,6 @@
     "react-native-crypto": "^2.2.0",
     "react-native-fast-image": "^8.5.11",
     "react-native-flipper": "^0.150.0",
-    "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.5.0",
     "react-native-get-random-values": "^1.8.0",
     "react-native-keyboard-manager": "^6.5.4-4",

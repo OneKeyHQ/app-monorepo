@@ -20,9 +20,6 @@ const moduleResolverAliasForAllWebPlatform = {
   'react-native-cloud-fs': fullPath(
     './module-resolver/react-native-cloud-fs-mock',
   ),
-  'react-native-fs': fullPath(
-    './module-resolver/react-native-fs-mock',
-  ),
 };
 
 function normalizeConfig({ platform, config }) {

@@ -2,10 +2,10 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import * as FileSystem from 'expo-file-system';
 import { debounce } from 'lodash';
 import memoizee from 'memoizee';
 import RNCloudFs from 'react-native-cloud-fs';
-import RNFS from 'react-native-fs';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -82,7 +82,7 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   private getTempFilePath(backupUUID: string) {
-    return `${RNFS.DocumentDirectoryPath}/${this.getBackupFilename(
+    return `${FileSystem.cacheDirectory ?? ''}${this.getBackupFilename(
       backupUUID,
     )}`;
   }
@@ -522,14 +522,20 @@ class ServiceCloudBackup extends ServiceBase {
         throw Error('Invalid backup uuid.');
       }
       const localTempFilePath = this.getTempFilePath(backupUUID);
-      await RNFS.writeFile(localTempFilePath, data, 'utf8');
+      await FileSystem.writeAsStringAsync(localTempFilePath, data);
+      debugLogger.cloudBackup.debug(
+        `Backup file ${localTempFilePath} written.`,
+      );
       await RNCloudFs.copyToCloud({
         mimeType: null,
         scope: 'hidden',
         sourcePath: { path: localTempFilePath },
         targetPath: this.getBackupPath(backupUUID),
       });
-      await RNFS.unlink(localTempFilePath);
+      await FileSystem.deleteAsync(localTempFilePath, { idempotent: true });
+      debugLogger.cloudBackup.debug(
+        `Backup file ${localTempFilePath} deleted.`,
+      );
     }
   }
 }
