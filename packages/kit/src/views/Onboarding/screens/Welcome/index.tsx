@@ -5,7 +5,14 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Box, Hidden, Icon, Image, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Hidden,
+  Icon,
+  Image,
+  Text,
+  useUserDevice,
+} from '@onekeyhq/components';
 import LogoLedger from '@onekeyhq/kit/assets/onboarding/logo_ledger.png';
 import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
@@ -43,6 +50,7 @@ const Welcome = () => {
   }, []);
 
   const intl = useIntl();
+  const isSmallHeight = useUserDevice().screenHeight <= 667;
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
 
@@ -69,7 +77,7 @@ const Welcome = () => {
       <Layout
         showCloseButton
         backButton={false}
-        pt={{ base: 20, sm: 0 }}
+        pt={{ base: isSmallHeight ? 8 : 20, sm: 0 }}
         scaleFade
       >
         <Icon name="BrandLogoIllus" size={48} />
@@ -80,7 +88,11 @@ const Welcome = () => {
             {intl.formatMessage({ id: 'onboarding__landing_welcome_desc' })}
           </Text>
         </Text>
-        <Box flexDir={{ sm: 'row' }} mt={{ base: 16, sm: 20 }} mx={-2}>
+        <Box
+          flexDir={{ sm: 'row' }}
+          mt={{ base: isSmallHeight ? 8 : 16, sm: 20 }}
+          mx={-2}
+        >
           <PressableListItem
             icon="PlusCircleOutline"
             label={intl.formatMessage({

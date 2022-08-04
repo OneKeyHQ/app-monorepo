@@ -113,7 +113,7 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
           bottom={0}
           w="full"
           maxW={400}
-          pt={4 + insets.top}
+          pt={`${16 + insets.top}px`}
           bgColor="background-default"
           pointerEvents="auto"
           initial={{ opacity: 0, translateX: 400 }}

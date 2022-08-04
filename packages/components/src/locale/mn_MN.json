@@ -806,7 +806,7 @@
   "modal__firmware_updated": "Програм хангамжийг шинэчилсэн",
   "modal__follow_the_instructions_on_your_device_screen": "Төхөөрөмжийнхөө дэлгэц дээрх зааврыг дагана уу",
   "modal__for_your_eyes_only": "Зөвхөн таны нүдэнд",
-  "modal__for_your_eyes_only_desc": "Сэргээх хэллэгийг хэзээ ч бүү хуваалц. Эдгээр үгстэй хэн ч таны хэтэвч рүү бүрэн нэвтрэх эрхтэй болно.",
+  "modal__for_your_eyes_only_desc": "Сэргээх хэллэгийг хэзээ ч бүү хуваалц.",
   "modal__homescreen": "Үндсэн дэлгэц",
   "modal__input_pin_code": "Төхөөрөмж дээрээ PIN кодоо оруулна уу",
   "modal__install_onekey_bridge": "OneKey Bridge суулгана уу",

@@ -806,7 +806,7 @@
   "modal__firmware_updated": "Firmware actualizado",
   "modal__follow_the_instructions_on_your_device_screen": "Siga las instrucciones en la pantalla de su dispositivo",
   "modal__for_your_eyes_only": "Confidencial",
-  "modal__for_your_eyes_only_desc": "Nunca compartas la frase de recuperación. Cualquier persona con estas palabras tendrá acceso total a su billetera.",
+  "modal__for_your_eyes_only_desc": "Nunca compartas la frase de recuperación.",
   "modal__homescreen": "Pantalla de inicio",
   "modal__input_pin_code": "Ingrese el PIN en el dispositivo",
   "modal__install_onekey_bridge": "Instalar OneKey Bridge",

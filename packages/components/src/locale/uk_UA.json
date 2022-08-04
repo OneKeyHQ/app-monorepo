@@ -806,7 +806,7 @@
   "modal__firmware_updated": "Оновлено прошивку",
   "modal__follow_the_instructions_on_your_device_screen": "Дотримуйтесь інструкцій на екрані пристрою",
   "modal__for_your_eyes_only": "Тільки для твоїх очей",
-  "modal__for_your_eyes_only_desc": "Ніколи не розголошуйте фразу відновлення. Будь-хто з цими словами матиме повний доступ до вашого гаманця.",
+  "modal__for_your_eyes_only_desc": "Ніколи не повідомляйте фразу відновлення.",
   "modal__homescreen": "Домашній екран",
   "modal__input_pin_code": "Будь ласка, введіть PIN-код на пристрої",
   "modal__install_onekey_bridge": "Встановіть OneKey Bridge",

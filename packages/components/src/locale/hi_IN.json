@@ -806,7 +806,7 @@
   "modal__firmware_updated": "फर्मवेयर अपडेट किया गया",
   "modal__follow_the_instructions_on_your_device_screen": "अपनी डिवाइस स्क्रीन पर दिए गए निर्देशों का पालन करें",
   "modal__for_your_eyes_only": "केवल तुम्हारी आँखों के लिए",
-  "modal__for_your_eyes_only_desc": "पुनर्प्राप्ति वाक्यांश को कभी साझा न करें। इन शब्दों वाला कोई भी व्यक्ति आपके वॉलेट तक पूरी पहुंच पाएगा।",
+  "modal__for_your_eyes_only_desc": "पुनर्प्राप्ति वाक्यांश को कभी साझा न करें।",
   "modal__homescreen": "होम स्क्रीन",
   "modal__input_pin_code": "कृपया डिवाइस पर पिन डालें",
   "modal__install_onekey_bridge": "वनकी ब्रिज स्थापित करें",

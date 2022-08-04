@@ -806,7 +806,7 @@
   "modal__firmware_updated": "Micrologiciel mis à jour",
   "modal__follow_the_instructions_on_your_device_screen": "Suivez les instructions sur l'écran de votre appareil",
   "modal__for_your_eyes_only": "Rien que pour vos yeux",
-  "modal__for_your_eyes_only_desc": "Ne partagez jamais la phrase de récupération. Toute personne disposant de ces mots aura un accès complet à votre portefeuille.",
+  "modal__for_your_eyes_only_desc": "Ne partagez jamais la phrase de récupération.",
   "modal__homescreen": "Écran d'accueil",
   "modal__input_pin_code": "Veuillez saisir le code PIN sur l'appareil",
   "modal__install_onekey_bridge": "Installer OneKey Bridge",
