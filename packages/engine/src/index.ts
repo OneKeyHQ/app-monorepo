@@ -1189,16 +1189,16 @@ class Engine {
   }
 
   async getNativeTokenInfo(networkId: string) {
-    const dbNetwork = await this.dbApi.getNetwork(networkId);
+    const network = await this.getNetwork(networkId);
 
     return {
-      id: dbNetwork.id,
-      name: dbNetwork.symbol,
+      id: network.id,
+      name: network.symbol,
       networkId,
       tokenIdOnNetwork: '',
-      symbol: dbNetwork.symbol,
-      decimals: dbNetwork.decimals,
-      logoURI: dbNetwork.logoURI,
+      symbol: network.symbol,
+      decimals: network.decimals,
+      logoURI: network.logoURI,
     };
   }
 

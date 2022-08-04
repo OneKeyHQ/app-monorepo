@@ -85,6 +85,11 @@ function fromDBNetworkToNetwork(
     shortCode = presetNetwork.shortCode;
     isTestnet = presetNetwork.isTestnet || false;
 
+    // In case of info updated
+    forNetwork.name = presetNetwork.name ?? forNetwork.name;
+    forNetwork.symbol = presetNetwork.symbol ?? forNetwork.symbol;
+    forNetwork.logoURI = presetNetwork.logoURI ?? forNetwork.logoURI;
+
     [firstExplorer] = presetNetwork.explorers || [];
     if (dbNetwork.explorerURL) {
       matchedExplorer = (presetNetwork.explorers || []).find(
