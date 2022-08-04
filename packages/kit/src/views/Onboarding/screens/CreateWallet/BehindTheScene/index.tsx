@@ -356,11 +356,11 @@ const BehindTheScene = () => {
             size="xl"
             minW={160}
           >
-            Let's go
+            {intl.formatMessage({ id: 'action__lets_go' })}
           </Button>
         </PresenceTransition>
       ),
-    [lastActionVisible, onboardingDone],
+    [lastActionVisible, onboardingDone, intl],
   );
 
   return (

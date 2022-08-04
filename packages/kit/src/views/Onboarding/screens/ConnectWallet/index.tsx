@@ -64,8 +64,8 @@ function ConnectHardwareButton() {
         showConnectHardwareModal();
       }}
     >
-      <Text typography="Heading">
-        OneKey{'\n'}
+      <Text typography="Heading" maxW={{ base: 160, sm: 'auto' }}>
+        {intl.formatMessage({ id: 'action__connect' })} OneKey{'\n'}
         {intl.formatMessage({ id: 'wallet__hardware_wallet' })}
       </Text>
       <Box flex={1} />
