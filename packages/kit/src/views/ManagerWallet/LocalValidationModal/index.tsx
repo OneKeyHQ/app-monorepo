@@ -10,6 +10,7 @@ import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type RouteProps = RouteProp<
   ManagerWalletRoutesParams,
@@ -30,8 +31,10 @@ const ManagerWalletLocalValidationView: FC = () => {
       if (inputPwd) return;
 
       setInputPwd(password);
-      navigation.goBack();
-      onSuccess(password, requestId);
+      setTimeout(() => {
+        onSuccess(password, requestId);
+        navigation.goBack();
+      }, 500);
     }, [password]);
 
     return (

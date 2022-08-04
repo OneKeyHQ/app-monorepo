@@ -17,6 +17,7 @@ type SessionProps = {
 
 const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
   const [loaded, setLoaded] = useState(false);
+  const [verifiedPwd, setVerifiedPwd] = useState(false);
   const [hasvPw, setHasPw] = useState<boolean | undefined>();
   const validationSetting = useAppSelector((s) => s.settings.validationSetting);
   const isSkip = useMemo(
@@ -27,6 +28,7 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
     async function load() {
       const data = await backgroundApiProxy.servicePassword.getPassword();
       if (data) {
+        setVerifiedPwd(true);
         if (platformEnv.isNative) {
           setTimeout(() => onOk?.(data, false), 500);
         } else {
@@ -44,17 +46,19 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
 
   const onSubmit = useCallback(
     async (text: string, isLocalAuthentication?: boolean) => {
+      setVerifiedPwd(true);
       await backgroundApiProxy.servicePassword.savePassword(text);
       onOk?.(text, isLocalAuthentication);
     },
     [onOk],
   );
 
-  if (isSkip) {
-    return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
-  }
-  if (loaded) {
-    if (!hasvPw) {
+  if (!verifiedPwd) {
+    if (isSkip) {
+      return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
+    }
+
+    if (loaded && !hasvPw) {
       return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
     }
   }

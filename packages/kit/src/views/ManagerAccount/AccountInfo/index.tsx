@@ -126,25 +126,17 @@ const ManagerAccountModal: FC = () => {
                         });
                         return;
                       }
-                      showVerify(
-                        (pwd) => {
-                          navigation.navigate(RootRoutes.Modal, {
-                            screen: ModalRoutes.ManagerAccount,
-                            params: {
-                              screen:
-                                ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
-                              params: {
-                                accountId,
-                                networkId,
-                                password: pwd,
-                              },
-                            },
-                          });
+                      navigation.navigate(RootRoutes.Modal, {
+                        screen: ModalRoutes.ManagerAccount,
+                        params: {
+                          screen:
+                            ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
+                          params: {
+                            accountId,
+                            networkId,
+                          },
                         },
-                        () => {},
-                        null,
-                        ValidationFields.Secret,
-                      );
+                      });
                     }}
                   />
                 )}
