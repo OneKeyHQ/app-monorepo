@@ -34,12 +34,11 @@ const Outer: FC<OuterContainerProps> = ({
   hasFormInsideDialog,
   ...rest
 }) => {
-  if (
-    (Platform.OS === 'web' || !hasFormInsideDialog) &&
-    Platform.OS !== 'ios'
-  ) {
+  if (Platform.OS !== 'ios') {
+    // TODO use animated to do keyboard avoiding
     return (
       <NBModal
+        avoidKeyboard
         isOpen={isVisible}
         onClose={onClose}
         bg="#00000066"
@@ -150,7 +149,7 @@ const Dialog: FC<DialogProps> = ({
                       handleClose();
                       setTimeout(() => {
                         footerButtonProps?.onSecondaryActionPress?.();
-                      }, 500);
+                      }, 50);
                     }}
                     onPrimaryActionPress={() => {
                       footerButtonProps?.onPrimaryActionPress?.({ onClose });
