@@ -14,6 +14,7 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
@@ -81,7 +82,7 @@ const WalletTabs: FC = () => {
                 wait: true,
               });
             } catch (e) {
-              console.error(e);
+              debugLogger.common.error(e);
             }
           }
           setTimeout(() => setRefreshing(false), 10);
