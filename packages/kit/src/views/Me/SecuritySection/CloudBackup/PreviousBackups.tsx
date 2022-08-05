@@ -2,7 +2,14 @@ import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, Spinner, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  Pressable,
+  Spinner,
+  Text,
+  useTheme,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
@@ -15,6 +22,7 @@ import {
 
 import BackupSummary from './BackupSummary';
 
+import type { IBackupItemSummary } from '../../../../background/services/ServiceCloudBackup';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -23,16 +31,7 @@ type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.CloudBackupDetails>
 >;
 
-type BackupItemSummaryProps = {
-  backupUUID: string;
-  backupTime: number;
-  numOfHDWallets: number;
-  numOfImportedAccounts: number;
-  numOfWatchingAccounts: number;
-  numOfContacts: number;
-};
-
-const PressableBackupSummary: FC<BackupItemSummaryProps> = ({
+const PressableBackupSummary: FC<Omit<IBackupItemSummary, 'deviceInfo'>> = ({
   backupUUID,
   backupTime,
   numOfHDWallets,
@@ -93,7 +92,7 @@ const CloudBackup = () => {
 
   const [loading, setLoading] = useState(true);
   const [previousBackups, setPreviousBackups] = useState<
-    Array<BackupItemSummaryProps>
+    Array<Array<IBackupItemSummary>>
   >([]);
 
   useEffect(() => {
@@ -107,15 +106,24 @@ const CloudBackup = () => {
   return loading ? (
     <Spinner size="lg" />
   ) : (
-    <Box
-      m={4}
-      borderRadius="12"
-      bg="surface-default"
-      borderWidth={themeVariant === 'light' ? 1 : undefined}
-      borderColor="border-subdued"
-    >
-      {previousBackups.map((item) => (
-        <PressableBackupSummary key={item.backupUUID} {...item} />
+    <Box justifyContent="space-between" p={4}>
+      {previousBackups.map((group) => (
+        <Box>
+          <Text typography="Body1" color="text-subdued">
+            {group[0].deviceInfo.deviceName}
+          </Text>
+          <Box
+            my={2}
+            borderRadius="12"
+            bg="surface-default"
+            borderWidth={themeVariant === 'light' ? 1 : undefined}
+            borderColor="border-subdued"
+          >
+            {group.map((item) => (
+              <PressableBackupSummary key={item.backupUUID} {...item} />
+            ))}
+          </Box>
+        </Box>
       ))}
     </Box>
   );

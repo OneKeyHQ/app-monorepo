@@ -47,6 +47,7 @@
     "@onekeyfe/extension-bridge-hosted": "^0.0.16",
     "@onekeyfe/onekey-cross-webview": "^0.0.16",
     "axios": "^0.26.0",
+    "expo-device": "^4.3.0",
     "memoizee": "^0.4.15"
   },
   "devDependencies": {

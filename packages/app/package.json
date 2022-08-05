@@ -37,6 +37,7 @@
     "buffer": "^5.7.1",
     "expo": "^45.0.5",
     "expo-clipboard": "^3.0.1",
+    "expo-device": "^4.3.0",
     "expo-haptics": "^11.2.0",
     "expo-image-picker": "^13.1.1",
     "expo-location": "^14.2.2",

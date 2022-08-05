@@ -2,6 +2,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import * as Device from 'expo-device';
 import * as FileSystem from 'expo-file-system';
 import { debounce } from 'lodash';
 import memoizee from 'memoizee';
@@ -48,6 +49,16 @@ export type PublicBackupData = {
   >;
 };
 
+export type IBackupItemSummary = {
+  backupUUID: string;
+  backupTime: number;
+  deviceInfo: { osName: string; deviceName: string };
+  numOfHDWallets: number;
+  numOfImportedAccounts: number;
+  numOfWatchingAccounts: number;
+  numOfContacts: number;
+};
+
 type BackupedContacts = Record<
   string,
   { name: string; address: string; networkId: string }
@@ -57,6 +68,8 @@ type BackupedContacts = Record<
 // const ONEKEY_NAMESPACE = '30303338-6435-5664-a334-323538396638';
 // uuid.v5('Contact', ONEKEY_NAMESPACE)
 const CONTACT_NAMESPACE = '63363334-3563-5463-a336-666666353665';
+// uuid.v5('Backup device', ONEKEY_NAMESPACE)
+const BACKUP_DEVICE_NAMESPACE = '38366232-6538-5532-b461-393837633133';
 
 function getContactUUID({
   address,
@@ -71,6 +84,8 @@ function getContactUUID({
 @backgroundClass()
 class ServiceCloudBackup extends ServiceBase {
   private backupUUID = '';
+
+  private deviceInfo: { osName: string; deviceName: string };
 
   private getBackupFilename(backupUUID: string) {
     return `${backupUUID}.backup`;
@@ -179,8 +194,9 @@ class ServiceCloudBackup extends ServiceBase {
       }
 
       const cloudData = JSON.stringify({
-        backupTime: Date.now(),
         uuid: await this.ensureUUID(),
+        backupTime: Date.now(),
+        deviceInfo: this.deviceInfo,
         ...(await this.getDataForBackup(password)),
       });
       dispatch(setInProgress());
@@ -198,6 +214,10 @@ class ServiceCloudBackup extends ServiceBase {
 
   constructor(props: IServiceBaseProps) {
     super(props);
+    this.deviceInfo = {
+      osName: Device.osName ?? 'unknown',
+      deviceName: Device.deviceName ?? 'unknown',
+    };
     appEventBus.on(AppEventBusNames.BackupRequired, this.onBackupRequired);
     appEventBus.emit(AppEventBusNames.BackupRequired);
   }
@@ -221,23 +241,37 @@ class ServiceCloudBackup extends ServiceBase {
     await this.syncCloud();
     const currentUUID = await this.ensureUUID();
     const backupUUIDs = await this.listBackups();
-    const backupSummaries = [];
+    const backupSummaries: Record<string, Array<IBackupItemSummary>> = {};
     for (const backupUUID of backupUUIDs.filter(
       (tmpUUID) => tmpUUID !== currentUUID,
     )) {
       try {
-        const { backupTime, public: publicBackupData } = JSON.parse(
-          await this.getDataFromCloud(backupUUID),
-        );
+        const {
+          backupTime,
+          deviceInfo,
+          public: publicBackupData,
+        }: {
+          backupTime: number;
+          deviceInfo: { osName: string; deviceName: string };
+          public: string;
+        } = JSON.parse(await this.getDataFromCloud(backupUUID));
         const {
           contacts = {},
           HDWallets = {},
           importedAccounts = {},
           watchingAccounts = {},
         } = JSON.parse(publicBackupData) as PublicBackupData;
-        backupSummaries.push({
+        const backupDeviceId = uuid.v5(
+          `${deviceInfo.osName},${deviceInfo.deviceName}`,
+          BACKUP_DEVICE_NAMESPACE,
+        ) as string;
+        if (typeof backupSummaries[backupDeviceId] === 'undefined') {
+          backupSummaries[backupDeviceId] = [];
+        }
+        backupSummaries[backupDeviceId].push({
           backupUUID,
           backupTime,
+          deviceInfo,
           numOfHDWallets: Object.keys(HDWallets).length,
           numOfImportedAccounts: Object.keys(importedAccounts).length,
           numOfWatchingAccounts: Object.keys(watchingAccounts).length,
@@ -247,7 +281,9 @@ class ServiceCloudBackup extends ServiceBase {
         debugLogger.cloudBackup.error(e);
       }
     }
-    return backupSummaries.sort((a, b) => b.backupTime - a.backupTime);
+    return Object.values(backupSummaries)
+      .map((group) => group.sort((a, b) => b.backupTime - a.backupTime))
+      .sort((a, b) => b[0].backupTime - a[0].backupTime);
   }
 
   @backgroundMethod()
