@@ -28,14 +28,15 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
     }
   }, [onPress, preview, rest.src]);
 
-  const onImageError = useCallback(async () => {
+  const onImageError = useCallback(() => {
     if (onErrorWithTask && retryCount === 0) {
-      const success = await onErrorWithTask();
-      if (success) {
-        updateRetryCount((prevCounter) => prevCounter + 1);
-      } else {
-        updateImageState('fail');
-      }
+      onErrorWithTask().then((success) => {
+        if (success) {
+          updateRetryCount((prevCounter) => prevCounter + 1);
+        } else {
+          updateImageState('fail');
+        }
+      });
     } else if (retryCount < retry) {
       setTimeout(() => {
         updateRetryCount((prevCounter) => prevCounter + 1);

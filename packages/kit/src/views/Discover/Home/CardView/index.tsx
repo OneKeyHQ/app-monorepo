@@ -67,7 +67,7 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
         horizontal
         data={filterData}
         renderItem={renderItem}
-        keyExtractor={(item, index) => `CardView${index}`}
+        keyExtractor={(item, index) => `CardView${index}${item.id}`}
       />
     </Box>
   );
@@ -137,7 +137,7 @@ const CardViewDesktop: FC<SectionDataType> = ({
         data={filterData}
         renderItem={renderItem}
         numColumns={numColumns}
-        keyExtractor={(item, index) => `${numColumns}key${index}`}
+        keyExtractor={(item, index) => `${numColumns}key${index}${item.id}`}
         key={`key${numColumns}`}
       />
     ),
