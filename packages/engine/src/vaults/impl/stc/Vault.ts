@@ -8,10 +8,15 @@ import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256
 import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import Decimal from 'decimal.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import {
+  InvalidTokenAddress,
+  NotImplemented,
+  OneKeyInternalError,
+} from '../../../errors';
 import { extractResponseError } from '../../../proxy';
 import { DBSimpleAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
@@ -47,12 +52,16 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import {
-  decodeTokenData,
+  decodeTransactionPayload,
+  encodeTokenTransferData,
   extractTransactionInfo,
   getAddressHistoryFromExplorer,
 } from './utils';
 
+import type { Token } from '../../../types/token';
 import type { IEncodedTxSTC } from './types';
+
+const MAIN_TOKEN_ADDRESS = '0x00000000000000000000000000000001::STC::STC';
 
 export default class Vault extends VaultBase {
   settings = settings;
@@ -66,7 +75,7 @@ export default class Vault extends VaultBase {
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
     let result: IDecodedTxLegacy;
-    const { type, nativeTransfer } = decodedTx.actions[0];
+    const { type, nativeTransfer, tokenTransfer } = decodedTx.actions[0];
 
     if (type === IDecodedTxActionType.NATIVE_TRANSFER) {
       result = {
@@ -88,6 +97,18 @@ export default class Vault extends VaultBase {
         data: decodedTx.payload?.data,
         total: '0', // not available
       } as IDecodedTxLegacy;
+    } else if (type === IDecodedTxActionType.TOKEN_TRANSFER) {
+      result = {
+        txType: EVMDecodedTxType.TOKEN_TRANSFER,
+        symbol: tokenTransfer?.tokenInfo.symbol,
+        amount: tokenTransfer?.amount,
+        value: tokenTransfer?.amountValue,
+        fromAddress: tokenTransfer?.from,
+        toAddress: tokenTransfer?.to,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        data: decodedTx.payload?.data,
+        total: '0', // not available
+      } as IDecodedTxLegacy;
     } else {
       // shouldn't happen.
       throw new OneKeyInternalError('Incorrect decodedTx.');
@@ -102,7 +123,9 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    let token: Token | undefined = await this.engine.getNativeTokenInfo(
+      this.networkId,
+    );
     const { data, to } = encodedTx;
     let action: IDecodedTxAction | null = null;
     if (to) {
@@ -111,7 +134,7 @@ export default class Vault extends VaultBase {
         from: encodedTx.from,
         to: encodedTx.to,
         amount: new BigNumber(encodedTx.value)
-          .shiftedBy(-network.decimals)
+          .shiftedBy(-token.decimals)
           .toFixed(),
         amountValue: encodedTx.value,
         extraInfo: null,
@@ -121,18 +144,55 @@ export default class Vault extends VaultBase {
         nativeTransfer,
       };
     } else if (data) {
-      // TODO:  display dataName and dataParamsStr on UI's confirmTransactionPage
-      const { name: dataName, params: dataParams } = decodeTokenData(data);
-      // eslint-disable-next-line no-unused-vars
-      const dataParamsStr = JSON.stringify(dataParams);
+      const decodedPayload = decodeTransactionPayload(data);
+      if (decodedPayload.type === 'tokenTransfer') {
+        const {
+          tokenAddress,
+          to: transferTo,
+          amountValue,
+        } = decodedPayload.payload;
+        let actionKey = 'nativeTransfer';
+        let actionType = IDecodedTxActionType.NATIVE_TRANSFER;
+        if (tokenAddress !== MAIN_TOKEN_ADDRESS) {
+          token = await this.engine.ensureTokenInDB(
+            this.networkId,
+            tokenAddress,
+          );
+          if (typeof token === 'undefined') {
+            throw new OneKeyInternalError('Failed to get token info.');
+          }
+          actionKey = 'tokenTransfer';
+          actionType = IDecodedTxActionType.TOKEN_TRANSFER;
+        }
+        const amount = new BigNumber(amountValue)
+          .shiftedBy(-token.decimals)
+          .toFixed();
 
-      action = {
-        type: IDecodedTxActionType.TRANSACTION,
-        direction: IDecodedTxDirection.SELF,
-        unknownAction: {
-          extraInfo: {},
-        },
-      };
+        action = {
+          type: actionType,
+          [actionKey]: {
+            tokenInfo: token,
+            from: encodedTx.from,
+            to: transferTo,
+            amount,
+            amountValue,
+            extraInfo: null,
+          },
+        };
+      } else {
+        /* TODO:  display dataName and dataParamsStr on UI's confirmTransactionPage
+        const { name: dataName, params: dataParams } =
+          decodeTransactionPayload(data);
+        const dataParamsStr = JSON.stringify(dataParams);
+        */
+        action = {
+          type: IDecodedTxActionType.TRANSACTION,
+          direction: IDecodedTxDirection.SELF,
+          unknownAction: {
+            extraInfo: {},
+          },
+        };
+      }
     } else {
       // TODO: support other types
       action = {
@@ -173,10 +233,21 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxSTC> {
-    const { from, to, amount, token } = transferInfo;
-    if (typeof token !== 'undefined' && token.length > 0) {
-      // TODO: token not supported yet.
-      throw new NotImplemented();
+    const { from, to, amount, token: tokenAddress } = transferInfo;
+    if (typeof tokenAddress !== 'undefined' && tokenAddress.length > 0) {
+      const token = await this.engine.ensureTokenInDB(
+        this.networkId,
+        tokenAddress,
+      );
+      if (typeof token === 'undefined') {
+        throw new OneKeyInternalError('Failed to get token info.');
+      }
+      return Promise.resolve({
+        from,
+        to: '',
+        value: '',
+        data: encodeTokenTransferData(to, token, amount),
+      });
     }
 
     const network = await this.getNetwork();
@@ -354,13 +425,12 @@ export default class Vault extends VaultBase {
 
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNetwork(this.networkId);
-    const token = await this.engine.getNativeTokenInfo(this.networkId);
 
     const explorerTxs = await getAddressHistoryFromExplorer(
       this.networkId,
       dbAccount.address,
     );
-    const promises = explorerTxs.map((tx) => {
+    const promises = explorerTxs.map(async (tx) => {
       const historyTxToMerge = localHistory.find(
         (item) => item.decodedTx.txid === tx.transaction_hash,
       );
@@ -372,7 +442,8 @@ export default class Vault extends VaultBase {
       try {
         const transactionInfo = extractTransactionInfo(tx);
         if (transactionInfo) {
-          const { from, to, mainTokenAmountValue, feeValue } = transactionInfo;
+          const { from, to, tokenAddress, amountValue, feeValue } =
+            transactionInfo;
           const encodedTx = {
             from,
             to: '',
@@ -383,7 +454,7 @@ export default class Vault extends VaultBase {
           let action: IDecodedTxAction = {
             type: IDecodedTxActionType.TRANSACTION,
           };
-          if (mainTokenAmountValue) {
+          if (amountValue && tokenAddress) {
             let direction = IDecodedTxDirection.IN;
             if (from === dbAccount.address) {
               direction =
@@ -391,19 +462,37 @@ export default class Vault extends VaultBase {
                   ? IDecodedTxDirection.SELF
                   : IDecodedTxDirection.OUT;
             }
-            encodedTx.to = to;
-            encodedTx.value = mainTokenAmountValue;
+            let actionType = IDecodedTxActionType.NATIVE_TRANSFER;
+            let token: Token | undefined = await this.engine.getNativeTokenInfo(
+              this.networkId,
+            );
+            let actionKey = 'nativeTransfer';
+            if (tokenAddress === MAIN_TOKEN_ADDRESS) {
+              encodedTx.to = to;
+              encodedTx.value = amountValue;
+            } else {
+              actionType = IDecodedTxActionType.TOKEN_TRANSFER;
+              actionKey = 'tokenTransfer';
+              token = await this.engine.ensureTokenInDB(
+                this.networkId,
+                tokenAddress,
+              );
+              if (typeof token === 'undefined') {
+                throw new OneKeyInternalError('Failed to get token info.');
+              }
+            }
+
             action = {
-              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              type: actionType,
               direction,
-              nativeTransfer: {
+              [actionKey]: {
                 tokenInfo: token,
                 from,
                 to,
-                amount: new BigNumber(mainTokenAmountValue)
-                  .shiftedBy(-decimals)
+                amount: new BigNumber(amountValue)
+                  .shiftedBy(-token.decimals)
                   .toFixed(),
-                amountValue: mainTokenAmountValue,
+                amountValue,
                 extraInfo: null,
               },
             };
@@ -430,7 +519,7 @@ export default class Vault extends VaultBase {
           decodedTx.createdAt =
             historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
           decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-          return this.buildHistoryTx({
+          return await this.buildHistoryTx({
             decodedTx,
             historyTxToMerge,
           });
@@ -463,9 +552,54 @@ export default class Vault extends VaultBase {
     return new StcClient(url);
   }
 
-  fetchTokenInfos(
-    _tokenAddresses: string[],
+  async fetchTokenInfos(
+    tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    throw new NotImplemented();
+    const client = await this.getJsonRPCClient();
+    try {
+      // eslint-disable-next-line camelcase
+      const resp: Array<{ json: { scaling_factor: number } }> =
+        await client.rpc.batchCall(
+          tokenAddresses.map((tokenAddress) => {
+            const [address] = tokenAddress.split('::');
+            return [
+              'state.get_resource',
+              [
+                address,
+                `0x1::Token::TokenInfo<${tokenAddress}>`,
+                { decode: true },
+              ],
+            ];
+          }),
+        );
+      // eslint-disable-next-line camelcase
+      return resp.map(({ json: { scaling_factor } }, index) => {
+        try {
+          const [, , name] = tokenAddresses[index].split('::');
+          return {
+            name,
+            symbol: name,
+            decimals: Decimal.log10(scaling_factor).toDP(0).toNumber(),
+          };
+        } catch (e) {
+          debugLogger.common.error(e);
+          return undefined;
+        }
+      });
+    } catch (e) {
+      throw extractResponseError(e);
+    }
+  }
+
+  override async validateTokenAddress(tokenAddress: string): Promise<string> {
+    const [address, module, name] = tokenAddress.split('::');
+    if (module && name) {
+      try {
+        return `${await this.validateAddress(address)}::${module}::${name}`;
+      } catch {
+        // pass
+      }
+    }
+    throw new InvalidTokenAddress();
   }
 }
