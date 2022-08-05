@@ -21,7 +21,6 @@ export type ManagerAccountRoutesParams = {
   [ManagerAccountModalRoutes.ManagerAccountExportPrivateModal]: {
     accountId: string;
     networkId: string;
-    password: string;
   };
 };
 
