@@ -51,6 +51,7 @@ export type IAssetsListProps = Omit<
   singleton?: boolean;
   hidePriceInfo?: boolean;
   noHeader?: boolean;
+  limitSize?: number;
 };
 function AssetsList({
   noHeader,
@@ -60,6 +61,7 @@ function AssetsList({
   ListFooterComponent,
   contentContainerStyle,
   onTokenPress,
+  limitSize,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const { accountTokens, balances, prices } = useManageTokens();
@@ -68,26 +70,29 @@ function AssetsList({
 
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const valueSortedTokens = useMemo(() => {
+  const [tokenCount, valueSortedTokens] = useMemo(() => {
     const tokenValues = new Map<TokenType, BigNumber>();
-    return (
-      accountTokens
-        .filter((t) => {
-          const [v] = getTokenValues({
-            tokens: [t],
-            prices,
-            balances,
-          });
-          if (hideSmallBalance && v.isLessThan(1)) {
-            return false;
-          }
-          tokenValues.set(t, v);
-          return true;
-        })
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        .sort((a, b) => tokenValues.get(b)!.comparedTo(tokenValues.get(a)!))
-    );
-  }, [accountTokens, balances, hideSmallBalance, prices]);
+    const sortedTokens = accountTokens
+      .filter((t) => {
+        const [v] = getTokenValues({
+          tokens: [t],
+          prices,
+          balances,
+        });
+        if (hideSmallBalance && v.isLessThan(1)) {
+          return false;
+        }
+        tokenValues.set(t, v);
+        return true;
+      })
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      .sort((a, b) => tokenValues.get(b)!.comparedTo(tokenValues.get(a)!));
+
+    return [
+      sortedTokens.length,
+      limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens,
+    ];
+  }, [accountTokens, balances, hideSmallBalance, limitSize, prices]);
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
@@ -153,7 +158,10 @@ function AssetsList({
       renderItem={renderListItem}
       ListHeaderComponent={
         ListHeaderComponent ?? (
-          <AssetsListHeader showSubheader={valueSortedTokens.length > 0} />
+          <AssetsListHeader
+            showTokenCount={!!limitSize}
+            showSubheader={valueSortedTokens.length > 0}
+          />
         )
       }
       ItemSeparatorComponent={Divider}

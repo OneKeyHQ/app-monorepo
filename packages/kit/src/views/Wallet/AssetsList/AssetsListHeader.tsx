@@ -153,9 +153,10 @@ const ListHeader: FC = () => {
   );
 };
 
-const AssetsListHeader: FC<{ showSubheader?: boolean }> = ({
-  showSubheader,
-}) => {
+const AssetsListHeader: FC<{
+  showSubheader?: boolean;
+  showTokenCount?: boolean;
+}> = ({ showSubheader, showTokenCount }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();

@@ -116,7 +116,7 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.Tokens}
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
-          <AssetsList ListFooterComponent={<Box h={16} />} />
+          <AssetsList ListFooterComponent={<Box h={16} />} limitSize={5} />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.Collectibles}
