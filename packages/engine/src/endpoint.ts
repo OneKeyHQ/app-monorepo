@@ -1,9 +1,9 @@
-import store from '@onekeyhq/kit/src/store';
+import { appSelector } from '@onekeyhq/kit/src/store';
 
 export const getFiatEndpoint = () => {
-  const { enableTestFiatEndpoint: useTestFiatEndpoint } =
-    store.getState()?.settings?.devMode;
-  return useTestFiatEndpoint
+  const { enableTestFiatEndpoint } = appSelector((s) => s.settings.devMode);
+
+  return enableTestFiatEndpoint
     ? 'https://fiat.onekeytest.com'
     : 'https://fiat.onekeycn.com';
 };

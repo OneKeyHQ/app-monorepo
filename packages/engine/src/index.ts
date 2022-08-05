@@ -41,7 +41,6 @@ import {
   ExportedSeedCredential,
   checkPassword,
 } from './dbs/base';
-import { SimpleDbEntityTokens } from './dbs/simple/entity/SimpleDbEntityPresetTokens';
 import simpleDb from './dbs/simple/simpleDb';
 import {
   NotImplemented,
@@ -57,7 +56,7 @@ import { implToCoinTypes } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
-  getImplFromNetworkId,
+  parseNetworkId,
 } from './managers/network';
 import {
   checkTokenUpdate,
@@ -128,8 +127,6 @@ const updateTokenCache: {
 class Engine {
   public dbApi: DBAPI;
 
-  public sdbTokens: SimpleDbEntityTokens;
-
   public providerManager: ProviderController;
 
   private priceManager: PriceController;
@@ -142,7 +139,6 @@ class Engine {
 
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
-    this.sdbTokens = simpleDb.token;
     this.priceManager = new PriceController();
     this.providerManager = new ProviderController((networkId) =>
       this.dbApi
@@ -581,17 +577,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-              id: a.id,
-              name: a.name,
-              type: a.type,
-              path: a.path,
-              coinType: a.coinType,
-              tokens: [],
-              address: a.address,
-            }
+                id: a.id,
+                name: a.name,
+                type: a.type,
+                path: a.path,
+                coinType: a.coinType,
+                tokens: [],
+                address: a.address,
+              }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-              vault.getOutputAccount(),
-            ),
+                vault.getOutputAccount(),
+              ),
         ),
     );
   }
@@ -827,7 +823,7 @@ class Engine {
     name?: string,
   ): Promise<Account> {
     await this.validator.validatePasswordStrength(password);
-    const impl = getImplFromNetworkId(networkId);
+    const { impl } = parseNetworkId(networkId);
     let privateKey: Buffer | undefined;
     // TODO: use vault to extract private key.
     try {
@@ -885,7 +881,7 @@ class Engine {
     // TODO: now only adding by address is supported.
     await this.validator.validateAccountNames([name]);
 
-    const impl = getImplFromNetworkId(networkId);
+    const { impl } = parseNetworkId(networkId);
     const vault = await this.getWalletOnlyVault(networkId, 'watching');
     const [dbAccount] = await vault.keyring.prepareAccounts({
       target,
@@ -976,7 +972,7 @@ class Engine {
       }
 
       const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-      const presetToken = await this.sdbTokens.getPresetToken(
+      const presetToken = await simpleDb.token.getPresetToken(
         networkId,
         tokenIdOnNetwork,
       );
@@ -986,25 +982,26 @@ class Engine {
       }
       let tokenInfo:
         | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-          logoURI?: string;
-        })
+            logoURI?: string;
+          })
         | undefined;
-      const [impl, chainId] = networkId.split('--');
-      try {
-        tokenInfo = await fetchTokenDetail({
-          impl,
-          chainId: +chainId,
-          address: tokenIdOnNetwork,
-        });
-      } catch (error) {
-        debugLogger.engine.error('fetchTokenDetail', error);
+      const { impl, chainId } = parseNetworkId(networkId);
+      if (!impl || !chainId) {
+        return;
       }
+      tokenInfo = await fetchTokenDetail({
+        impl,
+        chainId: +chainId,
+        address: tokenIdOnNetwork,
+      });
       if (!tokenInfo) {
         const vault = await this.getChainOnlyVault(networkId);
         try {
           [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
         } catch (e) {
-          console.error(e);
+          debugLogger.common.error(`fetchTokenInfos`, {
+            params: [tokenIdOnNetwork],
+          });
         }
       }
       if (typeof tokenInfo === 'undefined') {
@@ -1038,7 +1035,7 @@ class Engine {
       return this.getNativeTokenInfo(networkId);
     }
     const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    const presetToken = await this.sdbTokens.getPresetToken(
+    const presetToken = await simpleDb.token.getPresetToken(
       networkId,
       tokenIdOnNetwork,
     );
@@ -1047,19 +1044,18 @@ class Engine {
     }
     let tokenInfo:
       | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-        logoURI?: string;
-      })
+          logoURI?: string;
+        })
       | undefined;
-    const [impl, chainId] = networkId.split('--');
-    try {
-      tokenInfo = await fetchTokenDetail({
-        impl,
-        chainId: +chainId,
-        address: tokenIdOnNetwork,
-      });
-    } catch (error) {
-      console.error(error);
+    const { impl, chainId } = parseNetworkId(networkId);
+    if (!impl || !chainId) {
+      return;
     }
+    tokenInfo = await fetchTokenDetail({
+      impl,
+      chainId: +chainId,
+      address: tokenIdOnNetwork,
+    });
     if (!tokenInfo) {
       const vault = await this.getChainOnlyVault(networkId);
       try {
@@ -1071,7 +1067,7 @@ class Engine {
     if (typeof tokenInfo === 'undefined') {
       return;
     }
-    return this.sdbTokens.addToken({
+    return simpleDb.token.addToken({
       networkId,
       tokenIdOnNetwork,
       id: tokenId,
@@ -1082,9 +1078,13 @@ class Engine {
 
   private async addDefaultToken(
     accountId: string,
-    impl: string,
+    impl?: string,
   ): Promise<void> {
-    return this.sdbTokens.addDefaultToken(accountId, impl);
+    if (!impl) {
+      debugLogger.engine.error(`Can not add default token: Invalid impl`, impl);
+      return;
+    }
+    return simpleDb.token.addDefaultToken(accountId, impl);
   }
 
   @backgroundMethod()
@@ -1100,7 +1100,7 @@ class Engine {
         `Cannot add token ${token.id} to account ${accountId}: incompatible.`,
       );
     }
-    return this.sdbTokens.addTokenToAccount(accountId, token);
+    return simpleDb.token.addTokenToAccount(accountId, token);
   }
 
   @backgroundMethod()
@@ -1129,7 +1129,7 @@ class Engine {
   ): Promise<void> {
     // Remove token from an account.
     await Promise.all([
-      this.sdbTokens.removeTokenFromAccount(accountId, tokenId),
+      simpleDb.token.removeTokenFromAccount(accountId, tokenId),
       this.dbApi.removeTokenFromAccount(accountId, tokenId),
     ]);
   }
@@ -1194,9 +1194,13 @@ class Engine {
     accountId?: string,
     withMain = true,
   ): Promise<Array<Token>> {
-    await this.updateOnlineTokens(networkId);
+    try {
+      await this.updateOnlineTokens(networkId);
+    } catch (error) {
+      debugLogger.engine.error(`updateOnlineTokens error`, error);
+    }
     // Get token info by network and account.
-    const tokens = await this.sdbTokens.getTokens({
+    const tokens = await simpleDb.token.getTokens({
       networkId,
       accountId,
     });
@@ -1205,7 +1209,7 @@ class Engine {
       accountId,
     );
     for (const t of legacyAccountTokens) {
-      const presetToken = await this.sdbTokens.getPresetToken(
+      const presetToken = await simpleDb.token.getPresetToken(
         networkId,
         t.tokenIdOnNetwork,
       );
@@ -1226,7 +1230,7 @@ class Engine {
     const existingTokens = new Set(
       tokens.map((token: Token) => token.tokenIdOnNetwork),
     );
-    const tokensOnNetwork = await this.sdbTokens.getTokens({ networkId });
+    const tokensOnNetwork = await simpleDb.token.getTokens({ networkId });
     return tokens.concat(
       tokensOnNetwork.filter(
         (token1: Token) => !existingTokens.has(token1.tokenIdOnNetwork),
@@ -1244,33 +1248,27 @@ class Engine {
     cache.loading = true;
     // update cache fist to make loading check work
     updateTokenCache[networkId] = cache;
-    try {
-      if (timestamp) {
-        const hasUpdate = await checkTokenUpdate(timestamp);
-        if (!hasUpdate) {
-          cache.loading = false;
-          updateTokenCache[networkId] = cache;
-          return;
-        }
-      }
-      const networkMap = getPresetNetworks();
-      const network = networkMap[networkId];
-      if (typeof network?.chainId === 'undefined') {
+    if (timestamp) {
+      const hasUpdate = await checkTokenUpdate(timestamp);
+      if (!hasUpdate) {
         cache.loading = false;
         updateTokenCache[networkId] = cache;
         return;
       }
-      const { impl, chainId } = network;
-      const tokens = await fetchTokenTop2000({
-        impl,
-        chainId: +chainId,
-      });
-      if (tokens.length) {
-        cache.timestamp = Date.now();
-        await this.sdbTokens.updateTokens(impl, +chainId, tokens);
-      }
-    } catch (error) {
-      debugLogger.engine.error('updateOnlineTokens', error);
+    }
+    const { impl, chainId } = parseNetworkId(networkId);
+    if (!impl || !chainId) {
+      cache.loading = false;
+      updateTokenCache[networkId] = cache;
+      return;
+    }
+    const tokens = await fetchTokenTop2000({
+      impl,
+      chainId: +chainId,
+    });
+    if (tokens.length) {
+      cache.timestamp = Date.now();
+      await simpleDb.token.updateTokens(impl, +chainId, tokens);
     }
     cache.loading = false;
     updateTokenCache[networkId] = cache;
@@ -1281,7 +1279,7 @@ class Engine {
     networkId: string,
     limit = 50,
   ): Promise<Array<Token>> {
-    const tokens = await this.sdbTokens.getTokens({ networkId });
+    const tokens = await simpleDb.token.getTokens({ networkId });
     return tokens.slice(0, limit);
   }
 
@@ -1303,14 +1301,14 @@ class Engine {
       typeof normalizedAddress !== 'undefined'
     ) {
       // valid token address, return the specific token.
-      let token = await this.sdbTokens.getPresetToken(
+      let token = await simpleDb.token.getPresetToken(
         networkId,
         normalizedAddress,
       );
       const addressesToTry = new Set([normalizedAddress, displayAddress]);
       for (const address of addressesToTry) {
         if (typeof token === 'undefined') {
-          const presetToken = await this.sdbTokens.getPresetToken(
+          const presetToken = await simpleDb.token.getPresetToken(
             networkId,
             address,
           );

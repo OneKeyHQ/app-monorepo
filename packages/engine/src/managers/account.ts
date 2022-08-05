@@ -8,7 +8,7 @@ import {
 } from '../types/wallet';
 
 import { isCoinTypeCompatibleWithImpl } from './impl';
-import { getImplFromNetworkId } from './network';
+import { parseNetworkId } from './network';
 
 function getCoinTypeFromAccountId(accountId: string): string {
   if (
@@ -44,7 +44,10 @@ function getWalletIdFromAccountId(accountId: string): string {
 
 function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
   const coinType = getCoinTypeFromAccountId(accountId);
-  const impl = getImplFromNetworkId(networkId);
+  const { impl } = parseNetworkId(networkId);
+  if (!impl) {
+    return false;
+  }
   return isCoinTypeCompatibleWithImpl(coinType, impl);
 }
 

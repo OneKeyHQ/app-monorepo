@@ -1,7 +1,7 @@
 // import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
 
 import { IMPL_SOL, getSupportedImpls } from '../../../constants';
-import { getImplFromNetworkId } from '../../../managers/network';
+import { parseNetworkId } from '../../../managers/network';
 import { ServerToken, Token } from '../../../types/token';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
@@ -85,10 +85,15 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
     if (typeof tokensMap !== 'object' || tokensMap === null) {
       return [];
     }
-    let tokens = tokensMap[networkId] ?? [];
-    tokens = tokens.concat(
-      await this.localTokens.getUnknownAccountTokens(networkId),
+    const tokens = tokensMap[networkId] ?? [];
+    const localAddedTokens = await this.localTokens.getUnknownAccountTokens(
+      networkId,
     );
+    for (const localToken of localAddedTokens) {
+      if (!tokens.find((t) => t.id === localToken.id)) {
+        tokens.push(localToken);
+      }
+    }
     const queryList = Object.entries(query || {});
     if (!queryList.length) {
       return tokens;
@@ -151,12 +156,16 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   async addDefaultToken(accountId: string, impl: string) {
     const defaultTokens = this.defaultStableTokens;
-    let networkIds: string[] = Object.keys(defaultTokens).filter((v) =>
-      getSupportedImpls().has(getImplFromNetworkId(v)),
-    );
+    let networkIds: string[] = Object.keys(defaultTokens).filter((v) => {
+      const parsed = parseNetworkId(v);
+      if (!parsed.impl) {
+        return false;
+      }
+      return getSupportedImpls().has(parsed.impl);
+    });
     if (accountId && impl) {
       // filter for account
-      networkIds = networkIds.filter((v) => getImplFromNetworkId(v) === impl);
+      networkIds = networkIds.filter((v) => parseNetworkId(v).impl === impl);
     }
     for (const networkId of networkIds) {
       const tokens = await this.getTokens({

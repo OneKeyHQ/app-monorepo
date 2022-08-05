@@ -28,7 +28,7 @@ export const DevSettingSection = () => {
     preReleaseUpdate,
     updateDeviceBle,
     updateDeviceSys,
-    enableTestFiatEndpoint: useTestFiatEndpoint,
+    enableTestFiatEndpoint,
   } = useSettings().devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -41,7 +41,7 @@ export const DevSettingSection = () => {
     dispatch(setDevMode(!devModeEnable));
   }, [devModeEnable, dispatch]);
 
-  const fiatEndpoint = useMemo(getFiatEndpoint, [useTestFiatEndpoint]);
+  const fiatEndpoint = useMemo(getFiatEndpoint, [enableTestFiatEndpoint]);
 
   return (
     <>
@@ -110,9 +110,9 @@ export const DevSettingSection = () => {
           >
             <Switch
               labelType="false"
-              isChecked={useTestFiatEndpoint}
+              isChecked={enableTestFiatEndpoint}
               onToggle={() => {
-                dispatch(setEnableTestFiatEndpoint(!useTestFiatEndpoint));
+                dispatch(setEnableTestFiatEndpoint(!enableTestFiatEndpoint));
               }}
             />
           </Container.Item>
