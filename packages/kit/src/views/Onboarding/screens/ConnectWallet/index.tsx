@@ -2,15 +2,7 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Box,
-  Icon,
-  Image,
-  Pressable,
-  Text,
-  VStack,
-} from '@onekeyhq/components';
+import { Badge, Box, Icon, Image, Pressable, Text } from '@onekeyhq/components';
 import DeviceMobile from '@onekeyhq/kit/assets/onboarding/device_classic_touch.png';
 import DeviceAll from '@onekeyhq/kit/assets/onboarding/device_mini_classic_touch.png';
 import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
@@ -72,32 +64,35 @@ function ConnectHardwareButton() {
         showConnectHardwareModal();
       }}
     >
-      <VStack flex={1} alignItems="flex-start">
-        <Text typography="Heading">
-          OneKey{'\n'}
-          {intl.formatMessage({ id: 'wallet__hardware_wallet' })}
-        </Text>
-        <Box flex={1} />
-        <Box>
-          {hardwareDisabled ? (
-            <Badge
-              title={intl.formatMessage({ id: 'badge__coming_soon' })}
-              size="sm"
-              type="default"
-            />
-          ) : (
-            <Icon name="ArrowRightOutline" />
-          )}
-        </Box>
-        <Image
-          position="absolute"
-          bottom={0}
-          right={{ base: -16, sm: -24 }}
-          source={platformEnv.isNative ? DeviceMobile : DeviceAll}
-          height={{ base: 200, sm: 235 }}
-          width={{ base: 243, sm: 285 }}
-        />
-      </VStack>
+      <Text typography="Heading" maxW={{ base: 160, sm: 'auto' }}>
+        {intl.formatMessage({ id: 'action__connect' })} OneKey{'\n'}
+        {intl.formatMessage({ id: 'wallet__hardware_wallet' })}
+      </Text>
+      <Box flex={1} />
+      <Box alignSelf="flex-start">
+        {hardwareDisabled ? (
+          <Badge
+            title={intl.formatMessage({ id: 'badge__coming_soon' })}
+            size="sm"
+            type="default"
+          />
+        ) : (
+          <Icon name="ArrowRightOutline" />
+          // <Badge
+          //   title={intl.formatMessage({ id: 'badge__coming_soon' })}
+          //   size="sm"
+          //   type="default"
+          // />
+        )}
+      </Box>
+      <Image
+        position="absolute"
+        bottom={0}
+        right={{ base: -16, sm: -24 }}
+        source={platformEnv.isNative ? DeviceMobile : DeviceAll}
+        height={{ base: 200, sm: 235 }}
+        width={{ base: 243, sm: 285 }}
+      />
     </Pressable>
   );
 }

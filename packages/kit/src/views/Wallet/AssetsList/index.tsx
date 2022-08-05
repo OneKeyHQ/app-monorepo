@@ -1,6 +1,7 @@
 import React, { ComponentProps, useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 
 import {
   Divider,
@@ -15,7 +16,10 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import {
   HomeRoutes,
@@ -28,6 +32,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
+import EmptyList from './EmptyList';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -59,21 +64,31 @@ function AssetsList({
   const isVerticalLayout = useIsVerticalLayout();
   // const isSmallScreen = useIsVerticalLayout();
   const { accountTokens, balances, prices } = useManageTokens();
+
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const valueSortedTokens = useMemo(
-    () =>
-      accountTokens.slice().sort((a, b) => {
-        const [valA, valB] = getTokenValues({
-          tokens: [a, b],
-          prices,
-          balances,
-        });
-
-        return valB.comparedTo(valA);
-      }),
-    [accountTokens, balances, prices],
-  );
+  const valueSortedTokens = useMemo(() => {
+    const tokenValues = new Map<TokenType, BigNumber>();
+    return (
+      accountTokens
+        .filter((t) => {
+          const [v] = getTokenValues({
+            tokens: [t],
+            prices,
+            balances,
+          });
+          if (hideSmallBalance && v.isLessThan(1)) {
+            return false;
+          }
+          tokenValues.set(t, v);
+          return true;
+        })
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        .sort((a, b) => tokenValues.get(a)!.comparedTo(tokenValues.get(b)!))
+    );
+  }, [accountTokens, balances, hideSmallBalance, prices]);
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
@@ -100,9 +115,9 @@ function AssetsList({
       hidePriceInfo={hidePriceInfo}
       token={item}
       borderTopRadius={noHeader && index === 0 ? '12px' : 0}
-      borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
+      borderRadius={index === valueSortedTokens?.length - 1 ? '12px' : '0px'}
       borderTopWidth={0}
-      borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
+      borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
       onPress={() => {
         if (onTokenPress) {
           onTokenPress({ token: item });
@@ -137,8 +152,13 @@ function AssetsList({
       ]}
       data={valueSortedTokens}
       renderItem={renderListItem}
-      ListHeaderComponent={ListHeaderComponent ?? <AssetsListHeader />}
+      ListHeaderComponent={
+        ListHeaderComponent ?? (
+          <AssetsListHeader showSubheader={valueSortedTokens.length > 0} />
+        )
+      }
       ItemSeparatorComponent={Divider}
+      ListEmptyComponent={EmptyList}
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}

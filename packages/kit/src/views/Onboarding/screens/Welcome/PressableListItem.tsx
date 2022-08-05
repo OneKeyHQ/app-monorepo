@@ -58,12 +58,12 @@ const PressableListItem: FC<PressableListItemProps> = ({
       >
         {label}
       </Text>
+      {children}
       <Hidden from="sm">
         <Box py={0.5}>
           <Icon name="ChevronRightSolid" size={20} />
         </Box>
       </Hidden>
-      {children}
     </Pressable>
   );
 };

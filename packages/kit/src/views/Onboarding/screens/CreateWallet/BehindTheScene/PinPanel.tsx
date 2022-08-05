@@ -26,16 +26,21 @@ const PinPanel: FC<PinPanelProps> = ({ visible }) => {
         as={Box}
         // @ts-expect-error
         position="absolute"
-        top={2}
-        right={2}
+        top={4}
+        right={4}
         w={280}
         p={4}
         bgColor="surface-default"
         rounded="xl"
         borderWidth={1}
         borderColor="divider"
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1, transition: { duration: 150 } }}
+        initial={{ opacity: 0, translateY: -16, scale: 0.95 }}
+        animate={{
+          translateY: 0,
+          opacity: 1,
+          scale: 1,
+          transition: { duration: 300, delay: 150 },
+        }}
         visible={visible}
       >
         <Text typography="Body2Strong">

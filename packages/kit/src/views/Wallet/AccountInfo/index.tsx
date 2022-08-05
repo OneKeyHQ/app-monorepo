@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Icon,
   IconButton,
   Pressable,
@@ -20,7 +21,10 @@ import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -37,6 +41,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showHomeBalanceSettings } from '../../Overlay/BottomSheetSettings';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -47,6 +52,8 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 214;
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
   const toast = useToast();
+
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -72,6 +79,7 @@ const AccountAmountInfo: FC = () => {
       tokens: accountTokens,
       balances,
       prices,
+      hideSmallBalance,
     }).toNumber();
 
     return [
@@ -79,12 +87,21 @@ const AccountAmountInfo: FC = () => {
       Number.isNaN(displayValue) ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
-        <Typography.Display2XLarge>
-          <FormatCurrencyNumber decimals={2} value={displayValue} />
-        </Typography.Display2XLarge>
+        <>
+          <Typography.Display2XLarge>
+            <FormatCurrencyNumber decimals={2} value={displayValue} />
+          </Typography.Display2XLarge>
+          <Button
+            type="plain"
+            alignItems="center"
+            justifyContent="center"
+            onPress={showHomeBalanceSettings}
+            leftIconName="ChevronDownSolid"
+          />
+        </>
       ),
     ];
-  }, [accountTokens, balances, prices]);
+  }, [accountTokens, balances, hideSmallBalance, prices]);
 
   const changedValueComp = useMemo(() => {
     const basePrices: Record<string, number> = {};
@@ -99,6 +116,7 @@ const AccountAmountInfo: FC = () => {
       tokens: accountTokens,
       balances,
       prices: basePrices,
+      hideSmallBalance,
     }).toNumber();
 
     const { gain, percentageGain, gainTextColor } = calculateGains({
@@ -119,7 +137,7 @@ const AccountAmountInfo: FC = () => {
         </Typography.Body1Strong>
       </>
     );
-  }, [accountTokens, balances, charts, intl, summedValue]);
+  }, [accountTokens, balances, charts, hideSmallBalance, intl, summedValue]);
 
   return (
     <Box alignItems="flex-start">

@@ -24,14 +24,14 @@
 - [GitHub Issues](https://github.com/OneKeyHQ/app-monorepo/issues). Best for: bugs and errors you encounter using OneKey.
 - [Discord](https://discord.gg/onekey). Best for: sharing your ideas and hanging out with the community.
 
-## Status
+## Repo Status
 
-- [x] Alpha: We are testing Supabase with a closed set of customers
-- [ ] Public: Production-ready
+- ✅ Public: Production-ready
 
 We really need your support, star or watch this repo for latest updates.
 
 <kbd><img src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_monorepo_star.gif?raw=true" alt="Star this repo"/></kbd>
+
 
 ## 🚀 Getting Onboard
 
@@ -102,6 +102,13 @@ For any environment, module and dependency issues in the startup phase, it is re
 
 Refer to https://github.com/yarnpkg/yarn/issues/7807, set the current environment yarn version to 1.18.0 through the command `yarn policies set-version 1.18.0`
 
+## 🕋 Roadmap
+
+Check out where we are now!
+
+<kbd><img src="https://github.com/rayston92/graph_bed/blob/master/img/roadmap_light.png?raw=true" alt="Roadmap of OneKey"/></kbd>
+
+
 ## 💬 Docs in your languages
 | Available Languages               |
 | :--------------------------- |
@@ -110,6 +117,7 @@ Refer to https://github.com/yarnpkg/yarn/issues/7807, set the current environmen
 | [Japanese / 日本語](docs/i18n/README.jp.md)|
 | [French / Français](docs/i18n/README.fr.md)|
 | [Italian / Italiano](docs/i18n/README.it.md)|
+
 
 ## 🔰 Security
 

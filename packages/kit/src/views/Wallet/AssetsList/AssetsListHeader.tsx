@@ -24,7 +24,7 @@ import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { useManageTokens, useNavigation } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { getSummedValues } from '../../../utils/priceUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -40,6 +40,7 @@ const ListHeader: FC = () => {
   // const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
   const isVerticalLayout = useIsVerticalLayout();
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
@@ -51,6 +52,7 @@ const ListHeader: FC = () => {
       tokens: accountTokens,
       balances,
       prices,
+      hideSmallBalance,
     }).toNumber();
 
     return (
@@ -62,7 +64,7 @@ const ListHeader: FC = () => {
         )}
       </Text>
     );
-  }, [accountTokens, balances, prices]);
+  }, [accountTokens, balances, hideSmallBalance, prices]);
 
   return (
     <Pressable.Item
@@ -146,7 +148,9 @@ const ListHeader: FC = () => {
   );
 };
 
-const AssetsListHeader: FC = () => {
+const AssetsListHeader: FC<{ showSubheader?: boolean }> = ({
+  showSubheader,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();
@@ -181,8 +185,12 @@ const AssetsListHeader: FC = () => {
           </Button>
         )}
       </Box>
-      <ListHeader />
-      <Divider />
+      {showSubheader && (
+        <>
+          <ListHeader />
+          <Divider />
+        </>
+      )}
     </>
   );
 };

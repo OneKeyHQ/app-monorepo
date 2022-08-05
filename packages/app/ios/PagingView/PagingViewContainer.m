@@ -40,14 +40,12 @@
   }
   if ([tmpView isKindOfClass:NSClassFromString(@"RCTScrollView")]) {
     RCTScrollView *scrollView = (RCTScrollView *)tmpView;
-    if (self.reactScrollView != scrollView) {
-      self.reactScrollView.scrollViewDidScroll = nil;
-      self.reactScrollView = scrollView;
-      __weak typeof(self) weakSelf = self;
-      self.reactScrollView.scrollViewDidScroll = ^(UIScrollView *scrollView) {
-        [weakSelf scrollViewDidScroll:scrollView];
-      };
-    }
+    self.reactScrollView.scrollViewDidScroll = nil;
+    self.reactScrollView = scrollView;
+    __weak typeof(self) weakSelf = self;
+    self.reactScrollView.scrollViewDidScroll = ^(UIScrollView *scrollView) {
+      [weakSelf scrollViewDidScroll:scrollView];
+    };
   }
 }
 

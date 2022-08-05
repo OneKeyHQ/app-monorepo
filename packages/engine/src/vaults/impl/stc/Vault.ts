@@ -34,6 +34,10 @@ import {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import {
+  convertFeeGweiToValue,
+  convertFeeValueToGwei,
+} from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
@@ -150,7 +154,10 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       feeInfo: {
-        price: encodedTx.gasPrice,
+        price: convertFeeValueToGwei({
+          value: encodedTx.gasPrice ?? '1',
+          network,
+        }),
         limit: encodedTx.gasLimit,
       },
       extraInfo: null,
@@ -235,9 +242,7 @@ export default class Vault extends VaultBase {
         ],
         outputs: encodedTx.to ? [{ address: encodedTx.to, value }] : [],
         nonce: nextNonce,
-        feePricePerUnit: new BigNumber(
-          encodedTx.gasPrice || '0.000000001',
-        ).shiftedBy(network.feeDecimals),
+        feePricePerUnit: new BigNumber(encodedTx.gasPrice || '1'),
 
         payload: {
           ...(encodedTx.data
@@ -266,9 +271,9 @@ export default class Vault extends VaultBase {
     // NOTE: for fetching gas limit, we don't want blockchain-libs to fetch
     // other info such as gas price and nonce. Therefore the hack here to
     // avoid redundant network requests.
-    const encodedTxWithFakePriceAndNonce = {
+    const { gasLimit, ...encodedTxWithFakePriceAndNonce } = {
       ...encodedTx,
-      gasPrice: '0.000000001',
+      gasPrice: '1',
     };
 
     const [network, prices, unsignedTx] = await Promise.all([
@@ -283,7 +288,10 @@ export default class Vault extends VaultBase {
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
 
-      limit: (unsignedTx.feeLimit || new BigNumber('0')).toFixed(),
+      limit: BigNumber.max(
+        unsignedTx.feeLimit ?? '0',
+        gasLimit ?? '0',
+      ).toFixed(),
       prices,
       defaultPresetIndex: '0',
       extraInfo: {
@@ -311,7 +319,10 @@ export default class Vault extends VaultBase {
 
     const encodedTxWithFee = {
       ...params.encodedTx,
-      gasPrice: new BigNumber(price || '0.000000001').toFixed(),
+      gasPrice: convertFeeGweiToValue({
+        value: price || '0.000000001',
+        network,
+      }),
       gasLimit: limit,
     };
     return Promise.resolve(encodedTxWithFee);

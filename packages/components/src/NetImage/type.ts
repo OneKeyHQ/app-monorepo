@@ -10,7 +10,6 @@ export type InnerImageProps = {
   onLoadStart?: () => void;
   onLoad?: () => void;
   onError?: () => void;
-  imageKey?: string;
 } & ImageProps;
 
 export type ImageProps = {
@@ -23,6 +22,7 @@ export type ImageProps = {
   retry?: number;
   retryDuring?: number;
   fallbackElement?: JSX.Element;
+  onErrorWithTask?: () => Promise<boolean>;
 } & NBImageProps &
   FastImageProps;
 

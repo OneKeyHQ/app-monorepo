@@ -96,7 +96,7 @@ const App = () => {
         component={RouteOnboarding}
         options={{
           // @ts-expect-error
-          // presentation: 'containedModal', // sub Modal can NOT be closed
+          presentation: 'fullScreenModal',
           animation: 'fade',
         }}
       />
