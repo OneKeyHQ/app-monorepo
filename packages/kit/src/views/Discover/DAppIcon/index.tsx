@@ -79,12 +79,12 @@ const DAppIcon: FC<DAppIconProps> = ({ favicon, chain, size, ...rest }) => {
       <Box width={`${innerSize}px`} height={`${innerSize}px`}>
         <NetImage
           src={url}
-          width={innerSize}
-          height={innerSize}
-          borderRadius={innerRadius}
+          width={`${innerSize}px`}
+          height={`${innerSize}px`}
+          borderRadius={`${innerRadius}px`}
         />
-        {!!chain && (
-          <>
+        {chain && chain.length > 0 ? (
+          <Box>
             <Image
               position="absolute"
               bottom="0.1px"
@@ -99,13 +99,13 @@ const DAppIcon: FC<DAppIconProps> = ({ favicon, chain, size, ...rest }) => {
               right={`${chainIconPadding ?? 0}px`}
             >
               <NetImage
-                width={size * 0.2}
-                height={size * 0.2}
+                width={`${size * 0.2}px`}
+                height={`${size * 0.2}px`}
                 src={chainUrl(chain)}
               />
             </Box>
-          </>
-        )}
+          </Box>
+        ) : null}
       </Box>
     </Box>
   );

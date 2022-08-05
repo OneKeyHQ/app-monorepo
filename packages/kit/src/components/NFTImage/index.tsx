@@ -24,7 +24,7 @@ const NFTImage: FC<Props> = ({ nftSource, ...rest }) => {
         contractAddress: nftSource.contractAddress,
         tokenId: nftSource.tokenId,
         imageURI: nftSource.url,
-      });
+      },{timeout:60000});
       if (uploadData) {
         return true;
       }

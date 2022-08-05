@@ -13,8 +13,8 @@ export type InnerImageProps = {
 } & ImageProps;
 
 export type ImageProps = {
-  width?: number | string;
-  height?: number | string;
+  width: number | string;
+  height: number | string;
   borderRadius?: number | string;
   bgColor?: ThemeToken;
   preview?: boolean;
