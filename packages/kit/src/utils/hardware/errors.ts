@@ -93,6 +93,12 @@ export class BleWriteCharacteristicError extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_device_need_restart';
 }
 
+export class BleScanThrottleError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BleScanError;
+
+  override key: LocaleIds = 'msg__hardware_device_ble_scan_throttle';
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 

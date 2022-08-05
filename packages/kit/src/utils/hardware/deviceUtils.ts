@@ -4,7 +4,11 @@ import {
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import {
+  Deferred,
+  HardwareErrorCode,
+  createDeferred,
+} from '@onekeyfe/hd-shared';
 import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
@@ -15,16 +19,20 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
-type IPollFn<T> = (time?: number) => T;
+type IPollFn<T> = (time?: number, index?: number) => T;
 
 const MAX_SEARCH_TRY_COUNT = 15;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
 
+let searchPromise: Deferred<void> | null = null;
+
 class DeviceUtils {
   connectedDeviceType: IDeviceType = 'classic';
 
-  scanning = false;
+  scanMap: Record<string, boolean> = {};
+
+  searchIndex = 0;
 
   tryCount = 0;
 
@@ -50,18 +58,40 @@ class DeviceUtils {
     onSearchStateChange: (state: 'start' | 'stop') => void,
   ) {
     const searchDevices = async () => {
+      // Should search Throttling
+      if (searchPromise) {
+        await searchPromise.promise;
+        debugLogger.hardwareSDK.info(
+          'search throttling, await search promise and return',
+        );
+        return;
+      }
+
+      searchPromise = createDeferred();
       onSearchStateChange('start');
-      const searchResponse =
-        await backgroundApiProxy.serviceHardware?.searchDevices();
-      callback(searchResponse);
+
+      let searchResponse;
+      try {
+        searchResponse =
+          await backgroundApiProxy.serviceHardware?.searchDevices();
+      } finally {
+        searchPromise?.resolve();
+        searchPromise = null;
+        debugLogger.hardwareSDK.info('search finished, reset searchPromise');
+      }
+
+      callback(searchResponse as any);
 
       this.tryCount += 1;
       onSearchStateChange('stop');
       return searchResponse;
     };
 
-    const poll: IPollFn<void> = async (time = POLL_INTERVAL) => {
-      if (!this.scanning) {
+    const poll: IPollFn<void> = async (
+      time = POLL_INTERVAL,
+      searchIndex = 0,
+    ) => {
+      if (!this.scanMap[searchIndex]) {
         return;
       }
       if (this.tryCount > MAX_SEARCH_TRY_COUNT) {
@@ -72,17 +102,23 @@ class DeviceUtils {
       await searchDevices();
 
       return new Promise((resolve: (p: void) => void) =>
-        setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
+        setTimeout(
+          () => resolve(poll(time * POLL_INTERVAL_RATE, searchIndex)),
+          time,
+        ),
       );
     };
 
-    this.scanning = true;
+    this.searchIndex += 1;
+    this.scanMap[this.searchIndex] = true;
     const time = platformEnv.isNativeAndroid ? 2000 : POLL_INTERVAL;
-    poll(time);
+    poll(time, this.searchIndex);
   }
 
   stopScan() {
-    this.scanning = false;
+    Object.keys(this.scanMap).forEach(
+      (key: string) => (this.scanMap[key] = false),
+    );
     this.tryCount = 0;
   }
 
@@ -200,6 +236,8 @@ class DeviceUtils {
         return new Error.DeviceNotBonded({ message: msg });
       case HardwareErrorCode.BleWriteCharacteristicError:
         return new Error.BleWriteCharacteristicError({ message: msg });
+      case HardwareErrorCode.BleScanError:
+        return new Error.BleScanThrottleError({ message: msg });
       case HardwareErrorCode.RuntimeError:
         if (msg.indexOf('EIP712 blind sign is disabled') !== -1) {
           return new Error.OpenBlindSign({ message: msg });
