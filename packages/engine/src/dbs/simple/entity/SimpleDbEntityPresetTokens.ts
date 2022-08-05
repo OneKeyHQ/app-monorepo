@@ -1,6 +1,6 @@
 // import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
 
-import { IMPL_SOL, getSupportedImpls } from '../../../constants';
+import { IMPL_SOL, IMPL_STC, getSupportedImpls } from '../../../constants';
 import { parseNetworkId } from '../../../managers/network';
 import { ServerToken, Token } from '../../../types/token';
 
@@ -11,7 +11,7 @@ export type ISimpleDbEntityTokensData = {
   [key: string]: Token[];
 };
 
-const caseSensitiveImpls = new Set([IMPL_SOL]);
+const caseSensitiveImpls = new Set([IMPL_SOL, IMPL_STC]);
 
 export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityTokensData> {
   entityName = 'tokens';
