@@ -87,12 +87,15 @@ class DeviceUtils {
   }
 
   async checkDeviceBonded(connectId: string) {
+    let retry = 0;
+    const maxRetryCount = 5;
     const poll: IPollFn<Promise<boolean | undefined>> = async (
       time = POLL_INTERVAL,
     ) => {
       if (!this.checkBonded) {
         return;
       }
+      retry += 1;
       const bondedDevices = await this.getBondedDevices();
       const hasBonded = !!bondedDevices.find(
         (bondedDevice) => bondedDevice.id === connectId,
@@ -102,6 +105,12 @@ class DeviceUtils {
         return Promise.resolve(true);
       }
       console.log(bondedDevices);
+
+      if (retry > maxRetryCount) {
+        this.checkBonded = false;
+        return Promise.resolve(false);
+      }
+
       return new Promise((resolve: (p: Promise<boolean | undefined>) => void) =>
         setTimeout(() => resolve(poll(3000 * POLL_INTERVAL_RATE)), time),
       );
