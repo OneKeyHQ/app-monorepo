@@ -190,11 +190,16 @@ const ConnectHardwareModal: FC = () => {
               !(error instanceof NeedBluetoothTurnedOn) &&
               !(error instanceof NeedBluetoothPermissions)
             ) {
-              ToastManager.show({
-                title: intl.formatMessage({
-                  id: error.key,
-                }),
-              });
+              ToastManager.show(
+                {
+                  title: intl.formatMessage({
+                    id: error.key,
+                  }),
+                },
+                { type: 'error' },
+              );
+            } else {
+              deviceUtils.stopScan();
             }
           } else if (
             error instanceof InitIframeLoadFail ||
@@ -208,6 +213,7 @@ const ConnectHardwareModal: FC = () => {
               },
               { type: 'error' },
             );
+            deviceUtils.stopScan();
           }
           setIsSearching(false);
           return;

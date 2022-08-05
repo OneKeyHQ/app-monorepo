@@ -33,6 +33,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const submitted = useRef(false);
+  const enableGoBack = useRef(true);
   const {
     networkId,
     accountId,
@@ -137,6 +138,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
           params: {},
         });
       } else {
+        /**
+         * No need to goBack after component destroyed to avoid routing order confusion
+         */
+        if (!enableGoBack.current) return;
         // goBack or close
         navigation.getParent()?.goBack?.();
       }
@@ -190,6 +195,12 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     unsignedMessage,
   ]);
 
+  useEffect(
+    () => () => {
+      enableGoBack.current = false;
+    },
+    [enableGoBack],
+  );
   useEffect(() => {
     if (decodedTx || unsignedMessage) {
       submit();
