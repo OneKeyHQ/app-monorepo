@@ -45,6 +45,7 @@ type SettingsState = {
     preReleaseUpdate: boolean;
     updateDeviceBle: boolean;
     updateDeviceSys: boolean;
+    enableTestFiatEndpoint: boolean;
   };
   validationSetting: {
     [ValidationFields.Account]?: boolean;
@@ -75,6 +76,7 @@ const initialState: SettingsState = {
     preReleaseUpdate: false,
     updateDeviceBle: false,
     updateDeviceSys: false,
+    enableTestFiatEndpoint: false,
   },
   validationSetting: {
     [ValidationFields.Account]: false,
@@ -169,6 +171,12 @@ export const settingsSlice = createSlice({
     setUpdateDeviceSys(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, updateDeviceSys: action.payload };
     },
+    setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        enableTestFiatEndpoint: action.payload,
+      };
+    },
     setDeviceUpdates(
       state,
       action: PayloadAction<{
@@ -235,6 +243,7 @@ export const {
   setEnableLocalAuthentication,
   setSwapSlippagePercent,
   setValidationState,
+  setEnableTestFiatEndpoint,
   setDevMode,
   setPreReleaseUpdate,
   setUpdateDeviceBle,

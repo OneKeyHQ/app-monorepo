@@ -1,5 +1,6 @@
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { IMPL_EVM, IMPL_STC, SEPERATOR } from '../constants';
-import { OneKeyInternalError } from '../errors';
 import { getPresetNetworks, networkIsPreset } from '../presets';
 import {
   AddEVMNetworkParams,
@@ -133,17 +134,22 @@ function fromDBNetworkToNetwork(
   };
 }
 
-function getImplFromNetworkId(networkId: string): string {
-  if (!networkId) {
-    throw new OneKeyInternalError(
-      'getImplFromNetworkId ERROR: networkId required',
+function parseNetworkId(networkId: string): {
+  impl?: string;
+  chainId?: string;
+} {
+  if (!networkId || !networkId.includes(SEPERATOR)) {
+    debugLogger.common.error(
+      'parseNetworkId ERROR: Invalid networkId',
+      networkId,
     );
+    return {};
   }
   const [impl, chainId] = networkId.split(SEPERATOR);
-  if (impl && chainId) {
-    return impl;
-  }
-  throw new OneKeyInternalError(`Invalid networkId ${networkId}.`);
+  return {
+    impl,
+    chainId,
+  };
 }
 
-export { getEVMNetworkToCreate, fromDBNetworkToNetwork, getImplFromNetworkId };
+export { getEVMNetworkToCreate, fromDBNetworkToNetwork, parseNetworkId };

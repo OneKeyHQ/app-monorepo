@@ -42,7 +42,7 @@ export { default as Switch } from './Switch';
 export { default as Textarea } from './Textarea';
 export { Toast } from './Toast';
 export { useToast, Toast as ToastManager } from './Toast/useToast';
-export { default as Token, TokenGroup } from './Token';
+export { default as Token, TokenGroup, TokenVerifiedIcon } from './Token';
 export { default as Typography, Text } from './Typography';
 export { default as VStack } from './VStack';
 export { default as ZStack } from './ZStack';

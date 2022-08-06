@@ -1,7 +1,12 @@
-import { Version } from '@onekeyfe/default-token-list';
 import axios from 'axios';
 
 const REMOTE_URL = 'https://onekey-asset.com/app_configs';
+
+export type Version = {
+  major: number;
+  minor: number;
+  patch: number;
+};
 
 function parseVersion(ver: string): Version {
   const parsed = ver.split('.');
@@ -45,4 +50,3 @@ async function checkVersion(uri: string, ver: Version): Promise<string> {
 }
 
 export { checkVersion, cmpVersion, parseVersion, REMOTE_URL };
-export type { Version };

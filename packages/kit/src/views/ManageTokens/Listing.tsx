@@ -17,6 +17,7 @@ import {
   Searchbar,
   Spinner,
   Token as TokenImage,
+  TokenVerifiedIcon,
   Typography,
   useToast,
   utils,
@@ -72,6 +73,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
         address: token.tokenIdOnNetwork,
         decimal: token.decimals,
         logoURI: token.logoURI,
+        verified: token.verified,
       });
     },
     [navigation],
@@ -109,13 +111,16 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 <Box display="flex" alignItems="center" flexDirection="row">
                   <TokenImage size={8} src={item.logoURI} />
                   <Box ml="3">
-                    <Text
-                      maxW={56}
-                      numberOfLines={2}
-                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    >
-                      {item.symbol} ({item.name})
-                    </Text>
+                    <Box flexDirection="row" alignItems="center">
+                      <Text
+                        maxW={56}
+                        numberOfLines={2}
+                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                      >
+                        {item.symbol} ({item.name})
+                      </Text>
+                      <TokenVerifiedIcon token={item} />
+                    </Box>
                     <Typography.Body2
                       maxW="56"
                       numberOfLines={1}
@@ -301,6 +306,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       address: item.tokenIdOnNetwork,
       decimal: item.decimals,
       logoURI: item.logoURI,
+      verified: item.verified,
     });
   }, [navigation, item, isOwned]);
   return (
@@ -321,14 +327,17 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       <Box display="flex" alignItems="center" flexDirection="row">
         <TokenImage size={8} src={item.logoURI} />
         <Box ml="3">
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            maxW="56"
-            numberOfLines={2}
-            color={isOwned ? 'text-disabled' : 'text-default'}
-          >
-            {item.symbol}({item.name})
-          </Text>
+          <Box alignItems="center" flexDirection="row">
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              maxW="56"
+              numberOfLines={2}
+              color={isOwned ? 'text-disabled' : 'text-default'}
+            >
+              {item.symbol}({item.name})
+            </Text>
+            <TokenVerifiedIcon token={item} />
+          </Box>
           <Typography.Body2
             numberOfLines={1}
             color={isOwned ? 'text-disabled' : 'text-subdued'}

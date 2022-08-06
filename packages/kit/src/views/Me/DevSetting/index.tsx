@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,10 +9,12 @@ import {
   Typography,
   useTheme,
 } from '@onekeyhq/components';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setDevMode,
+  setEnableTestFiatEndpoint,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceSys,
@@ -26,6 +28,7 @@ export const DevSettingSection = () => {
     preReleaseUpdate,
     updateDeviceBle,
     updateDeviceSys,
+    enableTestFiatEndpoint,
   } = useSettings().devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -37,6 +40,8 @@ export const DevSettingSection = () => {
   const onToggleDebugMode = useCallback(() => {
     dispatch(setDevMode(!devModeEnable));
   }, [devModeEnable, dispatch]);
+
+  const fiatEndpoint = useMemo(getFiatEndpoint, [enableTestFiatEndpoint]);
 
   return (
     <>
@@ -95,6 +100,19 @@ export const DevSettingSection = () => {
               isChecked={updateDeviceSys}
               onToggle={() => {
                 dispatch(setUpdateDeviceSys(!updateDeviceSys));
+              }}
+            />
+          </Container.Item>
+          <Container.Item
+            title="enableTestFiatEndpoint"
+            subDescribe={fiatEndpoint}
+            titleColor="text-critical"
+          >
+            <Switch
+              labelType="false"
+              isChecked={enableTestFiatEndpoint}
+              onToggle={() => {
+                dispatch(setEnableTestFiatEndpoint(!enableTestFiatEndpoint));
               }}
             />
           </Container.Item>

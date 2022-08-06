@@ -8,6 +8,7 @@ import {
   Skeleton,
   Text,
   Token,
+  TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
   useTheme,
@@ -88,9 +89,15 @@ const TokenCell: FC<TokenCellProps> = ({
     >
       <Token size={8} src={token.logoURI} />
       <Box ml="12px" flexDirection="column" flex={1}>
-        <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }} isTruncated>
-          {token.name}
-        </Text>
+        <Box flexDirection="row" alignItems="center">
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            isTruncated
+          >
+            {token.name}
+          </Text>
+          <TokenVerifiedIcon token={token} />
+        </Box>
         {balance ? (
           <FormatBalance
             balance={balance}
