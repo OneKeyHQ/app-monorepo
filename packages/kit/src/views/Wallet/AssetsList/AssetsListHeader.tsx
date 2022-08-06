@@ -35,7 +35,7 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
 
-const ListHeader: FC = () => {
+const ListHeader: FC<{ showTokenCount?: boolean }> = ({ showTokenCount }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
@@ -71,6 +71,7 @@ const ListHeader: FC = () => {
     <Pressable.Item
       p={4}
       shadow={undefined}
+      disabled={!showTokenCount}
       borderTopRadius="12px"
       borderWidth={1}
       borderBottomWidth={0}
@@ -154,46 +155,50 @@ const ListHeader: FC = () => {
 };
 
 const AssetsListHeader: FC<{
-  showSubheader?: boolean;
+  showInnerHeader?: boolean;
+  showOuterHeader?: boolean;
   showTokenCount?: boolean;
-}> = ({ showSubheader, showTokenCount }) => {
+}> = ({ showInnerHeader, showTokenCount, showOuterHeader }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
   return (
     <>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        pb={3}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'title__assets' })}
-        </Typography.Heading>
-        {tokenEnabled && (
-          <Button
-            onPress={() =>
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageToken,
-                params: { screen: ManageTokenRoutes.Listing },
-              })
-            }
-            size="sm"
-            leftIconName="CogSolid"
-            type="plain"
-            mr={-3}
-          >
-            <Typography.Button2>
-              {intl.formatMessage({ id: 'title__settings' })}
-            </Typography.Button2>
-          </Button>
-        )}
-      </Box>
-      {showSubheader && (
+      {showOuterHeader && (
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          pb={3}
+        >
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'title__assets' })}
+          </Typography.Heading>
+          {tokenEnabled && (
+            <Button
+              onPress={() =>
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageToken,
+                  params: { screen: ManageTokenRoutes.Listing },
+                })
+              }
+              size="sm"
+              leftIconName="CogSolid"
+              type="plain"
+              mr={-3}
+            >
+              <Typography.Button2>
+                {intl.formatMessage({ id: 'title__settings' })}
+              </Typography.Button2>
+            </Button>
+          )}
+        </Box>
+      )}
+
+      {showInnerHeader && (
         <>
-          <ListHeader />
+          <ListHeader showTokenCount={showTokenCount} />
           <Divider />
         </>
       )}

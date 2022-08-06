@@ -159,8 +159,9 @@ function AssetsList({
       ListHeaderComponent={
         ListHeaderComponent ?? (
           <AssetsListHeader
-            showTokenCount={!!limitSize}
-            showSubheader={valueSortedTokens.length > 0}
+            showTokenCount={limitSize !== undefined}
+            showOuterHeader={limitSize !== undefined}
+            showInnerHeader={valueSortedTokens.length > 0}
           />
         )
       }
