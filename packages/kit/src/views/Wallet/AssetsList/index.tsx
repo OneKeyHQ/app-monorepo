@@ -50,11 +50,12 @@ export type IAssetsListProps = Omit<
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
-  noHeader?: boolean;
+  showRoundTop?: boolean;
   limitSize?: number;
+  fullWidth?: boolean;
 };
 function AssetsList({
-  noHeader,
+  showRoundTop,
   singleton,
   hidePriceInfo,
   ListHeaderComponent,
@@ -62,6 +63,7 @@ function AssetsList({
   contentContainerStyle,
   onTokenPress,
   limitSize,
+  fullWidth,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const { accountTokens, balances, prices } = useManageTokens();
@@ -113,9 +115,10 @@ function AssetsList({
     index,
   }) => (
     <TokenCell
+      fullWidth={fullWidth}
       hidePriceInfo={hidePriceInfo}
       token={item}
-      borderTopRadius={noHeader && index === 0 ? '12px' : 0}
+      borderTopRadius={showRoundTop && index === 0 ? '12px' : 0}
       borderRadius={index === valueSortedTokens?.length - 1 ? '12px' : '0px'}
       borderTopWidth={0}
       borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
@@ -146,7 +149,7 @@ function AssetsList({
     <Container
       contentContainerStyle={[
         {
-          paddingHorizontal: responsivePadding(),
+          paddingHorizontal: fullWidth ? 0 : responsivePadding(),
           marginTop: 24,
         },
         contentContainerStyle,
