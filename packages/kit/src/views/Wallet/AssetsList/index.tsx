@@ -70,7 +70,7 @@ function AssetsList({
 
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const [tokenCount, valueSortedTokens] = useMemo(() => {
+  const valueSortedTokens = useMemo(() => {
     const tokenValues = new Map<TokenType, BigNumber>();
     const sortedTokens = accountTokens
       .filter((t) => {
@@ -88,10 +88,7 @@ function AssetsList({
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       .sort((a, b) => tokenValues.get(b)!.comparedTo(tokenValues.get(a)!));
 
-    return [
-      sortedTokens.length,
-      limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens,
-    ];
+    return limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens;
   }, [accountTokens, balances, hideSmallBalance, limitSize, prices]);
 
   const { size } = useUserDevice();

@@ -7,6 +7,7 @@ import {
   Button,
   Divider,
   Icon,
+  IconButton,
   Pressable,
   Text,
   Typography,
@@ -67,21 +68,54 @@ const ListHeader: FC<{ showTokenCount?: boolean }> = ({ showTokenCount }) => {
     );
   }, [accountTokens, balances, hideSmallBalance, prices]);
 
+  const tokenCountOrAddToken = useMemo(
+    () =>
+      showTokenCount ? (
+        <>
+          <Text
+            color="text-subdued"
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          >
+            {accountTokens.length}
+          </Text>
+          <Icon name="ChevronRightSolid" />
+        </>
+      ) : (
+        <IconButton
+          size="sm"
+          borderRadius={17}
+          name="PlusSolid"
+          bg="action-secondary-default"
+          onPress={() =>
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageToken,
+              params: { screen: ManageTokenRoutes.Listing },
+            })
+          }
+        />
+      ),
+    [accountTokens.length, navigation, showTokenCount],
+  );
+  const Container = showTokenCount ? Pressable.Item : Box;
+
   return (
-    <Pressable.Item
+    <Container
       p={4}
       shadow={undefined}
-      disabled={!showTokenCount}
       borderTopRadius="12px"
       borderWidth={1}
       borderBottomWidth={0}
       borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
-      onPress={() => {
-        navigation.navigate(HomeRoutes.FullTokenListScreen, {
-          accountId: account?.id,
-          networkId: network?.id,
-        });
-      }}
+      onPress={
+        showTokenCount
+          ? () => {
+              navigation.navigate(HomeRoutes.FullTokenListScreen, {
+                accountId: account?.id,
+                networkId: network?.id,
+              });
+            }
+          : undefined
+      }
       flexDirection="column"
     >
       <Box
@@ -122,7 +156,9 @@ const ListHeader: FC<{ showTokenCount?: boolean }> = ({ showTokenCount }) => {
             {summedValue}
           </Box>
         )}
-        <Box ml="auto">{/* TODO token count */}</Box>
+        <Box ml="auto" flexDirection="row" alignItems="center">
+          {tokenCountOrAddToken}
+        </Box>
       </Box>
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
         {isVerticalLayout ? (
@@ -150,7 +186,7 @@ const ListHeader: FC<{ showTokenCount?: boolean }> = ({ showTokenCount }) => {
           </Box>
         )}
       </Box>
-    </Pressable.Item>
+    </Container>
   );
 };
 
