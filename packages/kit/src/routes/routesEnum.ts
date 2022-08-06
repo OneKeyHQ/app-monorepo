@@ -49,6 +49,7 @@ export enum HomeRoutes {
   InitialTab = 'home',
   Dev = 'dev',
   HomeOnboarding = 'HomeOnboarding',
+  FullTokenListScreen = 'FullTokenListScreen',
   ScreenTokenDetail = 'TokenDetailScreen',
   DebugScreen = 'Debug',
   SettingsWebviewScreen = 'SettingsWebviewScreen',

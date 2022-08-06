@@ -1,4 +1,4 @@
-import { ComponentType } from 'react';
+import { ComponentType, ReactElement } from 'react';
 
 import RootSiblings from 'react-native-root-siblings';
 
@@ -30,4 +30,15 @@ export function showOverlayFactory<T extends WithOnClose = WithOnClose>(
       modal = new RootSiblings(element);
     });
   };
+}
+
+export function showOverlay(
+  renderOverlay: (onClose: () => void) => ReactElement,
+) {
+  let modal: RootSiblings | null;
+  const onClose = () => {
+    modal?.destroy();
+    modal = null;
+  };
+  modal = new RootSiblings(renderOverlay(onClose));
 }

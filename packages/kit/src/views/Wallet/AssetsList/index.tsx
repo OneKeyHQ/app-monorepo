@@ -50,19 +50,22 @@ export type IAssetsListProps = Omit<
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
-  noHeader?: boolean;
+  showRoundTop?: boolean;
+  limitSize?: number;
+  fullWidth?: boolean;
 };
 function AssetsList({
-  noHeader,
+  showRoundTop,
   singleton,
   hidePriceInfo,
   ListHeaderComponent,
   ListFooterComponent,
   contentContainerStyle,
   onTokenPress,
+  limitSize,
+  fullWidth,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
-  // const isSmallScreen = useIsVerticalLayout();
   const { accountTokens, balances, prices } = useManageTokens();
 
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
@@ -71,24 +74,24 @@ function AssetsList({
   const navigation = useNavigation<NavigationProps>();
   const valueSortedTokens = useMemo(() => {
     const tokenValues = new Map<TokenType, BigNumber>();
-    return (
-      accountTokens
-        .filter((t) => {
-          const [v] = getTokenValues({
-            tokens: [t],
-            prices,
-            balances,
-          });
-          if (hideSmallBalance && v.isLessThan(1)) {
-            return false;
-          }
-          tokenValues.set(t, v);
-          return true;
-        })
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        .sort((a, b) => tokenValues.get(a)!.comparedTo(tokenValues.get(b)!))
-    );
-  }, [accountTokens, balances, hideSmallBalance, prices]);
+    const sortedTokens = accountTokens
+      .filter((t) => {
+        const [v] = getTokenValues({
+          tokens: [t],
+          prices,
+          balances,
+        });
+        if (hideSmallBalance && v.isLessThan(1)) {
+          return false;
+        }
+        tokenValues.set(t, v);
+        return true;
+      })
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      .sort((a, b) => tokenValues.get(b)!.comparedTo(tokenValues.get(a)!));
+
+    return limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens;
+  }, [accountTokens, balances, hideSmallBalance, limitSize, prices]);
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
@@ -112,9 +115,10 @@ function AssetsList({
     index,
   }) => (
     <TokenCell
+      fullWidth={fullWidth}
       hidePriceInfo={hidePriceInfo}
       token={item}
-      borderTopRadius={noHeader && index === 0 ? '12px' : 0}
+      borderTopRadius={showRoundTop && index === 0 ? '12px' : 0}
       borderRadius={index === valueSortedTokens?.length - 1 ? '12px' : '0px'}
       borderTopWidth={0}
       borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
@@ -145,7 +149,7 @@ function AssetsList({
     <Container
       contentContainerStyle={[
         {
-          paddingHorizontal: responsivePadding(),
+          paddingHorizontal: fullWidth ? 0 : responsivePadding(),
           marginTop: 24,
         },
         contentContainerStyle,
@@ -154,7 +158,12 @@ function AssetsList({
       renderItem={renderListItem}
       ListHeaderComponent={
         ListHeaderComponent ?? (
-          <AssetsListHeader showSubheader={valueSortedTokens.length > 0} />
+          <AssetsListHeader
+            showTokenCount={limitSize !== undefined}
+            showOuterHeader={limitSize !== undefined}
+            showInnerHeader={valueSortedTokens.length > 0}
+            showInnerHeaderRoundTop={!fullWidth}
+          />
         )
       }
       ItemSeparatorComponent={Divider}

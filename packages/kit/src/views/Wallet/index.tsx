@@ -14,6 +14,7 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
@@ -81,7 +82,7 @@ const WalletTabs: FC = () => {
                 wait: true,
               });
             } catch (e) {
-              console.error(e);
+              debugLogger.common.error(e);
             }
           }
           setTimeout(() => setRefreshing(false), 10);
@@ -115,7 +116,7 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.Tokens}
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
-          <AssetsList ListFooterComponent={<Box h={16} />} />
+          <AssetsList ListFooterComponent={<Box h={16} />} limitSize={5} />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.Collectibles}

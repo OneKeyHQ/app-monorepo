@@ -46,7 +46,7 @@ function PreSendToken() {
             },
         children: account ? (
           <AssetsList
-            noHeader
+            showRoundTop
             singleton
             hidePriceInfo
             ListHeaderComponent={<Box h={8} />}

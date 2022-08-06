@@ -6,7 +6,6 @@ import { NativeModules } from 'react-native';
 import {
   Box,
   Dialog,
-  DialogManager,
   Icon,
   Input,
   Pressable,
@@ -17,10 +16,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
+import { showOverlay } from '../../../utils/overlayUtils';
 
 export type ResetDialogProps = {
   onConfirm: () => Promise<void>;
-  onClose?: () => void;
+  onClose: () => void;
 };
 
 const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
@@ -45,11 +45,9 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
           setLoading(true);
           await onConfirm();
           setLoading(false);
-          onClose?.();
+          onClose();
         },
-        onSecondaryActionPress: () => {
-          onClose?.();
-        },
+        onSecondaryActionPress: onClose,
       }}
       contentProps={{
         iconType: 'danger',
@@ -81,7 +79,6 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
 const ResetButton = () => {
   const intl = useIntl();
   const { resetToWelcome } = useNavigationActions();
-  const [showBackupModal, setShowBackupModal] = useState(false);
 
   const onReset = useCallback(async () => {
     if (platformEnv.isNativeIOS) {
@@ -91,63 +88,23 @@ const ResetButton = () => {
     return backgroundApiProxy.serviceApp.resetApp();
   }, [resetToWelcome]);
 
-  const onOpenResetHintDialog = useCallback(() => {
-    DialogManager.show({
-      render: <ResetDialog onConfirm={async () => onReset()} />,
-    });
+  const openResetHintDialog = useCallback(() => {
+    showOverlay((onClose) => (
+      <ResetDialog onConfirm={onReset} onClose={onClose} />
+    ));
   }, [onReset]);
 
-  const onOpenResetModal = useCallback(async () => {
-    const wallets = await backgroundApiProxy.engine.getWallets();
-    const isBackup = wallets.filter((wallet) => !wallet.backuped).length === 0;
-    if (isBackup) {
-      // setShowResetModal(true);
-      onOpenResetHintDialog();
-    } else {
-      setShowBackupModal(true);
-    }
-  }, [onOpenResetHintDialog]);
-
-  const onBackupConfirm = useCallback(() => {
-    setShowBackupModal(false);
-    // setTimeout(() => setShowResetModal(true), 500);
-    setTimeout(() => onOpenResetHintDialog(), 500);
-  }, [onOpenResetHintDialog]);
-
-  return (
-    <>
-      <Pressable
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        py={4}
-        px={{ base: 4, md: 6 }}
-        onPress={onOpenResetModal}
-      >
-        <Icon name="RestoreOutline" color="icon-critical" />
-        <Text
-          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-          color="text-critical"
-          flex="1"
-          numberOfLines={1}
-          mx={3}
-        >
-          {intl.formatMessage({
-            id: 'form__reset_app',
-            defaultMessage: 'Reset App',
-          })}
-        </Text>
-        <Box>
-          <Icon name="ChevronRightSolid" size={20} />
-        </Box>
-      </Pressable>
+  const openBackupModal = useCallback(() => {
+    showOverlay((onClose) => (
       <Dialog
-        visible={showBackupModal}
-        onClose={() => setShowBackupModal(false)}
+        visible
+        onClose={onClose}
         footerButtonProps={{
           hideSecondaryAction: true,
-          onPrimaryActionPress: onBackupConfirm,
+          onPrimaryActionPress: () => {
+            onClose();
+            setTimeout(openResetHintDialog, 500);
+          },
           primaryActionTranslationId: 'action__i_got_it',
           primaryActionProps: { type: 'primary' },
         }}
@@ -164,7 +121,47 @@ const ResetButton = () => {
           }),
         }}
       />
-    </>
+    ));
+  }, [intl, openResetHintDialog]);
+
+  const onOpenResetModal = useCallback(async () => {
+    const wallets = await backgroundApiProxy.engine.getWallets();
+    const isBackup = wallets.filter((wallet) => !wallet.backuped).length === 0;
+    if (isBackup) {
+      // setShowResetModal(true);
+      openResetHintDialog();
+    } else {
+      openBackupModal();
+    }
+  }, [openBackupModal, openResetHintDialog]);
+
+  return (
+    <Pressable
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      py={4}
+      px={{ base: 4, md: 6 }}
+      onPress={onOpenResetModal}
+    >
+      <Icon name="RestoreOutline" color="icon-critical" />
+      <Text
+        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+        color="text-critical"
+        flex="1"
+        numberOfLines={1}
+        mx={3}
+      >
+        {intl.formatMessage({
+          id: 'form__reset_app',
+          defaultMessage: 'Reset App',
+        })}
+      </Text>
+      <Box>
+        <Icon name="ChevronRightSolid" size={20} />
+      </Box>
+    </Pressable>
   );
 };
 

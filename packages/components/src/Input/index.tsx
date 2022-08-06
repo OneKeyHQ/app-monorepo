@@ -10,8 +10,6 @@ import React, {
 import { Input as BaseInput, Stack } from 'native-base';
 import { Platform } from 'react-native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import Box from '../Box';
 import Divider from '../Divider';
 import Icon, { ICON_NAMES } from '../Icon';
@@ -73,21 +71,20 @@ const Input = React.forwardRef<
     const inputRef = useRef<typeof BaseInput>(null);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     useImperativeHandle(ref, () => inputRef.current!);
-    const shouldFocus = autoFocus && platformEnv.isRuntimeBrowser;
     useEffect(() => {
-      if (shouldFocus) {
+      if (autoFocus) {
         // ** focus immediately in Modal cause modal slow animation
         const timer = setTimeout(() => {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           inputRef.current?.focus?.();
-        }, 400);
+        }, 300);
 
         return () => {
           clearTimeout(timer);
         };
       }
-    }, [shouldFocus]);
+    }, [autoFocus]);
 
     const leftElements: JSX.Element[] = [];
     const rightElements: JSX.Element[] = [];
@@ -275,8 +272,6 @@ const Input = React.forwardRef<
         fontFamily={textProps.fontFamily}
         editable={!isReadOnly && !isDisabled}
         {...props}
-        // WEB autofocus in Modal cause modal slow animation, and background jump
-        autoFocus={platformEnv.isRuntimeBrowser ? false : autoFocus}
       />
     );
   },

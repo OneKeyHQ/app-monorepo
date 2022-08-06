@@ -75,6 +75,10 @@ export type HomeRoutesParams = {
     tokenId: string; // tokenIdOnNetwork
     historyFilter?: (item: any) => boolean;
   };
+  [HomeRoutes.FullTokenListScreen]: {
+    accountId?: string;
+    networkId?: string;
+  };
   [HomeRoutes.DebugScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;

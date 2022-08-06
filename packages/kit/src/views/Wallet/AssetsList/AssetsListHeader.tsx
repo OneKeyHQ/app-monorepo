@@ -7,6 +7,7 @@ import {
   Button,
   Divider,
   Icon,
+  IconButton,
   Pressable,
   Text,
   Typography,
@@ -33,13 +34,17 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
   RootRoutes.Root
 > &
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
 
-const ListHeader: FC = () => {
+const ListHeader: FC<{ showTokenCount?: boolean; showRoundTop?: boolean }> = ({
+  showTokenCount,
+  showRoundTop,
+}) => {
   const intl = useIntl();
-  // const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
   const isVerticalLayout = useIsVerticalLayout();
+  const { account, network } = useActiveWalletAccount();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
@@ -66,16 +71,55 @@ const ListHeader: FC = () => {
     );
   }, [accountTokens, balances, hideSmallBalance, prices]);
 
+  const tokenCountOrAddToken = useMemo(
+    () =>
+      showTokenCount ? (
+        <>
+          <Text
+            color="text-subdued"
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          >
+            {accountTokens.length}
+          </Text>
+          <Icon name="ChevronRightSolid" />
+        </>
+      ) : (
+        <IconButton
+          size="sm"
+          borderRadius={17}
+          name="PlusSolid"
+          bg="action-secondary-default"
+          onPress={() =>
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageToken,
+              params: { screen: ManageTokenRoutes.Listing },
+            })
+          }
+        />
+      ),
+    [accountTokens.length, navigation, showTokenCount],
+  );
+  const Container = showTokenCount ? Pressable.Item : Box;
+
   return (
-    <Pressable.Item
+    <Container
       p={4}
       shadow={undefined}
-      borderTopRadius="12px"
+      borderTopRadius={showRoundTop ? '12px' : 0}
+      borderTopWidth={showRoundTop ? 1 : 0}
       borderWidth={1}
       borderBottomWidth={0}
       borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
-      disabled
-      // onPress={onPress}
+      onPress={
+        showTokenCount
+          ? () => {
+              navigation.navigate(HomeRoutes.FullTokenListScreen, {
+                accountId: account?.id,
+                networkId: network?.id,
+              });
+            }
+          : undefined
+      }
       flexDirection="column"
     >
       <Box
@@ -116,7 +160,9 @@ const ListHeader: FC = () => {
             {summedValue}
           </Box>
         )}
-        <Box ml="auto">{/* TODO token count */}</Box>
+        <Box ml="auto" flexDirection="row" alignItems="center">
+          {tokenCountOrAddToken}
+        </Box>
       </Box>
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
         {isVerticalLayout ? (
@@ -144,12 +190,20 @@ const ListHeader: FC = () => {
           </Box>
         )}
       </Box>
-    </Pressable.Item>
+    </Container>
   );
 };
 
-const AssetsListHeader: FC<{ showSubheader?: boolean }> = ({
-  showSubheader,
+const AssetsListHeader: FC<{
+  showInnerHeader?: boolean;
+  showOuterHeader?: boolean;
+  showTokenCount?: boolean;
+  showInnerHeaderRoundTop?: boolean;
+}> = ({
+  showInnerHeader,
+  showTokenCount,
+  showOuterHeader,
+  showInnerHeaderRoundTop,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
@@ -157,37 +211,43 @@ const AssetsListHeader: FC<{ showSubheader?: boolean }> = ({
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
   return (
     <>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        pb={3}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'title__assets' })}
-        </Typography.Heading>
-        {tokenEnabled && (
-          <Button
-            onPress={() =>
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageToken,
-                params: { screen: ManageTokenRoutes.Listing },
-              })
-            }
-            size="sm"
-            leftIconName="CogSolid"
-            type="plain"
-            mr={-3}
-          >
-            <Typography.Button2>
-              {intl.formatMessage({ id: 'title__settings' })}
-            </Typography.Button2>
-          </Button>
-        )}
-      </Box>
-      {showSubheader && (
+      {showOuterHeader && (
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          pb={3}
+        >
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'title__assets' })}
+          </Typography.Heading>
+          {tokenEnabled && (
+            <Button
+              onPress={() =>
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageToken,
+                  params: { screen: ManageTokenRoutes.Listing },
+                })
+              }
+              size="sm"
+              leftIconName="CogSolid"
+              type="plain"
+              mr={-3}
+            >
+              <Typography.Button2>
+                {intl.formatMessage({ id: 'title__settings' })}
+              </Typography.Button2>
+            </Button>
+          )}
+        </Box>
+      )}
+
+      {showInnerHeader && (
         <>
-          <ListHeader />
+          <ListHeader
+            showRoundTop={showInnerHeaderRoundTop}
+            showTokenCount={showTokenCount}
+          />
           <Divider />
         </>
       )}

@@ -14,6 +14,7 @@ import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
+import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
 import Protected from '@onekeyhq/kit/src/views/Protected';
@@ -31,6 +32,10 @@ import { HomeRoutes, HomeRoutesParams } from '../types';
 import renderCustomSubStackHeader from './Header';
 
 export const stackScreenList = [
+  {
+    name: HomeRoutes.FullTokenListScreen,
+    component: FullTokenList,
+  },
   {
     name: HomeRoutes.ScreenTokenDetail,
     component: TokenDetail,
