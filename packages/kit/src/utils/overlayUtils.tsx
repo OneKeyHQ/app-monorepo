@@ -1,6 +1,5 @@
 import { ComponentType, ReactElement } from 'react';
 
-import { render } from 'react-dom';
 import RootSiblings from 'react-native-root-siblings';
 
 interface WithOnClose {

@@ -10,7 +10,6 @@ import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type RouteProps = RouteProp<
   ManagerWalletRoutesParams,
