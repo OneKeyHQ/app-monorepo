@@ -17,7 +17,7 @@ export type TokenQuery = {
 export type TokenSource = {
   name: string;
   logo: string;
-  count: string;
+  count: number;
 };
 
 export type TokenDetailQuery = {

@@ -26,15 +26,27 @@ type NavigationProps = RouteProp<
   ManageTokenRoutes.VerifiedToken
 >;
 
+let cachedTokenSourceList: TokenSource[] = [];
+
 const VerifiedTokens: React.FC = () => {
   const intl = useIntl();
   const route = useRoute<NavigationProps>();
-  const [sourceList, setSources] = useState<TokenSource[]>([]);
+  const [sourceList, setSources] = useState<TokenSource[]>(
+    cachedTokenSourceList,
+  );
   const { source = [] } = route.params;
 
   useEffect(() => {
-    fetchTokenSource().then((s) => setSources(s));
-  }, [source]);
+    if (cachedTokenSourceList.length) {
+      setSources(cachedTokenSourceList);
+      return;
+    }
+    fetchTokenSource().then((list) => {
+      const data = list.filter((l) => l.count > 0);
+      setSources(data);
+      cachedTokenSourceList = data;
+    });
+  }, [source, sourceList]);
 
   const header = useMemo(
     () => (
