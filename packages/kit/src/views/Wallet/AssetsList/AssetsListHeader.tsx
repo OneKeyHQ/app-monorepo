@@ -36,7 +36,10 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
 
-const ListHeader: FC<{ showTokenCount?: boolean }> = ({ showTokenCount }) => {
+const ListHeader: FC<{ showTokenCount?: boolean; showRoundTop?: boolean }> = ({
+  showTokenCount,
+  showRoundTop,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
@@ -102,7 +105,8 @@ const ListHeader: FC<{ showTokenCount?: boolean }> = ({ showTokenCount }) => {
     <Container
       p={4}
       shadow={undefined}
-      borderTopRadius="12px"
+      borderTopRadius={showRoundTop ? '12px' : 0}
+      borderTopWidth={showRoundTop ? 1 : 0}
       borderWidth={1}
       borderBottomWidth={0}
       borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
@@ -194,7 +198,13 @@ const AssetsListHeader: FC<{
   showInnerHeader?: boolean;
   showOuterHeader?: boolean;
   showTokenCount?: boolean;
-}> = ({ showInnerHeader, showTokenCount, showOuterHeader }) => {
+  showInnerHeaderRoundTop?: boolean;
+}> = ({
+  showInnerHeader,
+  showTokenCount,
+  showOuterHeader,
+  showInnerHeaderRoundTop,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();
@@ -234,7 +244,10 @@ const AssetsListHeader: FC<{
 
       {showInnerHeader && (
         <>
-          <ListHeader showTokenCount={showTokenCount} />
+          <ListHeader
+            showRoundTop={showInnerHeaderRoundTop}
+            showTokenCount={showTokenCount}
+          />
           <Divider />
         </>
       )}

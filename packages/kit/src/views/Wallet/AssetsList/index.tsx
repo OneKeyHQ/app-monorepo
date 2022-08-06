@@ -162,6 +162,7 @@ function AssetsList({
             showTokenCount={limitSize !== undefined}
             showOuterHeader={limitSize !== undefined}
             showInnerHeader={valueSortedTokens.length > 0}
+            showInnerHeaderRoundTop={!fullWidth}
           />
         )
       }
