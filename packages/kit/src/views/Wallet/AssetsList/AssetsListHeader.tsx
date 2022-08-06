@@ -207,7 +207,7 @@ const AssetsListHeader: FC<{
   showInnerHeaderRoundTop,
 }) => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  // const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
   return (
