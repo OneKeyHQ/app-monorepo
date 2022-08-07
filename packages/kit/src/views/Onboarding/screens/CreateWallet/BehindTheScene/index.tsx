@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, {
-  FC,
   useCallback,
   useEffect,
   useMemo,
@@ -8,34 +7,27 @@ import React, {
   useState,
 } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  PresenceTransition,
-  ToastManager,
-  TypeWriter,
-  useIsVerticalLayout,
-  useToast,
-} from '@onekeyhq/components';
+import { Box, Center, ToastManager, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import debugLogger, {
+  LoggerNames,
+} from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import { WebViewWebEmbed } from '../../../../../components/WebView/WebViewWebEmbed';
 import useAppNavigation from '../../../../../hooks/useAppNavigation';
 import { useDisableNavigationBack } from '../../../../../hooks/useDisableNavigationBack';
-import {
-  closeExtensionWindowIfOnboardingFinished,
-  useOnboardingDone,
-} from '../../../../../hooks/useOnboardingRequired';
+import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,
@@ -48,9 +40,17 @@ import { useOnboardingClose } from '../../../hooks';
 import Layout from '../../../Layout';
 import { useOnboardingContext } from '../../../OnboardingContext';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import { IOnboardingRoutesParams } from '../../../routes/types';
+import {
+  IOnboardingBehindTheSceneParams,
+  IOnboardingRoutesParams,
+} from '../../../routes/types';
 
-import PinPanel from './PinPanel';
+import {
+  ONBOARDING_PAUSED_INDEX_HARDWARE,
+  ONBOARDING_PAUSED_INDEX_SOFTWARE,
+} from './consts';
+import ProcessAutoTyping, { IProcessAutoTypingRef } from './ProcessAutoTyping';
+import ProcessAutoTypingWebView from './ProcessAutoTypingWebView';
 
 type NavigationProps = StackNavigationProp<
   IOnboardingRoutesParams,
@@ -61,42 +61,28 @@ type RouteProps = RouteProp<
   EOnboardingRoutes.BehindTheScene
 >;
 
-// const defaultDelay = 5000; // creating faster than animation
-// const defaultDelay = 0; // creating slower than animation
-const defaultDelay = 1000;
-
-type IProcessStateInfo = {
-  typingEnd: boolean;
-  done: boolean;
-};
-type IProcessStateInfoUpdate = {
-  typingEnd?: boolean;
-  done?: boolean;
-};
-type IProcessStates = Record<number, IProcessStateInfo>;
-type IProcessInfo = { text: string };
-
 function BehindTheSceneCreatingWallet({
+  routeParams,
   handleWalletCreated,
 }: {
+  routeParams: IOnboardingBehindTheSceneParams;
   handleWalletCreated: () => void;
 }) {
   const toast = useToast();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { onboardingGoBack } = useOnboardingClose();
-  const route = useRoute<RouteProps>();
-  const { password, mnemonic, withEnableAuthentication, hardwareCreating } =
-    route.params || {};
+  const { password, mnemonic, withEnableAuthentication, isHardwareCreating } =
+    routeParams;
 
   const context = useOnboardingContext();
   const forceVisibleUnfocused = context?.forceVisibleUnfocused;
 
   const startCreatingHardwareWallet = useCallback(async () => {
     try {
-      const device: SearchDevice | undefined = hardwareCreating?.device;
+      const device: SearchDevice | undefined = isHardwareCreating?.device;
       const features: IOneKeyDeviceFeatures | undefined =
-        hardwareCreating?.features;
+        isHardwareCreating?.features;
       if (!device || !features) {
         return false;
       }
@@ -146,8 +132,8 @@ function BehindTheSceneCreatingWallet({
     return false;
   }, [
     forceVisibleUnfocused,
-    hardwareCreating?.device,
-    hardwareCreating?.features,
+    isHardwareCreating?.device,
+    isHardwareCreating?.features,
     intl,
     navigation,
   ]);
@@ -157,7 +143,9 @@ function BehindTheSceneCreatingWallet({
       return false;
     }
     try {
-      await wait(1500);
+      await wait(10 * 1000);
+      // wait first typing animation start
+      await wait(1500); // 1500, 300
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,
@@ -191,7 +179,7 @@ function BehindTheSceneCreatingWallet({
       }
       console.log('BehindTheScene >>>>> creating wallet');
       let result = false;
-      if (hardwareCreating) {
+      if (isHardwareCreating) {
         result = await startCreatingHardwareWallet();
       } else {
         result = await startCreatingHDWallet();
@@ -207,7 +195,7 @@ function BehindTheSceneCreatingWallet({
     onboardingGoBack,
     handleWalletCreated,
     startCreatingHDWallet,
-    hardwareCreating,
+    isHardwareCreating,
     startCreatingHardwareWallet,
   ]);
 
@@ -216,241 +204,86 @@ function BehindTheSceneCreatingWallet({
 
 const BehindTheScene = () => {
   const onboardingDone = useOnboardingDone();
-  const toast = useToast();
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { onboardingGoBack } = useOnboardingClose();
+  const route = useRoute<RouteProps>();
+  const routeParams = route.params || {};
+  const [isNavBackDisabled, setIsNavBackDisabled] = useState(true);
+  useDisableNavigationBack({ condition: isNavBackDisabled });
+  const typingRef = useRef<IProcessAutoTypingRef | null>(null);
 
-  const isVerticalLayout = useIsVerticalLayout();
-  useDisableNavigationBack({ condition: true });
-
-  const isWalletCreatedRef = useRef(false);
-
-  const { processInfoList, processDefaultStates } = useMemo(() => {
-    const list: Array<IProcessInfo> = [
-      {
-        text: 'content__creating_your_wallet',
-      },
-      {
-        text: 'content__generating_your_accounts',
-      },
-      {
-        text: 'content__encrypting_your_data',
-      },
-      // {
-      //   text: 'content__backing_up_to_icloud',
-      // },
-    ];
-    const defaultStates = list.reduce<IProcessStates>(
-      (prev, current, index) => {
-        prev[index] = { typingEnd: false, done: false };
-        return prev;
-      },
-      {},
-    );
-    return { processInfoList: list, processDefaultStates: defaultStates };
-  }, []);
-  const [processStates, setProcessStates] =
-    useState<IProcessStates>(processDefaultStates);
-  const lastProcessIndex = processInfoList.length - 1;
-
-  const [processFinalTypingEnd, setIsProcessFinalTypingEnd] = useState(false);
-
-  const [showLastAction, setIsShowLastAction] = useState(false);
-
-  const lastProcessStatus = useMemo(
-    () => processStates[lastProcessIndex],
-    [lastProcessIndex, processStates],
-  );
-
-  const handleProcessFinalTypingEnd = useCallback(() => {
-    setIsProcessFinalTypingEnd(true);
-  }, []);
-
-  const isAllProcessDone = useMemo(() => {
-    let isDone = true;
-    Object.values(processStates).forEach((item) => {
-      isDone = isDone && item.done;
-    });
-    return isDone;
-  }, [processStates]);
-
-  const updateProcessState = useCallback(
-    (index: number, state: IProcessStateInfoUpdate) => {
-      setProcessStates((states) => ({
-        ...states,
-        [index]: {
-          ...states[index],
-          ...state,
-        },
-      }));
-    },
-    [],
-  );
-
-  const completeAllProcess = useCallback(() => {
-    //
-  }, []);
+  const pausedProcessIndex = routeParams?.isHardwareCreating
+    ? ONBOARDING_PAUSED_INDEX_HARDWARE
+    : ONBOARDING_PAUSED_INDEX_SOFTWARE;
 
   const handleWalletCreated = useCallback(() => {
-    // completeAllProcess instantly if wallet created faster than typing animations
-    // completeAllProcess()
+    debugLogger.onBoarding.info('Wallet Created Success !!!!');
+    if (typingRef.current) {
+      typingRef.current.handleWalletCreated();
+    }
+  }, []);
 
-    isWalletCreatedRef.current = true;
+  const onPressFinished = useCallback(async () => {
+    setIsNavBackDisabled(false);
+    if (platformEnv.isExtension) {
+      await wait(1000);
+      window.close();
+    } else {
+      await onboardingDone({ delay: 600 });
+    }
+  }, [onboardingDone]);
 
-    updateProcessState(lastProcessIndex, { done: true });
+  const isRenderAsWebview = platformEnv.isNative;
 
-    setTimeout(() => {
-      setIsShowLastAction(true);
-    }, 300);
-  }, [lastProcessIndex, updateProcessState]);
+  const webviewAutoTyping = useMemo(() => {
+    if (!isRenderAsWebview) {
+      return null;
+    }
+    return (
+      <Box flex={1} h="full" w="full">
+        <ProcessAutoTypingWebView
+          ref={typingRef}
+          onPressFinished={onPressFinished}
+          pausedProcessIndex={pausedProcessIndex}
+        />
+      </Box>
+    );
+  }, [isRenderAsWebview, onPressFinished, pausedProcessIndex]);
 
-  const lastActionVisible = useMemo(
-    () => showLastAction && isAllProcessDone && processFinalTypingEnd,
-    [isAllProcessDone, processFinalTypingEnd, showLastAction],
-  );
-
-  const typingEndExecutedRef = useRef<Partial<Record<number, boolean>>>({});
-  const handleTypingEnd = useCallback(
-    (index: number) => {
-      if (typingEndExecutedRef.current[index]) {
-        return;
-      }
-      typingEndExecutedRef.current[index] = true;
-
-      updateProcessState(index, { typingEnd: true });
-
-      setTimeout(() => {
-        if (index !== lastProcessIndex || isWalletCreatedRef.current) {
-          updateProcessState(index, { done: true });
-        }
-      }, defaultDelay);
-    },
-    [lastProcessIndex, updateProcessState],
-  );
-
-  const tyingEndCallbacks = useMemo(
-    () => processInfoList.map((_, index) => () => handleTypingEnd(index)),
-    [handleTypingEnd, processInfoList],
-  );
-
-  const finishButton = useMemo(
-    () =>
-      platformEnv.isExtension ? null : (
-        <PresenceTransition
-          as={Box}
-          // @ts-ignore
-          mt="auto"
-          alignSelf={{ base: 'stretch', sm: 'flex-start' }}
-          visible={lastActionVisible}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-            transition: { duration: 300, delay: 150 },
-          }}
-        >
-          <Button
-            onPromise={() => onboardingDone({ delay: 600 })}
-            type="primary"
-            size="xl"
-            minW={160}
-          >
-            {intl.formatMessage({ id: 'action__lets_go' })}
-          </Button>
-        </PresenceTransition>
-      ),
-    [lastActionVisible, onboardingDone, intl],
-  );
-
+  const builtInAutoTyping = useMemo(() => {
+    if (isRenderAsWebview) {
+      return null;
+    }
+    return (
+      <ProcessAutoTyping
+        ref={typingRef}
+        onPressFinished={onPressFinished}
+        pausedProcessIndex={pausedProcessIndex}
+      />
+    );
+  }, [isRenderAsWebview, onPressFinished, pausedProcessIndex]);
   return (
     <>
-      <Layout
-        backButton={false}
-        fullHeight
-        secondaryContent={
-          lastActionVisible && isVerticalLayout ? finishButton : undefined
-        }
-      >
+      <Layout backButton={false} showCloseButton={false} fullHeight>
         <BehindTheSceneCreatingWallet
+          routeParams={routeParams}
           handleWalletCreated={handleWalletCreated}
         />
-        <Box minH={{ base: 480, sm: 320 }} justifyContent="flex-end">
-          {processInfoList.map((processInfo, index) => {
-            const prevProcessState: IProcessStateInfo | undefined =
-              processStates[index - 1];
-            const processState: IProcessStateInfo | undefined =
-              processStates[index];
-
-            let isPending = false;
-            let isFadeOut = false;
-            if (prevProcessState) {
-              isPending = !prevProcessState.done;
-            }
-            if (processState) {
-              isFadeOut = processState.done && processState.typingEnd;
-            }
-
-            if (prevProcessState && !prevProcessState.typingEnd) {
-              return undefined;
-            }
-
-            return (
-              <TypeWriter
-                key={index}
-                onTypingEnd={tyingEndCallbacks[index]}
-                isPending={isPending}
-                isFadeOut={isFadeOut}
-              >
-                {intl.formatMessage(
-                  { id: processInfo.text as any },
-                  {
-                    a: (text) => (
-                      <TypeWriter.NormalText>{text}</TypeWriter.NormalText>
-                    ),
-                    b: (text) => (
-                      <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
-                    ),
-                  },
-                )}
-              </TypeWriter>
-            );
-          })}
-
-          {lastProcessStatus.typingEnd && !isAllProcessDone ? (
-            <TypeWriter />
-          ) : undefined}
-
-          {/* process5 */}
-          {lastProcessStatus.typingEnd && isAllProcessDone ? (
-            <TypeWriter
-              isPending={!lastProcessStatus.done}
-              onTypingEnd={handleProcessFinalTypingEnd}
-            >
-              <TypeWriter.NormalText>
-                {intl.formatMessage(
-                  { id: 'content__your_wallet_is_now_ready' },
-                  {
-                    b: (text) => (
-                      <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
-                    ),
-                  },
-                )}{' '}
-                🚀
-              </TypeWriter.NormalText>
-            </TypeWriter>
-          ) : undefined}
-
-          {processFinalTypingEnd ? <TypeWriter /> : undefined}
-
-          {lastActionVisible && !isVerticalLayout ? (
-            <Box mt={16}>{finishButton}</Box>
-          ) : undefined}
-        </Box>
+        {isRenderAsWebview ? (
+          <Center h="full" w="full">
+            {webviewAutoTyping}
+          </Center>
+        ) : (
+          <Box
+            flex={1}
+            h="full"
+            w="full"
+            // TODO how to make webview fullscreen?
+            minH={{ base: 480, sm: 320 }}
+            justifyContent="flex-end"
+          >
+            {builtInAutoTyping}
+          </Box>
+        )}
       </Layout>
-      {lastActionVisible && platformEnv.isExtension ? (
-        <PinPanel visible={lastActionVisible} />
-      ) : undefined}
     </>
   );
 };

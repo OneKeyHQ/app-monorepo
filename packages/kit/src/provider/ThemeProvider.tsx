@@ -8,13 +8,24 @@ import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 
 import { useSystemLocale } from '../hooks/useSystemLocale';
 
-const ThemeApp: FC = ({ children }) => {
+export function useThemeProviderVariant() {
+  const { theme, locale, enableHaptics = defaultHapticStatus } = useSettings();
+
   const systemLocale = useSystemLocale();
   const colorScheme = useColorScheme();
-  const { theme, locale, enableHaptics = defaultHapticStatus } = useSettings();
 
   const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
   const localeVariant = locale === 'system' ? systemLocale : locale;
+  return {
+    themeVariant,
+    localeVariant,
+    enableHaptics,
+  };
+}
+
+const ThemeApp: FC = ({ children }) => {
+  const { themeVariant, localeVariant, enableHaptics } =
+    useThemeProviderVariant();
 
   useEffect(() => {
     setThemePreloadToLocalStorage(themeVariant);

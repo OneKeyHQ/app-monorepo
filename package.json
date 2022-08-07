@@ -10,7 +10,7 @@
     "node": "^16.0.0"
   },
   "scripts": {
-    "postinstall": "yarn setup:env && husky install && yarn copy:inject && patch-package",
+    "postinstall": "yarn setup:env && husky install && patch-package && yarn copy:inject ",
     "copy:inject": "bash development/copy-injected.sh",
     "clean": "./clean_workspace.sh && yarn cache clean",
     "lint-staged": "lint-staged",
@@ -25,6 +25,8 @@
     "ios-xcode": "open ./packages/app/ios/OneKeyWallet.xcworkspace",
     "android": "yarn copy:inject && yarn workspace @onekeyhq/app android",
     "web": "yarn copy:inject && yarn workspace @onekeyhq/web start",
+    "web-embed": "yarn copy:inject && yarn workspace @onekeyhq/web-embed start",
+    "build:web-embed": "yarn copy:inject && yarn workspace @onekeyhq/web-embed build",
     "firefox": "yarn copy:inject && yarn workspace @onekeyhq/ext firefox",
     "ext": "yarn copy:inject && yarn workspace @onekeyhq/ext start",
     "build:ext": "yarn copy:inject && yarn workspace @onekeyhq/ext build:all",

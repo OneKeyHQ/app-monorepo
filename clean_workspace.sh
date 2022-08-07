@@ -23,6 +23,8 @@ rm -rf ./packages/app/node_modules
 rm -rf ./packages/app/.expo
 rm -rf ./packages/app/__generated__
 rm -rf ./packages/app/ios/Pods
+rm -rf ./packages/app/ios/build
+rm -rf ./packages/app/ios/OneKeyWallet/web-embed
 rm -rf ./packages/app/ios/OneKeyWallet.xcworkspace/xcuserdata
 rm -rf ./packages/app/src/public/static/connect
 rm -rf ./packages/app/android/.gradle
@@ -30,6 +32,7 @@ rm -rf ./packages/app/android/build
 rm -rf ./packages/app/android/app/build
 rm -rf ./packages/app/android/lib-keys-secret/build
 rm -rf ./packages/app/android/lib-keys-secret/.cxx
+rm -rf ./packages/app/android/app/src/main/assets/web-embed
 rm -rf ./packages/app/src/public/static/js-sdk
 
 rm -rf ./packages/desktop/node_modules
@@ -48,6 +51,13 @@ rm -rf ./packages/web/__generated__
 rm -rf ./packages/web/dist
 rm -rf ./packages/web/web-build
 rm -rf ./packages/web/.expo-shared
+
+rm -rf ./packages/web-embed/node_modules
+rm -rf ./packages/web-embed/.expo
+rm -rf ./packages/web-embed/__generated__
+rm -rf ./packages/web-embed/dist
+rm -rf ./packages/web-embed/web-build
+rm -rf ./packages/web-embed/.expo-shared
 
 rm -rf ./packages/ext/node_modules
 rm -rf ./packages/ext/.expo

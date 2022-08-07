@@ -67,9 +67,10 @@ export function RouteOnboarding() {
       )),
     [],
   );
+
   return (
     <>
-      {/* <OnboardingContextProvider> should wrap <Layout /> */}
+      {/* <OnboardingContextProvider> should wrap to each <Layout /> */}
       <StackNavigator.Navigator
         screenOptions={{
           headerShown: false,

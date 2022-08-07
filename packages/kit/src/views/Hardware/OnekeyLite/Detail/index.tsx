@@ -226,6 +226,11 @@ const OnekeyLiteDetail: React.FC = () => {
     <>
       <Box flexDirection="column" flex={1}>
         <Box flex={1}>
+          {/* <WebViewWebEmbed */}
+          {/*  routePath="/onboarding/auto_typing?pausedProcessIndex=0" */}
+          {/*  // routePath="/abc" */}
+          {/* /> */}
+          {/* <ProcessAutoTypingWebView /> */}
           <WebView src={url} />
         </Box>
 

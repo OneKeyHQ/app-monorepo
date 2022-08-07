@@ -46,6 +46,7 @@ const TextArea = React.forwardRef<
       fontFamily={textProps.fontFamily}
       fontWeight={textProps.fontWeight}
       fontSize={textProps.fontSize}
+      spellCheck={false}
       _focus={{
         borderColor: isInvalid ? 'border-critical-default' : 'focused-default',
         bg: 'action-secondary-default',

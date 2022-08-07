@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           lfs: true
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
         with:
@@ -26,6 +27,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
           scope: '@onekeyhq'
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "::set-output name=dir::$(yarn cache dir)"
@@ -38,8 +40,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
 
-      - name: Install Dependencies
+      - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'yarn'
-      - run: yarn lint && yarn test
+        run: |
+          yarn global add expo-cli && yarn
+          yarn lint && yarn test

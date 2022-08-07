@@ -76,12 +76,16 @@ function useAddExistingWallet({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
   });
-  const { isValid } = useFormOnChangeDebounced<AddExistingWalletValues>({
-    useFormReturn,
-    revalidate: false,
-  });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { isValid, formValues } =
+    useFormOnChangeDebounced<AddExistingWalletValues>({
+      useFormReturn,
+      revalidate: false,
+      clearErrorIfEmpty: true,
+    });
   const { control, handleSubmit, setValue, trigger } = useFormReturn;
-  const submitDisabled = !isValid;
+  // const submitDisabled = !isValid;
+  const submitDisabled = !formValues?.text;
   const inputCategory = useMemo(() => {
     let onlyForcategory: UserInputCategory | undefined;
     if (mode === 'mnemonic') {
