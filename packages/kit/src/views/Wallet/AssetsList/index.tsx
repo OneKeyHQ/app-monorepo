@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
@@ -147,6 +148,11 @@ function AssetsList({
 
   return (
     <Container
+      style={{
+        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+        width: '100%',
+        marginHorizontal: 'auto',
+      }}
       contentContainerStyle={[
         {
           paddingHorizontal: fullWidth ? 0 : responsivePadding(),

@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Icon,
   IconButton,
   Pressable,
@@ -41,7 +40,6 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
-import { showHomeBalanceSettings } from '../../Overlay/BottomSheetSettings';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -91,13 +89,14 @@ const AccountAmountInfo: FC = () => {
           <Typography.Display2XLarge>
             <FormatCurrencyNumber decimals={2} value={displayValue} />
           </Typography.Display2XLarge>
-          <Button
+          {/* TODO settings: include NFTs in Totals */}
+          {/* <Button
             type="plain"
             alignItems="center"
             justifyContent="center"
             onPress={showHomeBalanceSettings}
             leftIconName="ChevronDownSolid"
-          />
+          /> */}
         </>
       ),
     ];

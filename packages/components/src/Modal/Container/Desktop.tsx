@@ -63,7 +63,7 @@ const DesktopModal = ({
 }: ModalProps) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const index = useNavigationState((state) => state.index);
+  const navIndex = useNavigationState((state) => state?.index);
 
   const defaultClose = useModalClose({ onClose });
 
@@ -123,7 +123,7 @@ const DesktopModal = ({
           <Box
             pt={4}
             pr={4}
-            pl={index ? 4 : 6}
+            pl={navIndex ? 4 : 6}
             pb={header ? 4 : 0}
             display="flex"
             flexDirection="row"
@@ -132,7 +132,7 @@ const DesktopModal = ({
             borderBottomColor="border-subdued"
             borderBottomWidth={header ? 1 : undefined}
           >
-            {index ? (
+            {navIndex ? (
               <IconButton
                 size="base"
                 name="ArrowLeftSolid"
@@ -153,7 +153,7 @@ const DesktopModal = ({
                 }}
               />
             ) : null}
-            <Box flex="1" ml={index ? 4 : undefined}>
+            <Box flex="1" ml={navIndex ? 4 : undefined}>
               <Typography.Heading>{header}</Typography.Heading>
               {!!headerDescription && (
                 <Box>

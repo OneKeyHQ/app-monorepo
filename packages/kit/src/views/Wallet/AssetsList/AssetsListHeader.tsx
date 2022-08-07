@@ -27,6 +27,7 @@ import { FormatCurrencyNumber } from '../../../components/Format';
 import { useManageTokens, useNavigation } from '../../../hooks';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { getSummedValues } from '../../../utils/priceUtils';
+import { showHomeBalanceSettings } from '../../Overlay/BottomSheetSettings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -206,7 +207,7 @@ const AssetsListHeader: FC<{
   showInnerHeaderRoundTop,
 }) => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  // const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
   return (
@@ -223,12 +224,7 @@ const AssetsListHeader: FC<{
           </Typography.Heading>
           {tokenEnabled && (
             <Button
-              onPress={() =>
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ManageToken,
-                  params: { screen: ManageTokenRoutes.Listing },
-                })
-              }
+              onPress={showHomeBalanceSettings}
               size="sm"
               leftIconName="CogSolid"
               type="plain"
