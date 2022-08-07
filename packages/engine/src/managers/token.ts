@@ -26,6 +26,8 @@ export type TokenDetailQuery = {
   address: string;
 };
 
+let cachedTokenSourceList: TokenSource[] = [];
+
 function getNetworkIdFromTokenId(tokenId: string): string {
   const [impl, chainId, tokenIdOnNetwork] = tokenId.split(SEPERATOR);
   if (impl && chainId && tokenIdOnNetwork) {
@@ -75,8 +77,14 @@ export const fetchTokenTop2000 = async (
   return fetchData('/token/list', search, []);
 };
 
-export const fetchTokenSource = async (): Promise<TokenSource[]> =>
-  fetchData('/token/source', {}, []);
+export const fetchTokenSource = async (): Promise<TokenSource[]> => {
+  if (cachedTokenSourceList.length) {
+    return cachedTokenSourceList;
+  }
+  const data = await fetchData('/token/source', {}, []);
+  cachedTokenSourceList = data;
+  return data;
+};
 
 export const fetchTokenDetail = async (
   params: TokenDetailQuery,
