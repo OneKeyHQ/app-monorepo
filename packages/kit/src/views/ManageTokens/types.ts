@@ -16,6 +16,7 @@ export type ManageTokenRoutesParams = {
         decimal: number;
         logoURI: string;
         verified?: boolean;
+        source: string[];
       }
     | { query: string };
   [ManageTokenRoutes.ViewToken]: {
@@ -25,6 +26,7 @@ export type ManageTokenRoutesParams = {
     decimal: number;
     logoURI: string;
     verified?: boolean;
+    source: string[];
   };
   [ManageTokenRoutes.VerifiedToken]: {
     source: string[];

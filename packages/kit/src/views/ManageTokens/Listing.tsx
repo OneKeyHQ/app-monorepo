@@ -74,6 +74,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
         decimal: token.decimals,
         logoURI: token.logoURI,
         verified: token.verified,
+        source: token.source || [],
       });
     },
     [navigation],
@@ -307,6 +308,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       decimal: item.decimals,
       logoURI: item.logoURI,
       verified: item.verified,
+      source: item.source || [],
     });
   }, [navigation, item, isOwned]);
   return (
