@@ -18,12 +18,14 @@ export function WebViewWebEmbed({
   customReceiveHandler,
   onWebViewRef,
   isSpinnerLoading,
+  onContentLoaded,
 }: {
   src?: string;
   routePath?: string;
   customReceiveHandler?: IJsBridgeReceiveHandler;
   onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
   isSpinnerLoading?: boolean;
+  onContentLoaded?: () => void; // currently works in NativeWebView only
 }) {
   const { themeVariant, localeVariant, enableHaptics } =
     useThemeProviderVariant();
@@ -49,6 +51,7 @@ export function WebViewWebEmbed({
   return (
     <WebView
       src={src || ''}
+      onContentLoaded={onContentLoaded}
       isSpinnerLoading={isSpinnerLoading}
       onWebViewRef={onWebViewRef}
       customReceiveHandler={customReceiveHandler}

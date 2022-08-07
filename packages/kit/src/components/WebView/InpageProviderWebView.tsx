@@ -44,6 +44,7 @@ export type InpageProviderWebViewProps = InpageWebViewProps & {
   nativeWebviewSource?: WebViewSource;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
+  onContentLoaded?: () => void; // currently works in NativeWebView only
 };
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
@@ -57,6 +58,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       nativeWebviewSource,
       nativeInjectedJavaScriptBeforeContentLoaded,
       isSpinnerLoading,
+      onContentLoaded,
     }: InpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -239,8 +241,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               renderError={(error) => <ErrorView error={error} />}
               injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
               onLoadProgress={({ nativeEvent }) => {
+                const p = Math.ceil(nativeEvent.progress * 100);
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                setProgress(Math.ceil(nativeEvent.progress * 100));
+                setProgress(p);
+                if (p >= 100) {
+                  onContentLoaded?.();
+                }
               }}
               onNavigationStateChange={onNavigationStateChange}
               textInteractionEnabled={undefined}

@@ -64,9 +64,11 @@ type RouteProps = RouteProp<
 function BehindTheSceneCreatingWallet({
   routeParams,
   handleWalletCreated,
+  shouldStartCreating,
 }: {
   routeParams: IOnboardingBehindTheSceneParams;
   handleWalletCreated: () => void;
+  shouldStartCreating: boolean;
 }) {
   const toast = useToast();
   const intl = useIntl();
@@ -173,10 +175,12 @@ function BehindTheSceneCreatingWallet({
 
   useEffect(() => {
     (async function () {
+      if (!shouldStartCreating) {
+        return;
+      }
       if (!forceVisibleUnfocused) {
         return;
       }
-      console.log('BehindTheScene >>>>> creating wallet');
       let result = false;
       if (isHardwareCreating) {
         result = await startCreatingHardwareWallet();
@@ -196,10 +200,15 @@ function BehindTheSceneCreatingWallet({
     startCreatingHDWallet,
     isHardwareCreating,
     startCreatingHardwareWallet,
+    shouldStartCreating,
   ]);
 
   return null;
 }
+
+const BehindTheSceneCreatingWalletMemo = React.memo(
+  BehindTheSceneCreatingWallet,
+);
 
 const BehindTheScene = () => {
   const onboardingDone = useOnboardingDone();
@@ -208,6 +217,11 @@ const BehindTheScene = () => {
   const [isNavBackDisabled, setIsNavBackDisabled] = useState(true);
   useDisableNavigationBack({ condition: isNavBackDisabled });
   const typingRef = useRef<IProcessAutoTypingRef | null>(null);
+  const isRenderAsWebview = platformEnv.isNative;
+
+  const [shouldStartCreating, setShouldStartCreating] = useState(
+    !isRenderAsWebview,
+  );
 
   const pausedProcessIndex = routeParams?.isHardwareCreating
     ? ONBOARDING_PAUSED_INDEX_HARDWARE
@@ -254,8 +268,6 @@ const BehindTheScene = () => {
     }
   }, [onboardingDone]);
 
-  const isRenderAsWebview = platformEnv.isNative;
-
   const webviewAutoTyping = useMemo(() => {
     if (!isRenderAsWebview) {
       return null;
@@ -264,6 +276,7 @@ const BehindTheScene = () => {
       <Box flex={1} h="full" w="full">
         <ProcessAutoTypingWebView
           ref={typingRef}
+          onContentLoaded={() => setShouldStartCreating(true)}
           onPressFinished={onPressFinished}
           pausedProcessIndex={pausedProcessIndex}
         />
@@ -286,9 +299,10 @@ const BehindTheScene = () => {
   return (
     <>
       <Layout backButton={false} showCloseButton={false} fullHeight>
-        <BehindTheSceneCreatingWallet
+        <BehindTheSceneCreatingWalletMemo
           routeParams={routeParams}
           handleWalletCreated={handleWalletCreated}
+          shouldStartCreating={shouldStartCreating}
         />
         {isRenderAsWebview ? (
           <Center h="full" w="full">

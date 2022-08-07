@@ -31,6 +31,7 @@ function WebView({
   nativeWebviewSource,
   nativeInjectedJavaScriptBeforeContentLoaded,
   isSpinnerLoading,
+  onContentLoaded,
 }: {
   src: string;
   onSrcChange?: (src: string) => void;
@@ -43,6 +44,7 @@ function WebView({
   nativeWebviewSource?: WebViewSource | undefined;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
+  onContentLoaded?: () => void; // currently works in NativeWebView only
 }): JSX.Element {
   // TODO some dapps will call method when Dapp Modal opened, and isFocused will be false
   //    https://app.1inch.io/#/1/swap/ETH/DAI
@@ -129,6 +131,8 @@ function WebView({
             nativeInjectedJavaScriptBeforeContentLoaded={
               nativeInjectedJavaScriptBeforeContentLoaded
             }
+            // currently works in NativeWebView only
+            onContentLoaded={onContentLoaded}
           />
         )}
       </Box>

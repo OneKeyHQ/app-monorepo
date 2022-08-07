@@ -20,8 +20,12 @@ import {
   IProcessAutoTypingRef,
 } from './ProcessAutoTyping';
 
-function ProcessAutoTypingWebView(props: IProcessAutoTypingProps) {
-  const { onPressFinished, forwardedRef, pausedProcessIndex } = props;
+export type IProcessAutoTypingWebViewProps = IProcessAutoTypingProps & {
+  onContentLoaded?: () => void; // currently works in NativeWebView only
+};
+function ProcessAutoTypingWebView(props: IProcessAutoTypingWebViewProps) {
+  const { onPressFinished, forwardedRef, pausedProcessIndex, onContentLoaded } =
+    props;
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -60,6 +64,7 @@ function ProcessAutoTypingWebView(props: IProcessAutoTypingProps) {
   return (
     <WebViewWebEmbed
       isSpinnerLoading
+      onContentLoaded={onContentLoaded}
       onWebViewRef={onWebViewRef}
       customReceiveHandler={receiveHandler}
       // *** use web-embed local html file
@@ -72,7 +77,7 @@ function ProcessAutoTypingWebView(props: IProcessAutoTypingProps) {
 
 const ProcessAutoTypingWebViewRef = forwardRef<
   IProcessAutoTypingRef,
-  IProcessAutoTypingProps
+  IProcessAutoTypingWebViewProps
 >(({ ...props }, ref) => (
   <ProcessAutoTypingWebView {...props} forwardedRef={ref} />
 ));
