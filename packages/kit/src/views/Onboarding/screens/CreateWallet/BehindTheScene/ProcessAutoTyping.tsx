@@ -44,6 +44,7 @@ export type IProcessAutoTypingProps = {
   onPressFinished: (...args: any[]) => Promise<void>;
   pausedProcessIndex: number;
   forwardedRef?: any;
+  minHeight?: number;
 };
 export type IProcessAutoTypingRef = {
   handleWalletCreated: () => void;
@@ -52,6 +53,7 @@ function ProcessAutoTyping({
   onPressFinished,
   pausedProcessIndex,
   forwardedRef,
+  minHeight,
 }: IProcessAutoTypingProps) {
   const intl = useIntl();
 
@@ -224,7 +226,11 @@ function ProcessAutoTyping({
 
   return (
     <>
-      <Box py={10} minH={{ base: 480, sm: 320 }} justifyContent="flex-end">
+      <Box
+        py={10}
+        minH={minHeight ?? { base: 480, sm: 320 }}
+        justifyContent="flex-end"
+      >
         {processInfoList.map((processInfo, index) => {
           const prevProcessState: IProcessStateInfo | undefined =
             processStates[index - 1];
