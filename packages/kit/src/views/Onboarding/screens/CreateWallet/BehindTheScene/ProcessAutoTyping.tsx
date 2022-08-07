@@ -200,6 +200,9 @@ function ProcessAutoTyping({
   );
 
   const handleWalletCreated = useCallback(() => {
+    if (isWalletCreatedRef.current) {
+      return;
+    }
     // TODO completeAllProcess in webview
     // completeAllProcess instantly if wallet created faster than typing animations
     // completeAllProcess()

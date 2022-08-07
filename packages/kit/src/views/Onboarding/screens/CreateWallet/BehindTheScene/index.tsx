@@ -147,6 +147,7 @@ function BehindTheSceneCreatingWallet({
     try {
       // wait first typing animation start
       await wait(300); // 1500, 300
+      debugLogger.onBoarding.info('startCreatingHDWallet');
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,
