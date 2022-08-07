@@ -9,8 +9,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeProviderVariant } from '../../provider/ThemeProvider';
 
-// import HTML_FILE from './web-embed-html';
-
 // /onboarding/auto_typing
 export function WebViewWebEmbed({
   src,
@@ -39,13 +37,12 @@ export function WebViewWebEmbed({
         uri: 'file:///android_asset/web-embed/index.html',
       };
     }
+    // iOS
     if (platformEnv.isNativeIOS) {
       return {
         uri: 'web-embed/index.html',
       };
     }
-    // DEV localhost:8081
-    // return HTML_FILE;
     return undefined;
   }, [src]);
   return (
