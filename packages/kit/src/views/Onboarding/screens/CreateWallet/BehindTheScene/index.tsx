@@ -143,9 +143,8 @@ function BehindTheSceneCreatingWallet({
       return false;
     }
     try {
-      await wait(10 * 1000);
       // wait first typing animation start
-      await wait(1500); // 1500, 300
+      await wait(300); // 1500, 300
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,
@@ -214,11 +213,35 @@ const BehindTheScene = () => {
     ? ONBOARDING_PAUSED_INDEX_HARDWARE
     : ONBOARDING_PAUSED_INDEX_SOFTWARE;
 
+  const handleWalletCreatedIntervalRef = useRef<number | undefined>();
+
   const handleWalletCreated = useCallback(() => {
     debugLogger.onBoarding.info('Wallet Created Success !!!!');
     if (typingRef.current) {
       typingRef.current.handleWalletCreated();
     }
+    clearInterval(handleWalletCreatedIntervalRef.current);
+    // @ts-expect-error
+    handleWalletCreatedIntervalRef.current = setInterval(() => {
+      debugLogger.onBoarding.info('handleWalletCreated interval recheck');
+      if (
+        typingRef &&
+        typingRef.current &&
+        typingRef.current.handleWalletCreated
+      ) {
+        typingRef.current.handleWalletCreated();
+      }
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      clearInterval(handleWalletCreatedIntervalRef.current);
+    }, 3 * 60 * 1000);
+    return () => {
+      clearInterval(handleWalletCreatedIntervalRef.current);
+      clearTimeout(timer);
+    };
   }, []);
 
   const onPressFinished = useCallback(async () => {
