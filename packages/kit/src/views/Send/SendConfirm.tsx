@@ -350,24 +350,27 @@ function SendConfirmProxy() {
     ].includes(sourceInfo.scope as any); // network.settings.injectedProviderName
   }, [sourceInfo]);
 
-  if (isNetworkNotMatched) {
-    return (
-      <SendConfirmModal
-        sendConfirmParams={routeParams}
-        feeInfoPayload={null}
-        feeInfoLoading={false}
-        encodedTx={null}
-        handleConfirm={() => null}
-      >
-        <SendConfirmErrorsAlert isNetworkNotMatched />
-      </SendConfirmModal>
+  const [content, setContent] = useState<JSX.Element | null>(null);
+  useEffect(() => {
+    if (isNetworkNotMatched) {
+      return setContent(
+        <SendConfirmModal
+          sendConfirmParams={routeParams}
+          feeInfoPayload={null}
+          feeInfoLoading={false}
+          encodedTx={null}
+          handleConfirm={() => null}
+        >
+          <SendConfirmErrorsAlert isNetworkNotMatched />
+        </SendConfirmModal>,
+      );
+    }
+    return setContent(
+      platformEnv.isLegacySendConfirm ? <SendConfirmLegacy /> : <SendConfirm />,
     );
-  }
-  return platformEnv.isLegacySendConfirm ? (
-    <SendConfirmLegacy />
-  ) : (
-    <SendConfirm />
-  );
+  }, [isNetworkNotMatched, routeParams]);
+
+  return content;
 }
 
 // export default SendConfirm;

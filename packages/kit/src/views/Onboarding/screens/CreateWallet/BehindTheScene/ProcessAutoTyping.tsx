@@ -224,7 +224,7 @@ function ProcessAutoTyping({
 
   return (
     <>
-      <Box py={16} minH={{ base: 480, sm: 320 }} justifyContent="flex-end">
+      <Box py={10} minH={{ base: 480, sm: 320 }} justifyContent="flex-end">
         {processInfoList.map((processInfo, index) => {
           const prevProcessState: IProcessStateInfo | undefined =
             processStates[index - 1];
