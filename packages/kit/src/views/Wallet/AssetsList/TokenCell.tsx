@@ -11,7 +11,6 @@ import {
   TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
-  useTheme,
 } from '@onekeyhq/components';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -31,7 +30,8 @@ interface TokenCellProps {
   hidePriceInfo?: boolean;
   onPress?: () => void;
   token: TokenType;
-  fullWidth?: boolean;
+  bg?: string;
+  borderColor?: string;
 }
 const TokenCell: FC<TokenCellProps> = ({
   hidePriceInfo,
@@ -41,10 +41,10 @@ const TokenCell: FC<TokenCellProps> = ({
   borderTopWidth,
   onPress,
   token,
-  fullWidth,
+  borderColor = 'border-subdued',
+  bg = 'surface-default',
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { themeVariant } = useTheme();
   const { balances, charts } = useManageTokens();
   const { network } = useActiveWalletAccount();
 
@@ -75,11 +75,12 @@ const TokenCell: FC<TokenCellProps> = ({
   return (
     <Pressable.Item
       p={4}
+      bg={bg}
       shadow={undefined}
-      borderTopRadius={fullWidth ? 0 : borderTopRadius}
-      borderRadius={fullWidth ? 0 : borderRadius}
+      borderTopRadius={borderTopRadius}
+      borderRadius={borderRadius}
       borderWidth={1}
-      borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
+      borderColor={borderColor}
       borderTopWidth={borderTopWidth}
       borderBottomWidth={borderBottomWidth}
       onPress={onPress}
@@ -110,7 +111,7 @@ const TokenCell: FC<TokenCellProps> = ({
             )}
           />
         ) : (
-          <Skeleton shape={isVerticalLayout ? 'Body1' : 'Body2'} />
+          <Typography.Body2 color="text-subdued">{balance}</Typography.Body2>
         )}
       </Box>
       {!isVerticalLayout && !hidePriceInfo && (

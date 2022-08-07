@@ -53,7 +53,7 @@ export type IAssetsListProps = Omit<
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
   limitSize?: number;
-  fullWidth?: boolean;
+  flatStyle?: boolean;
 };
 function AssetsList({
   showRoundTop,
@@ -64,7 +64,7 @@ function AssetsList({
   contentContainerStyle,
   onTokenPress,
   limitSize,
-  fullWidth,
+  flatStyle,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const { accountTokens, balances, prices } = useManageTokens();
@@ -116,13 +116,16 @@ function AssetsList({
     index,
   }) => (
     <TokenCell
-      fullWidth={fullWidth}
       hidePriceInfo={hidePriceInfo}
+      bg={flatStyle ? 'transparent' : 'surface-default'}
       token={item}
-      borderTopRadius={showRoundTop && index === 0 ? '12px' : 0}
-      borderRadius={index === valueSortedTokens?.length - 1 ? '12px' : '0px'}
+      borderTopRadius={!flatStyle && showRoundTop && index === 0 ? '12px' : 0}
+      borderRadius={
+        !flatStyle && index === valueSortedTokens?.length - 1 ? '12px' : '0px'
+      }
       borderTopWidth={0}
       borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
+      borderColor={flatStyle ? 'transparent' : 'border-subdued'}
       onPress={() => {
         if (onTokenPress) {
           onTokenPress({ token: item });
@@ -155,7 +158,7 @@ function AssetsList({
       }}
       contentContainerStyle={[
         {
-          paddingHorizontal: fullWidth ? 0 : responsivePadding(),
+          paddingHorizontal: flatStyle ? 0 : responsivePadding(),
           marginTop: 24,
         },
         contentContainerStyle,
@@ -165,10 +168,13 @@ function AssetsList({
       ListHeaderComponent={
         ListHeaderComponent ?? (
           <AssetsListHeader
+            innerHeaderBorderColor={
+              flatStyle ? 'transparent' : 'border-subdued'
+            }
             showTokenCount={limitSize !== undefined}
             showOuterHeader={limitSize !== undefined}
             showInnerHeader={valueSortedTokens.length > 0}
-            showInnerHeaderRoundTop={!fullWidth}
+            showInnerHeaderRoundTop={!flatStyle}
           />
         )
       }
