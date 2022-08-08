@@ -69,7 +69,7 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
             <Button
               type="primary"
               size={isVerticalLayout ? 'xl' : 'base'}
-              alignSelf={isVerticalLayout ? 'stretch' : 'initial'}
+              alignSelf={isVerticalLayout ? 'stretch' : 'auto'}
               onPress={
                 isVerticalLayout
                   ? onPressShowPhraseButton
