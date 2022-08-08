@@ -72,7 +72,7 @@ function useAddExistingWallet({
   const { mode = 'all', presetText = '' } = (route.params ||
     emptyParams) as IAddExistingWalletModalParams;
   const useFormReturn = useForm<AddExistingWalletValues>({
-    defaultValues: { text: presetText },
+    defaultValues: { text: presetText || '' },
     mode: 'onBlur',
     reValidateMode: 'onBlur',
   });
