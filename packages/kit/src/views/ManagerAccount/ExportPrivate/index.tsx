@@ -46,7 +46,7 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
   const [privateKey, setPrivateKey] = useState<string>();
 
   useEffect(() => {
-    if (!accountId || !networkId) return;
+    if (!accountId || !networkId || !password) return;
 
     engine.getAccount(accountId, networkId).then(($account) => {
       onAccountChange($account);
@@ -55,7 +55,8 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
     engine.getAccountPrivateKey(accountId, password).then(($privateKey) => {
       setPrivateKey($privateKey);
     });
-  }, [accountId, engine, networkId, onAccountChange, password]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, engine, networkId, password]);
 
   const copyDataToClipboard = useCallback(() => {
     copyToClipboard(privateKey ?? '');
