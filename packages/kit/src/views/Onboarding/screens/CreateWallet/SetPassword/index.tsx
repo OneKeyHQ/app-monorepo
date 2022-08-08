@@ -97,6 +97,7 @@ const SetPassword = () => {
         }
       >
         <Protected
+          isAutoHeight
           hideTitle
           walletId={null}
           skipSavePassword

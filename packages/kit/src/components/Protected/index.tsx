@@ -28,6 +28,7 @@ type ProtectedProps = {
   field?: ValidationFields;
   children: (password: string, options: ProtectedOptions) => React.ReactNode;
   hideTitle?: boolean;
+  isAutoHeight?: boolean;
 };
 
 // Protected
@@ -37,6 +38,7 @@ const Protected: FC<ProtectedProps> = ({
   field,
   walletId,
   hideTitle,
+  isAutoHeight,
 }) => {
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
@@ -184,6 +186,7 @@ const Protected: FC<ProtectedProps> = ({
       onOk={onSetupOk}
       skipSavePassword={skipSavePassword}
       hideTitle={hideTitle}
+      isAutoHeight={isAutoHeight}
     />
   );
 };
