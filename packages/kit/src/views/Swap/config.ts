@@ -27,24 +27,17 @@ export const enabledChainIds: string[] = [
   Chains.HECO,
 ];
 
-export const networkRecords: Record<string, string> = {
-  [Chains.MAINNET]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=ethereum',
-  [Chains.ROPSTEN]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=ropsten',
-  [Chains.KOVAN]: 'https://kovan.api.0x.org/swap/v1/quote',
-  [Chains.BSC]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=bsc',
+const baseURL = 'https://fiat.onekeycn.com/0x/quote';
 
-  [Chains.POLYGON]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=polygon',
-  [Chains.FANTOM]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=fantom',
-  [Chains.AVALANCHE]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=avalanche',
-  [Chains.CELO]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=celo',
-  [Chains.OPTIMISM]:
-    'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=optimism',
+export const networkRecords: Record<string, string> = {
+  [Chains.MAINNET]: `${baseURL}?chainID=ethereum`,
+  [Chains.ROPSTEN]: `${baseURL}?chainID=ropsten`,
+  [Chains.BSC]: `${baseURL}?chainID=bsc`,
+  [Chains.POLYGON]: `${baseURL}?chainID=polygon`,
+  [Chains.FANTOM]: `${baseURL}?chainID=fantom`,
+  [Chains.AVALANCHE]: `${baseURL}?chainID=avalanche`,
+  [Chains.CELO]: `${baseURL}?chainID=celo`,
+  [Chains.OPTIMISM]: `${baseURL}?chainID=optimism`,
+  [Chains.KOVAN]: 'https://kovan.api.0x.org/swap/v1/quote',
   [Chains.HECO]: 'https://0x.onekey.so/swap/v1/quote',
 };
