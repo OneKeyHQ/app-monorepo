@@ -116,7 +116,7 @@ function OnboardingAutoTyping() {
       id="WebOnboardingAutoTypingContainer"
       style={{ overflow: 'auto' }}
     >
-      <Box minH="100vh" justifyContent="center">
+      <Box h="full" minH="100vh" justifyContent="center">
         <ProcessAutoTyping
           ref={typingRef}
           minHeight={0}
