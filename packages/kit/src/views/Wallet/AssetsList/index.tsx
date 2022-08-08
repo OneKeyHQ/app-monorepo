@@ -34,6 +34,7 @@ import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
 import EmptyList from './EmptyList';
+import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -67,7 +68,7 @@ function AssetsList({
   flatStyle,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
-  const { accountTokens, balances, prices } = useManageTokens();
+  const { accountTokens, balances, prices, loading } = useManageTokens();
 
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
@@ -179,7 +180,7 @@ function AssetsList({
         )
       }
       ItemSeparatorComponent={Divider}
-      ListEmptyComponent={EmptyList}
+      ListEmptyComponent={loading ? AssetsListSkeleton : EmptyList}
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}

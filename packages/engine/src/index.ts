@@ -1215,15 +1215,11 @@ class Engine {
       accountId,
     );
     for (const t of legacyAccountTokens) {
-      const presetToken = await simpleDb.token.getPresetToken(
-        networkId,
-        t.tokenIdOnNetwork,
+      const presetToken = tokens.find(
+        (token) => token.tokenIdOnNetwork === t.tokenIdOnNetwork,
       );
-      if (
-        presetToken &&
-        !tokens.find((token) => token.tokenIdOnNetwork === t.tokenIdOnNetwork)
-      ) {
-        tokens.push(presetToken);
+      if (!presetToken) {
+        tokens.push(t);
       }
     }
     if (typeof accountId !== 'undefined') {

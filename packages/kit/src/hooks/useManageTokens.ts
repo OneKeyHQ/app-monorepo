@@ -9,6 +9,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useActiveWalletAccount } from './redux';
 import {
+  useAccountTokenLoading,
   useAccountTokens,
   useAccountTokensBalance,
   useNativeToken,
@@ -28,6 +29,7 @@ export const useManageTokens = ({
   const { accountId, networkId } = useActiveWalletAccount();
   const allTokens: Token[] = useNetworkTokens(networkId);
   const accountTokens: Token[] = useAccountTokens(networkId, accountId);
+  const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
   const balances = useAccountTokensBalance(networkId, accountId);
   const prices = useNetworkTokensPrice(networkId);
   const charts = useNetworkTokensChart(networkId);
@@ -129,6 +131,7 @@ export const useManageTokens = ({
   );
 
   return {
+    loading: accountTokensLoading,
     nativeToken,
     accountTokens,
     accountTokensMap,

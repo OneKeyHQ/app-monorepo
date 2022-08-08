@@ -115,7 +115,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     <Box flexDirection="row" alignItems="center">
                       <Text
                         maxW={56}
-                        numberOfLines={2}
+                        numberOfLines={1}
                         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                       >
                         {item.symbol} ({item.name})
@@ -326,14 +326,14 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
     >
-      <Box display="flex" alignItems="center" flexDirection="row">
+      <Box display="flex" alignItems="center" flexDirection="row" flex={1}>
         <TokenImage size={8} src={item.logoURI} />
-        <Box ml="3">
+        <Box ml="3" flex={1}>
           <Box alignItems="center" flexDirection="row">
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               maxW="56"
-              numberOfLines={2}
+              numberOfLines={1}
               color={isOwned ? 'text-disabled' : 'text-default'}
             >
               {item.symbol}({item.name})
