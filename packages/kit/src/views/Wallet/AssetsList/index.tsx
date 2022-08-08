@@ -180,7 +180,7 @@ function AssetsList({
         )
       }
       ItemSeparatorComponent={Divider}
-      ListEmptyComponent={AssetsListSkeleton}
+      ListEmptyComponent={loading ? AssetsListSkeleton : EmptyList}
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}
