@@ -14,11 +14,11 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  IconButton,
   OverlayContainer,
   PresenceTransition,
   Pressable,
   TypeWriter,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -56,6 +56,7 @@ function ProcessAutoTyping({
   minHeight,
 }: IProcessAutoTypingProps) {
   const intl = useIntl();
+  const inserts = useSafeAreaInsets();
 
   const emitter = useRef(new CrossEventEmitter());
   const isWalletCreatedRef = useRef(false);
@@ -230,97 +231,81 @@ function ProcessAutoTyping({
   return (
     <>
       <Box
-        py={10}
         minH={minHeight ?? { base: 480, sm: 320 }}
-        justifyContent="flex-end"
+        maxH="full"
+        flexGrow={{ base: 1, sm: 0 }}
       >
-        {processInfoList.map((processInfo, index) => {
-          const prevProcessState: IProcessStateInfo | undefined =
-            processStates[index - 1];
-          const processState: IProcessStateInfo | undefined =
-            processStates[index];
-
-          let isPending = false;
-          let isFadeOut = false;
-          if (prevProcessState) {
-            isPending = !prevProcessState.done;
-          }
-          if (processState) {
-            isFadeOut = processState.done && processState.typingEnd;
-          }
-
-          if (prevProcessState && !prevProcessState.typingEnd) {
-            return undefined;
-          }
-
-          return (
-            <TypeWriter
-              key={index}
-              onTypingEnd={tyingEndCallbacks[index]}
-              isPending={isPending}
-              isFadeOut={isFadeOut}
-            >
-              {intl.formatMessage(
-                { id: processInfo.text as any },
-                {
-                  a: (text) => (
-                    <TypeWriter.NormalText>{text}</TypeWriter.NormalText>
-                  ),
-                  b: (text) => (
-                    <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
-                  ),
-                },
-              )}
-            </TypeWriter>
-          );
-        })}
-
-        {lastProcessStatus.typingEnd && !isAllProcessDone ? (
-          <TypeWriter />
-        ) : undefined}
-
-        {/* process5 */}
-        {lastProcessStatus.typingEnd && isAllProcessDone ? (
-          <Pressable onPress={onPressFinished}>
-            <TypeWriter
-              isPending={!lastProcessStatus.done}
-              onTypingEnd={handleProcessFinalTypingEnd}
-            >
-              <TypeWriter.NormalText>
+        <Box flex={1} justifyContent="flex-end" mb={{ base: 12, sm: 0 }}>
+          {processInfoList.map((processInfo, index) => {
+            const prevProcessState: IProcessStateInfo | undefined =
+              processStates[index - 1];
+            const processState: IProcessStateInfo | undefined =
+              processStates[index];
+            let isPending = false;
+            let isFadeOut = false;
+            if (prevProcessState) {
+              isPending = !prevProcessState.done;
+            }
+            if (processState) {
+              isFadeOut = processState.done && processState.typingEnd;
+            }
+            if (prevProcessState && !prevProcessState.typingEnd) {
+              return undefined;
+            }
+            return (
+              <TypeWriter
+                key={index}
+                onTypingEnd={tyingEndCallbacks[index]}
+                isPending={isPending}
+                isFadeOut={isFadeOut}
+              >
                 {intl.formatMessage(
-                  { id: 'content__your_wallet_is_now_ready' },
+                  { id: processInfo.text as any },
                   {
+                    a: (text) => (
+                      <TypeWriter.NormalText>{text}</TypeWriter.NormalText>
+                    ),
                     b: (text) => (
                       <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
                     ),
                   },
-                )}{' '}
-                🚀
-              </TypeWriter.NormalText>
-            </TypeWriter>
-          </Pressable>
-        ) : undefined}
+                )}
+              </TypeWriter>
+            );
+          })}
+          {lastProcessStatus.typingEnd && !isAllProcessDone ? (
+            <TypeWriter />
+          ) : undefined}
+          {/* process5 */}
+          {lastProcessStatus.typingEnd && isAllProcessDone ? (
+            <Pressable onPress={onPressFinished}>
+              <TypeWriter
+                isPending={!lastProcessStatus.done}
+                onTypingEnd={handleProcessFinalTypingEnd}
+              >
+                <TypeWriter.NormalText>
+                  {intl.formatMessage(
+                    { id: 'content__your_wallet_is_now_ready' },
+                    {
+                      b: (text) => (
+                        <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
+                      ),
+                    },
+                  )}{' '}
+                  🚀
+                </TypeWriter.NormalText>
+              </TypeWriter>
+            </Pressable>
+          ) : undefined}
+          {processFinalTypingEnd ? <TypeWriter /> : undefined}
+        </Box>
 
-        {processFinalTypingEnd ? <TypeWriter /> : undefined}
-
-        {lastActionVisible ? <Box mt={16}>{finishButton}</Box> : undefined}
+        <Box mt={16} minH="50px">
+          {lastActionVisible ? finishButton : undefined}
+        </Box>
       </Box>
 
       <OverlayContainer>
-        {lastActionVisible && (
-          <IconButton
-            position="absolute"
-            onPromise={onPressFinished}
-            top={0}
-            right={0}
-            type="plain"
-            size="lg"
-            name="CloseOutline"
-            circle
-            zIndex={9999}
-          />
-        )}
-
         {lastActionVisible && platformEnv.isExtension ? (
           <PinPanel visible={lastActionVisible} />
         ) : undefined}
