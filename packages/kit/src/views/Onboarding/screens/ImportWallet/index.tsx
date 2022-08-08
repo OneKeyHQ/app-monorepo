@@ -2,8 +2,6 @@ import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { OverlayContainer } from '@onekeyhq/components';
-
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
 import Layout from '../../Layout';
 
