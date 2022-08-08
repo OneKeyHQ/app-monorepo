@@ -94,6 +94,12 @@ const App = () => {
       <RootStack.Screen
         name={RootRoutes.Onboarding}
         component={RouteOnboarding}
+        /*
+        presentation issues:
+        - containedModal: cannot close new opened Modal
+        - card: cannot prevent gesture back (iOS)
+        - fullScreenModal: cannot use OverlayContainer some cases
+         */
         options={{
           // node_modules/@react-navigation/native-stack/src/types.tsx
           // @ts-expect-error

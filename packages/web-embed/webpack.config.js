@@ -20,8 +20,12 @@ module.exports = async function (env, argv) {
     argv,
   );
 
-  // set publicPath to empty string to generate local html file
-  config.output.publicPath = '';
+  if (process.env.NODE_ENV !== 'production') {
+    config.output.publicPath = '/';
+  } else {
+    // set publicPath to empty string to generate local static html file
+    config.output.publicPath = '';
+  }
 
   config = webpackTools.normalizeConfig({
     platform,
