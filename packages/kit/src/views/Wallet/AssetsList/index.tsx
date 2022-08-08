@@ -150,10 +150,6 @@ function AssetsList({
 
   const Container = singleton ? FlatList : Tabs.FlatList;
 
-  if (loading) {
-    return <AssetsListSkeleton />;
-  }
-
   return (
     <Container
       style={{
@@ -184,7 +180,7 @@ function AssetsList({
         )
       }
       ItemSeparatorComponent={Divider}
-      ListEmptyComponent={EmptyList}
+      ListEmptyComponent={AssetsListSkeleton}
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}

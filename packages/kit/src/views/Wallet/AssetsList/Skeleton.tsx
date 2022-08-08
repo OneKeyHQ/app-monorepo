@@ -98,7 +98,6 @@ const ListHeaderSkeleton = () => {
         )}
         <Box ml="auto" flexDirection="row" alignItems="center">
           <Skeleton shape="Body1" />
-          <Icon name="ChevronRightSolid" />
         </Box>
       </Box>
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
@@ -131,48 +130,20 @@ const ListHeaderSkeleton = () => {
   );
 };
 
-const AssetsListSkeleton = () => {
-  const intl = useIntl();
-  const { size } = useUserDevice();
-  const responsivePadding = useMemo(() => {
-    if (['NORMAL', 'LARGE'].includes(size)) return 32;
-    return 16;
-  }, [size]);
-  return (
-    <Box
-      style={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        width: '100%',
-        marginHorizontal: 'auto',
-        paddingHorizontal: responsivePadding,
-      }}
-    >
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        pb={3}
-        style={{
-          marginTop: 24,
-        }}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'title__assets' })}
-        </Typography.Heading>
-        <Button size="sm" leftIconName="CogSolid" type="plain" mr={-3}>
-          <Typography.Button2>
-            {intl.formatMessage({ id: 'title__settings' })}
-          </Typography.Button2>
-        </Button>
-      </Box>
-
-      <ListHeaderSkeleton />
-      <ListItemSkeleton />
-      <ListItemSkeleton />
-      <ListItemSkeleton borderBottomRadius={12} />
-    </Box>
-  );
-};
+const AssetsListSkeleton = () => (
+  <Box
+    style={{
+      maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+      width: '100%',
+      marginHorizontal: 'auto',
+    }}
+  >
+    <ListHeaderSkeleton />
+    <ListItemSkeleton />
+    <ListItemSkeleton />
+    <ListItemSkeleton borderBottomRadius={12} />
+  </Box>
+);
 AssetsListSkeleton.displayName = 'AssetsListSkeleton';
 
 export default memo(AssetsListSkeleton);
