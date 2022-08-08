@@ -27,8 +27,8 @@ export const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
   }
   return (
     <Pressable
-      w="full"
-      h="full"
+      w={{ base: 'full', sm: 'auto' }}
+      h={{ base: 'full', sm: 'auto' }}
       _focusVisible={{ outlineWidth: 0 }}
       {...props}
       onPress={onPress}
