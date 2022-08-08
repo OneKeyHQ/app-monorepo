@@ -28,13 +28,8 @@ const ImportWallet = () => {
         }
       >
         <OnboardingAddExistingWallet />
-        <OverlayContainer>
-          <Drawer
-            visible={drawerVisible}
-            onClose={() => setDrawerVisible(false)}
-          />
-        </OverlayContainer>
       </Layout>
+      <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
     </>
   );
 };
