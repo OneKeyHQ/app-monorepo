@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 import {
   Box,
   Pressable,
-  Skeleton,
   Text,
   Token,
   TokenVerifiedIcon,
