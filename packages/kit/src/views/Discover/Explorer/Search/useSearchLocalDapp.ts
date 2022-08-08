@@ -51,15 +51,19 @@ export const useSearchLocalDapp = (terms: string, keyword: string) => {
     const dappArray: MatchDAppItemType[] = [];
 
     Object.entries(syncData.increment).forEach(([key, value]) => {
-      const dappHistory = history[key];
-      const dAppItem = {
-        id: key,
-        dapp: value,
-        webSite: undefined,
-        clicks: dappHistory?.clicks ?? 0,
-        timestamp: dappHistory?.timestamp ?? 0,
-      };
-      if (dAppItem) dappArray.push(dAppItem);
+      const isCorrectDApp =
+        value && value.status?.toLowerCase() === 'listed' && !!value.url;
+
+      if (isCorrectDApp) {
+        const dappHistory = history[key];
+        dappArray.push({
+          id: key,
+          dapp: value,
+          webSite: undefined,
+          clicks: dappHistory?.clicks ?? 0,
+          timestamp: dappHistory?.timestamp ?? 0,
+        });
+      }
     });
 
     return dappArray.sort((a, b) => (b.timestamp ?? 0) - (a?.timestamp ?? 0));

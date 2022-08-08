@@ -20,14 +20,20 @@ export const useLimitHistories = (limit = 50) => {
     let dappHistoryArray: MatchDAppItemType[] = [];
 
     Object.entries(history).forEach(([key, value]) => {
-      const dAppItem = {
-        id: key,
-        dapp: syncData.increment[key],
-        webSite: value.webSite,
-        clicks: value?.clicks ?? 0,
-        timestamp: value?.timestamp ?? 0,
-      };
-      if (dAppItem) dappHistoryArray.push(dAppItem);
+      const dApp = syncData.increment[key];
+      const isCorrectDApp =
+        dApp && dApp.status?.toLowerCase() === 'listed' && !!dApp.url;
+      const isWebsite = dApp == null && !!value.webSite;
+
+      if (isCorrectDApp || isWebsite) {
+        dappHistoryArray.push({
+          id: key,
+          dapp: dApp,
+          webSite: value.webSite,
+          clicks: value?.clicks ?? 0,
+          timestamp: value?.timestamp ?? 0,
+        });
+      }
     });
 
     dappHistoryArray = dappHistoryArray.sort(
