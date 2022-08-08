@@ -27,6 +27,6 @@ const FullTokenList: FC<FullTokenListProps> = () => {
     });
   }, [navigation, intl]);
 
-  return <AssetsList fullWidth />;
+  return <AssetsList flatStyle />;
 };
 export default FullTokenList;

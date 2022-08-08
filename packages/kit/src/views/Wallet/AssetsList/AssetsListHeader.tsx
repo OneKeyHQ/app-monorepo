@@ -37,13 +37,13 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
 
-const ListHeader: FC<{ showTokenCount?: boolean; showRoundTop?: boolean }> = ({
-  showTokenCount,
-  showRoundTop,
-}) => {
+const ListHeader: FC<{
+  showTokenCount?: boolean;
+  showRoundTop?: boolean;
+  borderColor?: string;
+}> = ({ showTokenCount, showRoundTop, borderColor = 'border-subdued' }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { themeVariant } = useTheme();
   const isVerticalLayout = useIsVerticalLayout();
   const { account, network } = useActiveWalletAccount();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
@@ -110,7 +110,7 @@ const ListHeader: FC<{ showTokenCount?: boolean; showRoundTop?: boolean }> = ({
       borderTopWidth={showRoundTop ? 1 : 0}
       borderWidth={1}
       borderBottomWidth={0}
-      borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
+      borderColor={borderColor}
       onPress={
         showTokenCount
           ? () => {
@@ -200,11 +200,13 @@ const AssetsListHeader: FC<{
   showOuterHeader?: boolean;
   showTokenCount?: boolean;
   showInnerHeaderRoundTop?: boolean;
+  innerHeaderBorderColor?: string;
 }> = ({
   showInnerHeader,
   showTokenCount,
   showOuterHeader,
   showInnerHeaderRoundTop,
+  innerHeaderBorderColor,
 }) => {
   const intl = useIntl();
   // const navigation = useNavigation<NavigationProps>();
@@ -241,6 +243,7 @@ const AssetsListHeader: FC<{
       {showInnerHeader && (
         <>
           <ListHeader
+            borderColor={innerHeaderBorderColor}
             showRoundTop={showInnerHeaderRoundTop}
             showTokenCount={showTokenCount}
           />
