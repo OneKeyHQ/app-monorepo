@@ -1128,10 +1128,16 @@ class Engine {
     tokenId: string,
   ): Promise<void> {
     // Remove token from an account.
-    await Promise.all([
-      simpleDb.token.removeTokenFromAccount(accountId, tokenId),
-      this.dbApi.removeTokenFromAccount(accountId, tokenId),
-    ]);
+    await simpleDb.token.removeTokenFromAccount(accountId, tokenId);
+    try {
+      await this.dbApi.removeTokenFromAccount(accountId, tokenId);
+    } catch (error) {
+      debugLogger.engine.error('removeTokenFromAccount', {
+        accountId,
+        tokenId,
+        error,
+      });
+    }
   }
 
   @backgroundMethod()
