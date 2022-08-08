@@ -26,9 +26,15 @@ type SetupProps = {
   skipSavePassword?: boolean;
   onOk?: (text: string, withEnableAuthentication?: boolean) => void;
   hideTitle?: boolean;
+  isAutoHeight?: boolean;
 };
 
-const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
+const Setup: FC<SetupProps> = ({
+  onOk,
+  skipSavePassword,
+  hideTitle,
+  isAutoHeight,
+}) => {
   const intl = useIntl();
   const { isOk } = useLocalAuthentication();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
@@ -80,7 +86,10 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
       : intl.formatMessage({ id: 'content__touch_id' });
 
   return (
-    <KeyboardDismissView px={{ base: hideTitle ? 0 : 4, md: 0 }}>
+    <KeyboardDismissView
+      h={isAutoHeight ? { base: 'full', sm: 'auto' } : 'full'}
+      px={{ base: hideTitle ? 0 : 4, md: 0 }}
+    >
       {!hideTitle ? (
         <Box mb="8">
           <Typography.DisplayLarge textAlign="center" mb={2}>
