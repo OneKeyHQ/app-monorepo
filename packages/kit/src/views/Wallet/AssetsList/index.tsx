@@ -167,17 +167,19 @@ function AssetsList({
       data={valueSortedTokens}
       renderItem={renderListItem}
       ListHeaderComponent={
-        ListHeaderComponent ?? (
-          <AssetsListHeader
-            innerHeaderBorderColor={
-              flatStyle ? 'transparent' : 'border-subdued'
-            }
-            showTokenCount={limitSize !== undefined}
-            showOuterHeader={limitSize !== undefined}
-            showInnerHeader={valueSortedTokens.length > 0}
-            showInnerHeaderRoundTop={!flatStyle}
-          />
-        )
+        loading
+          ? null
+          : ListHeaderComponent ?? (
+              <AssetsListHeader
+                innerHeaderBorderColor={
+                  flatStyle ? 'transparent' : 'border-subdued'
+                }
+                showTokenCount={limitSize !== undefined}
+                showOuterHeader={limitSize !== undefined}
+                showInnerHeader={valueSortedTokens.length > 0}
+                showInnerHeaderRoundTop={!flatStyle}
+              />
+            )
       }
       ItemSeparatorComponent={Divider}
       ListEmptyComponent={loading ? AssetsListSkeleton : EmptyList}
