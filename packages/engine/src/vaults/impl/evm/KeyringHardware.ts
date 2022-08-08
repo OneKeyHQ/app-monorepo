@@ -1,10 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { ethers } from '@onekeyfe/blockchain-libs';
 import {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
+import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { COINTYPE_ETH as COIN_TYPE, IMPL_EVM } from '../../../constants';
+import * as engineUtils from '../../../engineUtils';
+import { OneKeyHardwareError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
@@ -56,16 +62,47 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<Array<DBSimpleAccount>> {
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
-    const { indexes, names } = params;
-    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
-    const addressInfos = await OneKeyHardware.getXpubs(
-      IMPL_EVM,
-      paths,
-      'address',
-      params.type,
-      connectId,
-      deviceId,
-    );
+    const { indexes, names, type } = params;
+
+    let addressInfos;
+    if (type === 'SEARCH_ACCOUNTS') {
+      // When searching for accounts, we only get the PATH_PREFIX's xpub
+      // and derive the addresses to reduce the number of calls to the device
+      // therefore better performance.
+      let response;
+      try {
+        response = await HardwareSDK.evmGetPublicKey(connectId, deviceId, {
+          path: PATH_PREFIX,
+          showOnOneKey: false,
+        });
+      } catch (e: any) {
+        debugLogger.engine.error(e);
+        throw new OneKeyHardwareError(e);
+      }
+
+      if (!response.success) {
+        throw deviceUtils.convertDeviceError(response.payload);
+      }
+      const { xpub } = response.payload;
+      const node = ethers.utils.HDNode.fromExtendedKey(xpub);
+      addressInfos = indexes.map((index) => ({
+        path: `${PATH_PREFIX}/${index}`,
+        info: engineUtils.fixAddressCase({
+          address: node.derivePath(`${index}`).address,
+          impl: IMPL_EVM,
+        }),
+      }));
+    } else {
+      const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
+      addressInfos = await OneKeyHardware.getXpubs(
+        IMPL_EVM,
+        paths,
+        'address',
+        type,
+        connectId,
+        deviceId,
+      );
+    }
 
     const ret = [];
     let index = 0;
