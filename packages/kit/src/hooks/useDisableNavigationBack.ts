@@ -29,7 +29,8 @@ function useDisableNavigationBack({ condition }: { condition: boolean }) {
   );
 
   React.useEffect(() => {
-    // only android needs to addListener beforeRemove
+    // only android works for addListener beforeRemove
+    // if you addListener beforeRemove in iOS, and swipe back by gesture, the navigation will be broken.
     if (!platformEnv.isNativeAndroid) {
       return;
     }
