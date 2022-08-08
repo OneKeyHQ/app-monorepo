@@ -135,7 +135,7 @@ const Layout: FC<LayoutProps> = ({
           scale: 1,
           transition: { duration: 150 },
         }}
-        flex={{ base: fullHeight ? 1 : undefined, sm: 'initial' }}
+        flexGrow={{ base: fullHeight ? 1 : undefined, sm: 0 }}
         w="full"
         maxW={800}
         mb={{ base: 'auto', sm: 0 }}
@@ -143,7 +143,7 @@ const Layout: FC<LayoutProps> = ({
       >
         <Box
           minH={isSmallHeight ? '560px' : '640px'}
-          flex={{ base: fullHeight ? 1 : undefined, sm: 'initial' }}
+          flexGrow={{ base: fullHeight ? 1 : undefined, sm: 0 }}
         >
           {backButton ? (
             <IconButton
@@ -160,7 +160,7 @@ const Layout: FC<LayoutProps> = ({
           ) : undefined}
 
           <Box
-            flex={{ base: fullHeight ? 1 : undefined, sm: 'initial' }}
+            flexGrow={{ base: fullHeight ? 1 : undefined, sm: 0 }}
             mt={{ base: 6, sm: 12 }}
             flexDirection={{ sm: 'row' }}
             justifyContent={fullHeight ? 'space-between' : undefined}
