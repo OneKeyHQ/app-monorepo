@@ -2,9 +2,7 @@ import React, { useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import Toast from '@onekeyhq/components/src/Toast/Custom';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
+import { PortalElementsContainer } from '../../../routes/PortalElementsContainer';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
@@ -78,7 +76,7 @@ export function RouteOnboarding() {
       >
         <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
       </StackNavigator.Navigator>
-      {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
+      <PortalElementsContainer />
     </>
   );
 }
