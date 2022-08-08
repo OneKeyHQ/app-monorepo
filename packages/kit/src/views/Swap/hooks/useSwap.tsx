@@ -155,7 +155,7 @@ export const useSwapQuoteCallback = function (
   const requestParams = useSwapQuoteRequestParams();
   const { accountId, networkId } = useActiveWalletAccount();
   const params = useDebounce(requestParams, 500);
-  const refs = useRef({ accountId, networkId, params, loading: false });
+  const refs = useRef({ accountId, networkId, params, count: 0 });
 
   useEffect(() => {
     refs.current.accountId = accountId;
@@ -172,20 +172,18 @@ export const useSwapQuoteCallback = function (
       backgroundApiProxy.dispatch(setLoading(true));
     }
     backgroundApiProxy.dispatch(setError(undefined));
-    if (refs.current.loading) {
-      return;
-    }
     try {
       refs.current.accountId = accountId;
       refs.current.networkId = networkId;
       refs.current.params = params;
-      refs.current.loading = true;
+      refs.current.count += 1;
       const data = await SwapQuoter.client.fetchQuote(params);
       if (
         refs.current.accountId === accountId &&
         refs.current.networkId === networkId &&
         refs.current.params === params
       ) {
+        backgroundApiProxy.dispatch(setLoading(false));
         if (data) {
           backgroundApiProxy.dispatch(setQuote(data));
         } else {
@@ -194,9 +192,12 @@ export const useSwapQuoteCallback = function (
       }
     } catch (e) {
       backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
-    } finally {
-      refs.current.loading = false;
       backgroundApiProxy.dispatch(setLoading(false));
+    } finally {
+      refs.current.count -= 1;
+      if (refs.current.count === 0) {
+        backgroundApiProxy.dispatch(setLoading(false));
+      }
     }
   }, [params, showLoading, accountId, networkId]);
   return onSwapQuote;
