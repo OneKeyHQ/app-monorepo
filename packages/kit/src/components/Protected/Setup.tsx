@@ -80,7 +80,10 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword, hideTitle }) => {
       : intl.formatMessage({ id: 'content__touch_id' });
 
   return (
-    <KeyboardDismissView px={{ base: hideTitle ? 0 : 4, md: 0 }}>
+    <KeyboardDismissView
+      h={{ base: 'full', sm: 'auto' }}
+      px={{ base: hideTitle ? 0 : 4, md: 0 }}
+    >
       {!hideTitle ? (
         <Box mb="8">
           <Typography.DisplayLarge textAlign="center" mb={2}>
