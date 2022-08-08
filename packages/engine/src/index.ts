@@ -59,7 +59,6 @@ import {
   parseNetworkId,
 } from './managers/network';
 import {
-  checkTokenUpdate,
   fetchTokenDetail,
   fetchTokenTop2000,
   getNetworkIdFromTokenId,
@@ -117,10 +116,7 @@ import type VaultEvm from './vaults/impl/evm/Vault';
 import type { ITransferInfo } from './vaults/types';
 
 const updateTokenCache: {
-  [networkId: string]: {
-    loading: boolean;
-    timestamp: number;
-  };
+  [networkId: string]: boolean;
 } = {};
 
 @backgroundClass()
@@ -1242,26 +1238,12 @@ class Engine {
 
   @backgroundMethod()
   async updateOnlineTokens(networkId: string): Promise<void> {
-    const cache = updateTokenCache[networkId] || {
-      loading: false,
-      timestamp: 0,
-    };
-    const { timestamp } = cache;
-    cache.loading = true;
-    // update cache fist to make loading check work
-    updateTokenCache[networkId] = cache;
-    if (timestamp) {
-      const hasUpdate = await checkTokenUpdate(timestamp);
-      if (!hasUpdate) {
-        cache.loading = false;
-        updateTokenCache[networkId] = cache;
-        return;
-      }
+    const fetched = updateTokenCache[networkId];
+    if (fetched) {
+      return;
     }
     const { impl, chainId } = parseNetworkId(networkId);
     if (!impl || !chainId) {
-      cache.loading = false;
-      updateTokenCache[networkId] = cache;
       return;
     }
     const tokens = await fetchTokenTop2000({
@@ -1269,11 +1251,9 @@ class Engine {
       chainId: +chainId,
     });
     if (tokens.length) {
-      cache.timestamp = Date.now();
       await simpleDb.token.updateTokens(impl, +chainId, tokens);
     }
-    cache.loading = false;
-    updateTokenCache[networkId] = cache;
+    updateTokenCache[networkId] = true;
   }
 
   @backgroundMethod()
