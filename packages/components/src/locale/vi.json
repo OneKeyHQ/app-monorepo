@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "Hết thời gian kết nối, vui lòng kiểm tra trạng thái OneKey Bridge và kết nối lại phần cứng",
   "msg__hardware_unknown_message_error": "Phần sụn hiện tại không được hỗ trợ, vui lòng thử nâng cấp.",
   "msg__hardware_user_cancel_error": "Người dùng hủy thao tác",
+  "msg__hardware_version_need_upgrade_error": "Phiên bản chương trình cơ sở này không được hỗ trợ, Vui lòng nâng cấp lên {0} hoặc mới hơn。",
   "msg__hardware_version_to_low_error": "Phiên bản phần sụn là quá sớm để hỗ trợ hoạt động này.",
   "msg__high_price_volatility": "🚨 Biến động giá cao!",
   "msg__high_price_volatility_desc": "{0} có {0} {0} trong {0} đến {0} qua",

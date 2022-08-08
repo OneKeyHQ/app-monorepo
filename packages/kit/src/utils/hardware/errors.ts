@@ -6,6 +6,8 @@ import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 
 export enum CustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
+  // TODO: remove this error code
+  NeedFirmwareUpgrade = 4030,
 }
 
 export class InvalidPIN extends OneKeyHardwareError {
@@ -109,6 +111,13 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceFwException;
 
   override key: LocaleIds = 'msg__hardware_version_to_low_error';
+}
+
+// TODO: remove this error code
+export class FirmwareVersionNeedUpgrade extends OneKeyHardwareError {
+  override code = CustomOneKeyHardwareError.NeedFirmwareUpgrade;
+
+  override key: LocaleIds = 'msg__hardware_version_need_upgrade_error';
 }
 
 export class NotInBootLoaderMode extends OneKeyHardwareError {

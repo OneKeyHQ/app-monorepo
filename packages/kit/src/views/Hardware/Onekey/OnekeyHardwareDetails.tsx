@@ -26,6 +26,8 @@ import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/ho
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { deviceUtils } from '../../../utils/hardware';
+
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
   OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal
@@ -238,14 +240,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                       newOnDeviceInputPin,
                     )
                     .catch((e: any) => {
-                      const { key } = e || {};
-
-                      ToastManager.show(
-                        {
-                          title: intl.formatMessage({ id: key }),
-                        },
-                        { type: 'error' },
-                      );
+                      deviceUtils.showErrorToast(e, intl);
                     })
                     .finally(() => {
                       refreshDevicePayload();

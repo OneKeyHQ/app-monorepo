@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "Délai de connexion dépassé, veuillez vérifier l'état de OneKey Bridge et reconnecter le matériel",
   "msg__hardware_unknown_message_error": "Le firmware actuel n'est pas supporté, veuillez essayer de le mettre à jour.",
   "msg__hardware_user_cancel_error": "L'utilisateur annule l'opération",
+  "msg__hardware_version_need_upgrade_error": "Cette version du firmware n'est pas supportée, veuillez mettre à jour vers {0} ou une version plus récente。.",
   "msg__hardware_version_to_low_error": "La version du micrologiciel est trop récente pour supporter cette opération.",
   "msg__high_price_volatility": "🚨 Haute volatilité des prix !",
   "msg__high_price_volatility_desc": "{0} a {0} {0} dans les derniers {0} à {0}",

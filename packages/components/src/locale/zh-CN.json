@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "连接超时，请检查 OneKey Bridge 状态并重新连接硬件",
   "msg__hardware_unknown_message_error": "当前的固件版本不支持",
   "msg__hardware_user_cancel_error": "在设备上取消",
+  "msg__hardware_version_need_upgrade_error": "此固件版本不支持，请升级到{0}或更高版本。",
   "msg__hardware_version_to_low_error": "当前的固件版本不支持，请更新固件",
   "msg__high_price_volatility": "🚨价格波动通知!",
   "msg__high_price_volatility_desc": "{0}在近{0}至{0}{0}{0}",

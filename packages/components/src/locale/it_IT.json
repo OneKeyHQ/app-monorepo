@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "Timeout di connessione, controllare lo stato di OneKey Bridge e ricollegare l'hardware",
   "msg__hardware_unknown_message_error": "Il firmware attuale non è supportato, provare ad aggiornarlo.",
   "msg__hardware_user_cancel_error": "L'utente annulla l'operazione",
+  "msg__hardware_version_need_upgrade_error": "Questa versione del firmware non è supportata, esegui l'upgrade a {0} o successivo。",
   "msg__hardware_version_to_low_error": "La versione del firmware è troppo recente per supportare questa operazione.",
   "msg__high_price_volatility": "🚨 Alta volatilità dei prezzi!",
   "msg__high_price_volatility_desc": "{0} ha {0} {0} negli ultimi da {0} a {0}",
