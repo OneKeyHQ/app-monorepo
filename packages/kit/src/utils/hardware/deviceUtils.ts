@@ -9,10 +9,15 @@ import {
   HardwareErrorCode,
   createDeferred,
 } from '@onekeyfe/hd-shared';
+import { IntlShape } from 'react-intl';
 import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { ToastManager } from '@onekeyhq/components';
+import {
+  OneKeyErrorClassNames,
+  OneKeyHardwareError,
+} from '@onekeyhq/engine/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -169,6 +174,38 @@ class DeviceUtils {
 
   stopCheckBonded() {
     this.checkBonded = false;
+  }
+
+  showErrorToast(error: any, intl: IntlShape): boolean {
+    const { className, key, code, message } = error || {};
+    if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
+      return false;
+    }
+
+    if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+      const { data } = error;
+      const { params } = data;
+
+      let errorMessage = null;
+      try {
+        if (params)
+          errorMessage = intl.formatMessage({ id: key }, { 0: params });
+      } catch {
+        // ignore
+      }
+      if (!errorMessage) errorMessage = intl.formatMessage({ id: key });
+
+      if (errorMessage) {
+        // TODO: add device params, Adding an Upgrade Button。
+        ToastManager.show({ title: errorMessage }, { type: 'error' });
+        return true;
+      }
+    } else if (message) {
+      ToastManager.show({ title: message }, { type: 'default' });
+      return true;
+    }
+
+    return false;
   }
 
   convertDeviceError(payload: any): OneKeyHardwareError {

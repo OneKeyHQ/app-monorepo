@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "Verbindungszeitüberschreitung, bitte überprüfen Sie den OneKey Bridge-Status und schließen Sie die Hardware erneut an",
   "msg__hardware_unknown_message_error": "Die aktuelle Firmware wird nicht unterstützt, bitte versuchen Sie ein Upgrade.",
   "msg__hardware_user_cancel_error": "Auf dem Gerät abgebrochen.",
+  "msg__hardware_version_need_upgrade_error": "Diese Firmware-Version wird nicht unterstützt. Bitte führen Sie ein Upgrade auf {0} oder höher aus。",
   "msg__hardware_version_to_low_error": "Die Firmware-Version ist zu früh, um diesen Vorgang zu unterstützen.",
   "msg__high_price_volatility": "🚨 Hohe Preisvolatilität!",
   "msg__high_price_volatility_desc": "{0} hat {0} {0} in den letzten {0} bis {0}",

@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "연결 시간이 초과되었습니다. OneKey Bridge 상태를 확인하고 하드웨어를 다시 연결하십시오.",
   "msg__hardware_unknown_message_error": "현재 펌웨어는 지원되지 않으므로 업그레이드를 시도하십시오.",
   "msg__hardware_user_cancel_error": "사용자가 작업을 취소합니다.",
+  "msg__hardware_version_need_upgrade_error": "이 펌웨어 버전은 지원되지 않습니다. {0} 이상으로 업그레이드하십시오。",
   "msg__hardware_version_to_low_error": "펌웨어 버전이 너무 빨라서 이 작업을 지원할 수 없습니다.",
   "msg__high_price_volatility": "🚨 높은 가격 변동성!",
   "msg__high_price_volatility_desc": "{0} 에는 {0} {0} 이(가) 마지막 {0} 에서 {0} 까지 있습니다.",

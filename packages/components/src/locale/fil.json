@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "Timeout ng koneksyon, pakitingnan ang status ng OneKey Bridge at muling ikonekta ang hardware",
   "msg__hardware_unknown_message_error": "Hindi suportado ang kasalukuyang firmware, mangyaring subukang mag-upgrade.",
   "msg__hardware_user_cancel_error": "Kinakansela ng gumagamit ang operasyon",
+  "msg__hardware_version_need_upgrade_error": "Ang firmware version na ito ay hindi suportado, Mangyaring mag-upgrade {0} o mas bago。",
   "msg__hardware_version_to_low_error": "Firmware bersyon ay masyadong maaga upang suportahan ang operasyong ito.",
   "msg__high_price_volatility": "🚨 Pagkasumpungin ng Mataas na Presyo!",
   "msg__high_price_volatility_desc": "{0} ay may {0} {0} sa huling {0} hanggang {0}",

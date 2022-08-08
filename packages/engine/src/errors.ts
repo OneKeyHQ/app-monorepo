@@ -13,6 +13,11 @@ export enum OneKeyErrorClassNames {
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
+export type OneKeyHardwareErrorData = {
+  reconnect: boolean;
+  params?: any;
+};
+
 export class OneKeyError<T = Error> extends Web3RpcError<T> {
   className = OneKeyErrorClassNames.OneKeyError;
 
@@ -65,10 +70,10 @@ export class OneKeyInternalError extends OneKeyError {
   override key = 'msg__engine__internal_error';
 }
 
-export class OneKeyHardwareError extends OneKeyError<{ reconnect: boolean }> {
+export class OneKeyHardwareError extends OneKeyError<OneKeyHardwareErrorData> {
   override className = OneKeyErrorClassNames.OneKeyHardwareError;
 
-  override data: { reconnect: boolean } = {
+  override data: OneKeyHardwareErrorData = {
     reconnect: false,
   };
 
@@ -76,9 +81,20 @@ export class OneKeyHardwareError extends OneKeyError<{ reconnect: boolean }> {
 
   override key: LocaleIds = 'msg__hardware_default_error';
 
-  constructor({ message, code }: { message?: string; code?: string } = {}) {
+  constructor({
+    message,
+    code,
+    params,
+  }: {
+    message?: string;
+    code?: string;
+    params?: OneKeyHardwareErrorData['params'];
+  } = {}) {
     super(message, {});
     this.codeHardware = code;
+    if (params) {
+      this.data.params = params;
+    }
   }
 }
 

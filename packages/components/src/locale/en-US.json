@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "Connection timeout, please check OneKey Bridge status and reconnect hardware",
   "msg__hardware_unknown_message_error": "The current firmware version is not supported. Please upgrade the firmware.",
   "msg__hardware_user_cancel_error": "Canceled on device.",
+  "msg__hardware_version_need_upgrade_error": "This firmware version is not supported, Please upgrade to {0} or later。",
   "msg__hardware_version_to_low_error": "The current firmware version is not supported. Please upgrade the firmware.",
   "msg__high_price_volatility": "🚨 High Price Volatility!",
   "msg__high_price_volatility_desc": "{0} has {0} {0}in the last {0} to {0}",

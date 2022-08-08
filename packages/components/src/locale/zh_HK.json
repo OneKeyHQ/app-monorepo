@@ -919,6 +919,7 @@
   "msg__hardware_polling_connect_timeout_error": "連接超時，請檢查一鍵橋狀態並重新連接硬體",
   "msg__hardware_unknown_message_error": "當前固件不支持，請嘗試升級。",
   "msg__hardware_user_cancel_error": "用戶取消了操作",
+  "msg__hardware_version_need_upgrade_error": "此版本不支持，請升級到{0}或更高版本。",
   "msg__hardware_version_to_low_error": "當前硬體設備固件版本過低，請先升級。",
   "msg__high_price_volatility": "🚨 高價格波動！",
   "msg__high_price_volatility_desc": "{0} {0}在最後{0}到 {0} 中有{0} %s] {0}",
