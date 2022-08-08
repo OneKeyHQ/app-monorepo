@@ -1,15 +1,13 @@
-import { FC, memo, useMemo } from 'react';
+import { FC, memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Icon,
   Skeleton,
   Typography,
   useIsVerticalLayout,
-  useUserDevice,
 } from '@onekeyhq/components';
 
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
