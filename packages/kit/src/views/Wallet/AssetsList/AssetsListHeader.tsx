@@ -12,7 +12,6 @@ import {
   Text,
   Typography,
   useIsVerticalLayout,
-  useTheme,
 } from '@onekeyhq/components';
 import {
   HomeRoutes,
