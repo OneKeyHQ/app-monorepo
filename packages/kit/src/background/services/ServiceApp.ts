@@ -2,6 +2,7 @@ import RNRestart from 'react-native-restart';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
@@ -108,10 +109,13 @@ class ServiceApp extends ServiceBase {
     }
   }
 
+  resetAppAtTime = 0;
+
   @backgroundMethod()
   async resetApp() {
     const { engine, dispatch, persistor, serviceNetwork, serviceAccount } =
       this.backgroundApi;
+    this.resetAppAtTime = Date.now();
     // Stop auto-save first
     persistor.pause();
     await persistor.purge();
@@ -128,6 +132,14 @@ class ServiceApp extends ServiceBase {
     await delay(1500);
     // restartApp() MUST be called from background in Ext
     this.restartApp();
+
+    await delay(1500);
+    this.resetAppAtTime = 0;
+  }
+
+  @backgroundMethod()
+  async isResettingApp(): Promise<boolean> {
+    return Promise.resolve(Date.now() - this.resetAppAtTime < 5000);
   }
 
   @backgroundMethod()
@@ -141,15 +153,20 @@ class ServiceApp extends ServiceBase {
     }
     chrome.runtime.onInstalled.addListener((details) => {
       if (details.reason === 'install') {
-        console.log('This is a first install!');
-        extUtils.openExpandTab({
-          routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
-          params: {},
-        });
+        debugLogger.common.info('Extension event: first installed');
+        // setTimeout to avoid RESET trigger install
+        setTimeout(() => {
+          extUtils.openExpandTab({
+            routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
+            params: {},
+          });
+        }, 1000);
       } else if (details.reason === 'update') {
         const thisVersion = chrome.runtime.getManifest()?.version;
-        console.log(
-          `Updated from ${details?.previousVersion || ''} to ${thisVersion}!`,
+        debugLogger.common.info(
+          `Extension event: Updated from ${
+            details?.previousVersion || ''
+          } to ${thisVersion}!`,
         );
       }
     });

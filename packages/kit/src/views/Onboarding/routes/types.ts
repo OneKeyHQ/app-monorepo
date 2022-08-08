@@ -10,7 +10,7 @@ export type IOnboardingRecoveryPhraseParams = {
 };
 export type IOnboardingBehindTheSceneParams =
   IOnboardingRecoveryPhraseParams & {
-    hardwareCreating?: {
+    isHardwareCreating?: {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures;
     };

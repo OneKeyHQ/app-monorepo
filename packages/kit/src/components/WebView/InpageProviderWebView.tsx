@@ -3,6 +3,7 @@ import React, {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -19,8 +20,15 @@ import {
 } from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
 import { useIntl } from 'react-intl';
+import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
-import { Button, Center, Image, Typography } from '@onekeyhq/components';
+import {
+  Button,
+  Center,
+  Image,
+  Spinner,
+  Typography,
+} from '@onekeyhq/components';
 import IconNoConnect from '@onekeyhq/kit/assets/ic_3d_no_connect.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -33,6 +41,10 @@ const isApp = isNative;
 export type InpageProviderWebViewProps = InpageWebViewProps & {
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
+  nativeWebviewSource?: WebViewSource;
+  nativeInjectedJavaScriptBeforeContentLoaded?: string;
+  isSpinnerLoading?: boolean;
+  onContentLoaded?: () => void; // currently works in NativeWebView only
 };
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
@@ -43,6 +55,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       receiveHandler,
       onNavigationStateChange,
       allowpopups,
+      nativeWebviewSource,
+      nativeInjectedJavaScriptBeforeContentLoaded,
+      isSpinnerLoading,
+      onContentLoaded,
     }: InpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -135,9 +151,48 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       </Center>
     );
 
-    return (
-      <Box flex={1}>
-        {isApp && progress < 100 && (
+    const nativeWebviewProps = useMemo(() => {
+      const props = {} as any;
+      if (nativeWebviewSource) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        props.source = nativeWebviewSource;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return props;
+    }, [nativeWebviewSource]);
+    const nativeInjectedJsCode = useMemo(() => {
+      let code: string = injectedNativeCode || '';
+      if (nativeInjectedJavaScriptBeforeContentLoaded) {
+        code += `
+        ;(function() {
+            ;
+            ${nativeInjectedJavaScriptBeforeContentLoaded}
+            ;
+        })();
+        `;
+      }
+      return code;
+    }, [nativeInjectedJavaScriptBeforeContentLoaded]);
+
+    const progressLoading = useMemo(() => {
+      if (isApp && progress < 100) {
+        if (isSpinnerLoading) {
+          // should be absolute position, otherwise android will crashed!
+          return (
+            <Center
+              position="absolute"
+              left={0}
+              top={0}
+              right={0}
+              w="full"
+              h="full"
+              flex={1}
+            >
+              <Spinner size="lg" />
+            </Center>
+          );
+        }
+        return (
           <Progress
             value={progress}
             position="absolute"
@@ -152,7 +207,14 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               bg: 'interactive-default',
             }}
           />
-        )}
+        );
+      }
+      return null;
+    }, [isSpinnerLoading, progress]);
+
+    return (
+      <Box flex={1}>
+        {progressLoading}
         <Box flex={1}>
           {isDesktop &&
             (desktopLoadError ? (
@@ -177,14 +239,25 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               onSrcChange={onSrcChange}
               receiveHandler={receiveHandler}
               renderError={(error) => <ErrorView error={error} />}
-              injectedJavaScriptBeforeContentLoaded={injectedNativeCode}
+              injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
               onLoadProgress={({ nativeEvent }) => {
+                const p = Math.ceil(nativeEvent.progress * 100);
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                setProgress(Math.ceil(nativeEvent.progress * 100));
+                setProgress(p);
+                if (p >= 100) {
+                  onContentLoaded?.();
+                }
               }}
               onNavigationStateChange={onNavigationStateChange}
               textInteractionEnabled={undefined}
               minimumFontSize={undefined}
+              // allowFileAccessFromFileURLs
+              // allowFileAccess
+              // allowUniversalAccessFromFileURLs
+
+              // *** Note that static HTML will require setting originWhitelist to ["*"].
+              originWhitelist={['*']}
+              {...nativeWebviewProps}
             />
           )}
           {isRenderAsIframe && (

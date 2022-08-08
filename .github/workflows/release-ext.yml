@@ -84,7 +84,8 @@ jobs:
       - name: Install Dep
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'yarn && yarn global add expo-cli'
+        run: |
+          yarn global add expo-cli && yarn
 
       - name: Inject Environment Variables
         env:

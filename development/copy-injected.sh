@@ -18,3 +18,12 @@ cp ./packages/shared/src/web/index.html.ejs ./packages/shared/src/web/index.html
 # copy hardware js-sdk lib files to desktop
 mkdir -p ./packages/desktop/public/static/js-sdk/
 rsync ./node_modules/@onekeyfe/js-sdk/dist/js-sdk-desktop/ ./packages/desktop/public/static/js-sdk/ --checksum  --recursive --verbose
+
+# build and copy web-embed
+if [ "$EAS_BUILD" == "true" ];
+  then
+    yarn workspace @onekeyhq/web-embed build
+  elif [ ! -d "packages/web-embed/web-build" ]; then
+    yarn workspace @onekeyhq/web-embed build
+fi
+

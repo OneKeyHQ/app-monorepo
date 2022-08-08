@@ -38,6 +38,7 @@ webpack.config.preview.devServer.json
 *.mobileprovision
 *.orig.*
 web-build/
+# !/packages/web-embed/web-build/
 /inpage-provider-bak
 /packages/shared/src/web/index.html
 

@@ -31,10 +31,22 @@ import {
   throwMethodNotFound,
 } from './utils';
 
+const PRIVATE_WHITE_LIST_ORIGIN = [
+  'https://onekey.so',
+  'http://localhost:8081', // iOS DEV localhost for web-embed
+  'null', // Android DEV localhost for web-embed. url like file://
+  ...(platformEnv.isDev
+    ? [
+        // origin allowed in DEV
+        'http://192.168.31.215:3008',
+      ]
+    : []),
+].filter(Boolean);
 function isPrivateAllowedOrigin(origin?: string) {
   return (
     origin &&
-    (origin?.endsWith('.onekey.so') || ['https://onekey.so'].includes(origin))
+    (origin?.endsWith('.onekey.so') ||
+      PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }
 
@@ -172,11 +184,13 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       !isPrivateAllowedOrigin(origin) &&
       !isPrivateAllowedMethod(payloadData?.method)
     ) {
-      throw new Error(
-        `${origin as string} is not allowed to call $private methods: ${
+      const error = new Error(
+        `[${origin as string}] is not allowed to call $private methods: ${
           payloadData?.method
         }`,
       );
+      debugLogger.common.error(error);
+      throw error;
     }
     // throw web3Errors.provider.custom({
     //   code: 3881,

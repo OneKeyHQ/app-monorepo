@@ -9,7 +9,7 @@ export type IOnboardingContext = {
   context: IOnboardingContextData;
   setContext: React.Dispatch<React.SetStateAction<IOnboardingContextData>>;
   visible: boolean;
-  forceVisibleUnfocused: () => void;
+  forceVisibleUnfocused: () => void; // keep screen visible when router unfocused
 };
 
 const OnboardingContext = createContext<IOnboardingContext | null>(null);
@@ -45,4 +45,5 @@ function useOnboardingContext() {
   return useContext(OnboardingContext);
 }
 
+// TODO rename OnboardingLayoutContext
 export { OnboardingContextProvider, useOnboardingContext };

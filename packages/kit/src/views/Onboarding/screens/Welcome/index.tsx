@@ -40,13 +40,18 @@ const Welcome = () => {
   const navigation = useNavigation<NavigationProps>();
 
   useEffect(() => {
-    if (platformEnv.isExtensionUiPopup) {
-      backgroundApiProxy.serviceApp.openExtensionExpandTab({
-        routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
-        params: {},
-      });
-      window.close();
-    }
+    (async function () {
+      if (platformEnv.isExtensionUiPopup) {
+        if (await backgroundApiProxy.serviceApp.isResettingApp()) {
+          return;
+        }
+        backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
+          params: {},
+        });
+        window.close();
+      }
+    })();
   }, []);
 
   const intl = useIntl();

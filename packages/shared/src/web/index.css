@@ -83,6 +83,10 @@ input {
   min-width: 0;
 }
 
+[role="button"] {
+  outline: none;
+}
+
 textarea {
   outline: none;
   min-width: 0;

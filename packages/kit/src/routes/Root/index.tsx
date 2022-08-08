@@ -95,8 +95,9 @@ const App = () => {
         name={RootRoutes.Onboarding}
         component={RouteOnboarding}
         options={{
+          // node_modules/@react-navigation/native-stack/src/types.tsx
           // @ts-expect-error
-          presentation: 'fullScreenModal',
+          presentation: 'fullScreenModal', // containedModal card fullScreenModal
           animation: 'fade',
         }}
       />

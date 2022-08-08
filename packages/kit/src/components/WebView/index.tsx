@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
-import React, { ComponentProps, useEffect, useState } from 'react';
+import React, { ComponentProps, useCallback, useEffect, useState } from 'react';
 
+import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import {
   IWebViewWrapperRef,
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
 import { useIsFocused } from '@react-navigation/native';
+import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
 import { Box, Button, Center } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -25,6 +27,11 @@ function WebView({
   onNavigationStateChange,
   allowpopups = false,
   containerProps,
+  customReceiveHandler,
+  nativeWebviewSource,
+  nativeInjectedJavaScriptBeforeContentLoaded,
+  isSpinnerLoading,
+  onContentLoaded,
 }: {
   src: string;
   onSrcChange?: (src: string) => void;
@@ -33,6 +40,11 @@ function WebView({
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
   containerProps?: ComponentProps<typeof Box>;
+  customReceiveHandler?: IJsBridgeReceiveHandler;
+  nativeWebviewSource?: WebViewSource | undefined;
+  nativeInjectedJavaScriptBeforeContentLoaded?: string;
+  isSpinnerLoading?: boolean;
+  onContentLoaded?: () => void; // currently works in NativeWebView only
 }): JSX.Element {
   // TODO some dapps will call method when Dapp Modal opened, and isFocused will be false
   //    https://app.1inch.io/#/1/swap/ETH/DAI
@@ -81,6 +93,14 @@ function WebView({
     };
   }, [jsBridge, isFocused, src]);
 
+  const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
+    async (payload, hostBridge) => {
+      await backgroundApiProxy.bridgeReceiveHandler(payload);
+      await customReceiveHandler?.(payload, hostBridge);
+    },
+    [customReceiveHandler],
+  );
+
   if (
     platformEnv.isExtension &&
     !platformEnv.isExtensionUiExpandTab &&
@@ -96,16 +116,23 @@ function WebView({
   return (
     <Box flex={1} bg="background-default" {...containerProps}>
       <Box flex={1}>
-        {webviewVisible && src && (
+        {webviewVisible && (src || nativeWebviewSource) && (
           <InpageProviderWebView
             // key refresh not working for uniswap
             // key={webviewGlobalKey}
             ref={setWebViewRef}
             src={src}
+            isSpinnerLoading={isSpinnerLoading}
             onSrcChange={onSrcChange}
-            receiveHandler={backgroundApiProxy.bridgeReceiveHandler}
+            receiveHandler={receiveHandler}
             onNavigationStateChange={onNavigationStateChange}
             allowpopups={allowpopups}
+            nativeWebviewSource={nativeWebviewSource}
+            nativeInjectedJavaScriptBeforeContentLoaded={
+              nativeInjectedJavaScriptBeforeContentLoaded
+            }
+            // currently works in NativeWebView only
+            onContentLoaded={onContentLoaded}
           />
         )}
       </Box>

@@ -86,3 +86,5 @@ android/keystores/*
 ios/certs/*
 
 src/public/connect
+android/app/src/main/assets/web-embed
+ios/OneKeyWallet/web-embed

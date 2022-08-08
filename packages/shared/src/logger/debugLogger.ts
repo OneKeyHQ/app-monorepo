@@ -62,7 +62,10 @@ const NATIVE_TRANSPORT_CONFIG = {
     fileName: 'log.txt',
     filePath: FileSystem.cacheDirectory,
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
-      logToConsole(props);
+      if (platformEnv.isDev) {
+        backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
+        logToConsole(props);
+      }
     },
   },
 };

@@ -127,7 +127,7 @@ const DeviceStatusCheckModal: FC = () => {
         params: {
           password: '',
           mnemonic: '',
-          hardwareCreating: {
+          isHardwareCreating: {
             device,
             features,
           },

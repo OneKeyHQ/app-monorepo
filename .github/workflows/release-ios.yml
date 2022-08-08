@@ -86,7 +86,6 @@ jobs:
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
 
-
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
         run: |

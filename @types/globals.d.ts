@@ -3,17 +3,21 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { IBackgroundApi } from '@onekeyhq/kit/src/background/IBackgroundApi';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
 import type { EnhancedStore } from '@reduxjs/toolkit';
 import type WebView from 'react-native-webview';
 
 declare const self: ServiceWorkerGlobalScope;
 
+type IWindowOneKeyHub = {
+  $private: ProviderPrivate;
+};
 declare global {
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
 
   var $simpleDb: any;
-  var $onekey: any;
+  var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;
   var $backgroundApi: any;
   var $$appStore: EnhancedStore;
@@ -30,7 +34,7 @@ declare global {
     // All website
     ethereum: any;
     web3: any;
-    $onekey: any;
+    $onekey: IWindowOneKeyHub;
 
     // Native App webview content
     ReactNativeWebView: WebView;

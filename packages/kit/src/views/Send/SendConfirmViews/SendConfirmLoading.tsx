@@ -7,8 +7,8 @@ import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
 function SendConfirmLoading(props: ITxConfirmViewProps) {
   return (
     <SendConfirmModal {...props} confirmDisabled>
-      <Center flex="1">
-        <Spinner />
+      <Center minH="320px" w="full" h="full" flex={1}>
+        <Spinner size="lg" />
       </Center>
     </SendConfirmModal>
   );

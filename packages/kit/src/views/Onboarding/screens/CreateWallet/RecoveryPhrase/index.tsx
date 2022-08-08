@@ -47,10 +47,10 @@ const RecoveryPhrase = () => {
   const { mnemonic } = route.params;
 
   const onPressShowPhraseButton = useCallback(() => {
-    navigation.navigate(EOnboardingRoutes.ShowRecoveryPhrase, route.params);
+    navigation.replace(EOnboardingRoutes.ShowRecoveryPhrase, route.params);
   }, [navigation, route.params]);
   const onPressSavedPhrase = useCallback(() => {
-    navigation.navigate(EOnboardingRoutes.BehindTheScene, route.params);
+    navigation.replace(EOnboardingRoutes.BehindTheScene, route.params);
   }, [navigation, route.params]);
 
   const lists = useMemo(

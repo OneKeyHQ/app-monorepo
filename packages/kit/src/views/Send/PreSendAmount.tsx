@@ -32,6 +32,7 @@ import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { INetwork } from '../../store/reducers/runtime';
+import { wait } from '../../utils/helper';
 import { AutoSizeText } from '../FiatPay/AmountInput/AutoSizeText';
 
 import { BaseSendModal } from './components/BaseSendModal';
@@ -400,6 +401,8 @@ function PreSendAmount() {
 
         try {
           setIsLoading(true);
+          await wait(100);
+
           const encodedTx = await engine.buildEncodedTxFromTransfer({
             networkId,
             accountId,
