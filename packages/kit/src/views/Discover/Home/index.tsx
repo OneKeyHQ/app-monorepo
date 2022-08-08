@@ -13,6 +13,7 @@ import { ListRenderItem, useWindowDimensions } from 'react-native';
 
 import {
   Box,
+  Center,
   Empty,
   FlatList,
   NetImage,
@@ -31,7 +32,6 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useDiscover } from '../../../hooks/redux';
 import DAppIcon from '../DAppIcon';
 import { MatchDAppItemType } from '../Explorer/Search/useSearchHistories';
 import { imageUrl, requestRankings, requestSync } from '../Service';
@@ -129,8 +129,6 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   );
 };
 
-type PageStatusType = 'network' | 'loading' | 'data';
-
 export const Discover: FC<DiscoverProps> = ({
   onItemSelect: propOnItemSelect,
   ...rest
@@ -143,17 +141,10 @@ export const Discover: FC<DiscoverProps> = ({
   } else {
     onItemSelect = propOnItemSelect;
   }
-
   const { locale } = useLocale();
-  const [flatListData, updateFlatListData] = useState<SectionDataType[]>([]);
   const navigation = useNavigation();
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const { syncData, rankData } = useDiscover();
-  const [pageStatus, setPageStatus] = useState<PageStatusType>(
-    rankData && rankData.tags.length > 0 ? 'data' : 'loading',
-  );
-
   useLayoutEffect(() => {
     if (platformEnv.isNative) {
       navigation.setOptions({
@@ -202,125 +193,90 @@ export const Discover: FC<DiscoverProps> = ({
 
   const generaListData = useCallback(
     (
-      syncResponceData: SyncRequestPayload,
-      rankResponceData: RankingsPayload,
+      syncResponceData?: SyncRequestPayload,
+      rankResponceData?: RankingsPayload,
     ) => {
-      const listData: SectionDataType[] = [];
-      const { increment, banners } = syncResponceData;
-      const { tags, special } = rankResponceData;
-      if (increment) {
-        if (banners) {
-          const dAppItems = banners.map((item) => {
-            const dApp = increment[item.dapp];
-            return { pic: item.pic, ...dApp, id: item.dapp };
-          });
-          listData.push({ type: 'banner', title: 'Explore', data: dAppItems });
-        }
-        const newTags = [
-          {
-            name: intl.formatMessage({ id: 'title__leaderboard' }),
-            dapps: special.daily,
-          },
-          {
-            name: intl.formatMessage({ id: 'title__newly_added' }),
-            dapps: special.new,
-          },
-          ...tags,
-        ];
-
-        newTags.forEach((item) => {
-          const { dapps } = item;
-          const dAppItems = dapps.map((key) => ({
-            ...increment[key],
-            id: key,
-          }));
-          if (dAppItems.length > 0) {
+      if (syncResponceData && rankResponceData) {
+        const listData: SectionDataType[] = [];
+        const { increment, banners } = syncResponceData;
+        const { tags, special } = rankResponceData;
+        if (increment) {
+          if (banners) {
+            const dAppItems = banners.map((item) => {
+              const dApp = increment[item.dapp];
+              return { pic: item.pic, ...dApp, id: item.dapp };
+            });
             listData.push({
-              type: listData.length % 2 === 1 ? 'card' : 'list',
-              title: item.name,
+              type: 'banner',
+              title: 'Explore',
               data: dAppItems,
             });
           }
-        });
+          const newTags = [
+            {
+              name: intl.formatMessage({ id: 'title__leaderboard' }),
+              dapps: special.daily,
+            },
+            {
+              name: intl.formatMessage({ id: 'title__newly_added' }),
+              dapps: special.new,
+            },
+            ...tags,
+          ];
+
+          newTags.forEach((item) => {
+            const { dapps } = item;
+            const dAppItems = dapps.map((key) => ({
+              ...increment[key],
+              id: key,
+            }));
+            if (dAppItems.length > 0) {
+              listData.push({
+                type: listData.length % 2 === 1 ? 'card' : 'list',
+                title: item.name,
+                data: dAppItems,
+              });
+            }
+          });
+        }
+        return listData;
       }
-      return listData;
+      return [];
     },
     [intl],
   );
 
-  const getData = useCallback(() => {
-    if (rankData && rankData.tags.length > 0) {
-      setPageStatus('data');
-      updateFlatListData(() => [...generaListData(syncData, rankData)]);
+  const [flatListData, updateFlatListData] = useState<SectionDataType[]>([]);
+
+  const [loading, setLoading] = useState<boolean>();
+  const getData = useCallback(async () => {
+    setLoading(true);
+    const [syncDataResult, rankDataResult] = await Promise.all([
+      requestSync(0, locale),
+      requestRankings(),
+    ]);
+    setLoading(false);
+
+    if (syncDataResult && rankDataResult) {
+      dispatch(updateSyncData(syncDataResult));
+      dispatch(updateRankData(rankDataResult));
+      updateFlatListData(() => generaListData(syncDataResult, rankDataResult));
     } else {
-      setPageStatus('loading');
+      updateFlatListData(() => []);
     }
-    if (platformEnv.isNative) {
-      requestRankings()
-        .then((response2) => {
-          setPageStatus('data');
-          dispatch(updateRankData(response2.data));
-          updateFlatListData(() => [
-            ...generaListData(syncData, response2.data),
-          ]);
-        })
-        .catch(() => {
-          setPageStatus(rankData ? 'data' : 'network');
-        });
-    } else {
-      requestSync(0, locale)
-        .then((response) => {
-          if (response.data.timestamp > syncData.timestamp) {
-            dispatch(updateSyncData(response.data));
-          }
-          requestRankings()
-            .then((response2) => {
-              setPageStatus('data');
-              dispatch(updateRankData(response2.data));
-              updateFlatListData(() => [
-                ...generaListData(response.data, response2.data),
-              ]);
-            })
-            .catch(() => {
-              setPageStatus(rankData ? 'data' : 'network');
-            });
-        })
-        .catch(() => {
-          setPageStatus(rankData ? 'data' : 'network');
-        });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, generaListData, locale]);
 
-  const noData = () => {
-    switch (pageStatus) {
-      case 'network':
-        return (
-          <Empty
-            imageUrl={IconWifi}
-            title={intl.formatMessage({ id: 'title__no_connection' })}
-            subTitle={intl.formatMessage({
-              id: 'title__no_connection_desc',
-            })}
-            actionTitle={intl.formatMessage({
-              id: 'action__retry',
-            })}
-            handleAction={() => getData()}
-          />
-        );
-      case 'loading':
-        return <Spinner size="sm" />;
-      default:
-        return null;
-    }
-  };
   useEffect(() => {
     getData();
   }, [getData]);
 
   return (
     <Box flex="1" bg="background-default">
-      {pageStatus === 'data' ? (
+      {loading ? (
+        <Center flex={1}>
+          <Spinner size="sm" />
+        </Center>
+      ) : (
         <FlatList
           contentContainerStyle={{
             paddingBottom: 24,
@@ -329,11 +285,20 @@ export const Discover: FC<DiscoverProps> = ({
           data={flatListData}
           renderItem={renderItem}
           keyExtractor={(item, index) => `${item.type ?? ''}${index}`}
+          ListEmptyComponent={
+            <Empty
+              imageUrl={IconWifi}
+              title={intl.formatMessage({ id: 'title__no_connection' })}
+              subTitle={intl.formatMessage({
+                id: 'title__no_connection_desc',
+              })}
+              actionTitle={intl.formatMessage({
+                id: 'action__retry',
+              })}
+              handleAction={() => getData()}
+            />
+          }
         />
-      ) : (
-        <Box flex={1} flexDirection="column" justifyContent="center">
-          {noData()}
-        </Box>
       )}
     </Box>
   );
