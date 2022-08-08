@@ -26,7 +26,8 @@ function useFormOnChangeDebounced<T>({
     const debounceValidate = debounce(
       (formValues, { name, type }) => {
         loadingRef.current = false;
-        if (type === 'change') {
+        // type=undefined by setValue()
+        if (type === 'change' || type === undefined) {
           setValues(formValues);
           if (onChange) {
             onChange(formValues, { name, type });
