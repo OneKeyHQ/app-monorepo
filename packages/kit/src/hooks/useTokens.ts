@@ -10,6 +10,14 @@ export function useAccountTokens(networkId: string, accountId: string) {
   );
 }
 
+export function useAccountTokenLoading(networkId: string, accountId: string) {
+  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+  return useMemo(
+    () => typeof accountTokens[networkId]?.[accountId] === 'undefined',
+    [networkId, accountId, accountTokens],
+  );
+}
+
 export function useAccountTokensBalance(networkId: string, accountId: string) {
   const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
   return useMemo(
