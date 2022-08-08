@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import {
   Box,
   Pressable,
+  Skeleton,
   Text,
   Token,
   TokenVerifiedIcon,
@@ -21,7 +22,6 @@ import {
 import { useManageTokens } from '../../../hooks';
 import { calculateGains } from '../../../utils/priceUtils';
 
-const LOADING_TEXT = '---';
 interface TokenCellProps {
   borderTopRadius?: string | number;
   borderRadius?: string | number;
@@ -111,9 +111,7 @@ const TokenCell: FC<TokenCellProps> = ({
             )}
           />
         ) : (
-          <Typography.Body2 color="text-subdued">
-            {LOADING_TEXT}
-          </Typography.Body2>
+          <Typography.Body2 color="text-subdued">{balance}</Typography.Body2>
         )}
       </Box>
       {!isVerticalLayout && !hidePriceInfo && (
@@ -123,7 +121,7 @@ const TokenCell: FC<TokenCellProps> = ({
               <FormatCurrencyNumber value={price} />
             </Typography.Body2Strong>
           ) : (
-            <Typography.Body2Strong>{LOADING_TEXT}</Typography.Body2Strong>
+            <Skeleton shape="Body2" />
           )}
         </Box>
       )}
@@ -148,9 +146,7 @@ const TokenCell: FC<TokenCellProps> = ({
             </Box>
           </>
         ) : (
-          <Typography.CaptionStrong color={gainTextColor}>
-            {LOADING_TEXT}
-          </Typography.CaptionStrong>
+          <Skeleton shape="Body2" />
         )}
       </Box>
     </Pressable.Item>
