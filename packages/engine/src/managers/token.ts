@@ -28,12 +28,24 @@ export type TokenDetailQuery = {
 
 let cachedTokenSourceList: TokenSource[] = [];
 
+const taskPool: Map<string, Promise<any>> = new Map();
+
 function getNetworkIdFromTokenId(tokenId: string): string {
   const [impl, chainId, tokenIdOnNetwork] = tokenId.split(SEPERATOR);
   if (impl && chainId && tokenIdOnNetwork) {
     return `${impl}${SEPERATOR}${chainId}`;
   }
   throw new OneKeyInternalError(`Invalid tokenId ${tokenId}.`);
+}
+
+async function doFetch<T>(url: string, fallback: T) {
+  try {
+    const { data } = await axios.get<T>(url);
+    return data;
+  } catch (error) {
+    debugLogger.common.error(`fetch ${url} error`);
+    return fallback;
+  }
 }
 
 async function fetchData<T>(
@@ -43,15 +55,15 @@ async function fetchData<T>(
 ): Promise<T> {
   const endpoint = getFiatEndpoint();
   const apiUrl = `${endpoint}${path}?${qs.stringify(query)}`;
-  try {
-    const { data } = await axios.get<T>(apiUrl);
-    return data;
-  } catch (error) {
-    debugLogger.common.error(`fetch ${apiUrl} error`, {
-      query,
+  let task: Promise<T> | undefined = taskPool.get(apiUrl);
+  if (task) {
+    return task.finally(() => {
+      taskPool.delete(apiUrl);
     });
-    return fallback;
   }
+  task = doFetch(apiUrl, fallback);
+  taskPool.set(apiUrl, task);
+  return task;
 }
 
 export const checkTokenUpdate = async (timestamp: number): Promise<boolean> =>
