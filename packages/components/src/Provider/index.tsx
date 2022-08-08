@@ -23,24 +23,30 @@ export type UIProviderProps = {
   locale: LocaleSymbol;
 
   hapticsEnabled: boolean;
-};
 
-const FontProvider: FC = ({ children }) => {
+  waitFontLoaded?: boolean;
+};
+export type IFontProviderProps = {
+  children?: React.ReactNode;
+  waitFontLoaded?: boolean;
+};
+function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   const [loaded] = useLoadCustomFonts();
   if (loaded) return <>{children}</>;
-  if (platformEnv.isNative || platformEnv.isWeb) {
+  if (waitFontLoaded && (platformEnv.isNative || platformEnv.isWeb)) {
     return null;
   }
   // Web can render if font not loaded
   // but Native will throw error: Unrecognized font family "PlusJakartaSans-Bold"
   return <>{children}</>;
-};
+}
 
 const Provider: FC<UIProviderProps> = ({
   children,
   themeVariant,
   locale,
   hapticsEnabled,
+  waitFontLoaded,
 }) => {
   const { width, height } = useWindowDimensions();
 
@@ -140,7 +146,7 @@ const Provider: FC<UIProviderProps> = ({
     [themeVariant],
   );
   return (
-    <FontProvider>
+    <FontProvider waitFontLoaded={waitFontLoaded}>
       <Context.Provider value={providerValue}>
         <StatusBar
           barStyle={themeVariant === 'dark' ? 'light-content' : 'dark-content'}

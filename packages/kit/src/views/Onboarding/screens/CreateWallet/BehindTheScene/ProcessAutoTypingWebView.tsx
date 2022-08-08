@@ -60,7 +60,9 @@ function ProcessAutoTypingWebView(props: IProcessAutoTypingWebViewProps) {
     }),
   );
 
-  const routePath = `/onboarding/auto_typing?pausedProcessIndex=${pausedProcessIndex}`;
+  const routePath = `/onboarding/auto_typing?pausedProcessIndex=${
+    pausedProcessIndex ?? 1
+  }`;
   return (
     <WebViewWebEmbed
       isSpinnerLoading
