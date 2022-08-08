@@ -1,20 +1,20 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
   Center,
   Dialog,
-  Divider,
   Icon,
   IconButton,
+  PresenceTransition,
   Pressable,
   Spinner,
   Text,
   useIsVerticalLayout,
-  useTheme,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -29,6 +29,7 @@ import {
 } from '../../../../routes/types';
 
 import BackupIcon from './BackupIcon';
+import Wrapper from './Wrapper';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -79,22 +80,23 @@ const EnabledContent = ({
   return inProgress ? (
     <InProgressContent />
   ) : (
-    <Box flexDirection="row" alignItems="center" py="4">
+    <Box flexDirection="row" alignItems="center">
       <BackupIcon enabled />
-      <Box pl="1" flex="1">
+      <Box px="16px" flex="1" justifyContent="center">
         <Text typography="Body1Strong">
           {intl.formatMessage({ id: 'content__backup_enabled' })}
         </Text>
-        <Text typography="Body2" color="text-subdued">
-          {lastBackup > 0
-            ? formatDate.format(new Date(lastBackup), 'MMM d, yyyy, HH:mm:ss')
-            : ''}
-        </Text>
+        {lastBackup > 0 ? (
+          <Text mt={1} typography="Body2" color="text-subdued">
+            {formatDate.format(new Date(lastBackup), 'MMM d, yyyy, HH:mm:ss')}
+          </Text>
+        ) : undefined}
       </Box>
       <IconButton
         type="plain"
         size="lg"
         name="DotsVerticalOutline"
+        circle
         onPress={() => {
           setShowDisableBackupDialog(true);
         }}
@@ -114,7 +116,11 @@ const EnabledContent = ({
           },
         }}
         contentProps={{
-          icon: <BackupIcon enabled />,
+          icon: (
+            <Center rounded="full" size="12" bgColor="surface-success-default">
+              <Icon name="CloudOutline" size={24} color="icon-success" />
+            </Center>
+          ),
           title: intl.formatMessage({
             id: 'dialog__your_wallets_are_backed_up',
           }),
@@ -136,7 +142,7 @@ const DisabledContent = () => {
 
   return (
     <Box flexDirection={isSmallScreen ? 'column' : 'row'}>
-      <Box flexDirection="row" alignItems="center" py="4">
+      <Box flexDirection="row" alignItems="center" flex={1}>
         <BackupIcon enabled={false} />
         <Box pl="2" flex="1">
           <Text typography="Body1Strong">
@@ -151,6 +157,10 @@ const DisabledContent = () => {
         onPress={() => {
           serviceCloudBackup.enableService();
         }}
+        mt={{ base: 6, sm: 0 }}
+        size={isSmallScreen ? 'xl' : 'base'}
+        alignSelf="center"
+        w={{ base: 'full', sm: 'auto' }}
       >
         {intl.formatMessage({ id: 'action__backup_to_icloud' })}
       </Button>
@@ -160,19 +170,18 @@ const DisabledContent = () => {
 
 const PreviousBackupsContent = () => {
   const intl = useIntl();
-  const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps>();
 
   return (
     <>
-      <Text typography="Body2" color="text-subdued" py="2">
+      <Text typography="Body2" color="text-subdued" pb={2} mt={6}>
         {intl.formatMessage({ id: 'content__previous_backups_desc' })}
       </Text>
       <Box
         mt="1"
         borderRadius="12"
         background="surface-default"
-        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderWidth={1}
         borderColor="border-subdued"
       >
         <Pressable
@@ -180,14 +189,14 @@ const PreviousBackupsContent = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          px={2}
+          px={4}
           py={4}
           onPress={() => {
             navigation.navigate(HomeRoutes.CloudBackupPreviousBackups);
           }}
         >
-          <Icon name="ClockOutline" size={20} />
-          <Text typography="Body1Strong" flex="1" numberOfLines={1} px="2">
+          <Icon name="ClockOutline" size={24} />
+          <Text typography="Body1Strong" flex="1" numberOfLines={1} px="3">
             {intl.formatMessage({ id: 'content__previous_backups' })}
           </Text>
           <Icon name="ChevronRightSolid" size={20} />
@@ -226,8 +235,10 @@ const CloudBackup = () => {
   }, [serviceCloudBackup]);
 
   return (
-    <Box w="full" h="full" bg="background-default" p="4" maxW={768} mx="auto">
-      <Text typography="Heading">iCloud</Text>
+    <Wrapper>
+      <Text typography="Heading" mb={4}>
+        iCloud
+      </Text>
       {isAvailable ? (
         <Box>
           {backupEnabled ? (
@@ -235,7 +246,19 @@ const CloudBackup = () => {
           ) : (
             <DisabledContent />
           )}
-          {hasPreviousBackups ? <PreviousBackupsContent /> : undefined}
+          {hasPreviousBackups ? (
+            <PresenceTransition
+              visible={hasPreviousBackups}
+              initial={{ opacity: 0, translateY: -8 }}
+              animate={{
+                opacity: 1,
+                translateY: 0,
+                transition: { duration: 150 },
+              }}
+            >
+              <PreviousBackupsContent />
+            </PresenceTransition>
+          ) : undefined}
         </Box>
       ) : (
         <Text typography="Body2" color="text-critical">
@@ -244,13 +267,16 @@ const CloudBackup = () => {
           })}
         </Text>
       )}
-      <Box w="full" py="4">
-        <Divider />
+      <Box w="full" py="6">
+        <Box
+          borderBottomWidth={StyleSheet.hairlineWidth}
+          borderBottomColor="divider"
+        />
       </Box>
       <Text typography="Body2" color="text-subdued">
         {intl.formatMessage({ id: 'content__wont_backup' })}
       </Text>
-    </Box>
+    </Wrapper>
   );
 };
 

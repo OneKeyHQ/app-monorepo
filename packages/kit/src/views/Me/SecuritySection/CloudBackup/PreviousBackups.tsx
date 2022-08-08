@@ -1,14 +1,15 @@
 import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  Center,
   Icon,
   Pressable,
   Spinner,
   Text,
-  useTheme,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -21,6 +22,7 @@ import {
 } from '../../../../routes/types';
 
 import BackupSummary from './BackupSummary';
+import Wrapper from './Wrapper';
 
 import type { IBackupItemSummary } from '../../../../background/services/ServiceCloudBackup';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -43,14 +45,14 @@ const PressableBackupSummary: FC<Omit<IBackupItemSummary, 'deviceInfo'>> = ({
 
   return (
     <Pressable
-      display="flex"
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
-      py={2}
-      px={4}
-      borderBottomWidth="1"
-      borderBottomColor="divider"
+      p={2}
+      mt={2}
+      rounded="xl"
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
       onPress={() => {
         navigation.navigate(HomeRoutes.CloudBackupDetails, {
           backupUUID,
@@ -80,7 +82,6 @@ const PressableBackupSummary: FC<Omit<IBackupItemSummary, 'deviceInfo'>> = ({
 const CloudBackup = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { themeVariant } = useTheme();
   const { serviceCloudBackup } = backgroundApiProxy;
 
   useLayoutEffect(() => {
@@ -103,29 +104,47 @@ const CloudBackup = () => {
     getPreviousBackups();
   }, [serviceCloudBackup]);
 
-  return loading ? (
-    <Spinner size="lg" />
-  ) : (
-    <Box justifyContent="space-between" p={4}>
-      {previousBackups.map((group) => (
-        <Box>
-          <Text typography="Body1" color="text-subdued">
-            {group[0].deviceInfo.deviceName}
-          </Text>
-          <Box
-            my={2}
-            borderRadius="12"
-            bg="surface-default"
-            borderWidth={themeVariant === 'light' ? 1 : undefined}
-            borderColor="border-subdued"
-          >
-            {group.map((item) => (
-              <PressableBackupSummary key={item.backupUUID} {...item} />
-            ))}
-          </Box>
-        </Box>
-      ))}
-    </Box>
+  return (
+    <Wrapper>
+      {loading ? (
+        <Center py={16}>
+          <Spinner size="lg" />
+        </Center>
+      ) : (
+        <>
+          {previousBackups.map((group, index) => (
+            <Box key={index}>
+              {index !== 0 ? (
+                <Box
+                  borderBottomWidth={StyleSheet.hairlineWidth}
+                  borderBottomColor="divider"
+                  my={6}
+                  bgColor="divider"
+                />
+              ) : null}
+              <Box flexDirection="row">
+                <Icon
+                  name={
+                    group[0].deviceInfo.osName === 'iPadOS'
+                      ? 'DeviceTabletOutline'
+                      : 'DeviceMobileOutline'
+                  }
+                  size={20}
+                />
+                <Text typography="Body2Strong" color="text-subdued" ml={2}>
+                  {group[0].deviceInfo.deviceName}
+                </Text>
+              </Box>
+              <Box mx={-2}>
+                {group.map((item) => (
+                  <PressableBackupSummary key={item.backupUUID} {...item} />
+                ))}
+              </Box>
+            </Box>
+          ))}
+        </>
+      )}
+    </Wrapper>
   );
 };
 

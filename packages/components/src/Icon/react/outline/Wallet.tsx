@@ -3,17 +3,15 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgWallet(props: SvgProps) {
   return (
-    <Svg viewBox="0 0 48 48" fill="none" {...props}>
+    <Svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
       <Path
-        d="M23.5 26a1 1 0 110 2 1 1 0 010-2"
-        stroke="#8C8CA1"
+        d="M11.5 13a.5.5 0 110 1 .5.5 0 010-1"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M7.827 7.654l20.194 5.74a6.959 6.959 0 014.786 6.462v19.99a3.788 3.788 0 01-4.8 4.001l-16.705-4.542a6.831 6.831 0 01-4.8-6.382v-21.73A5.081 5.081 0 0111.43 6h25.53a5.539 5.539 0 015.539 5.539v16.53a5.675 5.675 0 01-5.742 5.625h-3.951M42.5 19.847h-9.693"
-        stroke="#8C8CA1"
+        d="M3.663 3.827l10.098 2.87a3.48 3.48 0 012.393 3.231v9.995a1.894 1.894 0 01-2.4 2L5.4 19.654A3.416 3.416 0 013 16.46V5.597A2.54 2.54 0 015.465 3h12.766A2.77 2.77 0 0121 5.77v8.264a2.84 2.84 0 01-2.871 2.813h-1.976M21 9.923h-4.846"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"

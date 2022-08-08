@@ -1,6 +1,14 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
-import { Box, Icon, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import { IBoxProps } from 'native-base';
+
+import {
+  Box,
+  ICON_NAMES,
+  Icon,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
 
@@ -11,7 +19,7 @@ type BackupSummaryDisplayProps = {
   numOfWatchingAccounts: number;
   numOfContacts: number;
   size: 'normal' | 'heading';
-};
+} & IBoxProps;
 
 const BackupSummary: FC<BackupSummaryDisplayProps> = ({
   backupTime,
@@ -20,59 +28,60 @@ const BackupSummary: FC<BackupSummaryDisplayProps> = ({
   numOfWatchingAccounts,
   numOfContacts,
   size,
+  ...rest
 }) => {
   const isSmallScreen = useIsVerticalLayout();
   const formatDate = useFormatDate();
 
-  const dateTypography = size === 'heading' ? 'PageHeading' : 'Body1Strong';
-  const numberTypography = size === 'heading' ? 'Body2Strong' : 'CaptionStrong';
-  const iconSize = size === 'heading' ? 20 : 16;
-  const alignment = size === 'heading' && isSmallScreen ? 'center' : undefined;
-  const pl = size === 'heading' ? 2 : 1;
-  const pr = size === 'heading' ? 4 : 3;
+  const items: Array<{ iconName: ICON_NAMES; count: number }> = useMemo(
+    () => [
+      {
+        iconName: 'WalletOutline',
+        count: numOfHDWallets,
+      },
+      {
+        iconName: 'SaveOutline',
+        count: numOfImportedAccounts,
+      },
+      {
+        iconName: 'EyeOutline',
+        count: numOfWatchingAccounts,
+      },
+      {
+        iconName: 'BookOpenOutline',
+        count: numOfContacts,
+      },
+    ],
+    [
+      numOfContacts,
+      numOfHDWallets,
+      numOfImportedAccounts,
+      numOfWatchingAccounts,
+    ],
+  );
 
   return (
-    <Box alignItems={alignment}>
-      <Text my="1" typography={dateTypography}>
+    <Box
+      alignItems={size === 'heading' && isSmallScreen ? 'center' : undefined}
+      {...rest}
+    >
+      <Text typography={size === 'heading' ? 'PageHeading' : 'Body1Strong'}>
         {formatDate.format(new Date(backupTime), 'MMM d, yyyy, HH:mm')}
       </Text>
       <Box
-        my="1"
         flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
+        mt={size === 'heading' ? 3 : 1}
+        mx={-3}
+        flexWrap="wrap"
       >
-        <Icon name="WalletOutline" size={iconSize} />
-        <Text
-          typography={numberTypography}
-          color="text-subdued"
-          pl={pl}
-          pr={pr}
-        >
-          {numOfHDWallets}
-        </Text>
-        <Icon name="SaveOutline" size={iconSize} />
-        <Text
-          typography={numberTypography}
-          color="text-subdued"
-          pl={pl}
-          pr={pr}
-        >
-          {numOfImportedAccounts}
-        </Text>
-        <Icon name="EyeOutline" size={iconSize} />
-        <Text
-          typography={numberTypography}
-          color="text-subdued"
-          pl={pl}
-          pr={pr}
-        >
-          {numOfWatchingAccounts}
-        </Text>
-        <Icon name="BookOpenOutline" size={iconSize} />
-        <Text typography={numberTypography} color="text-subdued" pl={pl}>
-          {numOfContacts}
-        </Text>
+        {items.map((item, index) => (
+          <Box key={index} flexDirection="row" mx={3}>
+            <Icon name={item.iconName} size={20} color="icon-subdued" />
+            <Text typography="Body2" color="text-subdued" pl={2}>
+              {item.count}
+            </Text>
+          </Box>
+        ))}
       </Box>
     </Box>
   );

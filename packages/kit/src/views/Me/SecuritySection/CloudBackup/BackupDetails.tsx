@@ -7,17 +7,17 @@ import React, {
 } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
+import { IBoxProps } from 'native-base';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
   Center,
   Dialog,
-  Divider,
   Icon,
-  ScrollView,
   Spinner,
   Text,
   useIsVerticalLayout,
@@ -41,6 +41,7 @@ import { Avatar } from '../../../../utils/emojiUtils';
 
 import BackupIcon from './BackupIcon';
 import BackupSummary from './BackupSummary';
+import Wrapper from './Wrapper';
 
 import type { PublicBackupData } from '../../../../background/services/ServiceCloudBackup';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -84,10 +85,10 @@ const WalletBackupItem = ({
           <Text typography="DisplayMedium">{avatar.emoji}</Text>
         ) : undefined}
       </Center>
-      <Text px="2" typography="Body2Strong" flex="1">
+      <Text px="4" typography="Body2Strong" flex="1" isTruncated>
         {name}
       </Text>
-      <Text typography="Body2" color="text-subdued" pr="2">
+      <Text typography="Body2" color="text-subdued">
         {intl.formatMessage(
           { id: 'form__str_accounts' },
           { count: accountUUIDs.length },
@@ -124,10 +125,10 @@ const GenericBackupItem = ({
       <Center rounded="full" size="8" bgColor="surface-neutral-default">
         <Icon name={iconName} size={20} color="icon-default" />
       </Center>
-      <Text px="2" typography="Body2Strong" flex="1">
+      <Text px="4" typography="Body2Strong" flex="1" isTruncated>
         {name}
       </Text>
-      <Text typography="Body2" color="text-subdued" pr="2">
+      <Text typography="Body2" color="text-subdued">
         {address}
       </Text>
     </Box>
@@ -157,8 +158,8 @@ const GroupedBackupDetails = ({
     .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
 
   return (
-    <Box flex="1">
-      <Text typography="Heading" py="2">
+    <Box flex="1" my={4} mx={12}>
+      <Text typography="Heading" pb="4">
         {intl.formatMessage({
           id: onDevice
             ? 'content__active_on_this_device'
@@ -207,25 +208,26 @@ const BackupActions = ({
   importing,
   onImport,
   onDelete,
+  ...rest
 }: {
   size: 'base' | 'xl';
   ready: boolean;
   importing: boolean;
   onImport?: () => void;
   onDelete: () => void;
-}) => {
+} & IBoxProps) => {
   const intl = useIntl();
 
   return (
-    <Box flexDirection="row" justifyContent="space-between">
+    <Box flexDirection="row" {...rest}>
       {typeof onImport !== 'undefined' && !ready ? (
         <Button
           onPress={onImport}
           isLoading={importing}
-          flex="1"
-          mx={2}
           type="basic"
           size={size}
+          mr={4}
+          flex={{ base: 1, sm: 'none' }}
         >
           {intl.formatMessage({ id: 'action__import' })}
         </Button>
@@ -233,10 +235,9 @@ const BackupActions = ({
       {typeof onDelete !== 'undefined' && !ready ? (
         <Button
           onPress={onDelete}
-          flex="1"
-          mx={2}
           type="destructive"
           size={size}
+          flex={{ base: 1, sm: 'none' }}
         >
           {intl.formatMessage({ id: 'action__delete' })}
         </Button>
@@ -411,66 +412,70 @@ const BackupDetails: FC = () => {
   }, []);
 
   return (
-    <Box p="4" h="full">
-      <ScrollView flex="1">
-        <Box
-          flexDirection={isSmallScreen ? 'column' : 'row'}
-          alignItems="center"
-        >
-          <BackupIcon enabled />
-          <Box m="1" />
-          <BackupSummary
-            backupTime={backupTime}
-            numOfHDWallets={numOfHDWallets}
-            numOfImportedAccounts={numOfImportedAccounts}
-            numOfWatchingAccounts={numOfWatchingAccounts}
-            numOfContacts={numOfContacts}
-            size="heading"
+    <Wrapper
+      footer={
+        isSmallScreen ? (
+          <BackupActions
+            ready={dataReady}
+            importing={importing}
+            onImport={hasRemoteData ? onImport : undefined}
+            onDelete={onDelete}
+            size="xl"
+            position="absolute"
+            bottom={0}
           />
-          {isSmallScreen ? undefined : (
-            <BackupActions
-              ready={dataReady}
-              importing={importing}
-              onImport={hasRemoteData ? onImport : undefined}
-              onDelete={onDelete}
-              size="base"
-            />
-          )}
+        ) : undefined
+      }
+    >
+      {/* Header */}
+      <Box flexDirection={isSmallScreen ? 'column' : 'row'} alignItems="center">
+        <Box mb={{ base: 6, sm: 0 }} mr={{ sm: 6 }}>
+          <BackupIcon size="lg" enabled />
         </Box>
-        <Box w="full" py="4">
-          <Divider />
-        </Box>
-        {dataReady ? (
-          <Spinner size="lg" />
-        ) : (
-          <Box
-            flexDirection={isSmallScreen ? 'column' : 'row'}
-            justifyContent="space-between"
-          >
-            {hasLocalData ? (
-              <GroupedBackupDetails
-                onDevice
-                publicBackupData={backupData.alreadyOnDevice}
-              />
-            ) : undefined}
-            {hasRemoteData ? (
-              <GroupedBackupDetails
-                onDevice={false}
-                publicBackupData={backupData.notOnDevice}
-              />
-            ) : undefined}
-          </Box>
-        )}
-      </ScrollView>
-      {isSmallScreen ? (
-        <BackupActions
-          ready={dataReady}
-          importing={importing}
-          onImport={hasRemoteData ? onImport : undefined}
-          onDelete={onDelete}
-          size="xl"
+        <BackupSummary
+          backupTime={backupTime}
+          numOfHDWallets={numOfHDWallets}
+          numOfImportedAccounts={numOfImportedAccounts}
+          numOfWatchingAccounts={numOfWatchingAccounts}
+          numOfContacts={numOfContacts}
+          size="heading"
         />
-      ) : undefined}
+        {isSmallScreen ? undefined : (
+          <BackupActions
+            ready={dataReady}
+            importing={importing}
+            onImport={hasRemoteData ? onImport : undefined}
+            onDelete={onDelete}
+            size="base"
+            ml="auto"
+          />
+        )}
+      </Box>
+      {/* Divider */}
+      <Box
+        borderBottomWidth={StyleSheet.hairlineWidth}
+        borderBottomColor="divider"
+        mt={{ base: 6, sm: 8 }}
+        mb={{ base: 2, sm: 4 }}
+      />
+      {dataReady ? (
+        <Spinner size="lg" />
+      ) : (
+        <Box flexDirection={isSmallScreen ? 'column' : 'row'} mx={-12}>
+          {hasLocalData ? (
+            <GroupedBackupDetails
+              onDevice
+              publicBackupData={backupData.alreadyOnDevice}
+            />
+          ) : undefined}
+          {hasRemoteData ? (
+            <GroupedBackupDetails
+              onDevice={false}
+              publicBackupData={backupData.notOnDevice}
+            />
+          ) : undefined}
+        </Box>
+      )}
       <Dialog
         visible={showDeleteBackupDialog}
         footerButtonProps={{
@@ -499,7 +504,7 @@ const BackupDetails: FC = () => {
           }),
         }}
       />
-    </Box>
+    </Wrapper>
   );
 };
 

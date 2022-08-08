@@ -1,9 +1,9 @@
 import { Center, Icon } from '@onekeyhq/components';
 
-const BackupIcon = ({ enabled }: { enabled: boolean }) => (
+const BackupIcon = ({ enabled, size }: { enabled: boolean; size?: string }) => (
   <Center
     rounded="full"
-    size="12"
+    size={size === 'lg' ? '56px' : '48px'}
     bgColor={`surface-${enabled ? 'success' : 'warning'}-subdued`}
   >
     <Icon
