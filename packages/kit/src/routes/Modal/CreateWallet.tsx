@@ -74,7 +74,10 @@ export type CreateWalletRoutesParams = {
   };
   [CreateWalletModalRoutes.NewWalletModal]: undefined;
   [CreateWalletModalRoutes.AppWalletDoneModal]: IAppWalletDoneModalParams;
-  [CreateWalletModalRoutes.SetupSuccessModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.SetupSuccessModal]: {
+    device: SearchDevice;
+    onPressOnboardingFinished?: () => Promise<void>;
+  };
   [CreateWalletModalRoutes.SetupHardwareModal]: { device: SearchDevice };
   [CreateWalletModalRoutes.SetupNewDeviceModal]: {
     device: SearchDevice;

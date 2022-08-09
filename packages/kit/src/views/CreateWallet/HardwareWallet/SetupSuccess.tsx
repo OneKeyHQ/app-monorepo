@@ -1,16 +1,21 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Modal, Typography } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
 import { useNavigationActions } from '../../../hooks';
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
+import {
+  closeExtensionWindowIfOnboardingFinished,
+  useOnboardingDone,
+} from '../../../hooks/useOnboardingRequired';
+import { wait } from '../../../utils/helper';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -20,10 +25,14 @@ type RouteProps = RouteProp<
 const SetupSuccessModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { openRootHome } = useNavigationActions();
+  const closeModal = useModalClose();
+  const onboardingDone = useOnboardingDone();
+
   // const isSmallScreen = useIsVerticalLayout();
 
-  const { device } = route?.params;
+  const { device, onPressOnboardingFinished } = route?.params;
 
   const content = (
     <>
@@ -51,12 +60,28 @@ const SetupSuccessModal: FC = () => {
     </>
   );
 
+  const onPressClose = useCallback(async () => {
+    // close current SetupSuccess modal
+    closeModal();
+
+    if (onPressOnboardingFinished) {
+      await wait(2000);
+      onPressOnboardingFinished?.();
+    } else {
+      // close onboarding routes ( including openRootHome() )
+      // ** not working for Android first time onBoarding
+      onboardingDone({ delay: 600 });
+    }
+  }, [closeModal, onPressOnboardingFinished, onboardingDone]);
+
   return (
     <Modal
       header={device.name ?? ''}
       headerDescription={intl.formatMessage({ id: 'content__activated' })}
       secondaryActionTranslationId="action__close"
-      onSecondaryActionPress={openRootHome}
+      secondaryActionProps={{
+        onPress: onPressClose,
+      }}
       staticChildrenProps={{
         flex: '1',
         p: 6,

@@ -65,10 +65,12 @@ function BehindTheSceneCreatingWallet({
   routeParams,
   handleWalletCreated,
   shouldStartCreating,
+  onPressOnboardingFinished,
 }: {
   routeParams: IOnboardingBehindTheSceneParams;
   handleWalletCreated: () => void;
   shouldStartCreating: boolean;
+  onPressOnboardingFinished?: () => Promise<void>;
 }) {
   const toast = useToast();
   const intl = useIntl();
@@ -101,7 +103,10 @@ function BehindTheSceneCreatingWallet({
         screen: ModalRoutes.CreateWallet,
         params: {
           screen: CreateWalletModalRoutes.SetupSuccessModal,
-          params: { device },
+          params: {
+            device,
+            onPressOnboardingFinished,
+          },
         },
       });
 
@@ -133,11 +138,12 @@ function BehindTheSceneCreatingWallet({
     }
     return false;
   }, [
-    forceVisibleUnfocused,
     isHardwareCreating?.device,
     isHardwareCreating?.features,
-    intl,
+    forceVisibleUnfocused,
     navigation,
+    onPressOnboardingFinished,
+    intl,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {
@@ -304,6 +310,7 @@ const BehindTheScene = () => {
           routeParams={routeParams}
           handleWalletCreated={handleWalletCreated}
           shouldStartCreating={shouldStartCreating}
+          onPressOnboardingFinished={onPressFinished}
         />
         {isRenderAsWebview ? (
           <Center h="full" w="full">
