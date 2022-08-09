@@ -31,9 +31,6 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
   const imageWidth = isSmallScreen ? screenWidth - 32 : 358;
   const uri = getContentWithAsset(asset);
 
-  console.log('====================================');
-  console.log('uri = ', uri);
-  console.log('====================================');
   if (uri) {
     if (componentType === undefined) {
       return <CustomSkeleton size={imageWidth} />;
