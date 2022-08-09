@@ -10,7 +10,15 @@ type Props = {
 };
 const NFTVideo: FC<Props> = ({ url, size }) => (
   <Box size={`${size}px`}>
-    <ReactPlayer width={size} height={size} url={url} loop playing controls />
+    <ReactPlayer
+      width={size}
+      height={size}
+      url={url}
+      loop
+      playing
+      controls
+      muted
+    />
   </Box>
 );
 
