@@ -6,6 +6,7 @@ import {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import { get } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -18,6 +19,7 @@ import {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -471,11 +473,61 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
   }
 
+  async isEthAddress(address: string | null) {
+    const result = await backgroundApiProxy.getState();
+    const networkId = get(result, 'state.general.activeNetworkId', null);
+
+    if (!networkId || !address) {
+      return false;
+    }
+
+    try {
+      await backgroundApiProxy.validator.validateAddress(networkId, address);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   @providerApiMethod()
-  eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
+  async eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    /**
+     * Verify and switch the order as needed to ensure maximum compatibility with DApps
+     */
+    let message;
+    if (messages.length && messages[0]) {
+      message = messages[0] ?? null;
+      if (await this.isEthAddress(messages[0] ?? null)) {
+        message = messages[1] ?? null;
+      }
+    }
+
+    let parsedData = message;
+    try {
+      parsedData = typeof message === 'string' && JSON.parse(message);
+      // eslint-disable-next-line no-empty
+    } catch {}
+
+    /**
+     * v1: basic type
+     * v3: has types / primaryType / domain
+     * v4: Same as V3, but also supports arrays and recursive structures.
+     * Because V4 is backward compatible with V3, we only support V4
+     */
+    const { types, primaryType, domain } = parsedData;
+    let ethMessageType = ETHMessageTypes.TYPED_DATA_V1;
+    if (typeof parsedData === 'object' && (types || primaryType || domain)) {
+      ethMessageType = ETHMessageTypes.TYPED_DATA_V4;
+    }
+
+    // Convert to a JSON string
+    let messageStr = message;
+    if (typeof message === 'object') {
+      messageStr = JSON.stringify(message);
+    }
     return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V1,
-      message: JSON.stringify(messages[0]),
+      type: ethMessageType,
+      message: messageStr,
       payload: messages,
     });
   }
