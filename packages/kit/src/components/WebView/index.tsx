@@ -99,7 +99,6 @@ function WebView({
 
       // return customReceiveHandler() response not supported yet
       await customReceiveHandler?.(payload, hostBridge);
-      console.log(1)
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
