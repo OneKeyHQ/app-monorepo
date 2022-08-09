@@ -10,6 +10,7 @@ import {
   Typography,
   useIsVerticalLayout,
   useTheme,
+  useThemeValue,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -25,6 +26,8 @@ export const BottomSheetSettings: FC<{ onClose: () => void }> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
 
+  const [bg, handleBg] = useThemeValue(['surface-subdued', 'icon-subdued']);
+
   useEffect(() => {
     setTimeout(() => modalizeRef.current?.open(), 10);
   }, []);
@@ -35,6 +38,14 @@ export const BottomSheetSettings: FC<{ onClose: () => void }> = ({
       onClosed={onClose}
       closeOnOverlayTap
       adjustToContentHeight
+      handlePosition="inside"
+      modalStyle={{
+        backgroundColor: bg,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        overflow: 'hidden',
+      }}
+      handleStyle={{ backgroundColor: handleBg }}
     >
       <Box px="16px" py="24px" bg="surface-subdued">
         {children}
