@@ -1,17 +1,8 @@
-import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
-import type { Collectible } from '@onekeyhq/engine/src/types/moralis';
-
-export enum CollectibleView {
-  Expand = 'Expand',
-  Packup = 'Packup',
-}
+import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
 export type CollectibleGalleryProps = {
-  isLoading: boolean;
-  isSupported: boolean;
-  collectibles: Collectible[];
-  fetchData: () => void;
-  onSelectCollectible?: (cols: Collectible) => void;
-  onSelectAsset?: (asset: MoralisNFT) => void;
-  isTab?: boolean;
+  collectibles: Collection[];
+  onSelectCollection?: (cols: Collection) => void;
+  onSelectAsset?: (asset: NFTAsset) => void;
 };

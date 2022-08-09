@@ -28,6 +28,7 @@ import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
 import NFTImageGallery from '@onekeyhq/kit/src/views/Components/stories/NFTImage';
+import NFTListGallery from '@onekeyhq/kit/src/views/Components/stories/NFTList';
 import PageActionsGallery from '@onekeyhq/kit/src/views/Components/stories/PageActions';
 import PinCodeGallery from '@onekeyhq/kit/src/views/Components/stories/PinCode';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
@@ -66,6 +67,7 @@ export enum StackRoutes {
   ComponentAvatar = 'component/avatar',
   ComponentTypography = 'component/typography',
   ComponentNFTImage = 'component/nftimage',
+  ComponentNFTList = 'component/nftlist',
   ComponentToken = 'component/token',
   ComponentTheme = 'component/theme',
   ComponentIcon = 'component/icon',
@@ -167,6 +169,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentOnboarding]: undefined;
   [StackRoutes.ComponentHomescreen]: undefined;
   [StackRoutes.ComponentNFTImage]: undefined;
+  [StackRoutes.ComponentNFTList]: undefined;
 };
 
 export const stackScreenList = [
@@ -179,6 +182,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
   { name: StackRoutes.ComponentNFTImage, component: NFTImageGallery },
+  { name: StackRoutes.ComponentNFTList, component: NFTListGallery },
   { name: StackRoutes.ComponentToken, component: TokenGallery },
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
   { name: StackRoutes.ComponentIcon, component: IconGallery },

@@ -1,34 +1,32 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { AVPlaybackStatus, Audio } from 'expo-av';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import {
   Box,
   Center,
   Icon,
+  NetImage,
   Pressable,
   Spinner,
-  ZStack,
 } from '@onekeyhq/components';
 
-import NFTImage from './NFTImage';
-import { NFTProps } from './type';
+type Props = {
+  size: number;
+  url: string;
+  poster?: string;
+};
 
-const NFTAudio: FC<NFTProps> = ({ asset, width, height }) => {
+const NFTAudio: FC<Props> = ({ url, size, poster }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [status, setStatus] = useState<AVPlaybackStatus>();
   const [isPlaying, setIsPlaying] = useState<boolean | null>(null);
-  const source = useMemo(
-    () => asset.animationUrl ?? asset.imageUrl,
-    [asset.animationUrl, asset.imageUrl],
-  );
   async function play() {
-    if (source) {
+    if (url) {
       if (sound === null) {
         const { sound: playObject, status: playStatus } =
           await Audio.Sound.createAsync({
-            uri: source.secureUrl,
+            uri: url,
           });
         setSound(playObject);
         setStatus(playStatus);
@@ -49,16 +47,16 @@ const NFTAudio: FC<NFTProps> = ({ asset, width, height }) => {
   }
 
   const createSound = useCallback(async () => {
-    if (sound === null && source) {
+    if (sound === null && url) {
       const { sound: playObject, status: playStatus } =
         await Audio.Sound.createAsync({
-          uri: source.secureUrl,
+          uri: url,
         });
       setSound(playObject);
       setStatus(playStatus);
       setIsPlaying(false);
     }
-  }, [source, sound]);
+  }, [url, sound]);
 
   useEffect(() => {
     createSound();
@@ -73,35 +71,29 @@ const NFTAudio: FC<NFTProps> = ({ asset, width, height }) => {
     [sound],
   );
   return (
-    <Box>
-      <ZStack>
-        <NFTImage asset={asset} width={width} height={height} />
-        <LinearGradient
-          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,1)']}
-          style={{ left: 0, bottom: 0, width, height: 108 }}
-        />
-        <Center bottom={0} right={0} size="96px">
-          {isPlaying === null ? (
-            <Spinner size="sm" />
-          ) : (
-            <Pressable
-              onPress={() => {
-                if (isPlaying) {
-                  pause();
-                } else {
-                  play();
-                }
-              }}
-            >
-              <Icon
-                name={isPlaying ? 'PauseSolid' : 'PlaySolid'}
-                size={53}
-                color="text-on-primary"
-              />
-            </Pressable>
-          )}
-        </Center>
-      </ZStack>
+    <Box size={`${size}px`}>
+      <NetImage src={poster} width={size} height={size} />
+      <Center position="absolute" bottom={0} right={0} size="96px">
+        {isPlaying === null ? (
+          <Spinner size="sm" />
+        ) : (
+          <Pressable
+            onPress={() => {
+              if (isPlaying) {
+                pause();
+              } else {
+                play();
+              }
+            }}
+          >
+            <Icon
+              name={isPlaying ? 'PauseSolid' : 'PlaySolid'}
+              size={53}
+              color="text-on-primary"
+            />
+          </Pressable>
+        )}
+      </Center>
     </Box>
   );
 };
