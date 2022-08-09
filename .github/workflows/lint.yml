@@ -43,6 +43,10 @@ jobs:
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          yarn global add expo-cli && yarn
-          yarn lint && yarn test
+        run: yarn global add expo-cli && yarn
+
+      - name: Trunk Check
+        uses: trunk-io/trunk-action@v1
+
+      - name: Test
+        run: yarn test

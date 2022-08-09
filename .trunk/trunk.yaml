@@ -1,0 +1,27 @@
+version: 0.1
+cli:
+  version: 0.16.0-beta
+lint:
+  enabled:
+    - actionlint@1.6.15
+    - buildifier@5.1.0
+    - eslint@7.32.0
+    - git-diff-check@SYSTEM
+    - gitleaks@8.10.2
+    - markdownlint@0.32.1
+    - prettier@2.7.1
+    - shellcheck@0.8.0
+    - shfmt@3.5.0
+    - svgo@2.8.0
+actions:
+  definitions:
+    - id: commit-msg
+      display_name: Commit Message Checker
+      description: Checks for a valid commit message
+      run: .trunk/commit-msg-checker.sh "${@}"
+      triggers:
+        - git_hooks: [commit-msg]
+      notify_on_error: false
+  enabled:
+    - git-lfs
+    - commit-msg

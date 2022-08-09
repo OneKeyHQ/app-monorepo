@@ -1,12 +1,11 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+#!/bin/bash
 
 INPUT_FILE=$1
-START_LINE=`head -n1 $INPUT_FILE`
+START_LINE=$(head -n1 "${INPUT_FILE}")
 
 PATTERN="^(OK)-[[:digit:]]+"
 
-if ! [[ "$START_LINE" =~ $PATTERN|^feat\:|^fix\:|^docs\:|^style\:|^refactor\:|^perf\:|^test\:|^chore\: ]]; then
+if ! [[ ${START_LINE} =~ ${PATTERN}|^feat\:|^fix\:|^docs\:|^style\:|^refactor\:|^perf\:|^test\:|^chore\: ]]; then
   echo "
 Bad commit message, you must add a jira issue key here. https://onekeyhq.atlassian.net/jira/your-work
 See example:
