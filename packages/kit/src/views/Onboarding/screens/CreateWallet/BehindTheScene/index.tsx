@@ -66,11 +66,13 @@ function BehindTheSceneCreatingWallet({
   handleWalletCreated,
   shouldStartCreating,
   onPressOnboardingFinished,
+  setIsNavBackDisabled,
 }: {
   routeParams: IOnboardingBehindTheSceneParams;
   handleWalletCreated: () => void;
   shouldStartCreating: boolean;
   onPressOnboardingFinished?: () => Promise<void>;
+  setIsNavBackDisabled?: (b: boolean) => void;
 }) {
   const toast = useToast();
   const intl = useIntl();
@@ -197,10 +199,12 @@ function BehindTheSceneCreatingWallet({
       if (result) {
         handleWalletCreated();
       } else {
-        onboardingGoBack();
+        setIsNavBackDisabled?.(false);
+        setTimeout(() => onboardingGoBack(), 600);
       }
     })();
   }, [
+    setIsNavBackDisabled,
     forceVisibleUnfocused,
     onboardingGoBack,
     handleWalletCreated,
@@ -311,6 +315,7 @@ const BehindTheScene = () => {
           handleWalletCreated={handleWalletCreated}
           shouldStartCreating={shouldStartCreating}
           onPressOnboardingFinished={onPressFinished}
+          setIsNavBackDisabled={setIsNavBackDisabled}
         />
         {isRenderAsWebview ? (
           <Center h="full" w="full">
