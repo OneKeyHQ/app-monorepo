@@ -186,7 +186,12 @@ function ProcessAutoTyping({
           transition: { duration: 300, delay: 150 },
         }}
       >
-        <Button onPromise={onPressFinished} type="primary" size="xl" minW={160}>
+        <Button
+          onPromise={onPressFinished}
+          type={platformEnv.isExtension ? 'basic' : 'primary'}
+          size="xl"
+          minW={160}
+        >
           {intl.formatMessage({
             id: platformEnv.isExtension
               ? 'action__i_got_it'

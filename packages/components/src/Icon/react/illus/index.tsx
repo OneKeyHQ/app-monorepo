@@ -1,3 +1,4 @@
+export { default as ArrowTopRight } from './ArrowTopRight'
 export { default as BrandLogo } from './BrandLogo'
 export { default as CrownBadge } from './CrownBadge'
 export { default as DiamondBadge } from './DiamondBadge'
