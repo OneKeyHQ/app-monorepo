@@ -43,7 +43,6 @@ export function getComponentTypeWithAsset(asset: NFTAsset): ComponentType {
   }
 }
 
-type UploadState = null | 'uploading' | 'fail' | 'success';
 type UniqueTokenResult = {
   componentType: ComponentType;
   url?: string;
@@ -61,10 +60,6 @@ export default function useUniqueToken(asset: NFTAsset): UniqueTokenResult {
         .head(uploadSource, { timeout: 1000 })
         .then((resp) => resp.headers['content-type'])
         .catch(() => '404');
-
-      console.log('====================================');
-      console.log('contentType = ', contentType);
-      console.log('====================================');
       if (contentType === '404') {
         setComponentType('unknown');
       } else {

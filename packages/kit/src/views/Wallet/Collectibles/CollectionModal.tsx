@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp, useNavigation } from '@react-navigation/native';
@@ -6,11 +6,9 @@ import { RouteProp, useNavigation } from '@react-navigation/native';
 import {
   Box,
   DataProvider,
-  HStack,
   LayoutProvider,
   Modal,
   NetImage,
-  Pressable,
   RecyclerListView,
   Typography,
   useIsVerticalLayout,

@@ -68,7 +68,7 @@ export const useCollectiblesData = ({
         network,
       });
       parseCollectiblesData(result, mainKey);
-      updateListData(getCollectibleCache(mainKey));
+      updateListData(result.data);
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

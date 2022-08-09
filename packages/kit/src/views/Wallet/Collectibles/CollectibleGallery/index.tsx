@@ -1,14 +1,6 @@
-import React, {
-  ComponentProps,
-  FC,
-  ReactElement,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { FC, ReactElement, useCallback, useMemo } from 'react';
 
-import { red } from 'bn.js';
 import { useIntl } from 'react-intl';
-import { View } from 'react-native';
 
 import {
   Badge,
@@ -242,12 +234,12 @@ const PackupList: FC<ListProps> = ({
   const { pageWidth, padding, margin, cardWidth, cardHeight } = layout;
   const listData = generateListArray(collectibles, false);
 
-  console.log('====================================');
-  console.log(
-    'listData = ',
-    listData.map((item) => item.viewType),
-  );
-  console.log('====================================');
+  // console.log('====================================');
+  // console.log(
+  //   'listData = ',
+  //   listData.map((item) => item.viewType),
+  // );
+  // console.log('====================================');
   const dataProvider = new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(
     listData,
   );
@@ -275,10 +267,10 @@ const PackupList: FC<ListProps> = ({
   );
 
   const rowRenderer = useCallback(
-    (type, item, index) => {
+    (type, item) => {
       const { data } = item;
 
-      console.log(`rowRenderer  ${type}  index = ${index}`);
+      // console.log(`rowRenderer  ${type}  index = ${index}`);
       switch (type) {
         case ViewTypes.HEADER:
           return (

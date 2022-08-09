@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { Center, Typography } from '@onekeyhq/components';
+import { Center } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import Collectibles from '../../Wallet/Collectibles';
 
-const TypographyGallery = () => {
+const NFTListGallery = () => {
   console.log();
   const { account, network } = useActiveWalletAccount();
 
@@ -16,4 +16,4 @@ const TypographyGallery = () => {
   );
 };
 
-export default TypographyGallery;
+export default NFTListGallery;

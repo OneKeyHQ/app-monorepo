@@ -1,8 +1,8 @@
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { WebView } from 'react-native-webview';
 
-import { Box, Center, Icon, Image } from '@onekeyhq/components';
+import { Box } from '@onekeyhq/components';
 
 import { getSvgContent } from '../../utils/uriUtils';
 
@@ -58,7 +58,6 @@ const NFTSVG: FC<Props> = ({ ...rest }) => {
       if (url?.startsWith('http')) {
         try {
           const res = await fetch(url);
-          console.log('res = ', res);
           const text = await res.text();
           if (text.toLowerCase().indexOf('<svg') !== -1) {
             setSvgContent(text);

@@ -89,14 +89,14 @@ function CollectibleListView({ address, network }: CollectiblesProps) {
     );
   }
 
+  if (isLoading) {
+    return (
+      <Center pb={8} pt={8}>
+        <Spinner size="lg" />
+      </Center>
+    );
+  }
   if (collectibles.length === 0) {
-    if (isLoading) {
-      return (
-        <Center pb={8} pt={8}>
-          <Spinner size="lg" />
-        </Center>
-      );
-    }
     return (
       <Box py={4}>
         <Empty
