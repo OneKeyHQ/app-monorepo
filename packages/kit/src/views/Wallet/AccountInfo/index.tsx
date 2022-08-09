@@ -275,35 +275,33 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      {wallet?.type !== 'watching' && account && (
-        <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
-          <IconButton
-            circle
-            size={isSmallView ? 'xl' : 'lg'}
-            name="NavBuySolid"
-            type="basic"
-            onPress={() => {
-              if (!account) return;
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.FiatPay,
+      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="DotsVerticalSolid"
+          type="basic"
+          onPress={() => {
+            if (!account) return;
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.FiatPay,
+              params: {
+                screen: FiatPayRoutes.SupportTokenListModal,
                 params: {
-                  screen: FiatPayRoutes.SupportTokenListModal,
-                  params: {
-                    networkId: activeNetwork?.id ?? '',
-                  },
+                  networkId: activeNetwork?.id ?? '',
                 },
-              });
-            }}
-          />
-          <Typography.CaptionStrong
-            textAlign="center"
-            mt="8px"
-            color="text-default"
-          >
-            {intl.formatMessage({ id: 'action__buy' })}
-          </Typography.CaptionStrong>
-        </Box>
-      )}
+              },
+            });
+          }}
+        />
+        <Typography.CaptionStrong
+          textAlign="center"
+          mt="8px"
+          color="text-default"
+        >
+          {intl.formatMessage({ id: 'action__more' })}
+        </Typography.CaptionStrong>
+      </Box>
     </Box>
   );
 };
