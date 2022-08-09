@@ -477,11 +477,14 @@ export const Listing: FC = () => {
         tokenDeleted.current.id,
       );
     }
-    onToggleDeleteDialog(undefined);
-    backgroundApiProxy.serviceToken.fetchAccountTokens({
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
-    });
+    backgroundApiProxy.serviceToken
+      .fetchAccountTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+      })
+      .finally(() => {
+        onToggleDeleteDialog(undefined);
+      });
   }, [accountId, tokenDeleted, networkId, onToggleDeleteDialog]);
 
   useFocusEffect(
