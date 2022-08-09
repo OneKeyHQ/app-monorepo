@@ -1,12 +1,4 @@
-import React, {
-  ComponentProps,
-  FC,
-  ReactElement,
-  useCallback,
-  useMemo,
-} from 'react';
-
-import { type } from 'os';
+import React, { ComponentProps, FC, ReactElement, useCallback } from 'react';
 
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import { useIntl } from 'react-intl';
@@ -124,16 +116,17 @@ const ExpandList: FC<ListProps> = ({
   layout,
   header,
 }) => {
-  const { pageWidth, padding, margin, cardWidth, cardHeight, numColumns } =
-    layout;
+  const { pageWidth, cardHeight } = layout;
+  const { screenHeight } = useUserDevice();
 
   const listData = generateExpandListArray(collectibles);
 
-  console.log('listData = ', listData.length);
   const renderItem: ListRenderItem<ListDataItemType> = useCallback(
-    ({ item, index }) => {
+    ({ item }) => {
       if (item.type === 'Collection') {
-        return <CollectionSectionHeader collection={item.data} />;
+        return (
+          <CollectionSectionHeader collection={item.data} width={pageWidth} />
+        );
       }
       if (item.type === 'NFTAsset') {
         return (
@@ -142,17 +135,24 @@ const ExpandList: FC<ListProps> = ({
       }
       return <Box />;
     },
-    [onSelectAsset],
+    [onSelectAsset, pageWidth],
   );
 
   return (
     <FlashList
       ListHeaderComponent={header}
-      style={{ backgroundColor: 'red', flex: 1 }}
+      style={{
+        minHeight: 1,
+        backgroundColor: 'red',
+        flex: 1,
+        width: pageWidth,
+        height: screenHeight,
+      }}
       data={listData}
-      numColumns={numColumns}
       renderItem={renderItem}
-      estimatedItemSize={200}
+      estimatedItemSize={cardHeight - 50}
+      estimatedListSize={{ width: pageWidth, height: screenHeight }}
+      ListFooterComponent={() => <Box height={20} width={pageWidth} />}
     />
   );
 };
@@ -163,20 +163,16 @@ const PackupList: FC<ListProps> = ({
   layout,
   header,
 }) => {
-  const { pageWidth, padding, margin, cardWidth, cardHeight, numColumns } =
-    layout;
+  const { pageWidth, cardHeight, numColumns } = layout;
   const { screenHeight } = useUserDevice();
 
   const renderItem: ListRenderItem<Collection> = useCallback(
-    ({ item, index }) => {
-      console.log('renderItem = ', index);
-      return (
-        <CollectionCard
-          collectible={item}
-          onSelectCollection={onSelectCollection}
-        />
-      );
-    },
+    ({ item }) => (
+      <CollectionCard
+        collectible={item}
+        onSelectCollection={onSelectCollection}
+      />
+    ),
     [onSelectCollection],
   );
 
@@ -184,6 +180,7 @@ const PackupList: FC<ListProps> = ({
     <FlashList
       ListHeaderComponent={header}
       style={{
+        minHeight: 1,
         backgroundColor: 'red',
         flex: 1,
         width: pageWidth,
@@ -192,8 +189,9 @@ const PackupList: FC<ListProps> = ({
       data={collectibles}
       numColumns={numColumns}
       renderItem={renderItem}
-      estimatedItemSize={cardHeight}
+      estimatedItemSize={cardHeight - 50}
       estimatedListSize={{ width: pageWidth, height: screenHeight }}
+      ListFooterComponent={() => <Box height={20} width={pageWidth} />}
     />
   );
 };
@@ -241,7 +239,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({ ...rest }) => {
   );
 
   return (
-    <Box flex={1} bgColor="red.100" paddingX={`${padding}px`}>
+    <Box flex={1} bgColor="red.100" paddingLeft={`${padding}px`}>
       {expand ? (
         <ExpandList {...sharedProps} />
       ) : (

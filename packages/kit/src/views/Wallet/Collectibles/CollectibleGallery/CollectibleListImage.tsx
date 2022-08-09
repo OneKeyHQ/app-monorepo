@@ -13,25 +13,29 @@ type Props = {
   size: number;
   thumbnail?: boolean;
   skeleton?: boolean;
+  resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
 } & ComponentProps<typeof Box>;
 
 const CollectibleListImage: FC<Props> = ({
   url,
   thumbnail = true,
   asset,
+  resizeMode,
   size,
   skeleton = false,
   ...props
 }) => {
-  const s3Url = url ?? thumbnail ? asset.image.thumbnail : asset.image.source;
+  const imageUrl =
+    url ?? (thumbnail ? asset.image.thumbnail : asset.image.source);
   const source = getImageWithAsset(asset);
   if (source) {
     return (
       <Box size={`${size}px`} {...props} overflow="hidden">
         <NFTImage
+          resizeMode={resizeMode}
           width={`${size}px`}
           height={`${size}px`}
-          s3Url={s3Url}
+          s3Url={imageUrl}
           nftSource={{
             contractAddress: asset.contractAddress,
             tokenId: asset.contractTokenId,

@@ -28,7 +28,7 @@ const NFTImage: FC<Props> = ({ nftSource, ...rest }) => {
             tokenId: nftSource.tokenId,
             imageURI: nftSource.url,
           },
-          { timeout: 60000 },
+          { timeout: 3 * 60 * 1000 },
         )
         .then(() => true)
         .catch(() => false);

@@ -28,7 +28,9 @@ export function getImageWithAsset(asset: NFTAsset) {
   if (
     imageUri &&
     !contentType?.startsWith('video') &&
-    !contentType?.startsWith('audio')
+    !contentType?.startsWith('audio') &&
+    !imageUri.endsWith('.mp4') &&
+    !imageUri.endsWith('.mp3')
   ) {
     return imageUri;
   }
@@ -64,6 +66,10 @@ export function getContentWithAsset(asset: NFTAsset) {
     }
     if (contentUri.startsWith('ar://')) {
       return `https://arweave.net/${contentUri.replace('ar://', '')}`;
+    }
+    if (contentUri.startsWith('<svg')) {
+      const base64Svg = Buffer.from(contentUri, 'utf-8').toString('base64');
+      return `data:image/svg+xml;base64,${base64Svg}`;
     }
     return contentUri;
   }

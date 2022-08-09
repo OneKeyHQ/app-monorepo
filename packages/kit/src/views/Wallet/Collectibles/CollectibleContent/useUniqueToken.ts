@@ -35,7 +35,10 @@ export function componentTypeWithContentType(contentType: string) {
 
 export function getComponentTypeWithAsset(asset: NFTAsset): ComponentType {
   const { contentType, contentUri } = asset;
-  if (contentUri?.startsWith('data:image/svg+xml')) {
+  if (
+    contentUri?.startsWith('data:image/svg+xml') ||
+    contentUri?.startsWith('<svg')
+  ) {
     return 'SVG';
   }
   if (contentType) {

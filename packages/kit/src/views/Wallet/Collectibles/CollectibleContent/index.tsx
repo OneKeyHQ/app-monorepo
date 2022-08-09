@@ -31,6 +31,9 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
   const imageWidth = isSmallScreen ? screenWidth - 32 : 358;
   const uri = getContentWithAsset(asset);
 
+  console.log('====================================');
+  console.log('uri = ', uri);
+  console.log('====================================');
   if (uri) {
     if (componentType === undefined) {
       return <CustomSkeleton size={imageWidth} />;
@@ -38,11 +41,13 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
     if (componentType === 'Image') {
       return (
         <CollectibleListImage
+          url={uri}
           asset={asset}
           thumbnail={false}
           size={imageWidth}
           skeleton
           borderRadius="20px"
+          resizeMode="cover"
         />
       );
     }
