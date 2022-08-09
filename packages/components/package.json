@@ -11,6 +11,7 @@
     "@mui/styled-engine-sc": "^5.1.0",
     "@react-native-aria/overlays": "^0.3.2",
     "@react-navigation/native": "^6.0.6",
+    "@shopify/flash-list": "^1.2.1",
     "iso-639-1": "^2.1.13",
     "lodash": "^4.17.21",
     "native-base": "^3.2.2",
