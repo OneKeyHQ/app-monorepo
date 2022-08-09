@@ -18,7 +18,6 @@ import {
   PresenceTransition,
   Pressable,
   TypeWriter,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -56,7 +55,6 @@ function ProcessAutoTyping({
   minHeight,
 }: IProcessAutoTypingProps) {
   const intl = useIntl();
-  const inserts = useSafeAreaInsets();
 
   const emitter = useRef(new CrossEventEmitter());
   const isWalletCreatedRef = useRef(false);
