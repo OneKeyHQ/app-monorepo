@@ -390,9 +390,6 @@ class WalletConnectAdapter {
         // https://docs.walletconnect.com/client-api#send-custom-request
         // await window.$connector.sendCustomRequest({method:'eth_gasPrice'})
 
-        if (payload.method === 'eth_signTypedData') {
-          payload.method = 'eth_signTypedData_v3';
-        }
         return this.responseCallRequest(
           connector,
           this.ethereumRequest(connector, payload),
