@@ -5,23 +5,12 @@ import { HistoryRequest } from '@onekeyhq/kit/src/views/Help/Request/HistoryRequ
 import { ReplyTicket } from '@onekeyhq/kit/src/views/Help/Request/ReplyTicket';
 import { SubmitRequest } from '@onekeyhq/kit/src/views/Help/Request/SubmitRequest';
 import { TicketDetail } from '@onekeyhq/kit/src/views/Help/Request/TicketDetail';
-import { TicketType } from '@onekeyhq/kit/src/views/Help/Request/types';
+import {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+} from '@onekeyhq/kit/src/views/Help/Request/types';
 
 import createStackNavigator from './createStackNavigator';
-
-export enum HistoryRequestRoutes {
-  HistoryRequestModal = 'HistoryRequestModal',
-  TicketDetailModal = 'TicketDetailModal',
-  ReplyTicketModel = 'ReplyTicketModel',
-  SubmitRequestModal = 'SubmitRequestModal',
-}
-
-export type HistoryRequestModalRoutesParams = {
-  [HistoryRequestRoutes.HistoryRequestModal]: undefined;
-  [HistoryRequestRoutes.TicketDetailModal]: { order: TicketType };
-  [HistoryRequestRoutes.ReplyTicketModel]: { order: TicketType };
-  [HistoryRequestRoutes.SubmitRequestModal]: undefined;
-};
 
 const HistoryRequestNavigator =
   createStackNavigator<HistoryRequestModalRoutesParams>();

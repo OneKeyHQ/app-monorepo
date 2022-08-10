@@ -13,6 +13,7 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   Searchbar,
   Spinner,
   Token as TokenImage,
@@ -28,6 +29,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance, FormatCurrency } from '../../../../components/Format';
 import {
@@ -39,9 +41,10 @@ import {
   useNetworkTokens,
   useNetworkTokensPrice,
 } from '../../../../hooks';
+import { enabledChainIds } from '../../config';
 import { useSwftcTokens } from '../../hooks/useSwap';
 import { SwapRoutes } from '../../typings';
-import { isNetworkEnabled } from '../../utils';
+import { getChainIdFromNetwork, isNetworkEnabled } from '../../utils';
 
 import { NetworkSelectorContext } from './context';
 import { useSearchTokens } from './hooks';
@@ -93,16 +96,27 @@ const NetworkSelector: FC = () => {
   const networks = useAppSelector((s) => s.runtime.networks);
   const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
   const enabledNetworks = useMemo(() => {
-    const evmNetworks = networks.filter((network) =>
+    let evmNetworks = networks.filter((network) =>
       isNetworkEnabled(
         network,
         inputTokenNetwork ? [inputTokenNetwork.id] : undefined,
       ),
     );
+    evmNetworks = evmNetworks.sort((a, b) => {
+      const networkIdA = enabledChainIds.indexOf(getChainIdFromNetwork(a));
+      const networkIdB = enabledChainIds.indexOf(getChainIdFromNetwork(b));
+      return networkIdA < networkIdB ? -1 : 1;
+    });
     return evmNetworks;
   }, [networks, inputTokenNetwork]);
 
-  return (
+  return platformEnv.isNative ? (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} mb="2">
+      {enabledNetworks.map((item) => (
+        <NetworkItem network={item} key={item.id} />
+      ))}
+    </ScrollView>
+  ) : (
     <Box display="flex" flexDirection="row" mb="2" flexWrap="wrap">
       {enabledNetworks.map((item) => (
         <NetworkItem network={item} key={item.id} />
@@ -124,9 +138,10 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 }) => {
   const intl = useIntl();
   const { accountId } = useActiveWalletAccount();
-  const { networkId } = useContext(NetworkSelectorContext);
+  const { networkId, selectedToken } = useContext(NetworkSelectorContext);
   const prices = useNetworkTokensPrice(networkId);
   const balances = useAccountTokensBalance(networkId, accountId);
+
   return (
     <Box>
       {tokens.length ? (
@@ -153,6 +168,12 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 bg="surface-default"
                 borderTopColor="divider"
                 borderTopWidth={index !== 0 ? '1' : undefined}
+                opacity={
+                  item.networkId === selectedToken?.networkId &&
+                  item.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork
+                    ? 60
+                    : 100
+                }
                 onPress={() => onSelect?.(item)}
               >
                 <Box
@@ -350,12 +371,15 @@ const ListRenderToken: FC<ListingTokenProps> = ({
   onSelect,
 }) => {
   const { accountId } = useActiveWalletAccount();
-  const { networkId } = useContext(NetworkSelectorContext);
+  const { networkId, selectedToken } = useContext(NetworkSelectorContext);
   const balances = useAccountTokensBalance(networkId, accountId);
   const prices = useNetworkTokensPrice(networkId);
   const onPress = useCallback(() => {
     onSelect?.(item);
   }, [onSelect, item]);
+  const isSelected =
+    item.networkId === selectedToken?.networkId &&
+    item.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork;
   return (
     <Pressable
       borderTopRadius={isFirst ? '12' : undefined}
@@ -370,6 +394,7 @@ const ListRenderToken: FC<ListingTokenProps> = ({
       key={item.tokenIdOnNetwork}
       onPress={onPress}
       width="full"
+      opacity={isSelected ? 60 : 1000}
     >
       <Box display="flex" alignItems="center" flexDirection="row">
         <Image

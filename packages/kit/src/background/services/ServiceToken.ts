@@ -1,3 +1,4 @@
+import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   AppEventBusNames,
   appEventBus,
@@ -191,5 +192,34 @@ export default class ServiceToken extends ServiceBase {
     dispatch(setPrices({ activeNetworkId, prices }));
     dispatch(setCharts({ activeNetworkId, charts }));
     return prices;
+  }
+
+  @backgroundMethod()
+  async addAccountToken(
+    networkId: string,
+    accountId: string,
+    address: string,
+  ): Promise<Token | undefined> {
+    const { engine, appSelector } = this.backgroundApi;
+    if (!address) {
+      return;
+    }
+    const accountTokens = appSelector((s) => s.tokens.accountTokens) as Record<
+      string,
+      Record<string, Token[]>
+    >;
+    const tokens = accountTokens[networkId]?.[accountId] ?? ([] as Token[]);
+    const isExists = tokens.filter(
+      (item) => item.tokenIdOnNetwork === address,
+    )[0];
+    if (isExists) {
+      return;
+    }
+    const result = await engine.quickAddToken(accountId, networkId, address);
+    await this.fetchAccountTokens({
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+    });
+    return result;
   }
 }

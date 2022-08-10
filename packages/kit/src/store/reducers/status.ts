@@ -7,6 +7,7 @@ type StatusState = {
   authenticationType?: 'FINGERPRINT' | 'FACIAL';
   hideAddressBookAttention?: boolean;
   homeTabName?: string | number;
+  swapPopoverShown?: boolean;
 };
 
 const initialState: StatusState = {
@@ -15,6 +16,7 @@ const initialState: StatusState = {
   webviewGlobalKey: 0,
   hideAddressBookAttention: false,
   homeTabName: undefined,
+  swapPopoverShown: false,
 };
 
 export const slice = createSlice({
@@ -45,6 +47,9 @@ export const slice = createSlice({
     setHideAddressBookAttention: (state) => {
       state.hideAddressBookAttention = true;
     },
+    setSwapPopoverShown: (state) => {
+      state.swapPopoverShown = true;
+    },
   },
 });
 
@@ -56,6 +61,7 @@ export const {
   refreshWebviewGlobalKey,
   setHideAddressBookAttention,
   setHomeTabName,
+  setSwapPopoverShown,
 } = slice.actions;
 
 export default slice.reducer;

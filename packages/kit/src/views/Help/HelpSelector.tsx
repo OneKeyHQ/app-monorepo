@@ -13,8 +13,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,
 } from '@onekeyhq/kit/src/routes';
@@ -29,6 +27,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useHelpLink } from '../../hooks/useHelpLink';
+
+import {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+} from './Request/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

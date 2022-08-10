@@ -5,15 +5,7 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  HStack,
-  Icon,
-  LottieView,
-  Pressable,
-  Text,
-  VStack,
-} from '@onekeyhq/components';
+import { Box, LottieView, Text, VStack } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -55,7 +47,6 @@ export function SendFeedbackReceipt() {
     <BaseSendModal
       hideBackButton
       height="auto"
-      hideSecondaryAction
       header={undefined}
       headerDescription={undefined}
       primaryActionProps={{
@@ -64,6 +55,23 @@ export function SendFeedbackReceipt() {
           : `${intl.formatMessage({ id: 'action__close' })}`,
       }}
       onPrimaryActionPress={() => doClose()}
+      hideSecondaryAction={
+        !(
+          openBlockBrowser.hasAvailable ||
+          typeof route.params.onDetail === 'function'
+        )
+      }
+      secondaryActionTranslationId="action__view_details"
+      onSecondaryActionPress={() => {
+        doClose();
+        setTimeout(() => {
+          if (route.params.onDetail) {
+            route.params.onDetail?.(route?.params?.txid);
+          } else {
+            openBlockBrowser.openTransactionDetails(route?.params?.txid);
+          }
+        }, 100);
+      }}
       closeAction={() => doClose()}
     >
       <VStack
@@ -83,28 +91,6 @@ export function SendFeedbackReceipt() {
         <Text typography="DisplayMedium">
           {intl.formatMessage({ id: 'modal__transaction_submitted' })}
         </Text>
-        {openBlockBrowser.hasAvailable ? (
-          <>
-            <Box h={4} />
-            <Pressable
-              onPress={() => {
-                openBlockBrowser.openTransactionDetails(route?.params?.txid);
-                doClose();
-              }}
-            >
-              <HStack space={2} alignItems="center">
-                <Text typography="Button1" color="interactive-default">
-                  {intl.formatMessage({ id: 'action__view_in_explorer' })}
-                </Text>
-                <Icon
-                  name="ExternalLinkSolid"
-                  size={20}
-                  color="interactive-default"
-                />
-              </HStack>
-            </Pressable>
-          </>
-        ) : null}
         <Box h={8} />
       </VStack>
     </BaseSendModal>

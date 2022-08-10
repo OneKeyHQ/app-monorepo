@@ -25,7 +25,7 @@ export enum ModalRoutes {
   Password = 'Password',
   ManageToken = 'ManageToken',
   Collectibles = 'Collectibles',
-  EnableLocalAuthentication = ' EnableLocalAuthentication',
+  EnableLocalAuthentication = 'EnableLocalAuthentication',
   ManageNetwork = 'ManageNetwork',
   OnekeyHardware = 'OnekeyHardware',
   HardwareUpdate = 'HardwareUpdate',

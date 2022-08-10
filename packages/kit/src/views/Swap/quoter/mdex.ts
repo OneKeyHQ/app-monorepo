@@ -3,11 +3,12 @@ import axios, { Axios } from 'axios';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { networkRecords } from '../config';
+import { Chains, networkRecords } from '../config';
 import {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
+  Provider,
   QuoteData,
   Quoter,
   QuoterType,
@@ -44,10 +45,35 @@ type QuoteResponse = {
   allowanceTarget: string;
 };
 
+const ProviderInfos: Record<string, Provider[]> = {
+  [Chains.OKEX]: [
+    {
+      name: 'CherrySwap',
+      logoUrl: 'https://www.cherryswap.net/swapimages/images/images/che.png',
+    },
+  ],
+  [Chains.HECO]: [
+    {
+      name: 'MdexSwap',
+      logoUrl:
+        'https://mdex.co/token-icons/heco/0x25d2e80cb6b86881fd7e07dd263fb79f4abe033c.png',
+    },
+  ],
+  [Chains.GNOSIS]: [
+    {
+      name: 'HoneySwap',
+      logoUrl:
+        'https://pbs.twimg.com/profile_images/1329370368298115072/MbHsoxMI_400x400.jpg',
+    },
+  ],
+};
+
 export class MdexQuoter implements Quoter {
   type: QuoterType = QuoterType.mdex;
 
   private client: Axios;
+
+  supportedChainIds: string[] = [Chains.HECO, Chains.GNOSIS, Chains.OKEX];
 
   constructor() {
     this.client = axios.create({ timeout: 10 * 1000 });
@@ -57,8 +83,8 @@ export class MdexQuoter implements Quoter {
     const chainId = getChainIdFromNetwork(networkA);
     return (
       networkA.id === networkB.id &&
-      chainId === '128' &&
-      !!networkRecords[chainId]
+      !!networkRecords[chainId] &&
+      this.supportedChainIds.includes(chainId)
     );
   }
 
@@ -93,7 +119,8 @@ export class MdexQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const baseURL = networkRecords[getChainIdFromNetwork(networkOut)];
+    const chainId = getChainIdFromNetwork(networkOut);
+    const baseURL = networkRecords[chainId];
     if (!baseURL) {
       return;
     }
@@ -109,6 +136,8 @@ export class MdexQuoter implements Quoter {
       buyTokenAddress: data.buyTokenAddress,
       sellAmount: data.sellAmount,
       sellTokenAddress: data.sellTokenAddress,
+      providers: ProviderInfos[chainId] ?? [{ name: 'OneKey Swap' }],
+      arrivalTime: 15,
     };
     if (data.data) {
       result.txData = {

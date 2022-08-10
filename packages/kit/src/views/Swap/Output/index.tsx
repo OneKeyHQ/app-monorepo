@@ -8,7 +8,6 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
-import { useRuntime } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { NetworkSelectorContext } from '../components/TokenSelector/context';
 import { useSwapState } from '../hooks/useSwap';
@@ -16,7 +15,6 @@ import { getChainIdFromNetworkId } from '../utils';
 
 const Output = () => {
   const navigation = useNavigation();
-  const { networks } = useRuntime();
   const { networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
   const swftcSupportedTokens = useAppSelector(
@@ -25,13 +23,10 @@ const Output = () => {
   const selectedNetworkId = useAppSelector((s) => s.swap.selectedNetworkId);
   const onSelect = useCallback(
     (token: Token) => {
-      const network = networks.filter((n) => n.id === token.networkId)[0];
-      if (network) {
-        backgroundApiProxy.serviceSwap.selectToken('OUTPUT', network, token);
-      }
+      backgroundApiProxy.serviceSwap.setOutputToken(token);
       navigation.goBack();
     },
-    [navigation, networks],
+    [navigation],
   );
 
   const included = useMemo(() => {
@@ -42,13 +37,6 @@ const Output = () => {
     return undefined;
   }, [selectedNetworkId, swftcSupportedTokens, networkId]);
 
-  const excluded = useMemo(() => {
-    if (networkId === selectedNetworkId && inputToken) {
-      return [inputToken.tokenIdOnNetwork];
-    }
-    return undefined;
-  }, [selectedNetworkId, inputToken, networkId]);
-
   const onSelectNetworkId = useCallback((networkid?: string) => {
     backgroundApiProxy.serviceSwap.selectNetworkId(networkid);
   }, []);
@@ -58,8 +46,9 @@ const Output = () => {
       showNetworkSelector: true,
       networkId: selectedNetworkId ?? '',
       setNetworkId: onSelectNetworkId,
+      selectedToken: inputToken,
     }),
-    [selectedNetworkId, onSelectNetworkId],
+    [selectedNetworkId, onSelectNetworkId, inputToken],
   );
 
   if (!selectedNetworkId) {
@@ -68,11 +57,7 @@ const Output = () => {
 
   return (
     <NetworkSelectorContext.Provider value={value}>
-      <TokenSelector
-        included={included}
-        excluded={excluded}
-        onSelect={onSelect}
-      />
+      <TokenSelector included={included} onSelect={onSelect} />
     </NetworkSelectorContext.Provider>
   );
 };

@@ -1,27 +1,36 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+
+import { RefreshControl } from 'react-native';
 
 import { ScrollView } from '@onekeyhq/components';
 
+import { useSwapQuoteCallback } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import SwapContent from './SwapContent';
 import SwapHeader from './SwapHeader';
-import SwapItems from './SwapItems';
 import SwapListener from './SwapListener';
-import SwapTransactions from './SwapTransactions';
-import SwapUpdator from './SwapUpdator';
+import SwapUpdater from './SwapUpdater';
 
 const Swap = () => {
+  const [refreshing, setRefreshing] = useState(false);
+  const onSwapQuote = useSwapQuoteCallback();
   useEffect(() => {
     SwapQuoter.client.prepare();
   }, []);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    onSwapQuote().finally(() => setRefreshing(false));
+  }, [onSwapQuote]);
   return (
-    <ScrollView>
+    <ScrollView
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <SwapHeader />
       <SwapListener />
-      <SwapTransactions />
       <SwapContent />
-      <SwapItems />
-      <SwapUpdator />
+      <SwapUpdater />
     </ScrollView>
   );
 };

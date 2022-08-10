@@ -45,3 +45,17 @@ export type CommentType = {
   'body': string;
   'attachments': AttachmentsType[];
 };
+
+export enum HistoryRequestRoutes {
+  HistoryRequestModal = 'HistoryRequestModal',
+  TicketDetailModal = 'TicketDetailModal',
+  ReplyTicketModel = 'ReplyTicketModel',
+  SubmitRequestModal = 'SubmitRequestModal',
+}
+
+export type HistoryRequestModalRoutesParams = {
+  [HistoryRequestRoutes.HistoryRequestModal]: undefined;
+  [HistoryRequestRoutes.TicketDetailModal]: { order: TicketType };
+  [HistoryRequestRoutes.ReplyTicketModel]: { order: TicketType };
+  [HistoryRequestRoutes.SubmitRequestModal]: undefined;
+};

@@ -8,17 +8,19 @@ import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import { Box, Modal, NetImage, Text } from '@onekeyhq/components';
-import {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
-} from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 
 import { attachmentUri, commentsUri } from './TicketService';
-import { AttachmentsType, CommentType, RequestPayload } from './types';
+import {
+  AttachmentsType,
+  CommentType,
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+  RequestPayload,
+} from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

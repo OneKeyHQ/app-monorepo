@@ -103,6 +103,13 @@ interface SupportedChain {
   receivingEnabled: boolean;
 }
 
+interface SupportedBridge {
+  bridgeName: string;
+  icon: string;
+  serviceTime: number;
+  displayName: string;
+}
+
 export class SocketQuoter implements Quoter {
   type: QuoterType = QuoterType.socket;
 
@@ -111,6 +118,8 @@ export class SocketQuoter implements Quoter {
   private supportedSendingChainIds?: string[];
 
   private supportedReceivingChainIds?: string[];
+
+  private supportedBridges?: SupportedBridge[];
 
   constructor() {
     this.client = axios.create({
@@ -145,6 +154,22 @@ export class SocketQuoter implements Quoter {
     const res = await this.client.get(`${baseURL}/supported/chains`);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return res?.data?.result as SupportedChain[];
+  }
+
+  async getBridgeIconUrl(bridgeName: string) {
+    if (!this.supportedBridges) {
+      this.supportedBridges = await this.fetchSupportedBridges();
+    }
+    const bridge = this.supportedBridges.filter(
+      (i) => i.bridgeName === bridgeName,
+    )[0];
+    return bridge.icon;
+  }
+
+  async fetchSupportedBridges(): Promise<SupportedBridge[]> {
+    const res = await this.client.get(`${baseURL}/supported/bridges`);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return res?.data?.result as SupportedBridge[];
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
@@ -230,6 +255,14 @@ export class SocketQuoter implements Quoter {
           data: transactionData.txData,
         };
       }
+
+      const bridgeIcons = await Promise.all(
+        route.usedBridgeNames.map((name) => this.getBridgeIconUrl(name)),
+      );
+      const providers = route.usedBridgeNames.map((name, index) => ({
+        name,
+        logoUrl: bridgeIcons[index],
+      }));
       return {
         type: this.type,
         sellAmount,
@@ -239,6 +272,8 @@ export class SocketQuoter implements Quoter {
         instantRate,
         allowanceTarget,
         txData,
+        arrivalTime: route.serviceTime,
+        providers,
         txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
       };
     }

@@ -3,7 +3,7 @@ import axios, { Axios } from 'axios';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { networkRecords } from '../config';
+import { arrivalTimeValues, networkRecords } from '../config';
 import {
   BuildTransactionParams,
   BuildTransactionResponse,
@@ -24,6 +24,17 @@ import {
   nativeTokenAddress,
 } from '../utils';
 
+type QuoteParams = {
+  sellToken: string;
+  buyToken: string;
+  slippagePercentage: string;
+  feeRecipient: string;
+  affiliateAddress: string;
+  sellAmount?: string;
+  buyAmount?: string;
+  takerAddress?: string;
+};
+
 type QuoteResponse = {
   price: string;
   guaranteedPrice: string;
@@ -37,11 +48,11 @@ type QuoteResponse = {
   minimumProtocolFee?: string;
   buyAmount: string;
   sellAmount: string;
-  sources?: string;
   buyTokenAddress: string;
   sellTokenAddress: string;
   estimatedGasTokenRefund?: string;
   allowanceTarget: string;
+  sources: { name: string; proportion: string }[];
 };
 
 export class SimpleQuoter implements Quoter {
@@ -58,6 +69,20 @@ export class SimpleQuoter implements Quoter {
       networkA.id === networkB.id &&
       !!networkRecords[getChainIdFromNetwork(networkA)]
     );
+  }
+
+  private async fetch0xQuote(
+    baseURL: string,
+    params: QuoteParams,
+  ): Promise<{
+    data: QuoteResponse;
+    providers: { name: string; logoUrl?: string }[];
+  }> {
+    const res = await this.client.get(baseURL, { params });
+    const data = res.data.data as QuoteResponse; // eslint-disable-line
+    const sources = data?.sources.filter((i) => Number(i.proportion) > 0);
+    const providers = sources.map((item) => ({ name: item.name }));
+    return { providers, data };
   }
 
   async fetchQuote(
@@ -77,7 +102,7 @@ export class SimpleQuoter implements Quoter {
       return;
     }
     const swapSlippagePercent = +slippagePercentage / 100;
-    const params: Record<string, string> = {
+    const params: QuoteParams = {
       sellToken: tokenIn.tokenIdOnNetwork || nativeTokenAddress,
       buyToken: tokenOut.tokenIdOnNetwork || nativeTokenAddress,
       slippagePercentage: Number.isNaN(swapSlippagePercent)
@@ -91,13 +116,13 @@ export class SimpleQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const baseURL = networkRecords[getChainIdFromNetwork(networkOut)];
+    const chainId = getChainIdFromNetwork(networkOut);
+    const baseURL = networkRecords[chainId];
     if (!baseURL) {
       return;
     }
-    const res = await this.client.get(baseURL, { params });
 
-    const data = res.data.data as QuoteResponse; // eslint-disable-line
+    const { providers, data } = await this.fetch0xQuote(baseURL, params);
 
     const result: QuoteData = {
       type: this.type,
@@ -107,7 +132,10 @@ export class SimpleQuoter implements Quoter {
       buyTokenAddress: data.buyTokenAddress,
       sellAmount: data.sellAmount,
       sellTokenAddress: data.sellTokenAddress,
+      arrivalTime: arrivalTimeValues[chainId] ?? 30,
+      providers,
     };
+
     if (data.data) {
       result.txData = {
         from: activeAccount.address,
@@ -145,7 +173,7 @@ export class SimpleQuoter implements Quoter {
       return { data: txData };
     }
     const swapSlippagePercent = +slippagePercentage / 100;
-    const params: Record<string, string> = {
+    const params: QuoteParams = {
       sellToken: tokenIn.tokenIdOnNetwork || nativeTokenAddress,
       buyToken: tokenOut.tokenIdOnNetwork || nativeTokenAddress,
       slippagePercentage: Number.isNaN(swapSlippagePercent)
@@ -164,9 +192,8 @@ export class SimpleQuoter implements Quoter {
     if (!baseURL) {
       return undefined;
     }
-    const res = await this.client.get(baseURL, { params });
-    // eslint-disable-next-line
-    const data = res.data.data as QuoteResponse;
+    const { data } = await this.fetch0xQuote(baseURL, params);
+
     return {
       data: {
         ...data,

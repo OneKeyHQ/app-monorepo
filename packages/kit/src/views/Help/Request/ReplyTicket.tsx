@@ -19,10 +19,6 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
-import {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
-} from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SkipAppLock } from '../../../components/AppLock';
@@ -30,7 +26,11 @@ import { useSettings } from '../../../hooks/redux';
 
 import { ImageView } from './SubmitRequest';
 import { updateTicketUri, uploadImage } from './TicketService';
-import { ImageModel } from './types';
+import {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+  ImageModel,
+} from './types';
 
 type SubmitValues = {
   comment: string;

@@ -24,7 +24,6 @@ export enum SendRoutes {
   TokenApproveAmountEdit = 'TokenApproveAmountEdit',
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
-  SwapPreview = 'SwapPreview',
   SendFeedbackReceipt = 'SendFeedbackReceipt',
 }
 
@@ -114,6 +113,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   backRouteName?: keyof SendRoutesParams;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
+  onDetail?: (txid: string) => any;
 };
 
 export type SendAuthenticationParams = Omit<
@@ -135,6 +135,7 @@ export type SignMessageConfirmParams = {
 export type SendFeedbackReceiptParams = {
   txid: string;
   closeModal?: () => any;
+  onDetail?: (txid: string) => any;
 };
 
 export type SendRoutesParams = {
@@ -148,6 +149,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendConfirm]: SendConfirmParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
-  [SendRoutes.SwapPreview]: undefined;
   [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
 };

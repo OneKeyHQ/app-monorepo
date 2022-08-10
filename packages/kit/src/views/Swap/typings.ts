@@ -8,11 +8,11 @@ export enum SwapRoutes {
   Swap = 'Swap',
   Input = 'Input',
   Output = 'Output',
-  Preview = 'Preview',
   Settings = 'Settings',
   CustomToken = 'CustomToken',
   Transaction = 'Transaction',
   Webview = 'Webview',
+  Share = 'Share',
   SwftcHelp = 'SwftcHelp',
 }
 
@@ -21,13 +21,14 @@ export type SwapRoutesParams = {
   [SwapRoutes.Input]: undefined;
   [SwapRoutes.Output]: undefined;
   [SwapRoutes.Settings]: undefined;
-  [SwapRoutes.Preview]: undefined;
   [SwapRoutes.Webview]: { url: string };
   [SwapRoutes.SwftcHelp]: { orderid: string };
   [SwapRoutes.CustomToken]: { address?: string } | undefined;
   [SwapRoutes.Transaction]: {
-    accountId: string;
-    networkId: string;
+    txid: string;
+    goBack?: () => void;
+  };
+  [SwapRoutes.Share]: {
     txid: string;
   };
 };
@@ -76,6 +77,11 @@ export type FetchQuoteParams = {
   receivingAddress?: string;
 };
 
+export type Provider = {
+  name: string;
+  logoUrl?: string;
+};
+
 export type QuoteData = {
   type: QuoterType;
   instantRate: string;
@@ -84,8 +90,10 @@ export type QuoteData = {
   buyAmount: string;
   buyTokenAddress: string;
   allowanceTarget?: string;
+  providers?: Provider[];
   txData?: TransactionData;
   txAttachment?: TransactionAttachment;
+  arrivalTime?: number;
   limited?: {
     max?: string;
     min?: string;
@@ -153,6 +161,8 @@ export interface TransactionDetails {
   thirdPartyOrderId?: string;
   nonce?: number;
   attachment?: TransactionAttachment;
+  providers?: Provider[];
+  arrivalTime?: number;
 }
 
 export type SwftcTransactionState =
