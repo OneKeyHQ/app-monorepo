@@ -11,13 +11,17 @@ import createStackNavigator from './createStackNavigator';
 
 export enum FiatPayRoutes {
   SupportTokenListModal = 'SupportTokenList',
-  AmoutInputModal = 'AmoutInputModal',
+  AmountInputModal = 'AmountInputModal',
   MoonpayWebViewModal = 'MoonpayWebViewModal',
 }
 
 export type FiatPayModalRoutesParams = {
-  [FiatPayRoutes.SupportTokenListModal]: { networkId: string };
-  [FiatPayRoutes.AmoutInputModal]: {
+  [FiatPayRoutes.SupportTokenListModal]: {
+    networkId: string;
+    type?: 'Buy' | 'Sell';
+  };
+
+  [FiatPayRoutes.AmountInputModal]: {
     token: CurrencyType;
     type: 'Buy' | 'Sell';
   };
@@ -31,7 +35,7 @@ const modalRoutes = [
     component: SupportTokenList,
   },
   {
-    name: FiatPayRoutes.AmoutInputModal,
+    name: FiatPayRoutes.AmountInputModal,
     component: AmountInput,
   },
   {

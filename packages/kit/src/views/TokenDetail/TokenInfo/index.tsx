@@ -211,7 +211,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.FiatPay,
                   params: {
-                    screen: FiatPayRoutes.AmoutInputModal,
+                    screen: FiatPayRoutes.AmountInputModal,
                     params: {
                       token: cryptoCurrency as CurrencyType,
                       type: 'Buy',
@@ -244,7 +244,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.FiatPay,
                   params: {
-                    screen: FiatPayRoutes.AmoutInputModal,
+                    screen: FiatPayRoutes.AmountInputModal,
                     params: {
                       token: cryptoCurrency as CurrencyType,
                       type: 'Sell',
