@@ -40,6 +40,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showBottomSheetMoreMenu } from '../../Overlay/BottomSheetMoreMenu';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -182,7 +183,6 @@ const AccountAmountInfo: FC = () => {
 type AccountOptionProps = { isSmallView: boolean };
 
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
-  const { network: activeNetwork } = useActiveWalletAccount();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
@@ -281,18 +281,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           size={isSmallView ? 'xl' : 'lg'}
           name="DotsVerticalSolid"
           type="basic"
-          onPress={() => {
-            if (!account) return;
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FiatPay,
-              params: {
-                screen: FiatPayRoutes.SupportTokenListModal,
-                params: {
-                  networkId: activeNetwork?.id ?? '',
-                },
-              },
-            });
-          }}
+          onPress={showBottomSheetMoreMenu}
         />
         <Typography.CaptionStrong
           textAlign="center"
