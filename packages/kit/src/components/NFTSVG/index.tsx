@@ -1,11 +1,15 @@
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { WebView } from 'react-native-webview';
 
-import { Box, Center, Icon, Image } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box } from '@onekeyhq/components';
 
-import { NFTProps } from './type';
+import { getSvgContent } from '../../utils/uriUtils';
+
+type Props = {
+  size: number;
+  url: string;
+};
 
 const getHTML = (svgContent: string, size: number) =>
   `
@@ -45,53 +49,15 @@ const getHTML = (svgContent: string, size: number) =>
   </body>
 </html>`;
 
-const SVGImage: FC<NFTProps> = ({ asset, width }) => {
-  const object = useMemo(
-    () => asset.animationUrl ?? asset.imageUrl,
-    [asset.animationUrl, asset.imageUrl],
-  );
-  const fallbackElement = (
-    <Center
-      width={width}
-      height="333px"
-      bgColor="surface-default"
-      borderRadius="20px"
-    >
-      <Icon name="QuestionMarkCircleOutline" size={166} />
-    </Center>
-  );
-  return (
-    <Center width={width} height={object?.height}>
-      {object ? (
-        <Image
-          flex="1"
-          alt={`image of ${
-            typeof asset.name === 'string' ? asset.name : 'nft'
-          }`}
-          width={object?.width}
-          height={object?.height}
-          borderRadius="20px"
-          src={object.secureUrl}
-          fallbackElement={fallbackElement}
-        />
-      ) : (
-        fallbackElement
-      )}
-    </Center>
-  );
-};
-
-const Native: FC<NFTProps> = ({ asset, width }) => {
+const NFTSVG: FC<Props> = ({ ...rest }) => {
+  const { url, size } = rest;
   const [svgContent, setSvgContent] = useState<string>();
-  const object = useMemo(
-    () => asset.animationUrl ?? asset.imageUrl,
-    [asset.animationUrl, asset.imageUrl],
-  );
+
   useEffect(() => {
     (async () => {
-      if (object?.secureUrl) {
+      if (url?.startsWith('http')) {
         try {
-          const res = await fetch(object?.secureUrl);
+          const res = await fetch(url);
           const text = await res.text();
           if (text.toLowerCase().indexOf('<svg') !== -1) {
             setSvgContent(text);
@@ -99,12 +65,14 @@ const Native: FC<NFTProps> = ({ asset, width }) => {
         } catch (err) {
           console.log(err);
         }
+      } else {
+        setSvgContent(getSvgContent(url));
       }
     })();
-  });
+  }, [url]);
 
   return (
-    <Box size={width}>
+    <Box size={size}>
       <WebView
         originWhitelist={['*']}
         pointerEvents="none"
@@ -112,20 +80,13 @@ const Native: FC<NFTProps> = ({ asset, width }) => {
         scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
-        source={{ html: getHTML(svgContent ?? '', width as number) }}
+        source={{ html: getHTML(svgContent ?? '', size) }}
         style={{
           backgroundColor: 'transparent',
         }}
       />
     </Box>
   );
-};
-
-const NFTSVG: FC<NFTProps> = ({ ...rest }) => {
-  if (platformEnv.isNative) {
-    return <Native {...rest} />;
-  }
-  return <SVGImage {...rest} />;
 };
 
 export default NFTSVG;

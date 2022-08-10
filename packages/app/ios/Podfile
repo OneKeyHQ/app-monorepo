@@ -49,6 +49,8 @@ target 'OneKeyWallet' do
   # end
 
   pod 'react-native-randombytes', :path => '../../../node_modules/react-native-randombytes'
+  pod 'RNFlashList', :path => '../../../node_modules/@shopify/flash-list'
+
   pod 'JXPagingView/Pager'
   pod 'JXCategoryView'
   

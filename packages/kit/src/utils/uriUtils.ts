@@ -61,3 +61,16 @@ export const isVideo = (uri?: string | null) =>
 
 export const isSVG = (uri?: string | null) =>
   isSupportedUriExtension(SUPPORTED_SVG_EXTENSIONS, uri);
+
+export function getSvgContent(data: string) {
+  if (data.startsWith('data:image/svg+xml;base64,')) {
+    const svg = data.replace('data:image/svg+xml;base64,', '');
+    const decodedSvg = Buffer.from(svg, 'base64').toString('utf-8');
+    return decodedSvg;
+  }
+  if (data.startsWith('data:image/svg+xml;utf8,')) {
+    const svg = data.replace('data:image/svg+xml;utf8,', '');
+    return svg;
+  }
+  return data;
+}

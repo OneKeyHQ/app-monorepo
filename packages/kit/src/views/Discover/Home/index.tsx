@@ -85,7 +85,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
               width={isSmallScreen ? 270 : cardWidth}
               height={isSmallScreen ? 134 : 177}
               src={url}
-              borderRadius={12}
+              borderRadius="12px"
             />
             <Box mt="12px" flexDirection="row" alignItems="center">
               <DAppIcon size={28} favicon={item.favicon} chain={item.chain} />

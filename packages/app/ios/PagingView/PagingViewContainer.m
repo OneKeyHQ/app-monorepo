@@ -46,6 +46,7 @@
     self.reactScrollView.scrollViewDidScroll = ^(UIScrollView *scrollView) {
       [weakSelf scrollViewDidScroll:scrollView];
     };
+    [self setNeedsLayout];
   }
 }
 
@@ -53,6 +54,7 @@
   [super layoutSubviews];
   self.reactView.frame = self.bounds;
   if (self.reactScrollView) {
+    self.reactScrollView.frame = self.bounds;
     self.reactScrollView.scrollView.frame = self.bounds;
   }
 }

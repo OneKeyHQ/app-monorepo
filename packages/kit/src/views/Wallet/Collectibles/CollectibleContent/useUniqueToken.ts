@@ -1,47 +1,87 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getAssetSources } from '@onekeyhq/engine/src/managers/moralis';
-import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
-import { isAudio, isSVG, isVideo } from '@onekeyhq/kit/src/utils/uriUtils';
+import axios from 'axios';
+
+import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
+import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+
+type ComponentType =
+  | 'unknown'
+  | 'Audio'
+  | 'Video'
+  | 'Image'
+  | 'SVG'
+  | undefined;
+
+export function componentTypeWithContentType(contentType: string) {
+  if (
+    contentType === 'image/jpeg' ||
+    contentType === 'image/gif' ||
+    contentType === 'image/png' ||
+    contentType === 'image/jpg'
+  ) {
+    return 'Image';
+  }
+  if (contentType === 'image/svg') {
+    return 'SVG';
+  }
+  if (contentType === 'video/mp4') {
+    return 'Video';
+  }
+  if (contentType === 'audio/wav' || contentType === 'audio/mpeg') {
+    return 'Audio';
+  }
+}
+
+export function getComponentTypeWithAsset(asset: NFTAsset): ComponentType {
+  const { contentType, contentUri } = asset;
+  if (
+    contentUri?.startsWith('data:image/svg+xml') ||
+    contentUri?.startsWith('<svg')
+  ) {
+    return 'SVG';
+  }
+  if (contentType) {
+    return componentTypeWithContentType(contentType);
+  }
+}
 
 type UniqueTokenResult = {
-  supportsAudio: boolean;
-  supportsVideo: boolean;
-  supportsSVG: boolean;
+  componentType: ComponentType;
   url?: string;
 };
 
-export default function useUniqueToken(asset: MoralisNFT): UniqueTokenResult {
-  const [source, setSource] = useState(asset.animationUrl ?? asset.imageUrl);
-
-  const getData = useCallback(async () => {
-    if (source && !source?.secureUrl) {
-      const result = await getAssetSources(
-        source.publicId,
-        source.resourceType,
-      );
-      if (result.secureUrl) {
-        setSource(result);
+export default function useUniqueToken(asset: NFTAsset): UniqueTokenResult {
+  const url = asset.image.source;
+  const [componentType, setComponentType] = useState<ComponentType>(
+    getComponentTypeWithAsset(asset),
+  );
+  const checkContentType = useCallback(async () => {
+    const uploadSource = getContentWithAsset(asset);
+    if (uploadSource) {
+      const contentType = await axios
+        .head(uploadSource, { timeout: 1000 })
+        .then((resp) => resp.headers['content-type'])
+        .catch(() => '404');
+      if (contentType === '404') {
+        setComponentType('unknown');
+      } else {
+        setComponentType(componentTypeWithContentType(contentType));
       }
     }
-  }, [source]);
+  }, [asset]);
 
   useEffect(() => {
-    getData();
-  }, [getData]);
-
-  return useMemo((): UniqueTokenResult => {
-    if (source && source?.secureUrl && source.resourceType !== 'raw') {
-      const url = source.secureUrl;
-      const supportsAudio = isAudio(url);
-      const supportsVideo = isVideo(url);
-      const supportsSVG = isSVG(url);
-      return { supportsAudio, supportsVideo, supportsSVG, url };
+    if (componentType === undefined) {
+      checkContentType();
     }
-    return {
-      supportsAudio: false,
-      supportsVideo: false,
-      supportsSVG: false,
-    };
-  }, [source]);
+  }, [checkContentType, componentType]);
+
+  return useMemo(
+    () => ({
+      componentType,
+      url,
+    }),
+    [componentType, url],
+  );
 }
