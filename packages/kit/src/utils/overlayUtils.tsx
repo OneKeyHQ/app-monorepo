@@ -13,11 +13,12 @@ export function showOverlay(
     modal?.destroy();
     modal = null;
   };
-  return (modal = new RootSiblings(
+  modal = new RootSiblings(
     (
       <OverlayContext.Provider value={{ closeOverlay }}>
         {renderOverlay(closeOverlay)}
       </OverlayContext.Provider>
     ),
-  ));
+  );
+  return closeOverlay;
 }
