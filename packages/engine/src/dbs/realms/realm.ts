@@ -247,7 +247,7 @@ class RealmDB implements DBAPI {
         MAIN_CONTEXT,
       );
 
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
 
@@ -261,7 +261,6 @@ class RealmDB implements DBAPI {
       });
       return Promise.resolve(backupUUID);
     } catch (error: any) {
-      console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
     }
   }
@@ -280,13 +279,14 @@ class RealmDB implements DBAPI {
       }
 
       const credentials = this.realm!.objects<CredentialSchema>('Credential');
-      const ret: Record<string, string> = {};
-      credentials.forEach((credential) => {
-        ret[credential.id] = credential.credential;
-      });
-      return Promise.resolve(ret);
+      return Promise.resolve(
+        credentials.reduce(
+          (mapping, { id, credential }) =>
+            Object.assign(mapping, { [id]: credential }),
+          {},
+        ),
+      );
     } catch (error: any) {
-      console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
     }
   }

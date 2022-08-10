@@ -24,17 +24,18 @@ export async function listFiles(target: string): Promise<Array<string>> {
 }
 
 export async function deleteFile(target: string): Promise<boolean> {
-  if (platformEnv.isNativeIOS) {
-    const {
-      files: [file],
-    }: { files: Array<{ isFile: boolean }> } = await RNCloudFs.listFiles({
-      scope: 'hidden',
-      targetPath: target,
-    });
-    if (file && file.isFile) {
-      await RNCloudFs.deleteFromCloud(file);
-      return Promise.resolve(true);
-    }
+  if (!platformEnv.isNativeIOS) {
+    return Promise.resolve(false);
+  }
+  const {
+    files: [file],
+  }: { files: Array<{ isFile: boolean }> } = await RNCloudFs.listFiles({
+    scope: 'hidden',
+    targetPath: target,
+  });
+  if (file && file.isFile) {
+    await RNCloudFs.deleteFromCloud(file);
+    return Promise.resolve(true);
   }
   return Promise.resolve(false);
 }
