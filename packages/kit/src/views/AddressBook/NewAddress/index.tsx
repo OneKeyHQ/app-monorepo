@@ -51,6 +51,7 @@ const NewAddress = () => {
             networkId: net.id,
           }),
         );
+        backgroundApiProxy.serviceCloudBackup.requestBackup();
         navigation.goBack();
       }
     },

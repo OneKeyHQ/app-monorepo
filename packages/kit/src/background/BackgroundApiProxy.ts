@@ -12,6 +12,7 @@ import type { IBackgroundApi } from './IBackgroundApi';
 import type WalletConnectAdapter from './providers/WalletConnectAdapter';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
+import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
 import type ServiceHardware from './services/ServiceHardware';
@@ -70,6 +71,10 @@ class BackgroundApiProxy
   ) as ServicePassword;
 
   serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
+
+  serviceCloudBackup = this._createProxyService(
+    'serviceCloudBackup',
+  ) as ServiceCloudBackup;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

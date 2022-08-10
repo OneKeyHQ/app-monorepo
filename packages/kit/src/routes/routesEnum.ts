@@ -34,6 +34,7 @@ export enum ModalRoutes {
   ScanQrcode = 'ScanQrcode',
   UpdateFeature = 'UpdateFeature',
   AddressBook = 'AddressBook',
+  ImportBackupPassword = 'ImportBackupPassword',
 }
 export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',
@@ -61,6 +62,9 @@ export enum HomeRoutes {
   AddressBook = 'AddressBook',
   SwapHistory = 'SwapHistory',
   VolumeHaptic = 'VolumeHaptic',
+  CloudBackup = 'CloudBackup',
+  CloudBackupPreviousBackups = 'CloudBackupPreviousBackups',
+  CloudBackupDetails = 'CloudBackupDetails',
 }
 export enum TabRoutes {
   // Overview = 'overview',

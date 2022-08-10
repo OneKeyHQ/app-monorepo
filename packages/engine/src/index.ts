@@ -5,7 +5,10 @@ import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
-import { encrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import {
+  decrypt,
+  encrypt,
+} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
@@ -51,6 +54,14 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
+import {
+  HDWALLET_BACKUP_VERSION,
+  IMPORTED_ACCOUNT_BACKUP_VERSION,
+  WATCHING_ACCOUNT_BACKUP_VERSION,
+  getHDAccountUUID,
+  getImportedAccountUUID,
+  getWatchingAccountUUID,
+} from './managers/backup';
 import { getDefaultPurpose } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -96,7 +107,13 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { Wallet } from './types/wallet';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+  Wallet,
+} from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
@@ -112,6 +129,7 @@ import {
 } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
+import type { BackupObject, ImportableHDWallet } from './types/backup';
 import type VaultEvm from './vaults/impl/evm/Vault';
 import type { ITransferInfo } from './vaults/types';
 
@@ -2046,6 +2064,176 @@ class Engine {
       return checkPassword(context, password);
     }
     return true;
+  }
+
+  getBackupUUID() {
+    return this.dbApi.getBackupUUID();
+  }
+
+  async dumpDataForBackup(password: string): Promise<BackupObject> {
+    const backupObject: BackupObject = {
+      credentials: password ? await this.dbApi.dumpCredentials(password) : {},
+      importedAccounts: {},
+      watchingAccounts: {},
+      wallets: {},
+    };
+
+    const wallets = await this.dbApi.getWallets();
+    for (const wallet of wallets) {
+      if (wallet.type !== WALLET_TYPE_HW && wallet.accounts.length > 0) {
+        const accounts = await this.dbApi.getAccounts(wallet.accounts);
+
+        if (wallet.type === WALLET_TYPE_IMPORTED) {
+          accounts.forEach((account) => {
+            const importedAccountUUID = getImportedAccountUUID(account);
+            backupObject.importedAccounts[importedAccountUUID] = {
+              ...account,
+              version: IMPORTED_ACCOUNT_BACKUP_VERSION,
+            };
+          });
+        } else if (wallet.type === WALLET_TYPE_WATCHING) {
+          accounts.forEach((account) => {
+            const watchingAccountUUID = getWatchingAccountUUID(account);
+            backupObject.watchingAccounts[watchingAccountUUID] = {
+              ...account,
+              version: WATCHING_ACCOUNT_BACKUP_VERSION,
+            };
+          });
+        } else if (wallet.type === WALLET_TYPE_HD) {
+          const walletToBackup: ImportableHDWallet = {
+            id: wallet.id,
+            name: wallet.name,
+            type: wallet.type,
+            accounts: [],
+            accountIds: [],
+            nextAccountIds: wallet.nextAccountIds,
+            avatar: wallet.avatar,
+            version: HDWALLET_BACKUP_VERSION,
+          };
+          accounts.forEach((account) => {
+            const HDAccountUUID = getHDAccountUUID(account);
+            walletToBackup.accounts.push(account);
+            walletToBackup.accountIds.push(HDAccountUUID);
+          });
+          backupObject.wallets[wallet.id] = walletToBackup;
+        }
+      }
+    }
+    return backupObject;
+  }
+
+  async restoreDataFromBackup({
+    data,
+    localPassword,
+    remotePassword,
+    uuidsToRestore,
+  }: {
+    data: string;
+    localPassword: string;
+    remotePassword: string;
+    uuidsToRestore: {
+      importedAccounts: Array<string>;
+      watchingAccounts: Array<string>;
+      HDWallets: Array<string>;
+    };
+  }) {
+    if (localPassword.length === 0 && (await this.isMasterPasswordSet())) {
+      debugLogger.cloudBackup.error('Local password required.');
+      throw new OneKeyInternalError('Local password required.');
+    }
+
+    const backupObject = JSON.parse(data) as BackupObject;
+
+    await Promise.all(
+      uuidsToRestore.watchingAccounts.map((id) => {
+        const { version, ...dbAccount } = backupObject.watchingAccounts[id];
+        if (version !== WATCHING_ACCOUNT_BACKUP_VERSION) {
+          // TODO: different version support
+          //   - get vault from impl and recreate dbAccount.
+          debugLogger.cloudBackup.debug(
+            `Backup watching account version ${version} isn't compatible with current supported version ${WATCHING_ACCOUNT_BACKUP_VERSION}.`,
+          );
+          return;
+        }
+        return this.dbApi.addAccountToWallet('watching', dbAccount);
+      }),
+    );
+
+    await Promise.all(
+      uuidsToRestore.importedAccounts.map((id) => {
+        const { version, ...dbAccount } = backupObject.importedAccounts[id];
+        const { privateKey } = JSON.parse(
+          backupObject.credentials[dbAccount.id],
+        );
+        if (version !== IMPORTED_ACCOUNT_BACKUP_VERSION) {
+          // TODO: different version support
+          //   - get vault from impl and recreate dbAccount.
+          debugLogger.cloudBackup.debug(
+            `Backup imported account version ${version} isn't compatible with current supported version ${IMPORTED_ACCOUNT_BACKUP_VERSION}.`,
+          );
+          return;
+        }
+
+        let encryptedPrivateKey = Buffer.from(privateKey, 'hex');
+        if (localPassword !== remotePassword) {
+          encryptedPrivateKey = encrypt(
+            localPassword,
+            decrypt(remotePassword, encryptedPrivateKey),
+          );
+        }
+        return this.dbApi.addAccountToWallet('imported', dbAccount, {
+          type: CredentialType.PRIVATE_KEY,
+          privateKey: encryptedPrivateKey,
+          password: localPassword,
+        });
+      }),
+    );
+
+    await Promise.all(
+      uuidsToRestore.HDWallets.map(async (id) => {
+        const { version, accounts, name, avatar, nextAccountIds } =
+          backupObject.wallets[id];
+        const { entropy, seed } = JSON.parse(backupObject.credentials[id]);
+        if (version !== HDWALLET_BACKUP_VERSION) {
+          // TODO: different version support
+          //   - use mnemonic to create a new wallet, add account to it.
+          debugLogger.cloudBackup.debug(
+            `Backup wallet version ${version} isn't compatible with current supported version ${HDWALLET_BACKUP_VERSION}.`,
+          );
+          return;
+        }
+        let encryptedEntropy = Buffer.from(entropy, 'hex');
+        let encryptedSeed = Buffer.from(seed, 'hex');
+        if (localPassword !== remotePassword) {
+          encryptedEntropy = encrypt(
+            localPassword,
+            decrypt(remotePassword, encryptedEntropy),
+          );
+          encryptedSeed = encrypt(
+            localPassword,
+            decrypt(remotePassword, encryptedSeed),
+          );
+        }
+
+        const wallet = await this.dbApi.createHDWallet({
+          password: localPassword,
+          rs: {
+            seed: encryptedSeed,
+            entropyWithLangPrefixed: encryptedEntropy,
+          },
+          backuped: true,
+          name,
+          avatar,
+          nextAccountIds,
+        });
+        const reIdPrefix = new RegExp(`^${id}`);
+        for (const accountToAdd of accounts) {
+          accountToAdd.id = accountToAdd.id.replace(reIdPrefix, wallet.id);
+          await this.dbApi.addAccountToWallet(wallet.id, accountToAdd);
+        }
+        await this.dbApi.confirmWalletCreated(wallet.id);
+      }),
+    );
   }
 
   @backgroundMethod()

@@ -3,6 +3,7 @@
 import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
+import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
 import {
@@ -70,7 +71,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -234,6 +235,58 @@ class RealmDB implements DBAPI {
       return Promise.resolve();
     } catch (error: any) {
       console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  getBackupUUID(): Promise<string> {
+    let context: ContextSchema | undefined;
+    try {
+      context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+
+      if (!context) {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+
+      if (context.backupUUID !== '') {
+        return Promise.resolve(context.backupUUID);
+      }
+
+      const backupUUID = RNUUID.v4() as string;
+      this.realm!.write(() => {
+        context!.backupUUID = backupUUID;
+      });
+      return Promise.resolve(backupUUID);
+    } catch (error: any) {
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  dumpCredentials(password: string): Promise<Record<string, string>> {
+    try {
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (typeof context === 'undefined') {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      if (!checkPassword(context.internalObj, password)) {
+        return Promise.reject(new WrongPassword());
+      }
+
+      const credentials = this.realm!.objects<CredentialSchema>('Credential');
+      return Promise.resolve(
+        credentials.reduce(
+          (mapping, { id, credential }) =>
+            Object.assign(mapping, { [id]: credential }),
+          {},
+        ),
+      );
+    } catch (error: any) {
       return Promise.reject(new OneKeyInternalError(error));
     }
   }
@@ -899,6 +952,7 @@ class RealmDB implements DBAPI {
     backuped,
     name,
     avatar,
+    nextAccountIds = {},
   }: CreateHDWalletParams): Promise<Wallet> {
     let context: ContextSchema | undefined;
     try {
@@ -922,6 +976,7 @@ class RealmDB implements DBAPI {
             typeof avatar === 'undefined' ? avatar : JSON.stringify(avatar),
           type: WALLET_TYPE_HD,
           backuped,
+          nextAccountIds,
         });
         this.realm!.create('Credential', {
           id: walletId,

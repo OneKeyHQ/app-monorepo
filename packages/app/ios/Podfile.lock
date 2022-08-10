@@ -18,6 +18,8 @@ PODS:
     - ExpoModulesCore
   - EXConstants (13.1.1):
     - ExpoModulesCore
+  - EXDevice (4.3.0):
+    - ExpoModulesCore
   - EXFileSystem (14.0.0):
     - ExpoModulesCore
   - EXFont (10.1.0):
@@ -407,6 +409,8 @@ PODS:
   - react-native-ble-plx (2.0.3):
     - MultiplatformBleAdapter (= 0.1.9)
     - React-Core
+  - react-native-cloud-fs (2.4.0):
+    - React
   - react-native-config (1.4.5):
     - react-native-config/App (= 1.4.5)
   - react-native-config/App (1.4.5):
@@ -617,6 +621,7 @@ DEPENDENCIES:
   - EXBlur (from `../../../node_modules/expo-blur/ios`)
   - EXCamera (from `../../../node_modules/expo-camera/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
+  - EXDevice (from `../../../node_modules/expo-device/ios`)
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
   - EXFont (from `../../../node_modules/expo-font/ios`)
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
@@ -657,6 +662,7 @@ DEPENDENCIES:
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
+  - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
@@ -745,6 +751,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-camera/ios"
   EXConstants:
     :path: "../../../node_modules/expo-constants/ios"
+  EXDevice:
+    :path: "../../../node_modules/expo-device/ios"
   EXFileSystem:
     :path: "../../../node_modules/expo-file-system/ios"
   EXFont:
@@ -817,6 +825,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-ble-manager"
   react-native-ble-plx:
     :path: "../../../node_modules/react-native-ble-plx"
+  react-native-cloud-fs:
+    :path: "../../../node_modules/react-native-cloud-fs"
   react-native-config:
     :path: "../../../node_modules/react-native-config"
   react-native-get-random-values:
@@ -903,6 +913,7 @@ SPEC CHECKSUMS:
   EXBlur: f594bc6b57fc241e906a29e00fb8e54b20c374a8
   EXCamera: 2cbc8206cb520562c1527fe565aa9f00df8e5e8f
   EXConstants: fdbe52259365b6a6faaa5e99a3b82cfa6bc2eb61
+  EXDevice: 7647ca9b1fd8b269dfd896a7643d659343358054
   EXFileSystem: 2aa2d9289f84bca9532b9ccbd81504fa31eb1ded
   EXFont: 04235cc22e6fef86028feb67db452978dc6f240f
   EXImageLoader: b88e053d760f85a82405b1db2de4abf11978fc9f
@@ -965,6 +976,7 @@ SPEC CHECKSUMS:
   React-logger: a0833912d93b36b791b7a521672d8ee89107aff1
   react-native-ble-manager: d2ed36acf9051fa0ecf6efb3da5b3570b1e92771
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
+  react-native-cloud-fs: 1e883ec82ff418d320c128f61971dd971b128ca0
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-get-random-values: a6ea6a8a65dc93e96e24a11105b1a9c8cfe1d72a
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
