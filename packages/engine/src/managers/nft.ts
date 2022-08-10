@@ -9,10 +9,10 @@ import {
 
 import { Network } from '../types/network';
 
-// const fiatServiceURL = 'https://fiat.onekey.so';
+const fiatServiceURL = 'https://fiat.onekey.so';
 // const localServiceURL = 'http://127.0.0.1:9000';
 // const uploadHost = 'http://192.168.5.182:9000';
-const fiatServiceURL = 'https://fiat.onekeytest.com';
+// const fiatServiceURL = 'https://fiat.onekeytest.com';
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
   if (!networkId) return false;
