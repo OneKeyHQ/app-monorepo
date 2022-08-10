@@ -7,12 +7,8 @@ import {
   NFTScanNFTsResp,
 } from '@onekeyhq/engine/src/types/nft';
 
+import { getFiatEndpoint } from '../endpoint';
 import { Network } from '../types/network';
-
-const fiatServiceURL = 'https://fiat.onekey.so';
-// const localServiceURL = 'http://127.0.0.1:9000';
-// const uploadHost = 'http://192.168.5.182:9000';
-// const fiatServiceURL = 'https://fiat.onekeytest.com';
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
   if (!networkId) return false;
@@ -89,7 +85,9 @@ export const getUserNFTAssets = async (params: {
     return { success: true, data: [] };
   }
   const chain = getNFTScanChainWithNetWork(network);
-  const apiUrl = `${fiatServiceURL}/NFT/v2/list?address=${address}&chain=${chain}`;
+  const endpoint = getFiatEndpoint();
+
+  const apiUrl = `${endpoint}/NFT/v2/list?address=${address}&chain=${chain}`;
   const data = await axios
     .get<NFTScanNFTsResp>(apiUrl)
     .then((resp) => resp.data)
@@ -108,7 +106,8 @@ export const syncImage = async (params: {
   tokenId: string;
   imageURI: string;
 }): Promise<UploadImagePayload> => {
-  const apiUrl = `${fiatServiceURL}/NFT/sync`;
+  const endpoint = getFiatEndpoint();
+  const apiUrl = `${endpoint}/NFT/sync`;
   const data = await axios
     .post<UploadImagePayload>(apiUrl, params)
     .then((resp) => resp.data)

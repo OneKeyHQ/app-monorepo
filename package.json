@@ -121,6 +121,8 @@
     "**/immer": "^9",
     "**/node-fetch": "^2",
     "**/metro-react-native-babel-preset": "0.70.0",
-    "**/tslib": "^2.4.0"
+    "**/tslib": "^2.4.0",
+    "**/got": "^11.8.5",
+    "**/shell-quote": "^1.7.3"
   }
 }
