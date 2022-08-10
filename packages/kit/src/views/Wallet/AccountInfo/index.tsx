@@ -25,7 +25,6 @@ import {
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
-import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -40,7 +39,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
-import { showBottomSheetMoreMenu } from '../../Overlay/BottomSheetMoreMenu';
+import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -281,7 +280,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           size={isSmallView ? 'xl' : 'lg'}
           name="DotsVerticalSolid"
           type="basic"
-          onPress={showBottomSheetMoreMenu}
+          onPress={showHomePageMoreMenu}
         />
         <Typography.CaptionStrong
           textAlign="center"
