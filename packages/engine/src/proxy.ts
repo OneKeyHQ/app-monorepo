@@ -50,6 +50,7 @@ import {
   IMPL_STC,
   SEPERATOR,
 } from './constants';
+import { getFiatEndpoint } from './endpoint';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
 import { getPresetNetworks } from './presets';
@@ -617,7 +618,7 @@ class ProviderController extends BaseProviderController {
 }
 
 class PriceController {
-  endpoint = 'https://fiat.onekeycn.com';
+  endpoint = getFiatEndpoint();
 
   CACHE_DURATION = 1000 * 30;
 

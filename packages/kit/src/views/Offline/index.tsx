@@ -5,9 +5,10 @@ import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Typography } from '@onekeyhq/components';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 NetInfo.configure({
-  reachabilityUrl: 'https://fiat.onekeycn.com/health',
+  reachabilityUrl: `${getFiatEndpoint()}/health`,
 });
 
 const OfflineView: FC = () => {

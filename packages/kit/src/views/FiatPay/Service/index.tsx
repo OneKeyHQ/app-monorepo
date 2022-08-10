@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { currenciesSet } from '../../../store/reducers/data';
@@ -65,7 +66,7 @@ export const fetchCurrencies = async () => {
     return;
   }
   const request1 = await axios
-    .get<CurrenciesPayload>('https://fiat.onekeycn.com/public/currencies.json')
+    .get<CurrenciesPayload>(`${getFiatEndpoint()}/public/currencies.json`)
     .then((ret) => ret.data);
   const request2 = await axios
     .get<MoonpayCurrencyListPayload>(getCurrenciesListUri())
@@ -138,8 +139,8 @@ export const getAmountInputInfo = async (
 
 export const signMoonpayUrl = async (url: string) =>
   axios(
-    `https://fiat.onekeycn.com/moonpay/sign?url=${encodeURIComponent(
-      url,
-    )}&mode=${MoonpayModeData().modeCode}`,
+    `${getFiatEndpoint()}/moonpay/sign?url=${encodeURIComponent(url)}&mode=${
+      MoonpayModeData().modeCode
+    }`,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   ).then((ret) => ret.data.data);

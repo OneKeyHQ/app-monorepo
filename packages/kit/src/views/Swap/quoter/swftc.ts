@@ -2,6 +2,7 @@ import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -127,7 +128,7 @@ type OrderInfo = {
   orderId: string;
 };
 
-const baseUrl = 'https://fiat.onekeycn.com/swft';
+const baseUrl = `${getFiatEndpoint()}/swft`;
 
 export class SwftcQuoter implements Quoter {
   type: QuoterType = QuoterType.swftc;
