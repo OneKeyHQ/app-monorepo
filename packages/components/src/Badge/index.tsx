@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import { Badge as NBBadge } from 'native-base';
 
@@ -11,6 +11,7 @@ export type BadgeProps = {
   type?: BadgeType;
   title: string;
   size: SizeType;
+  color?: ComponentProps<typeof Typography.CaptionStrong>['color'];
 };
 
 type BadgeTypeProps = {
@@ -55,7 +56,12 @@ function propsWithSize(sizeType: SizeType) {
   }
 }
 
-const Badge: FC<BadgeProps> = ({ title, type = 'default', size }) => {
+const Badge: FC<BadgeProps> = ({
+  title,
+  type = 'default',
+  size,
+  color = 'text-default',
+}) => {
   const bgColor: string = colorWithType(type);
   const badgeTypeProps = propsWithSize(size);
 
@@ -74,6 +80,7 @@ const Badge: FC<BadgeProps> = ({ title, type = 'default', size }) => {
         marginY="2px"
         fontSize={badgeTypeProps.fontSize}
         lineHeight={badgeTypeProps.lineHeight}
+        color={color}
       >
         {title}
       </Typography.CaptionStrong>

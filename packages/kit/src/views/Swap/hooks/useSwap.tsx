@@ -58,11 +58,6 @@ export function useTokenAmount(token?: Token, amount?: string) {
   return new TokenAmount(token, value.toString());
 }
 
-export function isStableCurrency(currency?: Token) {
-  const stable = ['USDT', 'DAI', 'BUSD', 'USDC'];
-  return currency && currency.symbol && stable.includes(currency.symbol);
-}
-
 export function useSwapEnabled() {
   const { network } = useActiveWalletAccount();
   const chainId = getChainIdFromNetwork(network ?? undefined);

@@ -78,7 +78,7 @@ const SwapReceiving = () => {
         <Typography.Caption color="text-subdued" mr="1" numberOfLines={1}>
           {text}
         </Typography.Caption>
-        <Icon size={20} name="PencilAltOutline" />
+        <Icon size={16} name="PencilAltOutline" />
       </Pressable>
     );
   }
@@ -139,12 +139,12 @@ const SwapQuote = () => {
           {intl.formatMessage({ id: 'title__slippage' })}
         </Typography.Caption>
 
-        <Box flexDirection="row" justifyContent="flex-end">
+        <Box flexDirection="row" justifyContent="flex-end" alignItems="center">
           <Pressable flexDirection="row" onPress={onSettting}>
             <Typography.Caption mr="1" color="text-subdued">
               Auto({swapSlippagePercent}%)
             </Typography.Caption>
-            <Icon size={20} name="PencilAltOutline" />
+            <Icon size={16} name="PencilAltOutline" />
           </Pressable>
         </Box>
       </Box>

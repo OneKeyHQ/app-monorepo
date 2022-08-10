@@ -49,21 +49,19 @@ const ProviderInfos: Record<string, Provider[]> = {
   [Chains.OKEX]: [
     {
       name: 'CherrySwap',
-      logoUrl: 'https://www.cherryswap.net/swapimages/images/images/che.png',
+      logoUrl: 'https://common.onekey-asset.com/logo/CherrySwap.png',
     },
   ],
   [Chains.HECO]: [
     {
-      name: 'MdexSwap',
-      logoUrl:
-        'https://mdex.co/token-icons/heco/0x25d2e80cb6b86881fd7e07dd263fb79f4abe033c.png',
+      name: 'MDex',
+      logoUrl: 'https://common.onekey-asset.com/logo/MdexSwap.png',
     },
   ],
   [Chains.GNOSIS]: [
     {
       name: 'HoneySwap',
-      logoUrl:
-        'https://pbs.twimg.com/profile_images/1329370368298115072/MbHsoxMI_400x400.jpg',
+      logoUrl: 'https://common.onekey-asset.com/logo/HoneySwap.png',
     },
   ],
 };
