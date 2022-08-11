@@ -22,5 +22,7 @@
 	<array>
 		<string>iCloud.so.onekey.wallet</string>
 	</array>
+    <key>com.apple.developer.icloud-container-environment</key>
+    <string>Production</string>
 </dict>
 </plist>
