@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -25,7 +25,6 @@ import {
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
-import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -40,6 +39,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -182,10 +182,10 @@ const AccountAmountInfo: FC = () => {
 type AccountOptionProps = { isSmallView: boolean };
 
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
-  const { network: activeNetwork } = useActiveWalletAccount();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
+  const moreButtonRef = useRef();
 
   return (
     <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
@@ -275,35 +275,28 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      {wallet?.type !== 'watching' && account && (
-        <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
-          <IconButton
-            circle
-            size={isSmallView ? 'xl' : 'lg'}
-            name="NavBuySolid"
-            type="basic"
-            onPress={() => {
-              if (!account) return;
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.FiatPay,
-                params: {
-                  screen: FiatPayRoutes.SupportTokenListModal,
-                  params: {
-                    networkId: activeNetwork?.id ?? '',
-                  },
-                },
-              });
-            }}
-          />
-          <Typography.CaptionStrong
-            textAlign="center"
-            mt="8px"
-            color="text-default"
-          >
-            {intl.formatMessage({ id: 'action__buy' })}
-          </Typography.CaptionStrong>
-        </Box>
-      )}
+      <Box
+        ref={moreButtonRef}
+        flex={{ base: 1, sm: 0 }}
+        mx={3}
+        minW="56px"
+        alignItems="center"
+      >
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="DotsVerticalSolid"
+          type="basic"
+          onPress={() => showHomePageMoreMenu(moreButtonRef?.current)}
+        />
+        <Typography.CaptionStrong
+          textAlign="center"
+          mt="8px"
+          color="text-default"
+        >
+          {intl.formatMessage({ id: 'action__more' })}
+        </Typography.CaptionStrong>
+      </Box>
     </Box>
   );
 };

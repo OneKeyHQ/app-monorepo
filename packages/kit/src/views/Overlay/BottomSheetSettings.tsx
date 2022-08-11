@@ -10,20 +10,23 @@ import {
   Typography,
   useIsVerticalLayout,
   useTheme,
+  useThemeValue,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import { setHideSmallBalance } from '../../store/reducers/settings';
-import { showOverlayFactory } from '../../utils/overlayUtils';
+import { showOverlay } from '../../utils/overlayUtils';
 
-export const BottomSheetSettings: FC<{ onClose: () => void }> = ({
-  onClose,
+export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
+  closeOverlay,
   children,
 }) => {
   const modalizeRef = useRef<Modalize>(null);
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
+
+  const [bg, handleBg] = useThemeValue(['surface-subdued', 'icon-subdued']);
 
   useEffect(() => {
     setTimeout(() => modalizeRef.current?.open(), 10);
@@ -32,9 +35,17 @@ export const BottomSheetSettings: FC<{ onClose: () => void }> = ({
   return isVerticalLayout ? (
     <Modalize
       ref={modalizeRef}
-      onClosed={onClose}
+      onClosed={closeOverlay}
       closeOnOverlayTap
       adjustToContentHeight
+      handlePosition="inside"
+      modalStyle={{
+        backgroundColor: bg,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        overflow: 'hidden',
+      }}
+      handleStyle={{ backgroundColor: handleBg }}
     >
       <Box px="16px" py="24px" bg="surface-subdued">
         {children}
@@ -45,14 +56,12 @@ export const BottomSheetSettings: FC<{ onClose: () => void }> = ({
       visible
       header={intl.formatMessage({ id: 'title__settings' })}
       footer={null}
-      closeAction={onClose}
+      closeAction={closeOverlay}
     >
       {children}
     </Modal>
   );
 };
-
-export const showBottomSheetSettings = showOverlayFactory(BottomSheetSettings);
 
 const HomeBalanceSettings: FC = () => {
   const intl = useIntl();
@@ -84,6 +93,8 @@ const HomeBalanceSettings: FC = () => {
   );
 };
 export const showHomeBalanceSettings = () =>
-  showBottomSheetSettings({
-    children: <HomeBalanceSettings />,
-  });
+  showOverlay((closeOverlay) => (
+    <BottomSheetSettings closeOverlay={closeOverlay}>
+      <HomeBalanceSettings />
+    </BottomSheetSettings>
+  ));

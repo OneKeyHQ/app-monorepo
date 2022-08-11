@@ -1,0 +1,32 @@
+diff --git a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
+index a935e81..7932ca9 100644
+--- a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
++++ b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
+@@ -1,5 +1,4 @@
+ /* @flow */
+-import PropTypes from "prop-types"
+ import * as React from "react"
+ import { View, Animated, StatusBar, StyleSheet } from "react-native"
+ import styles, {
+@@ -173,21 +172,4 @@ class AnimatedSplash extends React.Component {
+   }
+ }
+ 
+-AnimatedSplash.propTypes = {
+-  preload: PropTypes.bool,
+-  logoWidth: PropTypes.number,
+-  children: PropTypes.element,
+-  logoHeight: PropTypes.number,
+-  backgroundColor: PropTypes.string,
+-  isLoaded: PropTypes.bool.isRequired,
+-  disableBackgroundImage: PropTypes.bool,
+-  logoImage: PropTypes.oneOfType([
+-    PropTypes.string,
+-    PropTypes.number,
+-    PropTypes.object,
+-  ]),
+-  translucent: PropTypes.bool,
+-  customComponent: PropTypes.element,
+-}
+-
+ export default AnimatedSplash
