@@ -227,7 +227,6 @@ const BackupActions = ({
           isLoading={importing}
           type="basic"
           size={size}
-          mr={4}
           flex={{ base: 1, sm: 'none' }}
         >
           {intl.formatMessage({ id: 'action__import' })}
@@ -239,6 +238,7 @@ const BackupActions = ({
           type="destructive"
           size={size}
           flex={{ base: 1, sm: 'none' }}
+          ml={4}
         >
           {intl.formatMessage({ id: 'action__delete' })}
         </Button>

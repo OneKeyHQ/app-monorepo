@@ -10,6 +10,7 @@ import {
   Hidden,
   Icon,
   Image,
+  PresenceTransition,
   Text,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -108,70 +109,95 @@ const Welcome = () => {
         </Text>
         <Box
           flexDir={{ sm: 'row' }}
+          flexWrap={{ sm: 'wrap' }}
           mt={{ base: isSmallHeight ? 8 : 16, sm: 20 }}
           mx={-2}
         >
-          <PressableListItem
-            icon="PlusCircleOutline"
-            label={intl.formatMessage({
-              id: 'action__create_wallet',
-            })}
-            roundedBottom={{ base: 0, sm: 'xl' }}
-            onPress={onPressCreateWallet}
-          />
-          <PressableListItem
-            icon="SaveOutline"
-            label={intl.formatMessage({
-              id: 'action__import_wallet',
-            })}
-            mt="-1px"
-            mb={{ base: 8, sm: 0 }}
-            roundedTop={{ base: 0, sm: 'xl' }}
-            onPress={onPressImportWallet}
-          />
-          <PressableListItem
-            icon="ConnectOutline"
-            label={intl.formatMessage({
-              id: 'action__connect_wallet',
-            })}
-            onPress={onPressConnectWallet}
+          <Box
+            flexDirection={{ sm: 'row' }}
+            w={{ sm: hasPreviousBackups ? '100%' : '2/3' }}
           >
-            <Box
-              flexDir="row"
-              position={{ sm: 'absolute' }}
-              top={{ base: 1, sm: 33 }}
-              right={{ sm: 25 }}
-              ml={2}
-            >
-              {logos.map((logo, index) => (
-                <Image
-                  key={index}
-                  source={logo}
-                  size={4}
-                  mx={0.5}
-                  borderWidth={StyleSheet.hairlineWidth}
-                  borderColor="border-subdued"
-                  rounded="sm"
-                />
-              ))}
-            </Box>
-          </PressableListItem>
-          <Hidden from="sm">
-            <Text mt={3} mx={2} color="text-subdued" typography="Body2">
-              {intl.formatMessage({ id: 'content__supported_wallets' })}
-            </Text>
-          </Hidden>
-          {hasPreviousBackups ? (
             <PressableListItem
-              icon="CloudOutline"
+              icon="PlusCircleOutline"
               label={intl.formatMessage({
-                id: 'action__restore_from_icloud',
+                id: 'action__create_wallet',
               })}
-              mt={{ base: 8, sm: 0 }}
-              roundedTop={{ base: 0, sm: 'xl' }}
-              onPress={onPressRestoreFromCloud}
+              roundedBottom={{ base: 0, sm: 'xl' }}
+              onPress={onPressCreateWallet}
             />
-          ) : undefined}
+            <PressableListItem
+              icon="SaveOutline"
+              label={intl.formatMessage({
+                id: 'action__import_wallet',
+              })}
+              mt="-1px"
+              mb={{ base: 6, sm: 0 }}
+              roundedTop={{ base: 0, sm: 'xl' }}
+              onPress={onPressImportWallet}
+            />
+          </Box>
+          <Box
+            flexDirection={{ sm: 'row' }}
+            w={{ sm: hasPreviousBackups ? '100%' : '1/3' }}
+            mt={{ sm: hasPreviousBackups ? 4 : undefined }}
+          >
+            <Box flex={1}>
+              <PressableListItem
+                icon="ConnectOutline"
+                label={intl.formatMessage({
+                  id: 'action__connect_wallet',
+                })}
+                onPress={onPressConnectWallet}
+              >
+                <Box
+                  flexDir="row"
+                  position={{ sm: 'absolute' }}
+                  top={{ base: 1, sm: 33 }}
+                  right={{ sm: 25 }}
+                  ml={2}
+                >
+                  {logos.map((logo, index) => (
+                    <Image
+                      key={index}
+                      source={logo}
+                      size={4}
+                      mx={0.5}
+                      borderWidth={StyleSheet.hairlineWidth}
+                      borderColor="border-subdued"
+                      rounded="sm"
+                    />
+                  ))}
+                </Box>
+              </PressableListItem>
+              <Hidden from="sm">
+                <Text mt={3} mx={2} color="text-subdued" typography="Body2">
+                  {intl.formatMessage({ id: 'content__supported_wallets' })}
+                </Text>
+              </Hidden>
+            </Box>
+            {hasPreviousBackups ? (
+              <PresenceTransition
+                as={Box}
+                visible={hasPreviousBackups}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{
+                  scale: 1,
+                  opacity: 1,
+                  transition: { duration: 150 },
+                }}
+                mt={{ base: '24px', sm: '0' }}
+                flex={1}
+              >
+                <PressableListItem
+                  icon="CloudOutline"
+                  label={intl.formatMessage({
+                    id: 'action__restore_from_icloud',
+                  })}
+                  onPress={onPressRestoreFromCloud}
+                />
+              </PresenceTransition>
+            ) : undefined}
+          </Box>
         </Box>
       </Layout>
       <TermsOfService />

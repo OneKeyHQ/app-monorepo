@@ -1,19 +1,16 @@
 import React from 'react';
 
-import { useIntl } from 'react-intl';
+import { Box } from '@onekeyhq/components';
 
 import CloudBackupDetails from '../../../Me/SecuritySection/CloudBackup/BackupDetails';
 import Layout from '../../Layout';
 
-const BackupDetails = () => {
-  const intl = useIntl();
-
-  return (
-    <Layout
-      title={intl.formatMessage({ id: 'title__backup_details' })}
-      secondaryContent={<CloudBackupDetails onboarding />}
-    />
-  );
-};
+const BackupDetails = () => (
+  <Layout fullHeight>
+    <Box mx={-4} flex={1} maxW="768px">
+      <CloudBackupDetails onboarding />
+    </Box>
+  </Layout>
+);
 
 export default BackupDetails;
