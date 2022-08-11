@@ -129,7 +129,6 @@ const NavigationApp = () => {
         right={0}
       >
         <Toast bottomOffset={60} />
-        <DialogManager.Holder />
         <HardwarePopup />
         <HardwareSpecialPopup />
       </Box>
