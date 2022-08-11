@@ -43,8 +43,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
         pt={`${insets.top}px`}
         alignItems="center"
         justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
-        borderBottomColor="divider" // TODO: change the color from transparent to divider while scrolling up
-        borderBottomWidth={StyleSheet.hairlineWidth}
         px={2}
         style={{ backgroundColor: temporaryBg }} // TODO remove this line after add ScrollUp event
       >
