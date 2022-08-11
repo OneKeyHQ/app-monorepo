@@ -493,11 +493,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
               setDeleting(true);
               await serviceCloudBackup.removeBackup(backupUUID);
               setDeleting(false);
-              if (onboarding) {
-                navigation.pop(2);
-              } else {
-                navigation.navigate(HomeRoutes.InitialTab);
-              }
+              setShowDeleteBackupDialog(false);
+              navigation.pop(2);
             }
           },
           onSecondaryActionPress: () => {

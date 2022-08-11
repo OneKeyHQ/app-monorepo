@@ -487,9 +487,13 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async removeBackup(backupUUID: string) {
-    const removed = await CloudFs.deleteFile(this.getBackupPath(backupUUID));
-    if (removed) {
-      this.listBackups.clear();
+    try {
+      const removed = await CloudFs.deleteFile(this.getBackupPath(backupUUID));
+      if (removed) {
+        this.listBackups.clear();
+      }
+    } catch (e) {
+      debugLogger.cloudBackup.error(e);
     }
   }
 
