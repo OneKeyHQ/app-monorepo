@@ -572,9 +572,13 @@ export default class Vault extends VaultBase {
     }
 
     if (typeof unsignedTx === 'undefined') {
-      unsignedTx = await this.buildUnsignedTxFromEncodedTx(
-        encodedTxWithFakePriceAndNonce,
-      );
+      try {
+        unsignedTx = await this.buildUnsignedTxFromEncodedTx(
+          encodedTxWithFakePriceAndNonce,
+        );
+      } catch {
+        unsignedTx = { limit: undefined };
+      }
     }
 
     // For L2 networks with L1 fee.
