@@ -43,7 +43,7 @@ const MobileModal: FC<ModalProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const { bottom, top } = useSafeAreaInsets();
-  const index = useNavigationState((state) => state.index);
+  const index = useNavigationState((state) => state?.index);
   const [currentStackIndex, setCurrentStackIndex] = useState(0);
 
   const close = useModalClose({ onClose });

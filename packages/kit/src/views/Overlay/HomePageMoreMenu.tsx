@@ -95,6 +95,7 @@ const DesktopMenu: FC<{
         }}
       >
         <Box
+          overflow="hidden"
           bg="surface-subdued"
           position="absolute"
           w="240px"
