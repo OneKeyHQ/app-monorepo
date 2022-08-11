@@ -8,24 +8,30 @@ import {
   ICON_NAMES,
   Icon,
   Modal,
+  PresenceTransition,
   Typography,
   useIsVerticalLayout,
   useThemeValue,
 } from '@onekeyhq/components';
+import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import { CloseButton, SelectProps } from '@onekeyhq/components/src/Select';
+import { Toast } from '@onekeyhq/components/src/Toast/useToast';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
 
-export const HomePageMoreMenu: FC<{ closeOverlay: () => void }> = ({
+const ModalizedMenu: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
   children,
 }) => {
   const modalizeRef = useRef<Modalize>(null);
-  const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
 
   const bg = useThemeValue('surface-subdued');
@@ -33,8 +39,7 @@ export const HomePageMoreMenu: FC<{ closeOverlay: () => void }> = ({
   useEffect(() => {
     setTimeout(() => modalizeRef.current?.open(), 10);
   }, []);
-
-  return isVerticalLayout ? (
+  return (
     <Modalize
       ref={modalizeRef}
       onClosed={closeOverlay}
@@ -58,34 +63,94 @@ export const HomePageMoreMenu: FC<{ closeOverlay: () => void }> = ({
         {children}
       </Modal>
     </Modalize>
+  );
+};
+
+const DesktopMenu: FC<{
+  closeOverlay: () => void;
+  triggerEle?: SelectProps['triggerEle'];
+}> = ({ closeOverlay, children, triggerEle }) => {
+  const translateY = 2;
+  const contentRef = useRef();
+  const { position, toPxPositionValue, isPositionNotReady } =
+    useDropdownPosition({
+      contentRef,
+      triggerEle,
+      visible: true,
+      translateY,
+      dropdownPosition: 'top-right',
+    });
+  return (
+    <Box position="absolute" w="full" h="full">
+      <CloseButton onClose={closeOverlay} />
+      <PresenceTransition
+        visible={!isPositionNotReady}
+        initial={{ opacity: 0, translateY: 0 }}
+        animate={{
+          opacity: 1,
+          translateY,
+          transition: {
+            duration: 150,
+          },
+        }}
+      >
+        <Box
+          bg="surface-subdued"
+          position="absolute"
+          w="240px"
+          borderRadius="12px"
+          borderWidth={1}
+          borderColor="border-subdued"
+          ref={contentRef}
+          left={toPxPositionValue(position.left)}
+          right={toPxPositionValue(position.right)}
+          top={toPxPositionValue(position.top)}
+          bottom={toPxPositionValue(position.bottom)}
+        >
+          {children}
+        </Box>
+      </PresenceTransition>
+    </Box>
+  );
+};
+
+export const HomePageMoreMenu: FC<{
+  closeOverlay: () => void;
+  triggerEle?: SelectProps['triggerEle'];
+}> = (props) => {
+  const isVerticalLayout = useIsVerticalLayout();
+
+  return isVerticalLayout ? (
+    <ModalizedMenu {...props} />
   ) : (
-    <Modal
-      visible
-      header={intl.formatMessage({ id: 'action__more' })}
-      footer={null}
-      closeAction={closeOverlay}
-    >
-      {children}
-    </Modal>
+    <DesktopMenu {...props} />
   );
 };
 
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { network: activeNetwork } = useActiveWalletAccount();
+  const { network } = useActiveWalletAccount();
   const { account } = useActiveWalletAccount();
-  const options: {
-    id: MessageDescriptor['id'];
-    onPress: () => void;
-    icon: ICON_NAMES;
-  }[] = useMemo(
+  const isVerticalLayout = useIsVerticalLayout();
+  // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
+  const disableScan = platformEnv.isWeb && !isVerticalLayout;
+  const options: (
+    | {
+        id: MessageDescriptor['id'];
+        onPress: () => void;
+        icon: ICON_NAMES;
+      }
+    | false
+    | undefined
+  )[] = useMemo(
     () => [
-      {
+      !disableScan && {
         id: 'action__scan',
         onPress: () => gotoScanQrcode(),
         icon: 'ScanSolid',
       },
+      // TODO Connected Sites
       {
         id: 'action__buy_crypto',
         onPress: () => {
@@ -95,25 +160,65 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
             params: {
               screen: FiatPayRoutes.SupportTokenListModal,
               params: {
-                networkId: activeNetwork?.id ?? '',
+                networkId: network?.id ?? '',
               },
             },
           });
         },
-        icon: 'TagOutline',
+        icon: isVerticalLayout ? 'TagOutline' : 'TagSolid',
       },
+      {
+        id: 'action__sell_crypto',
+        onPress: () => {
+          if (!account) return;
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.FiatPay,
+            params: {
+              screen: FiatPayRoutes.SupportTokenListModal,
+              params: {
+                networkId: network?.id ?? '',
+                type: 'Sell',
+              },
+            },
+          });
+        },
+        icon: isVerticalLayout ? 'CashOutline' : 'CashSolid',
+      },
+      platformEnv.isExtensionUiPopup && {
+        id: 'form__expand_view',
+        onPress: () => {
+          backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            routes: '',
+          });
+        },
+        icon: 'ArrowsExpandOutline',
+      },
+      {
+        id: 'action__copy_address',
+        onPress: () => {
+          const address = account?.address;
+          if (!address) return;
+          copyToClipboard(address);
+          Toast.show({
+            title: intl.formatMessage({ id: 'msg__address_copied' }),
+          });
+        },
+        icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
+      },
+      // TODO Share
     ],
-    [account, activeNetwork?.id, navigation],
+    [disableScan, isVerticalLayout, account, navigation, network?.id, intl],
   );
   return (
     <Box bg="surface-subdued" flexDirection="column">
-      {options.map(({ onPress, icon, id }) => (
+      {options.filter(Boolean).map(({ onPress, icon, id }) => (
         <PressableItem
           key={id}
           flexDirection="row"
           alignItems="center"
           py="16px"
           px="20px"
+          bg="transparent"
           onPress={() => {
             closeOverlay();
             onPress();
@@ -131,9 +236,9 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   );
 };
 
-export const showHomePageMoreMenu = () =>
+export const showHomePageMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
   showOverlay((closeOverlay) => (
-    <HomePageMoreMenu closeOverlay={closeOverlay}>
+    <HomePageMoreMenu triggerEle={triggerEle} closeOverlay={closeOverlay}>
       <MoreSettings closeOverlay={closeOverlay} />
     </HomePageMoreMenu>
   ));

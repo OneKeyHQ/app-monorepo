@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -185,6 +185,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
+  const moreButtonRef = useRef();
 
   return (
     <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
@@ -274,13 +275,19 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+      <Box
+        ref={moreButtonRef}
+        flex={{ base: 1, sm: 0 }}
+        mx={3}
+        minW="56px"
+        alignItems="center"
+      >
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
           name="DotsVerticalSolid"
           type="basic"
-          onPress={showHomePageMoreMenu}
+          onPress={() => showHomePageMoreMenu(moreButtonRef?.current)}
         />
         <Typography.CaptionStrong
           textAlign="center"
