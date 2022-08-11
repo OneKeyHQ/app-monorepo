@@ -7,7 +7,7 @@ import Layout from '../../Layout';
 
 const BackupDetails = () => (
   <Layout fullHeight>
-    <Box mx={-4} flex={1} maxW="768px">
+    <Box mx={-4} flex={1}>
       <CloudBackupDetails onboarding />
     </Box>
   </Layout>

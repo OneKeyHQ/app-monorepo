@@ -12,7 +12,7 @@ const BackupsList = () => {
 
   return (
     <Layout title={intl.formatMessage({ id: 'content__previous_backups' })}>
-      <Box mx={-4} maxW="768px">
+      <Box mx={-4}>
         <CloudBackupPreviousBackups />
       </Box>
     </Layout>
