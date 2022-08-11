@@ -7,12 +7,7 @@ import {
 } from '@react-navigation/native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import {
-  Box,
-  DialogManager,
-  useIsVerticalLayout,
-  useThemeValue,
-} from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import RootStack from '@onekeyhq/kit/src/routes/Root';
@@ -25,6 +20,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import linking from '../routes/linking';
+import { PortalElementsContainer } from '../routes/PortalElementsContainer.ios';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
 
@@ -114,24 +110,10 @@ const NavigationApp = () => {
         theme={navigationTheme}
         linking={linking}
       >
+        <RootStack />
         {/* TODO migrate all global popups to rootsibling */}
-        <RootSiblingParent>
-          <RootStack />
-        </RootSiblingParent>
+        <PortalElementsContainer />
       </NavigationContainer>
-      <Box
-        overflow="hidden"
-        pointerEvents="none"
-        position="absolute"
-        top={0}
-        bottom={0}
-        left={0}
-        right={0}
-      >
-        <Toast bottomOffset={60} />
-        <HardwarePopup />
-        <HardwareSpecialPopup />
-      </Box>
     </>
   );
 };
