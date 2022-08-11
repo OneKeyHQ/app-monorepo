@@ -84,7 +84,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   ) => (
     <Box flexDirection="column" justifyContent="flex-start">
       <HStack alignItems="center" height="28px">
-        {logo && (
+        {!!logo && (
           <NetImage src={logo} width="20px" height="20px" borderRadius="20px" />
         )}
         <Typography.Subheading color="text-subdued" ml="8px" mr="12px">
