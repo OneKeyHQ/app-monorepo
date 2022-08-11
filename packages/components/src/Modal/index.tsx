@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from 'react';
 
-import { OverlayProvider } from '@react-native-aria/overlays';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -194,7 +194,7 @@ const Modal = ({
     }
 
     if (!platformEnv.isRuntimeBrowser) {
-      return <OverlayProvider>{content}</OverlayProvider>;
+      return <RootSiblingParent>{content}</RootSiblingParent>;
     }
     return content;
   }, [

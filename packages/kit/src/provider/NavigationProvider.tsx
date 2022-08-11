@@ -1,12 +1,10 @@
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 
-import { OverlayProvider } from '@react-native-aria/overlays';
 import {
   DefaultTheme,
   NavigationContainer,
   NavigationContainerRef,
 } from '@react-navigation/native';
-import { Host } from 'react-native-portalize';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
@@ -116,14 +114,10 @@ const NavigationApp = () => {
         theme={navigationTheme}
         linking={linking}
       >
-        <Host>
-          {/* TODO migrate all global popups to rootsibling */}
-          <RootSiblingParent>
-            <OverlayProvider>
-              <RootStack />
-            </OverlayProvider>
-          </RootSiblingParent>
-        </Host>
+        {/* TODO migrate all global popups to rootsibling */}
+        <RootSiblingParent>
+          <RootStack />
+        </RootSiblingParent>
       </NavigationContainer>
       <Box
         overflow="hidden"
