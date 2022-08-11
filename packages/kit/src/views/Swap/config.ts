@@ -32,6 +32,7 @@ export const enabledChainIds: string[] = [
 ];
 
 const baseURL = `${getFiatEndpoint()}/0x/quote`;
+const serverURL = 'https://0x.onekey.so';
 
 export const networkRecords: Record<string, string> = {
   [Chains.MAINNET]: `${baseURL}?chainID=ethereum`,
@@ -43,9 +44,9 @@ export const networkRecords: Record<string, string> = {
   [Chains.CELO]: `${baseURL}?chainID=celo`,
   [Chains.OPTIMISM]: `${baseURL}?chainID=optimism`,
   [Chains.KOVAN]: 'https://kovan.api.0x.org/swap/v1/quote',
-  [Chains.HECO]: 'https://0x.onekey.so/swap/v1/quote',
-  [Chains.GNOSIS]: 'https://0x.onekey.so/swap/v1/xdai/quote',
-  [Chains.OKEX]: 'https://0x.onekey.so/swap/v1/okex/quote',
+  [Chains.HECO]: `${serverURL}/swap/v1/quote`,
+  [Chains.GNOSIS]: `${serverURL}/swap/v1/xdai/quote`,
+  [Chains.OKEX]: `${serverURL}/swap/v1/okex/quote`,
 };
 
 export const arrivalTimeValues: Record<string, number> = {

@@ -143,7 +143,11 @@ const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
           position="relative"
           mr="3"
         >
-          <Icon name="SwitchHorizontalSolid" size={25} />
+          <Icon
+            name="SwitchHorizontalSolid"
+            size={25}
+            color="text-on-primary"
+          />
           <Box position="absolute" bottom="0" right="0">
             <StatusIcon status={tx.status} />
           </Box>
@@ -252,6 +256,32 @@ const TransactionField: FC<TransactionFieldProps> = ({
   </Box>
 );
 
+type ViewInBrowserProps = { tx: TransactionDetails };
+const ViewInBrowser: FC<ViewInBrowserProps> = ({ tx }) => {
+  const intl = useIntl();
+  const network = useNetwork(tx.networkId);
+  const openLinkUrl = useCallback((url: string) => {
+    if (platformEnv.isNative) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
+  const onOpenTx = useCallback(() => {
+    const url = buildTransactionDetailsUrl(network, tx.hash);
+    openLinkUrl(url);
+  }, [openLinkUrl, network, tx.hash]);
+
+  return (
+    <Pressable flexDirection="row" onPress={onOpenTx}>
+      <Typography.Caption mr="1" color="text-subdued">
+        {intl.formatMessage({ id: 'action__view_in_browser' })}
+      </Typography.Caption>
+      <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
+    </Pressable>
+  );
+};
+
 const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   tx,
   showViewInBrowser,
@@ -327,7 +357,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
       <VStack space={4}>
         {tx.receivingAddress !== undefined &&
         tx.receivingAddress !== account.address ? (
-          <>
+          <VStack space={4}>
             <TransactionField
               label={intl.formatMessage({ id: 'content__from' })}
             >
@@ -337,10 +367,10 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 alignItems="center"
                 onPress={() => onCopy(account.address)}
               >
-                <Typography.Caption mr="1">
+                <Typography.Caption mr="1" color="text-subdued">
                   {formatAddressName(account.address, account.name)}
                 </Typography.Caption>
-                <Icon name="DuplicateOutline" size={12} color="text-subdued" />
+                <Icon name="DuplicateOutline" size={16} color="text-subdued" />
               </Pressable>
             </TransactionField>
             <TransactionField label={intl.formatMessage({ id: 'content__to' })}>
@@ -356,7 +386,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Icon name="DuplicateOutline" size={16} color="text-subdued" />
               </Pressable>
             </TransactionField>
-          </>
+          </VStack>
         ) : (
           <TransactionField label={intl.formatMessage({ id: 'form__account' })}>
             <Pressable
@@ -401,7 +431,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             <Typography.Caption color="text-subdued" mr="1">
               {utils.shortenAddress(tx.hash)}
             </Typography.Caption>
-            <Icon name="ExternalLinkSolid" color="text-subdued" size={16} />
+            <Icon name="ExternalLinkOutline" color="text-subdued" size={16} />
           </Pressable>
         </TransactionField>
         {swftcOrderId ? (
@@ -429,12 +459,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           alignItems="center"
         >
           <Logo width={82} height={25} />
-          <Pressable flexDirection="row" onPress={onOpenTx}>
-            <Typography.Caption mr="1" color="text-subdued">
-              {intl.formatMessage({ id: 'action__view_in_browser' })}
-            </Typography.Caption>
-            <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
-          </Pressable>
+          <ViewInBrowser tx={tx} />
         </Box>
       ) : null}
     </Box>

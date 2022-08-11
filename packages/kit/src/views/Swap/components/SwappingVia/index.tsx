@@ -8,6 +8,7 @@ type SwappingViaProps = {
   providers?: Provider[];
   typography?: ComponentProps<typeof Text>['typography'];
   color?: ComponentProps<typeof Text>['color'];
+  fontWeight?: ComponentProps<typeof Text>['fontWeight'];
 };
 
 type SwappingViaLogosProps = { sources?: string[] };
@@ -49,11 +50,12 @@ const SwappingVia: FC<SwappingViaProps> = ({
   providers,
   typography = 'Caption',
   color = 'text-subdued',
+  fontWeight = 400,
 }) => {
   if (!providers) {
     return (
       <Text typography={typography} color={color}>
-        Onekey Swap
+        OneKey Swap
       </Text>
     );
   }
@@ -63,7 +65,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
         {providers[0].logoUrl ? (
           <SwappingViaLogos sources={[providers[0].logoUrl]} />
         ) : null}
-        <Text typography={typography} color={color}>
+        <Text typography={typography} color={color} fontWeight={fontWeight}>
           {providers[0].name}
         </Text>
       </Box>
@@ -74,7 +76,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
     return (
       <Box alignItems="center" flexDirection="row" alignContent="center">
         {sources.length > 0 ? <SwappingViaLogos sources={sources} /> : null}
-        <Text typography={typography} color={color}>
+        <Text typography={typography} color={color} fontWeight={fontWeight}>
           {providers.length} Exchanges
         </Text>
       </Box>
@@ -82,7 +84,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
   }
   return (
     <Text typography={typography} color={color}>
-      Onekey Swap
+      OneKey Swap
     </Text>
   );
 };
