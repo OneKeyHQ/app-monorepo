@@ -42,7 +42,7 @@ type NavigationProps = CompositeNavigationProp<
 export const GenaralSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { dispatch } = backgroundApiProxy;
+  const { dispatch, engine } = backgroundApiProxy;
   const { theme, locale, selectedFiatMoneySymbol } = useSettings();
   const { themeVariant } = useTheme();
 
@@ -138,7 +138,10 @@ export const GenaralSection = () => {
               footer={null}
               defaultValue={locale}
               headerShown={false}
-              onChange={(l) => dispatch(setLocale(l as 'zh-CN'))}
+              onChange={(l) => {
+                dispatch(setLocale(l as 'zh-CN'));
+                engine.syncPushNotificationConfig();
+              }}
               options={localeOptions}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
@@ -165,6 +168,7 @@ export const GenaralSection = () => {
               value={selectedFiatMoneySymbol ?? 'usd'}
               onChange={(value) => {
                 dispatch(setSelectedFiatMoneySymbol(value));
+                engine.syncPushNotificationConfig();
               }}
               options={fiatMoneySymbolList.map((symbol) => ({
                 label: symbol.toUpperCase(),

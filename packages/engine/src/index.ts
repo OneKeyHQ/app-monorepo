@@ -132,6 +132,8 @@ import { VaultFactory } from './vaults/VaultFactory';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
 import type VaultEvm from './vaults/impl/evm/Vault';
 import type { ITransferInfo } from './vaults/types';
+import { syncPushNotificationConfig } from './managers/notification';
+import { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
 
 const updateTokenCache: {
   [networkId: string]: boolean;
@@ -2256,6 +2258,11 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async syncPushNotificationConfig() {
+    return syncPushNotificationConfig();
   }
 }
 

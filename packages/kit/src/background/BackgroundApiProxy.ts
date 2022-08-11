@@ -25,8 +25,7 @@ import type ServiceToken from './services/ServiceToken';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
-  implements IBackgroundApi
-{
+  implements IBackgroundApi {
   _serviceCreatedNames = {} as any;
 
   _proxyServiceCache = {} as any;

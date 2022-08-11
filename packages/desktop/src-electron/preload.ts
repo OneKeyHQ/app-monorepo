@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron';
 import keytar from 'keytar';
 
-export type PrefType = 'camera' | 'bluetooth' | 'location';
+export type PrefType = 'camera' | 'bluetooth' | 'location' | 'notification';
 export type DesktopAPI = {
   hello: string;
   arch: string;

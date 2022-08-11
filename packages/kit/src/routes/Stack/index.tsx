@@ -21,6 +21,7 @@ import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup'
 import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
 import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
 import Protected from '@onekeyhq/kit/src/views/Protected';
+import PushNotification from '@onekeyhq/kit/src/views/PushNotification';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
@@ -90,6 +91,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.CloudBackupDetails,
     component: CloudBackupDetails,
+  },
+  {
+    name: HomeRoutes.PushNotification,
+    component: PushNotification,
   },
 ];
 
