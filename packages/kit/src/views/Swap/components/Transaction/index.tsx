@@ -6,6 +6,7 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
 import {
@@ -142,7 +143,7 @@ const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
           position="relative"
           mr="3"
         >
-          <Icon name="SwitchHorizontalSolid" size={20} />
+          <Icon name="SwitchHorizontalSolid" size={25} />
           <Box position="absolute" bottom="0" right="0">
             <StatusIcon status={tx.status} />
           </Box>
@@ -150,14 +151,14 @@ const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
         <Box>
           <StatusTitle status={tx.status} />
           {tx.confirmedTime ? (
-            <Typography.Caption>
+            <Typography.Caption color="text-subdued">
               {intl.formatMessage(
                 { id: 'form__str_used' },
                 { '0': formatTime(tx.confirmedTime - tx.addedTime) },
               )}
             </Typography.Caption>
           ) : (
-            <Typography.Caption>
+            <Typography.Caption color="text-subdued">
               {intl.formatMessage(
                 { id: 'form__estimate_str' },
                 {
@@ -280,21 +281,18 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     [toast, intl],
   );
 
-  const onOpenUrl = useCallback(
-    (url: string) => {
-      if (platformEnv.isNative) {
-        navigation.navigate(SwapRoutes.Webview, { url });
-      } else {
-        global.open(url, '_blank');
-      }
-    },
-    [navigation],
-  );
+  const openLinkUrl = useCallback((url: string) => {
+    if (platformEnv.isNative) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
 
   const onOpenTx = useCallback(() => {
     const url = buildTransactionDetailsUrl(network, tx.hash);
-    onOpenUrl(url);
-  }, [onOpenUrl, network, tx.hash]);
+    openLinkUrl(url);
+  }, [openLinkUrl, network, tx.hash]);
 
   const onPress = useCallback(async () => {
     if (from && to && fromNetwork && toNetwork) {
@@ -355,7 +353,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Typography.Caption mr="1" color="text-subdued">
                   {formatAddressName(tx.receivingAddress, receivingName)}
                 </Typography.Caption>
-                <Icon name="DuplicateOutline" size={12} color="text-subdued" />
+                <Icon name="DuplicateOutline" size={16} color="text-subdued" />
               </Pressable>
             </TransactionField>
           </>
@@ -370,7 +368,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption mr="1" color="text-subdued">
                 {formatAddressName(account.address, account.name)}
               </Typography.Caption>
-              <Icon name="DuplicateOutline" size={12} color="text-subdued" />
+              <Icon name="DuplicateOutline" size={16} color="text-subdued" />
             </Pressable>
           </TransactionField>
         )}
@@ -403,7 +401,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             <Typography.Caption color="text-subdued" mr="1">
               {utils.shortenAddress(tx.hash)}
             </Typography.Caption>
-            <Icon name="ExternalLinkSolid" color="text-subdued" size={12} />
+            <Icon name="ExternalLinkSolid" color="text-subdued" size={16} />
           </Pressable>
         </TransactionField>
         {swftcOrderId ? (
@@ -418,12 +416,12 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption color="text-subdued">
                 {utils.shortenAddress(swftcOrderId)}
               </Typography.Caption>
-              <Icon name="DuplicateOutline" size={12} />
+              <Icon name="DuplicateOutline" size={16} />
             </Pressable>
           </TransactionField>
         ) : null}
       </VStack>
-      <Divider my="4" />
+      <Divider my="7" />
       {showViewInBrowser ? (
         <Box
           flexDirection="row"
@@ -435,7 +433,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             <Typography.Caption mr="1" color="text-subdued">
               {intl.formatMessage({ id: 'action__view_in_browser' })}
             </Typography.Caption>
-            <Icon name="ExternalLinkOutline" size={12} color="text-subdued" />
+            <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
           </Pressable>
         </Box>
       ) : null}

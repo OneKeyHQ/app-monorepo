@@ -27,10 +27,11 @@ export const swapTransactionsSlice = createSlice({
         state.transactions[accountId] = {};
       }
       const oldTransactions = state.transactions[accountId][networkId] ?? [];
-      state.transactions[accountId][networkId] = [
-        transaction,
-        ...oldTransactions,
-      ];
+      const newTransactions = [transaction, ...oldTransactions];
+      if (newTransactions.length > 30) {
+        newTransactions.length = 30;
+      }
+      state.transactions[accountId][networkId] = newTransactions;
     },
     updateTransaction(
       state,
@@ -77,6 +78,13 @@ export const swapTransactionsSlice = createSlice({
     clearTransactions(state) {
       state.transactions = {};
     },
+    clearAccountTransactions(
+      state,
+      action: PayloadAction<{ accountId: string }>,
+    ) {
+      const { accountId } = action.payload;
+      state.transactions[accountId] = {};
+    },
   },
 });
 
@@ -85,6 +93,7 @@ export const {
   updateTransaction,
   archiveTransaction,
   clearTransactions,
+  clearAccountTransactions,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

@@ -1,4 +1,5 @@
 import React, {
+  FC,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -21,13 +22,13 @@ import {
   IconButton,
   SectionList,
   Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import historyPNG from '@onekeyhq/kit/assets/3d_transaction_history.png';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
-import { clearTransactions } from '../../../store/reducers/swapTransactions';
 import { useTransactions } from '../hooks/useTransactions';
 import { TransactionDetails } from '../typings';
 
@@ -112,14 +113,8 @@ const HistorySectionList = () => {
     [format],
   );
 
-  const contentContainerStyle = useMemo(
-    () => ({ maxWidth: 768, marginHorizontal: 'auto', width: '100%' }),
-    [],
-  );
-
   return (
     <SectionList
-      contentContainerStyle={contentContainerStyle}
       sections={sections}
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}
@@ -133,14 +128,15 @@ const HistorySectionList = () => {
 
 const TrashButton = () => {
   const intl = useIntl();
+  const { accountId } = useActiveWalletAccount();
   const [visible, setVisible] = useState(false);
   const onPress = useCallback(() => {
     setVisible(true);
   }, []);
   const onClear = useCallback(() => {
-    backgroundApiProxy.dispatch(clearTransactions());
+    backgroundApiProxy.serviceSwap.clearAccountTransactions(accountId);
     setVisible(false);
-  }, []);
+  }, [accountId]);
   return (
     <Box px="4">
       <IconButton type="plain" name="TrashOutline" onPress={onPress} />
@@ -175,18 +171,53 @@ const TrashButton = () => {
   );
 };
 
-const History = () => {
+const HistoryLayout: FC = ({ children }) => {
   const navigation = useNavigation();
+  const intl = useIntl();
+  const isSmall = useIsVerticalLayout();
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: TrashButton,
-    });
-  }, [navigation]);
+    if (!isSmall) {
+      navigation.setOptions({ title: '' });
+    } else {
+      navigation.setOptions({
+        headerRight: TrashButton,
+      });
+    }
+  }, [navigation, isSmall]);
+  if (isSmall) {
+    return (
+      <Box
+        bg="background-default"
+        w="full"
+        h="full"
+        style={{ maxWidth: 768, marginHorizontal: 'auto' }}
+      >
+        {children}
+      </Box>
+    );
+  }
   return (
-    <Box bg="background-default" w="full" h="full">
-      <HistorySectionList />
+    <Box bg="background-default" w="full" h="full" px="8">
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        flexDirection="row"
+        mb="8"
+      >
+        <Typography.DisplayLarge px="4">
+          {intl.formatMessage({ id: 'title__swap_history' })}
+        </Typography.DisplayLarge>
+        <TrashButton />
+      </Box>
+      {children}
     </Box>
   );
 };
+
+const History = () => (
+  <HistoryLayout>
+    <HistorySectionList />
+  </HistoryLayout>
+);
 
 export default History;

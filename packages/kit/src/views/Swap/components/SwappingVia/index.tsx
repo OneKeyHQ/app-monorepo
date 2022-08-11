@@ -72,7 +72,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
   if (providers.length > 1) {
     const sources = providers.map((i) => i.logoUrl).filter(Boolean);
     return (
-      <Box alignItems="center">
+      <Box alignItems="center" flexDirection="row" alignContent="center">
         {sources.length > 0 ? <SwappingViaLogos sources={sources} /> : null}
         <Text typography={typography} color={color}>
           {providers.length} Exchanges

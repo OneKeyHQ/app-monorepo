@@ -39,6 +39,21 @@ const TabNavigator = () => {
   const foldableList = useMemo(
     () => [
       {
+        name: TabRoutes.Swap,
+        foldable: true,
+        component: () => null,
+        disabled: wallet?.type === 'watching',
+        onPress: () => {
+          // @ts-expect-error
+          navigationRef.current?.navigate(TabRoutes.Swap);
+        },
+        tabBarLabel: intl.formatMessage({ id: 'title__swap' }),
+        tabBarIcon: () => 'SwitchHorizontalSolid',
+        description: intl.formatMessage({
+          id: 'content__exchange_any_tokens',
+        }),
+      },
+      {
         name: TabRoutes.Send,
         foldable: true,
         component: () => null,

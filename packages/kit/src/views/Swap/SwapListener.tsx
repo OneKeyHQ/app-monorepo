@@ -15,7 +15,7 @@ import { refs } from './refs';
 const AccountListener = () => {
   const { account } = useActiveWalletAccount();
   useEffect(() => {
-    backgroundApiProxy.serviceSwap.resetState();
+    backgroundApiProxy.serviceSwap.setApprovalSubmitted(false);
   }, [account]);
   return <></>;
 };
