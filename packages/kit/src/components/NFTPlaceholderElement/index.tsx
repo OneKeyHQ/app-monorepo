@@ -7,7 +7,7 @@ import NFTPlaceholderBG from '@onekeyhq/components/img/NFT_placeholder_bg.png';
 type Props = {
   contentType?: string | null;
   size: number;
-  logoUrl?: string;
+  logoUrl?: string | null;
 };
 const FallbackElement: FC<Props> = ({ ...props }) => {
   const { contentType, size, logoUrl } = props;
@@ -15,7 +15,6 @@ const FallbackElement: FC<Props> = ({ ...props }) => {
 
   const isMedia =
     contentType?.startsWith('audio') || contentType?.startsWith('video');
-
   return (
     <Center {...props} size={`${size}px`} overflow="hidden">
       <Image position="absolute" size={`${size}px`} source={NFTPlaceholderBG} />
@@ -24,13 +23,21 @@ const FallbackElement: FC<Props> = ({ ...props }) => {
         overflow="hidden"
         borderRadius={`${logoSize / 2}px`}
       >
-        <NetImage
-          width={`${logoSize}px`}
-          height={`${logoSize}px`}
-          borderRadius={`${logoSize / 2}px`}
-          src={logoUrl}
-          source={logoUrl ? undefined : CollectionDefaultLogo}
-        />
+        {logoUrl ? (
+          <NetImage
+            width={`${logoSize}px`}
+            height={`${logoSize}px`}
+            borderRadius={`${logoSize / 2}px`}
+            src={logoUrl}
+          />
+        ) : (
+          <Image
+            width={`${logoSize}px`}
+            height={`${logoSize}px`}
+            borderRadius={`${logoSize / 2}px`}
+            source={CollectionDefaultLogo}
+          />
+        )}
       </Box>
       {isMedia ? (
         <Box
