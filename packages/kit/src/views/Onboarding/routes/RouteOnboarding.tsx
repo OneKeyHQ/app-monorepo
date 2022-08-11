@@ -10,6 +10,8 @@ import RecoveryPhrase from '../screens/CreateWallet/RecoveryPhrase';
 import SetPassword from '../screens/CreateWallet/SetPassword';
 import ShowRecoveryPhrase from '../screens/CreateWallet/ShowRecoveryPhrase';
 import ImportWallet from '../screens/ImportWallet';
+import BackupDetails from '../screens/RestoreFromCloud/BackupDetails';
+import BackupsList from '../screens/RestoreFromCloud/BackupsList';
 import Welcome from '../screens/Welcome';
 
 import { EOnboardingRoutes } from './enums';
@@ -47,6 +49,14 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.BehindTheScene,
     component: BehindTheScene,
+  },
+  {
+    name: EOnboardingRoutes.RestoreFromCloud,
+    component: BackupsList,
+  },
+  {
+    name: EOnboardingRoutes.CloudBackupDetails,
+    component: BackupDetails,
   },
 ];
 

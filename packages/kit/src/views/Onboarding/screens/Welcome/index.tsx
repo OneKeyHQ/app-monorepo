@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -59,6 +59,16 @@ const Welcome = () => {
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
 
+  const [hasPreviousBackups, setHasPreviousBackups] = useState(false);
+  useEffect(() => {
+    const getStatus = async () => {
+      const status =
+        await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
+      setHasPreviousBackups(status.hasPreviousBackups);
+    };
+    getStatus();
+  }, []);
+
   const onPressCreateWallet = useCallback(() => {
     navigation.navigate(EOnboardingRoutes.SetPassword);
   }, [navigation]);
@@ -67,6 +77,9 @@ const Welcome = () => {
   }, [navigation]);
   const onPressConnectWallet = useCallback(() => {
     navigation.navigate(EOnboardingRoutes.ConnectWallet);
+  }, [navigation]);
+  const onPressRestoreFromCloud = useCallback(() => {
+    navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
   }, [navigation]);
 
   const logos = [
@@ -148,6 +161,17 @@ const Welcome = () => {
               {intl.formatMessage({ id: 'content__supported_wallets' })}
             </Text>
           </Hidden>
+          {hasPreviousBackups ? (
+            <PressableListItem
+              icon="CloudOutline"
+              label={intl.formatMessage({
+                id: 'action__restore_from_icloud',
+              })}
+              mt={{ base: 8, sm: 0 }}
+              roundedTop={{ base: 0, sm: 'xl' }}
+              onPress={onPressRestoreFromCloud}
+            />
+          ) : undefined}
         </Box>
       </Layout>
       <TermsOfService />
