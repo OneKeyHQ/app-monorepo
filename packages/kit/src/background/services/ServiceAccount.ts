@@ -71,10 +71,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async setAccountName(accountId: string, name: string) {
-    const { engine, dispatch } = this.backgroundApi;
+    const { engine, dispatch, serviceCloudBackup } = this.backgroundApi;
     const newAccount = await engine.setAccountName(accountId, name);
 
     dispatch(updateAccountDetail({ name, id: accountId }));
+    if (!accountId.startsWith('hw')) {
+      serviceCloudBackup.requestBackup();
+    }
 
     appEventBus.emit(AppEventBusNames.AccountNameChanged);
 
@@ -212,6 +215,7 @@ class ServiceAccount extends ServiceBase {
       serviceAccount,
       serviceApp,
       servicePassword,
+      serviceCloudBackup,
     } = this.backgroundApi;
     const wallet = await engine.createHDWallet({
       password,
@@ -236,6 +240,7 @@ class ServiceAccount extends ServiceBase {
     if (isOk) {
       servicePassword.savePassword(password);
     }
+    serviceCloudBackup.requestBackup();
     return wallet;
   }
 
@@ -248,7 +253,7 @@ class ServiceAccount extends ServiceBase {
     names?: string[],
     purpose?: number,
   ) {
-    const { engine, dispatch } = this.backgroundApi;
+    const { engine, dispatch, serviceCloudBackup } = this.backgroundApi;
     const accounts = await engine.addHdOrHwAccounts(
       password,
       walletId,
@@ -271,6 +276,7 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+    serviceCloudBackup.requestBackup();
     return accounts;
   }
 
@@ -288,6 +294,7 @@ class ServiceAccount extends ServiceBase {
       serviceApp,
       servicePassword,
       appSelector,
+      serviceCloudBackup,
     } = this.backgroundApi;
     const account = await engine.addImportedAccount(
       password,
@@ -326,13 +333,19 @@ class ServiceAccount extends ServiceBase {
     if (isOk) {
       servicePassword.savePassword(password);
     }
+    serviceCloudBackup.requestBackup();
     return account;
   }
 
   @backgroundMethod()
   async addWatchAccount(networkId: string, address: string, name: string) {
-    const { dispatch, engine, serviceAccount, appSelector } =
-      this.backgroundApi;
+    const {
+      dispatch,
+      engine,
+      serviceAccount,
+      appSelector,
+      serviceCloudBackup,
+    } = this.backgroundApi;
     const account = await engine.addWatchingAccount(networkId, address, name);
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
@@ -357,6 +370,7 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+    serviceCloudBackup.requestBackup();
   }
 
   @backgroundMethod()
@@ -455,7 +469,8 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async removeWallet(walletId: string, password: string | undefined) {
-    const { appSelector, engine, dispatch } = this.backgroundApi;
+    const { appSelector, engine, dispatch, serviceCloudBackup } =
+      this.backgroundApi;
     const activeWalletId = appSelector((s) => s.general.activeWalletId);
     await engine.removeWallet(walletId, password ?? '');
 
@@ -466,6 +481,9 @@ class ServiceAccount extends ServiceBase {
     }
 
     dispatch(setRefreshTS());
+    if (!walletId.startsWith('hw')) {
+      serviceCloudBackup.requestBackup();
+    }
   }
 
   @backgroundMethod()
@@ -474,7 +492,8 @@ class ServiceAccount extends ServiceBase {
     accountId: string,
     password: string | undefined,
   ) {
-    const { appSelector, engine, dispatch } = this.backgroundApi;
+    const { appSelector, engine, dispatch, serviceCloudBackup } =
+      this.backgroundApi;
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
     await engine.removeAccount(accountId, password ?? '');
 
@@ -486,6 +505,9 @@ class ServiceAccount extends ServiceBase {
     }
 
     dispatch(setRefreshTS());
+    if (!walletId.startsWith('hw')) {
+      serviceCloudBackup.requestBackup();
+    }
   }
 
   addressLabelCache: Record<string, string> = {};

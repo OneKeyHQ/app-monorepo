@@ -50,8 +50,7 @@ const CollectibleDetailModal: FC = () => {
         CollectiblesModalRoutes.CollectibleDetailModal
       >
     >();
-  const { asset, network } = route.params;
-
+  const { network, asset } = route.params;
   const shareProps: Props = {
     imageContent: <CollectibleContent asset={asset} />,
     content: asset && (
@@ -59,11 +58,11 @@ const CollectibleDetailModal: FC = () => {
         {/* Asset name and collection name */}
         <VStack>
           <Typography.DisplayLarge fontWeight="700">
-            {asset.assetName}
+            {asset.name}
           </Typography.DisplayLarge>
-          {!!asset.name && (
+          {!!asset.collection.contractName && (
             <Typography.Body2 color="text-subdued">
-              {asset.name}
+              {asset.collection.contractName}
             </Typography.Body2>
           )}
         </VStack>
@@ -159,7 +158,7 @@ const CollectibleDetailModal: FC = () => {
               </Box>
             </>
           )}
-          {!!asset.tokenAddress && (
+          {!!asset.contractAddress && (
             <>
               <Divider />
               <Box
@@ -182,7 +181,7 @@ const CollectibleDetailModal: FC = () => {
                   numberOfLines={999}
                   selectable
                 >
-                  {asset.tokenAddress}
+                  {asset.contractAddress}
                 </Typography.Body1Strong>
               </Box>
             </>
@@ -199,7 +198,7 @@ const CollectibleDetailModal: FC = () => {
       size="2xl"
       footer={null}
       height="640px"
-      header={asset.assetName ?? ''}
+      header={asset.contractName ?? ''}
       staticChildrenProps={{
         flex: 1,
         pt: '24px',

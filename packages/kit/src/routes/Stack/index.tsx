@@ -17,6 +17,9 @@ import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
+import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
+import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
+import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
 import Protected from '@onekeyhq/kit/src/views/Protected';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
@@ -75,6 +78,18 @@ export const stackScreenList = [
   {
     name: HomeRoutes.VolumeHaptic,
     component: VolumeHaptic,
+  },
+  {
+    name: HomeRoutes.CloudBackup,
+    component: CloudBackup,
+  },
+  {
+    name: HomeRoutes.CloudBackupPreviousBackups,
+    component: CloudBackupPreviousBackups,
+  },
+  {
+    name: HomeRoutes.CloudBackupDetails,
+    component: CloudBackupDetails,
   },
 ];
 

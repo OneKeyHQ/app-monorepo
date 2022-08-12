@@ -15,6 +15,7 @@ import {
   setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
+import { clearAccountTransactions } from '../../store/reducers/swapTransactions';
 import { FieldType } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -133,5 +134,11 @@ export default class ServiceSwap extends ServiceBase {
   async clearState() {
     const { dispatch } = this.backgroundApi;
     dispatch(clearState());
+  }
+
+  @backgroundMethod()
+  async clearAccountTransactions(accountId: string) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(clearAccountTransactions({ accountId }));
   }
 }

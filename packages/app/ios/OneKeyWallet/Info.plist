@@ -56,14 +56,26 @@
 	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Use Camera to scan QR Code.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Use Microphone to record videos.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to authenticate and unlock your wallet.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Use Microphone to record videos.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Use photo library to save QR images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.so.onekey.wallet</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<false/>
+			<key>NSUbiquitousContainerName</key>
+			<string>OneKey</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>One</string>
+		</dict>
+	</dict>
 	<key>RCTRootViewBackgroundColor</key>
 	<dict>
 		<key>dynamic</key>

@@ -31,8 +31,9 @@ const HistoryItemStatus: FC<HistoryItemStatusProps> = ({ status }) => {
     <Box>
       {status === 'pending' ? (
         <Badge
-          type="warning"
+          type="info"
           size="sm"
+          color="#599BFF"
           title={intl.formatMessage({ id: 'transaction__pending' })}
         />
       ) : null}
@@ -40,6 +41,7 @@ const HistoryItemStatus: FC<HistoryItemStatusProps> = ({ status }) => {
         <Badge
           type="critical"
           size="sm"
+          color="text-critical"
           title={intl.formatMessage({ id: 'transaction__failed' })}
         />
       ) : null}
@@ -47,6 +49,7 @@ const HistoryItemStatus: FC<HistoryItemStatusProps> = ({ status }) => {
         <Badge
           type="critical"
           size="sm"
+          color="text-critical"
           title={intl.formatMessage({ id: 'transaction__failed' })}
         />
       ) : null}
@@ -54,6 +57,7 @@ const HistoryItemStatus: FC<HistoryItemStatusProps> = ({ status }) => {
         <Badge
           type="success"
           size="sm"
+          color="text-success"
           title={intl.formatMessage({ id: 'transaction__success' })}
         />
       ) : null}
@@ -115,7 +119,7 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
         flexDirection="row"
         alignItems="center"
       >
-        <Box flexDirection="row" alignItems="center" width="25%">
+        <Box flexDirection="row" alignItems="center" width="30%">
           <Box mr="4">
             <TokenIcon src={tx.tokens?.from.token.logoURI} size="8" />
           </Box>
@@ -131,7 +135,7 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
             </Typography.Body2>
           </Box>
         </Box>
-        <Box flexDirection="row" alignItems="center" width="30%">
+        <Box flexDirection="row" alignItems="center" width="35%">
           <Center h="4" w="8" my="1">
             <Icon name="ArrowRightSolid" size={16} />
           </Center>
@@ -152,8 +156,17 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
             </Box>
           </Box>
         </Box>
-        <Box width="25%" alignItems="center">
-          <SwappingVia providers={tx.providers} />
+        <Box
+          width="20%"
+          alignItems="center"
+          justifyContent="flex-start"
+          flexDirection="row"
+        >
+          <SwappingVia
+            providers={tx.providers}
+            typography="Body2Strong"
+            color="text-default"
+          />
         </Box>
         <Box
           flexDirection="row"
@@ -260,7 +273,11 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
           mt="3"
         >
           <Box flexDirection="row" alignItems="center">
-            <SwappingVia providers={tx.providers} />
+            <SwappingVia
+              providers={tx.providers}
+              typography="Body2Strong"
+              color="text-default"
+            />
             <Typography.Body2 color="text-subdued" ml="3">
               {dateFormat(tx.addedTime, 'hh:mm')}
             </Typography.Body2>

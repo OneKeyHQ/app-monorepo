@@ -42,6 +42,7 @@ const EditAddress = () => {
             },
           }),
         );
+        backgroundApiProxy.serviceCloudBackup.requestBackup();
         toast.show({
           title: intl.formatMessage({ id: 'msg__address_changed' }),
         });

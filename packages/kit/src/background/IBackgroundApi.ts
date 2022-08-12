@@ -9,6 +9,7 @@ import type ProviderApiBase from './providers/ProviderApiBase';
 import type WalletConnectAdapter from './providers/WalletConnectAdapter';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
+import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
 import type ServiceHardware from './services/ServiceHardware';
@@ -61,6 +62,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHistory: ServiceHistory;
   serviceHardware: ServiceHardware;
   servicePassword: ServicePassword;
+  serviceCloudBackup: ServiceCloudBackup;
 }
 
 export type IDappSourceInfo = {

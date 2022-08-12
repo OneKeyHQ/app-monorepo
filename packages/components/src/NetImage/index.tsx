@@ -20,8 +20,10 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   const [imageState, updateImageState] = useState<ImageState>(
     skeleton ? 'loading' : null,
   );
+  const { preview } = rest;
+  const [src, updateSrc] = useState(rest.src);
   const [retryCount, updateRetryCount] = useState(0);
-  const { preview, src } = rest;
+
   const onImagePress = useCallback(() => {
     if (onPress && rest.src && preview) {
       onPress();
@@ -32,6 +34,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
     if (onErrorWithTask && retryCount === 0) {
       onErrorWithTask().then((success) => {
         if (success) {
+          updateSrc(`${rest.src as string}?t=${Date.now()}`);
           updateRetryCount((prevCounter) => prevCounter + 1);
         } else {
           updateImageState('fail');
@@ -39,11 +42,13 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
       });
     } else if (retryCount < retry) {
       setTimeout(() => {
+        updateSrc(`${rest.src as string}?t=${Date.now()}`);
         updateRetryCount((prevCounter) => prevCounter + 1);
       }, retryDuring);
     } else {
       updateImageState('fail');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onErrorWithTask, retry, retryCount, retryDuring]);
 
   const renderImage = useMemo(
@@ -59,12 +64,12 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
           }}
           onError={onImageError}
           {...rest}
-          src={src && `${src}?t=${Date.now()}`}
+          src={src}
         />
       </Pressable>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [retryCount],
+    [retryCount, src],
   );
   return (
     <Box {...rest}>

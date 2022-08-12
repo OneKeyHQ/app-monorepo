@@ -5,6 +5,7 @@ import { IBackgroundApi } from './IBackgroundApi';
 import WalletConnectAdapter from './providers/WalletConnectAdapter';
 import ServiceAccount from './services/ServiceAccount';
 import ServiceApp from './services/ServiceApp';
+import ServiceCloudBackup from './services/ServiceCloudBackup';
 import ServiceCronJob from './services/ServiceCronJob';
 import ServiceDapp from './services/ServiceDapp';
 import ServiceHardware from './services/ServiceHardware';
@@ -72,6 +73,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceSwap = new ServiceSwap({
+    backgroundApi: this,
+  });
+
+  serviceCloudBackup = new ServiceCloudBackup({
     backgroundApi: this,
   });
 }

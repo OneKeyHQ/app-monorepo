@@ -1,89 +1,67 @@
-import React, {
-  ComponentProps,
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { ComponentProps, FC } from 'react';
 
-import axios from 'axios';
+import { Box } from '@onekeyhq/components';
+import { getImageWithAsset } from '@onekeyhq/engine/src/managers/nft';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
-import { Box, Center, Image, NetImage, Spinner } from '@onekeyhq/components';
-import NFTEmptyImg from '@onekeyhq/components/img/nft_empty.png';
-import { getImageWithAsset } from '@onekeyhq/engine/src/managers/moralis';
-import type { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import NFTImage from '../../../../components/NFTImage';
+import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
 
 type Props = {
-  asset: MoralisNFT;
+  url?: string;
+  asset: NFTAsset;
   size: number;
+  thumbnail?: boolean;
+  skeleton?: boolean;
+  resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
 } & ComponentProps<typeof Box>;
 
-const useValidImageUrl = (url: string) => {
-  const maxRetryCount = 5;
-  const [retryCount, updateCount] = useState(0);
-  const [isValid, setIsValid] = useState(false);
-  const checkUrl = useCallback(async () => {
-    if (url === '') {
-      return;
-    }
-    const contentType = await axios
-      .head(url, { timeout: 1000 })
-      .then((resp) => resp.headers['content-type'])
-      .catch(() => '404');
-    const valid = contentType.startsWith('image');
-    const timeOut = Math.floor(retryCount / 5 + 1) * 5000;
-    setIsValid(valid);
-    setTimeout(() => {
-      if (!valid) {
-        updateCount((prev) => prev + 1);
-      }
-    }, timeOut);
-  }, [retryCount, url]);
-
-  useEffect(() => {
-    if (!isValid && retryCount < maxRetryCount) {
-      checkUrl();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkUrl, isValid]);
-
-  return useMemo(() => {
-    if (url === '') {
-      return '';
-    }
-    if (isValid) {
-      return url;
-    }
-    if (retryCount < maxRetryCount && !isValid) {
-      return 'loading';
-    }
-    return '';
-  }, [isValid, retryCount, url]);
-};
-
-const CollectibleListImage: FC<Props> = ({ asset, size, ...props }) => {
-  const imageUrl = getImageWithAsset(asset, 150);
-  const url = useValidImageUrl(imageUrl);
-
-  if (url === 'loading') {
+const CollectibleListImage: FC<Props> = ({
+  url,
+  thumbnail = true,
+  asset,
+  resizeMode,
+  size,
+  skeleton = false,
+  ...props
+}) => {
+  const imageUrl =
+    url ?? (thumbnail ? asset.image.thumbnail : asset.image.source);
+  const source = getImageWithAsset(asset);
+  if (source) {
     return (
-      <Center size={`${size}px`} {...props}>
-        <Spinner size="sm" />
-      </Center>
-    );
-  }
-  if (url === '') {
-    return (
-      <Center size={`${size}px`} {...props} overflow="hidden">
-        <Image size={`${size}px`} source={NFTEmptyImg} />
-      </Center>
+      <Box size={`${size}px`} {...props} overflow="hidden">
+        <NFTImage
+          resizeMode={resizeMode}
+          width={`${size}px`}
+          height={`${size}px`}
+          s3Url={imageUrl}
+          nftSource={{
+            contractAddress: asset.contractAddress,
+            tokenId: asset.contractTokenId,
+            url: source,
+          }}
+          skeleton={skeleton}
+          bgColor="surface-neutral-default"
+          fallbackElement={
+            <MemoFallbackElement
+              contentType={asset.contentType}
+              logoUrl={asset.collection.logoUrl}
+              size={size}
+              {...props}
+            />
+          }
+        />
+      </Box>
     );
   }
   return (
-    <Box size={`${size}px`} {...props} overflow="hidden">
-      <NetImage width={size} height={size} src={url} />
-    </Box>
+    <MemoFallbackElement
+      contentType={asset.contentType}
+      logoUrl={asset.collection.logoUrl}
+      size={size}
+      {...props}
+    />
   );
 };
 

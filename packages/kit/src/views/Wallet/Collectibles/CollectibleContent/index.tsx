@@ -1,39 +1,72 @@
 import React, { FC } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import {
+  CustomSkeleton,
+  useIsVerticalLayout,
+  useUserDevice,
+} from '@onekeyhq/components';
+import {
+  getContentWithAsset,
+  getHttpImageWithAsset,
+} from '@onekeyhq/engine/src/managers/nft';
+import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import NFTAudio from '../../../../components/NFTAudio';
+import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
+import NFTSVG from '../../../../components/NFTSVG';
+import NFTVideo from '../../../../components/NFTVideo/index.web';
+import CollectibleListImage from '../CollectibleGallery/CollectibleListImage';
 
-import NFTAudio from './NFTAudio';
-import NFTImage from './NFTImage';
-import NFTSVG from './NFTSVG';
-import NFTVideo from './NFTVideo';
-import { NFTProps } from './type';
 import useUniqueToken from './useUniqueToken';
 
-const CollectibleContent: FC<NFTProps> = ({ asset }) => {
-  const { supportsVideo, supportsAudio, supportsSVG, url } =
-    useUniqueToken(asset);
-  const isSmallScreen = useIsVerticalLayout();
-  const { width } = useWindowDimensions();
-  const imageWidth = isSmallScreen ? width - 32 : 358;
-  const shareProps: NFTProps = {
-    width: imageWidth,
-    height: imageWidth,
-    asset,
-    url,
-  };
+export type Props = {
+  asset: NFTAsset;
+};
 
-  if (supportsSVG) {
-    return <NFTSVG {...shareProps} />;
+const CollectibleContent: FC<Props> = ({ asset }) => {
+  const { componentType } = useUniqueToken(asset);
+  const { screenWidth } = useUserDevice();
+  const isSmallScreen = useIsVerticalLayout();
+
+  const imageWidth = isSmallScreen ? screenWidth - 32 : 358;
+  const uri = getContentWithAsset(asset);
+
+  if (uri) {
+    if (componentType === undefined) {
+      return <CustomSkeleton size={imageWidth} />;
+    }
+    if (componentType === 'Image') {
+      return (
+        <CollectibleListImage
+          url={uri}
+          asset={asset}
+          thumbnail={false}
+          size={imageWidth}
+          skeleton
+          borderRadius="20px"
+          resizeMode="cover"
+        />
+      );
+    }
+    if (componentType === 'Video') {
+      return <NFTVideo url={uri} size={imageWidth} />;
+    }
+    if (componentType === 'SVG') {
+      return <NFTSVG url={uri} size={imageWidth} />;
+    }
+    if (componentType === 'Audio') {
+      const imageUrl = getHttpImageWithAsset(asset);
+
+      return <NFTAudio url={uri} size={imageWidth} poster={imageUrl} />;
+    }
   }
-  if (supportsVideo) {
-    return <NFTVideo {...shareProps} />;
-  }
-  if (supportsAudio) {
-    return <NFTAudio {...shareProps} />;
-  }
-  return <NFTImage {...shareProps} />;
+  return (
+    <MemoFallbackElement
+      contentType={asset.contentType}
+      logoUrl={asset.collection.logoUrl}
+      size={imageWidth}
+    />
+  );
 };
 
 export default CollectibleContent;

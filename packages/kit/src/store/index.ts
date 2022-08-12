@@ -29,6 +29,7 @@ import { IBackgroundApi } from '../background/IBackgroundApi';
 import middlewares from './middlewares';
 import { persistWhiteList } from './persistWhiteList';
 import autoUpdateReducer from './reducers/autoUpdater';
+import cloudBackupReducer from './reducers/cloudBackup';
 import contactsReducer from './reducers/contacts';
 import dappReducer from './reducers/dapp';
 import dataReducer from './reducers/data';
@@ -60,6 +61,7 @@ const allReducers = combineReducers({
   contacts: contactsReducer,
   refresher: refresherReducer,
   hardware: hardwareReducer,
+  cloudBackup: cloudBackupReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

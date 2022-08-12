@@ -1,17 +1,20 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp, useNavigation } from '@react-navigation/native';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
-  HStack,
+  DataProvider,
+  LayoutProvider,
   Modal,
-  Pressable,
+  NetImage,
+  RecyclerListView,
+  Typography,
+  useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
+import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import {
   ModalRoutes,
   ModalScreenProps,
@@ -25,16 +28,72 @@ import {
 
 import CollectibleCard from './CollectibleGallery/CollectibleCard';
 
+const ViewTypes = {
+  LOGO: 0,
+  NAME: 1,
+  DESC: 2,
+  NFTCard: 3,
+  Other: 4,
+};
+
+type ListDataType = {
+  viewType: number;
+  data?: string | NFTAsset | null;
+}[];
+
+function generateListArray(originData: Collection): ListDataType {
+  let result: ListDataType = [];
+  // if (originData.logoUrl) {
+  result.push({
+    viewType: ViewTypes.LOGO,
+    data: originData.logoUrl,
+  });
+  // }
+  // if (originData.contractName) {
+  result.push({
+    viewType: ViewTypes.NAME,
+    data: originData.contractName,
+  });
+  // }
+  // if (originData.description) {
+  // result.push({
+  //   viewType: ViewTypes.DESC,
+  //   data: originData.description,
+  // });
+  // }
+  // if (originData.assets) {
+  result = result.concat(
+    originData.assets.map((item) => ({
+      viewType: ViewTypes.NFTCard,
+      data: item,
+    })),
+  );
+  // }
+  return result;
+}
+
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 type CollectionModalProps = {
-  onSelectAsset: (asset: MoralisNFT) => void;
+  onSelectAsset: (asset: NFTAsset) => void;
 };
 
 const CollectionModal: FC<CollectionModalProps> = () => {
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
+  const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const dimensions = useWindowDimensions();
+
+  const { screenWidth } = useUserDevice();
+  const margin = isSmallScreen ? 16 : 20;
+  const padding = 16;
+  const pageWidth = isSmallScreen ? screenWidth : 800;
+
+  const cardWidth = isSmallScreen
+    ? Math.floor((pageWidth - padding * 2 - margin) / 2)
+    : 177;
+
+  const cardInnerPadding = isSmallScreen ? 8 : 12;
+  const imageWidth = cardWidth - 2 * cardInnerPadding;
+  const cardHeight = imageWidth + cardInnerPadding + 36;
 
   const route =
     useRoute<
@@ -47,7 +106,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
 
   // Open Asset detail modal
   const handleSelectAsset = React.useCallback(
-    (asset: MoralisNFT) => {
+    (asset: NFTAsset) => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
@@ -62,52 +121,119 @@ const CollectionModal: FC<CollectionModalProps> = () => {
     [navigation, network],
   );
 
-  const numofColumn = isSmallScreen ? 2 : 4;
-  const cardWidth = isSmallScreen
-    ? Math.floor((dimensions.width - 16 * 3) / 2)
-    : (800 - 96) / 4;
+  const listData = generateListArray(collectible);
+  const dataProvider = new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(
+    listData,
+  );
+
+  const [descH, setDescH] = useState(1000);
+  const layoutProvider = useMemo(
+    () =>
+      new LayoutProvider(
+        (index) => {
+          const data = listData[index];
+          return data.viewType;
+        },
+        (type, dim) => {
+          switch (type) {
+            case ViewTypes.LOGO:
+              dim.width = pageWidth;
+              dim.height = collectible.logoUrl ? 56 + 8 : 0;
+              break;
+            case ViewTypes.NAME:
+              dim.width = pageWidth;
+              dim.height = collectible.contractName ? 52 : 0;
+              break;
+            case ViewTypes.DESC:
+              dim.width = pageWidth - 2 * padding;
+              dim.height = 24 + (collectible.description ? descH : 0);
+              break;
+            case ViewTypes.NFTCard:
+              dim.width = cardWidth + margin;
+              dim.height = cardHeight + margin;
+              break;
+            default:
+              dim.width = 0;
+              dim.height = 0;
+          }
+        },
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [descH, pageWidth],
+  );
+
+  const rowRenderer = useCallback(
+    (type, item, index) => {
+      const { data } = item;
+      switch (type) {
+        case ViewTypes.LOGO:
+          return (
+            <Box alignItems="center">
+              <NetImage
+                src={data}
+                width="56px"
+                height="56px"
+                borderRadius="28px"
+              />
+            </Box>
+          );
+        case ViewTypes.NAME:
+          return (
+            <Typography.Heading mt="3" width="full" textAlign="center">
+              {data}
+            </Typography.Heading>
+          );
+
+        case ViewTypes.DESC:
+          return (
+            <Box flex={1}>
+              <Typography.Body2
+                color="text-subdued"
+                onLayout={(e) => {
+                  setDescH(e.nativeEvent.layout.height);
+                }}
+              >
+                {data}
+              </Typography.Body2>
+            </Box>
+          );
+        case ViewTypes.NFTCard:
+          return (
+            <CollectibleCard
+              asset={data as NFTAsset}
+              key={index}
+              onSelectAsset={handleSelectAsset}
+            />
+          );
+        default:
+          return <Box flex={1} />;
+      }
+    },
+    [handleSelectAsset],
+  );
+
   return (
     <Modal
       size="2xl"
       footer={null}
       height="640px"
-      header={collectible.collection.name ?? ''}
-      scrollViewProps={{
-        pt: 4,
-        children: (
-          <Box>
-            {/* <CollectionImage src={collectible.collection.imageUrl} /> */}
-            {/* <Typography.Heading mt="3" width="full" textAlign="center">
-              {collectible.collection.name}
-            </Typography.Heading> */}
-            {/* <Typography.Body2 my="6" color="text-subdued">
-              {collectible.collection.description}
-            </Typography.Body2> */}
-            <HStack flexWrap="wrap">
-              {collectible.assets.map((asset, itemIndex) => {
-                // const marginRight = itemIndex % 2 === 0 ? 0 : 16;
-                const marginRight =
-                  itemIndex % numofColumn < numofColumn - 1 ? 16 : 0;
-                return (
-                  <Pressable
-                    key={asset.tokenAddress + asset.tokenId}
-                    onPress={() => {
-                      handleSelectAsset(asset);
-                    }}
-                  >
-                    <CollectibleCard
-                      width={cardWidth}
-                      marginRight={`${marginRight}px`}
-                      asset={asset}
-                    />
-                  </Pressable>
-                );
-              })}
-            </HStack>
-          </Box>
-        ),
-      }}
-    />
+      staticChildrenProps={{ flex: 1 }}
+    >
+      <Box flex={1}>
+        <RecyclerListView
+          flex={1}
+          style={{
+            flex: 1,
+            width: pageWidth,
+            paddingLeft: padding,
+            paddingRight: padding,
+          }}
+          dataProvider={dataProvider}
+          layoutProvider={layoutProvider}
+          rowRenderer={rowRenderer}
+        />
+      </Box>
+    </Modal>
   );
 };
 

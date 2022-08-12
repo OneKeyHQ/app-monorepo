@@ -88,7 +88,7 @@ const FailedTxs = () => {
 
 const SwapTransactions = () => (
   <Center px="4">
-    <Box maxW="768" width="full">
+    <Box width="full">
       <PendingTxs />
       <FailedTxs />
     </Box>

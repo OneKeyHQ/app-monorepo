@@ -71,6 +71,10 @@ export class SimpleQuoter implements Quoter {
     );
   }
 
+  getProviderLogo(name: string): string {
+    return `https://common.onekey-asset.com/logo/${name}.png`;
+  }
+
   private async fetch0xQuote(
     baseURL: string,
     params: QuoteParams,
@@ -81,7 +85,10 @@ export class SimpleQuoter implements Quoter {
     const res = await this.client.get(baseURL, { params });
     const data = res.data.data as QuoteResponse; // eslint-disable-line
     const sources = data?.sources.filter((i) => Number(i.proportion) > 0);
-    const providers = sources.map((item) => ({ name: item.name }));
+    const providers = sources.map((item) => ({
+      name: item.name,
+      logoUrl: this.getProviderLogo(item.name),
+    }));
     return { providers, data };
   }
 

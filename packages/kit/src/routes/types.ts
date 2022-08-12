@@ -47,6 +47,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.ScanQrcode]: NavigatorScreenParams<SubModalRoutesParams.ScanQrcodeRoutesParams>;
   [ModalRoutes.FiatPay]: NavigatorScreenParams<SubModalRoutesParams.FiatPayModalRoutesParams>;
   [ModalRoutes.AddressBook]: NavigatorScreenParams<SubModalRoutesParams.AddressBookRoutesParams>;
+  [ModalRoutes.ImportBackupPassword]: NavigatorScreenParams<SubModalRoutesParams.ImportBackupPasswordRoutesParams>;
 };
 /** Modal */
 
@@ -98,6 +99,16 @@ export type HomeRoutesParams = {
   [HomeRoutes.AddressBook]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
   [HomeRoutes.VolumeHaptic]: undefined;
+  [HomeRoutes.CloudBackup]: undefined;
+  [HomeRoutes.CloudBackupPreviousBackups]: undefined;
+  [HomeRoutes.CloudBackupDetails]: {
+    backupUUID: string;
+    backupTime: number;
+    numOfHDWallets: number;
+    numOfImportedAccounts: number;
+    numOfWatchingAccounts: number;
+    numOfContacts: number;
+  };
 };
 /** HomeStack */
 

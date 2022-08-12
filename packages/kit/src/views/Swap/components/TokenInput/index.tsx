@@ -72,9 +72,9 @@ const TokenInput: FC<TokenInputProps> = ({
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
-          alignItems="flex-end"
+          alignItems="center"
         >
-          <Typography.Caption p="2" color="text-subdued">
+          <Typography.Caption p="2" color="text-subdued" fontWeight={500}>
             {label}
           </Typography.Caption>
           <Pressable
@@ -90,9 +90,9 @@ const TokenInput: FC<TokenInputProps> = ({
             p="2"
           >
             <Box flexDirection="row" alignItems="center">
-              <Typography.Body2 color="text-subdued">
+              <Typography.Caption color="text-subdued" fontWeight={500}>
                 {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
-              </Typography.Body2>
+              </Typography.Caption>
             </Box>
           </Pressable>
         </Box>
@@ -123,10 +123,10 @@ const TokenInput: FC<TokenInputProps> = ({
                   <TokenImage size={8} src={token.logoURI} />
                 </Box>
                 <Box>
-                  <Typography.Body1>
+                  <Typography.DisplayMedium fontWeight={600}>
                     {token.symbol.toUpperCase()}
-                  </Typography.Body1>
-                  <Typography.Body2 color="text-subdued">
+                  </Typography.DisplayMedium>
+                  <Typography.Body2 color="text-subdued" fontWeight={500}>
                     {tokenNetwork.shortName}
                   </Typography.Body2>
                 </Box>
@@ -138,7 +138,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 </Typography.Body1>
               </Box>
             )}
-            <Center w="5" h="5" ml={3}>
+            <Center w="5" h="5">
               <Icon size={20} name="ChevronDownSolid" />
             </Center>
           </Pressable>

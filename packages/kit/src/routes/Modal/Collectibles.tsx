@@ -1,10 +1,10 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { Collectible, MoralisNFT } from '@onekeyhq/engine/src/types/moralis';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import CollectibleDetail from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectibleDetailModal';
-import Collection from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectionModal';
+import CollectionModalView from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectionModal';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -15,11 +15,11 @@ export enum CollectiblesModalRoutes {
 
 export type CollectiblesRoutesParams = {
   [CollectiblesModalRoutes.CollectionModal]: {
-    collectible: Collectible;
+    collectible: Collection;
     network: Network;
   };
   [CollectiblesModalRoutes.CollectibleDetailModal]: {
-    asset: MoralisNFT;
+    asset: NFTAsset;
     network: Network;
     // address?: string | null;
   };
@@ -30,7 +30,7 @@ const CollectibleNavigator = createStackNavigator<CollectiblesRoutesParams>();
 const modalRoutes = [
   {
     name: CollectiblesModalRoutes.CollectionModal,
-    component: Collection,
+    component: CollectionModalView,
   },
   {
     name: CollectiblesModalRoutes.CollectibleDetailModal,

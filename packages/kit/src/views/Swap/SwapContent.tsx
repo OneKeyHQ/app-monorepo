@@ -108,7 +108,7 @@ const SwapContent = () => {
           <Box position="relative">
             <TokenInput
               type="INPUT"
-              label={intl.formatMessage({ id: 'action__sell' })}
+              label={intl.formatMessage({ id: 'form__pay' })}
               token={inputToken}
               tokenNetwork={inputTokenNetwork}
               inputValue={formattedAmounts.INPUT}

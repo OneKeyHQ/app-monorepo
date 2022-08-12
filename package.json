@@ -47,6 +47,7 @@
     "@onekeyfe/extension-bridge-hosted": "^0.0.16",
     "@onekeyfe/onekey-cross-webview": "^0.0.16",
     "axios": "^0.26.0",
+    "expo-device": "^4.3.0",
     "memoizee": "^0.4.15"
   },
   "devDependencies": {
@@ -120,6 +121,8 @@
     "**/immer": "^9",
     "**/node-fetch": "^2",
     "**/metro-react-native-babel-preset": "0.70.0",
-    "**/tslib": "^2.4.0"
+    "**/tslib": "^2.4.0",
+    "**/got": "^11.8.5",
+    "**/shell-quote": "^1.7.3"
   }
 }

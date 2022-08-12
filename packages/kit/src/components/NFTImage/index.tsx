@@ -20,19 +20,19 @@ const NFTImage: FC<Props> = ({ nftSource, ...rest }) => {
   const uploadImage = useCallback(async () => {
     if (nftSource?.url) {
       const apiUrl = `${testFiatServiceURL}/NFT/sync`;
-      const uploadData = await axios.post(
-        apiUrl,
-        {
-          contractAddress: nftSource.contractAddress,
-          tokenId: nftSource.tokenId,
-          imageURI: nftSource.url,
-        },
-        { timeout: 60000 },
-      );
-      if (uploadData) {
-        return true;
-      }
-      return false;
+      const success = await axios
+        .post(
+          apiUrl,
+          {
+            contractAddress: nftSource.contractAddress,
+            tokenId: nftSource.tokenId,
+            imageURI: nftSource.url,
+          },
+          { timeout: 3 * 60 * 1000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      return success;
     }
     return false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
