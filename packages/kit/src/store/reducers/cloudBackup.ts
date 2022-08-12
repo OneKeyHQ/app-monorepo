@@ -12,7 +12,7 @@ const initialState: CloudBackupState = {
   isAvailable: false,
   inProgress: false,
   enabled: true,
-  backupRequests: 0,
+  backupRequests: 1,
   lastBackup: undefined,
 };
 
