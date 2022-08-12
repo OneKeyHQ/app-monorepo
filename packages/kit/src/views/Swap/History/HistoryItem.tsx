@@ -176,7 +176,7 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
         >
           <HistoryItemStatus status={tx.status} />
           <Typography.Body2 color="text-subdued" ml="3">
-            {dateFormat(tx.addedTime, 'hh:mm')}
+            {dateFormat(tx.addedTime, 'HH:mm')}
           </Typography.Body2>
         </Box>
       </Pressable>
@@ -272,14 +272,15 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
           justifyContent="space-between"
           mt="3"
         >
-          <Box flexDirection="row" alignItems="center">
+          <Box flexDirection="row" alignItems="center" pl="2">
             <SwappingVia
               providers={tx.providers}
-              typography="Body2Strong"
-              color="text-default"
+              typography="Body2"
+              color="text-subdued"
+              fontWeight={500}
             />
-            <Typography.Body2 color="text-subdued" ml="3">
-              {dateFormat(tx.addedTime, 'hh:mm')}
+            <Typography.Body2 color="text-subdued" ml="3" fontWeight={500}>
+              {dateFormat(tx.addedTime, 'HH:mm')}
             </Typography.Body2>
           </Box>
           <HistoryItemStatus status={tx.status} />

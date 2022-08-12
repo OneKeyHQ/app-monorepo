@@ -13,7 +13,7 @@ import {
   QuoterType,
   SerializableTransactionReceipt,
   TransactionDetails,
-  TransactionStatus,
+  TransactionProgress,
 } from '../typings';
 import {
   TokenAmount,
@@ -209,27 +209,29 @@ export class SimpleQuoter implements Quoter {
     };
   }
 
-  async queryTransactionStatus(
+  async queryTransactionProgress(
     tx: TransactionDetails,
-  ): Promise<TransactionStatus | undefined> {
+  ): Promise<TransactionProgress> {
     const { networkId, accountId, nonce } = tx;
     if (nonce) {
-      return backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
-        networkId,
-        accountId,
-        nonce,
-      });
+      const status =
+        await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
+          networkId,
+          accountId,
+          nonce,
+        });
+      return { status };
     }
     const result = (await backgroundApiProxy.serviceNetwork.rpcCall(networkId, {
       method: 'eth_getTransactionReceipt',
       params: [tx.hash],
     })) as SerializableTransactionReceipt | undefined;
     if (result) {
-      return Number(result.status) === 1 ? 'sucesss' : 'failed';
+      return { status: Number(result.status) === 1 ? 'sucesss' : 'failed' };
     }
 
     if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
-      return 'failed';
+      return { status: 'failed' };
     }
     return undefined;
   }

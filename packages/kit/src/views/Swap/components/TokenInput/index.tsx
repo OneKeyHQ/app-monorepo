@@ -19,7 +19,8 @@ import {
   useActiveWalletAccount,
 } from '../../../../hooks';
 import { Token as TokenType } from '../../../../store/typings';
-import { formatAmount } from '../../utils';
+import { Chains } from '../../config';
+import { formatAmount, getChainIdFromNetworkId } from '../../utils';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -55,7 +56,14 @@ const TokenInput: FC<TokenInputProps> = ({
     if (token.tokenIdOnNetwork) {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
-      const v = Math.max(0, Number(value) - 0.1);
+      const chainId = getChainIdFromNetworkId(token.networkId);
+      let minuend = 0.1;
+      if (chainId === Chains.MAINNET || chainId === Chains.BSC) {
+        minuend = 0.01;
+      } else if (chainId === Chains.POLYGON) {
+        minuend = 0.03;
+      }
+      const v = Math.max(0, Number(value) - minuend);
       if (v > 0) {
         backgroundApiProxy.serviceSwap.userInput(type, String(v));
       }
@@ -126,16 +134,16 @@ const TokenInput: FC<TokenInputProps> = ({
                   <Typography.DisplayMedium fontWeight={600}>
                     {token.symbol.toUpperCase()}
                   </Typography.DisplayMedium>
-                  <Typography.Body2 color="text-subdued" fontWeight={500}>
+                  <Typography.Caption color="text-subdued" fontWeight={500}>
                     {tokenNetwork.shortName}
-                  </Typography.Body2>
+                  </Typography.Caption>
                 </Box>
               </Box>
             ) : (
               <Box>
-                <Typography.Body1>
+                <Typography.DisplayMedium fontWeight={600}>
                   {intl.formatMessage({ id: 'title__select_a_token' })}
-                </Typography.Body1>
+                </Typography.DisplayMedium>
               </Box>
             )}
             <Center w="5" h="5">

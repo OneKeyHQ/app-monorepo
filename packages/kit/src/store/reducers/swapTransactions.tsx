@@ -42,7 +42,7 @@ export const swapTransactionsSlice = createSlice({
         transaction: Partial<
           Pick<
             TransactionDetails,
-            'status' | 'receipt' | 'swftcReceipt' | 'confirmedTime'
+            'status' | 'confirmedTime' | 'destinationTransactionHash'
           >
         >;
       }>,
@@ -54,9 +54,13 @@ export const swapTransactionsSlice = createSlice({
         if (transaction.status) {
           tx.status = transaction.status;
         }
-        tx.receipt = transaction.receipt;
-        tx.confirmedTime = transaction.confirmedTime;
-        tx.swftcReceipt = transaction.swftcReceipt;
+        if (transaction.confirmedTime) {
+          tx.confirmedTime = transaction.confirmedTime;
+        }
+        if (transaction.destinationTransactionHash) {
+          tx.destinationTransactionHash =
+            transaction.destinationTransactionHash;
+        }
       }
     },
     archiveTransaction(

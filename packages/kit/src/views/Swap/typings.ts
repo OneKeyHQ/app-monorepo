@@ -163,7 +163,15 @@ export interface TransactionDetails {
   attachment?: TransactionAttachment;
   providers?: Provider[];
   arrivalTime?: number;
+  destinationTransactionHash?: string;
 }
+
+export type TransactionProgress =
+  | {
+      status?: TransactionStatus;
+      destinationTransactionHash?: string;
+    }
+  | undefined;
 
 export type SwftcTransactionState =
   | 'wait_deposit_send'
@@ -183,6 +191,7 @@ export interface SwftcTransactionReceipt {
   detailState: SwftcTransactionState;
   tradeState: SwftcTradeState;
   instantRate: string;
+  transactionId?: string;
 }
 
 export interface Quoter {
@@ -193,7 +202,7 @@ export interface Quoter {
   buildTransaction(
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined>;
-  queryTransactionStatus(
+  queryTransactionProgress(
     tx: TransactionDetails,
-  ): Promise<TransactionStatus | undefined>;
+  ): Promise<TransactionProgress>;
 }

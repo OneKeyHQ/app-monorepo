@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useCallback } from 'react';
+import React, { ComponentProps, FC, useCallback, useMemo } from 'react';
 
 import {
   NavigationProp,
@@ -16,6 +16,7 @@ import {
   Divider,
   Icon,
   Pressable,
+  Select,
   Token as TokenIcon,
   Typography,
   VStack,
@@ -44,6 +45,7 @@ import {
   TransactionStatus,
 } from '../../typings';
 import { formatAmount } from '../../utils';
+import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionRate from '../TransactionRate';
 
@@ -143,7 +145,11 @@ const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
           position="relative"
           mr="3"
         >
-          <Icon name="SwitchHorizontalSolid" size={25} />
+          <Icon
+            name="SwitchHorizontalSolid"
+            size={25}
+            color="text-on-primary"
+          />
           <Box position="absolute" bottom="0" right="0">
             <StatusIcon status={tx.status} />
           </Box>
@@ -252,6 +258,150 @@ const TransactionField: FC<TransactionFieldProps> = ({
   </Box>
 );
 
+type ViewInBrowserSelectorItem = {
+  label: string;
+  value?: string;
+  logoURI?: string;
+  url?: string;
+};
+type ViewInBrowserSelectorProps = { tx: TransactionDetails };
+const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
+  const intl = useIntl();
+  const fromNetwork = useNetwork(tx.tokens?.from.networkId);
+  const toNetwork = useNetwork(tx.tokens?.to.networkId);
+
+  const onOpenTx = useCallback((url: string) => {
+    if (platformEnv.isNative) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
+
+  const options = useMemo(
+    () => [
+      {
+        label: fromNetwork?.shortName ?? '',
+        logoURI: fromNetwork?.logoURI,
+        value: tx.hash,
+        url: buildTransactionDetailsUrl(fromNetwork, tx.hash),
+      },
+      {
+        label: toNetwork?.shortName ?? '',
+        logoURI: toNetwork?.logoURI,
+        value: tx.destinationTransactionHash,
+        url: buildTransactionDetailsUrl(
+          toNetwork,
+          tx.destinationTransactionHash,
+        ),
+      },
+    ],
+    [tx, fromNetwork, toNetwork],
+  );
+  const onPress = useCallback(
+    (_: any, item: any) => {
+      // eslint-disable-next-line
+      if (item.url) {
+        // eslint-disable-next-line
+        onOpenTx(item.url);
+      }
+    },
+    [onOpenTx],
+  );
+
+  return (
+    <>
+      {tx.status !== 'pending' && !tx.destinationTransactionHash ? (
+        <PendingTransaction tx={tx} stopInterval />
+      ) : null}
+      <Select
+        footer={null}
+        title={intl.formatMessage({
+          id: 'title__select_blockchain_browser',
+        })}
+        isTriggerPlain
+        options={options}
+        headerShown={false}
+        dropdownProps={{ width: '64' }}
+        dropdownPosition="right"
+        onChange={onPress}
+        renderItem={(item, _, onChange) => {
+          const token = item as unknown as ViewInBrowserSelectorItem;
+          return (
+            <Pressable
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              key={item.value}
+              h="12"
+              px="3"
+              onPress={() => onChange?.(undefined, item)}
+            >
+              <Box flexDirection="row" alignItems="center">
+                <TokenIcon size="8" src={token.logoURI} />
+                <Typography.Body1Strong ml={3}>
+                  {token.label}
+                </Typography.Body1Strong>
+              </Box>
+              {!token.value ? (
+                <Typography.Body1 color="text-disabled">
+                  {intl.formatMessage({
+                    id: 'transaction__swap_status_waiting',
+                  })}
+                </Typography.Body1>
+              ) : null}
+            </Pressable>
+          );
+        }}
+        renderTrigger={() => (
+          <Box flexDirection="row" alignItems="center">
+            <Typography.Caption mr="1" color="text-subdued">
+              {intl.formatMessage({ id: 'action__view_in_browser' })}
+            </Typography.Caption>
+            <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
+          </Box>
+        )}
+      />
+    </>
+  );
+};
+
+type ViewInBrowserLinkProps = { tx: TransactionDetails };
+const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
+  const intl = useIntl();
+  const network = useNetwork(tx.networkId);
+  const openLinkUrl = useCallback((url: string) => {
+    if (platformEnv.isNative) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
+  const onOpenTx = useCallback(() => {
+    const url = buildTransactionDetailsUrl(network, tx.hash);
+    openLinkUrl(url);
+  }, [openLinkUrl, network, tx.hash]);
+
+  return (
+    <Pressable flexDirection="row" onPress={onOpenTx}>
+      <Typography.Caption mr="1" color="text-subdued">
+        {intl.formatMessage({ id: 'action__view_in_browser' })}
+      </Typography.Caption>
+      <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
+    </Pressable>
+  );
+};
+
+type ViewInBrowserProps = { tx: TransactionDetails };
+const ViewInBrowser: FC<ViewInBrowserProps> = ({ tx }) => {
+  const { from, to } = tx.tokens ?? {};
+  return from?.networkId !== to?.networkId ? (
+    <ViewInBrowserSelector tx={tx} />
+  ) : (
+    <ViewInBrowserLink tx={tx} />
+  );
+};
+
 const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   tx,
   showViewInBrowser,
@@ -327,9 +477,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
       <VStack space={4}>
         {tx.receivingAddress !== undefined &&
         tx.receivingAddress !== account.address ? (
-          <>
+          <VStack space={4}>
             <TransactionField
-              label={intl.formatMessage({ id: 'content__from' })}
+              label={intl.formatMessage({ id: 'form__payment_address' })}
             >
               <Pressable
                 flexDirection="row"
@@ -337,13 +487,15 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 alignItems="center"
                 onPress={() => onCopy(account.address)}
               >
-                <Typography.Caption mr="1">
+                <Typography.Caption mr="1" color="text-subdued">
                   {formatAddressName(account.address, account.name)}
                 </Typography.Caption>
-                <Icon name="DuplicateOutline" size={12} color="text-subdued" />
+                <Icon name="DuplicateOutline" size={16} color="text-subdued" />
               </Pressable>
             </TransactionField>
-            <TransactionField label={intl.formatMessage({ id: 'content__to' })}>
+            <TransactionField
+              label={intl.formatMessage({ id: 'form__receiving_address' })}
+            >
               <Pressable
                 flexDirection="row"
                 justifyContent="space-between"
@@ -356,7 +508,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Icon name="DuplicateOutline" size={16} color="text-subdued" />
               </Pressable>
             </TransactionField>
-          </>
+          </VStack>
         ) : (
           <TransactionField label={intl.formatMessage({ id: 'form__account' })}>
             <Pressable
@@ -401,7 +553,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             <Typography.Caption color="text-subdued" mr="1">
               {utils.shortenAddress(tx.hash)}
             </Typography.Caption>
-            <Icon name="ExternalLinkSolid" color="text-subdued" size={16} />
+            <Icon name="ExternalLinkOutline" color="text-subdued" size={16} />
           </Pressable>
         </TransactionField>
         {swftcOrderId ? (
@@ -429,12 +581,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           alignItems="center"
         >
           <Logo width={82} height={25} />
-          <Pressable flexDirection="row" onPress={onOpenTx}>
-            <Typography.Caption mr="1" color="text-subdued">
-              {intl.formatMessage({ id: 'action__view_in_browser' })}
-            </Typography.Caption>
-            <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
-          </Pressable>
+          <ViewInBrowser tx={tx} />
         </Box>
       ) : null}
     </Box>
