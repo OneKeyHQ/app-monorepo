@@ -4,6 +4,10 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { generateUUID } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -65,6 +69,7 @@ export default class ServicePassword extends ServiceBase {
     const isOk = await this.verifyPassword(password);
     if (isOk) {
       await this.setData(password);
+      appEventBus.emit(AppEventBusNames.BackupRequired);
     }
   }
 
