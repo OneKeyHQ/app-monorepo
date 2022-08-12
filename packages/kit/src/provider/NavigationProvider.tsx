@@ -5,6 +5,7 @@ import {
   NavigationContainer,
   NavigationContainerRef,
 } from '@react-navigation/native';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -16,7 +17,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import linking from '../routes/linking';
-import { PortalElementsContainer } from '../routes/PortalElementsContainer';
+import HardwarePopup from '../views/Hardware/PopupHandle';
 import HardwareSpecialPopup from '../views/Hardware/PopupHandle/SpecialPopup';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
@@ -107,9 +108,11 @@ const NavigationApp = () => {
         theme={navigationTheme}
         linking={linking}
       >
-        <RootStack />
         {/* TODO migrate all global popups to rootsibling */}
-        <PortalElementsContainer />
+        <RootSiblingParent>
+          <RootStack />
+        </RootSiblingParent>
+        <HardwarePopup />
         <HardwareSpecialPopup />
       </NavigationContainer>
     </>
