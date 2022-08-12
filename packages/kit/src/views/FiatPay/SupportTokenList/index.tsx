@@ -174,7 +174,12 @@ export const SupportTokenList: FC = () => {
         ListEmptyComponent: () => (
           <Box>
             <Empty
-              title={intl.formatMessage({ id: 'empty__no_purchasable_tokens' })}
+              title={intl.formatMessage({
+                id:
+                  type === 'Buy'
+                    ? 'empty__no_purchasable_tokens'
+                    : 'empty__no_salable_tokens',
+              })}
               subTitle={intl.formatMessage({
                 id: 'empty__no_purchasable_tokens_desc',
               })}

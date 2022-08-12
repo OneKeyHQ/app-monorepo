@@ -16,7 +16,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import linking from '../routes/linking';
-import { PortalElementsContainer } from '../routes/PortalElementsContainer.ios';
+import { PortalElementsContainer } from '../routes/PortalElementsContainer';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
 

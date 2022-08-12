@@ -166,7 +166,9 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
             },
           });
         },
-        icon: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+        icon: isVerticalLayout
+          ? 'CurrencyDollarOutline'
+          : 'CurrencyDollarSolid',
       },
       {
         id: 'action__sell_crypto',
