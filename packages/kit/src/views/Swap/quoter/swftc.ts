@@ -16,7 +16,7 @@ import {
   SwftcTransactionReceipt,
   TransactionData,
   TransactionDetails,
-  TransactionStatus,
+  TransactionProgress,
 } from '../typings';
 import {
   div,
@@ -331,8 +331,7 @@ export class SwftcQuoter implements Quoter {
         providers: [
           {
             name: 'SwftBridge',
-            logoUrl:
-              'https://pbs.twimg.com/profile_images/1450736441265295360/LaEPWtaN_bigger.jpg',
+            logoUrl: 'https://common.onekey-asset.com/logo/SwftBridge.png',
           },
         ],
         arrivalTime: 300,
@@ -469,9 +468,9 @@ export class SwftcQuoter implements Quoter {
     return orderData;
   }
 
-  async queryTransactionStatus(
+  async queryTransactionProgress(
     tx: TransactionDetails,
-  ): Promise<TransactionStatus | undefined> {
+  ): Promise<TransactionProgress> {
     const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
     if (swftcOrderId) {
       const url = `${baseUrl}/queryOrderState`;
@@ -483,7 +482,13 @@ export class SwftcQuoter implements Quoter {
       // eslint-disable-next-line
       const receipt = res.data.data as SwftcTransactionReceipt;
       if (receipt.tradeState === 'complete') {
-        return 'sucesss';
+        return {
+          status: 'sucesss',
+          destinationTransactionHash: receipt.transactionId,
+        };
+      }
+      if (receipt.transactionId) {
+        return { destinationTransactionHash: receipt.transactionId };
       }
     }
     const { networkId, accountId, nonce } = tx;
@@ -495,10 +500,10 @@ export class SwftcQuoter implements Quoter {
           nonce,
         });
       if (status === 'canceled' || status === 'failed') {
-        return status;
+        return { status };
       }
     } else if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
-      return 'failed';
+      return { status: 'failed' };
     }
     return undefined;
   }

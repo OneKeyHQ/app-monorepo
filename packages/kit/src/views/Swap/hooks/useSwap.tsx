@@ -50,12 +50,14 @@ class TokenAmount {
 }
 
 export function useTokenAmount(token?: Token, amount?: string) {
-  if (!token || !amount) return;
-  const bn = new BigNumber(amount);
-  const decimals = new BigNumber(token.decimals);
-  const base = new BigNumber(10);
-  const value = bn.dividedBy(base.exponentiatedBy(decimals));
-  return new TokenAmount(token, value.toString());
+  return useMemo(() => {
+    if (!token || !amount) return;
+    const bn = new BigNumber(amount);
+    const decimals = new BigNumber(token.decimals);
+    const base = new BigNumber(10);
+    const value = bn.dividedBy(base.exponentiatedBy(decimals));
+    return new TokenAmount(token, value.toString());
+  }, [token, amount]);
 }
 
 export function useSwapEnabled() {
@@ -89,10 +91,42 @@ export function useTokenBalance(
     }
   }, [token, balances, networkId, accountId]);
   const balance = balances[token?.tokenIdOnNetwork || 'main'];
-  if (!token || !balance || !networkId || !accountId) {
-    return;
-  }
-  return new TokenAmount(token, balance).toNumber();
+  return useMemo(() => {
+    if (!token || !balance || !networkId || !accountId) {
+      return;
+    }
+    return new TokenAmount(token, balance).toNumber();
+  }, [token, networkId, accountId, balance]);
+}
+
+export function useReceivingAddress() {
+  const { account } = useActiveWalletAccount();
+  const {
+    inputTokenNetwork,
+    outputTokenNetwork,
+    receivingAddress,
+    receivingName,
+  } = useSwapState();
+  return useMemo(() => {
+    let address: string | undefined;
+    let name: string | undefined;
+    if (outputTokenNetwork?.id !== inputTokenNetwork?.id) {
+      if (receivingAddress) {
+        address = receivingAddress;
+        name = receivingName;
+      } else {
+        address = account?.address;
+        name = account?.name;
+      }
+    }
+    return { address, name };
+  }, [
+    receivingAddress,
+    receivingName,
+    account,
+    inputTokenNetwork,
+    outputTokenNetwork,
+  ]);
 }
 
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
@@ -100,6 +134,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     (s) => s.settings.swapSlippagePercent,
   );
   const { account, network } = useActiveWalletAccount();
+  const { address } = useReceivingAddress();
   const {
     inputToken,
     outputToken,
@@ -132,6 +167,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       independentField,
       activeAccount: account,
       activeNetwok: network,
+      receivingAddress: address,
     };
   }, [
     inputToken,
@@ -143,6 +179,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     independentField,
     account,
     network,
+    address,
   ]);
 }
 
@@ -203,7 +240,7 @@ export const useSwapQuoteCallback = function (
 
 export function useTokenAllowance(token?: Token, spender?: string) {
   const { accountId, networkId } = useActiveWalletAccount();
-  const [allowance, setAllowance] = useState<BigNumber>();
+  const [allowance, setAllowance] = useState<string>();
   const onQuery = useCallback(async () => {
     if (accountId && networkId && token && token.tokenIdOnNetwork && spender) {
       const allowanceData = await backgroundApiProxy.engine.getTokenAllowance({
@@ -213,8 +250,7 @@ export function useTokenAllowance(token?: Token, spender?: string) {
         tokenIdOnNetwork: token?.tokenIdOnNetwork,
       });
       if (allowanceData !== undefined) {
-        const number = new TokenAmount(token, allowanceData).toNumber();
-        setAllowance(number);
+        setAllowance(allowanceData);
       } else {
         setAllowance(undefined);
       }
@@ -228,7 +264,13 @@ export function useTokenAllowance(token?: Token, spender?: string) {
       clearInterval(timer);
     };
   }, [onQuery]);
-  return allowance;
+  return useMemo(
+    () =>
+      token && allowance
+        ? new TokenAmount(token, allowance).toNumber()
+        : undefined,
+    [token, allowance],
+  );
 }
 
 export function useApproveState(
@@ -293,19 +335,23 @@ export function useDerivedSwapState() {
     swapQuote?.allowanceTarget,
     swapQuote?.sellAmount,
   );
+
+  const formattedAmounts = useMemo(() => {
+    const dependentField = independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
+    return {
+      [independentField]: typedValue,
+      [dependentField]:
+        dependentField === 'INPUT'
+          ? inputAmount?.value.toFixed(4) || ''
+          : outputAmount?.value.toFixed(4) || '',
+    } as { 'INPUT'?: string; 'OUTPUT'?: string };
+  }, [independentField, inputAmount, outputAmount, typedValue]);
+
   const balanceError =
     inputAmount && inputBalance && inputBalance.lt(inputAmount.toNumber())
       ? SwapError.InsufficientBalance
       : undefined;
   const error = swapError || balanceError;
-  const dependentField = independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
-  const formattedAmounts = {
-    [independentField]: typedValue,
-    [dependentField]:
-      dependentField === 'INPUT'
-        ? inputAmount?.value.toFixed(4) || ''
-        : outputAmount?.value.toFixed(4) || '',
-  } as { 'INPUT'?: string; 'OUTPUT'?: string };
 
   return {
     error,
@@ -376,34 +422,4 @@ export function useSwftcTokens(
     }
     return result;
   }, [tokens, included, excluded]);
-}
-
-export function useReceivingAddress() {
-  const { account } = useActiveWalletAccount();
-  const {
-    inputTokenNetwork,
-    outputTokenNetwork,
-    receivingAddress,
-    receivingName,
-  } = useSwapState();
-  return useMemo(() => {
-    let address: string | undefined;
-    let name: string | undefined;
-    if (outputTokenNetwork?.id !== inputTokenNetwork?.id) {
-      if (receivingAddress) {
-        address = receivingAddress;
-        name = receivingName;
-      } else {
-        address = account?.address;
-        name = account?.name;
-      }
-    }
-    return { address, name };
-  }, [
-    receivingAddress,
-    receivingName,
-    account,
-    inputTokenNetwork,
-    outputTokenNetwork,
-  ]);
 }

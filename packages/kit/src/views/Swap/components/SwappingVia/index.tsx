@@ -18,8 +18,15 @@ const SwappingViaLogos: FC<SwappingViaLogosProps> = ({ sources }) => {
   }
   if (sources.length === 1) {
     return (
-      <Box borderRadius="full" w="4" h="4" overflow="hidden" mr="2">
-        <Image size="4" src={sources[0]} />
+      <Box
+        borderRadius="full"
+        w="4"
+        h="4"
+        overflow="hidden"
+        mr="2"
+        key={sources[0]}
+      >
+        <Image size="4" src={sources[0]} testID={sources[0]} />
       </Box>
     );
   }
@@ -38,6 +45,7 @@ const SwappingViaLogos: FC<SwappingViaLogosProps> = ({ sources }) => {
           w="4"
           h="4"
           overflow="hidden"
+          key={source}
         >
           <Image size="4" src={source} />
         </Box>

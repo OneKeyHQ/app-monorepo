@@ -8,7 +8,7 @@ import {
   Quoter,
   QuoterType,
   TransactionDetails,
-  TransactionStatus,
+  TransactionProgress,
 } from '../typings';
 
 import { SimpleQuoter } from './0x';
@@ -75,14 +75,14 @@ export class SwapQuoter {
     return QuoterType.zeroX;
   }
 
-  async queryTransactionStatus(
+  async queryTransactionProgress(
     tx: TransactionDetails,
-  ): Promise<TransactionStatus | undefined> {
+  ): Promise<TransactionProgress> {
     const quoterType = this.getQuoteType(tx);
     for (let i = 0; i < this.quoters.length; i += 1) {
       const quoter = this.quoters[i];
       if (quoter.type === quoterType) {
-        return quoter.queryTransactionStatus(tx);
+        return quoter.queryTransactionProgress(tx);
       }
     }
     return undefined;

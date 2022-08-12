@@ -292,6 +292,7 @@ const SwapButton = () => {
     outputAmount,
     quote,
     addTransaction,
+    receivingAddress,
   ]);
 
   const onCreateWallet = useCallback(() => {

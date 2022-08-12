@@ -176,7 +176,7 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
         >
           <HistoryItemStatus status={tx.status} />
           <Typography.Body2 color="text-subdued" ml="3">
-            {dateFormat(tx.addedTime, 'hh:mm')}
+            {dateFormat(tx.addedTime, 'HH:mm')}
           </Typography.Body2>
         </Box>
       </Pressable>
@@ -280,7 +280,7 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
               fontWeight={500}
             />
             <Typography.Body2 color="text-subdued" ml="3" fontWeight={500}>
-              {dateFormat(tx.addedTime, 'hh:mm')}
+              {dateFormat(tx.addedTime, 'HH:mm')}
             </Typography.Body2>
           </Box>
           <HistoryItemStatus status={tx.status} />

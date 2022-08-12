@@ -13,6 +13,7 @@ import {
   QuoterType,
   TransactionData,
   TransactionDetails,
+  TransactionProgress,
   TransactionStatus,
 } from '../typings';
 import {
@@ -70,7 +71,9 @@ export interface SocketBridgeStatusParams {
 }
 
 export interface SocketBridgeStatusResponse {
+  sourceTransactionHash: string;
   sourceTxStatus: BridgeTxStatus;
+  destinationTransactionHash?: string;
   destinationTxStatus: BridgeTxStatus;
   fromChainId: string;
   toChainId: string;
@@ -205,6 +208,7 @@ export class SocketQuoter implements Quoter {
     if (params.independentField === 'OUTPUT') {
       return undefined;
     }
+
     let res: any;
     try {
       res = await this.client.get(url, {
@@ -215,6 +219,7 @@ export class SocketQuoter implements Quoter {
           toTokenAddress: getEvmTokenAddress(params.tokenOut),
           fromAmount: getTokenAmountString(params.tokenIn, params.typedValue),
           userAddress: params.activeAccount.address,
+          recipient: params.receivingAddress,
           sort: 'output',
           singleTxOnly: true,
         },
@@ -296,8 +301,20 @@ export class SocketQuoter implements Quoter {
 
   private async querySocketBridgeStatus(
     params: SocketBridgeStatusParams,
-  ): Promise<TransactionStatus | undefined> {
-    const res = await this.client.get(`${baseURL}/bridge-status`, { params });
+  ): Promise<
+    | {
+        status: TransactionStatus | undefined;
+        destinationTransactionHash?: string | undefined;
+      }
+    | undefined
+  > {
+    let res: any;
+    try {
+      res = await this.client.get(`${baseURL}/bridge-status`, { params });
+    } catch (e) {
+      console.log(e);
+      return;
+    }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const data = res.data.result as SocketBridgeStatusResponse;
     if (
@@ -305,19 +322,25 @@ export class SocketQuoter implements Quoter {
         data.destinationTxStatus === 'COMPLETED') ||
       data.refuel?.status === 'COMPLETED'
     ) {
-      return 'sucesss';
+      return {
+        status: 'sucesss',
+        destinationTransactionHash:
+          data.destinationTransactionHash ||
+          data.refuel?.destinationTransactionHash,
+      };
     }
     if (
       data.destinationTxStatus === 'FAILED' ||
       data.sourceTxStatus === 'FAILED'
     ) {
-      return 'failed';
+      return { status: 'failed' };
     }
+    return undefined;
   }
 
-  async queryTransactionStatus(
+  async queryTransactionProgress(
     tx: TransactionDetails,
-  ): Promise<TransactionStatus | undefined> {
+  ): Promise<TransactionProgress> {
     const { nonce, networkId, accountId, tokens, attachment } = tx;
     if (nonce && tokens) {
       const { from, to } = tokens;
@@ -331,19 +354,32 @@ export class SocketQuoter implements Quoter {
         });
       for (let i = 0; i < txs.length; i += 1) {
         const { txid } = txs[i].decodedTx;
-        const status = await this.querySocketBridgeStatus({
+        const statusRes = await this.querySocketBridgeStatus({
           fromChainId,
           toChainId,
           transactionHash: txid,
           bridgeName: attachment?.socketUsedBridgeNames?.[0],
         });
-        if (status === 'failed' || status === 'sucesss') {
-          return status;
+        if (statusRes?.status === 'sucesss') {
+          return {
+            status: statusRes.status,
+            destinationTransactionHash: statusRes.destinationTransactionHash,
+          };
+        }
+        if (statusRes?.status === 'failed') {
+          return {
+            status: statusRes.status,
+          };
+        }
+        if (statusRes?.destinationTransactionHash) {
+          return {
+            destinationTransactionHash: statusRes.destinationTransactionHash,
+          };
         }
       }
     }
     if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
-      return 'failed';
+      return { status: 'failed' };
     }
     return undefined;
   }
