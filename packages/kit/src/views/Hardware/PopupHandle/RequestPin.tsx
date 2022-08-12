@@ -6,16 +6,21 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  IconButton,
+  Image,
   Input,
   Keyboard,
   LottieView,
+  Pressable,
   Text,
   Typography,
 } from '@onekeyhq/components';
+import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
+import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-classic.json';
 import EnterPinCodeOnMini from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-mini.json';
 import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-touch.json';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
@@ -153,6 +158,7 @@ const RequestPinView: FC<RequestPinViewProps> = ({
       onCancel={onCancel}
       mobileFillWidth={!innerOnDeviceInput}
       closeWay={innerOnDeviceInput ? 'delay' : 'now'}
+      borderBottomRadius={platformEnv.isNativeAndroid ? '0px' : '12px'}
     >
       {innerOnDeviceInput ? (
         pinOnDevice
@@ -165,17 +171,35 @@ const RequestPinView: FC<RequestPinViewProps> = ({
       )}
 
       {!innerOnDeviceInput && (
-        <IconButton
+        <Pressable
           onPress={() => {
             setInnerOnDeviceInput?.(true);
           }}
           position="absolute"
           top={2}
           right={12}
-          size="lg"
-          type="plain"
-          name="DeviceTabletSolid"
-        />
+          justifyContent="center"
+          alignItems="center"
+          _hover={{ bgColor: 'surface-hovered' }}
+          _pressed={{ bgColor: 'surface-pressed' }}
+          width="40px"
+          height="40px"
+          mr="8px"
+          borderRadius="12px"
+        >
+          <Image
+            source={
+              // eslint-disable-next-line no-nested-ternary
+              deviceType === 'classic'
+                ? ClassicDeviceIcon
+                : 'mini'
+                ? MiniDeviceIcon
+                : TouchDeviceIcon
+            }
+            width="16px"
+            height="24px"
+          />
+        </Pressable>
       )}
     </BaseRequestView>
   );

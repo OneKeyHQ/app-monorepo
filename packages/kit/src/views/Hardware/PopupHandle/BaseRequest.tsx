@@ -1,5 +1,7 @@
 import { FC, useEffect, useMemo, useState } from 'react';
 
+import { IBoxProps } from 'native-base';
+
 import { Box, Center, IconButton, Spinner } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -12,7 +14,7 @@ export type BaseRequestViewProps = {
   closeWay?: CloseWay;
   onCancel: () => void;
   onClose?: () => void;
-};
+} & IBoxProps;
 
 const defaultProps = {
   mobileFillWidth: false,
@@ -27,6 +29,7 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({
   closeWay,
   onCancel,
   onClose,
+  ...rest
 }) => {
   const [showClose, setShowClose] = useState(false);
 
@@ -60,6 +63,7 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({
         borderWidth={1}
         borderColor="border-subdued"
         shadow="depth.4"
+        {...rest}
       >
         {children}
 
