@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { PortalElementsContainer } from '../../../routes/PortalElementsContainer';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
