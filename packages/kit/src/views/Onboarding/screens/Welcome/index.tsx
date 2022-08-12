@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -22,6 +22,7 @@ import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { RootRoutes } from '../../../../routes/routesEnum';
 import Layout from '../../Layout';
 import { EOnboardingRoutes } from '../../routes/enums';
@@ -59,16 +60,11 @@ const Welcome = () => {
   const isSmallHeight = useUserDevice().screenHeight <= 667;
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
-
-  const [hasPreviousBackups, setHasPreviousBackups] = useState(false);
-  useEffect(() => {
-    const getStatus = async () => {
-      const status =
-        await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
-      setHasPreviousBackups(status.hasPreviousBackups);
-    };
-    getStatus();
-  }, []);
+  const hasPreviousBackups = usePromiseResult<boolean>(async () => {
+    const status =
+      await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
+    return status.hasPreviousBackups;
+  });
 
   const onPressCreateWallet = useCallback(() => {
     navigation.navigate(EOnboardingRoutes.SetPassword);
