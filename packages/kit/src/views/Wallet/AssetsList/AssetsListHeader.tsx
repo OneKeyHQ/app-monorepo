@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Divider,
   Icon,
   IconButton,
@@ -208,7 +207,7 @@ const AssetsListHeader: FC<{
   innerHeaderBorderColor,
 }) => {
   const intl = useIntl();
-  // const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps>();
   const { network } = useActiveWalletAccount();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
   return (
@@ -224,17 +223,28 @@ const AssetsListHeader: FC<{
             {intl.formatMessage({ id: 'title__assets' })}
           </Typography.Heading>
           {tokenEnabled && (
-            <Button
-              onPress={showHomeBalanceSettings}
-              size="sm"
-              leftIconName="CogSolid"
-              type="plain"
-              mr={-3}
-            >
-              <Typography.Button2>
-                {intl.formatMessage({ id: 'title__settings' })}
-              </Typography.Button2>
-            </Button>
+            <>
+              <IconButton
+                onPress={() =>
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManageToken,
+                    params: { screen: ManageTokenRoutes.Listing },
+                  })
+                }
+                size="sm"
+                name="PlusSolid"
+                type="plain"
+                ml="auto"
+                mr={3}
+              />
+              <IconButton
+                onPress={showHomeBalanceSettings}
+                size="sm"
+                name="CogSolid"
+                type="plain"
+                mr={-2}
+              />
+            </>
           )}
         </Box>
       )}

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useMemo, useRef } from 'react';
+import React, { FC, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,13 +12,11 @@ import {
   Pressable,
   Typography,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {
   useActiveWalletAccount,
@@ -38,6 +36,7 @@ import {
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
+import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
@@ -49,11 +48,8 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 216;
 
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
 
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
-
-  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { account, wallet } = useActiveWalletAccount();
 
@@ -61,16 +57,7 @@ const AccountAmountInfo: FC = () => {
     pollingInterval: 15000,
   });
 
-  const isHwWallet = wallet?.type === 'hw';
-
-  const copyContentToClipboard = useCallback(
-    (address) => {
-      if (!address) return;
-      copyToClipboard(address);
-      toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
-    },
-    [toast, intl],
-  );
+  const { isHwWallet, copyAddress } = useCopyAddress(wallet);
 
   const [summedValue, summedValueComp] = useMemo(() => {
     const displayValue = getSummedValues({
@@ -150,17 +137,7 @@ const AccountAmountInfo: FC = () => {
           _hover={{ bg: 'surface-hovered' }}
           _pressed={{ bg: 'surface-pressed' }}
           onPress={() => {
-            if (isHwWallet) {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.Receive,
-                params: {
-                  screen: ReceiveTokenRoutes.ReceiveToken,
-                  params: {},
-                },
-              });
-            } else {
-              copyContentToClipboard(account?.address);
-            }
+            copyAddress(account?.address);
           }}
         >
           <Text

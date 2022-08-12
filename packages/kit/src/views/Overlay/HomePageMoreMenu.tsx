@@ -11,17 +11,17 @@ import {
   PresenceTransition,
   Typography,
   useIsVerticalLayout,
+  useSafeAreaInsets,
   useThemeValue,
 } from '@onekeyhq/components';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { CloseButton, SelectProps } from '@onekeyhq/components/src/Select';
-import { Toast } from '@onekeyhq/components/src/Toast/useToast';
-import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
+import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
@@ -35,6 +35,8 @@ const ModalizedMenu: FC<{ closeOverlay: () => void }> = ({
   const intl = useIntl();
 
   const bg = useThemeValue('surface-subdued');
+
+  const { bottom } = useSafeAreaInsets();
 
   useEffect(() => {
     setTimeout(() => modalizeRef.current?.open(), 10);
@@ -58,7 +60,7 @@ const ModalizedMenu: FC<{ closeOverlay: () => void }> = ({
         header={intl.formatMessage({ id: 'action__more' })}
         footer={null}
         closeAction={closeOverlay}
-        staticChildrenProps={{ padding: 0 }}
+        staticChildrenProps={{ padding: 0, paddingBottom: bottom }}
       >
         {children}
       </Modal>
@@ -131,8 +133,9 @@ export const HomePageMoreMenu: FC<{
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { network } = useActiveWalletAccount();
-  const { account } = useActiveWalletAccount();
+  const { network, account, wallet } = useActiveWalletAccount();
+  const { copyAddress } = useCopyAddress(wallet);
+
   const isVerticalLayout = useIsVerticalLayout();
   // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
   const disableScan = platformEnv.isWeb && !isVerticalLayout;
@@ -166,7 +169,9 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
             },
           });
         },
-        icon: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+        icon: isVerticalLayout
+          ? 'CurrencyDollarOutline'
+          : 'CurrencyDollarSolid',
       },
       {
         id: 'action__sell_crypto',
@@ -197,18 +202,20 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       {
         id: 'action__copy_address',
         onPress: () => {
-          const address = account?.address;
-          if (!address) return;
-          copyToClipboard(address);
-          Toast.show({
-            title: intl.formatMessage({ id: 'msg__address_copied' }),
-          });
+          copyAddress(account?.address);
         },
         icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
       },
       // TODO Share
     ],
-    [disableScan, isVerticalLayout, account, navigation, network?.id, intl],
+    [
+      disableScan,
+      isVerticalLayout,
+      account,
+      navigation,
+      network?.id,
+      copyAddress,
+    ],
   );
   return (
     <Box bg="surface-subdued" flexDirection="column">

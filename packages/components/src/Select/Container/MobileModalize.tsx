@@ -2,7 +2,7 @@ import React, { isValidElement, useEffect, useMemo, useRef } from 'react';
 
 import { Animated } from 'react-native';
 import { Modalize } from 'react-native-modalize';
-import { Portal } from 'react-native-portalize';
+import { RootSiblingPortal } from 'react-native-root-siblings';
 
 import Box from '../../Box';
 import Button from '../../Button';
@@ -166,7 +166,7 @@ function Mobile<T>({
     return content;
   }
 
-  return <Portal>{content}</Portal>;
+  return <RootSiblingPortal>{content}</RootSiblingPortal>;
 }
 
 export default Mobile;

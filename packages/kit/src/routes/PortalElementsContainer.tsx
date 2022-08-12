@@ -1,18 +1,17 @@
 import React from 'react';
 
-import { DialogManager } from '@onekeyhq/components';
+import { RootSiblingParent } from 'react-native-root-siblings';
+
 import Toast from '@onekeyhq/components/src/Toast/Custom';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HardwarePopup from '../views/Hardware/PopupHandle';
+import HardwareSpecialPopup from '../views/Hardware/PopupHandle/SpecialPopup';
 
-export function PortalElementsContainer() {
-  return (
-    <>
-      {/* Native Modal must register another for root container */}
-      {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
-      {platformEnv.isNativeIOS && <DialogManager.Holder />}
-      {platformEnv.isNativeIOS && <HardwarePopup />}
-    </>
-  );
-}
+export const PortalElementsContainer = () => (
+  <RootSiblingParent>
+    {/* Native Modal must register another for root container */}
+    <Toast bottomOffset={60} />
+    <HardwarePopup />
+    <HardwareSpecialPopup />
+  </RootSiblingParent>
+);

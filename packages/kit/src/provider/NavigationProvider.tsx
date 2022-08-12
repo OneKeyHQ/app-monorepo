@@ -1,32 +1,22 @@
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 
-import { OverlayProvider } from '@react-native-aria/overlays';
 import {
   DefaultTheme,
   NavigationContainer,
   NavigationContainerRef,
 } from '@react-navigation/native';
-import { Host } from 'react-native-portalize';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
-import {
-  Box,
-  DialogManager,
-  useIsVerticalLayout,
-  useThemeValue,
-} from '@onekeyhq/components';
-import Toast from '@onekeyhq/components/src/Toast/Custom';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import RootStack from '@onekeyhq/kit/src/routes/Root';
 import { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import HardwarePopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle';
-import HardwareSpecialPopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle/SpecialPopup';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import linking from '../routes/linking';
+import { PortalElementsContainer } from '../routes/PortalElementsContainer';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
 
@@ -116,29 +106,10 @@ const NavigationApp = () => {
         theme={navigationTheme}
         linking={linking}
       >
-        <Host>
-          {/* TODO migrate all global popups to rootsibling */}
-          <RootSiblingParent>
-            <OverlayProvider>
-              <RootStack />
-            </OverlayProvider>
-          </RootSiblingParent>
-        </Host>
+        <RootStack />
+        {/* TODO migrate all global popups to rootsibling */}
+        <PortalElementsContainer />
       </NavigationContainer>
-      <Box
-        overflow="hidden"
-        pointerEvents="none"
-        position="absolute"
-        top={0}
-        bottom={0}
-        left={0}
-        right={0}
-      >
-        <Toast bottomOffset={60} />
-        <DialogManager.Holder />
-        <HardwarePopup />
-        <HardwareSpecialPopup />
-      </Box>
     </>
   );
 };
