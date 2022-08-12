@@ -55,7 +55,7 @@ module.exports = {
     // '*://*.onekey.so/',
     // '*://*.eth/',
     'storage',
-    // 'unlimitedStorage',
+    'unlimitedStorage',
     // 'clipboardWrite',
     // 'notifications',
     // 'activeTab',
