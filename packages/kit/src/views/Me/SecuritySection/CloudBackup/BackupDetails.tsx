@@ -31,6 +31,7 @@ import { useNavigation } from '../../../../hooks';
 import { useData } from '../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
+import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -214,7 +215,7 @@ const BackupActions = ({
   ready: boolean;
   importing: boolean;
   onImport?: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 } & IBoxProps) => {
   const intl = useIntl();
 
@@ -226,7 +227,6 @@ const BackupActions = ({
           isLoading={importing}
           type="basic"
           size={size}
-          mr={4}
           flex={{ base: 1, sm: 'none' }}
         >
           {intl.formatMessage({ id: 'action__import' })}
@@ -238,6 +238,7 @@ const BackupActions = ({
           type="destructive"
           size={size}
           flex={{ base: 1, sm: 'none' }}
+          ml={4}
         >
           {intl.formatMessage({ id: 'action__delete' })}
         </Button>
@@ -246,7 +247,7 @@ const BackupActions = ({
   );
 };
 
-const BackupDetails: FC = () => {
+const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   const intl = useIntl();
   const toast = useToast();
   const isSmallScreen = useIsVerticalLayout();
@@ -257,6 +258,7 @@ const BackupDetails: FC = () => {
   const { serviceCloudBackup } = backgroundApiProxy;
   const { showVerify } = useLocalAuthenticationModal();
   const { requestBackupPassword } = useImportBackupPasswordModal();
+  const onboardingDone = useOnboardingDone();
 
   useLayoutEffect(() => {
     const title = intl.formatMessage({ id: 'title__backup_details' });
@@ -312,13 +314,17 @@ const BackupDetails: FC = () => {
     });
   }, [setDataReady, serviceCloudBackup, backupUUID]);
 
-  const onImportDone = useCallback(() => {
+  const onImportDone = useCallback(async () => {
     toast.show({
       title: intl.formatMessage({ id: 'msg__backup_imported' }),
     });
     setImporting(false);
-    navigation.navigate(HomeRoutes.InitialTab);
-  }, [toast, intl, setImporting, navigation]);
+    if (onboarding) {
+      await onboardingDone({ delay: 200 });
+    } else {
+      navigation.navigate(HomeRoutes.InitialTab);
+    }
+  }, [toast, intl, setImporting, onboarding, onboardingDone, navigation]);
 
   const onImportError = useCallback(
     (e) => {
@@ -419,7 +425,7 @@ const BackupDetails: FC = () => {
             ready={dataReady}
             importing={importing}
             onImport={hasRemoteData ? onImport : undefined}
-            onDelete={onDelete}
+            onDelete={onboarding ? undefined : onDelete}
             size="xl"
             position="absolute"
             bottom={0}
@@ -445,7 +451,7 @@ const BackupDetails: FC = () => {
             ready={dataReady}
             importing={importing}
             onImport={hasRemoteData ? onImport : undefined}
-            onDelete={onDelete}
+            onDelete={onboarding ? undefined : onDelete}
             size="base"
             ml="auto"
           />
@@ -487,7 +493,11 @@ const BackupDetails: FC = () => {
               setDeleting(true);
               await serviceCloudBackup.removeBackup(backupUUID);
               setDeleting(false);
-              navigation.navigate(HomeRoutes.InitialTab);
+              if (onboarding) {
+                navigation.pop(2);
+              } else {
+                navigation.navigate(HomeRoutes.InitialTab);
+              }
             }
           },
           onSecondaryActionPress: () => {

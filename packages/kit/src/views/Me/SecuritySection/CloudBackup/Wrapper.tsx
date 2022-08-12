@@ -21,7 +21,7 @@ const Wrapper: FC<WrapperProps> = ({ children, footer }) => {
         py={{ base: 4, sm: 8 }}
         _contentContainerStyle={{
           w: 'full',
-          maxW: 768,
+          maxW: 800,
           mx: 'auto',
         }}
       >

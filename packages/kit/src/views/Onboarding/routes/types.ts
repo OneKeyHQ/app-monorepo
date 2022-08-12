@@ -30,4 +30,14 @@ export type IOnboardingRoutesParams = {
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;
   [EOnboardingRoutes.ShowRecoveryPhrase]: IOnboardingRecoveryPhraseParams;
   [EOnboardingRoutes.BehindTheScene]: IOnboardingBehindTheSceneParams;
+
+  [EOnboardingRoutes.RestoreFromCloud]: undefined;
+  [EOnboardingRoutes.CloudBackupDetails]: {
+    backupUUID: string;
+    backupTime: number;
+    numOfHDWallets: number;
+    numOfImportedAccounts: number;
+    numOfWatchingAccounts: number;
+    numOfContacts: number;
+  };
 };
