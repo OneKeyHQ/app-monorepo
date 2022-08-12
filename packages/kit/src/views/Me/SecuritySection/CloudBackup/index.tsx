@@ -104,7 +104,7 @@ const EnabledContent = ({
       <Dialog
         visible={showDisableBackupDialog}
         footerButtonProps={{
-          primaryActionTranslationId: 'action__stop_backup',
+          primaryActionTranslationId: 'action__disable',
           secondaryActionTranslationId: 'action__dismiss',
           primaryActionProps: { type: 'destructive' },
           onPrimaryActionPress: async () => {
