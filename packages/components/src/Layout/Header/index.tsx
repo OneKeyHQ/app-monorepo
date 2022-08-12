@@ -1,7 +1,7 @@
 import React, { FC, ReactNode } from 'react';
 
 import { BlurView } from 'expo-blur';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 
 import Box from '../../Box';
 import DesktopDragZoneBox from '../../DesktopDragZoneBox';
