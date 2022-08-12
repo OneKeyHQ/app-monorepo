@@ -77,16 +77,12 @@ export function RouteOnboarding() {
   );
 
   return (
-    <>
-      {/* <OnboardingContextProvider> should wrap to each <Layout /> */}
-      <StackNavigator.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
-      </StackNavigator.Navigator>
-      <PortalElementsContainer />
-    </>
+    <StackNavigator.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
+    </StackNavigator.Navigator>
   );
 }

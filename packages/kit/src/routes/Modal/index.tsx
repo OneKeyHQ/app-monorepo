@@ -153,22 +153,19 @@ const modalStackScreenList = [
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
 const ModalStackNavigator = () => (
-  <>
-    <ModalStack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {modalStackScreenList.map((modal) => (
-        <ModalStack.Screen
-          key={modal.name}
-          name={modal.name}
-          component={modal.component}
-        />
-      ))}
-    </ModalStack.Navigator>
-    <PortalElementsContainer />
-  </>
+  <ModalStack.Navigator
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    {modalStackScreenList.map((modal) => (
+      <ModalStack.Screen
+        key={modal.name}
+        name={modal.name}
+        component={modal.component}
+      />
+    ))}
+  </ModalStack.Navigator>
 );
 
 export default memo(ModalStackNavigator);

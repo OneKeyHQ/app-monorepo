@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import linking from '../routes/linking';
 import { PortalElementsContainer } from '../routes/PortalElementsContainer';
+import HardwareSpecialPopup from '../views/Hardware/PopupHandle/SpecialPopup';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
 
@@ -109,6 +110,7 @@ const NavigationApp = () => {
         <RootStack />
         {/* TODO migrate all global popups to rootsibling */}
         <PortalElementsContainer />
+        <HardwareSpecialPopup />
       </NavigationContainer>
     </>
   );
