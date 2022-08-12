@@ -5,15 +5,11 @@ import {
   NavigationContainer,
   NavigationContainerRef,
 } from '@react-navigation/native';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
-import Toast from '@onekeyhq/components/src/Toast/Custom';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import RootStack from '@onekeyhq/kit/src/routes/Root';
 import { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import HardwarePopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle';
-import HardwareSpecialPopup from '@onekeyhq/kit/src/views/Hardware/PopupHandle/SpecialPopup';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
