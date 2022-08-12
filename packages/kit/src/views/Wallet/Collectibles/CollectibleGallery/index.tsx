@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import { FlatListProps } from 'react-native';
 import {
   Badge,
   Box,
+  Empty,
   HStack,
   IconButton,
   NetImage,
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
 
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { CollectibleGalleryProps } from '../types';
@@ -60,8 +62,13 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   collectibles,
   onSelectAsset,
   onSelectCollection,
+  fetchData,
+  isCollectibleSupported,
+  isLoading,
 }) => {
   const [expand, setExpand] = React.useState(false);
+  const intl = useIntl();
+
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const MARGIN = isSmallScreen ? 16 : 20;
@@ -77,7 +84,9 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   ) => (
     <Box flexDirection="column" justifyContent="flex-start">
       <HStack alignItems="center" height="28px">
-        <NetImage src={logo} width="20px" height="20px" borderRadius="20px" />
+        {!!logo && (
+          <NetImage src={logo} width="20px" height="20px" borderRadius="20px" />
+        )}
         <Typography.Subheading color="text-subdued" ml="8px" mr="12px">
           {title}
         </Typography.Subheading>
@@ -134,6 +143,32 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     [onSelectCollection],
   );
 
+  const EmptyView = useMemo(() => {
+    if (!isCollectibleSupported) {
+      return (
+        <Empty
+          imageUrl={IconNFT}
+          title={intl.formatMessage({ id: 'empty__not_supported' })}
+          subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
+        />
+      );
+    }
+    return (
+      <Empty
+        imageUrl={IconNFT}
+        title={intl.formatMessage({
+          id: 'asset__collectibles_empty_title',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'asset__collectibles_empty_desc',
+        })}
+        actionTitle={intl.formatMessage({ id: 'action__refresh' })}
+        handleAction={fetchData}
+        isLoading={isLoading}
+      />
+    );
+  }, [fetchData, intl, isCollectibleSupported, isLoading]);
+
   const sharedProps = React.useMemo<FlatListProps<Collection>>(
     () => ({
       contentContainerStyle: {
@@ -142,12 +177,12 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         marginTop: 24,
       },
       key: expand ? 'Expand' : `Packup${numColumns}`,
-      keyExtractor: ((_, idx) =>
-        String(idx)) as ScrollableFlatListProps['keyExtractor'],
+      keyExtractor: (item) => `${item.contractAddress ?? ''}Collection`,
       ListFooterComponent: <Box h="24px" w="full" />,
       showsVerticalScrollIndicator: false,
       renderItem: expand ? renderAssetItem : renderCollectionItem,
       numColumns: expand ? 1 : numColumns,
+      ListEmptyComponent: EmptyView,
       ListHeaderComponent: (
         <CollectiblesHeader
           expand={expand}
@@ -158,8 +193,16 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       ),
       data: collectibles,
     }),
-    [collectibles, expand, numColumns, renderAssetItem, renderCollectionItem],
+    [
+      EmptyView,
+      collectibles,
+      expand,
+      numColumns,
+      renderAssetItem,
+      renderCollectionItem,
+    ],
   );
+
   return <Tabs.FlatList<Collection> {...sharedProps} />;
 };
 

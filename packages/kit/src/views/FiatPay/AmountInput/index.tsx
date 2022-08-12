@@ -45,7 +45,7 @@ import { AutoSizeText } from './AutoSizeText';
 type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
 type RouteProps = RouteProp<
   FiatPayModalRoutesParams,
-  FiatPayRoutes.AmoutInputModal
+  FiatPayRoutes.AmountInputModal
 >;
 
 function checkVaild(text: string) {

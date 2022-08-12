@@ -62,6 +62,7 @@ export const useCollectiblesData = ({
   );
   const getData = useCallback(async () => {
     if (isCollectibleSupported && mainKey) {
+      updateListData(getCollectibleCache(mainKey));
       setIsLoading(true);
       const result = await getUserNFTAssets({
         address,

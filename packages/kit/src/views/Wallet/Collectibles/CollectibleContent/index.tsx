@@ -14,7 +14,7 @@ import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import NFTAudio from '../../../../components/NFTAudio';
 import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
 import NFTSVG from '../../../../components/NFTSVG';
-import NFTVideo from '../../../../components/NFTVideo/index.web';
+import NFTVideo from '../../../../components/NFTVideo';
 import CollectibleListImage from '../CollectibleGallery/CollectibleListImage';
 
 import useUniqueToken from './useUniqueToken';

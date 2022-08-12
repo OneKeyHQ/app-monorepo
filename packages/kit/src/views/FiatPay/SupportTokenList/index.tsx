@@ -108,7 +108,7 @@ function fetchBalance(
 export const SupportTokenList: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { networkId } = route.params;
+  const { networkId, type = 'Buy' } = route.params;
   const currenciesNobalance = useFiatPay(networkId);
   const { balances } = useManageTokens();
   const currencies = fetchBalance(currenciesNobalance, balances);
@@ -133,9 +133,9 @@ export const SupportTokenList: FC = () => {
         padding="16px"
         shadow="depth.2"
         onPress={() => {
-          navigation.navigate(FiatPayRoutes.AmoutInputModal, {
+          navigation.navigate(FiatPayRoutes.AmountInputModal, {
             token: item,
-            type: 'Buy',
+            type,
           });
         }}
       >
@@ -150,13 +150,15 @@ export const SupportTokenList: FC = () => {
         </Text>
       </Pressable>
     ),
-    [flatListData.length, navigation],
+    [flatListData.length, navigation, type],
   );
 
   return (
     <Modal
       maxHeight="560px"
-      header={intl.formatMessage({ id: 'action__buy' })}
+      header={intl.formatMessage({
+        id: type === 'Buy' ? 'action__buy' : 'action__sell',
+      })}
       hideSecondaryAction
       primaryActionProps={{
         type: 'basic',

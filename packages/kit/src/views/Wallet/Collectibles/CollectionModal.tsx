@@ -137,11 +137,11 @@ const CollectionModal: FC<CollectionModalProps> = () => {
         (type, dim) => {
           switch (type) {
             case ViewTypes.LOGO:
-              dim.width = pageWidth;
+              dim.width = pageWidth - padding * 2;
               dim.height = collectible.logoUrl ? 56 + 8 : 0;
               break;
             case ViewTypes.NAME:
-              dim.width = pageWidth;
+              dim.width = pageWidth - padding * 2;
               dim.height = collectible.contractName ? 52 : 0;
               break;
             case ViewTypes.DESC:
