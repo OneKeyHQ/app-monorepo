@@ -216,7 +216,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
 
         default:
           stateContent = {
-            emoji: '💀',
+            emoji: '🤔',
             title: intl.formatMessage({
               id: 'msg__unknown_error',
             }),
