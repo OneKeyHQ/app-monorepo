@@ -21,9 +21,11 @@ const DrawerStackNavigator = () => {
   if (isWeb) {
     drawerStyle.opacity = 1;
   }
-  const [key, setKey] = useState(Math.random());
+  const [key, setKey] = useState('');
   useEffect(() => {
-    setTimeout(() => setKey(Math.random()), 10);
+    // recreate drawer navigator to fix OK-8412 on ios
+    // no idea why it works
+    setTimeout(() => setKey('drawer'), 10);
   }, []);
 
   return (
