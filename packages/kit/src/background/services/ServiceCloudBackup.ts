@@ -203,7 +203,7 @@ class ServiceCloudBackup extends ServiceBase {
       try {
         await this.saveDataToCloud(cloudData);
       } catch (e) {
-        debugLogger.cloudBackup.error(e);
+        debugLogger.cloudBackup.error((e as Error).message);
         dispatch(incrBackupRequests());
       }
       dispatch(setNotInProgress());
@@ -278,7 +278,7 @@ class ServiceCloudBackup extends ServiceBase {
           numOfContacts: Object.keys(contacts).length,
         });
       } catch (e) {
-        debugLogger.cloudBackup.error(e);
+        debugLogger.cloudBackup.error((e as Error).message);
       }
     }
     return Object.values(backupSummaries)
@@ -365,7 +365,7 @@ class ServiceCloudBackup extends ServiceBase {
         }
       }
     } catch (e) {
-      debugLogger.cloudBackup.error(e);
+      debugLogger.cloudBackup.error((e as Error).message);
     }
 
     return { alreadyOnDevice, notOnDevice };
@@ -438,7 +438,7 @@ class ServiceCloudBackup extends ServiceBase {
         }
       }
     } catch (e) {
-      debugLogger.cloudBackup.error(e);
+      debugLogger.cloudBackup.error((e as Error).message);
       throw e;
     }
     if (!activeWalletId) {
@@ -493,7 +493,7 @@ class ServiceCloudBackup extends ServiceBase {
         this.listBackups.clear();
       }
     } catch (e) {
-      debugLogger.cloudBackup.error(e);
+      debugLogger.cloudBackup.error((e as Error).message);
     }
   }
 
