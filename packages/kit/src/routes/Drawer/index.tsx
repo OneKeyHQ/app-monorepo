@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
 
@@ -21,8 +21,16 @@ const DrawerStackNavigator = () => {
   if (isWeb) {
     drawerStyle.opacity = 1;
   }
+  const [key, setKey] = useState('');
+  useEffect(() => {
+    // recreate drawer navigator to fix OK-8412 on ios
+    // no idea why it works
+    setTimeout(() => setKey('drawer'), 10);
+  }, []);
+
   return (
     <DrawerStack.Navigator
+      key={key}
       useLegacyImplementation
       screenOptions={{
         headerShown: false,

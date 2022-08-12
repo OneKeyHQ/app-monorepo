@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { PortalElementsContainer } from '../../../routes/PortalElementsContainer';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
@@ -77,16 +76,12 @@ export function RouteOnboarding() {
   );
 
   return (
-    <>
-      {/* <OnboardingContextProvider> should wrap to each <Layout /> */}
-      <StackNavigator.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
-      </StackNavigator.Navigator>
-      <PortalElementsContainer />
-    </>
+    <StackNavigator.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
+    </StackNavigator.Navigator>
   );
 }
