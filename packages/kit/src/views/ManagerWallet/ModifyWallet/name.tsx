@@ -42,7 +42,7 @@ const ModifyWalletNameViewModal: FC = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const { walletId } = useRoute<RouteProps>().params;
-  const { engine, dispatch } = backgroundApiProxy;
+  const { engine, dispatch, serviceCloudBackup } = backgroundApiProxy;
   const { wallets } = useRuntime();
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
   const [isLoading, setIsLoading] = React.useState(false);
@@ -73,6 +73,7 @@ const ModifyWalletNameViewModal: FC = () => {
       avatar: editAvatar,
     });
     if (changedWallet) {
+      serviceCloudBackup.requestBackup();
       dispatch(updateWallet(changedWallet));
       setTimeout(() => dispatch(setRefreshTS()));
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
