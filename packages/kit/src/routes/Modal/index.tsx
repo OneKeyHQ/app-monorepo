@@ -3,7 +3,6 @@ import React, { memo } from 'react';
 
 import { createStackNavigator } from '@react-navigation/stack';
 
-import { PortalElementsContainer } from '../PortalElementsContainer';
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import AddressBookModal from './AddressBook';
