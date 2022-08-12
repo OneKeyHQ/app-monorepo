@@ -11,6 +11,7 @@ import {
   PresenceTransition,
   Typography,
   useIsVerticalLayout,
+  useSafeAreaInsets,
   useThemeValue,
 } from '@onekeyhq/components';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
@@ -35,6 +36,8 @@ const ModalizedMenu: FC<{ closeOverlay: () => void }> = ({
 
   const bg = useThemeValue('surface-subdued');
 
+  const { bottom } = useSafeAreaInsets();
+
   useEffect(() => {
     setTimeout(() => modalizeRef.current?.open(), 10);
   }, []);
@@ -57,7 +60,7 @@ const ModalizedMenu: FC<{ closeOverlay: () => void }> = ({
         header={intl.formatMessage({ id: 'action__more' })}
         footer={null}
         closeAction={closeOverlay}
-        staticChildrenProps={{ padding: 0 }}
+        staticChildrenProps={{ padding: 0, paddingBottom: bottom }}
       >
         {children}
       </Modal>
