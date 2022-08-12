@@ -224,8 +224,16 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async getBackupStatus() {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const { isAvailable } = appSelector((s) => s.cloudBackup);
     if (!(await CloudFs.isAvailable())) {
+      if (isAvailable) {
+        dispatch(setIsAvailable(false));
+      }
       return { hasPreviousBackups: false };
+    }
+    if (!isAvailable) {
+      dispatch(setIsAvailable(true));
     }
     await this.syncCloud();
     const backupUUID = await this.ensureUUID();
