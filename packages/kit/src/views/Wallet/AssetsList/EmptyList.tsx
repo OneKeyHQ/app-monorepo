@@ -54,7 +54,7 @@ const EmptyList: FC = () => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Icon name="NavBuySolid" color="icon-on-primary" />
+              <Icon name="PlusOutline" color="icon-on-primary" />
             </LinearGradient>
           </Box>
           <Typography.DisplayMedium mb="4px" textAlign="center">

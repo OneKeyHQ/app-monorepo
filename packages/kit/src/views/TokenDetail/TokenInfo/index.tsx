@@ -143,7 +143,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
-            name="NavSendSolid"
+            name="ArrowUpOutline"
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
@@ -175,7 +175,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
-            name="NavReceiveSolid"
+            name="ArrowDownOutline"
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
@@ -204,7 +204,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
             <IconButton
               circle
               size={isVertical ? 'xl' : 'lg'}
-              name="NavBuySolid"
+              name="PlusOutline"
               type="basic"
               isDisabled={wallet?.type === 'watching'}
               onPress={() => {
@@ -237,7 +237,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
             <IconButton
               circle
               size={isVertical ? 'xl' : 'lg'}
-              name="NavSellSolid"
+              name="CurrencyDollarOutline"
               type="basic"
               isDisabled={wallet?.type === 'watching'}
               onPress={() => {

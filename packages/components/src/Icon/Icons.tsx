@@ -55,6 +55,7 @@ import CashOutline from "./react/outline/Cash";
 import ChartBarOutline from "./react/outline/ChartBar";
 import ChartPieOutline from "./react/outline/ChartPie";
 import ChartSquareBarOutline from "./react/outline/ChartSquareBar";
+import ChartSquareLineOutline from "./react/outline/ChartSquareLine";
 import ChatOutline from "./react/outline/Chat";
 import ChatAltOutline from "./react/outline/ChatAlt";
 import ChatAlt2Outline from "./react/outline/ChatAlt2";
@@ -574,6 +575,7 @@ export type ICON_NAMES =
   | "ChartBarOutline"
   | "ChartPieOutline"
   | "ChartSquareBarOutline"
+  | "ChartSquareLineOutline"
   | "ChatOutline"
   | "ChatAltOutline"
   | "ChatAlt2Outline"
@@ -1093,6 +1095,7 @@ export default {
   ChartBarOutline: ChartBarOutline,
   ChartPieOutline: ChartPieOutline,
   ChartSquareBarOutline: ChartSquareBarOutline,
+  ChartSquareLineOutline: ChartSquareLineOutline,
   ChatOutline: ChatOutline,
   ChatAltOutline: ChatAltOutline,
   ChatAlt2Outline: ChatAlt2Outline,

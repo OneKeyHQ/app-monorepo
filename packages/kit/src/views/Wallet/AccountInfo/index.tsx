@@ -44,8 +44,8 @@ import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
 
-export const FIXED_VERTICAL_HEADER_HEIGHT = 298;
-export const FIXED_HORIZONTAL_HEDER_HEIGHT = 214;
+export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
+export const FIXED_HORIZONTAL_HEDER_HEIGHT = 216;
 
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
@@ -140,39 +140,45 @@ const AccountAmountInfo: FC = () => {
 
   return (
     <Box alignItems="flex-start">
-      <Pressable
-        mt={4}
-        flexDirection="row"
-        alignItems="center"
-        onPress={() => {
-          if (isHwWallet) {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenRoutes.ReceiveToken,
-                params: {},
-              },
-            });
-          } else {
-            copyContentToClipboard(account?.address);
-          }
-        }}
-      >
-        <Text
-          typography={{ sm: 'Body2', md: 'CaptionStrong' }}
-          mr={2}
-          color="text-subdued"
+      <Box mx="-8px" my="-4px">
+        <Pressable
+          flexDirection="row"
+          alignItems="center"
+          py="4px"
+          px="8px"
+          rounded="12px"
+          _hover={{ bg: 'surface-hovered' }}
+          _pressed={{ bg: 'surface-pressed' }}
+          onPress={() => {
+            if (isHwWallet) {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Receive,
+                params: {
+                  screen: ReceiveTokenRoutes.ReceiveToken,
+                  params: {},
+                },
+              });
+            } else {
+              copyContentToClipboard(account?.address);
+            }
+          }}
         >
-          {isHwWallet
-            ? intl.formatMessage({ id: 'action__copy_address' })
-            : shortenAddress(account?.address ?? '')}
-        </Text>
-        <Icon name="DuplicateOutline" size={16} />
-      </Pressable>
-      <Box flexDirection="row" mt={2}>
+          <Text
+            typography={{ sm: 'Body2', md: 'CaptionStrong' }}
+            mr={2}
+            color="text-subdued"
+          >
+            {isHwWallet
+              ? intl.formatMessage({ id: 'action__copy_address' })
+              : shortenAddress(account?.address ?? '')}
+          </Text>
+          <Icon name="DuplicateOutline" size={16} />
+        </Pressable>
+      </Box>
+      <Box flexDirection="row" mt={1}>
         {summedValueComp}
       </Box>
-      <Box flexDirection="row" mt={4}>
+      <Box flexDirection="row" mt={1}>
         {changedValueComp}
       </Box>
     </Box>
@@ -193,7 +199,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowUpSolid"
+          name="ArrowUpOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -226,7 +232,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowDownSolid"
+          name="ArrowDownOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -255,7 +261,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="SwitchHorizontalSolid"
+          name="SwitchHorizontalOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -285,7 +291,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="DotsVerticalSolid"
+          name="DotsVerticalOutline"
           type="basic"
           onPress={() => showHomePageMoreMenu(moreButtonRef?.current)}
         />
@@ -306,7 +312,8 @@ const AccountInfo = () => {
   if (isSmallView) {
     return (
       <Box
-        py="24px"
+        pt="16px"
+        pb="24px"
         w="100%"
         px="16px"
         flexDirection="column"
@@ -325,7 +332,8 @@ const AccountInfo = () => {
       <DesktopDragZoneAbsoluteBar h={8} />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
-        py={12}
+        pt="96px"
+        pb="32px"
         px={{ sm: 8, lg: 4 }}
         flexDirection="row"
         justifyContent="space-between"

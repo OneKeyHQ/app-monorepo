@@ -42,7 +42,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
     component: HomeScreen,
-    tabBarIcon: () => 'NavBankCardSolid',
+    tabBarIcon: () => 'CreditCardOutline',
     translationId: 'form__account',
     children: [
       {
@@ -58,7 +58,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Swap,
     component: SwapScreen,
-    tabBarIcon: () => 'NavActivitySolid',
+    tabBarIcon: () => 'ChartSquareLineOutline',
     translationId: 'title__swap',
     children: [
       {
@@ -70,7 +70,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Discover,
     component: DiscoverScreen,
-    tabBarIcon: () => 'NavDiscoverySolid',
+    tabBarIcon: () => 'CompassOutline',
     translationId: 'title__explore',
     children: [
       {
@@ -86,7 +86,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Me,
     component: MeScreen,
-    tabBarIcon: () => 'NavMenuSolid',
+    tabBarIcon: () => 'MenuOutline',
     translationId: 'title__menu',
     children: [
       {

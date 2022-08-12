@@ -93,7 +93,7 @@ const ScanQrcodeResult: FC = () => {
           }}
         >
           <HStack space="4">
-            <Icon name="NavSendSolid" />
+            <Icon name="ArrowUpOutline" />
             <Typography.Body1>
               {intl.formatMessage({
                 id: 'form__send_tokens',

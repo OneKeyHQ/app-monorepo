@@ -72,7 +72,7 @@ const TabNavigator = () => {
           });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__send' }),
-        tabBarIcon: () => 'NavSendSolid',
+        tabBarIcon: () => 'ArrowUpOutline',
         description: intl.formatMessage({
           id: 'content__transfer_tokens_to_another_wallet',
         }),
@@ -92,7 +92,7 @@ const TabNavigator = () => {
           });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__receive' }),
-        tabBarIcon: () => 'NavReceiveSolid',
+        tabBarIcon: () => 'ArrowDownOutline',
         description: intl.formatMessage({
           id: 'content__deposit_tokens_to_your_wallet',
         }),
@@ -113,7 +113,7 @@ const TabNavigator = () => {
           });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__buy' }),
-        tabBarIcon: () => 'NavBuySolid',
+        tabBarIcon: () => 'PlusOutline',
         description: intl.formatMessage({
           id: 'content__purchase_crypto_with_cash',
         }),

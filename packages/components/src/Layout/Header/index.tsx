@@ -1,7 +1,7 @@
 import React, { FC, ReactNode } from 'react';
 
 import { BlurView } from 'expo-blur';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 
 import Box from '../../Box';
 import DesktopDragZoneBox from '../../DesktopDragZoneBox';
@@ -43,8 +43,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
         pt={`${insets.top}px`}
         alignItems="center"
         justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
-        borderBottomColor="divider" // TODO: change the color from transparent to divider while scrolling up
-        borderBottomWidth={StyleSheet.hairlineWidth}
         px={2}
         style={{ backgroundColor: temporaryBg }} // TODO remove this line after add ScrollUp event
       >
