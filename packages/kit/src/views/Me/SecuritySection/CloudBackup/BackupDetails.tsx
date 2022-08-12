@@ -227,7 +227,7 @@ const BackupActions = ({
           isLoading={importing}
           type="basic"
           size={size}
-          flex={{ base: 1, sm: 'none' }}
+          flexGrow={{ base: 1, sm: 0 }}
         >
           {intl.formatMessage({ id: 'action__import' })}
         </Button>
@@ -237,8 +237,8 @@ const BackupActions = ({
           onPress={onDelete}
           type="destructive"
           size={size}
-          flex={{ base: 1, sm: 'none' }}
           ml={4}
+          flexGrow={{ base: 1, sm: 0 }}
         >
           {intl.formatMessage({ id: 'action__delete' })}
         </Button>
@@ -493,11 +493,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
               setDeleting(true);
               await serviceCloudBackup.removeBackup(backupUUID);
               setDeleting(false);
-              if (onboarding) {
-                navigation.pop(2);
-              } else {
-                navigation.navigate(HomeRoutes.InitialTab);
-              }
+              setShowDeleteBackupDialog(false);
+              navigation.pop(2);
             }
           },
           onSecondaryActionPress: () => {
