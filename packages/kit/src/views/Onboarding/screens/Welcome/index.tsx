@@ -185,6 +185,7 @@ const Welcome = () => {
                   opacity: 1,
                   transition: { duration: 150 },
                 }}
+                // @ts-expect-error
                 mt={{ base: '24px', sm: '0' }}
                 flex={1}
               >
