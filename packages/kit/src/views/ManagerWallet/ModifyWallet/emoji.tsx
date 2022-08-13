@@ -1,16 +1,8 @@
-import React, {
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { FC, useCallback, useMemo, useRef, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { chunk } from 'lodash';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -23,7 +15,6 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { getMeasure } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
 import {
   ManagerWalletModalRoutes,
@@ -87,50 +78,36 @@ ColorSelecter.displayName = 'ColorSelecter';
 const ModifyWalletEmojiViewModal: FC = () => {
   const emojiContainerRef = useRef();
   const navigation = useNavigation();
-  const win = useWindowDimensions();
   const { avatar, onDone } = useRoute<RouteProps>().params;
   const [color, updateColor] = useState(avatar.bgColor);
   const [emoji, updateEmoji] = useState(avatar.emoji);
-  const [containerWidth, setContainerWidth] = useState(44 * 8);
-  const smallScreen = useIsVerticalLayout();
-  const rawItems = 8;
-
-  const itemWidth = useMemo(
-    () => Math.floor(containerWidth / rawItems),
-    [containerWidth, rawItems],
-  );
-
-  const itemHeight = itemWidth;
+  const isSmallScreen = useIsVerticalLayout();
+  const [pageWidth, setPageWidth] = useState<number>(0);
+  const padding = 24;
+  const itemWidth = 44;
+  const containerWidth = pageWidth - padding;
+  const rowItems = Math.floor(containerWidth / itemWidth);
 
   const dataProvider = useMemo(() => {
-    const emojis: EmojiTypes[][] = chunk(emojiList, rawItems);
+    const emojis: EmojiTypes[][] = chunk(emojiList, rowItems);
     return new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(emojis);
-  }, [rawItems]);
-
-  useEffect(() => {
-    getMeasure(emojiContainerRef.current).then((res) => {
-      if (!res) {
-        return;
-      }
-      setContainerWidth(res.width - 48);
-    });
-  }, [emojiContainerRef, win]);
+  }, [rowItems]);
 
   const layoutProvider = useMemo(
     () =>
       new LayoutProvider(
         () => 'emoji',
-        (type, dim) => {
+        (_, dim) => {
           dim.width = containerWidth;
-          dim.height = itemHeight;
+          dim.height = itemWidth;
         },
       ),
-    [containerWidth, itemHeight],
+    [containerWidth, itemWidth],
   );
 
   const renderItem = useCallback(
     (type, dataArray) => {
-      const emojisArray: EmojiTypes[][] = chunk(dataArray, rawItems);
+      const emojisArray: EmojiTypes[][] = chunk(dataArray, rowItems);
       return (
         <Box height="full">
           {emojisArray.map((rows, rowIndex) => (
@@ -138,7 +115,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
               key={`rows${rowIndex}`}
               flexDirection="row"
               width={`${containerWidth}px`}
-              height={`${itemHeight}px`}
+              height={`${itemWidth}px`}
             >
               {rows.map((item, index) => (
                 <Pressable
@@ -162,11 +139,11 @@ const ModifyWalletEmojiViewModal: FC = () => {
         </Box>
       );
     },
-    [itemWidth, rawItems, containerWidth, itemHeight],
+    [itemWidth, rowItems, containerWidth],
   );
-
   return (
     <Modal
+      size="xs"
       height="562px"
       header=""
       primaryActionTranslationId="action__done"
@@ -194,21 +171,31 @@ const ModifyWalletEmojiViewModal: FC = () => {
         </Box>
         <ColorSelecter color={color} onPress={updateColor} />
         <Box
+          onLayout={(e) => {
+            if (pageWidth !== e.nativeEvent.layout.width) {
+              setPageWidth(e.nativeEvent.layout.width);
+            }
+          }}
           flex={1}
           ref={emojiContainerRef}
           borderTopLeftRadius="24px"
           borderTopRadius="24px"
           bgColor="surface-default"
         >
-          <RecyclerListView
-            style={{
-              padding: 24,
-            }}
-            dataProvider={dataProvider}
-            layoutProvider={layoutProvider}
-            rowRenderer={renderItem}
-            renderFooter={() => (smallScreen ? <Box height="24px" /> : null)}
-          />
+          {pageWidth > 0 && (
+            <Box paddingLeft="24px" paddingTop="24px" flex={1}>
+              <RecyclerListView
+                dataProvider={dataProvider}
+                layoutProvider={layoutProvider}
+                rowRenderer={renderItem}
+                renderAheadOffset={300}
+                renderAheadStep={100}
+                renderFooter={() =>
+                  isSmallScreen ? <Box height="24px" /> : null
+                }
+              />
+            </Box>
+          )}
         </Box>
       </Box>
     </Modal>
