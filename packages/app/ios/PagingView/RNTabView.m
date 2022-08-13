@@ -105,7 +105,6 @@
     
     JXCategoryIndicatorLineView *lineView = [[JXCategoryIndicatorLineView alloc] init];
     lineView.indicatorHeight = 2;
-    lineView.indicatorWidth = categoryWidth / self.values.count;
     lineView.lineScrollOffsetX = 0;
     lineView.indicatorColor = [UIColor colorWithHexString:_model.indicatorColor];
     _categoryView.indicators = @[lineView];
