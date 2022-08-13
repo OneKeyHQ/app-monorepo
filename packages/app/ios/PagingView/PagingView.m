@@ -198,7 +198,8 @@
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewDidScroll:(UIScrollView *)scrollView {
   UIWindow *window = RCTKeyWindow();
   CGRect rect = [self convertRect:self.frame toView:window];
-  if (self.isDragging && CGRectGetMinX(rect) > 0) {
+  BOOL isPhone = [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone;
+  if (isPhone && self.isDragging && CGRectGetMinX(rect) > 0) {
     CGPoint offset = scrollView.contentOffset;
     offset.y = self.offsetY;
     [scrollView setContentOffset:offset];
