@@ -17,7 +17,7 @@ import NFTSVG from '../../../../components/NFTSVG';
 import NFTVideo from '../../../../components/NFTVideo';
 import CollectibleListImage from '../CollectibleGallery/CollectibleListImage';
 
-import useUniqueToken from './useUniqueToken';
+import useUniqueToken, { ComponentType } from './useUniqueToken';
 
 export type Props = {
   asset: NFTAsset;
@@ -35,7 +35,7 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
     if (componentType === undefined) {
       return <CustomSkeleton size={imageWidth} />;
     }
-    if (componentType === 'Image') {
+    if (componentType === ComponentType.Image) {
       return (
         <CollectibleListImage
           url={uri}
@@ -48,13 +48,13 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
         />
       );
     }
-    if (componentType === 'Video') {
+    if (componentType === ComponentType.Video) {
       return <NFTVideo url={uri} size={imageWidth} />;
     }
-    if (componentType === 'SVG') {
+    if (componentType === ComponentType.SVG) {
       return <NFTSVG url={uri} size={imageWidth} />;
     }
-    if (componentType === 'Audio') {
+    if (componentType === ComponentType.Audio) {
       const imageUrl = getHttpImageWithAsset(asset);
 
       return <NFTAudio url={uri} size={imageWidth} poster={imageUrl} />;

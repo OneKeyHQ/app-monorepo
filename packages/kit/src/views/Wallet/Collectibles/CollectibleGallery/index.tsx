@@ -136,9 +136,6 @@ const CollectibleSectionList: FC<
 
   return (
     <Tabs.SectionList
-      onEndReached={({ distanceFromEnd }) => {
-        console.log('SectionList distanceFromEnd = ', distanceFromEnd);
-      }}
       sections={sections}
       stickySectionHeadersEnabled={false}
       // @ts-ignore
