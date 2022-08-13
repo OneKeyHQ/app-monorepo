@@ -1238,7 +1238,11 @@ class Engine {
         (token) => token.tokenIdOnNetwork === t.tokenIdOnNetwork,
       );
       if (!presetToken) {
-        tokens.push(t);
+        tokens.push({
+          ...t,
+          id: `${t.networkId}--${t.tokenIdOnNetwork}`,
+          address: t.tokenIdOnNetwork,
+        });
       }
     }
     if (typeof accountId !== 'undefined') {
