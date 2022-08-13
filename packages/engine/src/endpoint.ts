@@ -1,8 +1,8 @@
 import { appSelector } from '@onekeyhq/kit/src/store';
 
 export const getFiatEndpoint = () => {
-  const { enableTestFiatEndpoint } = appSelector(
-    (s) => s?.settings?.devMode || {},
+  const enableTestFiatEndpoint = appSelector(
+    (s) => s?.settings?.devMode?.enableTestFiatEndpoint ?? false,
   );
 
   return enableTestFiatEndpoint
