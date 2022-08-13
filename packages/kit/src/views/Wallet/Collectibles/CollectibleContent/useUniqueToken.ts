@@ -31,6 +31,12 @@ export function componentTypeWithContentType(contentType: string) {
   if (contentType === 'audio/wav' || contentType === 'audio/mpeg') {
     return 'Audio';
   }
+  if (
+    contentType === 'model/gltf-binary' ||
+    contentType === 'model/gltf+json'
+  ) {
+    return 'unknown';
+  }
 }
 
 export function getComponentTypeWithAsset(asset: NFTAsset): ComponentType {
@@ -66,7 +72,9 @@ export default function useUniqueToken(asset: NFTAsset): UniqueTokenResult {
       if (contentType === '404') {
         setComponentType('unknown');
       } else {
-        setComponentType(componentTypeWithContentType(contentType));
+        setComponentType(
+          componentTypeWithContentType(contentType) ?? 'unknown',
+        );
       }
     }
   }, [asset]);
