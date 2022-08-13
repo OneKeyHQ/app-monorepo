@@ -1013,8 +1013,9 @@ class Engine {
         try {
           [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
         } catch (e) {
-          debugLogger.common.error(`fetchTokenInfos`, {
+          debugLogger.common.error(`fetchTokenInfos error`, {
             params: [tokenIdOnNetwork],
+            message: e instanceof Error ? e.message : e,
           });
         }
       }
@@ -1075,7 +1076,9 @@ class Engine {
       try {
         [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
       } catch (e) {
-        debugLogger.engine.error('fetchTokenInfos', e);
+        debugLogger.engine.error('fetchTokenInfos error', {
+          message: e instanceof Error ? e.message : e,
+        });
       }
     }
     if (typeof tokenInfo === 'undefined') {
@@ -1146,10 +1149,10 @@ class Engine {
     try {
       await this.dbApi.removeTokenFromAccount(accountId, tokenId);
     } catch (error) {
-      debugLogger.engine.error('removeTokenFromAccount', {
+      debugLogger.engine.error('removeTokenFromAccount error', {
         accountId,
         tokenId,
-        error,
+        message: error instanceof Error ? error.message : error,
       });
     }
   }
@@ -1217,7 +1220,9 @@ class Engine {
     try {
       await this.updateOnlineTokens(networkId);
     } catch (error) {
-      debugLogger.engine.error(`updateOnlineTokens error`, error);
+      debugLogger.engine.error(`updateOnlineTokens error`, {
+        message: error instanceof Error ? error.message : error,
+      });
     }
     // Get token info by network and account.
     const tokens = await simpleDb.token.getTokens({
@@ -1233,7 +1238,11 @@ class Engine {
         (token) => token.tokenIdOnNetwork === t.tokenIdOnNetwork,
       );
       if (!presetToken) {
-        tokens.push(t);
+        tokens.push({
+          ...t,
+          id: `${t.networkId}--${t.tokenIdOnNetwork}`,
+          address: t.tokenIdOnNetwork,
+        });
       }
     }
     if (typeof accountId !== 'undefined') {
