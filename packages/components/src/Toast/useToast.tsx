@@ -7,9 +7,11 @@ import CustomToast from './Custom';
 
 let toastHolder: RootSiblingsManager;
 const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
-  if (!toastHolder) {
-    toastHolder = new RootSiblingsManager(<CustomToast bottomOffset={60} />);
+  if (toastHolder) {
+    toastHolder.destroy();
   }
+
+  toastHolder = new RootSiblingsManager(<CustomToast bottomOffset={60} />);
   /**
    * Show Toast at next process, avoid toast in modal dismiss issue.
    *
