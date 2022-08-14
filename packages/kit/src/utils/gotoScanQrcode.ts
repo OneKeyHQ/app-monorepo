@@ -51,7 +51,7 @@ export const gotoScanQrcode = async (
         }
         const scanResult = await handleScanResult(data);
         if (scanResult) {
-          navigation.navigate(RootRoutes.Modal, {
+          navigation?.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.ScanQrcode,
             params: {
               screen: ScanQrcodeRoutes.ScanQrcodeResult,
@@ -64,7 +64,7 @@ export const gotoScanQrcode = async (
       }
     }
   } else {
-    navigation.navigate(RootRoutes.Modal, {
+    navigation?.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ScanQrcode,
       params: {
         screen: ScanQrcodeRoutes.ScanQrcode,

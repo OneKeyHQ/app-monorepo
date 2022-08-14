@@ -17,8 +17,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import linking from '../routes/linking';
-import HardwarePopup from '../views/Hardware/PopupHandle';
-import HardwareSpecialPopup from '../views/Hardware/PopupHandle/SpecialPopup';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
 
@@ -112,8 +110,6 @@ const NavigationApp = () => {
         <RootSiblingParent>
           <RootStack />
         </RootSiblingParent>
-        <HardwarePopup />
-        <HardwareSpecialPopup />
       </NavigationContainer>
     </>
   );

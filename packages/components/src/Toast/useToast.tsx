@@ -5,10 +5,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import CustomToast from './Custom';
 
-let toastHolder: RootSiblingsManager;
+let toastHolder: RootSiblingsManager | null = null;
 const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   if (toastHolder) {
     toastHolder.destroy();
+    toastHolder = null;
   }
 
   toastHolder = new RootSiblingsManager(<CustomToast bottomOffset={60} />);
