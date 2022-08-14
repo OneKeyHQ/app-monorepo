@@ -17,8 +17,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import linking from '../routes/linking';
-import HardwarePopup from '../views/Hardware/PopupHandle';
-import HardwareSpecialPopup from '../views/Hardware/PopupHandle/SpecialPopup';
 
 import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
 
@@ -80,42 +78,37 @@ const NavigationApp = () => {
   }, [instanceId]);
 
   return (
-    <>
-      <NavigationContainer
-        documentTitle={{
-          formatter: () => 'OneKey',
-        }}
-        onReady={() => {
-          routeNameRef.current =
-            navigationRef?.current?.getCurrentRoute?.()?.name;
-        }}
-        onStateChange={() => {
-          const previousRouteName = routeNameRef.current;
-          const currentRouteName =
-            navigationRef?.current?.getCurrentRoute?.()?.name;
+    <NavigationContainer
+      documentTitle={{
+        formatter: () => 'OneKey',
+      }}
+      onReady={() => {
+        routeNameRef.current =
+          navigationRef?.current?.getCurrentRoute?.()?.name;
+      }}
+      onStateChange={() => {
+        const previousRouteName = routeNameRef.current;
+        const currentRouteName =
+          navigationRef?.current?.getCurrentRoute?.()?.name;
 
-          if (previousRouteName !== currentRouteName) {
-            debugLogger.navigation.info(
-              previousRouteName,
-              ' -> ',
-              currentRouteName,
-            );
-          }
+        if (previousRouteName !== currentRouteName) {
+          debugLogger.navigation.info(
+            previousRouteName,
+            ' -> ',
+            currentRouteName,
+          );
+        }
 
-          routeNameRef.current = currentRouteName;
-        }}
-        ref={navigationRef}
-        theme={navigationTheme}
-        linking={linking}
-      >
-        {/* TODO migrate all global popups to rootsibling */}
-        <RootSiblingParent>
-          <RootStack />
-        </RootSiblingParent>
-        <HardwarePopup />
-        <HardwareSpecialPopup />
-      </NavigationContainer>
-    </>
+        routeNameRef.current = currentRouteName;
+      }}
+      ref={navigationRef}
+      theme={navigationTheme}
+      linking={linking}
+    >
+      <RootSiblingParent>
+        <RootStack />
+      </RootSiblingParent>
+    </NavigationContainer>
   );
 };
 

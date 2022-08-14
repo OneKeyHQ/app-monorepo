@@ -116,6 +116,14 @@ type RequestPinViewProps = {
   onDeviceInputChange?: (onDeviceInput: boolean) => void;
 } & Omit<BaseRequestViewProps, 'children'>;
 
+const DEVICE_ICON = {
+  'classic': ClassicDeviceIcon,
+  'mini': MiniDeviceIcon,
+  'touch': TouchDeviceIcon,
+  // TODO
+  'pro': null,
+};
+
 const RequestPinView: FC<RequestPinViewProps> = ({
   deviceType,
   onDeviceInput,
@@ -187,18 +195,7 @@ const RequestPinView: FC<RequestPinViewProps> = ({
           mr="8px"
           borderRadius="12px"
         >
-          <Image
-            source={
-              // eslint-disable-next-line no-nested-ternary
-              deviceType === 'classic'
-                ? ClassicDeviceIcon
-                : 'mini'
-                ? MiniDeviceIcon
-                : TouchDeviceIcon
-            }
-            width="16px"
-            height="24px"
-          />
+          <Image source={DEVICE_ICON[deviceType]} width="16px" height="24px" />
         </Pressable>
       )}
     </BaseRequestView>
