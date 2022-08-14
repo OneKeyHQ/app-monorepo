@@ -139,6 +139,8 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const isVerticalLayout = useIsVerticalLayout();
   // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
   const disableScan = platformEnv.isWeb && !isVerticalLayout;
+
+  const walletType = wallet?.type;
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -155,7 +157,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         icon: 'ScanSolid',
       },
       // TODO Connected Sites
-      {
+      walletType !== 'watching' && {
         id: 'action__buy_crypto',
         onPress: () => {
           if (!account) return;
@@ -173,7 +175,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
           ? 'CurrencyDollarOutline'
           : 'CurrencyDollarSolid',
       },
-      {
+      walletType !== 'watching' && {
         id: 'action__sell_crypto',
         onPress: () => {
           if (!account) return;
@@ -210,6 +212,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
     ],
     [
       disableScan,
+      walletType,
       isVerticalLayout,
       account,
       navigation,

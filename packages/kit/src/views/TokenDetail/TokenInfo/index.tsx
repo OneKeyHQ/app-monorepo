@@ -2,7 +2,6 @@ import React, { FC, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
@@ -15,7 +14,7 @@ import {
 import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import {
   FormatBalance,
-  FormatCurrency,
+  FormatCurrencyNumber,
 } from '@onekeyhq/kit/src/components/Format';
 import {
   useActiveWalletAccount,
@@ -35,10 +34,12 @@ import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
+import { getTokenValues } from '../../../utils/priceUtils';
+
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
-  token: TokenDO | null | undefined;
+  token: TokenDO;
   network: INetwork | null | undefined;
 };
 
@@ -57,14 +58,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
   });
 
   const { prices, balances } = useManageTokens();
-  const tokenPrice = useDeepCompareMemo(
-    () => prices[token?.tokenIdOnNetwork ?? 'main'],
-    [prices],
-  );
-  const amount = useDeepCompareMemo(
-    () => balances[token?.tokenIdOnNetwork || 'main'] ?? '0',
-    [balances],
-  );
+
+  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
 
   if (cryptoCurrency) {
     cryptoCurrency = { ...cryptoCurrency, balance: amount };
@@ -117,22 +112,24 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
               )}
             />
           </Box>
-          <FormatCurrency
-            numbers={[amount, tokenPrice]}
-            render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
-          />
+          <Typography.Body2 mt={1}>
+            <FormatCurrencyNumber
+              value={getTokenValues({ tokens: [token], prices, balances })[0]}
+            />
+          </Typography.Body2>
         </Box>
       </Box>
     ),
     [
-      token,
       isVertical,
+      token,
       network?.logoURI,
       network?.symbol,
       network?.tokenDisplayDecimals,
       network?.nativeDisplayDecimals,
       amount,
-      tokenPrice,
+      prices,
+      balances,
     ],
   );
 
