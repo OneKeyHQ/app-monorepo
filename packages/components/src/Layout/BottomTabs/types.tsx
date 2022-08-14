@@ -30,6 +30,8 @@ export type TBottomBarFoldableItem<T = any> = {
   tabBarLabel: string;
   description: string;
   tabBarIcon: () => string;
+  hideInVerticalLayaout?: boolean;
+  hideInHorizontalLayaout?: boolean;
 };
 
 export type TBottomBarRefAttr = BottomSheet;

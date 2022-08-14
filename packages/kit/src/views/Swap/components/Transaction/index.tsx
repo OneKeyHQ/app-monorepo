@@ -44,7 +44,7 @@ import {
   TransactionDetails,
   TransactionStatus,
 } from '../../typings';
-import { formatAmount } from '../../utils';
+import { formatAmount, isNoCharge } from '../../utils';
 import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionRate from '../TransactionRate';
@@ -537,6 +537,15 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           label={intl.formatMessage({ id: 'form__swapping_via' })}
         >
           <SwappingVia providers={tx.providers} />
+        </TransactionField>
+        <TransactionField
+          label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
+        >
+          <Typography.Caption color="text-subdued">
+            {isNoCharge(tx.quoterType)
+              ? intl.formatMessage({ id: 'content__no_charge' })
+              : '0.2 - 0.875%'}
+          </Typography.Caption>
         </TransactionField>
         <TransactionField label={intl.formatMessage({ id: 'form__created' })}>
           <Typography.Caption color="text-subdued">

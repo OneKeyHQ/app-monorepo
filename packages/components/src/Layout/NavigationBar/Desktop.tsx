@@ -106,33 +106,35 @@ const Sidebar: FC<BottomTabBarProps> = ({
     const swapIndex = routes.findIndex((route) => route.name === 'swap');
     return [
       ...tabs.slice(0, swapIndex),
-      foldableList.map((foldable) => (
-        <Pressable
-          disabled={foldable.disabled}
-          key={foldable.name}
-          onPress={foldable.onPress}
-          _hover={{ bg: 'surface-hovered' }}
-          borderRadius="xl"
-          p="2"
-        >
-          <Box display="flex" flexDirection="column">
-            <Box display="flex" flexDirection="row" alignItems="center">
-              <Icon
-                name={foldable?.tabBarIcon?.() as ICON_NAMES}
-                color={foldable.disabled ? 'icon-disabled' : 'icon-default'}
-                size={24}
-              />
+      foldableList
+        .filter((item) => !item.hideInHorizontalLayaout)
+        .map((foldable) => (
+          <Pressable
+            disabled={foldable.disabled}
+            key={foldable.name}
+            onPress={foldable.onPress}
+            _hover={{ bg: 'surface-hovered' }}
+            borderRadius="xl"
+            p="2"
+          >
+            <Box display="flex" flexDirection="column">
+              <Box display="flex" flexDirection="row" alignItems="center">
+                <Icon
+                  name={foldable?.tabBarIcon?.() as ICON_NAMES}
+                  color={foldable.disabled ? 'icon-disabled' : 'icon-default'}
+                  size={24}
+                />
 
-              <Typography.Body2Strong
-                ml="3"
-                color={foldable.disabled ? textDisabled : inactiveFontColor}
-              >
-                {foldable.tabBarLabel}
-              </Typography.Body2Strong>
+                <Typography.Body2Strong
+                  ml="3"
+                  color={foldable.disabled ? textDisabled : inactiveFontColor}
+                >
+                  {foldable.tabBarLabel}
+                </Typography.Body2Strong>
+              </Box>
             </Box>
-          </Box>
-        </Pressable>
-      )),
+          </Pressable>
+        )),
       ...tabs.slice(swapIndex),
     ];
   }, [tabs, foldableList, inactiveFontColor, routes, textDisabled]);

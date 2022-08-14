@@ -14,6 +14,7 @@ import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabRoutes, TabRoutesParams } from '../types';
 
@@ -48,10 +49,11 @@ const TabNavigator = () => {
           navigationRef.current?.navigate(TabRoutes.Swap);
         },
         tabBarLabel: intl.formatMessage({ id: 'title__swap' }),
-        tabBarIcon: () => 'SwitchHorizontalSolid',
+        tabBarIcon: () => 'SwitchHorizontalOutline',
         description: intl.formatMessage({
           id: 'content__exchange_any_tokens',
         }),
+        hideInHorizontalLayaout: true,
       },
       {
         name: TabRoutes.Send,

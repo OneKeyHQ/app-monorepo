@@ -212,7 +212,7 @@ const SwapQuote = () => {
         </Typography.Caption>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
           <Typography.Caption color="text-subdued">
-            {isNoCharge(quote)
+            {isNoCharge(quote.type)
               ? intl.formatMessage({ id: 'content__no_charge' })
               : '0.2 - 0.875%'}
           </Typography.Caption>
