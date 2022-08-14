@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Box, Center, Spinner } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -32,10 +31,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const [network, setNetwork] = useState<Network>();
   const { accountTokensMap, nativeToken } = useManageTokens();
 
-  const token = useDeepCompareMemo(
-    () => accountTokensMap.get(tokenId),
-    [accountTokensMap],
-  );
+  const token = accountTokensMap.get(tokenId);
 
   useEffect(() => {
     backgroundApiProxy.engine.getNetwork(networkId).then(setNetwork);
@@ -57,18 +53,19 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     }
   }, [navigation, token, nativeToken, accountId, networkId]);
 
-  const headerView = network ? (
-    <>
-      <TokenInfo token={token} network={network} />
-      <PriceChart
-        style={{
-          marginBottom: 20,
-        }}
-        platform={network.shortCode}
-        contract={token?.tokenIdOnNetwork}
-      />
-    </>
-  ) : null;
+  const headerView =
+    network && token ? (
+      <>
+        <TokenInfo token={token} network={network} />
+        <PriceChart
+          style={{
+            marginBottom: 20,
+          }}
+          platform={network.shortCode}
+          contract={token?.tokenIdOnNetwork}
+        />
+      </>
+    ) : null;
 
   return (
     <Box bg="background-default" flex={1}>
@@ -85,14 +82,6 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
             <Spinner />
           </Center>
         )}
-
-        {/* <HistoricalRecords
-          accountId={accountId}
-          networkId={networkId}
-          tokenId={tokenId}
-          headerView={headerView}
-          historyFilter={historyFilter}
-         /> */}
       </Box>
     </Box>
   );
