@@ -175,9 +175,12 @@ const HistoryLayout: FC = ({ children }) => {
   const navigation = useNavigation();
   const intl = useIntl();
   const isSmall = useIsVerticalLayout();
+  const onBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
   useLayoutEffect(() => {
     if (!isSmall) {
-      navigation.setOptions({ title: '' });
+      navigation.setOptions({ headerShown: false });
     } else {
       navigation.setOptions({
         headerRight: TrashButton,
@@ -196,8 +199,12 @@ const HistoryLayout: FC = ({ children }) => {
       </Box>
     );
   }
+
   return (
     <Box bg="background-default" w="full" h="full" px="8">
+      <Box w="full" flexDirection="row" alignItems="center" py="5">
+        <IconButton onPress={onBack} type="plain" name="ArrowLeftOutline" />
+      </Box>
       <Box
         display="flex"
         justifyContent="space-between"

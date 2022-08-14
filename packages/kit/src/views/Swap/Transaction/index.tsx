@@ -44,16 +44,12 @@ const TransactionModal = () => {
         global.open(swftcCustomerSupportUrl, '_blank');
       }
     } else {
-      const parent = navigation.getParent() ?? navigation;
-      parent.goBack();
-      setTimeout(() => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.HistoryRequest,
-          params: {
-            screen: HistoryRequestRoutes.SubmitRequestModal,
-          },
-        });
-      }, 10);
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.HistoryRequest,
+        params: {
+          screen: HistoryRequestRoutes.SubmitRequestModal,
+        },
+      });
     }
   }, [navigation, tx]);
   const onShare = useCallback(() => {

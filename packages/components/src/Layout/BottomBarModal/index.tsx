@@ -41,7 +41,7 @@ const BottomBarModal = forwardRef<BottomSheet, TBottomBarModalProps>(
       [],
     );
 
-    const ITEM_COUNT = 3;
+    const ITEM_COUNT = 4;
     const innerHeight = 72 * ITEM_COUNT + 32 + 56;
     return (
       <BottomSheet

@@ -176,6 +176,11 @@ export default function BottomTabBar({
     ];
   }, [tabs, isFABOpen, handleClose, handleOpen]);
 
+  const items = useMemo(
+    () => foldableList.filter((item) => !item.hideInVerticalLayaout),
+    [foldableList],
+  );
+
   return (
     <>
       <Box
@@ -196,7 +201,7 @@ export default function BottomTabBar({
       </Box>
       <BottomBarModal
         tabBarHeight={tabBarHeight}
-        foldableList={foldableList}
+        foldableList={items}
         onOpen={() => setFABOpenStatus(true)}
         onClose={() => setFABOpenStatus(false)}
         handleClose={handleClose}
