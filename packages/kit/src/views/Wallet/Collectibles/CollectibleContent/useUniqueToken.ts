@@ -5,41 +5,51 @@ import axios from 'axios';
 import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
-type ComponentType =
-  | 'unknown'
-  | 'Audio'
-  | 'Video'
-  | 'Image'
-  | 'SVG'
-  | undefined;
+export enum ComponentType {
+  Image = 0,
+  Video,
+  Audio,
+  SVG,
+  UnSupport,
+}
 
-export function componentTypeWithContentType(contentType: string) {
+export function componentTypeWithContentType(
+  contentType: string,
+): ComponentType | undefined {
   if (
     contentType === 'image/jpeg' ||
     contentType === 'image/gif' ||
     contentType === 'image/png' ||
     contentType === 'image/jpg'
   ) {
-    return 'Image';
+    return ComponentType.Image;
   }
   if (contentType === 'image/svg') {
-    return 'SVG';
+    return ComponentType.SVG;
   }
   if (contentType === 'video/mp4') {
-    return 'Video';
+    return ComponentType.Video;
   }
   if (contentType === 'audio/wav' || contentType === 'audio/mpeg') {
-    return 'Audio';
+    return ComponentType.Audio;
+  }
+  if (
+    contentType === 'model/gltf-binary' ||
+    contentType === 'model/gltf+json'
+  ) {
+    return ComponentType.UnSupport;
   }
 }
 
-export function getComponentTypeWithAsset(asset: NFTAsset): ComponentType {
+export function getComponentTypeWithAsset(
+  asset: NFTAsset,
+): ComponentType | undefined {
   const { contentType, contentUri } = asset;
   if (
     contentUri?.startsWith('data:image/svg+xml') ||
     contentUri?.startsWith('<svg')
   ) {
-    return 'SVG';
+    return ComponentType.SVG;
   }
   if (contentType) {
     return componentTypeWithContentType(contentType);
@@ -47,13 +57,13 @@ export function getComponentTypeWithAsset(asset: NFTAsset): ComponentType {
 }
 
 type UniqueTokenResult = {
-  componentType: ComponentType;
+  componentType?: ComponentType;
   url?: string;
 };
 
 export default function useUniqueToken(asset: NFTAsset): UniqueTokenResult {
   const url = asset.image.source;
-  const [componentType, setComponentType] = useState<ComponentType>(
+  const [componentType, setComponentType] = useState<ComponentType | undefined>(
     getComponentTypeWithAsset(asset),
   );
   const checkContentType = useCallback(async () => {
@@ -64,9 +74,11 @@ export default function useUniqueToken(asset: NFTAsset): UniqueTokenResult {
         .then((resp) => resp.headers['content-type'])
         .catch(() => '404');
       if (contentType === '404') {
-        setComponentType('unknown');
+        setComponentType(ComponentType.UnSupport);
       } else {
-        setComponentType(componentTypeWithContentType(contentType));
+        setComponentType(
+          componentTypeWithContentType(contentType) ?? ComponentType.UnSupport,
+        );
       }
     }
   }, [asset]);

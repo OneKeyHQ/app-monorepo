@@ -1,13 +1,13 @@
-import React, { FC, useMemo } from 'react';
+import React, { ComponentProps, FC, useCallback, useMemo } from 'react';
 
-import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { FlatListProps } from 'react-native';
+import { SectionListRenderItem } from 'react-native';
 
 import {
   Badge,
   Box,
   Empty,
+  FlatList,
   HStack,
   IconButton,
   NetImage,
@@ -17,7 +17,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
 
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
@@ -58,29 +58,29 @@ const CollectiblesHeader = ({ expand, onPress }: CollectiblesHeaderProps) => {
   );
 };
 
-const CollectibleGallery: FC<CollectibleGalleryProps> = ({
-  collectibles,
-  onSelectAsset,
-  onSelectCollection,
-  fetchData,
-  isCollectibleSupported,
-  isLoading,
-}) => {
-  const [expand, setExpand] = React.useState(false);
-  const intl = useIntl();
+type FlatListShareProps = Pick<
+  ComponentProps<typeof FlatList>,
+  | 'ListEmptyComponent'
+  | 'ListFooterComponent'
+  | 'ListHeaderComponent'
+  | 'contentContainerStyle'
+  | 'showsVerticalScrollIndicator'
+  | 'numColumns'
+>;
 
-  const isSmallScreen = useIsVerticalLayout();
-  const { screenWidth } = useUserDevice();
-  const MARGIN = isSmallScreen ? 16 : 20;
-  const pageWidth = isSmallScreen
-    ? screenWidth
-    : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
-  const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
+type CollectionSection = {
+  title: Omit<Collection, 'assets'>;
+  data: { assets: NFTAsset[] }[];
+};
 
+const CollectibleSectionList: FC<
+  CollectibleGalleryProps & { flatListProps: FlatListShareProps }
+> = ({ collectibles, onSelectAsset, flatListProps }) => {
+  const { numColumns } = flatListProps;
   const renderGridSectionHeader = (
     logo?: string,
     title?: string | null,
-    length?: number | null,
+    length?: number | string | null,
   ) => (
     <Box flexDirection="column" justifyContent="flex-start">
       <HStack alignItems="center" height="28px">
@@ -99,37 +99,65 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   );
 
   const renderAssetItem = React.useCallback<
-    NonNullable<ScrollableFlatListProps<Collection>['renderItem']>
+    NonNullable<ScrollableFlatListProps<NFTAsset>['renderItem']>
   >(
-    ({ item }) => {
-      const header = renderGridSectionHeader(
-        item.logoUrl,
-        item.contractName,
-        item.assets.length,
-      );
-      return (
-        <Column space="8px">
-          {header}
-          <Row flexWrap="wrap">
-            {item.assets.map((asset, itemIndex) => {
-              const marginRight =
-                isSmallScreen && !(itemIndex % 2 === 0) ? 0 : 16;
-              return (
-                <CollectibleCard
-                  key={stringAppend(asset.contractAddress, asset.tokenId)}
-                  marginRight={`${marginRight}px`}
-                  asset={asset}
-                  onSelectAsset={onSelectAsset}
-                />
-              );
-            })}
-          </Row>
-        </Column>
-      );
-    },
-    [isSmallScreen, onSelectAsset],
+    ({ item }) => (
+      <CollectibleCard
+        key={stringAppend(item.contractAddress, item.tokenId)}
+        marginRight="16px"
+        asset={item}
+        onSelectAsset={onSelectAsset}
+      />
+    ),
+    [onSelectAsset],
   );
 
+  const renderList: SectionListRenderItem<Collection, CollectionSection> =
+    useCallback(
+      ({ item }) => (
+        <FlatList
+          data={item.assets}
+          renderItem={renderAssetItem}
+          numColumns={numColumns}
+        />
+      ),
+      [numColumns, renderAssetItem],
+    );
+
+  const sections: CollectionSection[] = collectibles.map(
+    (collection): CollectionSection => {
+      const { assets, ...props } = collection;
+      return {
+        data: [{ assets }],
+        title: props,
+      };
+    },
+  );
+
+  return (
+    <Tabs.SectionList
+      sections={sections}
+      stickySectionHeadersEnabled={false}
+      // @ts-ignore
+      renderSectionHeader={({ section }: { section: CollectionSection }) => {
+        const header = renderGridSectionHeader(
+          section.title.logoUrl,
+          section.title.contractName,
+          section.title.ownsTotal,
+        );
+
+        return header;
+      }}
+      // @ts-ignore
+      renderItem={renderList}
+      {...flatListProps}
+    />
+  );
+};
+
+const CollectibleFlatList: FC<
+  CollectibleGalleryProps & { flatListProps: FlatListShareProps }
+> = ({ collectibles, onSelectCollection, flatListProps }) => {
   const renderCollectionItem = React.useCallback<
     NonNullable<ScrollableFlatListProps<Collection>['renderItem']>
   >(
@@ -142,6 +170,34 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     ),
     [onSelectCollection],
   );
+  return (
+    <Tabs.FlatList<Collection>
+      {...flatListProps}
+      data={collectibles}
+      renderItem={renderCollectionItem}
+      keyExtractor={(item) => `${item.contractAddress ?? ''}Collection`}
+    />
+  );
+};
+
+const CollectibleGallery: FC<CollectibleGalleryProps> = ({
+  collectibles,
+  onSelectAsset,
+  onSelectCollection,
+  fetchData,
+  isCollectibleSupported,
+  isLoading,
+}) => {
+  const [expand, setExpand] = React.useState(false);
+  const intl = useIntl();
+
+  const isSmallScreen = useIsVerticalLayout();
+  const { screenWidth } = useUserDevice();
+  const MARGIN = isSmallScreen ? 16 : 20;
+  const pageWidth = isSmallScreen
+    ? screenWidth
+    : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
+  const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
 
   const EmptyView = useMemo(() => {
     if (!isCollectibleSupported) {
@@ -169,7 +225,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     );
   }, [fetchData, intl, isCollectibleSupported, isLoading]);
 
-  const sharedProps = React.useMemo<FlatListProps<Collection>>(
+  const sharedProps = React.useMemo(
     () => ({
       contentContainerStyle: {
         paddingLeft: 16,
@@ -177,12 +233,10 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         marginTop: 24,
       },
       key: expand ? 'Expand' : `Packup${numColumns}`,
-      keyExtractor: (item) => `${item.contractAddress ?? ''}Collection`,
       ListFooterComponent: <Box h="24px" w="full" />,
       showsVerticalScrollIndicator: false,
-      renderItem: expand ? renderAssetItem : renderCollectionItem,
-      numColumns: expand ? 1 : numColumns,
       ListEmptyComponent: EmptyView,
+      numColumns,
       ListHeaderComponent: (
         <CollectiblesHeader
           expand={expand}
@@ -193,17 +247,26 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       ),
       data: collectibles,
     }),
-    [
-      EmptyView,
-      collectibles,
-      expand,
-      numColumns,
-      renderAssetItem,
-      renderCollectionItem,
-    ],
+    [EmptyView, collectibles, expand, numColumns],
   );
 
-  return <Tabs.FlatList<Collection> {...sharedProps} />;
+  return (
+    <Box>
+      {expand ? (
+        <CollectibleSectionList
+          flatListProps={sharedProps}
+          collectibles={collectibles}
+          onSelectAsset={onSelectAsset}
+        />
+      ) : (
+        <CollectibleFlatList
+          flatListProps={sharedProps}
+          collectibles={collectibles}
+          onSelectCollection={onSelectCollection}
+        />
+      )}
+    </Box>
+  );
 };
 
 export default CollectibleGallery;
