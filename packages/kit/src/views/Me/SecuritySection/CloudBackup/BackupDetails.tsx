@@ -331,9 +331,9 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   }, [setImporting]);
 
   const onImportError = useCallback(
-    (e) => {
-      debugLogger.cloudBackup.error(e);
-      if ((e as { message: string }).message === 'Invalid password') {
+    (e: Error) => {
+      debugLogger.cloudBackup.error(e.message);
+      if (e.message === 'Invalid password') {
         throw e;
       } else {
         toast.show({
@@ -357,8 +357,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
               notOnDevice: backupData.notOnDevice,
               localPassword,
             })
-            .then(onImportDone, (e) => {
-              if ((e as { message: string }).message === 'Invalid password') {
+            .then(onImportDone, (e: Error) => {
+              if (e.message === 'Invalid password') {
                 requestBackupPassword(
                   (remotePassword) =>
                     serviceCloudBackup
@@ -372,7 +372,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
                   onImportCancel,
                 );
               } else {
-                debugLogger.cloudBackup.error(e);
+                debugLogger.cloudBackup.error(e.message);
                 toast.show({
                   title: intl.formatMessage({ id: 'msg__unknown_error' }),
                 });
