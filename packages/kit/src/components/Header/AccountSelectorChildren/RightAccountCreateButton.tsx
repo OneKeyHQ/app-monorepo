@@ -12,6 +12,7 @@ import {
   CreateWalletModalRoutes,
 } from '@onekeyhq/kit/src/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { wait } from '../../../utils/helper';
@@ -89,7 +90,7 @@ export function useCreateAccountInWallet({
 
         await addExternalAccount(result);
       } catch (error) {
-        console.error(error);
+        debugLogger.common.error(error);
       } finally {
         await wait(2000);
 

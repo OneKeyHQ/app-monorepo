@@ -118,7 +118,7 @@ export function useFeeInfoPayload({
           } else {
             setFeeInfoError(error);
           }
-          console.error('engine.fetchFeeInfo ERROR: ', error);
+          debugLogger.sendTx.error('engine.fetchFeeInfo ERROR: ', error);
           return null;
         }
       }
@@ -215,7 +215,7 @@ export function useFeeInfoPayload({
         }
         setFeeInfoPayload(null);
         setFeeInfoError(error);
-        console.error(error);
+        debugLogger.sendTx.error('fetchFeeInfo ERROR: ', error);
       } finally {
         setLoading(false);
       }
@@ -237,7 +237,7 @@ export function useFeeInfoPayload({
           setFeeInfoPayload(info);
         } catch (error: any) {
           setFeeInfoError(error);
-          console.error('feeInfoPollingInterval ERROR: ', error);
+          debugLogger.sendTx.error('feeInfoPollingInterval ERROR: ', error);
         }
       }, pollingInterval);
     }

@@ -3,6 +3,8 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { COINTYPE_ETH as COIN_TYPE } from '../../../constants';
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
@@ -21,8 +23,12 @@ export class KeyringWatching extends KeyringWatchingBase {
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     const encodedTx: IEncodedTx = unsignedTx.payload?.encodedTx;
-    const dbAccount = this.getDbAccount();
-    console.log('KeyringWatching>signTransaction >>>>> ', dbAccount, encodedTx);
+    const dbAccount = await this.getDbAccount();
+    debugLogger.sendTx.info(
+      'KeyringWatching > signTransaction >>>>> ',
+      dbAccount.address,
+      encodedTx,
+    );
     // TODO create wc connector, and check peerMeta.url, chainId, accounts matched,
     return Promise.resolve({
       txid: '1111',

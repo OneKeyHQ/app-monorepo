@@ -159,14 +159,13 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
 
     this.cleanPrevConnection();
 
-    // show new qrcode modal: createSession()
+    // ** show new qrcode modal: createSession()
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const connector = await this.createConnector(options, {
       shouldDisconnectStorageSession: false,
     });
 
     this.addAutoOpenWalletListener();
-
-    console.log(connector.uri);
 
     // node_modules/@walletconnect/core/dist/esm/index.js
     return new Promise((resolve, reject) => {

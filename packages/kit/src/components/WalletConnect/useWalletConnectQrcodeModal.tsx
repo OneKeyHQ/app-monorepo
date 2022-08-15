@@ -170,7 +170,9 @@ export function useWalletConnectQrcodeModal() {
       if (isClosedRef.current) {
         return;
       }
-      console.log('useWalletConnectQrcodeModal onDismiss close');
+      debugLogger.walletConnect.info(
+        'useWalletConnectQrcodeModal onDismiss closed',
+      );
       isClosedRef.current = true;
       if (!walletServiceForConnectDirectly) {
         closeModal();
@@ -225,11 +227,13 @@ export function useWalletConnectQrcodeModal() {
         // Open QrcodeModal with uri="wc:"
         // @ts-ignore
         async open(uri, cb, opt) {
-          console.log('qrcodeModalNative Open >>>>>>>>>>>>>> ', {
-            uri,
-            cb,
-            opt,
-          });
+          debugLogger.walletConnect.info(
+            'qrcodeModalNative Open >>>>>>>>>>>>>> ',
+            {
+              uri,
+              opt,
+            },
+          );
           isClosedRef.current = false;
 
           // TODO android auto open apps by uri="wc:" ?

@@ -28,6 +28,7 @@ import {
   IDecodedTxStatus,
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
@@ -253,7 +254,7 @@ function TxHistoryListViewComponent({
             tokenIdOnNetwork: tokenId,
           });
         } catch (err) {
-          console.error(err);
+          debugLogger.common.error(err);
         }
         await wait(1000);
       }

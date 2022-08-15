@@ -1,8 +1,9 @@
 import React, { FC, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Box, Center, Hidden } from '@onekeyhq/components';
+import { Box, Center, Hidden, useToast } from '@onekeyhq/components';
 import LogoLedger from '@onekeyhq/kit/assets/onboarding/logo_ledger.png';
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,10 +14,13 @@ import {
   ConnectWalletListView,
 } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
+import { wait } from '../../../../utils/helper';
 
 const SecondaryContent: FC = () => {
   const addExternalAccount = useAddExternalAccount();
   const onboardingDone = useOnboardingDone();
+  const toast = useToast();
+  const intl = useIntl();
 
   const options = useMemo(
     () => [
@@ -57,6 +61,10 @@ const SecondaryContent: FC = () => {
             onConnectResult={async (result) => {
               await addExternalAccount(result);
               await onboardingDone();
+              await wait(600);
+              toast.show({
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              });
             }}
           />
           {options.map((option) => (
