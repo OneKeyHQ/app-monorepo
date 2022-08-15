@@ -26,6 +26,8 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { deviceUtils } from '../../../utils/hardware';
+
 type RouteProps = RouteProp<
   CreateAccountRoutesParams,
   CreateAccountModalRoutes.RecoverAccountsConfirm
@@ -63,23 +65,7 @@ const RecoverConfirm: FC = () => {
         purpose,
       );
     } catch (e: any) {
-      const { className, key } = e || {};
-
-      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: key }),
-          },
-          { type: 'error' },
-        );
-      } else {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: 'action__connection_timeout' }),
-          },
-          { type: 'error' },
-        );
-      }
+      deviceUtils.showErrorToast(e, intl, 'action__connection_timeout');
     } finally {
       onLoadingAccount?.(walletId, network, true);
     }

@@ -25,7 +25,9 @@ export class UserCancel extends OneKeyHardwareError {
 export class UserCancelFromOutside extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceInterruptedFromOutside;
 
-  override key: LocaleIds = 'msg__hardware_user_cancel_error';
+  // Don't remind
+  // @ts-expect-error
+  override key: LocaleIds = '';
 }
 
 export class UnknownMethod extends OneKeyHardwareError {
@@ -108,14 +110,12 @@ export class OpenBlindSign extends OneKeyHardwareError {
 }
 
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceFwException;
+  override code = HardwareErrorCode.CallMethodNeedUpgradeFirmware;
 
-  override key: LocaleIds = 'msg__hardware_version_to_low_error';
-}
-
-// TODO: remove this error code
-export class FirmwareVersionNeedUpgrade extends OneKeyHardwareError {
-  override code = CustomOneKeyHardwareError.NeedFirmwareUpgrade;
+  constructor(message: string, params?: any) {
+    const { require } = params || {};
+    super({ message, info: { 0: require } });
+  }
 
   override key: LocaleIds = 'msg__hardware_version_need_upgrade_error';
 }

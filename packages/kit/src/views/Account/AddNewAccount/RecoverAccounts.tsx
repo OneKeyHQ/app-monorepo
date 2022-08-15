@@ -38,6 +38,8 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
+import { deviceUtils } from '../../../utils/hardware';
+
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 type RouteProps = RouteProp<
@@ -162,32 +164,14 @@ const RecoverAccounts: FC = () => {
           );
         })
         .catch((e: any) => {
-          const { className, key, code, message } = e || {};
+          const { code } = e || {};
           if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
             return;
           }
 
           isFetchingData.current = false;
 
-          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-            ToastManager.show(
-              {
-                title: intl.formatMessage({ id: key }),
-              },
-              {
-                type: 'error',
-              },
-            );
-          } else {
-            ToastManager.show(
-              {
-                title: message,
-              },
-              {
-                type: 'default',
-              },
-            );
-          }
+          deviceUtils.showErrorToast(e, intl);
 
           navigation?.goBack?.();
           navigation?.goBack?.();

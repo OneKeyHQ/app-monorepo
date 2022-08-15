@@ -88,24 +88,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           navigation.goBack();
         }
 
-        const { className, key } = err || {};
-        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: key }),
-            },
-            { type: 'error' },
-          );
-        } else {
-          ToastManager.show({
-            title: intl.formatMessage(
-              {
-                id: 'action__connection_timeout',
-              },
-              { type: 'error' },
-            ),
-          });
-        }
+        deviceUtils.showErrorToast(err, intl, 'action__connection_timeout');
       }
     })();
   }, [engine, intl, navigation, serviceHardware, walletId]);
