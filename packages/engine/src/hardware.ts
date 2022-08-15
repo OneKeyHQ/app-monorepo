@@ -293,10 +293,12 @@ export async function ethereumSignTransaction(
 
   if (response.success) {
     const { v, r, s } = response.payload;
-    // this translate is in order to compatible with the blockchain-libs implementation
-    const recoveryParam = 1 - (Number(v) % 2);
+    /**
+     * sdk legacy return {v,r,s}; eip1559 return {recoveryParam,r,s}
+     * splitSignature auto convert v to recoveryParam
+     */
     const signature = splitSignature({
-      recoveryParam,
+      v: Number(v),
       r,
       s,
     });
