@@ -199,6 +199,7 @@ export default class ServiceToken extends ServiceBase {
     networkId: string,
     accountId: string,
     address: string,
+    logoURI?: string,
   ): Promise<Token | undefined> {
     const { engine, appSelector } = this.backgroundApi;
     if (!address) {
@@ -215,7 +216,12 @@ export default class ServiceToken extends ServiceBase {
     if (isExists) {
       return;
     }
-    const result = await engine.quickAddToken(accountId, networkId, address);
+    const result = await engine.quickAddToken(
+      accountId,
+      networkId,
+      address,
+      logoURI,
+    );
     await this.fetchAccountTokens({
       activeAccountId: accountId,
       activeNetworkId: networkId,
