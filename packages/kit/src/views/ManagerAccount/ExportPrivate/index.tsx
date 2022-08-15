@@ -64,7 +64,7 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
   }, [toast, privateKey, intl]);
 
   return (
-    <Box py={24} justifyContent="center" flexDirection="column">
+    <Box py="24px" justifyContent="center" flexDirection="column">
       <Box alignItems="center" flexDirection="column">
         <Box
           borderRadius="24px"
