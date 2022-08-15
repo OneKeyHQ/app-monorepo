@@ -79,9 +79,10 @@ export function useWalletConnectQrcodeModal() {
         walletService,
       });
 
-      debugLogger.walletConnect.info('connectToWalletService', walletService, {
+      debugLogger.walletConnect.info('connectToWalletService', {
         uri,
         connectionUrl,
+        walletServiceUrl: walletService?.homepage,
       });
       try {
         if (platformEnv.isNative) {
@@ -313,13 +314,13 @@ export function useWalletConnectQrcodeModal() {
       let status: ISessionStatusPro;
       if (isNewSession) {
         debugLogger.walletConnect.info('connect NEW session: ', {
-          walletService,
+          walletServiceUrl: walletService?.homepage,
         });
         status = await client.connectNewSession({ qrcodeModal });
       } else {
         debugLogger.walletConnect.info('connect EXISTS session: ', {
-          session,
-          walletService,
+          sessionPeerMeta: session?.peerMeta,
+          walletServiceUrl: walletService?.homepage,
         });
         status = await client.connect({
           // TODO how redirectUrl working?
@@ -359,11 +360,10 @@ export function useWalletConnectQrcodeModal() {
       }
 
       // wcClient.disconnect()
-      debugLogger.walletConnect.info(
-        'connectToWallet result >>>>> ',
+      debugLogger.walletConnect.info('connectToWallet result >>>>> ', {
         status,
-        finalWalletService,
-      );
+        walletServiceUrl: finalWalletService?.homepage,
+      });
 
       return {
         status,
