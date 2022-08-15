@@ -1,6 +1,6 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
-
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -83,8 +83,7 @@ export interface SocketBridgeStatusResponse {
   };
 }
 
-const baseURL = 'https://api.socket.tech/v2';
-const API_KEY = '055646f8-d9f6-41b6-9bae-8633e690f1e6';
+const baseURL = `${getFiatEndpoint()}/socketBridge`;
 
 function calculateRate(
   inDecimals: number,
@@ -126,10 +125,7 @@ export class SocketQuoter implements Quoter {
 
   constructor() {
     this.client = axios.create({
-      timeout: 30 * 1000,
-      headers: {
-        'API-KEY': API_KEY,
-      },
+      timeout: 30 * 1000
     });
   }
 
