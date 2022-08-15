@@ -21,8 +21,10 @@ const PriceChart: React.FC<PriceChartProps> = ({
 }) => {
   const [isFetching, setIsFetching] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
-  const { charts: reduxCachedCharts } = useManageTokens();
-  const initChartData = reduxCachedCharts[contract || 'main'] || [];
+  const { charts: reduxCachedCharts, prices } = useManageTokens();
+  const tokenId = contract || 'main';
+  const isNoPriceData = prices[tokenId] === null;
+  const initChartData = reduxCachedCharts[tokenId] || [];
   const dataMap = useRef<MarketApiData[][]>([initChartData]);
 
   const refreshDataOnTimeChange = useCallback(
@@ -62,10 +64,10 @@ const PriceChart: React.FC<PriceChartProps> = ({
     <Box style={style}>
       <ChartWithLabel
         isFetching={isFetching}
-        data={dataMap.current?.[selectedTimeIndex] || []}
+        data={isNoPriceData ? null : dataMap.current?.[selectedTimeIndex] || []}
       >
         <TimeControl
-          enabled={!isFetching}
+          enabled={!isFetching && !isNoPriceData}
           selectedIndex={selectedTimeIndex}
           onTimeChange={refreshDataOnTimeChange}
         />
