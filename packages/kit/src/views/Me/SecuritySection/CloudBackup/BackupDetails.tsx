@@ -23,9 +23,9 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { RestoreResult } from '../../../../background/services/ServiceCloudBackup';
 import { ValidationFields } from '../../../../components/Protected';
 import { useNavigation } from '../../../../hooks';
 import { useData } from '../../../../hooks/redux';
@@ -330,21 +330,13 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     setImporting(false);
   }, [setImporting]);
 
-  const onImportError = useCallback(
-    (e: Error) => {
-      debugLogger.cloudBackup.error(e.message);
-      if (e.message === 'Invalid password') {
-        throw e;
-      } else {
-        toast.show({
-          title: intl.formatMessage({ id: 'msg__unknown_error' }),
-        });
-      }
-      setImporting(false);
-      navigation.goBack();
-    },
-    [toast, intl, navigation],
-  );
+  const onImportError = useCallback(() => {
+    toast.show({
+      title: intl.formatMessage({ id: 'msg__unknown_error' }),
+    });
+    setImporting(false);
+    navigation.goBack();
+  }, [toast, intl, navigation]);
 
   const onImport = useCallback(() => {
     setImporting(true);
@@ -357,27 +349,24 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
               notOnDevice: backupData.notOnDevice,
               localPassword,
             })
-            .then(onImportDone, (e: Error) => {
-              if (e.message === 'Invalid password') {
+            .then((r) => {
+              if (r === RestoreResult.SUCCESS) {
+                onImportDone();
+              } else if (r === RestoreResult.WRONG_PASSWORD) {
                 requestBackupPassword(
                   (remotePassword) =>
-                    serviceCloudBackup
-                      .restoreFromBackup({
-                        backupUUID,
-                        notOnDevice: backupData.notOnDevice,
-                        localPassword,
-                        remotePassword,
-                      })
-                      .then(onImportDone, onImportError),
+                    serviceCloudBackup.restoreFromBackup({
+                      backupUUID,
+                      notOnDevice: backupData.notOnDevice,
+                      localPassword,
+                      remotePassword,
+                    }),
+                  onImportDone,
+                  onImportError,
                   onImportCancel,
                 );
               } else {
-                debugLogger.cloudBackup.error(e.message);
-                toast.show({
-                  title: intl.formatMessage({ id: 'msg__unknown_error' }),
-                });
-                setImporting(false);
-                navigation.goBack();
+                onImportError();
               }
             });
         },
@@ -388,21 +377,18 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     } else {
       requestBackupPassword(
         (remotePassword) =>
-          serviceCloudBackup
-            .restoreFromBackup({
-              backupUUID,
-              notOnDevice: backupData.notOnDevice,
-              localPassword: remotePassword,
-              remotePassword,
-            })
-            .then(onImportDone, onImportError),
+          serviceCloudBackup.restoreFromBackup({
+            backupUUID,
+            notOnDevice: backupData.notOnDevice,
+            localPassword: remotePassword,
+            remotePassword,
+          }),
+        onImportDone,
+        onImportError,
         onImportCancel,
       );
     }
   }, [
-    intl,
-    navigation,
-    toast,
     isPasswordSet,
     showVerify,
     onImportDone,

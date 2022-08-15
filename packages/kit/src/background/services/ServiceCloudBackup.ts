@@ -49,6 +49,12 @@ export type PublicBackupData = {
   >;
 };
 
+export enum RestoreResult {
+  SUCCESS = 'success',
+  WRONG_PASSWORD = 'wrong_password',
+  UNKNOWN_ERROR = 'unknown_error',
+}
+
 export type IBackupItemSummary = {
   backupUUID: string;
   backupTime: number;
@@ -390,7 +396,7 @@ class ServiceCloudBackup extends ServiceBase {
     notOnDevice: PublicBackupData;
     localPassword: string;
     remotePassword?: string;
-  }) {
+  }): Promise<RestoreResult> {
     const {
       dispatch,
       engine,
@@ -412,7 +418,7 @@ class ServiceCloudBackup extends ServiceBase {
         Buffer.from(privateBackupData, 'base64'),
       ).toString('utf8');
     } catch {
-      throw new Error('Invalid password');
+      return RestoreResult.WRONG_PASSWORD;
     }
 
     try {
@@ -447,7 +453,7 @@ class ServiceCloudBackup extends ServiceBase {
       }
     } catch (e) {
       debugLogger.cloudBackup.error((e as Error).message);
-      throw e;
+      return RestoreResult.UNKNOWN_ERROR;
     }
     if (!activeWalletId) {
       await serviceAccount.autoChangeWallet();
@@ -467,6 +473,8 @@ class ServiceCloudBackup extends ServiceBase {
         await savePassword(localPassword);
       }
     }
+
+    return RestoreResult.SUCCESS;
   }
 
   @backgroundMethod()

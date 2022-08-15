@@ -14,6 +14,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import CloudLock from '@onekeyhq/kit/assets/3d_cloud_lock.png';
+import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import {
   ImportBackupPasswordRoutes,
@@ -31,7 +32,8 @@ type FieldValues = {
 
 const ImportBackupPasswordModal: FC = () => {
   const intl = useIntl();
-  const { onSuccess, onCancel } = useRoute<RouteProps>().params;
+  const { withPassword, onSuccess, onError, onCancel } =
+    useRoute<RouteProps>().params;
   const [err, setError] = useState('');
 
   const {
@@ -52,14 +54,17 @@ const ImportBackupPasswordModal: FC = () => {
   }, [watchedPassword]);
 
   const onSubmit = useCallback(
-    (values: FieldValues) => {
-      onSuccess(values.password).catch((e) => {
-        if ((e as { message: string }).message === 'Invalid password') {
-          setError(intl.formatMessage({ id: 'msg__wrong_password' }));
-        }
-      });
+    async (values: FieldValues) => {
+      const result = await withPassword(values.password);
+      if (result === RestoreResult.SUCCESS) {
+        onSuccess();
+      } else if (result === RestoreResult.WRONG_PASSWORD) {
+        setError(intl.formatMessage({ id: 'msg__wrong_password' }));
+      } else {
+        onError();
+      }
     },
-    [onSuccess, intl],
+    [intl, withPassword, onSuccess, onError],
   );
 
   return (
