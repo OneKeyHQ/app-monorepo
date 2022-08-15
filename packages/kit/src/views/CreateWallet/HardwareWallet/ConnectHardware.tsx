@@ -303,22 +303,20 @@ const ConnectHardwareModal: FC = () => {
                 finishConnected(false);
               }
             }
-          } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+          } else {
+            setIsConnectingDeviceId('');
+            const tipKey =
+              className === OneKeyErrorClassNames.OneKeyHardwareError
+                ? key
+                : 'action__connection_timeout';
             ToastManager.show(
               {
-                title: intl.formatMessage({ id: key }),
+                title: intl.formatMessage({
+                  id: tipKey,
+                }),
               },
               { type: 'error' },
             );
-          } else {
-            ToastManager.show({
-              title: intl.formatMessage(
-                {
-                  id: 'action__connection_timeout',
-                },
-                { type: 'error' },
-              ),
-            });
           }
         });
     },
