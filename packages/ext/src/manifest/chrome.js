@@ -7,10 +7,10 @@ module.exports = {
   'commands': {
     '_execute_browser_action': {
       'suggested_key': {
-        'windows': 'Alt+Shift+M',
-        'mac': 'Alt+Shift+M',
-        'chromeos': 'Alt+Shift+M',
-        'linux': 'Alt+Shift+M',
+        'windows': 'Alt+Shift+O',
+        'mac': 'Alt+Shift+O',
+        'chromeos': 'Alt+Shift+O',
+        'linux': 'Alt+Shift+O',
       },
     },
   },
