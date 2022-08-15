@@ -1,6 +1,6 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation } from '@react-navigation/core';
+import { RouteProp } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,8 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import CloudLock from '@onekeyhq/kit/assets/3d_cloud_lock.png';
+import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup';
+import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import {
   ImportBackupPasswordRoutes,
   ImportBackupPasswordRoutesParams,
@@ -30,14 +32,15 @@ type FieldValues = {
 
 const ImportBackupPasswordModal: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
-  const { onSuccess, onCancel } = useRoute<RouteProps>().params;
+  const { withPassword, onSuccess, onError, onCancel } =
+    useRoute<RouteProps>().params;
+  const [err, setError] = useState('');
 
   const {
     control,
     handleSubmit,
     formState: { isValid },
-    getValues,
+    watch,
   } = useForm<FieldValues>({
     mode: 'onChange',
     defaultValues: {
@@ -45,19 +48,30 @@ const ImportBackupPasswordModal: FC = () => {
     },
   });
 
+  const watchedPassword = useDebounce(watch('password'), 200);
+  useEffect(() => {
+    setError('');
+  }, [watchedPassword]);
+
   const onSubmit = useCallback(
-    (values: FieldValues) => {
-      navigation.goBack();
-      onSuccess(values.password);
+    async (values: FieldValues) => {
+      const result = await withPassword(values.password);
+      if (result === RestoreResult.SUCCESS) {
+        onSuccess();
+      } else if (result === RestoreResult.WRONG_PASSWORD) {
+        setError(intl.formatMessage({ id: 'msg__wrong_password' }));
+      } else {
+        onError();
+      }
     },
-    [navigation, onSuccess],
+    [intl, withPassword, onSuccess, onError],
   );
 
   return (
     <Modal
       footer={null}
-      onClose={() => {
-        if (!getValues('password')) onCancel?.();
+      onModalClose={() => {
+        onCancel?.();
       }}
     >
       <KeyboardDismissView px={{ base: 4, md: 0 }} alignItems="center">
@@ -91,10 +105,11 @@ const ImportBackupPasswordModal: FC = () => {
           >
             <Form.PasswordInput autoFocus />
           </Form.Item>
+          {err ? <Form.FormErrorMessage message={err} /> : null}
           <Button
             type="primary"
             size="xl"
-            onPress={handleSubmit(onSubmit)}
+            onPromise={handleSubmit(onSubmit)}
             isDisabled={!isValid}
           >
             {intl.formatMessage({

@@ -23,9 +23,9 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { RestoreResult } from '../../../../background/services/ServiceCloudBackup';
 import { ValidationFields } from '../../../../components/Protected';
 import { useNavigation } from '../../../../hooks';
 import { useData } from '../../../../hooks/redux';
@@ -326,23 +326,17 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     }
   }, [toast, intl, setImporting, onboarding, onboardingDone, navigation]);
 
-  const onImportError = useCallback(
-    (e) => {
-      debugLogger.cloudBackup.error(e);
-      if ((e as { message: string }).message === 'Invalid password') {
-        toast.show({
-          title: intl.formatMessage({ id: 'msg__wrong_password' }),
-        });
-      } else {
-        toast.show({
-          title: intl.formatMessage({ id: 'msg__unknown_error' }),
-        });
-      }
-      setImporting(false);
-      navigation.goBack();
-    },
-    [toast, intl, navigation],
-  );
+  const onImportCancel = useCallback(() => {
+    setImporting(false);
+  }, [setImporting]);
+
+  const onImportError = useCallback(() => {
+    toast.show({
+      title: intl.formatMessage({ id: 'msg__unknown_error' }),
+    });
+    setImporting(false);
+    navigation.goBack();
+  }, [toast, intl, navigation]);
 
   const onImport = useCallback(() => {
     setImporting(true);
@@ -355,28 +349,24 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
               notOnDevice: backupData.notOnDevice,
               localPassword,
             })
-            .then(onImportDone, (e) => {
-              if ((e as { message: string }).message === 'Invalid password') {
+            .then((r) => {
+              if (r === RestoreResult.SUCCESS) {
+                onImportDone();
+              } else if (r === RestoreResult.WRONG_PASSWORD) {
                 requestBackupPassword(
-                  (remotePassword) => {
-                    serviceCloudBackup
-                      .restoreFromBackup({
-                        backupUUID,
-                        notOnDevice: backupData.notOnDevice,
-                        localPassword,
-                        remotePassword,
-                      })
-                      .then(onImportDone, onImportError);
-                  },
-                  () => {},
+                  (remotePassword) =>
+                    serviceCloudBackup.restoreFromBackup({
+                      backupUUID,
+                      notOnDevice: backupData.notOnDevice,
+                      localPassword,
+                      remotePassword,
+                    }),
+                  onImportDone,
+                  onImportError,
+                  onImportCancel,
                 );
               } else {
-                debugLogger.cloudBackup.error(e);
-                toast.show({
-                  title: intl.formatMessage({ id: 'msg__unknown_error' }),
-                });
-                setImporting(false);
-                navigation.goBack();
+                onImportError();
               }
             });
         },
@@ -386,27 +376,24 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
       );
     } else {
       requestBackupPassword(
-        (remotePassword) => {
-          serviceCloudBackup
-            .restoreFromBackup({
-              backupUUID,
-              notOnDevice: backupData.notOnDevice,
-              localPassword: remotePassword,
-              remotePassword,
-            })
-            .then(onImportDone, onImportError);
-        },
-        () => {},
+        (remotePassword) =>
+          serviceCloudBackup.restoreFromBackup({
+            backupUUID,
+            notOnDevice: backupData.notOnDevice,
+            localPassword: remotePassword,
+            remotePassword,
+          }),
+        onImportDone,
+        onImportError,
+        onImportCancel,
       );
     }
   }, [
-    intl,
-    navigation,
-    toast,
     isPasswordSet,
     showVerify,
     onImportDone,
     onImportError,
+    onImportCancel,
     requestBackupPassword,
     serviceCloudBackup,
     backupUUID,

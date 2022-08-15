@@ -1,3 +1,4 @@
+import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup';
 import { ImportBackupPasswordRoutes } from '@onekeyhq/kit/src/routes/Modal/ImportBackupPassword';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
@@ -7,7 +8,9 @@ export default function useImportBackupPasswordModal() {
   const navigation = useAppNavigation();
 
   const requestBackupPassword = (
-    onSuccess: (backupPassword: string) => void,
+    withPassword: (backupPassword: string) => Promise<RestoreResult>,
+    onSuccess: () => Promise<void>,
+    onError: () => void,
     onCancel: () => void,
   ) => {
     navigation.navigate(RootRoutes.Modal, {
@@ -15,7 +18,9 @@ export default function useImportBackupPasswordModal() {
       params: {
         screen: ImportBackupPasswordRoutes.ImportBackupPassword,
         params: {
+          withPassword,
           onSuccess,
+          onError,
           onCancel,
         },
       },
