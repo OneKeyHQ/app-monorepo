@@ -201,7 +201,7 @@ export default class ServiceToken extends ServiceBase {
         fullPrices[id] = prices[id].toFixed();
       }
     });
-    console.log({ tokenIdsOnNetwork });
+
     dispatch(
       setPrices({
         activeNetworkId,

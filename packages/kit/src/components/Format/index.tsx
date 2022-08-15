@@ -209,7 +209,7 @@ export const FormatCurrencyToken: FC<{
   const priceKey =
     token && token.tokenIdOnNetwork ? token.tokenIdOnNetwork : 'main';
   const priceValue = prices?.[priceKey];
-  const priceUndefined = priceValue === undefined;
+  const priceUndefined = priceValue === undefined || priceValue === null;
   return (
     <FormatCurrency
       numbers={
