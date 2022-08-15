@@ -66,7 +66,7 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
       onHover={onHover}
     />
   ) : (
-    <SvgNoPriceData width="100%" preserveAspectRatio="none" />
+    <SvgNoPriceData width="100%" height="100%" preserveAspectRatio="none" />
   );
   const chartViewWithSpinner =
     data && data.length === 0 ? <Spinner /> : chartView;
