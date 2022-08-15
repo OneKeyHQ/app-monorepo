@@ -40,7 +40,6 @@ type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
   token: TokenDO | null | undefined;
-  network: INetwork | null | undefined;
 };
 
 const TokenInfo: FC<TokenInfoProps> = ({ token }) => {

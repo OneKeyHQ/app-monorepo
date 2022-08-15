@@ -31,6 +31,9 @@ const PriceChart: React.FC<PriceChartProps> = ({
       let latestPriceData: MarketApiData;
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
+        if (!platform) {
+          return;
+        }
         setIsFetching(true);
         let newData = await fetchChartData({
           contract,
