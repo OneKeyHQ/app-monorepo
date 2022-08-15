@@ -2,7 +2,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 
 import QRCodeModalWeb from '@walletconnect/qrcode-modal';
-// TODO remove npm @walletconnect/react-native-dapp
 import {
   IClientMeta,
   IQRCodeModal,

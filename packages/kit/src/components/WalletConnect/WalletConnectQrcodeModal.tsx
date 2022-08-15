@@ -222,7 +222,6 @@ export function ConnectWalletListView({
 export function WalletConnectQrcodeModal() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  // TODO remove params walletServices
   const { onDismiss, connectToWalletService, uri } = route.params;
   const defaultClose = useModalClose({
     // onClose: onDismiss,

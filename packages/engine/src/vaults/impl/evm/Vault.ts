@@ -529,8 +529,6 @@ export default class Vault extends VaultBase {
       decodeUnsignedTxFeeData(unsignedTx),
     );
 
-    // TODO remove side effect here
-    // TODO not working in Ext
     encodedTx.nonce = nextNonce;
 
     return { ...unsignedTx, encodedTx };

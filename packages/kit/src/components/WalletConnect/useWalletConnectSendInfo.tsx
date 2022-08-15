@@ -170,7 +170,6 @@ export function useWalletConnectSendInfo({
       accountId,
     });
 
-    // TODO update session.connected by setExternalInfo
     setExternalAccountInfo((info) => {
       if (info) {
         return {

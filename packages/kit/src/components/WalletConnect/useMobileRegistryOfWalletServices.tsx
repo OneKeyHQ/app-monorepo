@@ -7,8 +7,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { WalletService } from './types';
 
-// TODO cache to simpleDB
-//      https://registry.walletconnect.org/data/wallets.json
+// https://registry.walletconnect.org/data/wallets.json
 const enabledWallets = [
   'MetaMask',
   'Trust Wallet',

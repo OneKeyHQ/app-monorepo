@@ -15,9 +15,8 @@ const connectionRedirectUrl =
     ? ONEKEY_UNIVERSAL_LINK
     : window.location.origin;
 
-// TODO some needs url fixing cases:
+// some needs url fixing cases:
 /*
-
 native: "bitkeep://",
 native: "kleverwallet:",
 native: "tpoutside:",
@@ -34,7 +33,6 @@ wallet3://wc?uri=wc%3A993e77e0-2fe5-41c4-8e
 
 https://link.bitkeep.asia/fbEG/7dn25f7b/wc?uri=wc%3A993e77e0-2
 https://safematrix.io//wc?uri=wc%3A993e77e0-2fe5-41c4-8
-
  */
 
 function formatDeeplinkUrl({ prefix, url }: { prefix: string; url: string }) {
@@ -132,7 +130,7 @@ async function dappOpenWalletAppForAndroidLegacy({
   walletService,
 }: {
   peerMeta: IClientMeta;
-  walletServices: WalletService[]; // TODO remove
+  walletServices: WalletService[];
   walletService: WalletService;
 }) {
   if (!!peerMeta && typeof peerMeta === 'object') {
@@ -169,8 +167,7 @@ async function dappOpenWalletApp({
   if (Platform.OS === 'web') {
     return;
   }
-  // TODO remove android check
-  // android dapp
+  // android dapp check legacy
   if (Platform.OS === 'android') {
     // return dappOpenWalletAppForAndroidLegacy({
     //   peerMeta,
@@ -179,7 +176,7 @@ async function dappOpenWalletApp({
     // });
   }
 
-  // ios dapp
+  // ios/android dapp
   if (!walletService) {
     throw new Error('Cached WalletService not found.');
   }
@@ -188,6 +185,10 @@ async function dappOpenWalletApp({
     return Linking.openURL(url);
   }
   if (platformEnv.isNativeAndroid) {
+    debugLogger.walletConnect.info(
+      'android open url failed, fallback to wc: >>>>> ',
+      { url },
+    );
     if (await Linking.canOpenURL('wc:')) {
       return Linking.openURL('wc:');
     }
