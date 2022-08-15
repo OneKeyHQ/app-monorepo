@@ -39,7 +39,7 @@ import { getTokenValues } from '../../../utils/priceUtils';
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
-  token: TokenDO;
+  token: TokenDO | null | undefined;
   network: INetwork | null | undefined;
 };
 
