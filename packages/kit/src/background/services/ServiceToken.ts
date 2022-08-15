@@ -184,12 +184,30 @@ export default class ServiceToken extends ServiceBase {
       const ids1 = tokens[activeNetworkId] || [];
       const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
+      tokenIdsOnNetwork = Array.from(new Set(tokenIdsOnNetwork));
     }
     const [prices, charts] = await engine.getPricesAndCharts(
       activeNetworkId,
-      Array.from(new Set(tokenIdsOnNetwork)),
+      tokenIdsOnNetwork,
     );
-    dispatch(setPrices({ activeNetworkId, prices }));
+    const fullPrices: Record<string, string | null> = {
+      main: prices.main.toFixed(),
+    };
+    tokenIdsOnNetwork.forEach((id) => {
+      if (prices[id] === undefined) {
+        // loading finished but no price for this token
+        fullPrices[id] = null;
+      } else {
+        fullPrices[id] = prices[id].toFixed();
+      }
+    });
+    console.log({ tokenIdsOnNetwork });
+    dispatch(
+      setPrices({
+        activeNetworkId,
+        prices: fullPrices,
+      }),
+    );
     dispatch(setCharts({ activeNetworkId, charts }));
     return prices;
   }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
-import { Box, Center, Spinner } from '@onekeyhq/components';
+import { Box } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 

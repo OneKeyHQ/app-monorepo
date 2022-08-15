@@ -45,21 +45,23 @@ const TokenCell: FC<TokenCellProps> = ({
   bg = 'surface-default',
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { balances, charts } = useManageTokens();
+  const { balances, charts, prices } = useManageTokens();
   const { network } = useActiveWalletAccount();
 
   const tokenId = token.tokenIdOnNetwork || 'main';
   const balance = balances[tokenId] || 0;
   const chart = charts[tokenId] || [];
-  let price;
+  const price = prices[tokenId];
   let basePrice;
   let tokenValue;
   if (chart.length > 0) {
     // eslint-disable-next-line prefer-destructuring
     basePrice = chart[0][1];
-    // eslint-disable-next-line prefer-destructuring
-    price = chart[chart.length - 1][1];
+  }
+  if (typeof price === 'string') {
     tokenValue = new BigNumber(balance).times(price).toNumber();
+  } else if (price === null) {
+    tokenValue = 0;
   }
 
   const { percentageGain, gainTextBg, gainTextColor } = calculateGains({
@@ -116,12 +118,12 @@ const TokenCell: FC<TokenCellProps> = ({
       </Box>
       {!isVerticalLayout && !hidePriceInfo && (
         <Box flexDirection="column" flex={1} alignItems="flex-end">
-          {price !== undefined ? (
-            <Typography.Body2Strong>
-              <FormatCurrencyNumber value={price} />
-            </Typography.Body2Strong>
-          ) : (
+          {price === undefined ? (
             <Skeleton shape="Body2" />
+          ) : (
+            <Typography.Body2Strong>
+              <FormatCurrencyNumber value={+(price || 0)} />
+            </Typography.Body2Strong>
           )}
         </Box>
       )}

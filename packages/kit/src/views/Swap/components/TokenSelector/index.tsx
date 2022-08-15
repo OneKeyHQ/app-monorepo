@@ -232,7 +232,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   <Typography.Body2 color="text-subdued">
                     <FormatCurrency
                       numbers={[
-                        prices?.[item.tokenIdOnNetwork || 'main'],
+                        prices?.[item.tokenIdOnNetwork || 'main'] ?? 0,
                         balances?.[item.tokenIdOnNetwork || 'main'],
                       ]}
                       render={(ele) => (
@@ -440,7 +440,7 @@ const ListRenderToken: FC<ListingTokenProps> = ({
         <Typography.Body2 color="text-subdued" numberOfLines={2}>
           <FormatCurrency
             numbers={[
-              prices?.[item.tokenIdOnNetwork || 'main'],
+              prices?.[item.tokenIdOnNetwork || 'main'] ?? 0,
               balances?.[item.tokenIdOnNetwork || 'main'],
             ]}
             render={(ele) => (

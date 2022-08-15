@@ -6,14 +6,21 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 export type TokenBalanceValue = string | undefined;
 export type TokenChartData = [number, number][];
 
+export type PriceLoading = undefined;
+export type NoPriceData = null;
+export type TokenPrices = Record<TokenId, string | PriceLoading | NoPriceData>;
+type NetworkId = string;
+type AccountId = string;
+type TokenId = string;
+
 export type TokenInitialState = {
-  tokens: Record<string, Token[]>;
-  tokensPrice: Record<string, Record<string, string>>;
-  charts: Record<string, Record<string, TokenChartData>>;
-  accountTokens: Record<string, Record<string, Token[]>>;
+  tokens: Record<NetworkId, Token[]>;
+  tokensPrice: Record<NetworkId, TokenPrices>;
+  charts: Record<NetworkId, Record<TokenId, TokenChartData>>;
+  accountTokens: Record<NetworkId, Record<TokenId, Token[]>>;
   accountTokensBalance: Record<
-    string,
-    Record<string, Record<string, TokenBalanceValue>>
+    NetworkId,
+    Record<AccountId, Record<TokenId, TokenBalanceValue>>
   >;
 };
 
@@ -33,7 +40,7 @@ type TokenPayloadAction = {
 
 type PricePayloadAction = {
   activeNetworkId?: string | null;
-  prices: Record<string, string>;
+  prices: TokenPrices;
 };
 
 type ChartPayloadAction = {
