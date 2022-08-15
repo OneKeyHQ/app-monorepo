@@ -24,6 +24,7 @@ type ModalViewProps = ComponentProps<typeof Modal> & {
   showAlert?: boolean;
   header: string;
   onSubmit: (values: ContactValues) => void;
+  editing?: boolean;
 };
 
 const ModalView: FC<ModalViewProps> = ({
@@ -31,6 +32,7 @@ const ModalView: FC<ModalViewProps> = ({
   header,
   showAlert,
   onSubmit,
+  editing,
   ...rest
 }) => {
   const intl = useIntl();
@@ -147,7 +149,12 @@ const ModalView: FC<ModalViewProps> = ({
                     if (!text) {
                       return;
                     }
-                    if (contactsMaps.get(text) && text !== defaultAddress) {
+                    if (
+                      (!editing && contactsMaps.get(text)) ||
+                      (editing &&
+                        contactsMaps.get(text) &&
+                        text !== defaultAddress)
+                    ) {
                       return intl.formatMessage({
                         id: 'msg__this_address_already_exists',
                       });

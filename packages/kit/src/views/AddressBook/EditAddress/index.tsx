@@ -61,6 +61,7 @@ const EditAddress = () => {
       onSubmit={onSubmit}
       header={intl.formatMessage({ id: 'title__edit_address' })}
       primaryActionTranslationId="action__save"
+      editing
     />
   );
 };

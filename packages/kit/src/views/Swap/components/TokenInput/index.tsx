@@ -10,6 +10,7 @@ import {
   Pressable,
   Token as TokenImage,
   Typography,
+  useToast,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -46,6 +47,7 @@ const TokenInput: FC<TokenInputProps> = ({
   isDisabled,
 }) => {
   const intl = useIntl();
+  const toast = useToast();
   const { accountId } = useActiveWalletAccount();
   const balances = useAccountTokensBalance(tokenNetwork?.id ?? '', accountId);
   const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : '0';
@@ -66,9 +68,15 @@ const TokenInput: FC<TokenInputProps> = ({
       const v = Math.max(0, Number(value) - minuend);
       if (v > 0) {
         backgroundApiProxy.serviceSwap.userInput(type, String(v));
+      } else if (Number(value) > 0) {
+        toast.show({
+          title: intl.formatMessage({
+            id: 'msg__current_token_balance_is_insufficient',
+          }),
+        });
       }
     }
-  }, [token, value, type]);
+  }, [token, value, type, toast, intl]);
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';

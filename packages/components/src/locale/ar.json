@@ -893,9 +893,11 @@
   "msg__cannot_import_existing_wallet": "لا يمكن استيراد المحافظ الموجودة.",
   "msg__change_saved": "تم حفظ التغيير!",
   "msg__coming_soon": "قريبا",
+  "msg__connected_wrong_network": "شبكة اتصال خاطئة.",
   "msg__connected_wrong_wallet": "لقد قمت بالاتصال بحساب خاطئ",
   "msg__contract_executed": "🤖 تنفيذ العقد",
   "msg__copied": "نسخ!",
+  "msg__current_token_balance_is_insufficient": "رصيد الرمز الحالي غير كاف.",
   "msg__deleted_str": "تم حذف \" {0} \"",
   "msg__engine__account_already_exists": "الحساب موجود بالفعل.",
   "msg__engine__account_name_length_error": "طول اسم الحساب خارج عن الحد.",
@@ -912,6 +914,7 @@
   "msg__engine__too_many_hw_wallets": "عدد كبير جدًا من محافظ الأجهزة",
   "msg__engine__too_many_imported_accounts": "تم استيراد عدد كبير جدًا من الحسابات",
   "msg__engine__wallet_name_length_error": "طول اسم المحفظة خارج عن الحد.",
+  "msg__engine_too_many_external_accounts": "عدد كبير جدًا من الحسابات الخارجية",
   "msg__engine_too_many_watching_accounts": "عدد كبير جدًا من حسابات المشاهدة",
   "msg__enter_a_valid_slippage_percentage": "أدخل نسبة انزلاق سعرية صالحة",
   "msg__exceeding_the_maximum_word_limit": "تجاوز الحد الأقصى لعدد الكلمات.",
