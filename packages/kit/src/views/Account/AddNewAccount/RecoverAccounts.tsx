@@ -23,7 +23,6 @@ import {
   Spinner,
   ToastManager,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type {
@@ -100,7 +99,6 @@ const CustomCell: FC<CellProps> = ({ item, index, onChange }) => {
 type PageStatusType = 'loading' | 'empty' | 'data';
 const RecoverAccounts: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
   const route = useRoute<RouteProps>();
   const { password, walletId, network, purpose, onLoadingAccount } =
     route.params;
@@ -200,16 +198,6 @@ const RecoverAccounts: FC = () => {
 
   const checkBoxOnChange = useCallback(
     (isSelected: boolean, item: FlatDataType): boolean => {
-      if (isSelected) {
-        const selectCount = flatListData.filter((i) => i.selected).length;
-        if (selectCount > 99) {
-          toast.show({
-            title: intl.formatMessage({ id: 'content__up_to_100_accounts' }),
-          });
-          setIsValid(flatListData.some((i) => !i.isDisabled && i.selected));
-          return false;
-        }
-      }
       flatListData.some((i) => {
         if (i.path === item.path) {
           i.selected = isSelected;
@@ -220,7 +208,7 @@ const RecoverAccounts: FC = () => {
       setIsValid(flatListData.some((i) => !i.isDisabled && i.selected));
       return true;
     },
-    [flatListData, intl, toast],
+    [flatListData],
   );
 
   const renderItem: ListRenderItem<FlatDataType> = useCallback(
