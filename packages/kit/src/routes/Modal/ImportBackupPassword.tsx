@@ -11,7 +11,7 @@ export enum ImportBackupPasswordRoutes {
 
 export type ImportBackupPasswordRoutesParams = {
   [ImportBackupPasswordRoutes.ImportBackupPassword]: {
-    onSuccess: (backupPassword: string) => void;
+    onSuccess: (backupPassword: string) => Promise<void>;
     onCancel: () => void;
   };
 };

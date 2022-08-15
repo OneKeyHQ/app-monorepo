@@ -326,13 +326,15 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     }
   }, [toast, intl, setImporting, onboarding, onboardingDone, navigation]);
 
+  const onImportCancel = useCallback(() => {
+    setImporting(false);
+  }, [setImporting]);
+
   const onImportError = useCallback(
     (e) => {
       debugLogger.cloudBackup.error(e);
       if ((e as { message: string }).message === 'Invalid password') {
-        toast.show({
-          title: intl.formatMessage({ id: 'msg__wrong_password' }),
-        });
+        throw e;
       } else {
         toast.show({
           title: intl.formatMessage({ id: 'msg__unknown_error' }),
@@ -358,7 +360,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
             .then(onImportDone, (e) => {
               if ((e as { message: string }).message === 'Invalid password') {
                 requestBackupPassword(
-                  (remotePassword) => {
+                  (remotePassword) =>
                     serviceCloudBackup
                       .restoreFromBackup({
                         backupUUID,
@@ -366,9 +368,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
                         localPassword,
                         remotePassword,
                       })
-                      .then(onImportDone, onImportError);
-                  },
-                  () => {},
+                      .then(onImportDone, onImportError),
+                  onImportCancel,
                 );
               } else {
                 debugLogger.cloudBackup.error(e);
@@ -386,7 +387,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
       );
     } else {
       requestBackupPassword(
-        (remotePassword) => {
+        (remotePassword) =>
           serviceCloudBackup
             .restoreFromBackup({
               backupUUID,
@@ -394,9 +395,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
               localPassword: remotePassword,
               remotePassword,
             })
-            .then(onImportDone, onImportError);
-        },
-        () => {},
+            .then(onImportDone, onImportError),
+        onImportCancel,
       );
     }
   }, [
@@ -407,6 +407,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     showVerify,
     onImportDone,
     onImportError,
+    onImportCancel,
     requestBackupPassword,
     serviceCloudBackup,
     backupUUID,

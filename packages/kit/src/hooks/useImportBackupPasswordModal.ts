@@ -7,7 +7,7 @@ export default function useImportBackupPasswordModal() {
   const navigation = useAppNavigation();
 
   const requestBackupPassword = (
-    onSuccess: (backupPassword: string) => void,
+    onSuccess: (backupPassword: string) => Promise<void>,
     onCancel: () => void,
   ) => {
     navigation.navigate(RootRoutes.Modal, {

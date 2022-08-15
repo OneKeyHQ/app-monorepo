@@ -1,6 +1,6 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation } from '@react-navigation/core';
+import { RouteProp } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import CloudLock from '@onekeyhq/kit/assets/3d_cloud_lock.png';
+import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import {
   ImportBackupPasswordRoutes,
   ImportBackupPasswordRoutesParams,
@@ -30,14 +31,14 @@ type FieldValues = {
 
 const ImportBackupPasswordModal: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
   const { onSuccess, onCancel } = useRoute<RouteProps>().params;
+  const [err, setError] = useState('');
 
   const {
     control,
     handleSubmit,
     formState: { isValid },
-    getValues,
+    watch,
   } = useForm<FieldValues>({
     mode: 'onChange',
     defaultValues: {
@@ -45,19 +46,27 @@ const ImportBackupPasswordModal: FC = () => {
     },
   });
 
+  const watchedPassword = useDebounce(watch('password'), 200);
+  useEffect(() => {
+    setError('');
+  }, [watchedPassword]);
+
   const onSubmit = useCallback(
     (values: FieldValues) => {
-      navigation.goBack();
-      onSuccess(values.password);
+      onSuccess(values.password).catch((e) => {
+        if ((e as { message: string }).message === 'Invalid password') {
+          setError(intl.formatMessage({ id: 'msg__wrong_password' }));
+        }
+      });
     },
-    [navigation, onSuccess],
+    [onSuccess, intl],
   );
 
   return (
     <Modal
       footer={null}
-      onClose={() => {
-        if (!getValues('password')) onCancel?.();
+      onModalClose={() => {
+        onCancel?.();
       }}
     >
       <KeyboardDismissView px={{ base: 4, md: 0 }} alignItems="center">
@@ -91,6 +100,7 @@ const ImportBackupPasswordModal: FC = () => {
           >
             <Form.PasswordInput autoFocus />
           </Form.Item>
+          {err ? <Form.FormErrorMessage message={err} /> : null}
           <Button
             type="primary"
             size="xl"
