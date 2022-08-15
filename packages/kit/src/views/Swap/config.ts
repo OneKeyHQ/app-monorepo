@@ -31,18 +31,33 @@ export const enabledChainIds: string[] = [
   Chains.ROPSTEN,
 ];
 
-const baseURL = `${getFiatEndpoint()}/0x/quote`;
 const serverURL = 'https://0x.onekey.so';
 
 export const networkRecords: Record<string, string> = {
-  [Chains.MAINNET]: `${baseURL}?chainID=ethereum`,
-  [Chains.ROPSTEN]: `${baseURL}?chainID=ropsten`,
-  [Chains.BSC]: `${baseURL}?chainID=bsc`,
-  [Chains.POLYGON]: `${baseURL}?chainID=polygon`,
-  [Chains.FANTOM]: `${baseURL}?chainID=fantom`,
-  [Chains.AVALANCHE]: `${baseURL}?chainID=avalanche`,
-  [Chains.CELO]: `${baseURL}?chainID=celo`,
-  [Chains.OPTIMISM]: `${baseURL}?chainID=optimism`,
+  get [Chains.MAINNET]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=ethereum`;
+  },
+  get [Chains.ROPSTEN]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=ropsten`;
+  },
+  get [Chains.BSC]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=bsc`;
+  },
+  get [Chains.POLYGON]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=polygon`;
+  },
+  get [Chains.FANTOM]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=fantom`;
+  },
+  get [Chains.AVALANCHE]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=avalanche`;
+  },
+  get [Chains.CELO]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=celo`;
+  },
+  get [Chains.OPTIMISM]() {
+    return `${getFiatEndpoint()}/0x/quote?chainID=optimism`;
+  },
   [Chains.KOVAN]: 'https://kovan.api.0x.org/swap/v1/quote',
   [Chains.HECO]: `${serverURL}/swap/v1/quote`,
   [Chains.GNOSIS]: `${serverURL}/swap/v1/xdai/quote`,

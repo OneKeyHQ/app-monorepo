@@ -64,15 +64,15 @@ export function getTokenValues({
   prices,
   balances,
 }: {
-  tokens: Token[];
+  tokens: (Token | undefined | null)[];
   prices: Record<string, string | number>;
   balances: Record<string, TokenBalanceValue>;
 }) {
   return tokens.map((token) => {
-    const tokenId = token.tokenIdOnNetwork || 'main';
+    const tokenId = token?.tokenIdOnNetwork || 'main';
     const balance = balances[tokenId];
     if (typeof balance !== 'undefined') {
-      const price = new BigNumber(prices[tokenId]) || 0;
+      const price = new BigNumber(prices[tokenId] || 0);
       return new BigNumber(balance).times(price);
     }
     return new BigNumber(0);

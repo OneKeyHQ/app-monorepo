@@ -30,7 +30,6 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const { accountId, networkId, tokenId } = route.params;
   const [network, setNetwork] = useState<Network>();
   const { accountTokensMap, nativeToken } = useManageTokens();
-
   const token = accountTokensMap.get(tokenId);
 
   useEffect(() => {
@@ -53,19 +52,18 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     }
   }, [navigation, token, nativeToken, accountId, networkId]);
 
-  const headerView =
-    network && token ? (
-      <>
-        <TokenInfo token={token} network={network} />
-        <PriceChart
-          style={{
-            marginBottom: 20,
-          }}
-          platform={network.shortCode}
-          contract={token?.tokenIdOnNetwork}
-        />
-      </>
-    ) : null;
+  const headerView = network ? (
+    <>
+      <TokenInfo token={token} network={network} />
+      <PriceChart
+        style={{
+          marginBottom: 20,
+        }}
+        platform={network.shortCode}
+        contract={token?.tokenIdOnNetwork}
+      />
+    </>
+  ) : null;
 
   return (
     <Box bg="background-default" flex={1}>

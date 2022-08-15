@@ -7,9 +7,11 @@ import { useIntl } from 'react-intl';
 import { Box, Icon, Typography } from '@onekeyhq/components';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
-NetInfo.configure({
-  reachabilityUrl: `${getFiatEndpoint()}/health`,
-});
+setTimeout(() => {
+  NetInfo.configure({
+    reachabilityUrl: `${getFiatEndpoint()}/health`,
+  });
+}, 300);
 
 const OfflineView: FC = () => {
   const intl = useIntl();

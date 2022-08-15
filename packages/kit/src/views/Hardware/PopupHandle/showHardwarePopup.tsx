@@ -59,12 +59,12 @@ export type HardwarePopupProps = {
 };
 
 let hardwarePopupHolder: RootSiblingsManager | null = null;
-const closeHardwarePopup = () => {
+export function closeHardwarePopup() {
   if (hardwarePopupHolder) {
     hardwarePopupHolder.destroy();
     hardwarePopupHolder = null;
   }
-};
+}
 export default async function showHardwarePopup({
   uiRequest,
   payload,

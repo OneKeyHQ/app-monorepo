@@ -1,5 +1,24 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+
+import showHardwarePopup, {
+  closeHardwarePopup as closeHardwarePopupUI,
+} from '../../views/Hardware/PopupHandle/showHardwarePopup';
+
+export type HardwareUiEventPayload = {
+  type: string;
+  deviceType: IOneKeyDeviceType;
+  deviceId: string;
+  deviceConnectId: string;
+  deviceBootLoaderMode: boolean;
+};
+
+export type HardwarePopup = {
+  uiRequest?: string;
+  payload?: HardwareUiEventPayload;
+};
+
 type InitialState = {
   connected: string[]; // connectId array
   lastCheckUpdateTime: Record<string, number>; // connectId -> time
@@ -20,10 +39,20 @@ export const hardwareSlice = createSlice({
     removeConnectedConnectId: (state, action: PayloadAction<string>) => {
       state.connected = state.connected.filter((id) => id !== action.payload);
     },
+    setHardwarePopup(_, action: PayloadAction<HardwarePopup>) {
+      showHardwarePopup(action.payload);
+    },
+    closeHardwarePopup() {
+      closeHardwarePopupUI();
+    },
   },
 });
 
-export const { addConnectedConnectId, removeConnectedConnectId } =
-  hardwareSlice.actions;
+export const {
+  addConnectedConnectId,
+  removeConnectedConnectId,
+  setHardwarePopup,
+  closeHardwarePopup,
+} = hardwareSlice.actions;
 
 export default hardwareSlice.reducer;
