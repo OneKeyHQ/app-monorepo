@@ -128,9 +128,11 @@ type OrderInfo = {
   orderId: string;
 };
 
-const baseUrl = `${getFiatEndpoint()}/swft`;
-
 export class SwftcQuoter implements Quoter {
+  get baseUrl() {
+    return `${getFiatEndpoint()}/swft`;
+  }
+
   type: QuoterType = QuoterType.swftc;
 
   private client: Axios;
@@ -205,7 +207,7 @@ export class SwftcQuoter implements Quoter {
   }
 
   private async getRemoteCoins(): Promise<Coin[]> {
-    const url = `${baseUrl}/queryCoinList`;
+    const url = `${this.baseUrl}/queryCoinList`;
     const res = await this.client.post(
       url,
       // { supportType: 'advanced' }
@@ -302,7 +304,7 @@ export class SwftcQuoter implements Quoter {
     if (fromNetwork && toNetwork) {
       const depositCoinCode = coins[fromNetwork]?.[fromToken]?.coinCode;
       const receiveCoinCode = coins[toNetwork]?.[toToken]?.coinCode;
-      const url = `${baseUrl}/getBaseInfo`;
+      const url = `${this.baseUrl}/getBaseInfo`;
       if (depositCoinCode && receiveCoinCode) {
         const result = await this.client.post(url, {
           depositCoinCode,
@@ -457,7 +459,7 @@ export class SwftcQuoter implements Quoter {
       sourceType: 'H5',
       sourceFlag: 'ONEKEY',
     };
-    const url = `${baseUrl}/accountExchange`;
+    const url = `${this.baseUrl}/accountExchange`;
     const res = await this.client.post(url, data);
     // eslint-disable-next-line
     const orderData = res.data as {
@@ -473,7 +475,7 @@ export class SwftcQuoter implements Quoter {
   ): Promise<TransactionProgress> {
     const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
     if (swftcOrderId) {
-      const url = `${baseUrl}/queryOrderState`;
+      const url = `${this.baseUrl}/queryOrderState`;
       const res = await axios.post(url, {
         equipmentNo: tx.from,
         sourceType: 'H5',

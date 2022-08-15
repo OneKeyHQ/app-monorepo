@@ -618,13 +618,13 @@ class ProviderController extends BaseProviderController {
 }
 
 class PriceController {
-  endpoint = getFiatEndpoint();
-
   CACHE_DURATION = 1000 * 30;
 
   cache = lru(300);
 
-  req = new RestfulRequest(this.endpoint);
+  get req() {
+    return new RestfulRequest(getFiatEndpoint());
+  }
 
   async fetchApi<T>(path: string, params?: Record<string, string>) {
     const paramsCacheKey = params
