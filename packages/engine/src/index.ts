@@ -1044,6 +1044,7 @@ class Engine {
   public async ensureTokenInDB(
     networkId: string,
     tokenIdOnNetwork: string,
+    logoURI?: string,
   ): Promise<Token | undefined> {
     // This method ensures token info is correctly added into DB.
     if (!tokenIdOnNetwork) {
@@ -1089,7 +1090,7 @@ class Engine {
       tokenIdOnNetwork,
       id: tokenId,
       ...tokenInfo,
-      logoURI: tokenInfo.logoURI || '',
+      logoURI: tokenInfo.logoURI || logoURI || '',
     } as Token);
   }
 
@@ -1125,6 +1126,7 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
+    logoURI?: string,
   ): Promise<Token | undefined> {
     let ret: Token | undefined;
     const preResult = await this.preAddToken(
@@ -1132,6 +1134,7 @@ class Engine {
       networkId,
       tokenIdOnNetwork,
       false,
+      logoURI,
     );
     if (typeof preResult !== 'undefined') {
       ret = await this.addTokenToAccount(accountId, preResult[1]);
@@ -1163,6 +1166,7 @@ class Engine {
     networkId: string,
     tokenIdOnNetwork: string,
     withBalance = true,
+    logoURI?: string,
   ): Promise<[string | undefined, Token] | undefined> {
     // 1. find local token
     // 2. if not, find token online
@@ -1178,7 +1182,11 @@ class Engine {
         `account ${accountId} and network ${networkId} isn't compatible.`,
       );
     }
-    const token = await this.ensureTokenInDB(networkId, normalizedAddress);
+    const token = await this.ensureTokenInDB(
+      networkId,
+      normalizedAddress,
+      logoURI,
+    );
     if (typeof token === 'undefined') {
       return undefined;
     }

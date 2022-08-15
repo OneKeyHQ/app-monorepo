@@ -228,7 +228,7 @@ function AddTokenModal() {
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const intl = useIntl();
-  const { address } = useRouteParams();
+  const { address, logoURI } = useRouteParams();
   const queryInfo = useDappParams();
 
   const dappApprove = useDappApproveAction({
@@ -243,6 +243,7 @@ function AddTokenModal() {
             activeNetwork.id,
             activeAccount.id,
             address,
+            logoURI,
           );
         toast.show({
           title: intl.formatMessage({
@@ -253,7 +254,7 @@ function AddTokenModal() {
         await dappApprove.resolve({ close, result: addedToken });
       }
     },
-    [activeAccount, activeNetwork, address, toast, intl, dappApprove],
+    [activeAccount, activeNetwork, address, toast, intl, dappApprove, logoURI],
   );
 
   return (
