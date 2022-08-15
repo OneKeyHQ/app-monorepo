@@ -37,7 +37,10 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
       hasFormInsideDialog
       visible={visible}
       canceledOnTouchOutside={false}
-      onClose={() => onDialogClose?.()}
+      onClose={() => {
+        setConfirmed(false); // Forget confirmed status
+        onDialogClose?.();
+      }}
       contentProps={{
         iconType: 'danger',
         title: intl.formatMessage({
