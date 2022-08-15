@@ -94,7 +94,7 @@ const ImportBackupPasswordModal: FC = () => {
           <Button
             type="primary"
             size="xl"
-            onPress={handleSubmit(onSubmit)}
+            onPromise={handleSubmit(onSubmit)}
             isDisabled={!isValid}
           >
             {intl.formatMessage({
