@@ -9,7 +9,7 @@ import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 import ServicePassword from './services/ServicePassword';
 
 import type { IBackgroundApi } from './IBackgroundApi';
-import type WalletConnectAdapter from './providers/WalletConnectAdapter';
+import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
@@ -40,7 +40,7 @@ class BackgroundApiProxy
 
   walletConnect = this._createProxyService(
     'walletConnect',
-  ) as WalletConnectAdapter;
+  ) as ProviderApiWalletConnect;
 
   servicePromise = this._createProxyService('servicePromise') as ServicePromise;
 

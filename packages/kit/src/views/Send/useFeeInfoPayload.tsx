@@ -192,13 +192,17 @@ export function useFeeInfoPayload({
     ]);
 
   useEffect(() => {
-    // first time loading only, Interval loading does not support yet.
-    setLoading(true);
-    fetchFeeInfo()
-      .then((info) => {
+    (async function () {
+      if (!encodedTx) {
+        return null;
+      }
+      // first time loading only, Interval loading does not support yet.
+      setLoading(true);
+      try {
+        const info = await fetchFeeInfo();
+        // await delay(600);
         setFeeInfoPayload(info);
-      })
-      .catch((error) => {
+      } catch (error: any) {
         // TODO: only an example implementation about showing rpc error
         const { code: errCode } = error as { code?: number };
         if (errCode === -32603) {
@@ -212,10 +216,10 @@ export function useFeeInfoPayload({
         setFeeInfoPayload(null);
         setFeeInfoError(error);
         console.error(error);
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, [encodedTx, fetchFeeInfo, setFeeInfoPayload, toast]);
 
   useEffect(() => {

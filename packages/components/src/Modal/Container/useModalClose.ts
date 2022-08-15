@@ -6,7 +6,10 @@ import { useNavigation } from '@react-navigation/core';
 import { useNavigationGoHomeForceReload } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-function useModalClose({ onClose }: { onClose?: () => void | boolean } = {}) {
+function useModalClose({
+  onClose,
+  fallbackToHome = true,
+}: { onClose?: () => void | boolean; fallbackToHome?: boolean } = {}) {
   const navigation = useNavigation();
   const fallback = useNavigationGoHomeForceReload();
 
@@ -34,10 +37,10 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean } = {}) {
     }
     // do not execute this code below on Modal onClose:
     //    navigation.getParent()?.goBack();
-    if (!platformEnv.isExtensionUiStandaloneWindow) {
+    if (!platformEnv.isExtensionUiStandaloneWindow && fallbackToHome) {
       fallback();
     }
-  }, [navigation, onClose, fallback]);
+  }, [navigation, onClose, fallback, fallbackToHome]);
   return close;
 }
 

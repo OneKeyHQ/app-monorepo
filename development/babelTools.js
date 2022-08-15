@@ -104,7 +104,7 @@ function normalizeConfig({ platform, config }) {
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
 
-  console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
+  // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
 
   return config;
 }

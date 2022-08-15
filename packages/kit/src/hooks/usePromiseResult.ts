@@ -11,5 +11,5 @@ export function usePromiseResult<T>(method: (...args: any[]) => Promise<T>) {
       setResult(r);
     })();
   }, []);
-  return result;
+  return { result };
 }

@@ -1,3 +1,8 @@
+import { IWalletConnectSession } from '@walletconnect/types';
+
+import { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import { Account } from '@onekeyhq/engine/src/types/account';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
@@ -10,6 +15,9 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
+import { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
+import { WalletService } from '../../components/WalletConnect/types';
+import { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
 
 import type { SwapQuoteTx } from '../Swap/typings';
 
@@ -114,6 +122,21 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
   onDetail?: (txid: string) => any;
+};
+
+export type IWalletConnectExternalAccountInfo = {
+  accountInfo?: ISimpleDbWalletConnectAccountInfo;
+  session?: IWalletConnectSession;
+  client?: WalletConnectClientForDapp;
+  walletService?: WalletService;
+  currentNetwork: Network;
+  currentAccount: Account;
+};
+
+export type IWalletConnectSendInfo = {
+  connector: OneKeyWalletConnector;
+  externalAccountInfo: IWalletConnectExternalAccountInfo;
+  client: WalletConnectClientForDapp;
 };
 
 export type SendAuthenticationParams = Omit<

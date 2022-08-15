@@ -3,6 +3,7 @@ import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity'
 import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
 import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
 import { SimpleDbEntitySwap } from './entity/SimpleDbEntitySwap';
+import { SimpleDbEntityWalletConnect } from './entity/SimpleDbEntityWalletConnect';
 
 class SimpleDb {
   history = new SimpleDbEntityHistory();
@@ -14,6 +15,8 @@ class SimpleDb {
   swap = new SimpleDbEntitySwap();
 
   token = new SimpleDbEntityTokens();
+
+  walletConnect = new SimpleDbEntityWalletConnect();
 }
 
 const simpleDb = new SimpleDb();

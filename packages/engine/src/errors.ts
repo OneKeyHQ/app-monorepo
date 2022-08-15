@@ -9,6 +9,7 @@ export enum OneKeyErrorClassNames {
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
+  OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
@@ -196,6 +197,10 @@ export class TooManyWatchingAccounts extends NumberLimit {
   override key = 'msg__engine_too_many_watching_accounts';
 }
 
+export class TooManyExternalAccounts extends NumberLimit {
+  override key = 'msg__engine_too_many_external_accounts';
+}
+
 export class TooManyImportedAccounts extends NumberLimit {
   override key = 'msg__engine__too_many_imported_accounts';
 }
@@ -223,4 +228,10 @@ export class TooManyDerivedAccounts extends NumberLimit {
 
 export class PendingQueueTooLong extends NumberLimit {
   override key = 'msg__engine__pending_queue_too_long';
+}
+
+// WalletConnect ----------------------------------------------
+export class OneKeyWalletConnectModalCloseError extends OneKeyError {
+  override className = OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError;
+  // override key = 'msg__engine__internal_error';
 }

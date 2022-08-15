@@ -5,7 +5,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
-  TokenInitialState,
   setAccountTokens,
   setAccountTokensBalances,
   setCharts,
@@ -136,9 +135,7 @@ export default class ServiceToken extends ServiceBase {
     tokenIds?: string[];
   }) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector(
-      (s) => s.tokens,
-    ) as TokenInitialState;
+    const { tokens, accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
     if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
@@ -174,9 +171,7 @@ export default class ServiceToken extends ServiceBase {
     tokenIds?: string[];
   }) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector(
-      (s) => s.tokens,
-    ) as TokenInitialState;
+    const { tokens, accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
     if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
@@ -223,10 +218,7 @@ export default class ServiceToken extends ServiceBase {
     if (!address) {
       return;
     }
-    const accountTokens = appSelector((s) => s.tokens.accountTokens) as Record<
-      string,
-      Record<string, Token[]>
-    >;
+    const accountTokens = appSelector((s) => s.tokens.accountTokens);
     const tokens = accountTokens[networkId]?.[accountId] ?? ([] as Token[]);
     const isExists = tokens.filter(
       (item) => item.tokenIdOnNetwork === address,

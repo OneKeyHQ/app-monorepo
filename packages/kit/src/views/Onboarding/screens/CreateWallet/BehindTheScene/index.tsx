@@ -272,8 +272,9 @@ const BehindTheScene = () => {
   const onPressFinished = useCallback(async () => {
     setIsNavBackDisabled(false);
     if (platformEnv.isExtension) {
-      await wait(1000);
-      window.close();
+      // await wait(1000);
+      // window.close();
+      await onboardingDone({ delay: 600 });
     } else {
       await onboardingDone({ delay: 600 });
     }

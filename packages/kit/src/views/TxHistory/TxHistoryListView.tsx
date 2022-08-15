@@ -30,9 +30,9 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { delay } from '../../background/utils';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
+import { wait } from '../../utils/helper';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
 
@@ -255,7 +255,7 @@ function TxHistoryListViewComponent({
         } catch (err) {
           console.error(err);
         }
-        await delay(1000);
+        await wait(1000);
       }
 
       const txList = await serviceHistory.getLocalHistory({

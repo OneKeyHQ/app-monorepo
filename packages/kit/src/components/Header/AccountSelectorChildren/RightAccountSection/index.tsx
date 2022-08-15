@@ -36,6 +36,7 @@ const AccountSection: FC<AccountSectionProps> = ({
   refreshAccounts,
 }) => (
   <SectionList
+    testID="AccountSelectorChildren-AccountSection-SectionList"
     stickySectionHeadersEnabled
     sections={activeAccounts}
     SectionSeparatorComponent={(section) => (
@@ -44,6 +45,7 @@ const AccountSection: FC<AccountSectionProps> = ({
     )}
     ListFooterComponent={() => (
       <LoadingSkeleton
+        // isLoading={true}
         isLoading={activeWallet?.id === loadingAccountWalletId}
       />
     )}

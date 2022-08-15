@@ -114,7 +114,10 @@ const Cache = {
   },
 };
 
-const debugLogger = {
+const debugLogger: Record<
+  LoggerNames,
+  ReturnType<typeof Cache.createLogger>
+> = {
   [LoggerNames.hardwareSDK]: Cache.createLogger(LoggerNames.hardwareSDK),
   [LoggerNames.onBoarding]: Cache.createLogger(LoggerNames.onBoarding),
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),

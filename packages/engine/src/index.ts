@@ -108,6 +108,7 @@ import {
 } from './types/network';
 import { Token } from './types/token';
 import {
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
@@ -885,24 +886,42 @@ class Engine {
   }
 
   @backgroundMethod()
-  async addWatchingAccount(
-    networkId: string,
-    target: string,
-    name: string,
-  ): Promise<Account> {
+  async addWatchingOrExternalAccount({
+    networkId,
+    address,
+    name,
+    walletType,
+    checkExists,
+  }: {
+    networkId: string;
+    address: string; // address
+    name: string;
+    walletType: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
+    checkExists?: boolean;
+  }): Promise<Account> {
     // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
     await this.validator.validateAccountNames([name]);
 
     const { impl } = parseNetworkId(networkId);
-    const vault = await this.getWalletOnlyVault(networkId, 'watching');
+    const vault = await this.getWalletOnlyVault(networkId, walletType);
+
+    // create dbAccountInfo to save to DB
     const [dbAccount] = await vault.keyring.prepareAccounts({
-      target,
+      target: address,
       name,
+      accountIdPrefix: walletType,
     });
 
-    const a = await this.dbApi.addAccountToWallet('watching', dbAccount);
+    if (checkExists) {
+      const [existDbAccount] = await this.dbApi.getAccounts([dbAccount.id]);
+      if (existDbAccount && existDbAccount.id === dbAccount.id) {
+        return this.getAccount(dbAccount.id, networkId);
+      }
+    }
+
+    const a = await this.dbApi.addAccountToWallet(walletType, dbAccount);
 
     await this.addDefaultToken(a.id, impl);
 
@@ -1420,6 +1439,10 @@ class Engine {
       networkId,
     });
     const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
+    unsignedTx.payload = {
+      ...unsignedTx.payload,
+      encodedTx,
+    };
 
     return vault.signAndSendTransaction(unsignedTx, {
       password,
@@ -1613,7 +1636,7 @@ class Engine {
     return this.vaultFactory.getWalletOnlyVault(networkId, walletId);
   }
 
-  getVaultSettings = memoizee(
+  _getVaultSettings = memoizee(
     async (networkId: string) => {
       const vault = await this.getChainOnlyVault(networkId);
       return vault.settings;
@@ -1626,6 +1649,11 @@ class Engine {
       normalizer: (args) => `${args[0]}`,
     },
   );
+
+  @backgroundMethod()
+  getVaultSettings(networkId: string) {
+    return this._getVaultSettings(networkId);
+  }
 
   @backgroundMethod()
   async addHistoryEntry({
@@ -1842,7 +1870,14 @@ class Engine {
   @backgroundMethod()
   async getNetwork(networkId: string): Promise<Network> {
     const dbObj = await this.dbApi.getNetwork(networkId);
-    // this.dbNetworkToNetwork(dbObj) may cause cycle calling
+
+    // TODO this.dbNetworkToNetwork(dbObj) may cause cycle calling
+    //  engine.getNetwork -> engine.getVaultSettings -> engine.getChainOnlyVault -> new Vault
+    //  vault.getNetwork -> engine.getNetwork
+    // return this.dbNetworkToNetwork(dbObj);
+
+    // so getNetwork() does NOT including vaultSettings field
+    //    please use getVaultSettings()
     return fromDBNetworkToNetwork(dbObj, {} as IVaultSettings);
   }
 

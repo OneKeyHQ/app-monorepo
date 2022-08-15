@@ -47,6 +47,8 @@ const RightChainSelector: FC<Props> = ({
                 return settings.importedAccountEnabled;
               case 'watching':
                 return settings.watchingAccountEnabled;
+              case 'external':
+                return settings.externalAccountEnabled;
               default:
                 return true; // HD accounts are always supported.
             }
@@ -54,8 +56,9 @@ const RightChainSelector: FC<Props> = ({
     const selectNetworkExists = availableNetworks.find(
       (network) => network.id === selectedNetworkId,
     );
-    if (!selectNetworkExists)
+    if (!selectNetworkExists) {
       setTimeout(() => setSelectedNetworkId(AllNetwork));
+    }
 
     if (!availableNetworks) return [];
 

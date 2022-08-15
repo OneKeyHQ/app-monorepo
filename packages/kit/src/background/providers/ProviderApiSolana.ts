@@ -7,8 +7,8 @@ import {
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
+import { wait } from '../../utils/helper';
 import { backgroundClass, providerApiMethod } from '../decorators';
-import { delay } from '../utils';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
@@ -144,7 +144,7 @@ class ProviderApiSolana extends ProviderApiBase {
       // throw error if user haven't trusted the app
     } else {
       // mock user action delay
-      await delay(3000);
+      await wait(3000);
     }
 
     return {

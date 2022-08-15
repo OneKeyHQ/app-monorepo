@@ -125,5 +125,10 @@
 		<string>PlusJakartaSans-Medium.ttf</string>
 		<string>PlusJakartaSans-SemiBold.ttf</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>tpoutside</string>
+    <string>imtokenv2</string>
+  </array>
 </dict>
 </plist>

@@ -90,12 +90,21 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   let title = selectedWallet?.name ?? '';
   if (selectedWallet?.type === 'imported') {
     title = intl.formatMessage({ id: 'wallet__imported_accounts' });
-  } else if (selectedWallet?.type === 'watching') {
+  }
+  if (selectedWallet?.type === 'watching') {
     title = intl.formatMessage({ id: 'wallet__watched_accounts' });
+  }
+  if (selectedWallet?.type === 'external') {
+    title = intl.formatMessage({ id: 'content__external_account' });
   }
   return (
     // The lineHeight use to keep the Header has same height when switch to Imported/Watched accounts.
-    <Typography.Body1Strong flex={1} key={title} lineHeight={36}>
+    <Typography.Body1Strong
+      testID="AccountSelectorChildren-HeaderTitle"
+      flex={1}
+      key={title}
+      lineHeight={36}
+    >
       {title}
     </Typography.Body1Strong>
   );

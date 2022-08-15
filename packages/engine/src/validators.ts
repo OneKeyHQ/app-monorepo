@@ -463,6 +463,11 @@ class Validators {
   }
 
   @backgroundMethod()
+  async isValidEvmTxid({ txid }: { txid: string }) {
+    return Promise.resolve(/^0x([A-Fa-f0-9]{64})$/.test(txid));
+  }
+
+  @backgroundMethod()
   async validateCanCreateNextAccount(
     walletId: string,
     networkId: string,

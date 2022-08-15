@@ -103,4 +103,6 @@ export enum CreateWalletModalRoutes {
   AttentionsModal = 'AttentionsModal',
   MnemonicModal = 'MnemonicModal',
   NewWalletModal = 'NewWalletModal',
+
+  WalletConnectQrcodeModal = 'WalletConnectQrcodeModal',
 }

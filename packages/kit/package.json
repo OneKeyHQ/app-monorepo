@@ -14,7 +14,6 @@
     "@reduxjs/toolkit": "^1.6.2",
     "@types/redux-logger": "^3.0.9",
     "@types/url-parse": "^1.4.8",
-    "@walletconnect/client": "^1.7.5",
     "date-fns": "^2.27.0",
     "expo": "^45.0.5",
     "expo-application": "^4.1.0",

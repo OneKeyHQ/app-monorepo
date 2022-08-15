@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
+import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
@@ -75,6 +76,7 @@ const Protected: FC<ProtectedProps> = ({
    * also if it is hardware device, need to connect bluetooth and check connection status
    */
   const isHardware = walletDetail?.type === 'hw';
+  const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
 
   useEffect(() => {
     if (!isHardware) return;
@@ -140,6 +142,17 @@ const Protected: FC<ProtectedProps> = ({
     captureHardwareError,
   ]);
 
+  if (isExternalWallet) {
+    return (
+      <Box flex={1}>
+        {children(password, {
+          withEnableAuthentication,
+          isLocalAuthentication,
+        })}
+      </Box>
+    );
+  }
+
   if (password) {
     return (
       <Box w="full" h="full">
@@ -176,11 +189,13 @@ const Protected: FC<ProtectedProps> = ({
     );
   }
 
+  // input password
   if (hasPassword) {
     return (
       <Session onOk={onValidationOk} field={field} hideTitle={hideTitle} />
     );
   }
+  // create new password
   return (
     <Setup
       onOk={onSetupOk}

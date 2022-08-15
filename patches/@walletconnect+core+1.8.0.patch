@@ -1,0 +1,35 @@
+diff --git a/node_modules/@walletconnect/core/dist/esm/index.js b/node_modules/@walletconnect/core/dist/esm/index.js
+index 23da9cb..affa2ca 100644
+--- a/node_modules/@walletconnect/core/dist/esm/index.js
++++ b/node_modules/@walletconnect/core/dist/esm/index.js
+@@ -22,7 +22,8 @@ class Connector {
+         this._networkId = 0;
+         this._rpcUrl = "";
+         this._eventManager = new EventManager();
+-        this._clientMeta = getClientMeta() || opts.connectorOpts.clientMeta || null;
++        // this._clientMeta = getClientMeta() || opts.connectorOpts.clientMeta || null;
++        this._clientMeta = opts.connectorOpts.clientMeta || getClientMeta() || null;
+         this._cryptoLib = opts.cryptoLib;
+         this._sessionStorage = opts.sessionStorage || new SessionStorage(opts.connectorOpts.storageId);
+         this._qrcodeModal = opts.connectorOpts.qrcodeModal;
+@@ -37,7 +38,8 @@ class Connector {
+         if (opts.connectorOpts.uri) {
+             this.uri = opts.connectorOpts.uri;
+         }
+-        const session = opts.connectorOpts.session || this._getStorageSession();
++        const session = opts.connectorOpts.session ||
++          (opts.connectorOpts.autoConnectLastSessionOnMount ? this._getStorageSession(): undefined);
+         if (session) {
+             this.session = session;
+         }
+@@ -810,7 +812,9 @@ class Connector {
+             event: "transport_error",
+             params: ["Websocket connection failed"],
+         }));
+-        this._transport.open();
++        if (this._transport.closed || this._transport.closing) {
++          this._transport.open();
++        }
+     }
+     _formatUri() {
+         const protocol = this.protocol;
