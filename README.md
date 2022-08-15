@@ -53,7 +53,7 @@ yarn
 npm install -g expo-cli
 ```
 
-## 🛠 Develop
+## 🧑‍💻 Develop
 
 Execute the following commands in the root directory to develop different business code
 
@@ -163,3 +163,8 @@ Check out where we are now!
 <a href="https://github.com/onekeyhq/app-monorepo/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=onekeyhq/app-monorepo&max=240&columns=24"/>
 </a>
+
+## ⚖️ License
+
+OneKey is available under the [MIT](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE) license. 
+Free for commercial and non-commercial use.
