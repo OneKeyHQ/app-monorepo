@@ -17,6 +17,7 @@ import axios from 'axios';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { DevicePayload } from '@onekeyhq/engine/src/types/device';
+import { setHardwarePopup } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
@@ -36,7 +37,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { FirmwareDownloadFailed } from '../../utils/hardware/errors';
-import showHardwarePopup from '../../views/Hardware/PopupHandle/showHardwarePopup';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -67,16 +67,18 @@ class ServiceHardware extends ServiceBase {
             const { deviceType, connectId, deviceId, features } = device || {};
             const { bootloader_mode: bootLoaderMode } = features || {};
 
-            showHardwarePopup({
-              uiRequest: type,
-              payload: {
-                type: eventType,
-                deviceType,
-                deviceId,
-                deviceConnectId: connectId,
-                deviceBootLoaderMode: !!bootLoaderMode,
-              },
-            });
+            this.backgroundApi.dispatch(
+              setHardwarePopup({
+                uiRequest: type,
+                payload: {
+                  type: eventType,
+                  deviceType,
+                  deviceId,
+                  deviceConnectId: connectId,
+                  deviceBootLoaderMode: !!bootLoaderMode,
+                },
+              }),
+            );
           }, 0);
         });
 

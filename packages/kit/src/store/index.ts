@@ -155,7 +155,7 @@ export async function appDispatch(
 }
 
 export function appSelector(selector: (state: IAppState) => any): any {
-  return selector(store.getState());
+  return selector(store?.getState());
 }
 export type IAppSelector = typeof appSelector;
 
