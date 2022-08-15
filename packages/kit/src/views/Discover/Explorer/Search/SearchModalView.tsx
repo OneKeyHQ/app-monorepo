@@ -10,7 +10,6 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollableFlatListProps,
   Text,
   Typography,
 } from '@onekeyhq/components';
@@ -27,6 +26,7 @@ import { useLimitHistories } from './useLimitHistories';
 import { useSearchLocalDapp } from './useSearchLocalDapp';
 
 import type { MatchDAppItemType } from './useSearchHistories';
+import type { FlatListProps } from 'react-native';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -58,73 +58,70 @@ const SearchModalView: FC = () => {
     onSelectorItem?.(item);
   };
 
-  const renderItem: ScrollableFlatListProps<MatchDAppItemType>['renderItem'] =
-    ({ item, index }) => {
-      const {
-        favicon: dappFavicon,
-        chain,
-        name,
-        url: dappUrl,
-      } = item.dapp || {};
-      const {
-        favicon: webSiteFavicon,
-        title,
-        url: webSiteUrl,
-      } = item.webSite || {};
+  const renderItem: FlatListProps<MatchDAppItemType>['renderItem'] = ({
+    item,
+    index,
+  }) => {
+    const { favicon: dappFavicon, chain, name, url: dappUrl } = item.dapp || {};
+    const {
+      favicon: webSiteFavicon,
+      title,
+      url: webSiteUrl,
+    } = item.webSite || {};
 
-      return (
-        <Pressable.Item
-          p={4}
-          key={`search-history-item-${index}-${item.id}`}
-          borderTopRadius={index === 0 ? '12px' : '0px'}
-          borderRadius={index === flatListData?.length - 1 ? '12px' : '0px'}
-          onPress={() => {
-            onSelectHistory(item);
-          }}
-        >
-          <Box w="100%" flexDirection="row" alignItems="center">
-            {(!!dappFavicon || item.dapp) && (
-              <DAppIcon size={38} favicon={dappFavicon ?? ''} chain={chain} />
-            )}
-            {(!!webSiteFavicon || item.webSite) && (
-              <Box width="38px" height="38px">
-                <Image
-                  width="38px"
-                  height="38px"
-                  source={{ uri: webSiteFavicon }}
-                  borderRadius="10px"
-                  borderWidth="1px"
-                  borderColor="border-subdued"
-                  fallbackElement={
-                    <Center
-                      w="38px"
-                      h="38px"
-                      borderRadius="10px"
-                      borderWidth="1px"
-                      borderColor="border-subdued"
-                    >
-                      <Icon size={20} name="GlobeSolid" />
-                    </Center>
-                  }
-                />
-              </Box>
-            )}
-
-            <Box mx={3} flexDirection="column" flex={1}>
-              <Text
-                numberOfLines={1}
-                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              >
-                {name ?? title ?? 'Unknown'}
-              </Text>
-              <Typography.Body2 numberOfLines={1} color="text-subdued">
-                {dappUrl ?? webSiteUrl}
-              </Typography.Body2>
+    return (
+      <Pressable.Item
+        p={4}
+        key={`search-history-item-${index}-${item.id}`}
+        borderTopRadius={index === 0 ? '12px' : '0px'}
+        borderRadius={index === flatListData?.length - 1 ? '12px' : '0px'}
+        onPress={() => {
+          onSelectHistory(item);
+        }}
+      >
+        <Box w="100%" flexDirection="row" alignItems="center">
+          {(!!dappFavicon || item.dapp) && (
+            <DAppIcon size={38} favicon={dappFavicon ?? ''} chain={chain} />
+          )}
+          {(!!webSiteFavicon || item.webSite) && (
+            <Box width="38px" height="38px">
+              <Image
+                width="38px"
+                height="38px"
+                source={{ uri: webSiteFavicon }}
+                borderRadius="10px"
+                borderWidth="1px"
+                borderColor="border-subdued"
+                fallbackElement={
+                  <Center
+                    w="38px"
+                    h="38px"
+                    borderRadius="10px"
+                    borderWidth="1px"
+                    borderColor="border-subdued"
+                  >
+                    <Icon size={20} name="GlobeSolid" />
+                  </Center>
+                }
+              />
             </Box>
+          )}
+
+          <Box mx={3} flexDirection="column" flex={1}>
+            <Text
+              numberOfLines={1}
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            >
+              {name ?? title ?? 'Unknown'}
+            </Text>
+            <Typography.Body2 numberOfLines={1} color="text-subdued">
+              {dappUrl ?? webSiteUrl}
+            </Typography.Body2>
           </Box>
-        </Pressable.Item>
-      );
-    };
+        </Box>
+      </Pressable.Item>
+    );
+  };
 
   return (
     <Modal

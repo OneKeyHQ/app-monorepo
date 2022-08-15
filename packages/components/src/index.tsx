@@ -19,7 +19,6 @@ export { default as HStack } from './HStack';
 export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
-export { default as HeaderTabViewContainer } from './HeaderTabViewContainer';
 export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
 export { default as PinCode } from './PinCode';
@@ -82,7 +81,6 @@ export { default as LottieView } from './LottieView';
 export * from './NumberInput';
 export * from './OverlayContainer';
 export * from './Provider/hooks';
-export * from './HeaderTabViewContainer';
 export * from './Svg';
 export { default as Skeleton, CustomSkeleton } from './Skeleton';
 

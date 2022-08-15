@@ -2,11 +2,11 @@ import React, { ComponentProps, useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { FlatListProps } from 'react-native';
 
 import {
   Divider,
   FlatList,
-  ScrollableFlatListProps,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -112,7 +112,7 @@ function AssetsList({
     }, [account, network]),
   );
 
-  const renderListItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
+  const renderListItem: FlatListProps<TokenType>['renderItem'] = ({
     item,
     index,
   }) => (
