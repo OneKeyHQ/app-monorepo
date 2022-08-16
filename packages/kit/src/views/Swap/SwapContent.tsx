@@ -145,7 +145,9 @@ const SwapContent = () => {
           containerProps={{ pt: '0' }}
           isDisabled={loading && independentField === 'INPUT'}
         />
-        {isDisabled ? <Box w="full" h="full" position="absolute" /> : null}
+        {isDisabled ? (
+          <Box w="full" h="full" position="absolute" zIndex={1} />
+        ) : null}
       </Box>
     </Box>
   );

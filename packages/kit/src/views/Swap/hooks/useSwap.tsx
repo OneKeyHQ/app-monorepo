@@ -223,7 +223,6 @@ export const useSwapQuoteCallback = function (
         refs.current.params === params
       ) {
         backgroundApiProxy.dispatch(setLoading(false));
-        console.log('res', res);
         if (res) {
           if (res.data) {
             backgroundApiProxy.serviceSwap.setQuote(res.data);
