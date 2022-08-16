@@ -756,7 +756,7 @@
   "form__your_request": "您的工單",
   "history__queue": "隊列",
   "loading__confirming": "確認",
-  "message__not_support_passphrase_yet": "抱歉，暫不支持 passphrase 錢包創建",
+  "message__not_support_passphrase_yet": "抱歉，暫不支持 passphrase 錢包創建，請關閉 passphrase 後重試",
   "modal__add_wallet": "添加錢包",
   "modal__add_wallet_desc": "您的 WEB3 之旅由此開啟",
   "modal__attention": "注意",

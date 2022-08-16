@@ -756,7 +756,7 @@
   "form__your_request": "Your Request",
   "history__queue": "Queue",
   "loading__confirming": "Confirming",
-  "message__not_support_passphrase_yet": "Sorry, passphrase wallet is not supported yet",
+  "message__not_support_passphrase_yet": "Sorry, passphrase wallet is not supported yet, please close passphrase and try again",
   "modal__add_wallet": "Add Wallet",
   "modal__add_wallet_desc": "Start your Web3 journey from here.",
   "modal__attention": "Attention",
