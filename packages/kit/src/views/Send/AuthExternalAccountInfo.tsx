@@ -68,11 +68,10 @@ const AuthExternalAccountInfo = React.memo(
     return (
       <VStack flex={1}>
         <HStack alignItems="center">
+          <Spinner />
           <Text typography="PageHeading">
             {intl.formatMessage({ id: 'content__you_are_going_to_connect' })}
           </Text>
-          <Box w={2} />
-          <Spinner />
         </HStack>
 
         <HStack mt={6} mb={8} alignItems="center">

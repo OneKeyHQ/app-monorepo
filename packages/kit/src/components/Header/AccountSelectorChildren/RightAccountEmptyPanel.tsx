@@ -2,14 +2,13 @@ import React, { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Center, Image, Text } from '@onekeyhq/components';
+import { Center, Icon, Text } from '@onekeyhq/components';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
   Wallet,
 } from '@onekeyhq/engine/src/types/wallet';
-import imgEmptyPointer from '@onekeyhq/kit/assets/accountSelector/empty_pointer.png';
 
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
@@ -71,14 +70,18 @@ export function RightAccountEmptyPanel({
 
   return (
     <Center flex={1} px={4} py={8}>
-      <Text fontSize={48} textAlign="center">
+      <Text fontSize={48} lineHeight={48} textAlign="center">
         {emptyInfo.title}
       </Text>
       <Text my={6} typography="DisplaySmall" textAlign="center">
         {emptyInfo.desc}
       </Text>
       {isCreateAccountSupported ? (
-        <Image source={imgEmptyPointer} w="25px" h="45px" />
+        <Icon
+          name="ArrowBottomLeftIllus"
+          size={62}
+          color="interactive-default"
+        />
       ) : null}
     </Center>
   );
