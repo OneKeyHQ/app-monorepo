@@ -35,7 +35,8 @@ import {
   IMPL_BTC,
   IMPL_EVM,
   IMPL_NEAR,
-  getSupportedImpls, NETWORK_ID_EVM_ETH,
+  NETWORK_ID_EVM_ETH,
+  getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
 import {

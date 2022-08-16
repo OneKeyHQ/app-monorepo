@@ -16,7 +16,6 @@ import {
   useCreateAccountInWallet,
 } from './RightAccountCreateButton';
 import { AccountGroup } from './RightAccountSection/ItemSection';
-import { AllNetwork } from './RightChainSelector';
 
 export type IRightAccountEmptyPanelProps = {
   activeAccounts: AccountGroup[];

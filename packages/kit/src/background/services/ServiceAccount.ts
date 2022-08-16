@@ -1,5 +1,6 @@
 import { find, flatten } from 'lodash';
 
+import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
 import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
@@ -32,7 +33,6 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
-import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
