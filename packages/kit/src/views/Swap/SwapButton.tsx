@@ -107,8 +107,7 @@ const SwapButton = () => {
 
   const showApproveFlow =
     approveState === ApprovalState.NOT_APPROVED ||
-    approveState === ApprovalState.PENDING ||
-    (approvalSubmitted && approveState === ApprovalState.APPROVED);
+    approveState === ApprovalState.PENDING;
 
   let approveButtonText = intl.formatMessage({ id: 'title__approve' });
   if (approveState === ApprovalState.PENDING) {
@@ -401,10 +400,10 @@ const SwapButton = () => {
           size="xl"
           type="primary"
           flex="1"
-          isLoading={approveState === ApprovalState.PENDING}
-          isDisabled={
-            approveState !== ApprovalState.NOT_APPROVED || approvalSubmitted
+          isLoading={
+            approveState === ApprovalState.PENDING || approvalSubmitted
           }
+          isDisabled={approveState !== ApprovalState.NOT_APPROVED}
           onPress={onApprove}
         >
           {approveButtonText}
@@ -415,7 +414,7 @@ const SwapButton = () => {
           flex="1"
           type="primary"
           onPromise={onSubmit}
-          isDisabled={approveState !== ApprovalState.APPROVED}
+          isDisabled
         >
           {intl.formatMessage({ id: 'title__swap' })}
         </Button>
