@@ -32,7 +32,7 @@ export class TokenAmount {
   }
 
   toFormat() {
-    return this.toNumber().toFixed();
+    return this.toNumber().toFixed(0);
   }
 }
 
