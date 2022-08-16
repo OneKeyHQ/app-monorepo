@@ -39,16 +39,21 @@ const RightChainSelector: FC<Props> = ({
     const availableNetworks =
       activeWallet === null
         ? enabledNetworks
-        : enabledNetworks.filter(({ settings }) => {
+        : // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          enabledNetworks.filter(({ settings }) => {
             switch (activeWallet.type) {
               case 'hw':
-                return settings.hardwareAccountEnabled;
+                return true;
+              // return settings.hardwareAccountEnabled;
               case 'imported':
-                return settings.importedAccountEnabled;
+                return true;
+              // return settings.importedAccountEnabled;
               case 'watching':
-                return settings.watchingAccountEnabled;
+                return true;
+              // return settings.watchingAccountEnabled;
               case 'external':
-                return settings.externalAccountEnabled;
+                return true;
+              // return settings.externalAccountEnabled;
               default:
                 return true; // HD accounts are always supported.
             }

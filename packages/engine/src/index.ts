@@ -35,7 +35,7 @@ import {
   IMPL_BTC,
   IMPL_EVM,
   IMPL_NEAR,
-  getSupportedImpls,
+  getSupportedImpls, NETWORK_ID_EVM_ETH,
 } from './constants';
 import { DbApi } from './dbs';
 import {
@@ -445,7 +445,7 @@ class Engine {
     // Add BTC & ETH accounts by default.
     try {
       await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
-      await this.addHdOrHwAccounts('', wallet.id, 'evm--1');
+      await this.addHdOrHwAccounts('', wallet.id, NETWORK_ID_EVM_ETH);
     } catch (e) {
       await this.removeWallet(wallet.id, '');
       if (e instanceof OneKeyHardwareError) throw e;
@@ -654,7 +654,7 @@ class Engine {
     const { coinType } = await this.dbApi.getAccount(accountId);
     // TODO: need a method to get default network from coinType.
     const networkId = {
-      '60': 'evm--1',
+      '60': NETWORK_ID_EVM_ETH,
       '503': 'cfx--1029',
       '397': 'near--0',
       '0': 'btc--0',

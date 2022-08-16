@@ -21,6 +21,8 @@ const COINTYPE_CFX = '503';
 const IMPL_BTC = 'btc';
 const COINTYPE_BTC = '0';
 
+export const NETWORK_ID_EVM_ETH = 'evm--1';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,

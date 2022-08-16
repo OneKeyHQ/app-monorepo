@@ -51,7 +51,7 @@ export function RightAccountEmptyPanel({
     return undefined;
   }, [activeWallet?.type, intl]);
 
-  if (selectedNetworkId === AllNetwork) return null;
+  // if (selectedNetworkId === AllNetwork) return null;
   if (!emptyInfo) return null;
 
   return (

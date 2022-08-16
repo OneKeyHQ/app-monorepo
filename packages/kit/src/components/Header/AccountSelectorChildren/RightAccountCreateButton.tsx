@@ -3,6 +3,7 @@ import React, { FC, memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
+import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
@@ -74,19 +75,25 @@ export function useCreateAccountInWallet({
       });
     };
 
-    if (activeWallet?.type === 'external' && network?.id) {
-      if (!vaultSettings?.externalAccountEnabled) {
+    if (activeWallet?.type === 'external') {
+      if (network?.id && !vaultSettings?.externalAccountEnabled) {
         showNotSupportToast();
         return;
       }
 
+      let isConnected = false;
       try {
         const result = await connectToWallet({
           isNewSession: true,
         });
+        isConnected = true;
 
         // refresh accounts in drawer list
-        onLoadingAccount?.(activeWallet.id, network?.id, false);
+        onLoadingAccount?.(
+          activeWallet.id,
+          network?.id || NETWORK_ID_EVM_ETH,
+          false,
+        );
 
         await addExternalAccount(result);
       } catch (error) {
@@ -94,13 +101,19 @@ export function useCreateAccountInWallet({
       } finally {
         await wait(2000);
 
-        // refresh accounts in drawer list after created
-        onLoadingAccount?.(activeWallet.id, network?.id, true);
+        if (isConnected) {
+          // refresh accounts in drawer list after created
+          onLoadingAccount?.(
+            activeWallet.id,
+            network?.id || NETWORK_ID_EVM_ETH,
+            true,
+          );
+        }
       }
       return;
     }
     if (activeWallet?.type === 'imported') {
-      if (!vaultSettings?.importedAccountEnabled) {
+      if (network?.id && !vaultSettings?.importedAccountEnabled) {
         showNotSupportToast();
         return;
       }
@@ -113,7 +126,7 @@ export function useCreateAccountInWallet({
       });
     }
     if (activeWallet?.type === 'watching') {
-      if (!vaultSettings?.watchingAccountEnabled) {
+      if (network?.id && !vaultSettings?.watchingAccountEnabled) {
         showNotSupportToast();
         return;
       }
@@ -166,7 +179,9 @@ const RightAccountCreateButton: FC<Props> = ({
     walletId: activeWallet?.id,
     onLoadingAccount,
   });
-  if (selectedNetworkId === AllNetwork) return null;
+
+  // const isDisabled = selectedNetworkId === AllNetwork
+  // if (selectedNetworkId === AllNetwork) return null;
 
   return (
     <>
@@ -174,7 +189,6 @@ const RightAccountCreateButton: FC<Props> = ({
         testID="AccountSelectorChildren-RightAccountCreateButton"
         leftIconName="UserAddSolid"
         size="xl"
-        isDisabled={selectedNetworkId === AllNetwork}
         isLoading={isLoading}
         onPress={async () => {
           if (!activeWallet || isLoading) return;

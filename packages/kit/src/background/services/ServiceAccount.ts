@@ -32,6 +32,7 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -363,7 +364,7 @@ class ServiceAccount extends ServiceBase {
     );
     // fallback to ETH if network not enabled or exists
     if (!isNetworkEnabled) {
-      networkId = 'evm--1';
+      networkId = NETWORK_ID_EVM_ETH;
     }
 
     const { engine } = this.backgroundApi;
