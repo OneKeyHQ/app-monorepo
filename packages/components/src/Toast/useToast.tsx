@@ -12,7 +12,10 @@ const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
     toastHolder = null;
   }
 
-  toastHolder = new RootSiblingsManager(<CustomToast bottomOffset={60} />);
+  setTimeout(() => {
+    toastHolder = new RootSiblingsManager(<CustomToast bottomOffset={60} />);
+  });
+
   /**
    * Show Toast at next process, avoid toast in modal dismiss issue.
    *
