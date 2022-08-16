@@ -173,7 +173,7 @@ android {
         vectorDrawables.useSupportLibrary = true
         manifestPlaceholders = [
           OTAUpdatesEnable: false,
-          JPUSH_APPKEY: "$JPUSH_KEY",
+          JPUSH_APPKEY: "JPUSH_KEY",
           JPUSH_CHANNEL: "dev"
         ]
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()

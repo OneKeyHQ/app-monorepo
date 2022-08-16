@@ -24,7 +24,7 @@
 {
   // 添加开始
   // JPush初始化配置
-  [JPUSHService setupWithOption:launchOptions appKey:@"$JPUSH_KEY"
+  [JPUSHService setupWithOption:launchOptions appKey:@"JPUSH_KEY"
                         channel:@"dev" apsForProduction:NO];
   // APNS
   JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];

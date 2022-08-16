@@ -160,7 +160,7 @@ const NavigationApp = () => {
 
   const initJpush = useCallback(() => {
     const config = {
-      'appKey': '$JPUSH_KEY',
+      'appKey': 'JPUSH_KEY',
       'titchannelle': 'dev',
       'production': false,
     };
@@ -226,7 +226,7 @@ const NavigationApp = () => {
     }
     jpushInitRef.current = true;
     initJpush();
-  }, [initJpush, accountId, networkId, pushNotification.pushEnable]);
+  }, [initJpush, accountId, networkId, pushNotification?.pushEnable]);
 
   return (
     <NavigationContainer
