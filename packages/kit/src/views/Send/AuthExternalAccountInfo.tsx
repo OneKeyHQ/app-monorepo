@@ -69,8 +69,8 @@ const AuthExternalAccountInfo = React.memo(
       <VStack flex={1}>
         <HStack alignItems="center">
           <Spinner />
-          <Text typography="PageHeading">
-            {intl.formatMessage({ id: 'content__you_are_going_to_connect' })}
+          <Text typography="PageHeading" ml={3}>
+            {intl.formatMessage({ id: 'content__connecting' })}...
           </Text>
         </HStack>
 
@@ -100,7 +100,6 @@ const AuthExternalAccountInfo = React.memo(
         {retryVisible ? (
           <Button
             size="xl"
-            type="destructive"
             onPress={async () => {
               // TODO confirm and hint
 
