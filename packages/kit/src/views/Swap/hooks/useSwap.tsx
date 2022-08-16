@@ -10,7 +10,11 @@ import {
   useAppSelector,
   useDebounce,
 } from '../../../hooks';
-import { setError, setLoading, setQuote } from '../../../store/reducers/swap';
+import {
+  setError,
+  setLoading,
+  setQuoteLimited,
+} from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
 import { enabledChainIds } from '../config';
 import { SwapQuoter } from '../quoter';
@@ -200,7 +204,7 @@ export const useSwapQuoteCallback = function (
 
   const onSwapQuote = useCallback(async () => {
     if (!params) {
-      backgroundApiProxy.dispatch(setQuote(undefined));
+      backgroundApiProxy.serviceSwap.setQuote(undefined);
       return;
     }
     if (showLoading) {
@@ -212,15 +216,18 @@ export const useSwapQuoteCallback = function (
       refs.current.networkId = networkId;
       refs.current.params = params;
       refs.current.count += 1;
-      const data = await SwapQuoter.client.fetchQuote(params);
+      const res = await SwapQuoter.client.fetchQuote(params);
       if (
         refs.current.accountId === accountId &&
         refs.current.networkId === networkId &&
         refs.current.params === params
       ) {
         backgroundApiProxy.dispatch(setLoading(false));
-        if (data) {
-          backgroundApiProxy.dispatch(setQuote(data));
+        if (res) {
+          if (res.data) {
+            backgroundApiProxy.serviceSwap.setQuote(res.data);
+          }
+          backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
         } else {
           backgroundApiProxy.dispatch(setError(SwapError.NotSupport));
         }
@@ -366,24 +373,25 @@ export function useDerivedSwapState() {
 
 export function useInputLimitsError(): Error | undefined {
   const intl = useIntl();
-  const { inputToken, quote } = useSwapState();
+  const { inputToken, quoteLimited } = useSwapState();
   const { inputAmount } = useDerivedSwapState();
+  const maxAmount = useTokenAmount(inputToken, quoteLimited?.max);
+  const minAmount = useTokenAmount(inputToken, quoteLimited?.min);
   return useMemo(() => {
     let message: string | undefined;
-    if (inputAmount && quote && inputToken) {
-      const { max, min } = quote?.limited ?? {};
-      if (min) {
-        const tokenAmount = new TokenAmount(inputToken, min);
-        if (tokenAmount.amount.gt(inputAmount.amount)) {
+    if (inputAmount && inputToken && (maxAmount || minAmount)) {
+      if (minAmount) {
+        const min = minAmount.typedValue;
+        if (minAmount.amount.gt(inputAmount.amount)) {
           message = intl.formatMessage(
             { id: 'msg__str_minimum_amount' },
             { '0': `${min} ${inputToken.symbol}` },
           );
         }
       }
-      if (max) {
-        const tokenAmount = new TokenAmount(inputToken, max);
-        if (tokenAmount.amount.lt(inputAmount.amount)) {
+      if (maxAmount) {
+        const max = maxAmount.typedValue;
+        if (maxAmount.amount.lt(inputAmount.amount)) {
           message = intl.formatMessage(
             { id: 'msg__str_maximum_amount' },
             { '0': `${max} ${inputToken.symbol}` },
@@ -392,7 +400,7 @@ export function useInputLimitsError(): Error | undefined {
       }
     }
     return message ? new Error(message) : undefined;
-  }, [inputAmount, inputToken, quote, intl]);
+  }, [inputAmount, inputToken, maxAmount, minAmount, intl]);
 }
 
 export function useSwftcTokens(

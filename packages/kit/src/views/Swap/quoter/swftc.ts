@@ -10,6 +10,7 @@ import {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
+  FetchQuoteResponse,
   QuoteData,
   Quoter,
   QuoterType,
@@ -19,6 +20,7 @@ import {
   TransactionProgress,
 } from '../typings';
 import {
+  TokenAmount,
   div,
   getChainIdFromNetwork,
   getEvmTokenAddress,
@@ -317,17 +319,15 @@ export class SwftcQuoter implements Quoter {
     }
   }
 
-  async fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined> {
+  async fetchQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
     const { independentField, tokenIn, typedValue, tokenOut } = params;
     const data = await this.fetchSwftcQuote(params);
     if (data) {
       const result: QuoteData = {
         type: this.type,
         instantRate: data.rate.instantRate,
-        limited: {
-          max: data.rate.depositMax,
-          min: data.rate.depositMin,
-        },
         sellTokenAddress: getEvmTokenAddress(tokenIn),
         buyTokenAddress: getEvmTokenAddress(tokenOut),
         providers: [
@@ -363,7 +363,21 @@ export class SwftcQuoter implements Quoter {
           ),
         );
       }
-      return result;
+      const tokenMaxAmountBN = new TokenAmount(
+        tokenIn,
+        data.rate.depositMax,
+      ).toNumber();
+      const tokenMinAmountBN = new TokenAmount(
+        tokenIn,
+        data.rate.depositMin,
+      ).toNumber();
+      return {
+        data: result,
+        limited: {
+          max: tokenMaxAmountBN.toFixed(),
+          min: tokenMinAmountBN.toFixed(),
+        },
+      };
     }
   }
 

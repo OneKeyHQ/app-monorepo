@@ -8,6 +8,7 @@ import {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
+  FetchQuoteResponse,
   QuoteData,
   Quoter,
   QuoterType,
@@ -94,7 +95,7 @@ export class SimpleQuoter implements Quoter {
 
   async fetchQuote(
     quoteParams: FetchQuoteParams,
-  ): Promise<QuoteData | undefined> {
+  ): Promise<FetchQuoteResponse | undefined> {
     const {
       networkIn,
       networkOut,
@@ -156,7 +157,7 @@ export class SimpleQuoter implements Quoter {
     } else {
       result.instantRate = div(1, data.price);
     }
-    return result;
+    return { data: result };
   }
 
   async buildTransaction(

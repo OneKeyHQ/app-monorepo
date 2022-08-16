@@ -23,12 +23,18 @@ const TransactionsUpdater = () => {
 };
 
 const QuoteUpdater = () => {
-  const { quoteTime, error } = useSwapState();
+  const { quoteTime, error, quoteLimited } = useSwapState();
   const ref = useRef<boolean>(false);
   const onSwapQuote = useSwapQuoteCallback();
   const onInterval = useCallback(async () => {
     const now = Date.now();
-    if (!error && !ref.current && quoteTime && now - quoteTime >= 14 * 1000) {
+    if (
+      !quoteLimited &&
+      !error &&
+      !ref.current &&
+      quoteTime &&
+      now - quoteTime >= 14 * 1000
+    ) {
       ref.current = true;
       try {
         await onSwapQuote();
@@ -36,7 +42,7 @@ const QuoteUpdater = () => {
         ref.current = false;
       }
     }
-  }, [onSwapQuote, quoteTime, error]);
+  }, [onSwapQuote, quoteTime, quoteLimited, error]);
 
   useInterval(onInterval, 1000);
 

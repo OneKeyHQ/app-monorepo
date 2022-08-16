@@ -11,12 +11,13 @@ import {
   setInputToken,
   setOutputToken,
   setQuote,
+  setQuoteTime,
   setSelectedNetworkId,
   setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
 import { clearAccountTransactions } from '../../store/reducers/swapTransactions';
-import { FieldType } from '../../views/Swap/typings';
+import { FieldType, QuoteData } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -140,5 +141,16 @@ export default class ServiceSwap extends ServiceBase {
   async clearAccountTransactions(accountId: string) {
     const { dispatch } = this.backgroundApi;
     dispatch(clearAccountTransactions({ accountId }));
+  }
+
+  @backgroundMethod()
+  async setQuote(data?: QuoteData) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setQuote(data));
+    if (data) {
+      dispatch(setQuoteTime(Date.now()));
+    } else {
+      dispatch(setQuoteTime(undefined));
+    }
   }
 }

@@ -1,6 +1,7 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -8,7 +9,7 @@ import {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
-  QuoteData,
+  FetchQuoteResponse,
   Quoter,
   QuoterType,
   TransactionData,
@@ -17,6 +18,7 @@ import {
   TransactionStatus,
 } from '../typings';
 import {
+  calculateRange,
   getChainIdFromNetwork,
   getChainIdFromNetworkId,
   getEvmTokenAddress,
@@ -41,12 +43,25 @@ export interface SocketRoute {
   recipient: string;
   usedBridgeNames: string[];
 }
+
+export type SocketRouteStatus =
+  | 'INSUFFICIENT_LIQUIDITY'
+  | 'BRIDGE_QUOTE_TIMEOUT'
+  | 'MIN_AMOUNT_NOT_MET'
+  | 'MAX_AMOUNT_EXCEEDED';
+
+export interface SocketRouteError {
+  status: SocketRouteStatus;
+  minAmount?: string;
+  maxAmount?: string;
+}
 export interface SocketQuoteResponse {
   fromChainId: number;
   toChainId: number;
   fromAsset: SocketAsset;
   toAsset: SocketAsset;
   routes: SocketRoute[];
+  bridgeRouteErrors?: Record<string, SocketRouteError>;
 }
 
 export interface SocketBuildTransactionResponse {
@@ -83,8 +98,7 @@ export interface SocketBridgeStatusResponse {
   };
 }
 
-const baseURL = 'https://api.socket.tech/v2';
-const API_KEY = '055646f8-d9f6-41b6-9bae-8633e690f1e6';
+const baseURL = `${getFiatEndpoint()}/socketBridge`;
 
 function calculateRate(
   inDecimals: number,
@@ -127,9 +141,6 @@ export class SocketQuoter implements Quoter {
   constructor() {
     this.client = axios.create({
       timeout: 30 * 1000,
-      headers: {
-        'API-KEY': API_KEY,
-      },
     });
   }
 
@@ -203,7 +214,9 @@ export class SocketQuoter implements Quoter {
     return data;
   }
 
-  async fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined> {
+  async fetchQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
     const url = `${baseURL}/quote`;
     if (params.independentField === 'OUTPUT') {
       return undefined;
@@ -230,6 +243,7 @@ export class SocketQuoter implements Quoter {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const data = res?.data?.result as SocketQuoteResponse | undefined;
+
     if (data && data.routes.length > 0) {
       const route = data.routes[0];
       const sellAmount = route.fromAmount;
@@ -268,7 +282,7 @@ export class SocketQuoter implements Quoter {
         name,
         logoUrl: bridgeIcons[index],
       }));
-      return {
+      const result = {
         type: this.type,
         sellAmount,
         sellTokenAddress,
@@ -281,8 +295,18 @@ export class SocketQuoter implements Quoter {
         providers,
         txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
       };
+      return { data: result };
     }
-    return undefined;
+    const bridgeRouteErrors = data?.bridgeRouteErrors;
+    if (bridgeRouteErrors) {
+      const errors = Object.values(bridgeRouteErrors);
+      const items = errors
+        .filter((e) => e.maxAmount || e.minAmount)
+        .map((err) => ({ max: err.maxAmount, min: err.minAmount }));
+      if (items.length > 0) {
+        return { limited: calculateRange(items) };
+      }
+    }
   }
 
   async buildTransaction(
@@ -293,9 +317,12 @@ export class SocketQuoter implements Quoter {
       return { data: txData, attachment: txAttachment };
     }
     const data = await this.fetchQuote(params);
-    if (data?.txData) {
-      return { data: data.txData, attachment: data.txAttachment };
+    if (data?.data) {
+      if (data?.data?.txData) {
+        return { data: data?.data.txData, attachment: data?.data.txAttachment };
+      }
     }
+
     return undefined;
   }
 

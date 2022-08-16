@@ -8,6 +8,7 @@ import {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
+  FetchQuoteResponse,
   Provider,
   QuoteData,
   Quoter,
@@ -88,7 +89,7 @@ export class MdexQuoter implements Quoter {
 
   async fetchQuote(
     quoteParams: FetchQuoteParams,
-  ): Promise<QuoteData | undefined> {
+  ): Promise<FetchQuoteResponse | undefined> {
     const {
       networkIn,
       networkOut,
@@ -150,7 +151,7 @@ export class MdexQuoter implements Quoter {
     } else {
       result.instantRate = div(1, data.price);
     }
-    return result;
+    return { data: result };
   }
 
   async buildTransaction(

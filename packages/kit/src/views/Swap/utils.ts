@@ -32,7 +32,7 @@ export class TokenAmount {
   }
 
   toFormat() {
-    return this.toNumber().toFixed();
+    return this.toNumber().toFixed(0);
   }
 }
 
@@ -150,4 +150,20 @@ export function isNoCharge(type?: QuoterType): boolean {
   if (!type) return false;
   const list: QuoterType[] = [QuoterType.mdex, QuoterType.socket];
   return list.includes(type);
+}
+
+export function calculateRange(
+  values: { max?: BigNumber.Value; min?: BigNumber.Value }[],
+): {
+  max?: string;
+  min?: string;
+} {
+  const maxValues = values.map((item) => item.max).filter(Boolean);
+  const minValues = values.map((item) => item.min).filter(Boolean);
+  return {
+    max:
+      maxValues.length > 0 ? BigNumber.max(...maxValues).toFixed() : undefined,
+    min:
+      minValues.length > 0 ? BigNumber.min(...minValues).toFixed() : undefined,
+  };
 }
