@@ -62,6 +62,9 @@ const AccountSelectorTrigger: FC<Props> = ({
           setNotificationColor('icon-warning');
         }
       });
+    } else {
+      setHasNotification(false);
+      setNotificationColor(undefined);
     }
   }, [connected, deviceUpdates, engine, wallet]);
 
