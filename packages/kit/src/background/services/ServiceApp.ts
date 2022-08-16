@@ -1,6 +1,7 @@
 import RNRestart from 'react-native-restart';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { switchTestEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -177,7 +178,15 @@ class ServiceApp extends ServiceBase {
    */
   @backgroundMethod()
   async initApp() {
-    const { dispatch, serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { dispatch, serviceAccount, serviceNetwork, appSelector } =
+      this.backgroundApi;
+
+    const enableTestFiatEndpoint =
+      appSelector(
+        (s) => s?.settings?.devMode?.enableTestFiatEndpoint ?? false,
+      ) ?? false;
+    switchTestEndpoint(enableTestFiatEndpoint);
+
     await this.initPassword();
     await this.initLocalAuthentication();
     await this.checkLockStatus();

@@ -1,11 +1,10 @@
-import { appSelector } from '@onekeyhq/kit/src/store';
+const DEFAULT_ONLINE_ENDPOINT = 'https://fiat.onekeycn.com';
+const TEST_ENDPOINT = 'https://fiat.onekeytest.com';
 
-export const getFiatEndpoint = () => {
-  const enableTestFiatEndpoint = appSelector(
-    (s) => s?.settings?.devMode?.enableTestFiatEndpoint ?? false,
-  );
+let endpoint = DEFAULT_ONLINE_ENDPOINT;
 
-  return enableTestFiatEndpoint
-    ? 'https://fiat.onekeytest.com'
-    : 'https://fiat.onekeycn.com';
+export const switchTestEndpoint = (isTestEnable?: boolean) => {
+  endpoint = isTestEnable ? TEST_ENDPOINT : DEFAULT_ONLINE_ENDPOINT;
 };
+
+export const getFiatEndpoint = () => endpoint;

@@ -18,11 +18,15 @@ const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
 const AppLoading: FC = ({ children }) => {
   const [initDataReady, setInitDataReady] = useState(false);
-  useSWR('fiat-money', () => serviceCronJob.getFiatMoney(), {
-    refreshInterval: 5 * 60 * 1000,
-  });
+  useSWR(
+    initDataReady ? 'fiat-money' : null,
+    () => serviceCronJob.getFiatMoney(),
+    {
+      refreshInterval: 5 * 60 * 1000,
+    },
+  );
 
-  useSWR('currencies', fetchCurrencies);
+  useSWR(initDataReady ? 'currencies' : null, fetchCurrencies);
 
   const initService = async () => {
     try {
