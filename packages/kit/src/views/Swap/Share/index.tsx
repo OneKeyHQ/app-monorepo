@@ -29,7 +29,7 @@ const Share = () => {
   const navigation = useNavigation();
   const { accountId } = useActiveWalletAccount();
   const transactions = useAllTransactions(accountId);
-  const tx = transactions.filter((s) => s.hash === route.params.txid)[0];
+  const tx = transactions.find((s) => s.hash === route.params.txid);
 
   useEffect(() => {
     async function onCapture() {
@@ -71,6 +71,10 @@ const Share = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (!tx) {
+    return null;
+  }
 
   return (
     <Modal footer={null} staticChildrenProps={{}}>

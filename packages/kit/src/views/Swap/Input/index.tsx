@@ -1,10 +1,13 @@
 import React, { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useNavigation,
+} from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
-import { NetworkSelectorContext } from '../components/TokenSelector/context';
+import { TokenSelectorContext } from '../components/TokenSelector/context';
 import { useSwapState } from '../hooks/useSwap';
 import { getChainIdFromNetworkId } from '../utils';
 
@@ -12,11 +15,12 @@ import type { Token } from '../../../store/typings';
 
 const Input = () => {
   const navigation = useNavigation();
+  const { network } = useActiveWalletAccount();
   const { outputToken } = useSwapState();
-  const { networkId } = useActiveWalletAccount();
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
+  const sendingNetworkId = useAppSelector((s) => s.swap.sendingNetworkId);
   const onSelect = useCallback(
     (token: Token) => {
       backgroundApiProxy.serviceSwap.setInputToken(token);
@@ -26,26 +30,35 @@ const Input = () => {
   );
 
   const included = useMemo(() => {
-    if (outputToken && outputToken.networkId !== networkId) {
-      const chainId = getChainIdFromNetworkId(networkId);
+    if (
+      outputToken &&
+      sendingNetworkId &&
+      sendingNetworkId !== outputToken.networkId
+    ) {
+      const chainId = getChainIdFromNetworkId(sendingNetworkId);
       return swftcSupportedTokens[chainId];
     }
     return undefined;
-  }, [outputToken, networkId, swftcSupportedTokens]);
+  }, [sendingNetworkId, swftcSupportedTokens, outputToken]);
+
+  const onSelectNetworkId = useCallback((networkid?: string) => {
+    backgroundApiProxy.serviceSwap.setSendingNetworkId(networkid);
+  }, []);
 
   const value = useMemo(
     () => ({
-      showNetworkSelector: false,
-      networkId,
+      impl: network?.impl,
+      networkId: sendingNetworkId,
+      setNetworkId: onSelectNetworkId,
       selectedToken: outputToken,
     }),
-    [networkId, outputToken],
+    [outputToken, sendingNetworkId, onSelectNetworkId, network?.impl],
   );
 
   return (
-    <NetworkSelectorContext.Provider value={value}>
+    <TokenSelectorContext.Provider value={value}>
       <TokenSelector included={included} onSelect={onSelect} />
-    </NetworkSelectorContext.Provider>
+    </TokenSelectorContext.Provider>
   );
 };
 

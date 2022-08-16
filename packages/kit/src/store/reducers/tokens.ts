@@ -22,14 +22,18 @@ export type TokenInitialState = {
     NetworkId,
     Record<AccountId, Record<TokenId, TokenBalanceValue>>
   >;
+  nativeTokens?: Record<NetworkId, Token>;
+  enabledNativeTokens?: Token[];
 };
 
 const initialState: TokenInitialState = {
   tokens: {},
+  nativeTokens: {},
   tokensPrice: {},
   accountTokens: {},
   accountTokensBalance: {},
   charts: {},
+  enabledNativeTokens: [] as Token[],
 } as const;
 
 type TokenPayloadAction = {
@@ -137,6 +141,19 @@ export const tokensSlice = createSlice({
         tokensBalance,
       );
     },
+    setNativeToken(
+      state,
+      action: PayloadAction<{ networkId: string; token: Token }>,
+    ) {
+      const { networkId, token } = action.payload;
+      if (!state.nativeTokens) {
+        state.nativeTokens = {};
+      }
+      state.nativeTokens[networkId] = token;
+    },
+    setEnabledNativeTokens(state, action: PayloadAction<Token[]>) {
+      state.enabledNativeTokens = action.payload;
+    },
   },
 });
 
@@ -147,5 +164,7 @@ export const {
   setAccountTokens,
   setAccountTokensBalances,
   addAccountTokens,
+  setNativeToken,
+  setEnabledNativeTokens,
 } = tokensSlice.actions;
 export default tokensSlice.reducer;

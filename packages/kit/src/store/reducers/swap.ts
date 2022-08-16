@@ -12,14 +12,17 @@ type SwapState = {
   outputToken?: Token;
   typedValue: string;
   independentField: 'INPUT' | 'OUTPUT';
-  refreshRef: number;
   quote?: QuoteData;
   quoteLimited?: QuoteLimited;
   quoteTime?: number;
   loading: boolean;
   error?: SwapError;
-  selectedNetworkId?: string;
-  receivingAddress?: string;
+
+  recipient?: { address?: string; name?: string; networkId?: string };
+
+  receivingNetworkId?: string;
+  sendingNetworkId?: string;
+
   receivingName?: string;
   swftcSupportedTokens: Record<string, string[]>;
   approvalSubmitted?: boolean;
@@ -30,7 +33,6 @@ const initialState: SwapState = {
   outputToken: undefined,
   typedValue: '',
   independentField: 'INPUT',
-  refreshRef: 0,
   loading: false,
   swftcSupportedTokens: {},
 };
@@ -81,12 +83,12 @@ export const swapSlice = createSlice({
     clearState(state) {
       state.independentField = 'INPUT';
       state.typedValue = '';
-      state.receivingAddress = undefined;
       state.receivingName = undefined;
       state.quote = undefined;
       state.quoteTime = undefined;
       state.error = undefined;
       state.quoteLimited = undefined;
+      state.recipient = undefined;
     },
     resetState(state) {
       state.inputToken = undefined;
@@ -96,7 +98,7 @@ export const swapSlice = createSlice({
       state.independentField = 'INPUT';
 
       state.typedValue = '';
-      state.receivingAddress = undefined;
+      state.recipient = undefined;
       state.receivingName = undefined;
       state.quote = undefined;
       state.quoteTime = undefined;
@@ -119,15 +121,21 @@ export const swapSlice = createSlice({
     setError(state, action: PayloadAction<SwapError | undefined>) {
       state.error = action.payload;
     },
-    setSelectedNetworkId(state, action: PayloadAction<string | undefined>) {
-      state.selectedNetworkId = action.payload;
-    },
-    setReceiving(
+    setRecipient(
       state,
-      action: PayloadAction<{ address?: string; name?: string } | undefined>,
+      action: PayloadAction<{
+        address?: string;
+        name?: string;
+        networkId?: string;
+      }>,
     ) {
-      state.receivingAddress = action.payload?.address;
-      state.receivingName = action.payload?.name;
+      state.recipient = action.payload;
+    },
+    setReceivingNetworkId(state, action: PayloadAction<string | undefined>) {
+      state.receivingNetworkId = action.payload;
+    },
+    setSendingNetworkId(state, action: PayloadAction<string | undefined>) {
+      state.sendingNetworkId = action.payload;
     },
     setSwftcSupportedTokens(
       state,
@@ -151,13 +159,14 @@ export const {
   setQuoteLimited,
   setLoading,
   setError,
-  setSelectedNetworkId,
-  setReceiving,
   setSwftcSupportedTokens,
   setApprovalSubmitted,
   resetTypedValue,
   clearState,
   resetState,
+  setReceivingNetworkId,
+  setSendingNetworkId,
+  setRecipient,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

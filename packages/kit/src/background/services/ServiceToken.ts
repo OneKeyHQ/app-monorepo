@@ -9,6 +9,8 @@ import {
   setAccountTokens,
   setAccountTokensBalances,
   setCharts,
+  setEnabledNativeTokens,
+  setNativeToken,
   setPrices,
   setTokens,
 } from '../../store/reducers/tokens';
@@ -72,6 +74,52 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchTokensIfEmpty({
+    activeAccountId,
+    activeNetworkId,
+  }: {
+    activeAccountId: string;
+    activeNetworkId: string;
+  }) {
+    const { appSelector } = this.backgroundApi;
+    const tokens = appSelector((s) => s.tokens.tokens);
+    const networkTokens = tokens[activeNetworkId];
+    if (activeNetworkId && (!networkTokens || networkTokens.length === 0)) {
+      await this.fetchTokens({
+        activeAccountId,
+        activeNetworkId,
+        withBalance: true,
+        withPrice: true,
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async fetchAccountTokensIfEmpty({
+    activeAccountId,
+    activeNetworkId,
+  }: {
+    activeAccountId: string;
+    activeNetworkId: string;
+  }) {
+    const { appSelector } = this.backgroundApi;
+    const accountTokens = appSelector((s) => s.tokens.accountTokens);
+    const userTokens = accountTokens[activeNetworkId]?.[activeAccountId];
+    if (
+      activeAccountId &&
+      activeNetworkId &&
+      (!userTokens || userTokens.length === 0)
+    ) {
+      await this.fetchAccountTokens({
+        activeAccountId,
+        activeNetworkId,
+        withBalance: true,
+        withPrice: true,
+      });
+    }
+  }
+
+  @backgroundMethod()
   async fetchAccountTokens({
     activeAccountId,
     activeNetworkId,
@@ -88,6 +136,12 @@ export default class ServiceToken extends ServiceBase {
     const { engine, dispatch } = this.backgroundApi;
     const tokens = await engine.getTokens(activeNetworkId, activeAccountId);
     dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
+    const nativeToken = tokens.filter((item) => !item.tokenIdOnNetwork)[0];
+    if (nativeToken) {
+      dispatch(
+        setNativeToken({ networkId: activeNetworkId, token: nativeToken }),
+      );
+    }
     const waitPromises: Promise<any>[] = [];
     if (withBalance) {
       waitPromises.push(
@@ -230,9 +284,7 @@ export default class ServiceToken extends ServiceBase {
     }
     const accountTokens = appSelector((s) => s.tokens.accountTokens);
     const tokens = accountTokens[networkId]?.[accountId] ?? ([] as Token[]);
-    const isExists = tokens.filter(
-      (item) => item.tokenIdOnNetwork === address,
-    )[0];
+    const isExists = tokens.find((item) => item.tokenIdOnNetwork === address);
     if (isExists) {
       return;
     }
@@ -247,5 +299,45 @@ export default class ServiceToken extends ServiceBase {
       activeNetworkId: networkId,
     });
     return result;
+  }
+
+  @backgroundMethod()
+  async getNativeToken(networkId: string) {
+    const { appSelector, engine, dispatch } = this.backgroundApi;
+    const nativeTokens = appSelector((s) => s.tokens.nativeTokens) ?? {};
+    const target = nativeTokens?.[networkId];
+    if (target) {
+      return target;
+    }
+    const nativeTokenInfo = (await engine.getNativeTokenInfo(
+      networkId,
+    )) as Token;
+    dispatch(setNativeToken({ networkId, token: nativeTokenInfo }));
+    return nativeTokenInfo;
+  }
+
+  @backgroundMethod()
+  async getEnabledNativeTokens(options?: {
+    forceUpdate: boolean;
+  }): Promise<Token[]> {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const swappableNativeTokens = appSelector(
+      (s) => s.tokens.enabledNativeTokens,
+    );
+    if (
+      swappableNativeTokens &&
+      swappableNativeTokens.length > 0 &&
+      !options?.forceUpdate
+    ) {
+      return swappableNativeTokens;
+    }
+    const networks = appSelector((s) => s.runtime.networks);
+    const enabledNetworks = networks.filter(
+      (item) => !item.isTestnet && item.enabled,
+    );
+    const items = enabledNetworks.map((item) => this.getNativeToken(item.id));
+    const tokens = await Promise.all(items);
+    dispatch(setEnabledNativeTokens(tokens));
+    return tokens;
   }
 }
