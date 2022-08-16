@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
-import { Box, Center, Spinner } from '@onekeyhq/components';
+import { Box } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
@@ -52,34 +52,28 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     }
   }, [navigation, token, nativeToken, accountId, networkId]);
 
-  const headerView = network ? (
+  const headerView = (
     <>
-      <TokenInfo token={token} network={network} />
+      <TokenInfo token={token} />
       <PriceChart
         style={{
           marginBottom: 20,
         }}
-        platform={network.shortCode}
+        platform={network?.shortCode}
         contract={token?.tokenIdOnNetwork}
       />
     </>
-  ) : null;
+  );
 
   return (
     <Box bg="background-default" flex={1}>
       <Box flex={1} marginX="auto" w="100%" maxW={MAX_PAGE_CONTAINER_WIDTH}>
-        {headerView ? (
-          <TxHistoryListView
-            accountId={accountId}
-            networkId={networkId}
-            tokenId={tokenId}
-            headerView={headerView}
-          />
-        ) : (
-          <Center flex={1}>
-            <Spinner />
-          </Center>
-        )}
+        <TxHistoryListView
+          accountId={accountId}
+          networkId={networkId}
+          tokenId={tokenId}
+          headerView={headerView}
+        />
       </Box>
     </Box>
   );

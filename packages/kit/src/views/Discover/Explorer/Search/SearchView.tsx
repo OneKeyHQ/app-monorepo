@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { FlatListProps, useWindowDimensions } from 'react-native';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
@@ -21,7 +21,6 @@ import {
   OverlayContainer,
   PresenceTransition,
   Pressable,
-  ScrollableFlatListProps,
   Text,
   Typography,
 } from '@onekeyhq/components';
@@ -92,88 +91,85 @@ const SearchView: FC<SearchViewProps> = ({
     onSelectorItem?.(item);
   };
 
-  const renderItem: ScrollableFlatListProps<MatchDAppItemType>['renderItem'] =
-    ({ item, index }) => {
-      const {
-        favicon: dappFavicon,
-        chain,
-        name,
-        url: dappUrl,
-      } = item.dapp || {};
+  const renderItem: FlatListProps<MatchDAppItemType>['renderItem'] = ({
+    item,
+    index,
+  }) => {
+    const { favicon: dappFavicon, chain, name, url: dappUrl } = item.dapp || {};
 
-      const {
-        favicon: webSiteFavicon,
-        title,
-        url: webSiteUrl,
-      } = item.webSite || {};
+    const {
+      favicon: webSiteFavicon,
+      title,
+      url: webSiteUrl,
+    } = item.webSite || {};
 
-      const itemTitle = () => {
-        const itemName = name ?? title ?? 'Unknown';
-        if (itemName.length > 24) {
-          return `${itemName.slice(0, 24)}...`;
+    const itemTitle = () => {
+      const itemName = name ?? title ?? 'Unknown';
+      if (itemName.length > 24) {
+        return `${itemName.slice(0, 24)}...`;
+      }
+      return itemName;
+    };
+
+    return (
+      <Pressable.Item
+        focusable={selectItemIndex === index}
+        px={3}
+        py={2}
+        borderColor={
+          selectItemIndex === index
+            ? 'border-success-subdued'
+            : 'surface-default'
         }
-        return itemName;
-      };
-
-      return (
-        <Pressable.Item
-          focusable={selectItemIndex === index}
-          px={3}
-          py={2}
-          borderColor={
-            selectItemIndex === index
-              ? 'border-success-subdued'
-              : 'surface-default'
-          }
-          borderWidth={1}
-          borderRadius={12}
-          key={`${index}-${item.id}`}
-          onPress={() => {
-            onSelectHistory(item);
-          }}
-        >
-          <HStack space={3} w="100%" alignItems="center">
-            {(!!dappFavicon || item.dapp) && (
-              <DAppIcon size={24} favicon={dappFavicon ?? ''} chain={chain} />
-            )}
-            {(!!webSiteFavicon || item.webSite) && (
-              <Box
+        borderWidth={1}
+        borderRadius={12}
+        key={`${index}-${item.id}`}
+        onPress={() => {
+          onSelectHistory(item);
+        }}
+      >
+        <HStack space={3} w="100%" alignItems="center">
+          {(!!dappFavicon || item.dapp) && (
+            <DAppIcon size={24} favicon={dappFavicon ?? ''} chain={chain} />
+          )}
+          {(!!webSiteFavicon || item.webSite) && (
+            <Box
+              width="24px"
+              height="24px"
+              borderRadius="8px"
+              borderWidth="1px"
+              borderColor="border-subdued"
+            >
+              <Image
                 width="24px"
                 height="24px"
+                src={webSiteFavicon ?? ''}
+                source={{ uri: webSiteFavicon }}
                 borderRadius="8px"
                 borderWidth="1px"
                 borderColor="border-subdued"
-              >
-                <Image
-                  width="24px"
-                  height="24px"
-                  src={webSiteFavicon ?? ''}
-                  source={{ uri: webSiteFavicon }}
-                  borderRadius="8px"
-                  borderWidth="1px"
-                  borderColor="border-subdued"
-                  fallbackElement={
-                    <Center w="24px" h="24px">
-                      <Icon size={18} name="GlobeSolid" />
-                    </Center>
-                  }
-                />
-              </Box>
-            )}
+                fallbackElement={
+                  <Center w="24px" h="24px">
+                    <Icon size={18} name="GlobeSolid" />
+                  </Center>
+                }
+              />
+            </Box>
+          )}
 
-            <Text
-              flexWrap="wrap"
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            >
-              {itemTitle()}
-            </Text>
-            <Typography.Body2 flex={1} numberOfLines={1} color="text-subdued">
-              {dappUrl ?? webSiteUrl}
-            </Typography.Body2>
-          </HStack>
-        </Pressable.Item>
-      );
-    };
+          <Text
+            flexWrap="wrap"
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          >
+            {itemTitle()}
+          </Text>
+          <Typography.Body2 flex={1} numberOfLines={1} color="text-subdued">
+            {dappUrl ?? webSiteUrl}
+          </Typography.Body2>
+        </HStack>
+      </Pressable.Item>
+    );
+  };
 
   const win = useWindowDimensions();
 

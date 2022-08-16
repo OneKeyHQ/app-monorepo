@@ -1996,9 +1996,8 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<[Record<string, string>, Record<string, TokenChartData>]> {
-    // Get price info.
-    const ret: Record<string, string> = {};
+  ): Promise<[Record<string, BigNumber>, Record<string, TokenChartData>]> {
+    // Get price info
     const [prices, charts] = await this.priceManager.getPricesAndCharts(
       networkId,
       tokenIdsOnNetwork.filter(
@@ -2006,10 +2005,7 @@ class Engine {
       ),
       withMain,
     );
-    Object.keys(prices).forEach((k) => {
-      ret[k] = prices[k].toFixed();
-    });
-    return [ret, charts];
+    return [prices, charts];
   }
 
   @backgroundMethod()

@@ -11,12 +11,12 @@ import {
   HStack,
   IconButton,
   NetImage,
-  ScrollableFlatListProps,
   Typography,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
 
@@ -99,7 +99,7 @@ const CollectibleSectionList: FC<
   );
 
   const renderAssetItem = React.useCallback<
-    NonNullable<ScrollableFlatListProps<NFTAsset>['renderItem']>
+    NonNullable<FlatListProps<NFTAsset>['renderItem']>
   >(
     ({ item }) => (
       <CollectibleCard
@@ -159,7 +159,7 @@ const CollectibleFlatList: FC<
   CollectibleGalleryProps & { flatListProps: FlatListShareProps }
 > = ({ collectibles, onSelectCollection, flatListProps }) => {
   const renderCollectionItem = React.useCallback<
-    NonNullable<ScrollableFlatListProps<Collection>['renderItem']>
+    NonNullable<FlatListProps<Collection>['renderItem']>
   >(
     ({ item }) => (
       <CollectionCard

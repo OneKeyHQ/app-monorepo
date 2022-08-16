@@ -7,10 +7,11 @@ import useFormatDate from '../../hooks/useFormatDate';
 
 import { MarketApiData, OnHoverFunction } from './chartService';
 import ChartView from './ChartView';
+import SvgNoPriceData from './NoPriceData';
 import PriceLabel from './PriceLabel';
 
 type ChartWithLabelProps = {
-  data: MarketApiData[];
+  data: MarketApiData[] | null;
   children: React.ReactNode;
   isFetching: boolean;
 };
@@ -24,10 +25,12 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState(formatDate(new Date()));
   const isVerticalLayout = useIsVerticalLayout();
-  const basePrice = data.length ? data[0][1] : 0;
-  const latestPrice = data.length ? data[data.length - 1][1] : 0;
+  const basePrice = data?.length ? data[0][1] : 0;
+  const latestPrice = data?.length ? data[data.length - 1][1] : 0;
   let currentPrice;
-  if (price === 'undefined' || price === undefined) {
+  if (!data) {
+    currentPrice = null;
+  } else if (price === 'undefined' || price === undefined) {
     currentPrice = latestPrice;
   } else if (typeof price === 'string') {
     currentPrice = +price;
@@ -55,15 +58,18 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
   const priceLabel = (
     <PriceLabel price={currentPrice} time={time} basePrice={basePrice} />
   );
-  const chartView = (
+  const chartView = data ? (
     <ChartView
       isFetching={isFetching}
       height={isVerticalLayout ? 190 : 240}
       data={data}
       onHover={onHover}
     />
+  ) : (
+    <SvgNoPriceData width="100%" height="100%" preserveAspectRatio="none" />
   );
-  const chartViewWithSpinner = data.length ? chartView : <Spinner />;
+  const chartViewWithSpinner =
+    data && data.length === 0 ? <Spinner /> : chartView;
   return isVerticalLayout ? (
     <>
       {priceLabel}

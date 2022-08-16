@@ -9,7 +9,7 @@ export function calculateGains({
   price,
 }: {
   basePrice?: number;
-  price?: number;
+  price?: number | string | null;
 }) {
   let gainTextColor = 'text-subdued';
   let gainTextBg = 'surface-neutral-subdued';
@@ -23,7 +23,9 @@ export function calculateGains({
       gainTextBg,
     };
   }
-  const gain = price - basePrice;
+  const priceNum = typeof price === 'string' ? +price : price;
+
+  const gain = priceNum - basePrice;
   const isPositive = gain > 0;
   let percentageGain: number | string = basePrice
     ? (gain / basePrice) * 100
@@ -65,7 +67,7 @@ export function getTokenValues({
   balances,
 }: {
   tokens: (Token | undefined | null)[];
-  prices: Record<string, string | number>;
+  prices: Record<string, number | string | null | undefined>;
   balances: Record<string, TokenBalanceValue>;
 }) {
   return tokens.map((token) => {
@@ -86,7 +88,7 @@ export function getSummedValues({
   hideSmallBalance = false,
 }: {
   tokens: Token[];
-  prices: Record<string, string | number>;
+  prices: Record<string, number | string | null | undefined>;
   balances: Record<string, TokenBalanceValue>;
   hideSmallBalance?: boolean;
 }) {
