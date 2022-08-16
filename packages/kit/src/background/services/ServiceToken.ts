@@ -88,7 +88,7 @@ export default class ServiceToken extends ServiceBase {
     const { engine, dispatch } = this.backgroundApi;
     const tokens = await engine.getTokens(activeNetworkId, activeAccountId);
     dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
-    const waitPromises = [];
+    const waitPromises: Promise<any>[] = [];
     if (withBalance) {
       waitPromises.push(
         this.fetchTokenBalance({
@@ -209,7 +209,7 @@ export default class ServiceToken extends ServiceBase {
       }),
     );
     dispatch(setCharts({ activeNetworkId, charts }));
-    return prices;
+    return fullPrices;
   }
 
   @backgroundMethod()
