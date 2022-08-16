@@ -10,7 +10,6 @@ import {
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
-import { calculateRange } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { MdexQuoter } from './mdex';
@@ -55,16 +54,11 @@ export class SwapQuoter {
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
     let result = await this.socket.fetchQuote(params);
-    let { data, limited } = result ?? {};
+    const { data } = result ?? {};
     if (data) {
       return result;
     }
     result = await this.swftc.fetchQuote(params);
-
-    if (result?.limited && limited) {
-      limited = calculateRange([limited, result.limited]);
-      return { data: result?.data, limited };
-    }
     return result;
   }
 
