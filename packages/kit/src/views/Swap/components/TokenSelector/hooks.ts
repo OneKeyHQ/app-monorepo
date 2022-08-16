@@ -1,33 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import {
+  useAccountTokensBalance,
+  useNetworkTokensPrice,
+} from '../../../../hooks';
 
 import type { Token } from '../../../../store/typings';
 
-export const useSearchTokens = (
-  terms: string,
+export const useTokenSearch = (
   keyword: string,
   networkId?: string | null,
   accountId?: string | null,
 ) => {
   const [loading, setLoading] = useState(false);
-  const [searchedTokens, setTokens] = useState<Token[]>([]);
-  useEffect(() => {
-    if (terms !== keyword) {
-      setLoading(true);
-    }
-  }, [terms, keyword]);
+  const [result, setResult] = useState<Token[]>([]);
   useEffect(() => {
     async function main() {
-      if (terms.length === 0 || !networkId || !accountId) {
+      if (keyword.length === 0 || !networkId || !accountId) {
         return;
       }
       setLoading(true);
-      setTokens([]);
+      setResult([]);
       let tokens = [];
       try {
-        tokens = await backgroundApiProxy.engine.searchTokens(networkId, terms);
-        setTokens(tokens);
+        tokens = await backgroundApiProxy.engine.searchTokens(
+          networkId,
+          keyword,
+        );
+        setResult(tokens);
       } finally {
         setLoading(false);
       }
@@ -38,9 +39,36 @@ export const useSearchTokens = (
       });
     }
     main();
-  }, [terms, networkId, accountId]);
+  }, [keyword, networkId, accountId]);
   return {
     loading,
-    searchedTokens,
+    result,
   };
+};
+
+export const useCachedPrices = (networkId?: string): Record<string, string> => {
+  const prices = useNetworkTokensPrice(networkId);
+  const data = JSON.stringify(prices);
+  return useMemo(() => {
+    try {
+      return JSON.parse(data) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }, [data]);
+};
+
+export const useCachedBalances = (
+  networkId?: string,
+  accountId?: string,
+): Record<string, string> => {
+  const balances = useAccountTokensBalance(networkId, accountId);
+  const data = JSON.stringify(balances);
+  return useMemo(() => {
+    try {
+      return JSON.parse(data) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }, [data]);
 };

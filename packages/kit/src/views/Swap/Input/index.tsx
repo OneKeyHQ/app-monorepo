@@ -2,7 +2,6 @@ import React, { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { NetworkSelectorContext } from '../components/TokenSelector/context';
 import { useSwapState } from '../hooks/useSwap';
@@ -13,10 +12,10 @@ import type { Token } from '../../../store/typings';
 const Input = () => {
   const navigation = useNavigation();
   const { outputToken } = useSwapState();
-  const { networkId } = useActiveWalletAccount();
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
+  const selectedNetworkId = useAppSelector((s) => s.swap.selectedNetworkId);
   const onSelect = useCallback(
     (token: Token) => {
       backgroundApiProxy.serviceSwap.setInputToken(token);
@@ -26,20 +25,28 @@ const Input = () => {
   );
 
   const included = useMemo(() => {
-    if (outputToken && outputToken.networkId !== networkId) {
-      const chainId = getChainIdFromNetworkId(networkId);
+    if (
+      outputToken &&
+      selectedNetworkId &&
+      selectedNetworkId !== outputToken.networkId
+    ) {
+      const chainId = getChainIdFromNetworkId(selectedNetworkId);
       return swftcSupportedTokens[chainId];
     }
     return undefined;
-  }, [outputToken, networkId, swftcSupportedTokens]);
+  }, [selectedNetworkId, swftcSupportedTokens, outputToken]);
+
+  const onSelectNetworkId = useCallback((networkid?: string) => {
+    backgroundApiProxy.serviceSwap.selectNetworkId(networkid);
+  }, []);
 
   const value = useMemo(
     () => ({
-      showNetworkSelector: false,
-      networkId,
+      networkId: selectedNetworkId ?? '',
+      setNetworkId: onSelectNetworkId,
       selectedToken: outputToken,
     }),
-    [networkId, outputToken],
+    [outputToken, selectedNetworkId, onSelectNetworkId],
   );
 
   return (

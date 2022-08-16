@@ -3,11 +3,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useNavigation,
-} from '../../../hooks';
+import { useAppSelector, useNavigation } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { NetworkSelectorContext } from '../components/TokenSelector/context';
 import { useSwapState } from '../hooks/useSwap';
@@ -15,7 +11,6 @@ import { getChainIdFromNetworkId } from '../utils';
 
 const Output = () => {
   const navigation = useNavigation();
-  const { networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
@@ -30,12 +25,16 @@ const Output = () => {
   );
 
   const included = useMemo(() => {
-    if (selectedNetworkId && selectedNetworkId !== networkId) {
+    if (
+      inputToken &&
+      selectedNetworkId &&
+      selectedNetworkId !== inputToken.networkId
+    ) {
       const chainId = getChainIdFromNetworkId(selectedNetworkId);
       return swftcSupportedTokens[chainId];
     }
     return undefined;
-  }, [selectedNetworkId, swftcSupportedTokens, networkId]);
+  }, [selectedNetworkId, swftcSupportedTokens, inputToken]);
 
   const onSelectNetworkId = useCallback((networkid?: string) => {
     backgroundApiProxy.serviceSwap.selectNetworkId(networkid);
@@ -43,7 +42,6 @@ const Output = () => {
 
   const value = useMemo(
     () => ({
-      showNetworkSelector: true,
       networkId: selectedNetworkId ?? '',
       setNetworkId: onSelectNetworkId,
       selectedToken: inputToken,

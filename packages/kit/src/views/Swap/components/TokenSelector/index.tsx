@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
@@ -34,21 +35,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FormatBalance, FormatCurrency } from '../../../../components/Format';
 import {
   useAccountTokens,
-  useAccountTokensBalance,
   useActiveWalletAccount,
   useAppSelector,
   useDebounce,
   useNetworkTokens,
-  useNetworkTokensPrice,
 } from '../../../../hooks';
 import { enabledChainIds } from '../../config';
-import { useSwftcTokens } from '../../hooks/useSwap';
+import { useRestrictedTokens } from '../../hooks/useSwap';
 import { SwapRoutes } from '../../typings';
 import { getChainIdFromNetwork, isNetworkEnabled } from '../../utils';
 
 import { NetworkSelectorContext } from './context';
-import { useSearchTokens } from './hooks';
-import { TokenSelectorListeners } from './Listeners';
+import { DataUpdaters } from './DataUpdaters';
+import { useCachedBalances, useCachedPrices, useTokenSearch } from './hooks';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -125,165 +124,16 @@ const NetworkSelector: FC = () => {
   );
 };
 
-type HeaderTokensProps = {
-  tokens: Token[];
-  showTop50Label?: boolean;
-  onSelect?: (token: Token) => void;
-};
-
-const HeaderTokens: FC<HeaderTokensProps> = ({
-  tokens,
-  showTop50Label,
-  onSelect,
-}) => {
-  const intl = useIntl();
-  const { accountId } = useActiveWalletAccount();
-  const { networkId, selectedToken } = useContext(NetworkSelectorContext);
-  const prices = useNetworkTokensPrice(networkId);
-  const balances = useAccountTokensBalance(networkId, accountId);
-
-  return (
-    <Box>
-      {tokens.length ? (
-        <Box>
-          <Typography.Subheading color="text-subdued">
-            {intl.formatMessage({
-              id: 'form__my_tokens',
-              defaultMessage: 'MY TOKENS',
-            })}
-          </Typography.Subheading>
-          <Box mt="2" mb="6">
-            {tokens.map((item, index) => (
-              <Pressable
-                key={item.tokenIdOnNetwork || item.symbol}
-                borderTopRadius={index === 0 ? '12' : undefined}
-                borderBottomRadius={
-                  index === tokens.length - 1 ? '12' : undefined
-                }
-                display="flex"
-                flexDirection="row"
-                justifyContent="space-between"
-                p="4"
-                alignItems="center"
-                bg="surface-default"
-                borderTopColor="divider"
-                borderTopWidth={index !== 0 ? '1' : undefined}
-                opacity={
-                  item.networkId === selectedToken?.networkId &&
-                  item.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork
-                    ? 60
-                    : 100
-                }
-                onPress={() => onSelect?.(item)}
-              >
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  flexDirection="row"
-                  flex="1"
-                >
-                  <Image
-                    source={{ uri: item.logoURI }}
-                    alt="logoURI"
-                    size="8"
-                    borderRadius="full"
-                    fallbackElement={
-                      <Center
-                        w={8}
-                        h={8}
-                        rounded="full"
-                        bgColor="surface-neutral-default"
-                      >
-                        <Icon size={20} name="QuestionMarkOutline" />
-                      </Center>
-                    }
-                  />
-                  <Box ml="3">
-                    <Box flexDirection="row" alignItems="center">
-                      <Text
-                        maxW={56}
-                        numberOfLines={2}
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      >
-                        {item.symbol}
-                      </Text>
-                      <TokenVerifiedIcon token={item} />
-                    </Box>
-                    <Typography.Body2
-                      maxW="56"
-                      numberOfLines={1}
-                      color="text-subdued"
-                    >
-                      {item.name}
-                    </Typography.Body2>
-                  </Box>
-                </Box>
-                <Box
-                  display="flex"
-                  flexDirection="column"
-                  alignItems="flex-end"
-                >
-                  <Typography.Body2 numberOfLines={1} color="text-default">
-                    <FormatBalance
-                      balance={balances[item.tokenIdOnNetwork || 'main'] ?? '0'}
-                      formatOptions={{ fixed: 6 }}
-                    />
-                  </Typography.Body2>
-                  <Typography.Body2 color="text-subdued">
-                    <FormatCurrency
-                      numbers={[
-                        prices?.[item.tokenIdOnNetwork || 'main'] ?? 0,
-                        balances?.[item.tokenIdOnNetwork || 'main'],
-                      ]}
-                      render={(ele) => (
-                        <Typography.Body2Strong ml={3} color="text-subdued">
-                          {prices?.[item.tokenIdOnNetwork || 'main']
-                            ? ele
-                            : '-'}
-                        </Typography.Body2Strong>
-                      )}
-                    />
-                  </Typography.Body2>
-                </Box>
-              </Pressable>
-            ))}
-          </Box>
-        </Box>
-      ) : null}
-      {showTop50Label ? (
-        <Typography.Subheading color="text-subdued" mb="2">
-          {intl.formatMessage({
-            id: 'form__top_50_tokens',
-            defaultMessage: 'TOP 50 TOKENS',
-          })}
-        </Typography.Subheading>
-      ) : null}
-    </Box>
-  );
-};
-
 type HeaderProps = {
-  tokens: Token[];
   keyword: string;
-  terms?: string;
-  showTop50Label?: boolean;
   onChange: (keyword: string) => void;
-  onSelect?: (token: Token) => void;
 };
 
-const Header: FC<HeaderProps> = ({
-  tokens,
-  showTop50Label,
-  keyword,
-  terms,
-  onChange,
-  onSelect,
-}) => {
+const Header: FC<HeaderProps> = ({ keyword, onChange }) => {
   const intl = useIntl();
-  const { showNetworkSelector } = useContext(NetworkSelectorContext);
   return (
     <Box>
-      {showNetworkSelector ? <NetworkSelector /> : null}
+      <NetworkSelector />
       <Searchbar
         w="full"
         placeholder={intl.formatMessage({
@@ -295,13 +145,6 @@ const Header: FC<HeaderProps> = ({
         onClear={() => onChange('')}
         onChangeText={(text) => onChange(text)}
       />
-      {terms ? null : (
-        <HeaderTokens
-          tokens={tokens}
-          showTop50Label={showTop50Label}
-          onSelect={onSelect}
-        />
-      )}
     </Box>
   );
 };
@@ -357,29 +200,34 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   ) : null;
 };
 
-type ListingTokenProps = {
-  item: Token;
+type TokenSelectorItem = {
+  token: Token;
+  balance?: string | null;
+  price?: string | null;
+};
+
+type ListRenderTokenProps = {
+  item: TokenSelectorItem;
   isFirst?: boolean;
   isLast?: boolean;
   onSelect?: (item: Token) => void;
 };
 
-const ListRenderToken: FC<ListingTokenProps> = ({
+const ListRenderToken: FC<ListRenderTokenProps> = ({
   item,
   isFirst,
   isLast,
   onSelect,
 }) => {
-  const { accountId } = useActiveWalletAccount();
-  const { networkId, selectedToken } = useContext(NetworkSelectorContext);
-  const balances = useAccountTokensBalance(networkId, accountId);
-  const prices = useNetworkTokensPrice(networkId);
+  const { token, balance, price } = item;
+  const { selectedToken } = useContext(NetworkSelectorContext);
+
   const onPress = useCallback(() => {
-    onSelect?.(item);
-  }, [onSelect, item]);
+    onSelect?.(token);
+  }, [onSelect, token]);
   const isSelected =
-    item.networkId === selectedToken?.networkId &&
-    item.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork;
+    token.networkId === selectedToken?.networkId &&
+    token.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork;
   return (
     <Pressable
       borderTopRadius={isFirst ? '12' : undefined}
@@ -391,14 +239,14 @@ const ListRenderToken: FC<ListingTokenProps> = ({
       alignItems="center"
       bg="surface-default"
       overflow="hidden"
-      key={item.tokenIdOnNetwork}
+      key={token.tokenIdOnNetwork}
       onPress={onPress}
       width="full"
       opacity={isSelected ? 60 : 1000}
     >
       <Box display="flex" alignItems="center" flexDirection="row">
         <Image
-          source={{ uri: item.logoURI }}
+          source={{ uri: token.logoURI }}
           alt="logoURI"
           size="8"
           borderRadius="full"
@@ -421,31 +269,28 @@ const ListRenderToken: FC<ListingTokenProps> = ({
               numberOfLines={2}
               color="text-default"
             >
-              {item.symbol}
+              {token.symbol}
             </Text>
-            <TokenVerifiedIcon token={item} />
+            <TokenVerifiedIcon token={token} />
           </Box>
           <Typography.Body2 numberOfLines={1} color="text-subdued">
-            {item.name}
+            {token.name}
           </Typography.Body2>
         </Box>
       </Box>
       <Box display="flex" flexDirection="column" alignItems="flex-end">
         <Typography.Body1 numberOfLines={1} color="text-default">
           <FormatBalance
-            balance={balances[item.tokenIdOnNetwork] ?? '0'}
+            balance={balance ?? '0'}
             formatOptions={{ fixed: 6 }}
           />
         </Typography.Body1>
         <Typography.Body2 color="text-subdued" numberOfLines={2}>
           <FormatCurrency
-            numbers={[
-              prices?.[item.tokenIdOnNetwork || 'main'] ?? 0,
-              balances?.[item.tokenIdOnNetwork || 'main'],
-            ]}
+            numbers={[price ?? 0, balance ?? 0]}
             render={(ele) => (
               <Typography.Body2Strong ml={3} color="text-subdued">
-                {prices?.[item.tokenIdOnNetwork || 'main'] ? ele : '-'}
+                {price ? ele : '-'}
               </Typography.Body2Strong>
             )}
           />
@@ -470,41 +315,60 @@ const TokenSelector: FC<TokenSelectorProps> = ({
   const { accountId: activeAccountId } = useActiveWalletAccount();
   const { networkId: activeNetworkId } = useContext(NetworkSelectorContext);
 
-  const preNetworkTokens = useNetworkTokens(activeNetworkId);
-  const preAccountTokens = useAccountTokens(activeNetworkId, activeAccountId);
-  const networkTokens = useSwftcTokens(preNetworkTokens, included, excluded);
-  const accountTokens = useSwftcTokens(preAccountTokens, included, excluded);
+  const accountsTokens = useAccountTokens(activeNetworkId, activeAccountId);
+  const networkTokens = useNetworkTokens(activeNetworkId);
 
-  const listTokens = useMemo(() => {
-    const set = new Set(accountTokens.map((s) => s.tokenIdOnNetwork));
-    return networkTokens.filter((token) => !set.has(token.tokenIdOnNetwork));
-  }, [networkTokens, accountTokens]);
+  const balances = useCachedBalances(activeNetworkId, activeAccountId);
+  const prices = useCachedPrices(activeNetworkId);
+
+  const tokens = useMemo(() => {
+    const items = [...accountsTokens, ...networkTokens];
+    const result = items.reduce<Record<string, Token>>((a, b) => {
+      a[b.tokenIdOnNetwork] = b;
+      return a;
+    }, {});
+    return Object.values(result);
+  }, [accountsTokens, networkTokens]);
+
+  const restrictedTokens = useRestrictedTokens(tokens, included, excluded);
 
   const [keyword, setKeyword] = useState<string>('');
   const terms = useDebounce(keyword, 500);
-
-  const { loading, searchedTokens } = useSearchTokens(
+  const { loading, result: searchedTokens } = useTokenSearch(
     terms,
-    keyword,
     activeNetworkId,
     activeAccountId,
   );
+  const isLoading = loading || keyword !== terms;
 
-  const headerTokens = useMemo(() => {
-    if (!excluded) {
-      return accountTokens;
-    }
-    return accountTokens.filter(
-      (token) => !excluded.includes(token.tokenIdOnNetwork),
-    );
-  }, [accountTokens, excluded]);
+  const listItems = useMemo(
+    () => (terms ? searchedTokens : restrictedTokens),
+    [terms, searchedTokens, restrictedTokens],
+  );
 
-  const listItems = useMemo(() => {
-    const tokens = terms ? searchedTokens : listTokens;
-    return tokens;
-  }, [terms, searchedTokens, listTokens]);
+  const listRenderItems = useMemo<TokenSelectorItem[]>(() => {
+    let items = listItems.map((token) => ({
+      price: prices[token.tokenIdOnNetwork || 'main'],
+      balance: balances[token.tokenIdOnNetwork || 'main'],
+      token,
+    }));
+    items = items.sort((a, b) => {
+      if (a.balance && a.price && b.balance && b.price) {
+        const prev = new BigNumber(a.balance).multipliedBy(a.price);
+        const next = new BigNumber(b.balance).multipliedBy(b.price);
+        if (prev.gt(next)) {
+          return -1;
+        }
+        if (prev.lt(next)) {
+          return 1;
+        }
+      }
+      return 0;
+    });
+    return items;
+  }, [listItems, balances, prices]);
 
-  const renderItem: ListRenderItem<Token> = useCallback(
+  const renderItem: ListRenderItem<TokenSelectorItem> = useCallback(
     ({ item, index }) => (
       <ListRenderToken
         item={item}
@@ -524,28 +388,24 @@ const TokenSelector: FC<TokenSelectorProps> = ({
         footer={null}
         hidePrimaryAction
         flatListProps={{
-          data: listItems,
+          data: listRenderItems,
           // @ts-ignore
           renderItem,
           ItemSeparatorComponent: Divider,
-          keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
+          keyExtractor: (item) =>
+            `${(item as TokenSelectorItem)?.token?.tokenIdOnNetwork}:${
+              (item as TokenSelectorItem)?.token?.networkId
+            }`,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
-            <ListEmptyComponent isLoading={loading} terms={terms} />
+            <ListEmptyComponent isLoading={isLoading} terms={terms} />
           ),
           ListHeaderComponent: (
-            <Header
-              showTop50Label={listTokens.length > 0}
-              tokens={headerTokens}
-              keyword={keyword}
-              terms={terms}
-              onChange={setKeyword}
-              onSelect={onSelect}
-            />
+            <Header keyword={keyword} onChange={setKeyword} />
           ),
         }}
       />
-      <TokenSelectorListeners />
+      <DataUpdaters />
     </>
   );
 };

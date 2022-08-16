@@ -1,4 +1,5 @@
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const swftcCustomerSupportUrl =
   'https://www.bangwo8.com/osp2016/im/pc/index.php?vendorID=782460&uid=&customSource=onekey';
@@ -27,9 +28,11 @@ export const enabledChainIds: string[] = [
   Chains.FANTOM,
   Chains.AVALANCHE,
   Chains.CELO,
-  Chains.KOVAN,
-  Chains.ROPSTEN,
 ];
+
+if (platformEnv.isDev) {
+  enabledChainIds.push(Chains.ROPSTEN, Chains.KOVAN);
+}
 
 const serverURL = 'https://0x.onekey.so';
 

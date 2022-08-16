@@ -10,6 +10,7 @@ import {
   useAppSelector,
   useDebounce,
 } from '../../../hooks';
+import { useRuntime } from '../../../hooks/redux';
 import {
   setError,
   setLoading,
@@ -21,6 +22,7 @@ import { SwapQuoter } from '../quoter';
 import { ApprovalState, FetchQuoteParams, SwapError } from '../typings';
 import {
   getChainIdFromNetwork,
+  getChainIdFromNetworkId,
   greaterThanZeroOrUndefined,
   nativeTokenAddress,
 } from '../utils';
@@ -137,7 +139,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
-  const { account, network } = useActiveWalletAccount();
+  const { account } = useActiveWalletAccount();
   const { address } = useReceivingAddress();
   const {
     inputToken,
@@ -156,7 +158,6 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       !inputTokenNetwork ||
       !outputTokenNetwork ||
       !account ||
-      !network ||
       new BigNumber(typedValue).lte(0)
     ) {
       return;
@@ -170,7 +171,6 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       typedValue,
       independentField,
       activeAccount: account,
-      activeNetwok: network,
       receivingAddress: address,
     };
   }, [
@@ -182,7 +182,6 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     swapSlippagePercent,
     independentField,
     account,
-    network,
     address,
   ]);
 }
@@ -192,15 +191,12 @@ export const useSwapQuoteCallback = function (
 ) {
   const { showLoading } = options;
   const requestParams = useSwapQuoteRequestParams();
-  const { accountId, networkId } = useActiveWalletAccount();
   const params = useDebounce(requestParams, 500);
-  const refs = useRef({ accountId, networkId, params, count: 0 });
+  const refs = useRef({ params, count: 0 });
 
   useEffect(() => {
-    refs.current.accountId = accountId;
-    refs.current.networkId = networkId;
     refs.current.params = params;
-  }, [accountId, networkId, params]);
+  }, [params]);
 
   const onSwapQuote = useCallback(async () => {
     if (!params) {
@@ -212,16 +208,10 @@ export const useSwapQuoteCallback = function (
     }
     backgroundApiProxy.dispatch(setError(undefined));
     try {
-      refs.current.accountId = accountId;
-      refs.current.networkId = networkId;
       refs.current.params = params;
       refs.current.count += 1;
       const res = await SwapQuoter.client.fetchQuote(params);
-      if (
-        refs.current.accountId === accountId &&
-        refs.current.networkId === networkId &&
-        refs.current.params === params
-      ) {
+      if (refs.current.params === params) {
         backgroundApiProxy.dispatch(setLoading(false));
         if (res) {
           if (res.data) {
@@ -241,7 +231,7 @@ export const useSwapQuoteCallback = function (
         backgroundApiProxy.dispatch(setLoading(false));
       }
     }
-  }, [params, showLoading, accountId, networkId]);
+  }, [params, showLoading]);
   return onSwapQuote;
 };
 
@@ -403,7 +393,7 @@ export function useInputLimitsError(): Error | undefined {
   }, [inputAmount, inputToken, maxAmount, minAmount, intl]);
 }
 
-export function useSwftcTokens(
+export function useRestrictedTokens(
   tokens: Token[],
   included?: string[],
   excluded?: string[],
@@ -430,4 +420,18 @@ export function useSwftcTokens(
     }
     return result;
   }, [tokens, included, excluded]);
+}
+
+export function useEnabledEvmNetworks() {
+  const { networks } = useRuntime();
+  return useMemo(
+    () =>
+      networks.filter(
+        (item) =>
+          item.impl === 'evm' &&
+          item.enabled &&
+          enabledChainIds.includes(getChainIdFromNetworkId(item.id)),
+      ),
+    [networks],
+  );
 }

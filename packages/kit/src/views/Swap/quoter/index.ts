@@ -112,7 +112,7 @@ export class SwapQuoter {
     return undefined;
   }
 
-  async getSwftcSupportedTokens() {
+  async getSupportedTokens() {
     return this.swftc.getGroupedCoins();
   }
 

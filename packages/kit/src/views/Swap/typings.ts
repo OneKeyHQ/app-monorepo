@@ -72,7 +72,6 @@ export type FetchQuoteParams = {
   slippagePercentage: string;
   typedValue: string;
   independentField: FieldType;
-  activeNetwok: Network;
   activeAccount: Account;
   receivingAddress?: string;
 };

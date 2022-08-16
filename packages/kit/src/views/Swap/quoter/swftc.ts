@@ -387,13 +387,13 @@ export class SwftcQuoter implements Quoter {
     const {
       typedValue,
       independentField,
-      activeNetwok,
       activeAccount,
       tokenIn,
+      networkIn,
       receivingAddress,
     } = params;
     const data = await this.fetchSwftcQuote(params);
-    if (data && activeNetwok && activeAccount) {
+    if (data && activeAccount) {
       const { depositCoinCode, receiveCoinCode, rate } = data;
       let depositCoinAmt = '';
       let receiveCoinAmt = '';
@@ -420,7 +420,7 @@ export class SwftcQuoter implements Quoter {
         if (!tokenIn.tokenIdOnNetwork) {
           const txdata =
             await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
-              networkId: activeNetwok.id,
+              networkId: networkIn.id,
               accountId: activeAccount.id,
               transferInfo: {
                 from: activeAccount.address,
@@ -435,7 +435,7 @@ export class SwftcQuoter implements Quoter {
         }
         const txdata =
           await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
-            networkId: activeNetwok.id,
+            networkId: networkIn.id,
             accountId: activeAccount.id,
             transferInfo: {
               from: activeAccount.address,

@@ -19,7 +19,6 @@ import { setQuote } from '../../store/reducers/swap';
 import TokenInput from './components/TokenInput';
 import {
   useDerivedSwapState,
-  useSwapEnabled,
   useSwapQuoteCallback,
   useSwapState,
 } from './hooks/useSwap';
@@ -38,12 +37,11 @@ const SwapContent = () => {
     independentField,
     loading,
   } = useSwapState();
-  const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { account, wallet, network } = useActiveWalletAccount();
   const { formattedAmounts } = useDerivedSwapState();
 
-  const isDisabled = !isSwapEnabled || !wallet || !account;
+  const isDisabled = !wallet || !account || network?.impl !== 'evm';
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -86,10 +84,6 @@ const SwapContent = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSwapQuoteCallback]);
 
-  const disableSwitchTokens =
-    (outputTokenNetwork && outputTokenNetwork.id !== network?.id) ||
-    (inputTokenNetwork && inputTokenNetwork.id !== network?.id);
-
   return (
     <Box
       bg="surface-default"
@@ -126,7 +120,6 @@ const SwapContent = () => {
               borderRadius="full"
               borderColor="border-disabled"
               borderWidth="0.5"
-              disabled={disableSwitchTokens}
               bg="surface-default"
               onPress={onSwitchTokens}
               size="lg"

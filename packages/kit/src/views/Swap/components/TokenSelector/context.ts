@@ -3,16 +3,14 @@ import { createContext } from 'react';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 type NetworkSelectorContextValues = {
-  showNetworkSelector: boolean;
   selectedToken?: Token;
-  networkId: string;
-  setNetworkId?: (networkId: string) => void;
+  networkId?: string;
+  setNetworkId?: (networkId?: string) => void;
 };
 
 export const NetworkSelectorContext =
   createContext<NetworkSelectorContextValues>({
     networkId: '',
-    showNetworkSelector: false,
   });
 
 type SearchContextValues = {
