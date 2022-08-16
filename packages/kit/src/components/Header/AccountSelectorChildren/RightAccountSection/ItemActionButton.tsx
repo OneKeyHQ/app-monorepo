@@ -63,6 +63,15 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
                 },
               },
               {
+                label: intl.formatMessage({ id: 'action__copy_address' }),
+                value: 'copy',
+                iconProps: {
+                  name: isVerticalLayout
+                    ? 'DuplicateOutline'
+                    : 'DuplicateSolid',
+                },
+              },
+              {
                 label: intl.formatMessage({ id: 'action__view_details' }),
                 value: 'detail',
                 iconProps: {
@@ -86,6 +95,15 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
                 value: 'rename',
                 iconProps: {
                   name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+                },
+              },
+              {
+                label: intl.formatMessage({ id: 'action__copy_address' }),
+                value: 'copy',
+                iconProps: {
+                  name: isVerticalLayout
+                    ? 'DuplicateOutline'
+                    : 'DuplicateSolid',
                 },
               },
             ]
