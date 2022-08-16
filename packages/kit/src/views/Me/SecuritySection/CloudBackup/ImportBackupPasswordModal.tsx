@@ -71,10 +71,10 @@ const ImportBackupPasswordModal: FC = () => {
       <KeyboardDismissView px={{ base: 4, md: 0 }} alignItems="center">
         <Image source={CloudLock} w="64px" h="51.2px" m={4} />
         <Typography.DisplayLarge textAlign="center" mb={2}>
-          Import Backup
+          {intl.formatMessage({ id: 'modal__import_backup' })}
         </Typography.DisplayLarge>
         <Typography.Body1 textAlign="center" color="text-subdued">
-          Verify password to import backup
+          {intl.formatMessage({ id: 'modal__import_backup_desc' })}
         </Typography.Body1>
         <Form mt="8">
           <Form.Item

@@ -824,6 +824,8 @@
   "modal__for_your_eyes_only": "فقط لاجل عينيك",
   "modal__for_your_eyes_only_desc": "لا تشارك عبارة الاسترداد.",
   "modal__homescreen": "الشاشة الرئيسية",
+  "modal__import_backup": "استيراد النسخ الاحتياطي",
+  "modal__import_backup_desc": "تحقق من كلمة المرور لاستيراد نسخة احتياطية",
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
@@ -944,7 +946,8 @@
   "msg__hardware_version_need_upgrade_error": "هذا الإصدار غير مدعوم ، يرجى الترقية إلى {0} أو أحدث。",
   "msg__hardware_version_to_low_error": "إصدار البرنامج الثابت سابق لأوانه لدعم هذه العملية.",
   "msg__high_price_volatility": "🚨 ارتفاع سعر التقلب!",
-  "msg__high_price_volatility_desc": "{0} لديه {0} {0} في آخر {0} إلى {0}",
+  "msg__high_price_volatility_fallen_desc": "انخفض سعر {0} {1} في آخر {2} ساعة إلى {3}",
+  "msg__high_price_volatility_risen_desc": "ارتفع سعر {0} {1} في آخر {2} ساعة إلى {3}",
   "msg__history_deleted": "تم حذف السجل",
   "msg__image_saved": "تم حفظ الصورة",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
