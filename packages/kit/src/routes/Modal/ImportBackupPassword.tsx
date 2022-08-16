@@ -15,7 +15,6 @@ export type ImportBackupPasswordRoutesParams = {
     withPassword: (backupPassword: string) => Promise<RestoreResult>;
     onSuccess: () => Promise<void>;
     onError: () => void;
-    onCancel: () => void;
   };
 };
 
