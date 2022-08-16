@@ -23,7 +23,10 @@ import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  IActiveWalletAccount,
+  useActiveWalletAccount,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -41,10 +44,18 @@ const ReceiveToken = () => {
   const { captureHardwareError } = useHardwareError();
 
   const { address, name } = route.params ?? {};
+  const routePrams = route.params;
 
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network, wallet, walletId, accountId, networkId } =
-    useActiveWalletAccount();
+  const activeInfo: IActiveWalletAccount = useActiveWalletAccount();
+
+  const account = routePrams?.account ?? activeInfo?.account;
+  const network = routePrams?.network ?? activeInfo?.network;
+  const wallet = routePrams?.wallet ?? activeInfo?.wallet;
+
+  const accountId = account?.id || '';
+  const networkId = network?.id || '';
+  const walletId = wallet?.id || '';
 
   const shownAddress = address ?? account?.address ?? '';
   const shownName = name ?? account?.name ?? '';

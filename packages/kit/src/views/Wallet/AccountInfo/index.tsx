@@ -57,7 +57,7 @@ const AccountAmountInfo: FC = () => {
     pollingInterval: 15000,
   });
 
-  const { isHwWallet, copyAddress } = useCopyAddress(wallet);
+  const { isHwWallet, copyAddress } = useCopyAddress({ wallet });
 
   const [summedValue, summedValueComp] = useMemo(() => {
     const displayValue = getSummedValues({
