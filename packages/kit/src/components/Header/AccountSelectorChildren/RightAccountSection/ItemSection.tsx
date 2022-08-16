@@ -21,6 +21,8 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
+import { useCopyAddress } from '../../../../hooks/useCopyAddress';
+
 import ItemActionButton from './ItemActionButton';
 
 import type { SectionListData } from 'react-native';
@@ -50,10 +52,14 @@ const AccountSectionItem: FC<Props> = ({
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
+  const { copyAddress } = useCopyAddress(activeWallet);
 
   const handleChange = useCallback(
     (value) => {
       switch (value) {
+        case 'copy':
+          copyAddress(item.address);
+          break;
         case 'rename':
           DialogManager.show({
             render: (
@@ -69,7 +75,6 @@ const AccountSectionItem: FC<Props> = ({
               />
             ),
           });
-
           break;
         case 'detail':
           navigation.navigate(RootRoutes.Modal, {

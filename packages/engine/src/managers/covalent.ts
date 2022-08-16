@@ -773,7 +773,26 @@ export async function parseCovalentTxToDecodedTx(
     // TODO [ commonAction ]
     parsedDecodedTx.outputActions = [commonAction];
   }
-  parsedDecodedTx.outputActions.filter((item) => item && !item.hidden);
+
+  parsedDecodedTx.outputActions = parsedDecodedTx.outputActions.filter(
+    (item) => item && !item.hidden,
+  );
+
+  const outputActionsLength = parsedDecodedTx.outputActions.length;
+  let shouldFilterOutTokenApprove = false;
+  if (outputActionsLength >= 3) {
+    shouldFilterOutTokenApprove = true;
+  } else if (outputActionsLength === 2) {
+    shouldFilterOutTokenApprove = !parsedDecodedTx.outputActions.find(
+      (item) => item.type === IDecodedTxActionType.NATIVE_TRANSFER,
+    );
+  }
+  // covalent including some fake tokenApprove log_events
+  if (shouldFilterOutTokenApprove) {
+    parsedDecodedTx.outputActions = parsedDecodedTx.outputActions.filter(
+      (item) => item && item.type !== IDecodedTxActionType.TOKEN_APPROVE,
+    );
+  }
 
   covalentTx.parsedDecodedTx = parsedDecodedTx;
   debugCodes.breakpointCovalentTx({ txHash: covalentTx.tx_hash });
