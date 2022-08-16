@@ -206,14 +206,12 @@ const GroupedBackupDetails = ({
 const BackupActions = ({
   size,
   ready,
-  importing,
   onImport,
   onDelete,
   ...rest
 }: {
   size: 'base' | 'xl';
   ready: boolean;
-  importing: boolean;
   onImport?: () => void;
   onDelete?: () => void;
 } & IBoxProps) => {
@@ -224,7 +222,6 @@ const BackupActions = ({
       {typeof onImport !== 'undefined' && !ready ? (
         <Button
           onPress={onImport}
-          isLoading={importing}
           type="basic"
           size={size}
           flexGrow={{ base: 1, sm: 0 }}
@@ -277,7 +274,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   } = route.params;
 
   const [dataReady, setDataReady] = useState(true);
-  const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteBackupDialog, setShowDeleteBackupDialog] = useState(false);
   const [backupData, setBackupData] = useState({
@@ -318,28 +314,21 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     toast.show({
       title: intl.formatMessage({ id: 'msg__backup_imported' }),
     });
-    setImporting(false);
     if (onboarding) {
       await onboardingDone({ delay: 200 });
     } else {
       navigation.navigate(HomeRoutes.InitialTab);
     }
-  }, [toast, intl, setImporting, onboarding, onboardingDone, navigation]);
-
-  const onImportCancel = useCallback(() => {
-    setImporting(false);
-  }, [setImporting]);
+  }, [toast, intl, onboarding, onboardingDone, navigation]);
 
   const onImportError = useCallback(() => {
     toast.show({
       title: intl.formatMessage({ id: 'msg__unknown_error' }),
     });
-    setImporting(false);
     navigation.goBack();
   }, [toast, intl, navigation]);
 
   const onImport = useCallback(() => {
-    setImporting(true);
     if (isPasswordSet) {
       showVerify(
         (localPassword) => {
@@ -363,7 +352,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
                     }),
                   onImportDone,
                   onImportError,
-                  onImportCancel,
                 );
               } else {
                 onImportError();
@@ -385,7 +373,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
           }),
         onImportDone,
         onImportError,
-        onImportCancel,
       );
     }
   }, [
@@ -393,7 +380,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     showVerify,
     onImportDone,
     onImportError,
-    onImportCancel,
     requestBackupPassword,
     serviceCloudBackup,
     backupUUID,
@@ -410,7 +396,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         isSmallScreen ? (
           <BackupActions
             ready={dataReady}
-            importing={importing}
             onImport={hasRemoteData ? onImport : undefined}
             onDelete={onboarding ? undefined : onDelete}
             size="xl"
@@ -436,7 +421,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         {isSmallScreen ? undefined : (
           <BackupActions
             ready={dataReady}
-            importing={importing}
             onImport={hasRemoteData ? onImport : undefined}
             onDelete={onboarding ? undefined : onDelete}
             size="base"
