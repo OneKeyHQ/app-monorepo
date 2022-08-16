@@ -134,7 +134,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { network, account, wallet } = useActiveWalletAccount();
-  const { copyAddress } = useCopyAddress(wallet);
+  const { copyAddress } = useCopyAddress({ wallet });
 
   const isVerticalLayout = useIsVerticalLayout();
   // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862

@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components/src/Toast/useToast';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { Account } from '@onekeyhq/engine/src/types/account';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import { ReceiveTokenRoutes } from '../routes';
@@ -11,7 +13,15 @@ import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 
 import useNavigation from './useNavigation';
 
-export function useCopyAddress(wallet: Wallet | null) {
+export function useCopyAddress({
+  wallet,
+  network,
+  account,
+}: {
+  wallet: Wallet | null;
+  network?: Network | null;
+  account?: Account | null;
+}) {
   const isHwWallet = wallet?.type === 'hw';
   const intl = useIntl();
   const navigation = useNavigation();
@@ -23,7 +33,11 @@ export function useCopyAddress(wallet: Wallet | null) {
           screen: ModalRoutes.Receive,
           params: {
             screen: ReceiveTokenRoutes.ReceiveToken,
-            params: {},
+            params: {
+              wallet,
+              network,
+              account,
+            },
           },
         });
       } else {
@@ -34,7 +48,7 @@ export function useCopyAddress(wallet: Wallet | null) {
         });
       }
     },
-    [intl, isHwWallet, navigation],
+    [account, intl, isHwWallet, navigation, network, wallet],
   );
 
   return {

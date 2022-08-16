@@ -52,7 +52,12 @@ const AccountSectionItem: FC<Props> = ({
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
-  const { copyAddress } = useCopyAddress(activeWallet);
+
+  const { copyAddress } = useCopyAddress({
+    wallet: activeWallet,
+    account: item,
+    network: section.title,
+  });
 
   const handleChange = useCallback(
     (value) => {
