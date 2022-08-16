@@ -3,7 +3,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import { QuoteData, SwapError } from '../../views/Swap/typings';
+import { QuoteData, QuoteLimited, SwapError } from '../../views/Swap/typings';
 
 type SwapState = {
   inputTokenNetwork?: Network | null;
@@ -14,6 +14,7 @@ type SwapState = {
   independentField: 'INPUT' | 'OUTPUT';
   refreshRef: number;
   quote?: QuoteData;
+  quoteLimited?: QuoteLimited;
   quoteTime?: number;
   loading: boolean;
   error?: SwapError;
@@ -85,6 +86,7 @@ export const swapSlice = createSlice({
       state.quote = undefined;
       state.quoteTime = undefined;
       state.error = undefined;
+      state.quoteLimited = undefined;
     },
     resetState(state) {
       state.inputToken = undefined;
@@ -100,14 +102,16 @@ export const swapSlice = createSlice({
       state.quoteTime = undefined;
       state.loading = false;
       state.error = undefined;
+      state.quoteLimited = undefined;
     },
     setQuote(state, action: PayloadAction<QuoteData | undefined>) {
       state.quote = action.payload;
-      if (action.payload) {
-        state.quoteTime = Date.now();
-      } else {
-        state.quoteTime = undefined;
-      }
+    },
+    setQuoteTime(state, action: PayloadAction<number | undefined>) {
+      state.quoteTime = action.payload;
+    },
+    setQuoteLimited(state, action: PayloadAction<QuoteLimited | undefined>) {
+      state.quoteLimited = action.payload;
     },
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload;
@@ -143,6 +147,8 @@ export const {
   setOutputToken,
   switchTokens,
   setQuote,
+  setQuoteTime,
+  setQuoteLimited,
   setLoading,
   setError,
   setSelectedNetworkId,

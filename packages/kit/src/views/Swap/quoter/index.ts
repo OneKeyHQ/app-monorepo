@@ -4,12 +4,13 @@ import {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
-  QuoteData,
+  FetchQuoteResponse,
   Quoter,
   QuoterType,
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
+import { calculateRange } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { MdexQuoter } from './mdex';
@@ -35,16 +36,45 @@ export class SwapQuoter {
     });
   }
 
-  async fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined> {
-    for (let i = 0; i < this.quoters.length; i += 1) {
+  async fetchQuoteInSideChain(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    const quoters: Quoter[] = [this.mdex, this.simple];
+    for (let i = 0; i < quoters.length; i += 1) {
       const quoter = this.quoters[i];
       if (quoter.isSupported(params.networkOut, params.networkIn)) {
         const result = await quoter.fetchQuote(params);
-        if (result) {
+        if (result?.data) {
           return result;
         }
       }
     }
+  }
+
+  async fetchQuoteCrosschain(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    let result = await this.socket.fetchQuote(params);
+    let { data, limited } = result ?? {};
+    if (data) {
+      return result;
+    }
+    result = await this.swftc.fetchQuote(params);
+
+    if (result?.limited && limited) {
+      limited = calculateRange([limited, result.limited]);
+      return { data: result?.data, limited };
+    }
+    return result;
+  }
+
+  async fetchQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    if (params.networkIn.id === params.networkOut.id) {
+      return this.fetchQuoteInSideChain(params);
+    }
+    return this.fetchQuoteCrosschain(params);
   }
 
   async buildTransaction(

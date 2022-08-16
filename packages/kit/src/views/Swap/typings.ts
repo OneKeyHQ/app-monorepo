@@ -77,6 +77,16 @@ export type FetchQuoteParams = {
   receivingAddress?: string;
 };
 
+export type QuoteLimited = {
+  max?: string;
+  min?: string;
+};
+
+export type FetchQuoteResponse = {
+  data?: QuoteData;
+  limited?: QuoteLimited;
+};
+
 export type Provider = {
   name: string;
   logoUrl?: string;
@@ -94,10 +104,6 @@ export type QuoteData = {
   txData?: TransactionData;
   txAttachment?: TransactionAttachment;
   arrivalTime?: number;
-  limited?: {
-    max?: string;
-    min?: string;
-  };
 };
 
 export interface TransactionAttachment {
@@ -198,7 +204,7 @@ export interface Quoter {
   type: QuoterType;
   prepare?: () => void;
   isSupported(networkA: Network, networkB: Network): boolean;
-  fetchQuote(params: FetchQuoteParams): Promise<QuoteData | undefined>;
+  fetchQuote(params: FetchQuoteParams): Promise<FetchQuoteResponse | undefined>;
   buildTransaction(
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined>;
