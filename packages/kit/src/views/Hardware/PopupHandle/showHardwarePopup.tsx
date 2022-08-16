@@ -204,31 +204,34 @@ export default async function showHardwarePopup({
   const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
   closeHardwarePopup();
-  hardwarePopupHolder = new RootSiblingsManager(
-    (
-      <Modal
-        isVisible
-        onModalHide={closeHardwarePopup}
-        backdropColor="overlay"
-        animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
-        animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
-        animationOutTiming={300}
-        backdropTransitionOutTiming={0}
-        coverScreen
-        useNativeDriver
-        hideModalContentWhileAnimating
-        style={{
-          justifyContent:
-            popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
-          alignItems: 'center',
-          padding: 0,
-          margin: 0,
-          top: popupType === 'normal' ? modalTop : 0,
-        }}
-      >
-        {popupView}
-      </Modal>
-    ),
-  );
+  setTimeout(() => {
+    hardwarePopupHolder = new RootSiblingsManager(
+      (
+        <Modal
+          isVisible
+          onModalHide={closeHardwarePopup}
+          backdropColor="overlay"
+          animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
+          animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
+          animationOutTiming={300}
+          backdropTransitionOutTiming={0}
+          coverScreen
+          useNativeDriver
+          hideModalContentWhileAnimating
+          style={{
+            justifyContent:
+              popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
+            alignItems: 'center',
+            padding: 0,
+            margin: 0,
+            top: popupType === 'normal' ? modalTop : 0,
+          }}
+        >
+          {popupView}
+        </Modal>
+      ),
+    );
+  });
+
   return hardwarePopupHolder;
 }
