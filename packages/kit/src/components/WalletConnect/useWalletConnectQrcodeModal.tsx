@@ -236,21 +236,26 @@ export function useWalletConnectQrcodeModal() {
           );
           isClosedRef.current = false;
 
-          // TODO android auto open apps by uri="wc:" ?
-          // if (Platform.OS === 'android') {
-          //   const canOpenURL = await Linking.canOpenURL(uri);
-          //   if (canOpenURL) {
-          //     await Linking.openURL(uri);
-          //   } else {
-          //     // url 404 now
-          //     // Linking.openURL('https://walletconnect.org/wallets');
-          //     // throw new Error('No wallets found.');
-          //   }
-          // }
+          // ** Android should open apps by uri="wc:"
+          if (platformEnv.isNativeAndroid) {
+            const canOpenURL = await Linking.canOpenURL(uri);
+            if (canOpenURL) {
+              await Linking.openURL(uri);
+            } else {
+              // url 404 now
+              await Linking.openURL(
+                'https://explorer.walletconnect.com/registry?type=wallet',
+              );
+              throw new Error('No wallets found.');
+            }
+            return;
+          }
 
+          // ** iOS can open matched apps directly
           if (walletServiceForConnectDirectly) {
             await connectToWalletService(walletServiceForConnectDirectly, uri);
           } else {
+            // open wallets list Modal
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.CreateWallet,
               params: {

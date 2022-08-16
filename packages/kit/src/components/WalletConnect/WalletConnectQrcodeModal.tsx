@@ -178,35 +178,41 @@ export function ConnectWalletListView({
     },
     [connectToWallet, connectToWalletService, onConnectResult, uri],
   );
+  const walletsList = useMemo(() => {
+    if (platformEnv.isNativeAndroid) {
+      return null;
+    }
+    return walletServicesEnabled.map((item) => {
+      const imgUri =
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        item?.image_url?.sm ||
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        item?.image_url?.md ||
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        item?.image_url?.lg ||
+        '';
+      return (
+        <ConnectWalletListItem
+          key={item.id}
+          label={item.name}
+          available
+          logo={imgUri}
+          isLoading={loadingId === item.id}
+          onPress={() =>
+            doConnect({ walletService: item, itemLoadingId: item.id })
+          }
+        />
+      );
+    });
+  }, [doConnect, loadingId, walletServicesEnabled]);
   return (
     <>
-      {walletServicesEnabled.map((item) => {
-        const imgUri =
-          // @ts-ignore
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          item?.image_url?.sm ||
-          // @ts-ignore
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          item?.image_url?.md ||
-          // @ts-ignore
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          item?.image_url?.lg ||
-          '';
-        return (
-          <ConnectWalletListItem
-            key={item.id}
-            label={item.name}
-            available
-            logo={imgUri}
-            isLoading={loadingId === item.id}
-            onPress={() =>
-              doConnect({ walletService: item, itemLoadingId: item.id })
-            }
-          />
-        );
-      })}
+      {walletsList}
 
-      {!platformEnv.isNative ? (
+      {!platformEnv.isNative || platformEnv.isNativeAndroid ? (
         <ConnectWalletListItem
           available
           label="WalletConenct"

@@ -66,7 +66,7 @@ function formatWalletServiceUrl({
 }) {
   const { mobile } = walletService;
   const { universal: universalLink, native: deepLink } = mobile;
-  if (Platform.OS === 'android') {
+  if (platformEnv.isNativeAndroid) {
     return formatDeeplinkUrl({
       prefix: deepLink,
       url,
@@ -163,12 +163,13 @@ async function dappOpenWalletApp({
 }: {
   walletService: WalletService;
 }) {
+  // TODO desktop deeplink open?
   // web dapp do not need to open wallet app
   if (Platform.OS === 'web') {
     return;
   }
   // android dapp check legacy
-  if (Platform.OS === 'android') {
+  if (platformEnv.isNativeAndroid) {
     // return dappOpenWalletAppForAndroidLegacy({
     //   peerMeta,
     //   walletServices,
