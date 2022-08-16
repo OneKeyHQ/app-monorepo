@@ -218,16 +218,20 @@ function SendConfirm() {
           withBalance: true,
           withPrice: false,
         });
-        await dappApprove.resolve({
-          result: tx.txid,
-        });
-        await serviceHistory.saveSendConfirmHistory({
-          networkId,
-          accountId,
-          data,
-          resendActionInfo,
-          feeInfo: feeInfoValue,
-        });
+        if (routeParams.signOnly) {
+          await dappApprove.resolve({ result: tx.rawTx });
+        } else {
+          await dappApprove.resolve({
+            result: tx.txid,
+          });
+          await serviceHistory.saveSendConfirmHistory({
+            networkId,
+            accountId,
+            data,
+            resendActionInfo,
+            feeInfo: feeInfoValue,
+          });
+        }
 
         navigation.navigate(SendRoutes.SendFeedbackReceipt, {
           txid: tx.txid ?? 'unknown_txid',
@@ -361,6 +365,7 @@ function SendConfirmProxy() {
       IInjectedProviderNames.ethereum,
       IInjectedProviderNames.starcoin,
       IInjectedProviderNames.near,
+      IInjectedProviderNames.solana,
     ].includes(sourceInfo.scope as any); // network.settings.injectedProviderName
   }, [sourceInfo]);
 

@@ -4,6 +4,7 @@ import {
   IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
+  IMPL_SOL,
   IMPL_STC,
   SEPERATOR,
 } from '../constants';
@@ -22,6 +23,8 @@ import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultNear from './impl/near/Vault';
 import VaultHelperNear from './impl/near/VaultHelper';
+import VaultSol from './impl/sol/Vault';
+import VauleHelperSol from './impl/sol/VaultHelper';
 import VaultStc from './impl/stc/Vault';
 import VaultHelperStc from './impl/stc/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
@@ -53,6 +56,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_STC) {
     return new VaultHelperStc(options);
+  }
+  if (impl === IMPL_SOL) {
+    return new VauleHelperSol(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -111,6 +117,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_STC) {
     vault = new VaultStc(options);
+  }
+  if (network.impl === IMPL_SOL) {
+    vault = new VaultSol(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

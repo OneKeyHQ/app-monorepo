@@ -123,6 +123,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
   onDetail?: (txid: string) => any;
+  signOnly?: boolean;
 };
 
 export type IWalletConnectExternalAccountInfo = {

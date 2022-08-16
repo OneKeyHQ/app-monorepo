@@ -4,10 +4,12 @@ import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
+import bs58 from 'bs58';
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
-import { wait } from '../../utils/helper';
+import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
+
 import { backgroundClass, providerApiMethod } from '../decorators';
 
 import ProviderApiBase, {
@@ -61,41 +63,69 @@ class ProviderApiSolana extends ProviderApiBase {
   // ----------------------------------------------
 
   @providerApiMethod()
-  public disconnect() {
+  public disconnect(request: IJsBridgeMessagePayload) {
+    const { origin } = request;
+    if (!origin) {
+      return;
+    }
+    this.backgroundApi.serviceDapp.removeConnectedAccounts({
+      origin,
+      networkImpl: IMPL_SOL,
+      addresses: this.backgroundApi.serviceDapp
+        .getConnectedAccounts({ origin })
+        .map(({ address }) => address),
+    });
     console.log('disconnect');
   }
 
   @providerApiMethod()
-  public signTransaction(
-    payload: IJsBridgeMessagePayload,
+  public async signTransaction(
+    request: IJsBridgeMessagePayload,
     params: { message: string },
   ) {
     if (typeof params.message !== 'string') {
       throw web3Errors.rpc.invalidInput();
     }
-    // TODO: validate message is a transaction
-    return Mocks.tx;
+
+    // TODO: sign only, not send
+    const rawTx = (await this.backgroundApi.serviceDapp?.openApprovalModal(
+      request,
+      {
+        encodedTx: params.message,
+        signOnly: true,
+      },
+    )) as string;
+    // Signed transaction is base64 encoded, inpage provider expects base58.
+    return bs58.encode(Buffer.from(rawTx, 'base64'));
   }
 
   @providerApiMethod()
-  public signAllTransactions(
-    payload: IJsBridgeMessagePayload,
+  public async signAllTransactions(
+    request: IJsBridgeMessagePayload,
     params: { message: string[] },
   ) {
-    const { message } = params;
+    const { message: txsToBeSigned } = params;
 
-    if (!isArray(message) || message.length === 0 || !message.every(isString)) {
+    if (
+      !isArray(txsToBeSigned) ||
+      txsToBeSigned.length === 0 ||
+      !txsToBeSigned.every(isString)
+    ) {
       throw web3Errors.rpc.invalidInput();
     }
 
-    // todo: validate message is  transactions
-    console.log('signAllTransactions', payload, params);
-    return message.map(() => Mocks.tx);
+    console.log('signAllTransactions', request, params);
+
+    const ret = [];
+    for (const tx of txsToBeSigned) {
+      ret.push(await this.signTransaction(request, { message: tx }));
+    }
+    return ret;
   }
 
   @providerApiMethod()
-  public signAndSendTransaction(
-    payload: IJsBridgeMessagePayload,
+  public async signAndSendTransaction(
+    request: IJsBridgeMessagePayload,
     params: { message: string; options?: SolanaSendOptions },
   ) {
     const { message } = params;
@@ -104,11 +134,21 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
+    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
+      origin: request.origin as string,
+    });
+
+    const txid = (await this.backgroundApi.serviceDapp?.openApprovalModal(
+      request,
+      {
+        encodedTx: message,
+      },
+    )) as string;
     // todo: validate message is  transactions
-    console.log('signTransaction', payload, params);
+    console.log('signTransaction', request, params);
     return {
-      signature: Mocks.txSignature,
-      publicKey: Mocks.publicKey,
+      signature: txid,
+      publicKey: accounts[0].address,
     };
   }
 
@@ -135,7 +175,7 @@ class ProviderApiSolana extends ProviderApiBase {
 
   @providerApiMethod()
   public async connect(
-    _: IJsBridgeMessagePayload,
+    request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
     const { onlyIfTrusted = false } = params || {};
@@ -144,11 +184,15 @@ class ProviderApiSolana extends ProviderApiBase {
       // throw error if user haven't trusted the app
     } else {
       // mock user action delay
-      await wait(3000);
     }
 
+    await this.backgroundApi.serviceDapp.openConnectionModal(request);
+    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
+      origin: request.origin as string,
+    });
+
     return {
-      publicKey: Mocks.publicKey,
+      publicKey: accounts[0].address,
     };
   }
 }
