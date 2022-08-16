@@ -9,6 +9,7 @@ import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
+import { useNavigationActions } from '../../hooks';
 import { useCreateAccountInWallet } from '../Header/AccountSelectorChildren/RightAccountCreateButton';
 
 const IdentityAssertion: FC = ({ children }) => {
@@ -16,10 +17,12 @@ const IdentityAssertion: FC = ({ children }) => {
   const navigation = useNavigation();
   const { walletId, accountId, networkId, isCompatibleNetwork } =
     useActiveWalletAccount();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { createAccount } = useCreateAccountInWallet({
     walletId,
     networkId,
   });
+  const { openDrawer } = useNavigationActions();
 
   if (!walletId) {
     return (
@@ -68,7 +71,13 @@ const IdentityAssertion: FC = ({ children }) => {
           <Button
             leftIconName="PlusOutline"
             type="primary"
-            onPress={async () => createAccount()}
+            onPress={() => {
+              // ** createAccount for current wallet directly
+              // createAccount();
+              //
+              // ** show account selector
+              openDrawer();
+            }}
             size="lg"
           >
             {intl.formatMessage({ id: 'action__create_account' })}

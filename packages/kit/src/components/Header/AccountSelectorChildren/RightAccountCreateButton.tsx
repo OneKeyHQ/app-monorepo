@@ -16,6 +16,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { wait } from '../../../utils/helper';
 import { useAddExternalAccount } from '../../WalletConnect/useAddExternalAccount';
 import { useWalletConnectQrcodeModal } from '../../WalletConnect/useWalletConnectQrcodeModal';
@@ -35,6 +36,8 @@ type Props = {
   onLoadingAccount: OnLoadingAccountCallback;
 };
 
+export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY = 'badge__coming_soon';
+
 export function useCreateAccountInWallet({
   networkId,
   walletId,
@@ -51,10 +54,7 @@ export function useCreateAccountInWallet({
   const { connectToWallet } = useWalletConnectQrcodeModal();
   const addExternalAccount = useAddExternalAccount();
 
-  const createAccount = useCallback(async () => {
-    if (!walletId) {
-      return;
-    }
+  const { result: walletAndNetworkInfo } = usePromiseResult(async () => {
     const selectedNetworkId = networkId === AllNetwork ? undefined : networkId;
 
     let network: Network | undefined;
@@ -69,18 +69,72 @@ export function useCreateAccountInWallet({
       activeWallet = await engine.getWallet(walletId);
     }
 
+    let isCreateAccountSupported = false;
+    if (network?.id) {
+      if (
+        activeWallet?.type === 'external' &&
+        vaultSettings?.externalAccountEnabled
+      ) {
+        isCreateAccountSupported = true;
+      }
+      if (
+        activeWallet?.type === 'imported' &&
+        vaultSettings?.importedAccountEnabled
+      ) {
+        isCreateAccountSupported = true;
+      }
+      if (
+        activeWallet?.type === 'watching' &&
+        vaultSettings?.watchingAccountEnabled
+      ) {
+        isCreateAccountSupported = true;
+      }
+      if (
+        activeWallet?.type === 'hw' &&
+        vaultSettings?.hardwareAccountEnabled
+      ) {
+        isCreateAccountSupported = true;
+      }
+      if (activeWallet?.type === 'hd') {
+        isCreateAccountSupported = true;
+      }
+    } else {
+      // AllNetwork
+      isCreateAccountSupported = true;
+    }
+
+    return {
+      selectedNetworkId,
+      network,
+      activeWallet,
+      vaultSettings,
+      isCreateAccountSupported,
+    };
+  }, [networkId, walletId]);
+
+  const createAccount = useCallback(async () => {
+    if (!walletId) {
+      return;
+    }
+    const {
+      activeWallet,
+      vaultSettings,
+      network,
+      selectedNetworkId,
+      isCreateAccountSupported,
+    } = walletAndNetworkInfo ?? {};
     const showNotSupportToast = () => {
       toast.show({
-        title: intl.formatMessage({ id: 'badge__coming_soon' }),
+        title: intl.formatMessage({
+          id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+        }),
       });
     };
-
+    if (!isCreateAccountSupported) {
+      showNotSupportToast();
+      return;
+    }
     if (activeWallet?.type === 'external') {
-      if (network?.id && !vaultSettings?.externalAccountEnabled) {
-        showNotSupportToast();
-        return;
-      }
-
       let isConnected = false;
       try {
         const result = await connectToWallet({
@@ -153,15 +207,17 @@ export function useCreateAccountInWallet({
   }, [
     addExternalAccount,
     connectToWallet,
-    engine,
     intl,
     navigation,
-    networkId,
     onLoadingAccount,
     toast,
+    walletAndNetworkInfo,
     walletId,
   ]);
-  return { createAccount };
+  return {
+    createAccount,
+    isCreateAccountSupported: walletAndNetworkInfo?.isCreateAccountSupported,
+  };
 }
 
 const RightAccountCreateButton: FC<Props> = ({
@@ -174,7 +230,8 @@ const RightAccountCreateButton: FC<Props> = ({
 }) => {
   const intl = useIntl();
 
-  const { createAccount } = useCreateAccountInWallet({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     networkId: selectedNetworkId,
     walletId: activeWallet?.id,
     onLoadingAccount,
