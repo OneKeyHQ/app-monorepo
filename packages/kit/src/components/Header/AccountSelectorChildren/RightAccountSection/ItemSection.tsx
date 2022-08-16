@@ -137,12 +137,13 @@ const AccountSectionItem: FC<Props> = ({
       }
     },
     [
+      copyAddress,
       item,
-      activeNetwork?.id,
       navigation,
-      refreshAccounts,
       activeWallet?.id,
       activeWallet?.type,
+      activeNetwork?.id,
+      refreshAccounts,
       showRemoveAccountDialog,
       showVerify,
     ],
