@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
+  addAccountTokens,
   setAccountTokens,
   setAccountTokensBalances,
   setCharts,
@@ -144,12 +145,21 @@ export default class ServiceToken extends ServiceBase {
       const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
     }
-    const tokensBalance = await engine.getAccountBalance(
+    const [tokensBalance, newTokens] = await engine.getAccountBalance(
       activeAccountId,
       activeNetworkId,
       Array.from(new Set(tokenIdsOnNetwork)),
       true,
     );
+    if (newTokens?.length) {
+      dispatch(
+        addAccountTokens({
+          activeAccountId,
+          activeNetworkId,
+          tokens: newTokens,
+        }),
+      );
+    }
     dispatch(
       setAccountTokensBalances({
         activeAccountId,

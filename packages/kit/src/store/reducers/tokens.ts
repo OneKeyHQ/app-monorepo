@@ -92,6 +92,27 @@ export const tokensSlice = createSlice({
       }
       state.accountTokens[activeNetworkId][activeAccountId] = tokens;
     },
+    addAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {
+      const { activeAccountId, activeNetworkId, tokens } = action.payload;
+      if (!activeAccountId || !activeNetworkId) {
+        return;
+      }
+      if (!state.accountTokens[activeNetworkId]) {
+        state.accountTokens[activeNetworkId] = {};
+      }
+      const mergedTokens = tokens.concat(
+        state.accountTokens[activeNetworkId][activeAccountId] || [],
+      );
+      const tokenIds: string[] = [];
+      const dedupedTokens = mergedTokens.filter((token) => {
+        if (tokenIds.includes(token.tokenIdOnNetwork)) {
+          return false;
+        }
+        tokenIds.push(token.tokenIdOnNetwork);
+        return true;
+      });
+      state.accountTokens[activeNetworkId][activeAccountId] = dedupedTokens;
+    },
     setAccountTokensBalances(
       state,
       action: PayloadAction<TokenBalancePayloadAction>,
@@ -125,5 +146,6 @@ export const {
   setCharts,
   setAccountTokens,
   setAccountTokensBalances,
+  addAccountTokens,
 } = tokensSlice.actions;
 export default tokensSlice.reducer;
