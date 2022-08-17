@@ -82,7 +82,12 @@ const CollectibleSectionList: FC<
     title?: string | null,
     length?: number | string | null,
   ) => (
-    <Box flexDirection="column" justifyContent="flex-start">
+    <Box
+      flexDirection="column"
+      justifyContent="flex-start"
+      key={`SectionHeader${title ?? ''}`}
+      paddingBottom="8px"
+    >
       <HStack alignItems="center" height="28px">
         {!!logo && (
           <NetImage src={logo} width="20px" height="20px" borderRadius="20px" />
@@ -203,6 +208,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     if (!isCollectibleSupported) {
       return (
         <Empty
+          pr="16px"
           imageUrl={IconNFT}
           title={intl.formatMessage({ id: 'empty__not_supported' })}
           subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
@@ -211,6 +217,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     }
     return (
       <Empty
+        pr="16px"
         imageUrl={IconNFT}
         title={intl.formatMessage({
           id: 'asset__collectibles_empty_title',
@@ -250,22 +257,18 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     [EmptyView, collectibles, expand, numColumns],
   );
 
-  return (
-    <Box>
-      {expand ? (
-        <CollectibleSectionList
-          flatListProps={sharedProps}
-          collectibles={collectibles}
-          onSelectAsset={onSelectAsset}
-        />
-      ) : (
-        <CollectibleFlatList
-          flatListProps={sharedProps}
-          collectibles={collectibles}
-          onSelectCollection={onSelectCollection}
-        />
-      )}
-    </Box>
+  return expand ? (
+    <CollectibleSectionList
+      flatListProps={sharedProps}
+      collectibles={collectibles}
+      onSelectAsset={onSelectAsset}
+    />
+  ) : (
+    <CollectibleFlatList
+      flatListProps={sharedProps}
+      collectibles={collectibles}
+      onSelectCollection={onSelectCollection}
+    />
   );
 };
 

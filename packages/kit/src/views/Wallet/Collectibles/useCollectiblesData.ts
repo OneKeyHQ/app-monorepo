@@ -69,15 +69,33 @@ export const useCollectiblesData = ({
         network,
       });
       parseCollectiblesData(result, mainKey);
-      updateListData(result.data);
+      updateListData(getCollectibleCache(mainKey));
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCollectibleSupported, mainKey]);
 
   useEffect(() => {
-    getData();
-  }, [getData]);
+    let isSubscribed = true;
+    if (isCollectibleSupported && mainKey) {
+      updateListData(getCollectibleCache(mainKey));
+      setIsLoading(true);
+      getUserNFTAssets({
+        address,
+        network,
+      }).then((result) => {
+        if (isSubscribed) {
+          parseCollectiblesData(result, mainKey);
+          updateListData(getCollectibleCache(mainKey));
+          setIsLoading(false);
+        }
+      });
+    }
+    return () => {
+      isSubscribed = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCollectibleSupported, mainKey]);
 
   return useMemo(() => {
     if (!isCollectibleSupported || !mainKey) {
