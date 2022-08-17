@@ -99,7 +99,7 @@ const PinPanel: FC<PinPanelProps> = ({ visible }) => {
             />
           </Box>
         </Box>
-        {platformEnv.isExtChrome ? (
+        {platformEnv.isExtension ? (
           <Box
             flexDirection="row"
             alignItems="center"
