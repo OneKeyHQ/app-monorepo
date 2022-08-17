@@ -752,9 +752,20 @@ class Engine {
       }
       return a.address;
     });
-    // TODO: balance is not display when searching now
-    const balances: Array<BigNumber | undefined> = addresses.map(
-      () => undefined,
+
+    const balances: Array<BigNumber | undefined> = await Promise.all(
+      addresses.map(async (address, index) => {
+        const account = accounts[index];
+        if (account.type === AccountType.UTXO) {
+          const { xpub } = account as DBUTXOAccount;
+          if (xpub) {
+            const [mainBalance] = await vault.getBalances([{ address: xpub }]);
+            return mainBalance;
+          }
+        }
+        const [mainBalance] = await vault.getBalances([{ address }]);
+        return mainBalance;
+      }),
     );
     return balances.map((balance, index) => ({
       index: start + index,
