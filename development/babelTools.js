@@ -56,6 +56,27 @@ function normalizeConfig({ platform, config }) {
     };
   }
 
+  const transformInlineEnviromentVariables = [
+    'NODE_ENV',
+    'VERSION',
+    'BUILD_NUMBER',
+    'ONEKEY_PLATFORM',
+    'EXT_CHANNEL',
+    'ANDROID_CHANNEL',
+    'CLOUNDINARY_NAME',
+    'COVALENT_KEY',
+    'MOONPAY_KEY',
+    'HARDWARE_SDK_CONNECT_SRC',
+  ];
+
+  if (platform === developmentConsts.platforms.app) {
+    transformInlineEnviromentVariables.push(
+      'JPUSH_KEY',
+      'JPUSH_CHANNEL',
+      'JPUSH_PRODUCTION',
+    );
+  }
+
   config.plugins = [
     ...(config.plugins || []),
     [
@@ -64,18 +85,7 @@ function normalizeConfig({ platform, config }) {
       {
         // *** ATTENTION: DO NOT expose any sensitive variable here ***
         // ***        like password, secretKey, etc.                ***
-        'include': [
-          'NODE_ENV',
-          'VERSION',
-          'BUILD_NUMBER',
-          'ONEKEY_PLATFORM',
-          'EXT_CHANNEL',
-          'ANDROID_CHANNEL',
-          'CLOUNDINARY_NAME',
-          'COVALENT_KEY',
-          'MOONPAY_KEY',
-          'HARDWARE_SDK_CONNECT_SRC',
-        ],
+        'include': transformInlineEnviromentVariables,
       },
     ],
     /*
