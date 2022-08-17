@@ -60,7 +60,7 @@ const Welcome = () => {
   const isSmallHeight = useUserDevice().screenHeight <= 667;
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
-  const hasPreviousBackups = usePromiseResult<boolean>(async () => {
+  const { result: hasPreviousBackups } = usePromiseResult<boolean>(async () => {
     const status =
       await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
     return status.hasPreviousBackups;

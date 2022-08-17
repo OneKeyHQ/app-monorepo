@@ -10,7 +10,7 @@ export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBUTXOAccount>> {
-    const { target, name } = params;
+    const { target, name, accountIdPrefix } = params;
     const provider = (await this.engine.providerManager.getProvider(
       this.networkId,
     )) as Provider;
@@ -24,7 +24,7 @@ export class KeyringWatching extends KeyringWatchingBase {
     );
     return [
       {
-        id: `watching--${COIN_TYPE}--${target}`,
+        id: `${accountIdPrefix}--${COIN_TYPE}--${target}`,
         name: name || '',
         type: AccountType.UTXO,
         path: '',

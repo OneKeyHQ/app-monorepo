@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { toLower } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Modal, Text } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { isWatchingAccount } from '@onekeyhq/engine/src/engineUtils';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IDecodedTx,
   IDecodedTxLegacy,
@@ -58,7 +62,8 @@ export type ITxConfirmViewProps = ModalProps & {
 // TODO rename SendConfirmModalBase
 function SendConfirmModal(props: ITxConfirmViewProps) {
   const intl = useIntl();
-  const { network, accountId } = useActiveWalletAccount();
+  const { network, networkImpl, accountId, accountAddress } =
+    useActiveWalletAccount();
   const {
     children,
     encodedTx,
@@ -96,10 +101,23 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     [fee, nativeBalance],
   );
 
-  const isWatchingAccount = useMemo(
-    () => !!(accountId && accountId.startsWith('watching-')),
+  const isWatching = useMemo(
+    () => isWatchingAccount({ accountId }),
     [accountId],
   );
+
+  const isAccountNotMatched = useMemo(() => {
+    if (!encodedTx) {
+      return false;
+    }
+    if (networkImpl === IMPL_EVM) {
+      const tx = encodedTx as IEncodedTxEvm | undefined;
+      if (tx && toLower(tx.from) !== toLower(accountAddress)) {
+        return true;
+      }
+    }
+    return false;
+  }, [accountAddress, encodedTx, networkImpl]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -129,8 +147,9 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled:
-          isWatchingAccount ||
+          isWatching ||
           balanceInsufficient ||
+          isAccountNotMatched ||
           feeInfoLoading ||
           !feeInfoPayload ||
           !encodedTx ||
@@ -149,8 +168,9 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
             {!autoConfirm && (
               <SendConfirmErrorsAlert
                 nativeToken={nativeToken}
-                isWatchingAccount={isWatchingAccount}
+                isWatchingAccount={isWatching}
                 balanceInsufficient={balanceInsufficient}
+                isAccountNotMatched={isAccountNotMatched}
               />
             )}
 

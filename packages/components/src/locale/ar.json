@@ -79,6 +79,7 @@
   "action__disable": "تعطيل",
   "action__disable_sync": "تعطيل المزامنة",
   "action__discard": "تجاهل",
+  "action__disconnect": "قطع الاتصال",
   "action__dismiss": "رفض",
   "action__done": "منتهي",
   "action__dont_have_device": "جهازي ليس معي",
@@ -232,6 +233,8 @@
   "content__Insufficient_str_balance": "رصيد {0} غير كافٍ",
   "content__a_few_seconds": "بضع ثوان",
   "content__about_int_str": "حول {0} {0}",
+  "content__account_and_network_not_matched": "كلا الحساب والسلسلة غير متطابقين",
+  "content__account_is_not_matched": "الحساب غير مطابق",
   "content__activated": "مفعل",
   "content__active_on_this_device": "نشط على هذا الجهاز",
   "content__activity_logs": "سجلات النشاط",
@@ -266,6 +269,7 @@
   "content__bluetooth_name": "اسم البلوتوث",
   "content__btc_dominance": "هيمنة BTC",
   "content__calculate_fee": "🚀 سيحسب OneKey الرسوم بعد إدخال العنوان والمبلغ.",
+  "content__chain_is_not_matched": "السلسلة غير متطابقة",
   "content__change_password_attention": "احتفظ بالتطبيق مفتوحًا أثناء تغيير كلمات المرور.",
   "content__check_the_address_on_device": "تحقق من العنوان الموجود على الجهاز لإظهار رمز الاستجابة السريعة.",
   "content__click_below_to_copy": "انقر أدناه للنسخ",
@@ -273,6 +277,7 @@
   "content__confirmed": "مؤكد",
   "content__connect_wallet_as_external_account": "الاتصال بالمحفظة الثالثة كحساب خارجي",
   "content__connected": "متصل",
+  "content__connecting": "توصيل",
   "content__created": "مخلوق",
   "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
   "content__creating_your_wallet": "<a> إنشاء </a> <b> محفظتك </b>",
@@ -454,7 +459,6 @@
   "content__wont_backup": "لن يقوم OneKey بعمل نسخة احتياطية من محافظ أجهزتك ؛ يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
   "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
-  "content__you_are_going_to_connect": "ستقوم بالاتصال:",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
   "content__your_biological_data_is_encrypted": "يتم تشفير بياناتك البيولوجية.",
   "content__your_biological_data_is_encrypted_desc": "يتم تخزين معلومات السيرة الذاتية محليًا ولا يمكن لـ OneKey الوصول إلى هذه البيانات أو تخزينها.",
@@ -600,6 +604,7 @@
   "form__field_is_required": "مطلوب هذا المجال.",
   "form__firmware_version": "نسخة برنامج ثابت",
   "form__floor_price": "أدنى سعر",
+  "form__free_limited_time": "مجانا! (وقت محدود)",
   "form__from_str": "من {0}",
   "form__fully_diluted_value": "القيمة المخففة بالكامل",
   "form__gas_limit_invalid_min": "يجب ألا يقل حد الغاز عن {0}",
@@ -895,8 +900,6 @@
   "msg__cannot_import_existing_wallet": "لا يمكن استيراد المحافظ الموجودة.",
   "msg__change_saved": "تم حفظ التغيير!",
   "msg__coming_soon": "قريبا",
-  "msg__connected_wrong_network": "شبكة اتصال خاطئة.",
-  "msg__connected_wrong_wallet": "لقد قمت بالاتصال بحساب خاطئ",
   "msg__contract_executed": "🤖 تنفيذ العقد",
   "msg__copied": "نسخ!",
   "msg__current_token_balance_is_insufficient": "رصيد الرمز الحالي غير كاف.",

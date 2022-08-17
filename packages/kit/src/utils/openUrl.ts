@@ -26,6 +26,7 @@ export const openUrl = (url: string, title?: string) => {
 
 export const openUrlExternal = (url: string) => {
   if (platformEnv.isNative) {
+    // open by OS default browser
     Linking.openURL(url);
   } else {
     window.open(url, '_blank');

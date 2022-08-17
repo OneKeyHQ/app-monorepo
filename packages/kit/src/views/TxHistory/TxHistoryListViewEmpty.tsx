@@ -2,12 +2,9 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Empty, IconButton } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box, Empty } from '@onekeyhq/components';
 
 import IconHistory from '../../../assets/3d_transaction_history.png';
-import { useActiveWalletAccount } from '../../hooks';
-import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 
 import { useTxHistoryContext } from './TxHistoryContext';
 
@@ -20,8 +17,6 @@ export function TxHistoryListViewEmpty({
 }) {
   const intl = useIntl();
   const txDetailContext = useTxHistoryContext();
-  const { network, account } = useActiveWalletAccount();
-  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
   return (
     <Box py={4} flexDirection="column" alignItems="center">
       <Empty
@@ -34,18 +29,6 @@ export function TxHistoryListViewEmpty({
         handleAction={txDetailContext?.context.refresh ?? refresh}
         isLoading={Boolean(txDetailContext?.context.isLoading || isLoading)}
       />
-      {!!platformEnv.isDev && hasAvailable && (
-        <IconButton
-          onPress={() => {
-            openAddressDetails(account?.address);
-          }}
-          p={2}
-          size="sm"
-          name="ExternalLinkSolid"
-          type="plain"
-          circle
-        />
-      )}
     </Box>
   );
 }

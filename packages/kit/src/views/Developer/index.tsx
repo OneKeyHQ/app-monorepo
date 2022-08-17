@@ -13,7 +13,6 @@ import {
   ScrollView,
   Typography,
   VStack,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -33,6 +32,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
 import { SendRoutes } from '../../routes';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import { refreshWebviewGlobalKey } from '../../store/reducers/status';
@@ -48,7 +48,6 @@ type NavigationProps = CompositeNavigationProp<
 
 export const Debug = () => {
   const intl = useIntl();
-  const inset = useSafeAreaInsets();
   const [uri, setUri] = useState('');
   const navigation = useNavigation<NavigationProps>();
   const connections = useAppSelector((s) => s.dapp.connections);
@@ -76,7 +75,7 @@ export const Debug = () => {
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
-      <Box w="full" maxW={768} mx="auto" pb={inset.bottom}>
+      <Box w="full" maxW={768} mx="auto" pb={9}>
         <Box borderRadius="12" bg="surface-default">
           <Pressable
             p="4"
@@ -115,6 +114,7 @@ export const Debug = () => {
                 断开 Dapp 连接 ({connections.length}) {webviewKey}
               </Typography.Body1>
             </Pressable>
+            <WalletConnectDappSideTest {...pressableProps} />
             <Pressable
               {...pressableProps}
               onPress={() => {
@@ -220,7 +220,8 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 /*
-               var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
+                // Approve Token
+               var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","value": "0xa3b5840f4000","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
                await window.ethereum.request(p);
                  */
                 // @ts-ignore
@@ -229,7 +230,16 @@ export const Debug = () => {
                   params: {
                     screen: SendRoutes.SendConfirmFromDapp,
                     params: {
-                      query: `{"sourceInfo":{"id":0,"origin":"https://swap.onekey.so","scope":"ethereum","data":{"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"}},"encodedTx":{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}`,
+                      query: `{"sourceInfo":{"id":0,"origin":"https://swap.onekey.so","scope":"ethereum","data":{"method":"eth_sendTransaction","params":[{
+                      "gas":"0xbf01",
+                      "from":"0x76f3f64cb3cd19debee51436df630a342b736c24",
+                      "to":"0xc748673057861a797275cd8a068abb95a902e8de",
+                      "value": "0xa3b5840f4000",
+                      "data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"}},"encodedTx":{
+                      "gas":"0xbf01",
+                      "from":"0x76f3f64cb3cd19debee51436df630a342b736c24",
+                      "to":"0xc748673057861a797275cd8a068abb95a902e8de",
+                      "value": "0xa3b5840f4000","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}`,
                     },
                   },
                 });
@@ -241,23 +251,25 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 /*
+                // Send Native Token
                 var p = {
-      "method": "eth_sendTransaction",
-      "params": [
-        {
-          "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
-          "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
-          "data": "0x",
-          "value": "0xa3b5840f4000"
-        }
-      ],
-      "jsonrpc": "2.0"
-    };
-
-
-                           await window.ethereum.request(p);
+                    "method": "eth_sendTransaction",
+                    "params": [
+                      {
+                        "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
+                        "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
+                        "data": "0x",
+                        "value": "0xa3b5840f4000"
+                      }
+                    ],
+                    "jsonrpc": "2.0"
+                  };
+                  await window.ethereum.request(p);
 
                  */
+                const randomValue = `0x${Math.floor(
+                  Math.random() * 10 ** 15,
+                ).toString(16)}`;
                 // @ts-ignore
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
@@ -273,20 +285,18 @@ export const Debug = () => {
       "method": "eth_sendTransaction",
       "params": [
         {
-          "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
           "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
           "data": "0x",
-          "value": "0xa3b5840f4000"
+          "value": "${randomValue}"
         }
       ],
       "jsonrpc": "2.0"
     }
   },
   "encodedTx": {
-    "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
     "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
     "data": "0x",
-    "value": "0xa3b5840f4000"
+    "value": "${randomValue}"
   }
 }`,
                     },

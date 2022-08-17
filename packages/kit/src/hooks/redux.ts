@@ -3,6 +3,7 @@ import { TypedUseSelectorHook, useSelector } from 'react-redux';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appDispatch, appSelector } from '../store';
@@ -62,6 +63,7 @@ export type IActiveWalletAccount = {
   wallet: Wallet | null;
   account: Account | null;
   network: INetwork | null;
+  externalWallet: Wallet | null;
   networkId: string;
   walletId: string;
   accountId: string;
@@ -78,6 +80,9 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
 
     // TODO init runtime data from background
     const { wallets, networks, accounts } = selector((s) => s.runtime);
+
+    const externalWallet =
+      wallets.find((wallet) => wallet.id === WALLET_TYPE_EXTERNAL) ?? null;
 
     const activeWallet =
       wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
@@ -109,6 +114,7 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
       wallet: activeWallet,
       account: activeAccountInfo,
       network: activeNetwork,
+      externalWallet,
       accountId,
       networkId,
       networkImpl,

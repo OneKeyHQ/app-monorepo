@@ -118,7 +118,7 @@ export function useFeeInfoPayload({
           } else {
             setFeeInfoError(error);
           }
-          console.error('engine.fetchFeeInfo ERROR: ', error);
+          debugLogger.sendTx.error('engine.fetchFeeInfo ERROR: ', error);
           return null;
         }
       }
@@ -192,13 +192,17 @@ export function useFeeInfoPayload({
     ]);
 
   useEffect(() => {
-    // first time loading only, Interval loading does not support yet.
-    setLoading(true);
-    fetchFeeInfo()
-      .then((info) => {
+    (async function () {
+      if (!encodedTx) {
+        return null;
+      }
+      // first time loading only, Interval loading does not support yet.
+      setLoading(true);
+      try {
+        const info = await fetchFeeInfo();
+        // await delay(600);
         setFeeInfoPayload(info);
-      })
-      .catch((error) => {
+      } catch (error: any) {
         // TODO: only an example implementation about showing rpc error
         const { code: errCode } = error as { code?: number };
         if (errCode === -32603) {
@@ -211,11 +215,11 @@ export function useFeeInfoPayload({
         }
         setFeeInfoPayload(null);
         setFeeInfoError(error);
-        console.error(error);
-      })
-      .finally(() => {
+        debugLogger.sendTx.error('fetchFeeInfo ERROR: ', error);
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, [encodedTx, fetchFeeInfo, setFeeInfoPayload, toast]);
 
   useEffect(() => {
@@ -233,7 +237,7 @@ export function useFeeInfoPayload({
           setFeeInfoPayload(info);
         } catch (error: any) {
           setFeeInfoError(error);
-          console.error('feeInfoPollingInterval ERROR: ', error);
+          debugLogger.sendTx.error('feeInfoPollingInterval ERROR: ', error);
         }
       }, pollingInterval);
     }

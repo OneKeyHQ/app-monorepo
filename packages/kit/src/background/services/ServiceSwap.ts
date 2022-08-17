@@ -29,7 +29,7 @@ export default class ServiceSwap extends ServiceBase {
       return;
     }
     const { appSelector } = this.backgroundApi;
-    const networks = appSelector((s) => s.runtime.networks) as Network[];
+    const networks = appSelector((s) => s.runtime.networks);
     return networks.filter((network) => network.id === networkId)[0];
   }
 
@@ -53,12 +53,8 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setInputToken(token: Token) {
     const { appSelector } = this.backgroundApi;
-    const outputToken = appSelector((s) => s.swap.outputToken) as
-      | Token
-      | undefined;
-    const inputToken = appSelector((s) => s.swap.inputToken) as
-      | Token
-      | undefined;
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    const inputToken = appSelector((s) => s.swap.inputToken);
     if (
       outputToken &&
       outputToken.networkId === token.networkId &&
@@ -76,12 +72,8 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setOutputToken(token: Token) {
     const { appSelector } = this.backgroundApi;
-    const outputToken = appSelector((s) => s.swap.outputToken) as
-      | Token
-      | undefined;
-    const inputToken = appSelector((s) => s.swap.inputToken) as
-      | Token
-      | undefined;
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    const inputToken = appSelector((s) => s.swap.inputToken);
     if (
       inputToken &&
       inputToken.networkId === token.networkId &&

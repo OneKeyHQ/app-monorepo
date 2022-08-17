@@ -22,6 +22,7 @@ import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/Modi
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
+import { ExternalAccountImg } from '../../../WalletConnect/ExternalAccountImg';
 
 import ItemActionButton from './ItemActionButton';
 
@@ -177,10 +178,16 @@ const AccountSectionItem: FC<Props> = ({
                 ? 'surface-selected'
                 : 'transparent'
             }
-            space={4}
             borderRadius="xl"
             alignItems="center"
           >
+            <ExternalAccountImg
+              ml={1}
+              mr={3}
+              size={6}
+              radius="6px"
+              accountId={item.id}
+            />
             <Box flex={1}>
               <Account
                 hiddenAvatar
@@ -188,6 +195,7 @@ const AccountSectionItem: FC<Props> = ({
                 name={item.name}
               />
             </Box>
+            <Box w={2} />
             <ItemActionButton
               type={activeWallet?.type}
               onChange={handleChange}

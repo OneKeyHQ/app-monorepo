@@ -163,6 +163,7 @@ const Modal = ({
     } else if (scrollViewProps) {
       content = (
         <ScrollView
+          testID="Modal-ScrollView-Container"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingBottom: 24,

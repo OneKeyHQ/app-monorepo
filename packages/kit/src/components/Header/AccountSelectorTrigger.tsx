@@ -24,6 +24,8 @@ import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import { ExternalAccountImg } from '../WalletConnect/ExternalAccountImg';
+
 import WalletAvatar from './WalletAvatar';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
@@ -117,6 +119,16 @@ const AccountSelectorTrigger: FC<Props> = ({
               size="sm"
               mr={3}
             />
+            <Box position="absolute" right="4px" bottom="-6px">
+              <ExternalAccountImg
+                key={account.id}
+                size={4}
+                radius="12px"
+                accountId={account.id}
+                borderWidth={2}
+                borderColor="background-default"
+              />
+            </Box>
             {!!hasNotification && (
               <Box
                 position="absolute"

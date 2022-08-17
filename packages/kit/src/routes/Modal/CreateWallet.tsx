@@ -31,9 +31,12 @@ import type {
   OnekeyLiteRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
 
+import { WalletConnectQrcodeModal } from '../../components/WalletConnect/WalletConnectQrcodeModal';
 import { CreateWalletModalRoutes } from '../routesEnum';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { WalletService } from '../../components/WalletConnect/types';
 
 export { CreateWalletModalRoutes };
 
@@ -102,6 +105,15 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteRestoreDoneModal];
   [CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteBackupPinCodeVerifyModal];
   [CreateWalletModalRoutes.OnekeyLiteBackupModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteBackupModal];
+  [CreateWalletModalRoutes.WalletConnectQrcodeModal]: {
+    connectToWalletService: (
+      walletService: WalletService,
+      uri?: string,
+    ) => Promise<void>;
+    uri?: string;
+    onDismiss: () => void;
+    shouldRenderQrcode: boolean;
+  };
 };
 
 const CreateWalletNavigator = createStackNavigator<CreateWalletRoutesParams>();
@@ -164,6 +176,10 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.AddExistingWalletModal,
     component: AddExistingWallet,
+  },
+  {
+    name: CreateWalletModalRoutes.WalletConnectQrcodeModal,
+    component: WalletConnectQrcodeModal,
   },
   {
     name: CreateWalletModalRoutes.AddImportedOrWatchingAccountModal,

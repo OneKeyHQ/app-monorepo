@@ -6,6 +6,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import CustomToast from './Custom';
 
 let toastHolder: RootSiblingsManager | null = null;
+/*
+ toast.show(
+        {
+          title: intl.formatMessage({ id: 'msg__verification_failure' }),
+        },
+        {
+          type: 'error', // success, error, info
+        },
+ )
+ */
 const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   if (toastHolder) {
     toastHolder.destroy();
@@ -25,7 +35,7 @@ const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
     ToastBase.show({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       text1: props.title,
-      type: 'success',
+      type: 'success', // success, error, info
       position: 'top',
       topOffset: platformEnv.isNativeIOS ? 64 : 40,
       props,

@@ -8,6 +8,11 @@ import {
   SEPERATOR,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '../types/wallet';
 
 import VaultBtc from './impl/btc/Vault';
 import VaultHelperBtc from './impl/btc/VaultHelper';
@@ -66,10 +71,13 @@ export async function createKeyringInstance(vault: VaultBase) {
   if (walletId.startsWith('hw-')) {
     keyring = new vault.keyringMap.hw(vault);
   }
-  if (walletId === 'watching') {
+  if (walletId === WALLET_TYPE_WATCHING) {
     keyring = new vault.keyringMap.watching(vault);
   }
-  if (walletId === 'imported') {
+  if (walletId === WALLET_TYPE_EXTERNAL) {
+    keyring = new vault.keyringMap.external(vault);
+  }
+  if (walletId === WALLET_TYPE_IMPORTED) {
     keyring = new vault.keyringMap.imported(vault);
   }
 

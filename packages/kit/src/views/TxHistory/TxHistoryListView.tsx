@@ -28,11 +28,12 @@ import {
   IDecodedTxStatus,
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { delay } from '../../background/utils';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
+import { wait } from '../../utils/helper';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
 
@@ -253,9 +254,9 @@ function TxHistoryListViewComponent({
             tokenIdOnNetwork: tokenId,
           });
         } catch (err) {
-          console.error(err);
+          debugLogger.common.error(err);
         }
-        await delay(1000);
+        await wait(1000);
       }
 
       const txList = await serviceHistory.getLocalHistory({

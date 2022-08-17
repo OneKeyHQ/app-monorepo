@@ -1,0 +1,36 @@
+import { useEffect } from 'react';
+
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { isExternalAccount } from '@onekeyhq/engine/src/engineUtils';
+
+import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';
+
+export function useWalletConnectPrepareConnection({
+  accountId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  const { connectToWallet } = useWalletConnectQrcodeModal();
+
+  useEffect(() => {
+    (async function () {
+      if (isExternalAccount({ accountId })) {
+        const { session, walletService } =
+          await simpleDb.walletConnect.getExternalAccountSession({
+            accountId,
+          });
+        if (session?.connected) {
+          await connectToWallet({
+            isNewSession: false,
+            session,
+            walletService,
+            accountId,
+          });
+        }
+      }
+    })();
+  }, [accountId, connectToWallet]);
+}

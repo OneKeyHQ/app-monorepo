@@ -23,13 +23,14 @@ import {
   unlock,
 } from '../../store/reducers/status';
 import extUtils, { OpenUrlRouteInfo } from '../../utils/extUtils';
+import { wait } from '../../utils/helper';
 import {
   getPassword,
   hasHardwareSupported,
 } from '../../utils/localAuthentication';
 import { EOnboardingRoutes } from '../../views/Onboarding/routes/enums';
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { MAX_LOG_LENGTH, delay } from '../utils';
+import { MAX_LOG_LENGTH } from '../utils';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
@@ -66,9 +67,7 @@ class ServiceApp extends ServiceBase {
     const { appSelector, engine } = this.backgroundApi;
 
     const enableAppLock = appSelector((s) => s.settings.enableAppLock);
-    const appLockDuration = appSelector(
-      (s) => s.settings.appLockDuration,
-    ) as number;
+    const appLockDuration = appSelector((s) => s.settings.appLockDuration);
 
     const lastActivity = await simpleDb.lastActivity.getValue();
     const isPasswordSet = await engine.isMasterPasswordSet();
@@ -122,7 +121,7 @@ class ServiceApp extends ServiceBase {
     await persistor.purge();
     await engine.resetApp();
     if (platformEnv.isRuntimeBrowser) {
-      localStorage.clear();
+      window.localStorage.clear();
     }
     await appStorage.clear();
     dispatch({ type: 'LOGOUT', payload: undefined });
@@ -130,11 +129,11 @@ class ServiceApp extends ServiceBase {
     serviceAccount.notifyAccountsChanged();
 
     // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
-    await delay(1500);
+    await wait(1500);
     // restartApp() MUST be called from background in Ext
     this.restartApp();
 
-    await delay(1500);
+    await wait(1500);
     this.resetAppAtTime = 0;
   }
 

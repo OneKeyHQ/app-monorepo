@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, memo } from 'react';
+import React, { ComponentProps, FC, memo, useMemo } from 'react';
 
 import {
   Box,
@@ -9,7 +9,12 @@ import {
   VStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+  Wallet,
+} from '@onekeyhq/engine/src/types/wallet';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
@@ -70,7 +75,22 @@ const LeftSide: FC<LeftSideProps> = ({
 
   const { wallets } = useRuntime();
 
-  const importedWallet = wallets.filter((w) => w.type === 'imported')[0];
+  const singletonWallet = useMemo(() => {
+    const imported = wallets.filter(
+      (w) => w.type === WALLET_TYPE_IMPORTED,
+    )?.[0];
+    const watching = wallets.filter(
+      (w) => w.type === WALLET_TYPE_WATCHING,
+    )?.[0];
+    const external = wallets.filter(
+      (w) => w.type === WALLET_TYPE_EXTERNAL,
+    )?.[0];
+    return {
+      imported,
+      watching,
+      external,
+    };
+  }, [wallets]);
 
   const { bottom } = useSafeAreaInsets();
 
@@ -82,10 +102,15 @@ const LeftSide: FC<LeftSideProps> = ({
   };
 
   return (
-    <VStack borderRightWidth={1} borderRightColor="border-subdued" pb={bottom}>
+    <VStack
+      testID="AccountSelectorChildren-LeftSide"
+      borderRightWidth={1}
+      borderRightColor="border-subdued"
+      pb={bottom}
+    >
       <ScrollView>
         <VStack py={2}>
-          {/* APP Wallet */}
+          {/* APP HD Wallet */}
           <VStack space={2}>
             {wallets
               .filter((wallet) => wallet.type === 'hd')
@@ -129,28 +154,35 @@ const LeftSide: FC<LeftSideProps> = ({
           {wallets.some((wallet) => wallet.type === 'hw') && <Box h={4} />}
           {/* Imported or watched wallet */}
           <VStack space={2}>
-            {importedWallet ? (
+            {singletonWallet.imported ? (
               <WalletItem
                 onPress={() => {
-                  setSelectedWallet(importedWallet);
+                  setSelectedWallet(singletonWallet.imported);
                 }}
-                isSelected={selectedWallet?.id === importedWallet.id}
+                isSelected={selectedWallet?.id === singletonWallet.imported.id}
                 walletImage="imported"
               />
             ) : null}
 
-            {wallets
-              .filter((wallet) => wallet.type === 'watching')
-              .map((wallet) => (
-                <WalletItem
-                  key={wallet.id}
-                  onPress={() => {
-                    setSelectedWallet(wallet);
-                  }}
-                  isSelected={selectedWallet?.id === wallet.id}
-                  walletImage="watching"
-                />
-              ))}
+            {singletonWallet.watching ? (
+              <WalletItem
+                onPress={() => {
+                  setSelectedWallet(singletonWallet.watching);
+                }}
+                isSelected={selectedWallet?.id === singletonWallet.watching.id}
+                walletImage="watching"
+              />
+            ) : null}
+
+            {singletonWallet.external ? (
+              <WalletItem
+                onPress={() => {
+                  setSelectedWallet(singletonWallet.external);
+                }}
+                isSelected={selectedWallet?.id === singletonWallet.external.id}
+                walletImage="external"
+              />
+            ) : null}
           </VStack>
         </VStack>
       </ScrollView>

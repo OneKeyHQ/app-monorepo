@@ -96,3 +96,8 @@ textarea {
 [data-testid='Segment_Button'] {
   width: 100%;
 }
+
+/* WallectConnect Modal */
+.walletconnect-modal__base {
+  max-width: 400px !important;
+}

@@ -11,14 +11,26 @@ export function SendConfirmErrorsAlert({
   isWatchingAccount,
   balanceInsufficient,
   isNetworkNotMatched,
+  isAccountNotMatched,
 }: {
   nativeToken?: Token;
   isWatchingAccount?: boolean;
   balanceInsufficient?: boolean;
   isNetworkNotMatched?: boolean;
+  isAccountNotMatched?: boolean;
 }) {
   const errors = [];
   const intl = useIntl();
+  if (isAccountNotMatched) {
+    errors.push(
+      <FormErrorMessage
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'msg__mismatched_account',
+        })}
+      />,
+    );
+  }
   if (isNetworkNotMatched) {
     errors.push(
       <FormErrorMessage

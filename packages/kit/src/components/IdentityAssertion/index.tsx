@@ -7,16 +7,22 @@ import { Box, Button, Empty } from '@onekeyhq/components';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  CreateAccountModalRoutes,
-  CreateWalletModalRoutes,
-} from '@onekeyhq/kit/src/routes';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+
+import { useNavigationActions } from '../../hooks';
+import { useCreateAccountInWallet } from '../Header/AccountSelectorChildren/RightAccountCreateButton';
 
 const IdentityAssertion: FC = ({ children }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { walletId, accountId, wallet } = useActiveWalletAccount();
+  const { walletId, accountId, networkId, isCompatibleNetwork } =
+    useActiveWalletAccount();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { createAccount } = useCreateAccountInWallet({
+    walletId,
+    networkId,
+  });
+  const { openDrawer } = useNavigationActions();
 
   if (!walletId) {
     return (
@@ -47,7 +53,7 @@ const IdentityAssertion: FC = ({ children }) => {
       </Box>
     );
   }
-  if (!accountId) {
+  if (!accountId || !isCompatibleNetwork) {
     return (
       <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
@@ -66,34 +72,11 @@ const IdentityAssertion: FC = ({ children }) => {
             leftIconName="PlusOutline"
             type="primary"
             onPress={() => {
-              if (wallet?.type === 'imported') {
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateWallet,
-                  params: {
-                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                    params: { mode: 'imported' },
-                  },
-                });
-              }
-              if (wallet?.type === 'watching') {
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateWallet,
-                  params: {
-                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                    params: { mode: 'watching' },
-                  },
-                });
-              }
-
-              return navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateAccount,
-                params: {
-                  screen: CreateAccountModalRoutes.CreateAccountForm,
-                  params: {
-                    walletId,
-                  },
-                },
-              });
+              // ** createAccount for current wallet directly
+              // createAccount();
+              //
+              // ** show account selector
+              openDrawer();
             }}
             size="lg"
           >

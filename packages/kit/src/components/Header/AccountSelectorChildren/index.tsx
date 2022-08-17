@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
 import { InteractionManager } from 'react-native';
 
 import {
@@ -29,6 +30,7 @@ import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/Remov
 
 import LeftSide from './LeftSide';
 import RightAccountCreateButton from './RightAccountCreateButton';
+import { RightAccountEmptyPanel } from './RightAccountEmptyPanel';
 import AccountSection from './RightAccountSection';
 import RightChainSelector, { AllNetwork } from './RightChainSelector';
 import RightHeader from './RightHeader';
@@ -48,7 +50,8 @@ const AccountSelectorChildren: FC<{
 }> = ({ isOpen }) => {
   const [loadingAccountWalletId, setLoadingAccountWalletId] =
     useState<string>('');
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { RemoveAccountDialog } = useRemoveAccountDialog();
 
@@ -215,6 +218,20 @@ const AccountSelectorChildren: FC<{
     backgroundApiProxy.serviceApp.lock(true);
   }, []);
 
+  const activeAccounts = useMemo(
+    () => (activeWallet?.id ? accountsMap[activeWallet?.id] ?? [] : []),
+    [accountsMap, activeWallet?.id],
+  );
+
+  const isActiveAccountsEmpty = useMemo(() => {
+    if (!activeAccounts?.length) {
+      return true;
+    }
+    let dataLen = 0;
+    activeAccounts.forEach((acc) => (dataLen += acc?.data?.length || 0));
+    return dataLen <= 0;
+  }, [activeAccounts]);
+
   return (
     <>
       <LeftSide
@@ -229,32 +246,45 @@ const AccountSelectorChildren: FC<{
             deviceStatus?.[activeWallet?.associatedDevice ?? ''] ?? undefined
           }
         />
-        <Box m={2}>
+        <Box
+          testID="AccountSelectorChildren-RightChainSelector-Container"
+          m={2}
+        >
           <RightChainSelector
             activeWallet={activeWallet}
             selectedNetworkId={selectedNetworkId}
             setSelectedNetworkId={setSelectedNetworkId}
           />
         </Box>
-        <AccountSection
-          activeAccounts={
-            activeWallet?.id ? accountsMap[activeWallet?.id] ?? [] : []
-          }
-          activeWallet={activeWallet}
-          activeNetwork={activeNetwork}
-          activeAccount={currentSelectedAccount}
-          loadingAccountWalletId={loadingAccountWalletId}
-          refreshAccounts={refreshAccounts}
-        />
+        <Box flex={1}>
+          {isActiveAccountsEmpty ? (
+            <RightAccountEmptyPanel
+              activeAccounts={activeAccounts}
+              activeWallet={activeWallet}
+              selectedNetworkId={selectedNetworkId}
+            />
+          ) : (
+            <AccountSection
+              activeAccounts={activeAccounts}
+              activeWallet={activeWallet}
+              activeNetwork={activeNetwork}
+              activeAccount={currentSelectedAccount}
+              loadingAccountWalletId={loadingAccountWalletId}
+              refreshAccounts={refreshAccounts}
+            />
+          )}
+        </Box>
         <Box p={2} flexDirection="row">
           <Box flex="1">
-            <RightAccountCreateButton
-              onLoadingAccount={onLoadingAccount}
-              isLoading={!!loadingAccountWalletId}
-              activeNetwork={activeNetwork}
-              selectedNetworkId={selectedNetworkId}
-              activeWallet={activeWallet}
-            />
+            {isOpen && (
+              <RightAccountCreateButton
+                onLoadingAccount={onLoadingAccount}
+                isLoading={!!loadingAccountWalletId}
+                activeNetwork={activeNetwork}
+                selectedNetworkId={selectedNetworkId}
+                activeWallet={activeWallet}
+              />
+            )}
           </Box>
           {isPasswordSet ? (
             <IconButton
@@ -262,6 +292,7 @@ const AccountSelectorChildren: FC<{
               name="LockOutline"
               size="lg"
               minW="50px"
+              minH="50px"
               onPress={onLock}
             />
           ) : null}

@@ -6,12 +6,13 @@ import {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
+import { fixAddressCase, toBigIntHex } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -35,6 +36,8 @@ import {
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';
+
+import type { IUpdateChainParams } from '@walletconnect/types';
 
 /**
  * @type Transaction
@@ -210,6 +213,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
+    // TODO check tx from address match current account
     debugLogger.ethereum.info('eth_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
@@ -234,7 +238,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   /**
    * Add token to user wallet
-   * const result = await ethereum.request({
+   * const result = await window.ethereum.request({
    *   method: 'wallet_watchAsset',
    *   params: {
    *     type: 'ERC20',
@@ -374,22 +378,7 @@ class ProviderApiEthereum extends ProviderApiBase {
    */
   @providerApiMethod()
   eth_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
-    if (params[1].length === 66 || params[1].length === 67) {
-      // const rawSignature = await addUnapprovedMessage({
-      //   data: params[1]
-      //   from: params[0]
-      // // dapp metadata
-      //   ...{
-      //     url, title, icon
-      //   },
-      //   origin: req.origin
-      // })
-      // return signature
-      throw new Error('eth_signTransaction not supported yet');
-    }
-    throw web3Errors.rpc.invalidParams(
-      'eth_sign requires 32 byte message hash',
-    );
+    throw web3Errors.provider.unsupportedMethod();
   }
 
   @providerApiMethod()
@@ -580,6 +569,27 @@ class ProviderApiEthereum extends ProviderApiBase {
     };
   }
 
+  // for WalletConnect method: connector.updateChain(params: IUpdateChainParams)
+  @providerApiMethod()
+  async wallet_updateChain(
+    request: IJsBridgeMessagePayload,
+    params: IUpdateChainParams,
+  ) {
+    debugLogger.walletConnect.info(
+      'wallet_updateChain by wallet-connect',
+      request,
+    );
+    return this.wallet_addEthereumChain(request, {
+      ...params,
+      chainId: toBigIntHex(new BigNumber(params.chainId)),
+      nativeCurrency: {
+        decimals: 18,
+        ...params.nativeCurrency,
+      },
+      rpcUrls: [params.rpcUrl].filter(Boolean),
+    });
+  }
+
   // get and save Dapp site icon & title
   @providerApiMethod()
   metamask_sendDomainMetadata() {
@@ -603,7 +613,7 @@ class ProviderApiEthereum extends ProviderApiBase {
    * Add new chain to wallet and switch to it, we also need a request modal UI
    * req: IJsBridgeMessagePayload,
     {
-      chainId,
+      chainId='0xf00',
       chainName = null,
       blockExplorerUrls = null,
       nativeCurrency = null,
