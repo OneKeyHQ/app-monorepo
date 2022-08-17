@@ -2,8 +2,17 @@ import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, DialogManager, Text, VStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Dialog,
+  DialogManager,
+  HStack,
+  Image,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -41,7 +50,7 @@ function DialogConfirmMismatchOrContinue(
         // title: intl.formatMessage({ id: 'action__remove_account' }),
         // content: ''
         contentElement: (
-          <VStack>
+          <VStack space={6} alignSelf="stretch">
             {contentIds.map((id) => (
               <Text
                 key={id}
@@ -55,6 +64,58 @@ function DialogConfirmMismatchOrContinue(
                 })}
               </Text>
             ))}
+
+            {/* <Alert
+              title={intl.formatMessage({
+                id: 'content__account_is_not_matched',
+                // id: 'content__chain_is_not_matched',
+                // id: 'content__account_and_network_not_matched',
+              })}
+              alertType="info"
+              dismiss={false}
+            />
+            <VStack>
+              <HStack>
+                <Image src={LogoOneKey} borderRadius="6px" size={6} />
+                <Text typography="Body1Strong" ml={3}>
+                  OneKey
+                </Text>
+              </HStack>
+              <HStack justifyContent="space-between" py={3}>
+                <Text typography="Body2Strong" color="text-subdued">
+                  {intl.formatMessage({ id: 'form__account' })}
+                </Text>
+                <Text typography="Body2">address here...</Text>
+              </HStack>
+              <HStack justifyContent="space-between" py={3}>
+                <Text typography="Body2Strong" color="text-subdued">
+                  {intl.formatMessage({ id: 'network__network' })}
+                </Text>
+                <Text typography="Body2">chain here...</Text>
+              </HStack>
+            </VStack>
+            <VStack>
+              <HStack>
+                <Image src={LogoOneKey} borderRadius="6px" size={6} />
+                <Text typography="Body1Strong" ml={3}>
+                  3rd Wallet
+                </Text>
+              </HStack>
+              <HStack justifyContent="space-between" py={3}>
+                <Text typography="Body2Strong" color="text-subdued">
+                  {intl.formatMessage({ id: 'form__account' })}
+                </Text>
+                <Text typography="Body2" color="text-critical">
+                  address here...
+                </Text>
+              </HStack>
+              <HStack justifyContent="space-between" py={3}>
+                <Text typography="Body2Strong" color="text-subdued">
+                  {intl.formatMessage({ id: 'network__network' })}
+                </Text>
+                <Text typography="Body2">chain here...</Text>
+              </HStack>
+            </VStack> */}
           </VStack>
         ),
       }}
@@ -192,9 +253,10 @@ export function useWalletConnectSendInfo({
     const peerAddress = (connector.accounts?.[0] || '').toLowerCase();
 
     const mismatchErrorIds = [
-      peerAddress !== currentAccount.address && 'msg__connected_wrong_wallet',
+      peerAddress !== currentAccount.address &&
+        'content__account_is_not_matched',
       peerChainId !== currentNetwork.extraInfo.networkVersion &&
-        'msg__connected_wrong_network',
+        'content__chain_is_not_matched',
     ].filter(Boolean);
     if (mismatchErrorIds.length) {
       await wait(WALLET_CONNECT_SHOW_MISMATCH_CONFIRM_DELAY);

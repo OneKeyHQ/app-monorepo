@@ -182,7 +182,8 @@ const AccountSectionItem: FC<Props> = ({
             alignItems="center"
           >
             <ExternalAccountImg
-              mr={2}
+              ml={1}
+              mr={3}
               size={6}
               radius="6px"
               accountId={item.id}

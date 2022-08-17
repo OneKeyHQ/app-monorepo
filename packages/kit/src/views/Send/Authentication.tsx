@@ -322,7 +322,7 @@ export const HDAccountAuthentication = () => {
 
   // TODO all Modal close should reject dapp call
   return (
-    <Modal height="598px" footer={null}>
+    <Modal footer={null}>
       <Box flex={1}>
         <DecodeTxButtonTest encodedTx={params.encodedTx} />
         <Protected walletId={walletId} field={ValidationFields.Payment}>

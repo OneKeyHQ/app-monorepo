@@ -119,12 +119,14 @@ const AccountSelectorTrigger: FC<Props> = ({
               size="sm"
               mr={3}
             />
-            <Box position="absolute" right="8px" bottom="-3px">
+            <Box position="absolute" right="4px" bottom="-6px">
               <ExternalAccountImg
                 key={account.id}
-                size={3}
+                size={4}
                 radius="12px"
                 accountId={account.id}
+                borderWidth={2}
+                borderColor="background-default"
               />
             </Box>
             {!!hasNotification && (

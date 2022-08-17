@@ -35,8 +35,8 @@ type AlertTypeProps = {
 const InfoAlertProps: AlertTypeProps = {
   iconName: 'InformationCircleSolid',
   iconColor: 'icon-default',
-  bgColor: 'surface-neutral-default',
-  borderColor: 'surface-neutral-subdued',
+  bgColor: 'surface-neutral-subdued',
+  borderColor: 'border-subdued',
 };
 
 const WarnAlertProps: AlertTypeProps = {

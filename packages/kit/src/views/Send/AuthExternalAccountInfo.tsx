@@ -56,14 +56,26 @@ const AuthExternalAccountInfo = React.memo(
       }
     }, [session?.connected]);
     const connectionIndicator = useMemo(() => {
-      let color = '#888888';
+      let color = 'icon-default';
       if (client?.connector?.isTransportOpen) {
-        color = '#f2be45';
+        color = 'icon-warning';
       }
       if (client?.connector?.isTransportOpen && session?.connected) {
-        color = '#529c54';
+        color = 'interactive-default';
       }
-      return <Box ml={4} bgColor={color} w={2} h={2} borderRadius="16px" />;
+      return (
+        <Box
+          position="absolute"
+          top="-4px"
+          right="10px"
+          w={3}
+          h={3}
+          bgColor={color}
+          borderWidth={2}
+          borderColor="surface-default"
+          borderRadius="full"
+        />
+      );
     }, [client?.connector?.isTransportOpen, session?.connected]);
     return (
       <VStack flex={1}>
@@ -75,14 +87,16 @@ const AuthExternalAccountInfo = React.memo(
         </HStack>
 
         <HStack mt={6} mb={8} alignItems="center">
-          <ExternalAccountImg
-            size={10}
-            accountId={currentAccount.id}
-            radius="12px"
-            mr={3}
-          />
+          <Box>
+            <ExternalAccountImg
+              size={10}
+              accountId={currentAccount.id}
+              radius="12px"
+              mr={3}
+            />
+            {connectionIndicator}
+          </Box>
           <Text typography="Heading">{walletName}</Text>
-          {connectionIndicator}
         </HStack>
         <TxDetailActionBox
           details={[
@@ -99,6 +113,7 @@ const AuthExternalAccountInfo = React.memo(
         <Box flex={1} />
         {retryVisible ? (
           <Button
+            mt={6}
             size="xl"
             onPress={async () => {
               // TODO confirm and hint
@@ -113,8 +128,7 @@ const AuthExternalAccountInfo = React.memo(
               }
             }}
           >
-            {`Disconnect ${walletName}`}
-            {/* {intl.formatMessage({ id: 'action_retry' })} */}
+            {intl.formatMessage({ id: 'action__disconnect' })}
           </Button>
         ) : null}
       </VStack>
