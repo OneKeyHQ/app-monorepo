@@ -67,3 +67,5 @@ export {
   COINTYPE_BTC,
   getSupportedImpls,
 };
+
+export const DEFAULT_JPUSH_APPKEY = '7a327d7e71fba8985e8cbb28';

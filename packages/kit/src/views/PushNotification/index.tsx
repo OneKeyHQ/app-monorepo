@@ -212,11 +212,11 @@ const PushNotification = () => {
 
   const validThresholds = useMemo(() => {
     // for test
-    if (devMode.enable) {
+    if (devMode?.enableTestFiatEndpoint) {
       return [0, ...thresholds];
     }
     return thresholds;
-  }, [devMode]);
+  }, [devMode?.enableTestFiatEndpoint]);
 
   const marketArea = useMemo(
     () => (

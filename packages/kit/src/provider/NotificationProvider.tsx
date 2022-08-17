@@ -2,6 +2,7 @@ import React, { memo, useCallback, useEffect, useRef } from 'react';
 
 import JPush from 'jpush-react-native';
 
+import { DEFAULT_JPUSH_APPKEY } from '@onekeyhq/engine/src/constants';
 import {
   useActiveWalletAccount,
   useSettings,
@@ -39,7 +40,7 @@ const NotificationProvider: React.FC<{
 }> = ({ children }) => {
   const { accountId, networkId } = useActiveWalletAccount();
   const jpushInitRef = useRef<boolean>(false);
-  const { pushNotification } = useSettings();
+  const { pushNotification, devMode } = useSettings();
 
   const switchToScreen = useCallback(
     ({ screen, params }: SwitchScreenParams) => {
@@ -106,11 +107,19 @@ const NotificationProvider: React.FC<{
   );
 
   const initJpush = useCallback(() => {
+    const isProd = JPUSH_KEY && !devMode?.enableTestFiatEndpoint;
     const config = {
-      'appKey': JPUSH_KEY,
-      'titchannelle': JPUSH_CHANNEL,
-      'production': !!JPUSH_PRODUCTION,
+      'appKey': DEFAULT_JPUSH_APPKEY,
+      'titchannelle': 'dev',
+      'production': false,
     };
+    if (isProd) {
+      Object.assign(config, {
+        'appKey': JPUSH_KEY,
+        'titchannelle': JPUSH_CHANNEL,
+        'production': !!JPUSH_PRODUCTION,
+      });
+    }
     debugLogger.common.debug(`JPUSH:init`, config);
     // clear badges
     JPush.setLoggerEnable(true);
@@ -143,7 +152,7 @@ const NotificationProvider: React.FC<{
     });
     JPush.addNotificationListener(handleNotificaitonCallback);
     JPush.addLocalNotificationListener(handleNotificaitonCallback);
-  }, [handleNotificaitonCallback]);
+  }, [handleNotificaitonCallback, devMode?.enableTestFiatEndpoint]);
 
   useEffect(() => {
     if (jpushInitRef.current) {
