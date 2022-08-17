@@ -22,6 +22,8 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { formatMessage } from '../locale';
+
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
@@ -186,20 +188,14 @@ class DeviceUtils {
     if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
       const { info } = error;
 
-      const errorMessage = intlRef?.current?.formatMessage(
-        { id: key },
-        info ?? {},
-      );
+      const errorMessage = formatMessage({ id: key }, info ?? {});
 
       if (errorMessage) {
         ToastManager.show({ title: errorMessage }, { type: 'error' });
         return true;
       }
     } else {
-      const errorMessage = intlRef?.current?.formatMessage(
-        { id: defKey ?? key },
-        {},
-      );
+      const errorMessage = formatMessage({ id: defKey ?? key });
 
       if (errorMessage) {
         ToastManager.show({ title: errorMessage }, { type: 'error' });
