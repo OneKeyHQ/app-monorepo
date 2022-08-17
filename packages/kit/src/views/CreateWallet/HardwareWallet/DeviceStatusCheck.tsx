@@ -84,7 +84,7 @@ const DeviceStatusCheckModal: FC = () => {
           return;
         }
 
-        deviceUtils.showErrorToast(e, intl, 'action__connection_timeout');
+        deviceUtils.showErrorToast(e, 'action__connection_timeout');
         return;
       }
 

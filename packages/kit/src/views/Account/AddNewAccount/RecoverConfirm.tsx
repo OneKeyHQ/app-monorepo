@@ -65,7 +65,7 @@ const RecoverConfirm: FC = () => {
         purpose,
       );
     } catch (e: any) {
-      deviceUtils.showErrorToast(e, intl, 'action__connection_timeout');
+      deviceUtils.showErrorToast(e, 'action__connection_timeout');
     } finally {
       onLoadingAccount?.(walletId, network, true);
     }

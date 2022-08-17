@@ -119,7 +119,7 @@ function BehindTheSceneCreatingWallet({
       const { className, message } = e || {};
 
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        deviceUtils.showErrorToast(e, intl);
+        deviceUtils.showErrorToast(e);
       } else {
         ToastManager.show(
           {
@@ -138,7 +138,6 @@ function BehindTheSceneCreatingWallet({
     forceVisibleUnfocused,
     navigation,
     onPressOnboardingFinished,
-    intl,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {

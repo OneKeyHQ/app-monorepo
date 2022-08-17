@@ -9,12 +9,12 @@ import {
   HardwareErrorCode,
   createDeferred,
 } from '@onekeyfe/hd-shared';
-import { IntlShape } from 'react-intl';
 import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { ToastManager } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { intlRef } from '@onekeyhq/components/src/Provider';
 import {
   OneKeyErrorClassNames,
   OneKeyHardwareError,
@@ -177,7 +177,7 @@ class DeviceUtils {
     this.checkBonded = false;
   }
 
-  showErrorToast(error: any, intl: IntlShape, defKey?: LocaleIds): boolean {
+  showErrorToast(error: any, defKey?: LocaleIds): boolean {
     const { className, key, code } = error || {};
     if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
       return false;
@@ -186,14 +186,20 @@ class DeviceUtils {
     if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
       const { info } = error;
 
-      const errorMessage = intl.formatMessage({ id: key }, info ?? {});
+      const errorMessage = intlRef?.current?.formatMessage(
+        { id: key },
+        info ?? {},
+      );
 
       if (errorMessage) {
         ToastManager.show({ title: errorMessage }, { type: 'error' });
         return true;
       }
     } else {
-      const errorMessage = intl.formatMessage({ id: defKey ?? key }, {});
+      const errorMessage = intlRef?.current?.formatMessage(
+        { id: defKey ?? key },
+        {},
+      );
 
       if (errorMessage) {
         ToastManager.show({ title: errorMessage }, { type: 'error' });

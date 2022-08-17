@@ -171,13 +171,13 @@ const RecoverAccounts: FC = () => {
 
           isFetchingData.current = false;
 
-          deviceUtils.showErrorToast(e, intl);
+          deviceUtils.showErrorToast(e);
 
           navigation?.goBack?.();
           navigation?.goBack?.();
         });
     },
-    [currentPage, network, password, walletId, intl, navigation, purpose],
+    [currentPage, network, password, walletId, navigation, purpose],
   );
 
   const checkBoxOnChange = useCallback(

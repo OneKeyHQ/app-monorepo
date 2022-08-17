@@ -115,7 +115,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
     } catch (err: any) {
       const { className, key } = err || {};
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        deviceUtils.showErrorToast(err, intl);
+        deviceUtils.showErrorToast(err);
       }
       setRequestState({
         isLoading: false,
@@ -173,7 +173,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
           navigation.goBack();
         }
 
-        deviceUtils.showErrorToast(err, intl, 'action__connection_timeout');
+        deviceUtils.showErrorToast(err, 'action__connection_timeout');
       }
     })();
   }, [engine, intl, navigation, serviceHardware, walletId]);

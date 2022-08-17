@@ -88,7 +88,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           navigation.goBack();
         }
 
-        deviceUtils.showErrorToast(err, intl, 'action__connection_timeout');
+        deviceUtils.showErrorToast(err, 'action__connection_timeout');
       }
     })();
   }, [engine, intl, navigation, serviceHardware, walletId]);
@@ -223,7 +223,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                       newOnDeviceInputPin,
                     )
                     .catch((e: any) => {
-                      deviceUtils.showErrorToast(e, intl);
+                      deviceUtils.showErrorToast(e);
                     })
                     .finally(() => {
                       refreshDevicePayload();
