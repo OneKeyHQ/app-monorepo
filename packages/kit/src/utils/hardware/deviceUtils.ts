@@ -14,14 +14,13 @@ import BleManager from 'react-native-ble-manager';
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { ToastManager } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import {
   OneKeyErrorClassNames,
   OneKeyHardwareError,
 } from '@onekeyhq/engine/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { formatMessage } from '../locale';
 
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';

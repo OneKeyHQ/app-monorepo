@@ -1,7 +1,7 @@
 import React, { FC, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
-import { IntlProvider, IntlShape } from 'react-intl';
+import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -178,3 +178,10 @@ const Provider: FC<UIProviderProps> = ({
 };
 
 export default Provider;
+
+export function formatMessage(
+  descriptor: MessageDescriptor,
+  values?: Record<string, any>,
+) {
+  return intlRef?.current?.formatMessage(descriptor, values);
+}

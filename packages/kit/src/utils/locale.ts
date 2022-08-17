@@ -1,8 +1,6 @@
 import * as Localization from 'expo-localization';
-import { MessageDescriptor } from 'react-intl';
 
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
-import { intlRef } from '@onekeyhq/components/src/Provider';
 
 const locales = LOCALES_OPTION.map((locale) => locale.value);
 
@@ -29,11 +27,4 @@ export function getDefaultLocale() {
     }
   }
   return locales[0];
-}
-
-export function formatMessage(
-  descriptor: MessageDescriptor,
-  values?: Record<string, any>,
-) {
-  return intlRef?.current?.formatMessage(descriptor, values);
 }
