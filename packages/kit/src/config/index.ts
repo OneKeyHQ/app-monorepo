@@ -10,8 +10,6 @@ export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;
 
 export const JPUSH_KEY = process.env.JPUSH_KEY || '7a327d7e71fba8985e8cbb28';
 export const JPUSH_CHANNEL = process.env.JPUSH_CHANNEL || 'dev';
-export const JPUSH_PRODUCTION =
-  process.env.JPUSH_PRODUCTION?.toLowerCase?.() === 'true';
 
 export const HARDWARE_SDK_IFRAME_SRC =
   process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.1.33/';
