@@ -30,6 +30,7 @@ import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
@@ -691,8 +692,24 @@ class Engine {
       (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
     );
     const vault = await this.getVault({ networkId, accountId });
-    const balances = await vault.getAccountBalance(tokensToGet, withMain);
+
     const ret: Record<string, string | undefined> = {};
+    if (balanceSupprtedNetwork[networkId]) {
+      try {
+        const { address } = await this.getAccount(accountId, networkId);
+        const balancesFromApi =
+          (await getBalancesFromApi(networkId, address, tokensToGet)) || [];
+        for (const balance of balancesFromApi) {
+          ret[balance.address || 'main'] = balance.balance;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      if (Object.keys(ret).length) {
+        return ret;
+      }
+    }
+    const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
         ret.main = balances[0]
