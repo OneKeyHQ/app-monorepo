@@ -12,7 +12,6 @@ import { useAddExternalAccount } from '../../../../components/WalletConnect/useA
 import {
   ConnectWalletListItem,
   ConnectWalletListView,
-  InitWalletServicesData,
 } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
 import { wait } from '../../../../utils/helper';
