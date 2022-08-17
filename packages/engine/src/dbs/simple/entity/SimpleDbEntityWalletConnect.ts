@@ -136,11 +136,13 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
     walletService,
     walletName,
     walletUrl,
+    session,
     rawData,
   }: {
     walletName?: string;
     walletUrl?: string;
     walletService?: WalletService;
+    session?: IWalletConnectSession;
     rawData: ISimpleDbEntityWalletConnectData;
   }) {
     let img: IAccountInfoWalletImage | undefined;
@@ -162,6 +164,16 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
         lg: string;
       };
     }
+
+    const sessionPeerIcon = session?.peerMeta?.icons?.[0];
+    if (!img && sessionPeerIcon) {
+      img = {
+        sm: sessionPeerIcon,
+        md: sessionPeerIcon,
+        lg: sessionPeerIcon,
+      };
+    }
+
     return img;
   }
 
@@ -210,6 +222,7 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
         walletService,
         walletName,
         walletUrl,
+        session,
         rawData: data,
       });
       data.externalAccounts[accountId] = {

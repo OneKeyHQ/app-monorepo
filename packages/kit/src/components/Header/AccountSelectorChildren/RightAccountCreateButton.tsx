@@ -1,9 +1,17 @@
-import React, { FC, memo, useCallback } from 'react';
+import React, {
+  FC,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
 import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
+import { isExternalWallet } from '@onekeyhq/engine/src/engineUtils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
@@ -14,12 +22,14 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { wait } from '../../../utils/helper';
 import { useAddExternalAccount } from '../../WalletConnect/useAddExternalAccount';
 import { useWalletConnectQrcodeModal } from '../../WalletConnect/useWalletConnectQrcodeModal';
+import { InitWalletServicesData } from '../../WalletConnect/WalletConnectQrcodeModal';
 
 import { AllNetwork } from './RightChainSelector';
 
@@ -236,12 +246,34 @@ const RightAccountCreateButton: FC<Props> = ({
     walletId: activeWallet?.id,
     onLoadingAccount,
   });
+  const isExternal = useMemo(() => {
+    if (!activeWallet?.id) {
+      return false;
+    }
+    return isExternalWallet({ walletId: activeWallet?.id });
+  }, [activeWallet?.id]);
 
   // const isDisabled = selectedNetworkId === AllNetwork
   // if (selectedNetworkId === AllNetwork) return null;
 
+  const initWalletServiceRef = useRef<JSX.Element | undefined>();
+
+  useEffect(() => {
+    // iOS should open walletServices list Modal
+    if (platformEnv.isNativeIOS) {
+      return;
+    }
+    if (initWalletServiceRef.current) {
+      return;
+    }
+    if (isExternal) {
+      initWalletServiceRef.current = <InitWalletServicesData />;
+    }
+  }, [isExternal]);
+
   return (
     <>
+      {initWalletServiceRef.current}
       <Button
         testID="AccountSelectorChildren-RightAccountCreateButton"
         leftIconName="UserAddSolid"

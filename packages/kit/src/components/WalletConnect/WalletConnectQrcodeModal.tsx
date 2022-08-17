@@ -128,6 +128,12 @@ export function ConnectWalletListItem({
   );
 }
 
+export function InitWalletServicesData() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { data: walletServicesEnabled } = useMobileRegistryOfWalletServices();
+  return null;
+}
+
 export function ConnectWalletListView({
   connectToWalletService,
   uri,
