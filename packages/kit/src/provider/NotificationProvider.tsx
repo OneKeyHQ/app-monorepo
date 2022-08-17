@@ -113,7 +113,6 @@ const NotificationProvider: React.FC<{
     };
     debugLogger.common.debug(`JPUSH:init`, config);
     // clear badges
-    JPush.setLoggerEnable(true);
     JPush.setBadge({
       badge: 0,
       appBadge: 0,
