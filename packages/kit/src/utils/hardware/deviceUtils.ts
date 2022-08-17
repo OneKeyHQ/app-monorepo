@@ -14,7 +14,6 @@ import BleManager from 'react-native-ble-manager';
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { ToastManager } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { intlRef } from '@onekeyhq/components/src/Provider';
 import {
   OneKeyErrorClassNames,
   OneKeyHardwareError,

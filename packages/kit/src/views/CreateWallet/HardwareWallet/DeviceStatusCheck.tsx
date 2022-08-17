@@ -11,7 +11,6 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import {

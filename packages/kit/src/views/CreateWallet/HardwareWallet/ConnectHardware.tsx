@@ -281,7 +281,7 @@ const ConnectHardwareModal: FC = () => {
           finishConnected(result);
         })
         .catch(async (err: any) => {
-          const { className, code } = err || {};
+          const { code } = err || {};
           if (code === HardwareErrorCode.BleDeviceNotBonded) {
             if (!checkBonded && platformEnv.isNativeAndroid) {
               setCheckBonded(true);

@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { get } from 'lodash';
 
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -113,8 +114,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
   override code = HardwareErrorCode.CallMethodNeedUpgradeFirmware;
 
   constructor(message: string, params?: any) {
-    const { require } = params || {};
-    super({ message, info: { 0: require } });
+    super({ message, info: { 0: get(params, 'require', '') } });
   }
 
   override key: LocaleIds = 'msg__hardware_version_need_upgrade_error';

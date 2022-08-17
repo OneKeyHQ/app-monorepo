@@ -13,7 +13,6 @@ import {
   Modal,
   PresenceTransition,
   Text,
-  ToastManager,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -156,7 +155,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         success: false,
       });
     }
-  }, [serviceHardware, device?.mac, device?.deviceType, device?.uuid, intl]);
+  }, [serviceHardware, device?.mac, device?.deviceType, device?.uuid]);
 
   useEffect(() => {
     handleGetDeviceSigResponse();

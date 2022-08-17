@@ -10,10 +10,8 @@ import {
   CheckBox,
   Divider,
   Modal,
-  ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {

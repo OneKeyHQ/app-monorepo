@@ -4,15 +4,7 @@ import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Container,
-  Icon,
-  Modal,
-  Switch,
-  ToastManager,
-} from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { Box, Container, Icon, Modal, Switch } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
