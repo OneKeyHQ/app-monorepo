@@ -22,7 +22,7 @@ import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   BridgeTimeoutError,
-  FirmwareVersionNeedUpgrade,
+  FirmwareVersionTooLow,
   InitIframeLoadFail,
   InitIframeTimeout,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
@@ -341,7 +341,7 @@ class ServiceHardware extends ServiceBase {
 
       if (!payload.inputPinOnSoftware)
         // TODO: optimize the error message
-        throw new FirmwareVersionNeedUpgrade({ params: '2.3.0' });
+        throw new FirmwareVersionTooLow('', { require: '2.3.0' });
     }
 
     return this.updateDevicePayload(deviceId, {

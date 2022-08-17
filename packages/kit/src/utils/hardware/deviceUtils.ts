@@ -9,11 +9,12 @@ import {
   HardwareErrorCode,
   createDeferred,
 } from '@onekeyfe/hd-shared';
-import { IntlShape } from 'react-intl';
 import BleManager from 'react-native-ble-manager';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { ToastManager } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import {
   OneKeyErrorClassNames,
   OneKeyHardwareError,
@@ -176,33 +177,28 @@ class DeviceUtils {
     this.checkBonded = false;
   }
 
-  showErrorToast(error: any, intl: IntlShape): boolean {
-    const { className, key, code, message } = error || {};
+  showErrorToast(error: any, defKey?: LocaleIds): boolean {
+    const { className, key, code } = error || {};
     if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
       return false;
     }
 
     if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-      const { data } = error;
-      const { params } = data;
+      const { info } = error;
 
-      let errorMessage = null;
-      try {
-        if (params)
-          errorMessage = intl.formatMessage({ id: key }, { 0: params });
-      } catch {
-        // ignore
-      }
-      if (!errorMessage) errorMessage = intl.formatMessage({ id: key });
+      const errorMessage = formatMessage({ id: key }, info ?? {});
 
       if (errorMessage) {
-        // TODO: add device params, Adding an Upgrade Button。
         ToastManager.show({ title: errorMessage }, { type: 'error' });
         return true;
       }
-    } else if (message) {
-      ToastManager.show({ title: message }, { type: 'default' });
-      return true;
+    } else {
+      const errorMessage = formatMessage({ id: defKey ?? key });
+
+      if (errorMessage) {
+        ToastManager.show({ title: errorMessage }, { type: 'error' });
+        return true;
+      }
     }
 
     return false;
@@ -214,7 +210,13 @@ class DeviceUtils {
       code,
       error,
       message,
-    }: { code: number; error?: string; message?: string } = payload || {};
+      params: errorParams,
+    }: {
+      code: number;
+      error?: string;
+      message?: string;
+      params?: any;
+    } = payload || {};
 
     const msg = error ?? message ?? 'Unknown error';
 
@@ -236,7 +238,7 @@ class DeviceUtils {
       case HardwareErrorCode.UnknownError:
         return new Error.UnknownHardwareError({ message: msg });
       case HardwareErrorCode.DeviceFwException:
-        return new Error.FirmwareVersionTooLow({ message: msg });
+        return new Error.FirmwareVersionTooLow(msg);
       case HardwareErrorCode.DeviceUnexpectedMode:
         if (
           typeof msg === 'string' &&
@@ -263,6 +265,8 @@ class DeviceUtils {
         return new Error.InitIframeTimeout({ message: msg });
       case HardwareErrorCode.FirmwareUpdateDownloadFailed:
         return new Error.FirmwareDownloadFailed({ message: msg });
+      case HardwareErrorCode.CallMethodNeedUpgradeFirmware:
+        return new Error.FirmwareVersionTooLow(msg, errorParams);
       case HardwareErrorCode.NetworkError:
         return new Error.NetworkError({ message: msg });
       case HardwareErrorCode.BlePermissionError:

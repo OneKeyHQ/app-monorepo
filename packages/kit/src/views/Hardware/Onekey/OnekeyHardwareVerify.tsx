@@ -13,7 +13,6 @@ import {
   Modal,
   PresenceTransition,
   Text,
-  ToastManager,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -27,6 +26,8 @@ import {
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { getTimeStamp, hexlify } from '@onekeyhq/kit/src/utils/helper';
+
+import { deviceUtils } from '../../../utils/hardware';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
@@ -113,9 +114,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
     } catch (err: any) {
       const { className, key } = err || {};
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        ToastManager.show({
-          title: intl.formatMessage({ id: key }),
-        });
+        deviceUtils.showErrorToast(err);
       }
       setRequestState({
         isLoading: false,
@@ -156,7 +155,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         success: false,
       });
     }
-  }, [serviceHardware, device?.mac, device?.deviceType, device?.uuid, intl]);
+  }, [serviceHardware, device?.mac, device?.deviceType, device?.uuid]);
 
   useEffect(() => {
     handleGetDeviceSigResponse();
@@ -173,18 +172,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
           navigation.goBack();
         }
 
-        const { className, key } = err || {};
-        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show({
-            title: intl.formatMessage({ id: key }),
-          });
-        } else {
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'action__connection_timeout',
-            }),
-          });
-        }
+        deviceUtils.showErrorToast(err, 'action__connection_timeout');
       }
     })();
   }, [engine, intl, navigation, serviceHardware, walletId]);

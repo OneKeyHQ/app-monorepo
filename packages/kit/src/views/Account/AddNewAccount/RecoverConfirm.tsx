@@ -10,10 +10,8 @@ import {
   CheckBox,
   Divider,
   Modal,
-  ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -25,6 +23,8 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+
+import { deviceUtils } from '../../../utils/hardware';
 
 type RouteProps = RouteProp<
   CreateAccountRoutesParams,
@@ -63,23 +63,7 @@ const RecoverConfirm: FC = () => {
         purpose,
       );
     } catch (e: any) {
-      const { className, key } = e || {};
-
-      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: key }),
-          },
-          { type: 'error' },
-        );
-      } else {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: 'action__connection_timeout' }),
-          },
-          { type: 'error' },
-        );
-      }
+      deviceUtils.showErrorToast(e, 'action__connection_timeout');
     } finally {
       onLoadingAccount?.(walletId, network, true);
     }

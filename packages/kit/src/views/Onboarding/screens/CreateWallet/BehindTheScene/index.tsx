@@ -16,7 +16,7 @@ import { useIntl } from 'react-intl';
 import { Box, Center, ToastManager, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
+import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger, {
   LoggerNames,
 } from '@onekeyhq/shared/src/logger/debugLogger';
@@ -116,17 +116,10 @@ function BehindTheSceneCreatingWallet({
     } catch (e: any) {
       // safeGoBack();
 
-      const { className, key, message } = e || {};
+      const { className, message } = e || {};
 
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: key }),
-          },
-          {
-            type: 'error',
-          },
-        );
+        deviceUtils.showErrorToast(e);
       } else {
         ToastManager.show(
           {
@@ -145,7 +138,6 @@ function BehindTheSceneCreatingWallet({
     forceVisibleUnfocused,
     navigation,
     onPressOnboardingFinished,
-    intl,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {

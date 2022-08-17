@@ -4,15 +4,7 @@ import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Container,
-  Icon,
-  Modal,
-  Switch,
-  ToastManager,
-} from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { Box, Container, Icon, Modal, Switch } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -88,24 +80,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           navigation.goBack();
         }
 
-        const { className, key } = err || {};
-        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: key }),
-            },
-            { type: 'error' },
-          );
-        } else {
-          ToastManager.show({
-            title: intl.formatMessage(
-              {
-                id: 'action__connection_timeout',
-              },
-              { type: 'error' },
-            ),
-          });
-        }
+        deviceUtils.showErrorToast(err, 'action__connection_timeout');
       }
     })();
   }, [engine, intl, navigation, serviceHardware, walletId]);
@@ -240,7 +215,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                       newOnDeviceInputPin,
                     )
                     .catch((e: any) => {
-                      deviceUtils.showErrorToast(e, intl);
+                      deviceUtils.showErrorToast(e);
                     })
                     .finally(() => {
                       refreshDevicePayload();

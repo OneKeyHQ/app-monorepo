@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { get } from 'lodash';
 
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -25,7 +26,9 @@ export class UserCancel extends OneKeyHardwareError {
 export class UserCancelFromOutside extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceInterruptedFromOutside;
 
-  override key: LocaleIds = 'msg__hardware_user_cancel_error';
+  // Don't remind
+  // @ts-expect-error
+  override key: LocaleIds = '';
 }
 
 export class UnknownMethod extends OneKeyHardwareError {
@@ -108,14 +111,11 @@ export class OpenBlindSign extends OneKeyHardwareError {
 }
 
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceFwException;
+  override code = HardwareErrorCode.CallMethodNeedUpgradeFirmware;
 
-  override key: LocaleIds = 'msg__hardware_version_to_low_error';
-}
-
-// TODO: remove this error code
-export class FirmwareVersionNeedUpgrade extends OneKeyHardwareError {
-  override code = CustomOneKeyHardwareError.NeedFirmwareUpgrade;
+  constructor(message: string, params?: any) {
+    super({ message, info: { 0: get(params, 'require', '') } });
+  }
 
   override key: LocaleIds = 'msg__hardware_version_need_upgrade_error';
 }

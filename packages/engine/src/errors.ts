@@ -1,5 +1,5 @@
-/* eslint max-classes-per-file: "off" */
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
+/* eslint max-classes-per-file: "off" */
 
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 
@@ -16,7 +16,6 @@ export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
 export type OneKeyHardwareErrorData = {
   reconnect: boolean;
-  params?: any;
 };
 
 export class OneKeyError<T = Error> extends Web3RpcError<T> {
@@ -85,17 +84,14 @@ export class OneKeyHardwareError extends OneKeyError<OneKeyHardwareErrorData> {
   constructor({
     message,
     code,
-    params,
+    info,
   }: {
     message?: string;
     code?: string;
-    params?: OneKeyHardwareErrorData['params'];
+    info?: IOneKeyErrorInfo;
   } = {}) {
-    super(message, {});
+    super(message, info || {});
     this.codeHardware = code;
-    if (params) {
-      this.data.params = params;
-    }
   }
 }
 
