@@ -2,14 +2,8 @@ import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  DialogManager,
-  Text,
-  VStack,
-} from '@onekeyhq/components';
+import { Dialog, DialogManager, Text, VStack } from '@onekeyhq/components';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';

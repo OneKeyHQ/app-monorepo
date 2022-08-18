@@ -728,7 +728,10 @@ class Engine {
           return [ret, newTokens.filter(Boolean)];
         }
       } catch (e) {
-        console.error(e);
+        debugLogger.common.error(`getBalancesFromApi`, {
+          params: [networkId, accountId],
+          message: e instanceof Error ? e.message : e,
+        });
       }
     }
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
