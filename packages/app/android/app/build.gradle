@@ -162,8 +162,8 @@ android {
 
         def appConfig = readRootVersionEnv()
 
-        def appVersion = defEnvStr(appConfig.VERSION)
-        def appVersionCode = defEnvStr(appConfig.BUILD_NUMBER).toInteger()
+        def appVersion = defEnvStr(appConfig, 'VERSION')
+        def appVersionCode = defEnvStr(appConfig, 'BUILD_NUMBER', '1').toInteger()
 
         println "App Version: " + appVersion
         println "App Version Code: " + appVersionCode
@@ -175,7 +175,7 @@ android {
         def appEnvConfig = readRootEnv()
         manifestPlaceholders = [
                 OTAUpdatesEnable: false,
-                JPUSH_APPKEY    : defEnvStr(appEnvConfig.JPUSH_KEY),
+                JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
                 JPUSH_CHANNEL   : 'prod',
         ]
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
@@ -441,11 +441,13 @@ def isNewArchitectureEnabled() {
 }
 
 
-static def defEnvStr(ver, defValue = "1") {
-    if (ver.toString() == "[:]" || ver.toString() == ("")) {
-        return defValue
+static def defEnvStr(config, key, defValue = "1") {
+    def value = config.getProperty(key)
+    if (value == null || value.isEmpty()) {
+        def envParam = System.getenv();
+        value = envParam.get(key)
     }
-    return ver
+    return value ? value : defValue
 }
 
 static def readRootVersionEnv() {
@@ -469,7 +471,7 @@ static def readRootEnvFile(fileName) {
         // ignore
     }
 
-    return new ConfigSlurper().parse(props)
+    return props
 }
 
 
