@@ -225,10 +225,6 @@ function createMainWindow() {
         callback(url);
       },
     );
-
-    browserWindow.webContents.on('did-fail-load', () => {
-      browserWindow.loadURL(src);
-    });
   }
 
   return browserWindow;
