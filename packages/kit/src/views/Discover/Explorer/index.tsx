@@ -198,19 +198,17 @@ const Explorer: FC = () => {
 
     // 打开的是 Dapp, 处理首次打开 Dapp 提示
     if (item?.dapp && discover.firstRemindDAPP) {
-      setTimeout(() => {
-        DialogManager.show({
-          render: (
-            <DappOpenHintDialog
-              onVisibilityChange={() => {
-                dappOpenConfirm = undefined;
-              }}
-              onConfirm={() => {
-                dappOpenConfirm?.(true);
-              }}
-            />
-          ),
-        });
+      DialogManager.show({
+        render: (
+          <DappOpenHintDialog
+            onVisibilityChange={() => {
+              dappOpenConfirm = undefined;
+            }}
+            onConfirm={() => {
+              dappOpenConfirm?.(true);
+            }}
+          />
+        ),
       });
 
       const isConfirm = await new Promise<boolean>((resolve) => {
