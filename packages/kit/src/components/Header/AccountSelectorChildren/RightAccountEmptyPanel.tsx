@@ -18,7 +18,6 @@ import {
 } from './RightAccountCreateButton';
 import { AccountGroup } from './RightAccountSection/ItemSection';
 
-
 export type IRightAccountEmptyPanelProps = {
   activeAccounts: AccountGroup[];
   activeWallet: Wallet | null;
