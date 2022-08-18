@@ -206,7 +206,7 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
   }
 
   // on `call_request_sent`
-  _autoOpenWalletListener = async (options: {
+  _autoOpenWalletAppListener = async (options: {
     error: Error | null;
     payload: IJsonRpcRequest;
   }) => {
@@ -274,7 +274,10 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
   }
 
   _offAutoOpenWalletApp() {
-    this.off(this.EVENT_NAMES.call_request_sent, this._autoOpenWalletListener);
+    this.off(
+      this.EVENT_NAMES.call_request_sent,
+      this._autoOpenWalletAppListener,
+    );
   }
 
   addAutoOpenWalletListener() {
@@ -283,7 +286,10 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
     }
 
     this._offAutoOpenWalletApp();
-    this.on(this.EVENT_NAMES.call_request_sent, this._autoOpenWalletListener);
+    this.on(
+      this.EVENT_NAMES.call_request_sent,
+      this._autoOpenWalletAppListener,
+    );
   }
 
   watchAccountSessionChanged({ accountId }: { accountId: string }) {

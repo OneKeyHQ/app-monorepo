@@ -1,15 +1,39 @@
-import React, { useCallback, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, DialogManager, Text, VStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Dialog,
+  DialogManager,
+  HStack,
+  Image,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
+import { Account } from '@onekeyhq/engine/src/types/account';
+import { Network } from '@onekeyhq/engine/src/types/network';
+import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { wait } from '../../utils/helper';
 import { IWalletConnectExternalAccountInfo } from '../../views/Send/types';
 
+import { ExternalAccountImg } from './ExternalAccountImg';
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';
 import { WalletConnectClientForDapp } from './WalletConnectClientForDapp';
@@ -19,17 +43,64 @@ import {
 } from './walletConnectConsts';
 import walletConnectUtils from './walletConnectUtils';
 
+type IDialogConfirmMismatchContinueInfo = {
+  myAddress: string;
+  myChainId: string;
+  peerAddress: string;
+  peerChainId: string;
+  accountInfo?: ISimpleDbWalletConnectAccountInfo | undefined;
+  currentAccount: Account;
+  currentNetwork: Network;
+  isAddressMismatched: boolean;
+  isChainMismatched: boolean;
+};
 export type IDialogConfirmMismatchContinueProps = {
   onClose?: () => void;
   onSubmit: () => void;
   onCancel: () => void;
-  contentIds: string[];
-};
+} & IDialogConfirmMismatchContinueInfo;
 function DialogConfirmMismatchOrContinue(
   props: IDialogConfirmMismatchContinueProps,
 ) {
   const intl = useIntl();
-  const { onClose, onCancel, onSubmit, contentIds } = props;
+  const {
+    onClose,
+    onCancel,
+    onSubmit,
+    peerAddress,
+    myAddress,
+    peerChainId,
+    // myChainId,
+    accountInfo,
+    currentAccount,
+    currentNetwork,
+    isAddressMismatched,
+    isChainMismatched,
+  } = props;
+  const { engine } = backgroundApiProxy;
+  const { result: peerNetwork } = usePromiseResult(async () => {
+    try {
+      const networkId = generateNetworkIdByChainId({
+        impl: IMPL_EVM,
+        chainId: peerChainId,
+      });
+      return await engine.getNetwork(networkId);
+    } catch (error) {
+      debugLogger.common.error(error);
+      return undefined;
+    }
+  }, [peerChainId]);
+  const msgId = useMemo(() => {
+    if (isAddressMismatched && isChainMismatched) {
+      return 'content__account_and_network_not_matched';
+    }
+    if (isAddressMismatched) {
+      return 'content__account_is_not_matched';
+    }
+    if (isChainMismatched) {
+      return 'content__chain_is_not_matched';
+    }
+  }, [isAddressMismatched, isChainMismatched]);
   return (
     <Dialog
       visible
@@ -42,25 +113,9 @@ function DialogConfirmMismatchOrContinue(
         // content: ''
         contentElement: (
           <VStack space={6} alignSelf="stretch">
-            {contentIds.map((id) => (
-              <Text
-                key={id}
-                mt="2"
-                typography={{ sm: 'Body1', md: 'Body2' }}
-                color="text-subdued"
-                textAlign="center"
-              >
-                {intl.formatMessage({
-                  id: id as any,
-                })}
-              </Text>
-            ))}
-
-            {/* <Alert
+            <Alert
               title={intl.formatMessage({
-                id: 'content__account_is_not_matched',
-                // id: 'content__chain_is_not_matched',
-                // id: 'content__account_and_network_not_matched',
+                id: msgId,
               })}
               alertType="info"
               dismiss={false}
@@ -76,37 +131,49 @@ function DialogConfirmMismatchOrContinue(
                 <Text typography="Body2Strong" color="text-subdued">
                   {intl.formatMessage({ id: 'form__account' })}
                 </Text>
-                <Text typography="Body2">address here...</Text>
+                <Text typography="Body2">{shortenAddress(myAddress)}</Text>
               </HStack>
               <HStack justifyContent="space-between" py={3}>
                 <Text typography="Body2Strong" color="text-subdued">
                   {intl.formatMessage({ id: 'network__network' })}
                 </Text>
-                <Text typography="Body2">chain here...</Text>
+                <Text typography="Body2">{currentNetwork.shortName}</Text>
               </HStack>
             </VStack>
             <VStack>
               <HStack>
-                <Image src={LogoOneKey} borderRadius="6px" size={6} />
+                <ExternalAccountImg
+                  accountId={currentAccount.id}
+                  size={6}
+                  radius="6px"
+                />
                 <Text typography="Body1Strong" ml={3}>
-                  3rd Wallet
+                  {accountInfo?.walletName || '3rd Wallet'}
                 </Text>
               </HStack>
               <HStack justifyContent="space-between" py={3}>
                 <Text typography="Body2Strong" color="text-subdued">
                   {intl.formatMessage({ id: 'form__account' })}
                 </Text>
-                <Text typography="Body2" color="text-critical">
-                  address here...
+                <Text
+                  typography="Body2"
+                  color={isAddressMismatched ? 'text-critical' : 'text-default'}
+                >
+                  {shortenAddress(peerAddress)}
                 </Text>
               </HStack>
               <HStack justifyContent="space-between" py={3}>
                 <Text typography="Body2Strong" color="text-subdued">
                   {intl.formatMessage({ id: 'network__network' })}
                 </Text>
-                <Text typography="Body2">chain here...</Text>
+                <Text
+                  typography="Body2"
+                  color={isChainMismatched ? 'text-critical' : 'text-default'}
+                >
+                  {peerNetwork?.shortName || `chainId=${peerChainId}`}
+                </Text>
               </HStack>
-            </VStack> */}
+            </VStack>
           </VStack>
         ),
       }}
@@ -128,6 +195,11 @@ function DialogConfirmMismatchOrContinue(
   );
 }
 
+type IGetExternalConnectorReturn = {
+  connector?: OneKeyWalletConnector;
+  client?: WalletConnectClientForDapp;
+};
+
 export function useWalletConnectSendInfo({
   accountId,
   networkId,
@@ -137,29 +209,37 @@ export function useWalletConnectSendInfo({
 }) {
   const { engine } = backgroundApiProxy;
   const { connectToWallet } = useWalletConnectQrcodeModal();
+
+  const isUnmountedRef = useRef<boolean>(false);
+  useEffect(
+    () => () => {
+      isUnmountedRef.current = true;
+    },
+    [],
+  );
+
   const [externalAccountInfo, setExternalAccountInfo] = useState<
     IWalletConnectExternalAccountInfo | undefined
   >();
   const navigation = useAppNavigation();
   const showMismatchConfirm = useCallback(
     ({
-      contentIds,
       client,
       walletUrl,
       shouldTerminateConnection,
       shouldGoBack,
+      ...others
     }: {
-      contentIds: string[];
       client: WalletConnectClientForDapp;
       walletUrl?: string;
       shouldTerminateConnection?: boolean;
       shouldGoBack?: boolean;
-    }) =>
+    } & IDialogConfirmMismatchContinueInfo) =>
       new Promise((resolve) => {
         DialogManager.show({
           render: (
             <DialogConfirmMismatchOrContinue
-              contentIds={contentIds}
+              {...others}
               onSubmit={() => {
                 resolve(true);
               }}
@@ -184,93 +264,112 @@ export function useWalletConnectSendInfo({
     [navigation],
   );
 
-  const getExternalConnector = useCallback(async (): Promise<{
-    connector?: OneKeyWalletConnector;
-    client?: WalletConnectClientForDapp;
-  }> => {
-    // TODO external wallet type check
-    // WalletConnect send tx (wallet-connect)
-    const {
-      session: savedSession,
-      walletService,
-      accountInfo,
-    } = await simpleDb.walletConnect.getExternalAccountSession({ accountId });
-    const currentNetwork = await engine.getNetwork(networkId);
-    const currentAccount = await engine.getAccount(accountId, networkId);
+  const getExternalConnector =
+    useCallback(async (): Promise<IGetExternalConnectorReturn> => {
+      // TODO external wallet type check
+      // WalletConnect send tx (wallet-connect)
+      const {
+        session: savedSession,
+        walletService,
+        accountInfo,
+      } = await simpleDb.walletConnect.getExternalAccountSession({ accountId });
+      const currentNetwork = await engine.getNetwork(networkId);
+      const currentAccount = await engine.getAccount(accountId, networkId);
 
-    setExternalAccountInfo({
-      accountInfo,
-      session: savedSession,
-      walletService,
-      currentAccount,
-      currentNetwork,
-      client: undefined,
-    });
+      const defaultReturn: IGetExternalConnectorReturn = {
+        connector: undefined,
+        client: undefined,
+      };
 
-    if (!savedSession?.connected) {
-      await wait(WALLET_CONNECT_SHOW_QRCODE_MODAL_DELAY);
-    }
-    // { accounts, chainId, peerId, peerMeta }
-    const {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      status: connectorStatus,
-      session,
-      client,
-    } = await connectToWallet({
-      session: savedSession,
-      walletService,
-      accountId,
-    });
-
-    setExternalAccountInfo((info) => {
-      if (info) {
-        return {
-          ...info,
-          session,
-          client,
-        };
-      }
-      return info;
-    });
-
-    const { connector } = client;
-    if (!connector) {
-      throw new Error('WalletConnect Error: connector not initialized.');
-    }
-    // TODO currentAccount type is external, get currentAccount peerMeta
-    // TODO connector.connect();
-
-    const peerChainId = `${connector.chainId}`;
-    const peerAddress = (connector.accounts?.[0] || '').toLowerCase();
-
-    const mismatchErrorIds = [
-      peerAddress !== currentAccount.address &&
-        'content__account_is_not_matched',
-      peerChainId !== currentNetwork.extraInfo.networkVersion &&
-        'content__chain_is_not_matched',
-    ].filter(Boolean);
-    if (mismatchErrorIds.length) {
-      await wait(WALLET_CONNECT_SHOW_MISMATCH_CONFIRM_DELAY);
-      const shouldContinue = await showMismatchConfirm({
-        contentIds: mismatchErrorIds,
-        client,
-        walletUrl: accountInfo?.walletUrl,
-        shouldGoBack: true,
+      setExternalAccountInfo({
+        accountInfo,
+        session: savedSession,
+        walletService,
+        currentAccount,
+        currentNetwork,
+        client: undefined,
       });
-      if (!shouldContinue) {
-        return { connector: undefined, client: undefined };
+
+      if (!savedSession?.connected) {
+        await wait(WALLET_CONNECT_SHOW_QRCODE_MODAL_DELAY);
+        if (isUnmountedRef.current) {
+          return defaultReturn;
+        }
       }
-    }
+      // { accounts, chainId, peerId, peerMeta }
+      const {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        status: connectorStatus,
+        session,
+        client,
+      } = await connectToWallet({
+        session: savedSession,
+        walletService,
+        accountId,
+      });
 
-    // TODO create wc connector, and check peerMeta.url, chainId, accounts matched,
+      setExternalAccountInfo((info) => {
+        if (info) {
+          return {
+            ...info,
+            session,
+            client,
+          };
+        }
+        return info;
+      });
 
-    // TODO reject app gesture down close modal
-    // TODO injected provider.sendTransaction in Ext
-    // TODO invoke app by DeepLinking
-    //    nextConnector.on(ConnectorEvents.CALL_REQUEST_SENT
+      const { connector } = client;
+      if (!connector) {
+        throw new Error('WalletConnect Error: connector not initialized.');
+      }
+      // TODO currentAccount type is external, get currentAccount peerMeta
+      // TODO connector.connect();
 
-    return { connector, client };
-  }, [accountId, connectToWallet, engine, networkId, showMismatchConfirm]);
+      const peerChainId = `${connector.chainId}`;
+      const peerAddress = (connector.accounts?.[0] || '').toLowerCase();
+      const myAddress = currentAccount.address;
+      const myChainId = currentNetwork.extraInfo.networkVersion;
+
+      const isAddressMismatched = peerAddress !== myAddress;
+      const isChainMismatched = peerChainId !== myChainId;
+
+      if (isAddressMismatched || isChainMismatched) {
+        await wait(WALLET_CONNECT_SHOW_MISMATCH_CONFIRM_DELAY);
+        if (isUnmountedRef.current) {
+          return defaultReturn;
+        }
+        const shouldContinue = await showMismatchConfirm({
+          myAddress,
+          myChainId,
+          peerAddress,
+          peerChainId,
+          client,
+          accountInfo,
+          currentAccount,
+          currentNetwork,
+          isAddressMismatched,
+          isChainMismatched,
+          walletUrl: accountInfo?.walletUrl,
+          shouldGoBack: true,
+        });
+        if (!shouldContinue) {
+          return defaultReturn;
+        }
+      }
+
+      // TODO create wc connector, and check peerMeta.url, chainId, accounts matched,
+
+      // TODO reject app gesture down close modal
+      // TODO injected provider.sendTransaction in Ext
+      // TODO invoke app by DeepLinking
+      //    nextConnector.on(ConnectorEvents.CALL_REQUEST_SENT
+
+      if (isUnmountedRef.current) {
+        return defaultReturn;
+      }
+      return { connector, client };
+    }, [accountId, connectToWallet, engine, networkId, showMismatchConfirm]);
 
   return {
     externalAccountInfo,

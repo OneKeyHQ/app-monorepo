@@ -24,7 +24,7 @@ const AuthExternalAccountInfo = React.memo(
   (props: IWalletConnectExternalAccountInfo) => {
     const {
       session,
-      walletService,
+      // walletService,
       currentAccount,
       currentNetwork,
       accountInfo,
@@ -32,15 +32,7 @@ const AuthExternalAccountInfo = React.memo(
     } = props;
     const intl = useIntl();
     const navigation = useAppNavigation();
-    const walletName = useMemo(() => {
-      let name =
-        accountInfo?.walletName ||
-        session?.peerMeta?.name ||
-        walletService?.name ||
-        '';
-      name = name.replace('🌈 ', '');
-      return name;
-    }, [accountInfo?.walletName, session?.peerMeta?.name, walletService?.name]);
+    const walletName = accountInfo?.walletName;
 
     const [retryVisible, setRetryVisible] = useState(false);
     useEffect(() => {

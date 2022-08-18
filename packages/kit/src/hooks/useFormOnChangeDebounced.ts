@@ -18,9 +18,17 @@ function useFormOnChangeDebounced<T>({
   clearErrorIfEmpty?: boolean;
   onChange?: WatchObserver<T>;
 }) {
-  const { watch, trigger, formState, clearErrors } = useFormReturn;
+  const { watch, trigger, formState, clearErrors, getValues } = useFormReturn;
   const loadingRef = useRef<boolean>(false);
   const [values, setValues] = useState<T>();
+
+  // fix auto trigger for form defaultValue
+  useEffect(() => {
+    const v = getValues();
+    // @ts-expect-error
+    setValues(v);
+    setTimeout(() => trigger(), 0);
+  }, [getValues, trigger]);
 
   useEffect(() => {
     const debounceValidate = debounce(

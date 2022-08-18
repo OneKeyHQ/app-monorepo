@@ -3,20 +3,31 @@ import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  DialogManager,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
+import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import { useActiveWalletAccount } from '../../hooks';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { useInteractWithInfo } from '../../hooks/useDecodedTx';
 
 function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
+  const navigation = useAppNavigation();
+
   const { accountId, networkId, networkImpl } = useActiveWalletAccount();
   const { engine } = backgroundApiProxy;
-  const navigation = useNavigation();
   const route = useRoute();
   const interactInfo = useInteractWithInfo({
     // @ts-ignore
