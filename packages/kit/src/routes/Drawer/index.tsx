@@ -32,6 +32,7 @@ const DrawerStackNavigator = () => {
   return (
     <RootSiblingParent>
       <DrawerStack.Navigator
+        useLegacyImplementation
         key={key}
         screenOptions={{
           headerShown: false,
