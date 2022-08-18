@@ -6,8 +6,8 @@ import { T1Data } from './homescreensData';
  * For major_version less then 2.0.0
  */
 export const homescreensT1 = [
+  'default',
   'original',
-  'blank',
   'circleweb',
   'circuit',
   'starweb',
