@@ -127,6 +127,7 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
     const result = await showMismatchConfirm({
       contentIds: ['content__chain_is_not_matched'],
     });
+    console.log('show dialog result:', result);
     // call vaultHelper in UI (not recommend)
     const vaultHelper = createVaultHelperInstance({
       networkId,
