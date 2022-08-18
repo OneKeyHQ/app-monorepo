@@ -13,7 +13,7 @@ import { Avatar, defaultAvatar } from '../../utils/emojiUtils';
 type WalletAvatarProps = {
   size?: 'xl' | 'lg' | 'sm' | string;
   avatarBgColor?: string;
-  walletImage?: string | 'hw' | 'imported' | 'watching' | 'hd';
+  walletImage?: string | 'hw' | 'imported' | 'watching' | 'hd' | 'external';
   circular?: boolean;
   hwWalletType?: IOneKeyDeviceType;
   avatar?: Avatar;
@@ -74,6 +74,15 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
         color="icon-default"
       />
     );
+  if (walletImage === 'external') {
+    return (
+      <Icon
+        name="ConnectOutline" // ConnectOutline LinkOutline
+        size={size === 'sm' ? 20 : 24}
+        color="icon-default"
+      />
+    );
+  }
   if (walletImage === 'hd') {
     return (
       <Text

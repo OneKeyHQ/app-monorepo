@@ -6,7 +6,7 @@ import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
-import type WalletConnectAdapter from './providers/WalletConnectAdapter';
+import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
@@ -42,15 +42,15 @@ export interface IBackgroundApiBridge {
 
   providers: Record<IInjectedProviderNames, ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
-  handleProviderMethods(
+  handleProviderMethods<T>(
     payload: IJsBridgeMessagePayload,
-  ): Promise<IJsonRpcResponse<any>>;
+  ): Promise<IJsonRpcResponse<T>>;
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
   engine: Engine;
   validator: Validators;
   vaultFactory: VaultFactory;
-  walletConnect: WalletConnectAdapter;
+  walletConnect: ProviderApiWalletConnect;
   servicePromise: ServicePromise;
   serviceDapp: ServiceDapp;
   serviceAccount: ServiceAccount;

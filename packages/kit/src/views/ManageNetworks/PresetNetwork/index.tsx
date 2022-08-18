@@ -23,6 +23,7 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
+import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
@@ -60,7 +61,10 @@ function getColor(value: number) {
   return 'text-critical';
 }
 
-async function measure(url: string, networkId = 'evm--1'): Promise<number> {
+async function measure(
+  url: string,
+  networkId = NETWORK_ID_EVM_ETH,
+): Promise<number> {
   const { responseTime } =
     await backgroundApiProxy.serviceNetwork.getRPCEndpointStatus(
       url,

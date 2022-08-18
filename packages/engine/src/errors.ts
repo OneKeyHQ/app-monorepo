@@ -1,5 +1,5 @@
-/* eslint max-classes-per-file: "off" */
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
+/* eslint max-classes-per-file: "off" */
 
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 
@@ -9,13 +9,13 @@ export enum OneKeyErrorClassNames {
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
+  OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
 export type OneKeyHardwareErrorData = {
   reconnect: boolean;
-  params?: any;
 };
 
 export class OneKeyError<T = Error> extends Web3RpcError<T> {
@@ -84,17 +84,14 @@ export class OneKeyHardwareError extends OneKeyError<OneKeyHardwareErrorData> {
   constructor({
     message,
     code,
-    params,
+    info,
   }: {
     message?: string;
     code?: string;
-    params?: OneKeyHardwareErrorData['params'];
+    info?: IOneKeyErrorInfo;
   } = {}) {
-    super(message, {});
+    super(message, info || {});
     this.codeHardware = code;
-    if (params) {
-      this.data.params = params;
-    }
   }
 }
 
@@ -196,6 +193,10 @@ export class TooManyWatchingAccounts extends NumberLimit {
   override key = 'msg__engine_too_many_watching_accounts';
 }
 
+export class TooManyExternalAccounts extends NumberLimit {
+  override key = 'msg__engine_too_many_external_accounts';
+}
+
 export class TooManyImportedAccounts extends NumberLimit {
   override key = 'msg__engine__too_many_imported_accounts';
 }
@@ -223,4 +224,10 @@ export class TooManyDerivedAccounts extends NumberLimit {
 
 export class PendingQueueTooLong extends NumberLimit {
   override key = 'msg__engine__pending_queue_too_long';
+}
+
+// WalletConnect ----------------------------------------------
+export class OneKeyWalletConnectModalCloseError extends OneKeyError {
+  override className = OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError;
+  // override key = 'msg__engine__internal_error';
 }

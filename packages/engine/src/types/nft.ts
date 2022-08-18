@@ -1,5 +1,7 @@
+import { NETWORK_ID_EVM_ETH } from '../constants';
+
 export const NFTChainMap: Record<string, string> = {
-  'evm--1': 'eth',
+  [NETWORK_ID_EVM_ETH]: 'eth',
   'evm--56': 'bsc',
   'evm--137': 'polygon',
 };

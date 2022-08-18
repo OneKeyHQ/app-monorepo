@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useState } from 'react';
+import React, { FC, isValidElement, useMemo, useState } from 'react';
 
 import {
   useFocusEffect,
   useNavigation,
   useNavigationState,
+  useRoute,
 } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -14,6 +15,7 @@ import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
 import IconButton from '../../IconButton';
+import Pressable from '../../Pressable';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import Typography from '../../Typography';
 
@@ -46,14 +48,20 @@ const MobileModal: FC<ModalProps> = ({
   const index = useNavigationState((state) => state?.index);
   const [currentStackIndex, setCurrentStackIndex] = useState(0);
 
+  const route = useRoute();
   const close = useModalClose({ onClose });
 
   useFocusEffect(() => {
     setCurrentStackIndex(index);
   });
 
+  const headerTitleView = useMemo(
+    () => <Typography.Heading textAlign="center">{header}</Typography.Heading>,
+    [header],
+  );
   return (
     <Box
+      testID="MobileModal-Container"
       flex="1"
       bg="surface-subdued"
       pt={platformEnv.isNativeAndroid ? `${top}px` : 0}
@@ -93,7 +101,17 @@ const MobileModal: FC<ModalProps> = ({
             />
           ) : null}
           <Box flex="1">
-            <Typography.Heading textAlign="center">{header}</Typography.Heading>
+            {platformEnv.isDev ? (
+              <Pressable
+                onPress={() => {
+                  console.log('Modal route params:', route.params);
+                }}
+              >
+                {headerTitleView}
+              </Pressable>
+            ) : (
+              headerTitleView
+            )}
             {!!headerDescription && (
               <Box alignItems="center">
                 {typeof headerDescription === 'string' ? (

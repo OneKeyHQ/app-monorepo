@@ -123,6 +123,8 @@
     "**/metro-react-native-babel-preset": "0.70.0",
     "**/tslib": "^2.4.0",
     "**/got": "^11.8.5",
-    "**/shell-quote": "^1.7.3"
+    "**/shell-quote": "^1.7.3",
+    "react-native-svg": "12.3.0",
+    "react-native-qrcode-svg": "6.1.2"
   }
 }

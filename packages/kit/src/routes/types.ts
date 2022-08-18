@@ -109,6 +109,7 @@ export type HomeRoutesParams = {
     numOfWatchingAccounts: number;
     numOfContacts: number;
   };
+  [HomeRoutes.PushNotification]: undefined;
 };
 /** HomeStack */
 

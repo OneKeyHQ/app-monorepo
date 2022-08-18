@@ -166,7 +166,7 @@ export function ensureBackgroundObject<T>(object: T): T {
   return object;
 }
 
-export function delay(timeout: number) {
+export function waitAsync(timeout: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, timeout);
   });
@@ -256,7 +256,7 @@ export async function waitForDataLoaded({
         if (isAllLoaded || timeoutReject) {
           break;
         }
-        await delay(wait);
+        await waitAsync(wait);
       }
       clearTimeout(timer);
       if (timeoutReject) {

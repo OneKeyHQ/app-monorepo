@@ -281,7 +281,7 @@ const ConnectHardwareModal: FC = () => {
           finishConnected(result);
         })
         .catch(async (err: any) => {
-          const { className, key, code } = err || {};
+          const { code } = err || {};
           if (code === HardwareErrorCode.BleDeviceNotBonded) {
             if (!checkBonded && platformEnv.isNativeAndroid) {
               setCheckBonded(true);
@@ -305,18 +305,8 @@ const ConnectHardwareModal: FC = () => {
             }
           } else {
             setIsConnectingDeviceId('');
-            const tipKey =
-              className === OneKeyErrorClassNames.OneKeyHardwareError
-                ? key
-                : 'action__connection_timeout';
-            ToastManager.show(
-              {
-                title: intl.formatMessage({
-                  id: tipKey,
-                }),
-              },
-              { type: 'error' },
-            );
+
+            deviceUtils.showErrorToast(err, 'action__connection_timeout');
           }
         });
     },

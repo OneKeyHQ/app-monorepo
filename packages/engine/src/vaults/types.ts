@@ -1,6 +1,8 @@
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
+import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
+
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
 import type { Token } from '../types/token';
@@ -29,6 +31,7 @@ export type IVaultSettings = {
 
   importedAccountEnabled: boolean;
   watchingAccountEnabled: boolean;
+  externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
 
   minTransferAmount?: string;
@@ -161,6 +164,7 @@ export type IFeeInfoPayload = {
 export type IPrepareWatchingAccountsParams = {
   target: string;
   name: string;
+  accountIdPrefix: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
 };
 export type IPrepareImportedAccountsParams = {
   privateKey: Buffer;

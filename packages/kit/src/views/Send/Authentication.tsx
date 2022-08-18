@@ -1,11 +1,17 @@
-import React, { FC, useCallback, useEffect, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { Box, Center, Modal, Spinner, useToast } from '@onekeyhq/components';
+import { isExternalAccount } from '@onekeyhq/engine/src/engineUtils';
+import {
+  OneKeyError,
+  OneKeyErrorClassNames,
+} from '@onekeyhq/engine/src/errors';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
@@ -13,8 +19,10 @@ import Protected, {
 } from '@onekeyhq/kit/src/components/Protected';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { useWalletConnectSendInfo } from '../../components/WalletConnect/useWalletConnectSendInfo';
 import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
 
+import { AuthExternalAccountInfo } from './AuthExternalAccountInfo';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendRoutes, SendRoutesParams } from './types';
 
@@ -29,6 +37,7 @@ type EnableLocalAuthenticationProps = {
 
 const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
   const navigation = useNavigation<NavigationProps>();
+  const { validator } = backgroundApiProxy;
   const toast = useToast();
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -45,14 +54,71 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     sourceInfo,
   } = route.params;
   const payload = payloadInfo || route.params.payload;
+  const { getExternalConnector, externalAccountInfo } =
+    useWalletConnectSendInfo({
+      accountId,
+      networkId,
+    });
 
   const { decodedTx } = useDecodedTx({
     encodedTx,
     payload,
   });
   const interactInfo = useInteractWithInfo({ sourceInfo });
+  const isExternal = useMemo(
+    () => isExternalAccount({ accountId }),
+    [accountId],
+  );
 
-  const sendTx = useCallback(async () => {
+  const sendTxForExternalAccount = useCallback(async () => {
+    if (!encodedTx) {
+      throw new Error('encodedTx is missing!');
+    }
+    const { connector } = await getExternalConnector();
+    if (!connector) {
+      return;
+    }
+    const txid = await connector.sendTransaction(encodedTx as IEncodedTxEvm);
+
+    debugLogger.walletConnect.info(
+      'sendTxForExternalAccount -> sendTransaction txid: ',
+      txid,
+    );
+    if (txid && (await validator.isValidEvmTxid({ txid }))) {
+      return {
+        txid,
+        rawTx: '',
+        encodedTx,
+      };
+    }
+
+    // BitKeep resolve('拒绝') but not reject(error)
+    const errorMsg =
+      txid && isString(txid)
+        ? txid
+        : intl.formatMessage({ id: 'msg__transaction_failed' });
+    throw new Error(errorMsg);
+  }, [encodedTx, validator, getExternalConnector, intl]);
+
+  const signMsgForExternalAccount = useCallback(async () => {
+    if (!unsignedMessage) {
+      throw new Error('unsignedMessage is missing!');
+    }
+    const { connector } = await getExternalConnector();
+    if (!connector) {
+      return;
+    }
+    const result: string = await connector.signPersonalMessage(
+      unsignedMessage as any,
+    );
+    return result;
+  }, [unsignedMessage, getExternalConnector]);
+
+  const sendTx = useCallback(async (): Promise<ISignedTx | undefined> => {
+    if (isExternal) {
+      return sendTxForExternalAccount();
+    }
+
     debugLogger.sendTx.info('Authentication sendTx:', route.params);
     // TODO needs wait rpc call finished, close Modal will cause tx send fail
     const result = await backgroundApiProxy.engine.signAndSendEncodedTx({
@@ -67,9 +133,20 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
       result,
     );
     return result;
-  }, [accountId, encodedTx, networkId, password, route.params]);
+  }, [
+    isExternal,
+    route.params,
+    password,
+    networkId,
+    accountId,
+    encodedTx,
+    sendTxForExternalAccount,
+  ]);
 
-  const signMsg = useCallback(async () => {
+  const signMsg = useCallback(async (): Promise<string | undefined> => {
+    if (isExternal) {
+      return signMsgForExternalAccount();
+    }
     // TODO accountId check if equals to unsignedMessage
     const result = await backgroundApiProxy.engine.signMessage({
       password,
@@ -78,7 +155,14 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
       unsignedMessage,
     });
     return result;
-  }, [accountId, networkId, password, unsignedMessage]);
+  }, [
+    accountId,
+    isExternal,
+    networkId,
+    password,
+    signMsgForExternalAccount,
+    unsignedMessage,
+  ]);
 
   const submit = useCallback(async () => {
     try {
@@ -93,17 +177,27 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
       let result: any;
       let signedTx: ISignedTx | undefined;
       let signedMsg: string | undefined;
+
       if (submitEncodedTx) {
         signedTx = await sendTx();
         result = signedTx;
+
+        if (!signedTx) {
+          return;
+        }
+
         // encodedTx will be edit by buildUnsignedTx, re-assign encodedTx
         submitEncodedTx = signedTx.encodedTx || submitEncodedTx;
       }
+
       if (unsignedMessage) {
         signedMsg = await signMsg();
         result = signedMsg;
-        console.log('>>>>>>>> unsignedMessage ', unsignedMessage, signedMsg);
+        if (!signedMsg) {
+          return;
+        }
       }
+
       if (result) {
         onSuccess?.(result, {
           signedTx,
@@ -128,7 +222,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
         }
       }
     } catch (e) {
-      console.error(e);
+      debugLogger.common.error(e);
       if (backRouteName) {
         // navigation.navigate(backRouteName);
         navigation.navigate({
@@ -169,13 +263,18 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
           const msg = error?.key
             ? intl.formatMessage({ id: error?.key as any }, error?.info ?? {})
             : error?.message ?? '';
-          toast.show(
-            {
-              title: msg || intl.formatMessage({ id: 'transaction__failed' }),
-              description: msg,
-            },
-            { type: 'error' },
-          );
+          if (
+            error.className !==
+            OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
+          ) {
+            toast.show(
+              {
+                title: msg || intl.formatMessage({ id: 'transaction__failed' }),
+                description: msg,
+              },
+              { type: 'error' },
+            );
+          }
         }
       }, 600);
     }
@@ -206,12 +305,15 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
       submit();
     }
   }, [decodedTx, unsignedMessage, submit]);
-  return (
+  return externalAccountInfo ? (
+    <AuthExternalAccountInfo {...externalAccountInfo} />
+  ) : (
     <Center h="full" w="full">
       <Spinner size="lg" />
     </Center>
   );
 };
+const SendAuthMemo = React.memo(SendAuth);
 
 export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
@@ -220,11 +322,13 @@ export const HDAccountAuthentication = () => {
 
   // TODO all Modal close should reject dapp call
   return (
-    <Modal height="598px" footer={null}>
-      <DecodeTxButtonTest encodedTx={params.encodedTx} />
-      <Protected walletId={walletId} field={ValidationFields.Payment}>
-        {(password) => <SendAuth password={password} />}
-      </Protected>
+    <Modal footer={null}>
+      <Box flex={1}>
+        <DecodeTxButtonTest encodedTx={params.encodedTx} />
+        <Protected walletId={walletId} field={ValidationFields.Payment}>
+          {(password) => <SendAuthMemo password={password} />}
+        </Protected>
+      </Box>
     </Modal>
   );
 };

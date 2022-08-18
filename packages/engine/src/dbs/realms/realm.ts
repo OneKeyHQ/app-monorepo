@@ -13,12 +13,14 @@ import {
   OneKeyError,
   OneKeyInternalError,
   TooManyDerivedAccounts,
+  TooManyExternalAccounts,
   TooManyImportedAccounts,
   TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
 import {
   DERIVED_ACCOUNT_MAX_NUM,
+  EXTERNAL_ACCOUNT_MAX_NUM,
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
@@ -37,6 +39,7 @@ import {
 import { DBNetwork } from '../../types/network';
 import { Token } from '../../types/token';
 import {
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
@@ -84,6 +87,7 @@ class RealmDB implements DBAPI {
    * set update flag to true when you want to update preset networks
    * @throws {OneKeyInternalError}
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(update = false) {
     Realm.open({
       path: DB_PATH,
@@ -100,21 +104,13 @@ class RealmDB implements DBAPI {
       schemaVersion: SCHEMA_VERSION,
     })
       .then((realm) => {
-        if (update || realm.empty) {
-          realm.write(() => {
-            if (realm.empty) {
-              realm.create('Wallet', {
-                id: 'watching',
-                name: 'watching',
-                type: WALLET_TYPE_WATCHING,
-                backuped: true,
-                accounts: [],
-                nextAccountIds: { 'global': 1 },
-              });
-            }
-          });
-        }
-        RealmDB.addImportAccountEntry(realm);
+        RealmDB.addSingletonWalletEntry({ realm, walletId: 'watching' });
+        RealmDB.addSingletonWalletEntry({ realm, walletId: 'imported' });
+        RealmDB.addSingletonWalletEntry({
+          realm,
+          walletId: 'external',
+        });
+
         const context = realm.objectForPrimaryKey<ContextSchema>(
           'Context',
           MAIN_CONTEXT,
@@ -788,6 +784,13 @@ class RealmDB implements DBAPI {
           case WALLET_TYPE_WATCHING: {
             if (wallet.accounts!.size > WATCHING_ACCOUNT_MAX_NUM) {
               throw new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM);
+            }
+            wallet.nextAccountIds!.global += 1;
+            break;
+          }
+          case WALLET_TYPE_EXTERNAL: {
+            if (wallet.accounts!.size > EXTERNAL_ACCOUNT_MAX_NUM) {
+              throw new TooManyExternalAccounts(EXTERNAL_ACCOUNT_MAX_NUM);
             }
             wallet.nextAccountIds!.global += 1;
             break;
@@ -1745,17 +1748,26 @@ class RealmDB implements DBAPI {
     return Promise.resolve();
   }
 
-  private static addImportAccountEntry(realm: Realm): void {
-    const importAccount = realm.objectForPrimaryKey<WalletSchema>(
+  private static addSingletonWalletEntry({
+    realm,
+    walletId,
+  }: {
+    realm: Realm;
+    walletId:
+      | typeof WALLET_TYPE_IMPORTED
+      | typeof WALLET_TYPE_WATCHING
+      | typeof WALLET_TYPE_EXTERNAL;
+  }): void {
+    const walletObject = realm.objectForPrimaryKey<WalletSchema>(
       'Wallet',
-      'imported',
+      walletId,
     );
-    if (typeof importAccount === 'undefined') {
+    if (typeof walletObject === 'undefined') {
       realm.write(() => {
         realm.create('Wallet', {
-          id: 'imported',
-          name: 'imported',
-          type: WALLET_TYPE_IMPORTED,
+          id: walletId,
+          name: walletId,
+          type: walletId,
           backuped: true,
           accounts: [],
           nextAccountIds: { 'global': 1 },

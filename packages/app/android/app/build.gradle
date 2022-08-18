@@ -171,7 +171,11 @@ android {
         versionCode appVersionCode
         versionName appVersion
         vectorDrawables.useSupportLibrary = true
-        manifestPlaceholders = [OTAUpdatesEnable: false]
+        manifestPlaceholders = [
+          OTAUpdatesEnable: false,
+          JPUSH_APPKEY: "JPUSH_KEY",
+          JPUSH_CHANNEL: "dev"
+        ]
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
         
         if (isNewArchitectureEnabled()) {

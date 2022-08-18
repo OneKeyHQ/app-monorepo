@@ -1,7 +1,7 @@
 import React, { FC, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
-import { IntlProvider } from 'react-intl';
+import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -40,6 +40,8 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   // but Native will throw error: Unrecognized font family "PlusJakartaSans-Bold"
   return <>{children}</>;
 }
+
+export const intlRef = React.createRef<IntlShape>();
 
 const Provider: FC<UIProviderProps> = ({
   children,
@@ -153,7 +155,14 @@ const Provider: FC<UIProviderProps> = ({
           backgroundColor={COLORS[themeVariant]['background-default']}
           animated
         />
-        <IntlProvider locale={locale} messages={LOCALES[locale]}>
+        <IntlProvider
+          ref={(e) => {
+            // @ts-expect-error
+            intlRef.current = e?.state?.intl;
+          }}
+          locale={locale}
+          messages={LOCALES[locale]}
+        >
           <NativeBaseProvider
             config={{
               suppressColorAccessibilityWarning: true,
@@ -169,3 +178,10 @@ const Provider: FC<UIProviderProps> = ({
 };
 
 export default Provider;
+
+export function formatMessage(
+  descriptor: MessageDescriptor,
+  values?: Record<string, any>,
+) {
+  return intlRef?.current?.formatMessage(descriptor, values);
+}

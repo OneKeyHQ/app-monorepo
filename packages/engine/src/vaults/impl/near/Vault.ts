@@ -75,6 +75,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
+    external: KeyringWatching,
   };
 
   settings = settings;

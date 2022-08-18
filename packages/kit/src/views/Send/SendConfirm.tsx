@@ -14,6 +14,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useWalletConnectPrepareConnection } from '../../components/WalletConnect/useWalletConnectPrepareConnection';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
@@ -83,7 +84,7 @@ async function prepareSendConfirmEncodedTx({
     const encodedTxEvm = encodedTx as IEncodedTxEvm;
     // routeParams is not editable, so should create new one
     let tx = { ...encodedTxEvm };
-    tx.from = address || tx.from;
+    tx.from = tx.from || address;
     // remove gas price if encodedTx build by DAPP
     if (sendConfirmParams.sourceInfo) {
       tx = removeFeeInfoInTx(tx);
@@ -178,6 +179,12 @@ function SendConfirm() {
     pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
   });
 
+  useWalletConnectPrepareConnection({
+    accountId,
+    networkId,
+  });
+
+  // onSubmit, onConfirm, onNext
   const handleConfirm = useCallback<ITxConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/no-shadow
     async ({ close, encodedTx }) => {

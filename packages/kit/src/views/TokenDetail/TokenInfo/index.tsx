@@ -30,7 +30,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 

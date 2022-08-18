@@ -1,5 +1,6 @@
 /* eslint-disable */
 
+import ArrowBottomLeftIllus from "./react/illus/ArrowBottomLeft";
 import ArrowTopRightIllus from "./react/illus/ArrowTopRight";
 import BrandLogoIllus from "./react/illus/BrandLogo";
 import CrownBadgeIllus from "./react/illus/CrownBadge";
@@ -520,6 +521,7 @@ import ZoomInSolid from "./react/solid/ZoomIn";
 import ZoomOutSolid from "./react/solid/ZoomOut";
 
 export type ICON_NAMES =
+  | "ArrowBottomLeftIllus"
   | "ArrowTopRightIllus"
   | "BrandLogoIllus"
   | "CrownBadgeIllus"
@@ -1040,6 +1042,7 @@ export type ICON_NAMES =
   | "ZoomOutSolid";
 
 export default {
+  ArrowBottomLeftIllus: ArrowBottomLeftIllus,
   ArrowTopRightIllus: ArrowTopRightIllus,
   BrandLogoIllus: BrandLogoIllus,
   CrownBadgeIllus: CrownBadgeIllus,

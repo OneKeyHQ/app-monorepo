@@ -33,6 +33,7 @@ import java.util.List;
 import android.webkit.WebView;
 
 import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
+import cn.jiguang.plugins.push.JPushModule;
 
 public class MainApplication extends Application implements ReactApplication , ViewModelStoreOwner {
   private final ViewModelStore mViewModelStore = new ViewModelStore();
@@ -120,6 +121,7 @@ public class MainApplication extends Application implements ReactApplication , V
 
     initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     ApplicationLifecycleDispatcher.onApplicationCreate(this);
+    JPushModule.registerActivityLifecycle(this);
   }
 
   @Override

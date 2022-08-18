@@ -134,6 +134,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
+    external: KeyringWatching,
   };
 
   private async _correctDbAccountAddress(dbAccount: DBAccount) {
@@ -528,7 +529,6 @@ export default class Vault extends VaultBase {
       decodeUnsignedTxFeeData(unsignedTx),
     );
 
-    // TODO remove side effect here
     encodedTx.nonce = nextNonce;
 
     return { ...unsignedTx, encodedTx };
@@ -557,7 +557,8 @@ export default class Vault extends VaultBase {
     const {
       actions: [{ type: actionType }],
     } = await this.decodeTx(encodedTx);
-    let unsignedTx;
+
+    let unsignedTx: IUnsignedTxPro | undefined;
     if (actionType === IDecodedTxActionType.NATIVE_TRANSFER) {
       // First try using value=0 to calculate native transfer gas limit to
       // avoid maximum transfer failure.
@@ -576,8 +577,8 @@ export default class Vault extends VaultBase {
         unsignedTx = await this.buildUnsignedTxFromEncodedTx(
           encodedTxWithFakePriceAndNonce,
         );
-      } catch {
-        unsignedTx = { limit: undefined };
+      } catch (error) {
+        debugLogger.common.error(error);
       }
     }
 
@@ -589,7 +590,7 @@ export default class Vault extends VaultBase {
       const txData = ethers.utils.serializeTransaction({
         value: encodedTx.value,
         data: encodedTx.data,
-        gasLimit: `0x${(unsignedTx.feeLimit ?? new BigNumber('0')).toString(
+        gasLimit: `0x${(unsignedTx?.feeLimit ?? new BigNumber('0')).toString(
           16,
         )}`,
         to: encodedTx.to,
@@ -644,7 +645,7 @@ export default class Vault extends VaultBase {
     // [{baseFee: '928.361757873', maxPriorityFeePerGas: '11.36366', maxFeePerGas: '939.725417873'}]
     // [10]
     const limit = BigNumber.max(
-      unsignedTx.feeLimit ?? '0',
+      unsignedTx?.feeLimit ?? '0',
       gas ?? '0',
       gasLimit ?? '0',
     ).toFixed();

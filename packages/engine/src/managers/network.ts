@@ -1,4 +1,4 @@
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM, IMPL_STC, SEPERATOR } from '../constants';
 import { getPresetNetworks, networkIsPreset } from '../presets';
@@ -139,11 +139,7 @@ function parseNetworkId(networkId: string): {
   chainId?: string;
 } {
   if (!networkId || !networkId.includes(SEPERATOR)) {
-    debugLogger.common.error(
-      'parseNetworkId ERROR: Invalid networkId',
-      networkId,
-    );
-    return {};
+    throw new Error(`parseNetworkId ERROR: Invalid networkId -> ${networkId}`);
   }
   const [impl, chainId] = networkId.split(SEPERATOR);
   return {
@@ -152,4 +148,20 @@ function parseNetworkId(networkId: string): {
   };
 }
 
-export { getEVMNetworkToCreate, fromDBNetworkToNetwork, parseNetworkId };
+function generateNetworkIdByChainId({
+  impl,
+  chainId,
+}: {
+  impl: string;
+  chainId: string | number;
+}) {
+  const chainIdNum = new BigNumber(chainId).toNumber();
+  return `${impl}${SEPERATOR}${chainIdNum}`;
+}
+
+export {
+  getEVMNetworkToCreate,
+  fromDBNetworkToNetwork,
+  parseNetworkId,
+  generateNetworkIdByChainId,
+};

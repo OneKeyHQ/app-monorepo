@@ -11,7 +11,6 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import {
@@ -27,6 +26,7 @@ import {
 import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { deviceUtils } from '../../../utils/hardware';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
@@ -77,31 +77,13 @@ const DeviceStatusCheckModal: FC = () => {
         features = result as IOneKeyDeviceFeatures;
       } catch (e: any) {
         safeGoBack();
-        const { className, key, code } = e || {};
+        const { code } = e || {};
         if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
           DialogManager.show({ render: <NeedBridgeDialog /> });
           return;
         }
 
-        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: key }),
-            },
-            {
-              type: 'error',
-            },
-          );
-        } else {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: 'action__connection_timeout' }),
-            },
-            {
-              type: 'error',
-            },
-          );
-        }
+        deviceUtils.showErrorToast(e, 'action__connection_timeout');
         return;
       }
 

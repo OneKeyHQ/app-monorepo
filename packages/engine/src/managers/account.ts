@@ -1,6 +1,7 @@
 import { SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import {
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
@@ -13,6 +14,7 @@ import { parseNetworkId } from './network';
 function getCoinTypeFromAccountId(accountId: string): string {
   if (
     accountId.startsWith(WALLET_TYPE_IMPORTED) ||
+    accountId.startsWith(WALLET_TYPE_EXTERNAL) ||
     accountId.startsWith(WALLET_TYPE_WATCHING)
   ) {
     const [walletType, coinType, address] = accountId.split(SEPERATOR);

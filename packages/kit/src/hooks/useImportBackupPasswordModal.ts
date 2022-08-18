@@ -11,7 +11,6 @@ export default function useImportBackupPasswordModal() {
     withPassword: (backupPassword: string) => Promise<RestoreResult>,
     onSuccess: () => Promise<void>,
     onError: () => void,
-    onCancel: () => void,
   ) => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ImportBackupPassword,
@@ -21,7 +20,6 @@ export default function useImportBackupPasswordModal() {
           withPassword,
           onSuccess,
           onError,
-          onCancel,
         },
       },
     });

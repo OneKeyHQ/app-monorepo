@@ -22,7 +22,7 @@ export type FirmwareUpdate = {
   ble?: BLEFirmwareInfo;
 };
 
-type SettingsState = {
+export type SettingsState = {
   theme: ThemeVariant | 'system';
   locale: LocaleSymbol;
   version: string;
@@ -47,6 +47,14 @@ type SettingsState = {
     updateDeviceSys: boolean;
     enableTestFiatEndpoint: boolean;
   };
+  pushNotification: {
+    registrationId?: string;
+    threshold: number;
+    pushEnable: boolean;
+    btcAndEthPriceAlertEnable: boolean;
+    favoriteTokensPriceAlertEnable: boolean;
+    accountActivityPushEnable: boolean;
+  };
   validationSetting: {
     [ValidationFields.Account]?: boolean;
     [ValidationFields.Payment]?: boolean;
@@ -54,6 +62,14 @@ type SettingsState = {
     [ValidationFields.Wallet]?: boolean;
   };
   hideSmallBalance?: boolean;
+};
+
+export const defaultPushNotification = {
+  threshold: 5,
+  pushEnable: false,
+  btcAndEthPriceAlertEnable: false,
+  favoriteTokensPriceAlertEnable: false,
+  accountActivityPushEnable: false,
 };
 
 const initialState: SettingsState = {
@@ -78,6 +94,7 @@ const initialState: SettingsState = {
     updateDeviceSys: false,
     enableTestFiatEndpoint: false,
   },
+  pushNotification: defaultPushNotification,
   validationSetting: {
     [ValidationFields.Account]: false,
     [ValidationFields.Payment]: false,
@@ -227,6 +244,15 @@ export const settingsSlice = createSlice({
     setHideSmallBalance(state, action: PayloadAction<boolean>) {
       state.hideSmallBalance = action.payload;
     },
+    setPushNotificationConfig(
+      state,
+      action: PayloadAction<Partial<SettingsState['pushNotification']>>,
+    ) {
+      state.pushNotification = {
+        ...state.pushNotification,
+        ...action.payload,
+      };
+    },
   },
 });
 
@@ -252,6 +278,7 @@ export const {
   setDeviceDoneUpdate,
   setEnableHaptics,
   setHideSmallBalance,
+  setPushNotificationConfig,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

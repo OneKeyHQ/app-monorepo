@@ -8,8 +8,11 @@ export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
 export const CLOUNDINARY_NAME_KEY = process.env.CLOUNDINARY_NAME!;
 export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;
 
+export const JPUSH_KEY = process.env.JPUSH_KEY || '7a327d7e71fba8985e8cbb28';
+export const JPUSH_CHANNEL = process.env.JPUSH_CHANNEL || 'dev';
+
 export const HARDWARE_SDK_IFRAME_SRC =
-  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.1.32/';
+  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.1.34/';
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';

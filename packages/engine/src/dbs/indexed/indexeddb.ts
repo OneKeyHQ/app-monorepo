@@ -11,12 +11,14 @@ import {
   OneKeyAlreadyExistWalletError,
   OneKeyInternalError,
   TooManyDerivedAccounts,
+  TooManyExternalAccounts,
   TooManyImportedAccounts,
   TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
 import {
   DERIVED_ACCOUNT_MAX_NUM,
+  EXTERNAL_ACCOUNT_MAX_NUM,
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
@@ -35,6 +37,7 @@ import {
 import { DBNetwork, UpdateNetworkParams } from '../../types/network';
 import { Token } from '../../types/token';
 import {
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
@@ -145,19 +148,20 @@ class IndexedDBApi implements DBAPI {
         const walletStore = db
           .transaction([WALLET_STORE_NAME], 'readwrite')
           .objectStore(WALLET_STORE_NAME);
-        const getImportedWalletRequest = walletStore.get('imported');
-        getImportedWalletRequest.onsuccess = (_gevent) => {
-          if (typeof getImportedWalletRequest.result === 'undefined') {
-            walletStore.add({
-              id: 'imported',
-              name: 'imported',
-              type: WALLET_TYPE_IMPORTED,
-              backuped: true,
-              accounts: [],
-              nextAccountIds: { 'global': 1 },
-            });
-          }
-        };
+
+        this.addSingletonWalletEntry({
+          objectStore: walletStore,
+          walletId: 'watching',
+        });
+        this.addSingletonWalletEntry({
+          objectStore: walletStore,
+          walletId: 'imported',
+        });
+        this.addSingletonWalletEntry({
+          objectStore: walletStore,
+          walletId: 'external',
+        });
+
         resolve(request.result);
       };
 
@@ -176,6 +180,31 @@ class IndexedDBApi implements DBAPI {
         }
       };
     });
+  }
+
+  addSingletonWalletEntry({
+    objectStore,
+    walletId,
+  }: {
+    objectStore: IDBObjectStore;
+    walletId:
+      | typeof WALLET_TYPE_IMPORTED
+      | typeof WALLET_TYPE_WATCHING
+      | typeof WALLET_TYPE_EXTERNAL;
+  }) {
+    const walletRequest = objectStore.get(walletId);
+    walletRequest.onsuccess = (_gevent) => {
+      if (typeof walletRequest.result === 'undefined') {
+        objectStore.add({
+          id: walletId,
+          name: walletId,
+          type: walletId,
+          backuped: true,
+          accounts: [],
+          nextAccountIds: { 'global': 1 },
+        });
+      }
+    };
   }
 
   getContext(): Promise<OneKeyContext | undefined> {
@@ -1337,6 +1366,14 @@ class IndexedDBApi implements DBAPI {
               case WALLET_TYPE_WATCHING: {
                 if (wallet.accounts.length > WATCHING_ACCOUNT_MAX_NUM) {
                   reject(new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM));
+                  return;
+                }
+                wallet.nextAccountIds.global += 1;
+                break;
+              }
+              case WALLET_TYPE_EXTERNAL: {
+                if (wallet.accounts.length > EXTERNAL_ACCOUNT_MAX_NUM) {
+                  reject(new TooManyExternalAccounts(EXTERNAL_ACCOUNT_MAX_NUM));
                   return;
                 }
                 wallet.nextAccountIds.global += 1;

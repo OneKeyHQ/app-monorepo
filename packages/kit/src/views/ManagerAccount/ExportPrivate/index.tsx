@@ -6,14 +6,19 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
+  Image,
   Modal,
   QRCode,
+  Spinner,
   Text,
+  ZStack,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
+import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import Protected, {
   ValidationFields,
@@ -63,27 +68,47 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
     toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   }, [toast, privateKey, intl]);
 
+  const renderLoading = () => (
+    <ZStack w={{ base: 296, md: 208 }} h={{ base: 296, md: 208 }}>
+      <Image
+        borderRadius="24px"
+        source={BlurQRCode}
+        w={{ base: 296, md: 208 }}
+        h={{ base: 296, md: 208 }}
+      />
+      <Center w="100%" h="100%">
+        <Spinner />
+      </Center>
+    </ZStack>
+  );
+
   return (
     <Box py="24px" justifyContent="center" flexDirection="column">
-      <Box alignItems="center" flexDirection="column">
-        <Box
-          borderRadius="24px"
-          bgColor="#FFFFFF"
-          p={isSmallScreen ? '16px' : '11px'}
-          shadow="depth.4"
-        >
-          {!!privateKey && (
-            <QRCode
-              value={privateKey}
-              logo={qrcodeLogo}
-              size={isSmallScreen ? 264 : 186}
-              logoSize={isSmallScreen ? 57 : 40}
-              logoMargin={isSmallScreen ? 4 : 2}
-              logoBackgroundColor="white"
-            />
+      <>
+        <Box alignItems="center" flexDirection="column">
+          {privateKey ? (
+            <Box
+              borderRadius="24px"
+              bgColor="#FFFFFF"
+              p={isSmallScreen ? '16px' : '11px'}
+              shadow="depth.4"
+            >
+              {!!privateKey && (
+                <QRCode
+                  value={privateKey}
+                  logo={qrcodeLogo}
+                  size={isSmallScreen ? 264 : 186}
+                  logoSize={isSmallScreen ? 57 : 40}
+                  logoMargin={isSmallScreen ? 4 : 2}
+                  logoBackgroundColor="white"
+                />
+              )}
+            </Box>
+          ) : (
+            renderLoading()
           )}
         </Box>
-      </Box>
+      </>
       <Box
         alignItems="center"
         mt={isSmallScreen ? '32px' : '24px'}

@@ -21,10 +21,8 @@ import {
   Empty,
   Modal,
   Spinner,
-  ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type {
   Account,
   ImportableHDAccount,
@@ -37,6 +35,8 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import { deviceUtils } from '../../../utils/hardware';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -162,38 +162,20 @@ const RecoverAccounts: FC = () => {
           );
         })
         .catch((e: any) => {
-          const { className, key, code, message } = e || {};
+          const { code } = e || {};
           if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
             return;
           }
 
           isFetchingData.current = false;
 
-          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-            ToastManager.show(
-              {
-                title: intl.formatMessage({ id: key }),
-              },
-              {
-                type: 'error',
-              },
-            );
-          } else {
-            ToastManager.show(
-              {
-                title: message,
-              },
-              {
-                type: 'default',
-              },
-            );
-          }
+          deviceUtils.showErrorToast(e);
 
           navigation?.goBack?.();
           navigation?.goBack?.();
         });
     },
-    [currentPage, network, password, walletId, intl, navigation, purpose],
+    [currentPage, network, password, walletId, navigation, purpose],
   );
 
   const checkBoxOnChange = useCallback(

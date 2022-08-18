@@ -8,7 +8,7 @@ export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
-    const { name, target } = params;
+    const { name, target, accountIdPrefix } = params;
     const { normalizedAddress, isValid } =
       await this.engine.providerManager.verifyAddress(this.networkId, target);
     if (!isValid || typeof normalizedAddress === 'undefined') {
@@ -22,7 +22,7 @@ export class KeyringWatching extends KeyringWatchingBase {
     );
     return [
       {
-        id: `watching--${COIN_TYPE}--${address}`,
+        id: `${accountIdPrefix}--${COIN_TYPE}--${address}`,
         name: name || '',
         type: AccountType.VARIANT,
         path: '',

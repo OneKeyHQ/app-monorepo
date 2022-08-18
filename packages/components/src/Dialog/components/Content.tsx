@@ -26,6 +26,7 @@ export type ContentProps = {
    * 内容
    */
   content?: string;
+  contentElement?: JSX.Element;
   /**
    * Input
    */
@@ -77,6 +78,7 @@ const Content: FC<ContentProps> = ({
   iconType,
   title,
   content,
+  contentElement,
   input,
 }) => (
   <Box flexDirection="column" w="100%" alignItems="center" mb={4}>
@@ -91,6 +93,8 @@ const Content: FC<ContentProps> = ({
         {title}
       </Text>
     )}
+
+    {contentElement}
 
     {!!content && (
       <Text
