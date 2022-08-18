@@ -62,6 +62,7 @@ import type { Token } from '../../../types/token';
 import type { IEncodedTxSTC } from './types';
 
 const MAIN_TOKEN_ADDRESS = '0x00000000000000000000000000000001::STC::STC';
+const DEFAULT_GAS_LIMIT_NATIVE_TRANSFER = '105547';
 
 export default class Vault extends VaultBase {
   settings = settings;
@@ -354,16 +355,25 @@ export default class Vault extends VaultBase {
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 
+    let limit = BigNumber.max(
+      unsignedTx.feeLimit ?? '0',
+      gasLimit ?? '0',
+    ).toFixed();
+    if (limit === '0') {
+      // Dry run failed.
+      if (!encodedTx.data) {
+        // Native STC transfer, give a default limit.
+        limit = DEFAULT_GAS_LIMIT_NATIVE_TRANSFER;
+      }
+    }
+
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
 
-      limit: BigNumber.max(
-        unsignedTx.feeLimit ?? '0',
-        gasLimit ?? '0',
-      ).toFixed(),
+      limit,
       prices,
       defaultPresetIndex: '0',
       extraInfo: {
