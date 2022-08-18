@@ -54,8 +54,10 @@ export async function getBalancesFromApi(
   const query: TokenBalancesQuery = {
     network: balanceSupprtedNetwork[networkId],
     address,
-    contract_addresses: tokenAddresses,
   };
+  if (tokenAddresses?.length) {
+    query.contract_addresses = tokenAddresses;
+  }
   return (await req
     .get('/token/balances', query)
     .then((res) => res.json())) as TokenBalancesResponse;
