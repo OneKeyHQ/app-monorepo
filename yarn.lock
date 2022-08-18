@@ -2029,6 +2029,23 @@
     semver "7.3.2"
     tempy "0.3.0"
 
+"@expo/image-utils@^0.3.18":
+  version "0.3.22"
+  resolved "https://registry.yarnpkg.com/@expo/image-utils/-/image-utils-0.3.22.tgz#3a45fb2e268d20fcc761c87bca3aca7fd8e24260"
+  integrity sha512-uzq+RERAtkWypOFOLssFnXXqEqKjNj9eXN7e97d/EXUAojNcLDoXc0sL+F5B1I4qtlsnhX01kcpoIBBZD8wZNQ==
+  dependencies:
+    "@expo/spawn-async" "1.5.0"
+    chalk "^4.0.0"
+    fs-extra "9.0.0"
+    getenv "^1.0.0"
+    jimp-compact "0.16.1"
+    mime "^2.4.4"
+    node-fetch "^2.6.0"
+    parse-png "^2.1.0"
+    resolve-from "^5.0.0"
+    semver "7.3.2"
+    tempy "0.3.0"
+
 "@expo/json-file@8.2.34":
   version "8.2.34"
   resolved "https://registry.yarnpkg.com/@expo/json-file/-/json-file-8.2.34.tgz#2f24e90a677195f7a81e167115460eb2902c3130"
@@ -2833,6 +2850,11 @@
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.1.tgz#b520529ec21d8e5945a1851dfd1c32e94e39ff45"
   integrity sha512-ZnQMnLV4e7hDlUvw8H+U8ASL02SS2Gn6+9Ac3wGGLIe7+je2AeAOxPY+izIPJDfFDb7eDjev0Us8MO1iFRN8hA==
+
+"@ide/backoff@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@ide/backoff/-/backoff-1.0.0.tgz#466842c25bd4a4833e0642fab41ccff064010176"
+  integrity sha512-F0YfUDjvT+Mtt/R4xdl2X0EYCHMMiJqNLdxHD++jDT5ydEFIyqbCHh51Qx2E211dgZprPKhV7sHmnXKpLuvc5g==
 
 "@internationalized/date@3.0.0-alpha.1":
   version "3.0.0-alpha.1"
@@ -6928,7 +6950,7 @@ assert-plus@1.0.0, assert-plus@^1.0.0:
   resolved "https://registry.yarnpkg.com/assert-plus/-/assert-plus-1.0.0.tgz#f12e0f3c5d77b0b1cdd9146942e4e96c1e4dd525"
   integrity sha1-8S4PPF13sLHN2RRpQuTpbB5N1SU=
 
-assert@2.0.0:
+assert@2.0.0, assert@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/assert/-/assert-2.0.0.tgz#95fc1c616d48713510680f2eaf2d10dd22e02d32"
   integrity sha512-se5Cd+js9dXJnu6Ag2JFc00t+HmHOen+8Q+L7O9zI0PqQXr20uk2J0XQqMxZEeo5U50o8Nvmmx7dZrl+Ufr35A==
@@ -7322,6 +7344,11 @@ backo2@1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/backo2/-/backo2-1.0.2.tgz#31ab1ac8b129363463e35b3ebb69f4dfcfba7947"
   integrity sha512-zj6Z6M7Eq+PBZ7PQxl5NT665MvJdAkzp0f60nAJ+sLaSCBPMwVak5ZegFbgVCzFcCJTKFoMizvM5Ld7+JrRJHA==
+
+badgin@^1.1.5:
+  version "1.2.3"
+  resolved "https://registry.yarnpkg.com/badgin/-/badgin-1.2.3.tgz#994b5f519827d7d5422224825b2c8faea2bc43ad"
+  integrity sha512-NQGA7LcfCpSzIbGRbkgjgdWkjy7HI+Th5VLxTJfW5EeaAf3fnS+xWQaQOCYiny+q6QSvxqoSO04vCx+4u++EJw==
 
 balanced-match@^1.0.0:
   version "1.0.2"
@@ -11472,6 +11499,22 @@ expo-modules-core@0.9.2:
     compare-versions "^3.4.0"
     invariant "^2.2.4"
 
+expo-notifications@~0.15.4:
+  version "0.15.4"
+  resolved "https://registry.yarnpkg.com/expo-notifications/-/expo-notifications-0.15.4.tgz#e255927a239a1b49bf6dfe3d2d6d3fee308165e2"
+  integrity sha512-CHjzA0d4NQU9Es//tTSEKQl3Hfj9hdrV6k79G+2/dnAXIa+KjvDGUTjPlhVqvt9ApT4Ly6UbwoY5Cb5qgKMEWA==
+  dependencies:
+    "@expo/config-plugins" "^4.0.14"
+    "@expo/image-utils" "^0.3.18"
+    "@ide/backoff" "^1.0.0"
+    abort-controller "^3.0.0"
+    assert "^2.0.0"
+    badgin "^1.1.5"
+    expo-application "~4.1.0"
+    expo-constants "~13.1.0"
+    fs-extra "^9.1.0"
+    uuid "^3.4.0"
+
 expo-pwa@0.0.105:
   version "0.0.105"
   resolved "https://registry.yarnpkg.com/expo-pwa/-/expo-pwa-0.0.105.tgz#5eebfd965a64107e71ae7e41290c3f2efa7f2b8d"
@@ -14067,6 +14110,11 @@ jayson@^3.4.4:
     uuid "^8.3.2"
     ws "^7.4.5"
 
+jcore-react-native@2.0.3:
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/jcore-react-native/-/jcore-react-native-2.0.3.tgz#26d4afe05a94e187acb3fc87c0c9060faf162499"
+  integrity sha512-AHf4/E1NdkBtDfWq5ab0geYAmbhctsak+W1qjxGMAALSixva1ykJb+zsNT5EUYWE7PTRyoeNE3DEdCKjvFp6Ug==
+
 jest-changed-files@^27.4.2:
   version "27.4.2"
   resolved "https://registry.yarnpkg.com/jest-changed-files/-/jest-changed-files-27.4.2.tgz#da2547ea47c6e6a5f6ed336151bd2075736eb4a5"
@@ -14538,6 +14586,11 @@ join-component@^1.1.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/join-component/-/join-component-1.1.0.tgz#b8417b750661a392bee2c2537c68b2a9d4977cd5"
   integrity sha512-bF7vcQxbODoGK1imE2P9GS9aw4zD0Sd+Hni68IMZLj7zRnquH7dXUmMw9hDI5S/Jzt7q+IyTXN0rSg2GI0IKhQ==
+
+jpush-react-native@2.9.2:
+  version "2.9.2"
+  resolved "https://registry.yarnpkg.com/jpush-react-native/-/jpush-react-native-2.9.2.tgz#671aabd77d58dc2d481f31696cde99dbc8f5efad"
+  integrity sha512-L4cPt7QMxndfqR+KSHYT1E83aAHcoi2k2hDr+8Xz/8ER0xUqKZAr0sxMb0R7WHvJ0lmi8xae7mpmpHFvty49hg==
 
 js-conflux-sdk@^1.7.1:
   version "1.7.3"

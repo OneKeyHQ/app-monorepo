@@ -15,3 +15,9 @@ if (settings.hasProperty("newArchEnabled") && settings.newArchEnabled == "true")
     project(":ReactAndroid").projectDir = file('../../../node_modules/react-native/ReactAndroid')
 }
 include ':lib-tabview'
+
+include ':jpush-react-native'
+project(':jpush-react-native').projectDir = new File(rootProject.projectDir, '../../../node_modules/jpush-react-native/android')
+include ':jcore-react-native'
+project(':jcore-react-native').projectDir = new File(rootProject.projectDir, '../../../node_modules/jcore-react-native/android')
+

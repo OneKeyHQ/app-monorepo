@@ -33,12 +33,14 @@ const titleIds: PrefContent = {
   camera: 'modal__camera_access_not_granted',
   bluetooth: 'modal__bluetooth_access_not_granted',
   location: 'modal__location_access_not_granted',
+  notification: 'modal__notification_has_been_disabled',
 };
 
 const contentIds: PrefContent = {
   camera: 'modal__camera_access_not_granted_desc',
   bluetooth: 'modal__bluetooth_access_not_granted_desc',
   location: 'modal__location_access_not_granted_use_bluetooth_desc',
+  notification: 'modal__notification_has_been_disabled_desc',
 };
 
 const linkMap: PrefLink = {
@@ -49,6 +51,11 @@ const linkMap: PrefLink = {
     desktop: null,
   },
   location: {
+    android: undefined,
+    desktop: null,
+  },
+  notification: {
+    iOS: 'App-prefs:root=NOTIFICATIONS_ID',
     android: undefined,
     desktop: null,
   },

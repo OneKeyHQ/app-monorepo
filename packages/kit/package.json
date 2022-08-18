@@ -45,7 +45,8 @@
     "swr": "^1.1.2",
     "url-parse": "^1.5.10",
     "vision-camera-code-scanner": "^0.2.0",
-    "zbar.wasm": "^2.1.1"
+    "zbar.wasm": "^2.1.1",
+    "expo-notifications": "~0.15.4"
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",

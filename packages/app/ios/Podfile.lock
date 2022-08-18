@@ -34,6 +34,8 @@ PODS:
   - EXMediaLibrary (14.1.0):
     - ExpoModulesCore
     - React-Core
+  - EXNotifications (0.15.4):
+    - ExpoModulesCore
   - Expo (45.0.5):
     - ExpoModulesCore
   - ExpoClipboard (3.0.1):
@@ -154,6 +156,10 @@ PODS:
     - GoogleUtilities/Logger
   - GTMSessionFetcher/Core (1.7.2)
   - IQKeyboardManagerSwift (6.5.4)
+  - JCore (2.0.3):
+    - React
+  - JPush (2.9.2):
+    - React
   - JXCategoryView (1.6.1)
   - JXPagingView/Pager (2.1.2)
   - libwebp (1.2.3):
@@ -628,6 +634,7 @@ DEPENDENCIES:
   - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - EXLocation (from `../../../node_modules/expo-location/ios`)
   - EXMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
+  - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
@@ -641,6 +648,8 @@ DEPENDENCIES:
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../../../node_modules/react-native/third-party-podspecs/glog.podspec`)
+  - JCore (from `../../../node_modules/jcore-react-native`)
+  - JPush (from `../../../node_modules/jpush-react-native`)
   - JXCategoryView
   - JXPagingView/Pager
   - lottie-ios (from `../../../node_modules/lottie-ios`)
@@ -765,6 +774,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-location/ios"
   EXMediaLibrary:
     :path: "../../../node_modules/expo-media-library/ios"
+  EXNotifications:
+    :path: "../../../node_modules/expo-notifications/ios"
   Expo:
     :path: "../../../node_modules/expo/ios"
   ExpoClipboard:
@@ -791,6 +802,10 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/React/FBReactNativeSpec"
   glog:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/glog.podspec"
+  JCore:
+    :path: "../../../node_modules/jcore-react-native"
+  JPush:
+    :path: "../../../node_modules/jpush-react-native"
   lottie-ios:
     :path: "../../../node_modules/lottie-ios"
   lottie-react-native:
@@ -920,6 +935,7 @@ SPEC CHECKSUMS:
   EXLocalAuthentication: 7f37b242eae73f9acf111d39bdee3f1379e68902
   EXLocation: f9811c5a78e07894429e7e0620b30f2395564fc0
   EXMediaLibrary: 84cddf988a089e28070790438caf58d8b265b37a
+  EXNotifications: 297bb555bbd26fd7aa8ff3bf7e724d4d65f7e895
   Expo: b9fff0a1eac0f424fc68ea49b4347fb308e52e17
   ExpoClipboard: e2dda22be0524595a5eeead51665f60729829123
   ExpoHaptics: ad58ec96a25e57579c14a47c7d71f0de0de8656a
@@ -948,6 +964,8 @@ SPEC CHECKSUMS:
   GoogleUtilitiesComponents: 679b2c881db3b615a2777504623df6122dd20afe
   GTMSessionFetcher: 5595ec75acf5be50814f81e9189490412bad82ba
   IQKeyboardManagerSwift: 2dde0fc70110e8eac7ccce2a46fdbec6a850b414
+  JCore: fd3304b14f32fdb8cc3999c58d4d8366fb50085f
+  JPush: 0f2e50224c69fe5c2d6385776ed8c84e1b0727bd
   JXCategoryView: 7b1ee69ede4843c581688afe84d0f047723262f2
   JXPagingView: 90924b364a2ff7e94db534fad1fa50925ff69ee4
   libwebp: 60305b2e989864154bd9be3d772730f08fc6a59c

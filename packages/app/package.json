@@ -87,7 +87,9 @@
     "redux-flipper": "^2.0.2",
     "text-encoding": "^0.7.0",
     "v8-android-jit": "^10.100.1",
-    "vision-camera-code-scanner": "^0.2.0"
+    "vision-camera-code-scanner": "^0.2.0",
+    "jcore-react-native": "2.0.3",
+    "jpush-react-native": "2.9.2"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",

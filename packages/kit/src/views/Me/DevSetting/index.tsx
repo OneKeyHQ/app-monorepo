@@ -104,8 +104,8 @@ export const DevSettingSection = () => {
             />
           </Container.Item>
           <Container.Item
-            title="enableTestFiatEndpoint"
-            subDescribe={fiatEndpoint}
+            title="测试环境域名(需要重启App)"
+            subDescribe={`范围: \n[token、价格、余额、推送] \n ${fiatEndpoint}`}
             titleColor="text-critical"
           >
             <Switch

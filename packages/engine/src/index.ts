@@ -70,6 +70,7 @@ import {
   getEVMNetworkToCreate,
   parseNetworkId,
 } from './managers/network';
+import { syncPushNotificationConfig } from './managers/notification';
 import {
   fetchTokenDetail,
   fetchTokenTop2000,
@@ -2303,6 +2304,11 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async syncPushNotificationConfig() {
+    return syncPushNotificationConfig();
   }
 }
 

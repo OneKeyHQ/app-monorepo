@@ -10,6 +10,7 @@ import store from '@onekeyhq/kit/src/store';
 
 import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
+import NotificationProvider from './NotificationProvider';
 import ThemeApp from './ThemeProvider';
 
 // TODO: detect network change & APP in background mode
@@ -29,7 +30,9 @@ const KitProvider: FC = () => (
         <ThemeApp>
           <AppLoading>
             <ErrorBoundary>
-              <NavigationApp />
+              <NotificationProvider>
+                <NavigationApp />
+              </NotificationProvider>
             </ErrorBoundary>
           </AppLoading>
         </ThemeApp>
