@@ -25,11 +25,11 @@ export function useColorScheme(delay = 500): NonNullable<ColorSchemeName> {
   );
 
   useEffect(() => {
-    Appearance.addChangeListener(onColorSchemeChange);
+    const subscribe = Appearance.addChangeListener(onColorSchemeChange);
 
     return () => {
       resetCurrentTimeout();
-      Appearance.removeChangeListener(onColorSchemeChange);
+      subscribe.remove();
     };
   }, [onColorSchemeChange, resetCurrentTimeout]);
 

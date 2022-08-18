@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import ConnectWallet from '../screens/ConnectWallet';
