@@ -1,4 +1,9 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -27,6 +32,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../../../routes/types';
+import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
 import Wrapper from './Wrapper';
@@ -75,7 +81,38 @@ const EnabledContent = ({
   const formatDate = useFormatDate();
   const { serviceCloudBackup } = backgroundApiProxy;
 
-  const [showDisableBackupDialog, setShowDisableBackupDialog] = useState(false);
+  const openDisableBackupDialog = useCallback(() => {
+    showOverlay((onClose) => (
+      <Dialog
+        visible
+        onClose={onClose}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__disable',
+          secondaryActionTranslationId: 'action__dismiss',
+          primaryActionProps: { type: 'destructive' },
+          onPrimaryActionPress: async () => {
+            await serviceCloudBackup.disableService();
+            onClose();
+          },
+        }}
+        contentProps={{
+          icon: (
+            <Center rounded="full" size="12" bgColor="surface-success-default">
+              <Icon name="CloudOutline" size={24} color="icon-success" />
+            </Center>
+          ),
+          title: intl.formatMessage({
+            id: 'dialog__your_wallets_are_backed_up',
+          }),
+          content: `${intl.formatMessage({
+            id: 'dialog__your_wallets_are_backed_up_desc',
+          })}\n\n${intl.formatMessage({
+            id: 'dialog__your_wallets_are_backed_up_desc_2',
+          })}`,
+        }}
+      />
+    ));
+  }, [intl, serviceCloudBackup]);
 
   return inProgress ? (
     <InProgressContent />
@@ -97,39 +134,7 @@ const EnabledContent = ({
         size="lg"
         name="DotsVerticalOutline"
         circle
-        onPress={() => {
-          setShowDisableBackupDialog(true);
-        }}
-      />
-      <Dialog
-        visible={showDisableBackupDialog}
-        footerButtonProps={{
-          primaryActionTranslationId: 'action__disable',
-          secondaryActionTranslationId: 'action__dismiss',
-          primaryActionProps: { type: 'destructive' },
-          onPrimaryActionPress: async () => {
-            await serviceCloudBackup.disableService();
-            setShowDisableBackupDialog(false);
-          },
-          onSecondaryActionPress: () => {
-            setShowDisableBackupDialog(false);
-          },
-        }}
-        contentProps={{
-          icon: (
-            <Center rounded="full" size="12" bgColor="surface-success-default">
-              <Icon name="CloudOutline" size={24} color="icon-success" />
-            </Center>
-          ),
-          title: intl.formatMessage({
-            id: 'dialog__your_wallets_are_backed_up',
-          }),
-          content: `${intl.formatMessage({
-            id: 'dialog__your_wallets_are_backed_up_desc',
-          })}\n\n${intl.formatMessage({
-            id: 'dialog__your_wallets_are_backed_up_desc_2',
-          })}`,
-        }}
+        onPress={openDisableBackupDialog}
       />
     </Box>
   );
