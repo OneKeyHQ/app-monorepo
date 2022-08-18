@@ -241,6 +241,7 @@ const AccountSelectorChildren: FC<{
       />
       <VStack flex={1} pb={bottom}>
         <RightHeader
+          onLoadingAccount={onLoadingAccount}
           selectedWallet={activeWallet}
           deviceStatus={
             deviceStatus?.[activeWallet?.associatedDevice ?? ''] ?? undefined

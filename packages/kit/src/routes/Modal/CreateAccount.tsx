@@ -6,50 +6,48 @@ import AddNewAccountModal from '@onekeyhq/kit/src/views/Account/AddNewAccount';
 import CreateAccountAuthenticationModal from '@onekeyhq/kit/src/views/Account/AddNewAccount/Authentication';
 import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccounts';
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
+import SelectChain from '@onekeyhq/kit/src/views/Account/AddNewAccount/SelectChain';
 
 import createStackNavigator from './createStackNavigator';
 
 export enum CreateAccountModalRoutes {
   CreateAccountForm = 'CreateAccountForm',
   CreateAccountAuthentication = 'CreateAccountAuthentication',
-  RecoveryAccountForm = 'RecoveryAccountForm',
+  RecoverySelectChainList = 'RecoverySelectChainList',
   RecoverAccountsList = 'RecoverAccountList',
   RecoverAccountsConfirm = 'RecoverAccountsConfirm',
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
 }
 
+type OnLoadingAccountType = (
+  walletId: string,
+  networkId: string,
+  ready?: boolean,
+) => void;
+
 export type CreateAccountRoutesParams = {
   [CreateAccountModalRoutes.CreateAccountForm]: {
     walletId: string;
-    onLoadingAccount?: (
-      walletId: string,
-      networkId: string,
-      ready?: boolean,
-    ) => void;
     selectedNetworkId?: string;
+    onLoadingAccount?: OnLoadingAccountType;
   };
   [CreateAccountModalRoutes.CreateAccountAuthentication]: {
     onDone: (password: string) => void;
     walletId: string;
   };
-  [CreateAccountModalRoutes.RecoveryAccountForm]: undefined;
+  [CreateAccountModalRoutes.RecoverySelectChainList]: {
+    onLoadingAccount?: OnLoadingAccountType;
+    walletId: string;
+  };
   [CreateAccountModalRoutes.RecoverAccountsList]: {
-    onLoadingAccount?: (
-      walletId: string,
-      networkId: string,
-      ready?: boolean,
-    ) => void;
+    onLoadingAccount?: OnLoadingAccountType;
     walletId: string;
     network: string;
     password: string;
     purpose: number;
   };
   [CreateAccountModalRoutes.RecoverAccountsConfirm]: {
-    onLoadingAccount?: (
-      walletId: string,
-      networkId: string,
-      ready?: boolean,
-    ) => void;
+    onLoadingAccount?: OnLoadingAccountType;
     accounts: (ImportableHDAccount & {
       selected: boolean;
       isDisabled: boolean;
@@ -87,6 +85,10 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication,
     component: CreateAccountAuthenticationModal,
+  },
+  {
+    name: CreateAccountModalRoutes.RecoverySelectChainList,
+    component: SelectChain,
   },
 ];
 

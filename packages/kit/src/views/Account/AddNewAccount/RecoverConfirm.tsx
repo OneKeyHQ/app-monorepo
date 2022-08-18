@@ -85,20 +85,15 @@ const RecoverConfirm: FC = () => {
   const header = () => {
     const selectCount = flatListData.filter((i) => i.selected).length;
     return (
-      <Box flexDirection="column" height="56px">
+      <Box flexDirection="column" height="76px">
         <Box
           flexDirection="row"
-          pl="24px"
-          justifyContent="space-between"
+          pl="16px"
           alignItems="center"
           bgColor="surface-default"
-          borderTopRadius="12px"
           flex={1}
         >
-          <Typography.Body2Strong>
-            {intl.formatMessage({ id: 'form__select_all' })}
-          </Typography.Body2Strong>
-          <Box width="56px" height="100%" justifyContent="center" pl="12px">
+          <Box>
             <CheckBox
               isChecked={selectCount > 0}
               defaultIsChecked={
@@ -106,6 +101,14 @@ const RecoverConfirm: FC = () => {
               }
               onChange={selectAllHandle}
             />
+          </Box>
+          <Box>
+            <Typography.Body1Strong>
+              {intl.formatMessage({ id: 'form__select_all' })}
+            </Typography.Body1Strong>
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'content__up_to_100_accounts' })}
+            </Typography.Body2>
           </Box>
         </Box>
         <Divider />
@@ -129,12 +132,22 @@ const RecoverConfirm: FC = () => {
     ({ item, index }) => (
       <Box
         flexDirection="row"
+        paddingX="16px"
         bgColor="surface-default"
-        height="72px"
-        justifyContent="space-between"
+        alignItems="center"
+        height="52px"
         borderBottomRadius={index === flatListData.length - 1 ? '12px' : 0}
       >
-        <Box flexDirection="column" flex={1} justifyContent="center" pl="24px">
+        <Box>
+          <CheckBox
+            isChecked={item.selected}
+            isDisabled={item.isDisabled}
+            onChange={(isSelected) => {
+              checkBoxOnChange(isSelected, item);
+            }}
+          />
+        </Box>
+        <Box flexDirection="row" flex={1} justifyContent="space-between">
           <Typography.Body2Strong>
             {`${item.defaultName}`}
           </Typography.Body2Strong>
@@ -143,16 +156,6 @@ const RecoverConfirm: FC = () => {
             color="text-subdued"
             text={item.displayAddress}
             short
-          />
-        </Box>
-
-        <Box width="56px" height="100%" justifyContent="center" pl="12px">
-          <CheckBox
-            isChecked={item.selected}
-            isDisabled={item.isDisabled}
-            onChange={(isSelected) => {
-              checkBoxOnChange(isSelected, item);
-            }}
           />
         </Box>
       </Box>

@@ -14,6 +14,7 @@ import {
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectGroupItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
@@ -34,6 +35,12 @@ type RightHeaderProps = {
   selectedWallet?: Wallet | null;
   // eslint-disable-next-line react/no-unused-prop-types
   deviceStatus?: DeviceStatusType;
+  // eslint-disable-next-line react/no-unused-prop-types
+  onLoadingAccount?: (
+    walletId: string,
+    networkId: string,
+    ready?: boolean,
+  ) => void;
 };
 
 type CustomSelectTriggerProps = {
@@ -113,6 +120,7 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
 const RightHeader: FC<RightHeaderProps> = ({
   selectedWallet,
   deviceStatus,
+  onLoadingAccount,
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -183,6 +191,15 @@ const RightHeader: FC<RightHeaderProps> = ({
           },
           {
             label: intl.formatMessage({
+              id: 'action__recover_accounts',
+            }),
+            value: 'restore',
+            iconProps: {
+              name: 'RestoreOutline',
+            },
+          },
+          {
+            label: intl.formatMessage({
               id: 'action__delete_wallet',
             }),
             value: 'remove',
@@ -248,6 +265,18 @@ const RightHeader: FC<RightHeaderProps> = ({
                     },
                   });
                   break;
+                case 'restore':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.CreateAccount,
+                    params: {
+                      screen: CreateAccountModalRoutes.RecoverySelectChainList,
+                      params: {
+                        walletId: selectedWallet?.id ?? '',
+                        onLoadingAccount,
+                      },
+                    },
+                  });
+                  break;
                 case 'remove':
                   onDeleteWallet();
                   break;
@@ -272,6 +301,15 @@ const RightHeader: FC<RightHeaderProps> = ({
                   name: isVerticalLayout
                     ? 'ShieldCheckOutline'
                     : 'ShieldCheckSolid',
+                },
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'action__recover_accounts',
+                }),
+                value: 'restore',
+                iconProps: {
+                  name: 'RestoreOutline',
                 },
               },
               {
@@ -323,6 +361,18 @@ const RightHeader: FC<RightHeaderProps> = ({
                         OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
                       params: {
                         walletId: selectedWallet?.id ?? '',
+                      },
+                    },
+                  });
+                  break;
+                case 'restore':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.CreateAccount,
+                    params: {
+                      screen: CreateAccountModalRoutes.RecoverySelectChainList,
+                      params: {
+                        walletId: selectedWallet?.id ?? '',
+                        onLoadingAccount,
                       },
                     },
                   });
