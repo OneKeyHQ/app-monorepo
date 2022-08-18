@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,6 +14,7 @@ import {
   QRCode,
   Text,
   ToastManager,
+  Typography,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
@@ -64,6 +65,7 @@ const ReceiveToken = () => {
 
   const isHwWallet = wallet?.type === 'hw';
   const [onHardwareConfirmed, setOnHardwareConfirmed] = useState(false);
+  const [ignoreDeviceCheck, setIgnoreDeviceCheck] = useState(false);
   const [isLoadingForHardware, setIsLoadingForHardware] = useState(false);
 
   const getAddress = useCallback(async () => {
@@ -98,74 +100,104 @@ const ReceiveToken = () => {
     toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
   }, [toast, shownAddress, intl]);
 
-  const renderHiddenAddress = () => (
-    <Box flexDirection="column" alignItems="center" justifyContent="center">
-      <Box
-        borderRadius="24px"
-        alignItems="center"
-        justifyContent="center"
-        w={{ base: 296, md: 208 }}
-        h={{ base: 296, md: 208 }}
-        bgColor="white"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="border-default"
-        overflow="hidden"
-      >
-        <Image
-          source={BlurQRCode}
+  const renderHiddenAddress = useMemo(
+    () => (
+      <Box flexDirection="column" alignItems="center" justifyContent="center">
+        <Box
+          borderRadius="24px"
+          alignItems="center"
+          justifyContent="center"
           w={{ base: 296, md: 208 }}
           h={{ base: 296, md: 208 }}
-        />
-        <Center position="absolute" top={0} left={0} right={0} bottom={0} p={4}>
+          bgColor="white"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="border-default"
+          overflow="hidden"
+        >
+          <Image
+            source={BlurQRCode}
+            w={{ base: 296, md: 208 }}
+            h={{ base: 296, md: 208 }}
+          />
+          <Center
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            p={4}
+          >
+            <Text
+              typography={{ sm: 'Body1', md: 'Body2' }}
+              color="#000"
+              opacity={80}
+              textAlign="center"
+            >
+              {intl.formatMessage({
+                id: 'content__check_the_address_on_device',
+              })}
+            </Text>
+          </Center>
+        </Box>
+        <Box
+          alignItems="center"
+          mt={isVerticalLayout ? '32px' : '24px'}
+          maxW="256px"
+          mx="auto"
+        >
           <Text
-            typography={{ sm: 'Body1', md: 'Body2' }}
-            color="#000"
-            opacity={80}
             textAlign="center"
+            typography={{ sm: 'DisplayMedium', md: 'Body1Strong' }}
+            noOfLines={1}
+          >
+            {shownName}
+          </Text>
+          <Text
+            mt="8px"
+            color="text-subdued"
+            textAlign="center"
+            typography={{ sm: 'Body1', md: 'Body2' }}
+            noOfLines={3}
+          >
+            {isLoadingForHardware ? shownAddress : shortenAddress(shownAddress)}
+          </Text>
+          <Button
+            height={isVerticalLayout ? '50px' : '38px'}
+            mt={isVerticalLayout ? '32px' : '24px'}
+            type="primary"
+            size={isVerticalLayout ? 'xl' : 'base'}
+            isLoading={isLoadingForHardware}
+            onPress={() => confirmOnDevice()}
           >
             {intl.formatMessage({
-              id: 'content__check_the_address_on_device',
+              id: 'action__check_address',
             })}
-          </Text>
-        </Center>
+          </Button>
+          <Button
+            mt={2}
+            type="plain"
+            size={isVerticalLayout ? 'xl' : 'base'}
+            onPress={() => setIgnoreDeviceCheck(true)}
+          >
+            {intl.formatMessage({
+              id: 'action__dont_have_device',
+            })}
+          </Button>
+        </Box>
       </Box>
-      <Box
-        alignItems="center"
-        mt={isVerticalLayout ? '32px' : '24px'}
-        maxW="256px"
-        mx="auto"
-      >
-        <Text
-          textAlign="center"
-          typography={{ sm: 'DisplayMedium', md: 'Body1Strong' }}
-          noOfLines={1}
-        >
-          {shownName}
-        </Text>
-        <Text
-          mt="8px"
-          color="text-subdued"
-          textAlign="center"
-          typography={{ sm: 'Body1', md: 'Body2' }}
-          noOfLines={3}
-        >
-          {shortenAddress(shownAddress)}
-        </Text>
-        <Button
-          height={isVerticalLayout ? '50px' : '38px'}
-          mt={isVerticalLayout ? '32px' : '24px'}
-          type="primary"
-          size={isVerticalLayout ? 'xl' : 'base'}
-          isLoading={isLoadingForHardware}
-          onPress={() => confirmOnDevice()}
-        >
-          {intl.formatMessage({
-            id: 'action__check_address',
-          })}
-        </Button>
-      </Box>
-    </Box>
+    ),
+    [
+      isLoadingForHardware,
+      shownAddress,
+      shownName,
+      intl,
+      isVerticalLayout,
+      confirmOnDevice,
+    ],
   );
+
+  const shouldHiddenAddress =
+    isHwWallet && !onHardwareConfirmed && !ignoreDeviceCheck;
 
   return (
     <Modal
@@ -195,8 +227,8 @@ const ReceiveToken = () => {
         },
         children: shownAddress ? (
           <>
-            {isHwWallet && !onHardwareConfirmed ? (
-              renderHiddenAddress()
+            {shouldHiddenAddress ? (
+              renderHiddenAddress
             ) : (
               <>
                 <Box
@@ -204,16 +236,19 @@ const ReceiveToken = () => {
                   mb={4}
                   rounded="xl"
                   bgColor="surface-default"
-                  w={{ base: 296, md: 'auto' }}
+                  w="auto"
                   mx="auto"
                 >
-                  <Text
-                    typography="Body2"
-                    color="text-subdued"
-                    textAlign="center"
-                  >
+                  <Typography.Body2 color="text-subdued" textAlign="center">
                     {intl.formatMessage({ id: 'content__receive_description' })}
-                  </Text>
+                  </Typography.Body2>
+                  {ignoreDeviceCheck && (
+                    <Typography.Body2 color="text-warning" textAlign="center">
+                      {intl.formatMessage({
+                        id: 'content__address_not_confirmed_on_device',
+                      })}
+                    </Typography.Body2>
+                  )}
                 </Box>
                 <Box flex={1} justifyContent="center" flexDirection="column">
                   <Box alignItems="center" flexDirection="column">
