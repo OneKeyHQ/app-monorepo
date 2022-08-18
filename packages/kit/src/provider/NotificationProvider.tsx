@@ -39,7 +39,7 @@ const NotificationProvider: React.FC<{
 }> = ({ children }) => {
   const { accountId, networkId } = useActiveWalletAccount();
   const jpushInitRef = useRef<boolean>(false);
-  const { pushNotification, devMode } = useSettings();
+  const { pushNotification } = useSettings();
 
   const switchToScreen = useCallback(
     ({ screen, params }: SwitchScreenParams) => {
@@ -109,7 +109,7 @@ const NotificationProvider: React.FC<{
     const config = {
       'appKey': JPUSH_KEY,
       'titchannelle': JPUSH_CHANNEL,
-      'production': !devMode?.enableTestFiatEndpoint,
+      'production': true,
     };
     debugLogger.common.debug(`JPUSH:init`, config);
     // clear badges
@@ -142,7 +142,7 @@ const NotificationProvider: React.FC<{
     });
     JPush.addNotificationListener(handleNotificaitonCallback);
     JPush.addLocalNotificationListener(handleNotificaitonCallback);
-  }, [handleNotificaitonCallback, devMode?.enableTestFiatEndpoint]);
+  }, [handleNotificaitonCallback]);
 
   useEffect(() => {
     if (jpushInitRef.current) {
