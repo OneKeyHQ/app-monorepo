@@ -154,7 +154,7 @@ const NotificationProvider: React.FC<{
     if (!accountId || !networkId) {
       return;
     }
-    if (!pushNotification.pushEnable) {
+    if (!pushNotification?.pushEnable) {
       return;
     }
     jpushInitRef.current = true;
