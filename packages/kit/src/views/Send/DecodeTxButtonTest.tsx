@@ -3,26 +3,130 @@ import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  DialogManager,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
+import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import { useActiveWalletAccount } from '../../hooks';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { useInteractWithInfo } from '../../hooks/useDecodedTx';
 
+export type IDialogConfirmMismatchContinueProps = {
+  onClose?: () => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  contentIds: string[];
+};
+function DialogConfirmMismatchOrContinue(
+  props: IDialogConfirmMismatchContinueProps,
+) {
+  const intl = useIntl();
+  const { onClose, onCancel, onSubmit, contentIds } = props;
+  return (
+    <Dialog
+      visible
+      onClose={() => {
+        // onClose?.();
+      }}
+      contentProps={{
+        iconType: 'danger',
+        contentElement: (
+          <VStack space={6} alignSelf="stretch">
+            {contentIds.map((id) => (
+              <Text
+                key={id}
+                mt="2"
+                typography={{ sm: 'Body1', md: 'Body2' }}
+                color="text-subdued"
+                textAlign="center"
+              >
+                {intl.formatMessage({
+                  id: id as any,
+                })}
+              </Text>
+            ))}
+          </VStack>
+        ),
+      }}
+      footerButtonProps={{
+        primaryActionProps: {
+          type: 'primary',
+        },
+        primaryActionTranslationId: 'action__continue',
+        onPrimaryActionPress: () => {
+          onSubmit();
+          onClose?.();
+        },
+        onSecondaryActionPress: () => {
+          onCancel();
+          onClose?.();
+        },
+      }}
+    />
+  );
+}
+
 function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
+  const navigation = useAppNavigation();
+  const showMismatchConfirm = useCallback(
+    ({
+      contentIds,
+      shouldTerminateConnection,
+      shouldGoBack,
+    }: {
+      contentIds: string[];
+      shouldTerminateConnection?: boolean;
+      shouldGoBack?: boolean;
+    }) =>
+      new Promise((resolve) => {
+        DialogManager.show({
+          render: (
+            <DialogConfirmMismatchOrContinue
+              contentIds={contentIds}
+              onSubmit={() => {
+                resolve(true);
+              }}
+              onCancel={() => {
+                if (shouldTerminateConnection) {
+                  // noop
+                }
+                if (shouldGoBack) {
+                  if (navigation.canGoBack()) {
+                    navigation.goBack();
+                  }
+                }
+                resolve(false);
+              }}
+            />
+          ),
+        });
+      }),
+    [navigation],
+  );
+
   const { accountId, networkId, networkImpl } = useActiveWalletAccount();
   const { engine } = backgroundApiProxy;
-  const navigation = useNavigation();
   const route = useRoute();
   const interactInfo = useInteractWithInfo({
     // @ts-ignore
     sourceInfo: route.params.sourceInfo,
   });
   const decodeTxTest = useCallback(async () => {
+    const result = await showMismatchConfirm({
+      contentIds: ['content__chain_is_not_matched'],
+    });
     // call vaultHelper in UI (not recommend)
     const vaultHelper = createVaultHelperInstance({
       networkId,
