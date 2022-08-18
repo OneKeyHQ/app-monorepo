@@ -9,6 +9,8 @@ import React, {
   useRef,
 } from 'react';
 
+import { RootSiblingParent } from 'react-native-root-siblings';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
@@ -192,6 +194,9 @@ const Modal = ({
       content = <Box {...staticChildrenProps}>{rest.children}</Box>;
     }
 
+    if (platformEnv.isNative) {
+      return <RootSiblingParent>{content}</RootSiblingParent>;
+    }
     return content;
   }, [
     sectionListProps,
