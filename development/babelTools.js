@@ -70,11 +70,7 @@ function normalizeConfig({ platform, config }) {
   ];
 
   if (platform === developmentConsts.platforms.app) {
-    transformInlineEnviromentVariables.push(
-      'JPUSH_KEY',
-      'JPUSH_CHANNEL',
-      'JPUSH_PRODUCTION',
-    );
+    transformInlineEnviromentVariables.push('JPUSH_KEY');
   }
 
   config.plugins = [
