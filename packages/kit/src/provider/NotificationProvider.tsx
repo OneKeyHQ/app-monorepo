@@ -11,7 +11,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { JPUSH_CHANNEL, JPUSH_KEY } from '../config';
+import { JPUSH_KEY } from '../config';
 import { setPushNotificationConfig } from '../store/reducers/settings';
 
 import { navigationRef } from './NavigationProvider';
@@ -108,7 +108,8 @@ const NotificationProvider: React.FC<{
   const initJpush = useCallback(() => {
     const config = {
       'appKey': JPUSH_KEY,
-      'titchannelle': JPUSH_CHANNEL,
+      // see: https://github.com/jpush/jpush-react-native/issues/861
+      'channel': 'prod',
       'production': true,
     };
     debugLogger.common.debug(`JPUSH:init`, config);
@@ -117,6 +118,7 @@ const NotificationProvider: React.FC<{
       badge: 0,
       appBadge: 0,
     });
+    // @ts-expect-error
     JPush.init(config);
     JPush.getRegistrationID((res) => {
       debugLogger.common.debug('JPUSH.getRegistrationID', res);
@@ -145,6 +147,9 @@ const NotificationProvider: React.FC<{
   }, [handleNotificaitonCallback]);
 
   useEffect(() => {
+    if (!JPUSH_KEY) {
+      return;
+    }
     if (jpushInitRef.current) {
       return;
     }
