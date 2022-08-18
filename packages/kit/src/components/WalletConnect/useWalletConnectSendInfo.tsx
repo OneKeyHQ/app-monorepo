@@ -3,11 +3,8 @@ import React, { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Dialog,
   DialogManager,
-  HStack,
-  Image,
   Text,
   VStack,
 } from '@onekeyhq/components';
