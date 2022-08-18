@@ -58,7 +58,8 @@ const ReceiveToken = () => {
   const networkId = network?.id || '';
   const walletId = wallet?.id || '';
 
-  const shownAddress = address ?? account?.address ?? '';
+  const shownAddress =
+    address ?? account?.displayAddress ?? account?.address ?? '';
   const shownName = name ?? account?.name ?? '';
 
   const { engine } = backgroundApiProxy;

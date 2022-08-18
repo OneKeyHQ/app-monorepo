@@ -36,6 +36,7 @@ type DBAccount = DBSimpleAccount | DBUTXOAccount | DBVariantAccount;
 type Account = DBBaseAccount & {
   tokens: Array<Token>;
   address: string;
+  displayAddress?: string;
 };
 
 type ImportableHDAccount = {
