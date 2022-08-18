@@ -45,6 +45,8 @@ jobs:
           echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
 
       - name: Build Target
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           cd packages/web && yarn build && cd ../..
       - name: Deploy Github Pages

@@ -32,7 +32,7 @@ export const useSearchTokens = (
       } finally {
         setLoading(false);
       }
-      const balances = await backgroundApiProxy.engine.getAccountBalance(
+      const [balances] = await backgroundApiProxy.engine.getAccountBalance(
         accountId,
         networkid,
         tokens.map((i) => i.tokenIdOnNetwork),

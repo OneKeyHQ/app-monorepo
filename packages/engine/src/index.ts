@@ -30,6 +30,7 @@ import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
@@ -676,14 +677,16 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<Record<string, string | undefined>> {
+  ): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
     // Get account balance, main token balance is always included.
     const [network, tokens] = await Promise.all([
       this.getNetwork(networkId),
       this.getTokens(networkId, undefined, false),
     ]);
     const decimalsMap: Record<string, number> = {};
+    const currentTokenIds: string[] = [];
     tokens.forEach((token) => {
+      currentTokenIds.push(token.tokenIdOnNetwork);
       if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
         decimalsMap[token.tokenIdOnNetwork] = token.decimals;
       }
@@ -692,8 +695,47 @@ class Engine {
       (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
     );
     const vault = await this.getVault({ networkId, accountId });
-    const balances = await vault.getAccountBalance(tokensToGet, withMain);
+
     const ret: Record<string, string | undefined> = {};
+    if (balanceSupprtedNetwork[networkId]) {
+      try {
+        const { address: accountAddress } = await this.getAccount(
+          accountId,
+          networkId,
+        );
+        const balancesFromApi =
+          (await getBalancesFromApi(networkId, accountAddress, tokensToGet)) ||
+          [];
+        const missedTokenIds: string[] = [];
+        for (const { address, balance } of balancesFromApi) {
+          if (address && +balance > 0) {
+            ret[address] = balance;
+            if (currentTokenIds.includes(address)) {
+              missedTokenIds.push(address);
+            }
+          } else {
+            ret.main = balance;
+          }
+        }
+        if (Object.keys(ret).length) {
+          let newTokens: (Token | undefined)[] = [];
+          if (missedTokenIds.length) {
+            newTokens = await Promise.all(
+              missedTokenIds.map((id) =>
+                this.quickAddToken(accountId, networkId, id),
+              ),
+            );
+          }
+          return [ret, newTokens.filter(Boolean)];
+        }
+      } catch (e) {
+        debugLogger.common.error(`getBalancesFromApi`, {
+          params: [networkId, accountId],
+          message: e instanceof Error ? e.message : e,
+        });
+      }
+    }
+    const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
         ret.main = balances[0]
@@ -710,7 +752,7 @@ class Engine {
         ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals)).toFixed();
       }
     });
-    return ret;
+    return [ret, undefined];
   }
 
   @backgroundMethod()
