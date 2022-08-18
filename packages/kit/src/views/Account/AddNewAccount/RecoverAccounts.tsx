@@ -210,21 +210,6 @@ const RecoverAccounts: FC = () => {
 
   const checkBoxOnChange = useCallback(
     (isSelected: boolean, item: FlatDataType): boolean => {
-      if (isSelected) {
-        const selectCount = flatListData.filter((i) => i.selected).length;
-        if (selectCount > 99) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: 'content__up_to_100_accounts' }),
-            },
-            {
-              type: 'default',
-            },
-          );
-          setIsValid(flatListData.some((i) => !i.isDisabled && i.selected));
-          return false;
-        }
-      }
       flatListData.some((i) => {
         if (i.path === item.path) {
           i.selected = isSelected;
@@ -235,7 +220,7 @@ const RecoverAccounts: FC = () => {
       setIsValid(flatListData.some((i) => !i.isDisabled && i.selected));
       return true;
     },
-    [flatListData, intl],
+    [flatListData],
   );
 
   const dataProvider = useMemo(

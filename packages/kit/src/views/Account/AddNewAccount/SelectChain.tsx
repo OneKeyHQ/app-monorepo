@@ -61,11 +61,7 @@ const RecoverSelectChainModal: FC = () => {
   );
 
   function getPurpose(network: Network) {
-    console.log('network = ', network);
-
     const { category } = network.accountNameInfo.default;
-    console.log('category = ', category);
-
     const purpose = parseInt(category.split("'/")[0]);
     return purpose;
   }
