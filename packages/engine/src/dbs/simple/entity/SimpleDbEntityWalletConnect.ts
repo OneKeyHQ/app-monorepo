@@ -313,6 +313,16 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
       }
     }
 
+    let walletName =
+      accountInfo?.walletName ||
+      session?.peerMeta?.name ||
+      walletService?.name ||
+      '';
+    walletName = walletName.replace('🌈 ', '');
+    if (accountInfo) {
+      accountInfo.walletName = walletName;
+    }
+
     return {
       accountInfo,
       session,
