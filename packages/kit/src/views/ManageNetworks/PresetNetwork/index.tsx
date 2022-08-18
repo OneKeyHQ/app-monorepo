@@ -197,6 +197,8 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
     };
   }, [onBeforeRemove, navigation]);
 
+  const [isCustomRpc, setIsCustomRpc] = useState(false);
+
   return (
     <>
       <Modal
@@ -233,6 +235,15 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                     id: 'form__rpc_url',
                     defaultMessage: 'RPC URL',
                   })}
+                  labelAddon={
+                    <Button
+                      size="xs"
+                      onPress={() => setIsCustomRpc((v) => !v)}
+                      type={isCustomRpc ? 'primary' : 'basic'}
+                    >
+                      {intl.formatMessage({ id: 'content__custom' })}
+                    </Button>
+                  }
                   formControlProps={{ zIndex: 10 }}
                   helpText={
                     watchedRpcURL && networkStatus[watchedRpcURL]
@@ -243,21 +254,25 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                       : intl.formatMessage({ id: 'form__rpc_url_connecting' })
                   }
                 >
-                  <Form.Select
-                    title={intl.formatMessage({
-                      id: 'content__preset_rpc',
-                      defaultMessage: 'Preset PRC URLs',
-                    })}
-                    footer={null}
-                    containerProps={{
-                      zIndex: 999,
-                      padding: 0,
-                    }}
-                    options={options}
-                    dropdownProps={{ width: '352px' }}
-                    dropdownPosition="right"
-                    triggerSize={isSmallScreen ? 'xl' : 'default'}
-                  />
+                  {isCustomRpc ? (
+                    <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
+                  ) : (
+                    <Form.Select
+                      title={intl.formatMessage({
+                        id: 'content__preset_rpc',
+                        defaultMessage: 'Preset PRC URLs',
+                      })}
+                      footer={null}
+                      containerProps={{
+                        zIndex: 999,
+                        padding: 0,
+                      }}
+                      options={options}
+                      dropdownProps={{ width: '352px' }}
+                      dropdownPosition="right"
+                      triggerSize={isSmallScreen ? 'xl' : 'default'}
+                    />
+                  )}
                 </Form.Item>
                 {impl === 'evm' ? (
                   <Form.Item
