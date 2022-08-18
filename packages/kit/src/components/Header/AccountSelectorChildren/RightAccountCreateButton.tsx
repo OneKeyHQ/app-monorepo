@@ -46,7 +46,8 @@ type Props = {
   onLoadingAccount: OnLoadingAccountCallback;
 };
 
-export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY = 'badge__coming_soon';
+export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
+  'content__str_chain_is_unsupprted';
 
 export function useCreateAccountInWallet({
   networkId,
@@ -135,9 +136,12 @@ export function useCreateAccountInWallet({
     } = walletAndNetworkInfo ?? {};
     const showNotSupportToast = () => {
       toast.show({
-        title: intl.formatMessage({
-          id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
-        }),
+        title: intl.formatMessage(
+          {
+            id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+          },
+          { 0: network?.shortName },
+        ),
       });
     };
     if (!isCreateAccountSupported) {
