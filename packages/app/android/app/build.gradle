@@ -160,10 +160,10 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
 
-        def appConfig = readRootEnv()
+        def appConfig = readRootVersionEnv()
 
-        def appVersion = defEnvStr(appConfig.VERSION)
-        def appVersionCode = defEnvStr(appConfig.BUILD_NUMBER).toInteger()
+        def appVersion = defEnvStr(appConfig, 'VERSION')
+        def appVersionCode = defEnvStr(appConfig, 'BUILD_NUMBER', '1').toInteger()
 
         println "App Version: " + appVersion
         println "App Version Code: " + appVersionCode
@@ -171,24 +171,26 @@ android {
         versionCode appVersionCode
         versionName appVersion
         vectorDrawables.useSupportLibrary = true
+
+        def appEnvConfig = readRootEnv()
         manifestPlaceholders = [
-          OTAUpdatesEnable: false,
-          JPUSH_APPKEY: "JPUSH_KEY",
-          JPUSH_CHANNEL: "dev"
+                OTAUpdatesEnable: false,
+                JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
+                JPUSH_CHANNEL   : 'prod',
         ]
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
-        
+
         if (isNewArchitectureEnabled()) {
             // We configure the NDK build only if you decide to opt-in for the New Architecture.
             externalNativeBuild {
                 ndkBuild {
                     arguments "APP_PLATFORM=android-21",
-                        "APP_STL=c++_shared",
-                        "NDK_TOOLCHAIN_VERSION=clang",
-                        "GENERATED_SRC_DIR=$buildDir/generated/source",
-                        "PROJECT_BUILD_DIR=$buildDir",
-                        "REACT_ANDROID_DIR=$rootDir/../node_modules/react-native/ReactAndroid",
-                        "REACT_ANDROID_BUILD_DIR=$rootDir/../node_modules/react-native/ReactAndroid/build"
+                            "APP_STL=c++_shared",
+                            "NDK_TOOLCHAIN_VERSION=clang",
+                            "GENERATED_SRC_DIR=$buildDir/generated/source",
+                            "PROJECT_BUILD_DIR=$buildDir",
+                            "REACT_ANDROID_DIR=$rootDir/../node_modules/react-native/ReactAndroid",
+                            "REACT_ANDROID_BUILD_DIR=$rootDir/../node_modules/react-native/ReactAndroid/build"
                     cFlags "-Wall", "-Werror", "-fexceptions", "-frtti", "-DWITH_INSPECTOR=1"
                     cppFlags "-std=c++17"
                     // Make sure this target name is the same you specify inside the
@@ -197,13 +199,13 @@ android {
                     // Fix for windows limit on number of character in file paths and in command lines
                     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                         arguments "NDK_OUT=${rootProject.projectDir.getParent()}\\.cxx",
-                            "NDK_APP_SHORT_COMMANDS=true"
+                                "NDK_APP_SHORT_COMMANDS=true"
                     }
                 }
             }
             if (!enableSeparateBuildPerCPUArchitecture) {
                 ndk {
-                    abiFilters (*reactNativeArchitectures())
+                    abiFilters(*reactNativeArchitectures())
                 }
             }
         }
@@ -215,7 +217,7 @@ android {
         dataBinding true
     }
 
-        if (isNewArchitectureEnabled()) {
+    if (isNewArchitectureEnabled()) {
         // We configure the NDK build only if you decide to opt-in for the New Architecture.
         externalNativeBuild {
             ndkBuild {
@@ -260,7 +262,7 @@ android {
             reset()
             enable enableSeparateBuildPerCPUArchitecture
             universalApk false  // If true, also generate a universal APK
-            include (*reactNativeArchitectures())
+            include(*reactNativeArchitectures())
         }
     }
 
@@ -439,27 +441,37 @@ def isNewArchitectureEnabled() {
 }
 
 
-static def defEnvStr(ver) {
-    if (ver.toString() == "[:]" || ver.toString() == ("")) {
-        return "1"
+static def defEnvStr(config, key, defValue = "1") {
+    def value = config.getProperty(key)
+    if (value == null || value.isEmpty()) {
+        def envParam = System.getenv();
+        value = envParam.get(key)
     }
-    return ver
+    return value ? value : defValue
+}
+
+static def readRootVersionEnv() {
+    return readRootEnvFile(".env.version")
 }
 
 static def readRootEnv() {
+    return readRootEnvFile(".env")
+}
+
+static def readRootEnvFile(fileName) {
     // base file path: packages/expo/android/
     def rootEnvPath = './../../../'
 
     def props = new Properties()
     try {
-        new File(rootEnvPath + "/.env.version").withInputStream {
+        new File(rootEnvPath + File.separator + fileName).withInputStream {
             stream -> props.load(stream)
         }
     } catch (ignore) {
         // ignore
     }
 
-    return new ConfigSlurper().parse(props)
+    return props
 }
 
 
