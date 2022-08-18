@@ -137,7 +137,7 @@ const AccountAmountInfo: FC = () => {
           _hover={{ bg: 'surface-hovered' }}
           _pressed={{ bg: 'surface-pressed' }}
           onPress={() => {
-            copyAddress(account?.address);
+            copyAddress(account?.displayAddress ?? account?.address);
           }}
         >
           <Text
@@ -147,7 +147,9 @@ const AccountAmountInfo: FC = () => {
           >
             {isHwWallet
               ? intl.formatMessage({ id: 'action__copy_address' })
-              : shortenAddress(account?.address ?? '')}
+              : shortenAddress(
+                  account?.displayAddress ?? account?.address ?? '',
+                )}
           </Text>
           <Icon name="DuplicateOutline" size={16} />
         </Pressable>

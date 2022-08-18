@@ -33,7 +33,6 @@ import {
   fillUnsignedTx,
   fillUnsignedTxObj,
 } from '../../../proxy';
-import { DBAccount } from '../../../types/account';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
 import {
   HistoryEntry,
@@ -83,6 +82,8 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { IRpcTxEvm } from './types';
+
+import type { Account, DBAccount } from '../../../types/account';
 
 const OPTIMISM_NETWORKS = ['evm--10', 'evm--69'];
 
@@ -780,6 +781,20 @@ export default class Vault extends VaultBase {
       'latest',
     ]);
     return new BigNumber(rawAllowanceHex as string).shiftedBy(-token.decimals);
+  }
+
+  override async getOutputAccount(): Promise<Account> {
+    const dbAccount = await this.getDbAccount({ noCache: true });
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+      displayAddress: ethers.utils.getAddress(dbAccount.address),
+    };
   }
 
   async getExportedCredential(password: string): Promise<string> {

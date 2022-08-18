@@ -64,7 +64,7 @@ const AccountSectionItem: FC<Props> = ({
     (value) => {
       switch (value) {
         case 'copy':
-          copyAddress(item.address);
+          copyAddress(item.displayAddress ?? item.address);
           break;
         case 'rename':
           DialogManager.show({
@@ -191,7 +191,7 @@ const AccountSectionItem: FC<Props> = ({
             <Box flex={1}>
               <Account
                 hiddenAvatar
-                address={item?.address ?? ''}
+                address={item?.displayAddress ?? item?.address ?? ''}
                 name={item.name}
               />
             </Box>
