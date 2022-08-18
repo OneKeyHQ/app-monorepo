@@ -24,7 +24,7 @@ const AuthExternalAccountInfo = React.memo(
   (props: IWalletConnectExternalAccountInfo) => {
     const {
       session,
-      walletService,
+      // walletService,
       currentAccount,
       currentNetwork,
       accountInfo,

@@ -70,7 +70,7 @@ function DialogConfirmMismatchOrContinue(
     peerAddress,
     myAddress,
     peerChainId,
-    myChainId,
+    // myChainId,
     accountInfo,
     currentAccount,
     currentNetwork,
