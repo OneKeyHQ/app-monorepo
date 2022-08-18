@@ -27,6 +27,7 @@
 		A276046A288F6E57002A82DC /* PlusJakartaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A2760467288F6E57002A82DC /* PlusJakartaSans-Medium.ttf */; };
 		A284EFA327C49CDD0070F4EA /* NFCConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = A284EFA227C49CDD0070F4EA /* NFCConfig.m */; };
 		A284EFC427CE238D0070F4EA /* OKTools.m in Sources */ = {isa = PBXBuildFile; fileRef = A284EFC327CE238D0070F4EA /* OKTools.m */; };
+		A2A3376A28ADF8BC00053A5C /* JPushManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2A3376928ADF8BC00053A5C /* JPushManager.m */; };
 		A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */; };
 		A2D598AF282BFD0B00152C7C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */; };
 		A2DA064C288A8C5700357518 /* UIColor+Hex.m in Sources */ = {isa = PBXBuildFile; fileRef = A2DA064B288A8C5700357518 /* UIColor+Hex.m */; };
@@ -92,6 +93,8 @@
 		A284EFA227C49CDD0070F4EA /* NFCConfig.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NFCConfig.m; sourceTree = "<group>"; };
 		A284EFC227CE238D0070F4EA /* OKTools.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OKTools.h; sourceTree = "<group>"; };
 		A284EFC327CE238D0070F4EA /* OKTools.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OKTools.m; sourceTree = "<group>"; };
+		A2A3376828ADF8BC00053A5C /* JPushManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JPushManager.h; sourceTree = "<group>"; };
+		A2A3376928ADF8BC00053A5C /* JPushManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JPushManager.m; sourceTree = "<group>"; };
 		A2D02C022824EAF9005A45F0 /* SplashScreenManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SplashScreenManager.h; sourceTree = "<group>"; };
 		A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SplashScreenManager.m; sourceTree = "<group>"; };
 		A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "OneKeyWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -139,6 +142,7 @@
 				A3294A672844472100C18DD0 /* AppDelegate.m */,
 				A2E53344288514A900063227 /* PagingView */,
 				A24B8A7127422EF300E321A9 /* RNBridge */,
+				A2A3376728ADF88100053A5C /* Manager */,
 				A24B8A6927422EF200E321A9 /* Category */,
 				A24B8A6E27422EF200E321A9 /* Frameworks */,
 				A284EFC127CE23580070F4EA /* Other */,
@@ -288,6 +292,15 @@
 				A284EFC327CE238D0070F4EA /* OKTools.m */,
 			);
 			path = Other;
+			sourceTree = "<group>";
+		};
+		A2A3376728ADF88100053A5C /* Manager */ = {
+			isa = PBXGroup;
+			children = (
+				A2A3376828ADF8BC00053A5C /* JPushManager.h */,
+				A2A3376928ADF8BC00053A5C /* JPushManager.m */,
+			);
+			path = Manager;
 			sourceTree = "<group>";
 		};
 		A2E53344288514A900063227 /* PagingView */ = {
@@ -517,6 +530,7 @@
 				A24B8A7627422EF300E321A9 /* OKNFCLite.m in Sources */,
 				A24B8A7427422EF300E321A9 /* OKNFCBridge.mm in Sources */,
 				A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */,
+				A2A3376A28ADF8BC00053A5C /* JPushManager.m in Sources */,
 				1625CE96A62F41B0B52FF2B4 /* noop-file.swift in Sources */,
 				A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */,
 				A284EFC427CE238D0070F4EA /* OKTools.m in Sources */,
