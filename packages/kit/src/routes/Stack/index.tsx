@@ -2,7 +2,6 @@ import React, { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
@@ -114,15 +113,12 @@ const Dashboard = () => {
       return null;
     }
 
-    return stackScreenList.map(({ name, component: Component }) => (
-      <StackNavigator.Screen key={name} name={name}>
-        {(props) => (
-          <RootSiblingParent>
-            {/* @ts-ignore */}
-            <Component {...props} />
-          </RootSiblingParent>
-        )}
-      </StackNavigator.Screen>
+    return stackScreenList.map((stack) => (
+      <StackNavigator.Screen
+        key={stack.name}
+        name={stack.name}
+        component={stack.component}
+      />
     ));
   }, [isVerticalLayout]);
 

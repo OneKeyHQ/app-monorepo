@@ -5,7 +5,6 @@ import {
   NavigationContainer,
   NavigationContainerRef,
 } from '@react-navigation/native';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -105,9 +104,7 @@ const NavigationApp = () => {
       theme={navigationTheme}
       linking={linking}
     >
-      <RootSiblingParent>
-        <RootStack />
-      </RootSiblingParent>
+      <RootStack />
     </NavigationContainer>
   );
 };

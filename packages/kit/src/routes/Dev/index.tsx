@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useThemeValue } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
@@ -260,29 +259,27 @@ const DevScreen = () => {
   ]);
 
   return (
-    <RootSiblingParent>
-      <DevStack.Navigator>
-        <DevStack.Group
-          screenOptions={{
-            headerBackTitle: '',
-            headerTitleAlign: 'center',
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            header: renderCustomSubStackHeader,
-            headerTintColor: textColor,
-          }}
-        >
-          {stackScreenList.map((stack) => (
-            <DevStack.Screen
-              key={stack.name}
-              name={stack.name}
-              component={stack.component}
-            />
-          ))}
-        </DevStack.Group>
-      </DevStack.Navigator>
-    </RootSiblingParent>
+    <DevStack.Navigator>
+      <DevStack.Group
+        screenOptions={{
+          headerBackTitle: '',
+          headerTitleAlign: 'center',
+          headerStyle: {
+            backgroundColor: bgColor,
+          },
+          header: renderCustomSubStackHeader,
+          headerTintColor: textColor,
+        }}
+      >
+        {stackScreenList.map((stack) => (
+          <DevStack.Screen
+            key={stack.name}
+            name={stack.name}
+            component={stack.component}
+          />
+        ))}
+      </DevStack.Group>
+    </DevStack.Navigator>
   );
 };
 
