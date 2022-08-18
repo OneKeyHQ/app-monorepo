@@ -2,6 +2,7 @@
 import React, { memo } from 'react';
 
 import { createStackNavigator } from '@react-navigation/stack';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
@@ -152,19 +153,21 @@ const modalStackScreenList = [
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
 const ModalStackNavigator = () => (
-  <ModalStack.Navigator
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
-    {modalStackScreenList.map((modal) => (
-      <ModalStack.Screen
-        key={modal.name}
-        name={modal.name}
-        component={modal.component}
-      />
-    ))}
-  </ModalStack.Navigator>
+  <RootSiblingParent>
+    <ModalStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      {modalStackScreenList.map((modal) => (
+        <ModalStack.Screen
+          key={modal.name}
+          name={modal.name}
+          component={modal.component}
+        />
+      ))}
+    </ModalStack.Navigator>
+  </RootSiblingParent>
 );
 
 export default memo(ModalStackNavigator);

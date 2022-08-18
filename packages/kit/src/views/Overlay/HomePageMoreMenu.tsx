@@ -204,7 +204,9 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       {
         id: 'action__copy_address',
         onPress: () => {
-          copyAddress(account?.address);
+          setTimeout(() => {
+            copyAddress(account?.address);
+          });
         },
         icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
       },

@@ -1,7 +1,6 @@
 import React, { memo, useEffect, useState } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import AccountSelectorMobile from '@onekeyhq/kit/src/components/Header/AccountSelectorMobile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

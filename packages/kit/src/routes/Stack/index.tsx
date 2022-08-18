@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
@@ -179,12 +180,14 @@ function MainScreen() {
   }, []);
 
   return (
-    <Box ref={setMainScreenDom} w="full" h="full">
-      <Dashboard />
+    <RootSiblingParent>
+      <Box ref={setMainScreenDom} w="full" h="full">
+        <Dashboard />
 
-      {/* TODO Waiting notification component */}
-      <UpdateAlert />
-    </Box>
+        {/* TODO Waiting notification component */}
+        <UpdateAlert />
+      </Box>
+    </RootSiblingParent>
   );
 }
 

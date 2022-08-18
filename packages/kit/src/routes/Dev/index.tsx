@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useThemeValue } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
