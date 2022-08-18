@@ -260,29 +260,27 @@ const DevScreen = () => {
   ]);
 
   return (
-    <RootSiblingParent>
-      <DevStack.Navigator>
-        <DevStack.Group
-          screenOptions={{
-            headerBackTitle: '',
-            headerTitleAlign: 'center',
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            header: renderCustomSubStackHeader,
-            headerTintColor: textColor,
-          }}
-        >
-          {stackScreenList.map((stack) => (
-            <DevStack.Screen
-              key={stack.name}
-              name={stack.name}
-              component={stack.component}
-            />
-          ))}
-        </DevStack.Group>
-      </DevStack.Navigator>
-    </RootSiblingParent>
+    <DevStack.Navigator>
+      <DevStack.Group
+        screenOptions={{
+          headerBackTitle: '',
+          headerTitleAlign: 'center',
+          headerStyle: {
+            backgroundColor: bgColor,
+          },
+          header: renderCustomSubStackHeader,
+          headerTintColor: textColor,
+        }}
+      >
+        {stackScreenList.map((stack) => (
+          <DevStack.Screen
+            key={stack.name}
+            name={stack.name}
+            component={stack.component}
+          />
+        ))}
+      </DevStack.Group>
+    </DevStack.Navigator>
   );
 };
 

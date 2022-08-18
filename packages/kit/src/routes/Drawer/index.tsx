@@ -30,24 +30,22 @@ const DrawerStackNavigator = () => {
   }, []);
 
   return (
-    <RootSiblingParent>
-      <DrawerStack.Navigator
-        useLegacyImplementation
-        key={key}
-        screenOptions={{
-          headerShown: false,
-          /**
-           * fix drawer every render blink issue: https://github.com/react-navigation/react-navigation/issues/7515
-           */
-          drawerType: 'back',
-          swipeEdgeWidth: 390,
-          drawerStyle,
-        }}
-        drawerContent={(props) => <AccountSelectorMobile {...props} />}
-      >
-        <DrawerStack.Screen name={RootRoutes.Tab} component={Tab} />
-      </DrawerStack.Navigator>
-    </RootSiblingParent>
+    <DrawerStack.Navigator
+      useLegacyImplementation
+      key={key}
+      screenOptions={{
+        headerShown: false,
+        /**
+         * fix drawer every render blink issue: https://github.com/react-navigation/react-navigation/issues/7515
+         */
+        drawerType: 'back',
+        swipeEdgeWidth: 390,
+        drawerStyle,
+      }}
+      drawerContent={(props) => <AccountSelectorMobile {...props} />}
+    >
+      <DrawerStack.Screen name={RootRoutes.Tab} component={Tab} />
+    </DrawerStack.Navigator>
   );
 };
 

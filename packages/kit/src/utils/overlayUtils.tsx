@@ -21,6 +21,6 @@ export function showOverlay(
         </OverlayContext.Provider>
       ),
     );
-  }, 0);
+  });
   return closeOverlay;
 }

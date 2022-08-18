@@ -77,14 +77,12 @@ export function RouteOnboarding() {
   );
 
   return (
-    <RootSiblingParent>
-      <StackNavigator.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
-      </StackNavigator.Navigator>
-    </RootSiblingParent>
+    <StackNavigator.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
+    </StackNavigator.Navigator>
   );
 }
