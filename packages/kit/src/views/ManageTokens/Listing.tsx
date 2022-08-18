@@ -123,7 +123,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                         numberOfLines={1}
                         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                       >
-                        {item.symbol} ({item.name})
+                        {item.name}
                       </Text>
                       <TokenVerifiedIcon token={item} />
                     </Box>
@@ -341,10 +341,16 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
               numberOfLines={1}
               color={isOwned ? 'text-disabled' : 'text-default'}
             >
-              {item.symbol}({item.name})
+              {item.name}
             </Text>
             <TokenVerifiedIcon token={item} />
           </Box>
+          <Typography.Body2
+            numberOfLines={1}
+            color={isOwned ? 'text-disabled' : 'text-subdued'}
+          >
+            {item.symbol}
+          </Typography.Body2>
           <Typography.Body2
             numberOfLines={1}
             color={isOwned ? 'text-disabled' : 'text-subdued'}
