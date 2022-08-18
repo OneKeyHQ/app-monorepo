@@ -39,6 +39,7 @@ import {
   RootRoutesParams,
 } from '../../../../routes/types';
 import { Avatar } from '../../../../utils/emojiUtils';
+import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
 import BackupSummary from './BackupSummary';
@@ -275,7 +276,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
 
   const [dataReady, setDataReady] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const [showDeleteBackupDialog, setShowDeleteBackupDialog] = useState(false);
   const [backupData, setBackupData] = useState({
     alreadyOnDevice: {
       contacts: {},
@@ -387,8 +387,36 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   ]);
 
   const onDelete = useCallback(() => {
-    setShowDeleteBackupDialog(true);
-  }, []);
+    showOverlay((onClose) => (
+      <Dialog
+        visible
+        onClose={onClose}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__delete',
+          secondaryActionTranslationId: 'action__cancel',
+          primaryActionProps: { type: 'destructive' },
+          onPrimaryActionPress: async () => {
+            if (!deleting) {
+              setDeleting(true);
+              await serviceCloudBackup.removeBackup(backupUUID);
+              setDeleting(false);
+              onClose();
+              navigation.pop(2);
+            }
+          },
+        }}
+        contentProps={{
+          iconType: 'danger',
+          title: intl.formatMessage({
+            id: 'dialog__delete_backup',
+          }),
+          content: intl.formatMessage({
+            id: 'dialog__delete_backup_desc',
+          }),
+        }}
+      />
+    ));
+  }, [backupUUID, deleting, intl, navigation, serviceCloudBackup]);
 
   return (
     <Wrapper
@@ -453,35 +481,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
           ) : undefined}
         </Box>
       )}
-      <Dialog
-        visible={showDeleteBackupDialog}
-        footerButtonProps={{
-          primaryActionTranslationId: 'action__delete',
-          secondaryActionTranslationId: 'action__cancel',
-          primaryActionProps: { type: 'destructive' },
-          onPrimaryActionPress: async () => {
-            if (!deleting) {
-              setDeleting(true);
-              await serviceCloudBackup.removeBackup(backupUUID);
-              setDeleting(false);
-              setShowDeleteBackupDialog(false);
-              navigation.pop(2);
-            }
-          },
-          onSecondaryActionPress: () => {
-            setShowDeleteBackupDialog(false);
-          },
-        }}
-        contentProps={{
-          iconType: 'danger',
-          title: intl.formatMessage({
-            id: 'dialog__delete_backup',
-          }),
-          content: intl.formatMessage({
-            id: 'dialog__delete_backup_desc',
-          }),
-        }}
-      />
     </Wrapper>
   );
 };
