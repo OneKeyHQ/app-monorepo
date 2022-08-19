@@ -78,7 +78,7 @@ const ReceiveToken = () => {
     setIsLoadingForHardware(true);
     try {
       const res = await getAddress();
-      const isSameAddress = res === shownAddress;
+      const isSameAddress = res === (address ?? account?.address);
       if (!isSameAddress) {
         ToastManager.show(
           {
@@ -94,7 +94,7 @@ const ReceiveToken = () => {
     } finally {
       setIsLoadingForHardware(false);
     }
-  }, [getAddress, intl, shownAddress, captureHardwareError]);
+  }, [getAddress, intl, address, account, captureHardwareError]);
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);
