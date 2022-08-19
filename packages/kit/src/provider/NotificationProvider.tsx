@@ -105,6 +105,19 @@ const NotificationProvider: React.FC<{
     [switchToScreen],
   );
 
+  const handleRegistrationIdCallback = useCallback(
+    (res: { registerID: string }) => {
+      debugLogger.common.debug('JPUSH.getRegistrationID', res);
+      backgroundApiProxy.dispatch(
+        setPushNotificationConfig({
+          registrationId: res.registerID,
+        }),
+      );
+      backgroundApiProxy.engine.syncPushNotificationConfig();
+    },
+    [],
+  );
+
   const initJpush = useCallback(() => {
     const config = {
       'appKey': JPUSH_KEY,
@@ -120,31 +133,17 @@ const NotificationProvider: React.FC<{
     });
     // @ts-expect-error
     JPush.init(config);
-    JPush.getRegistrationID((res) => {
-      debugLogger.common.debug('JPUSH.getRegistrationID', res);
-      backgroundApiProxy.dispatch(
-        setPushNotificationConfig({
-          registrationId: res.registerID,
-        }),
-      );
-    });
+    JPush.getRegistrationID(handleRegistrationIdCallback);
     JPush.addConnectEventListener((result) => {
       debugLogger.common.debug('JPUSH.addConnectEventListener', result);
       if (!result.connectEnable) {
         return;
       }
-      JPush.getRegistrationID((res) => {
-        debugLogger.common.debug('JPUSH.getRegistrationID', res);
-        backgroundApiProxy.dispatch(
-          setPushNotificationConfig({
-            registrationId: res.registerID,
-          }),
-        );
-      });
+      JPush.getRegistrationID(handleRegistrationIdCallback);
     });
     JPush.addNotificationListener(handleNotificaitonCallback);
     JPush.addLocalNotificationListener(handleNotificaitonCallback);
-  }, [handleNotificaitonCallback]);
+  }, [handleNotificaitonCallback, handleRegistrationIdCallback]);
 
   useEffect(() => {
     if (!JPUSH_KEY) {
