@@ -142,7 +142,6 @@
 				A3294A672844472100C18DD0 /* AppDelegate.m */,
 				A2E53344288514A900063227 /* PagingView */,
 				A24B8A7127422EF300E321A9 /* RNBridge */,
-				A2A3376728ADF88100053A5C /* Manager */,
 				A24B8A6927422EF200E321A9 /* Category */,
 				A24B8A6E27422EF200E321A9 /* Frameworks */,
 				A284EFC127CE23580070F4EA /* Other */,
@@ -264,6 +263,8 @@
 			children = (
 				A24B8A7327422EF300E321A9 /* OKLiteManager.h */,
 				A24B8A7227422EF300E321A9 /* OKLiteManager.m */,
+				A2A3376828ADF8BC00053A5C /* JPushManager.h */,
+				A2A3376928ADF8BC00053A5C /* JPushManager.m */,
 				A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */,
 				A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */,
 				A2D02C022824EAF9005A45F0 /* SplashScreenManager.h */,
@@ -292,15 +293,6 @@
 				A284EFC327CE238D0070F4EA /* OKTools.m */,
 			);
 			path = Other;
-			sourceTree = "<group>";
-		};
-		A2A3376728ADF88100053A5C /* Manager */ = {
-			isa = PBXGroup;
-			children = (
-				A2A3376828ADF8BC00053A5C /* JPushManager.h */,
-				A2A3376928ADF8BC00053A5C /* JPushManager.m */,
-			);
-			path = Manager;
 			sourceTree = "<group>";
 		};
 		A2E53344288514A900063227 /* PagingView */ = {

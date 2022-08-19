@@ -105,46 +105,36 @@ const NotificationProvider: React.FC<{
     [switchToScreen],
   );
 
-  const initJpush = useCallback(() => {
-    const config = {
-      'appKey': JPUSH_KEY,
-      // see: https://github.com/jpush/jpush-react-native/issues/861
-      'channel': 'prod',
-      'production': true,
-    };
-    debugLogger.common.debug(`JPUSH:init`, config);
-    // clear badges
-    JPush.setBadge({
-      badge: 0,
-      appBadge: 0,
-    });
-    // @ts-expect-error
-    JPush.init(config);
-    JPush.getRegistrationID((res) => {
+  const handleRegistrationIdCallback = useCallback(
+    (res: { registerID: string }) => {
       debugLogger.common.debug('JPUSH.getRegistrationID', res);
       backgroundApiProxy.dispatch(
         setPushNotificationConfig({
           registrationId: res.registerID,
         }),
       );
+      backgroundApiProxy.engine.syncPushNotificationConfig();
+    },
+    [],
+  );
+
+  const addJpushListener = useCallback(() => {
+    // clear badges
+    JPush.setBadge({
+      badge: 0,
+      appBadge: 0,
     });
+    JPush.getRegistrationID(handleRegistrationIdCallback);
     JPush.addConnectEventListener((result) => {
       debugLogger.common.debug('JPUSH.addConnectEventListener', result);
       if (!result.connectEnable) {
         return;
       }
-      JPush.getRegistrationID((res) => {
-        debugLogger.common.debug('JPUSH.getRegistrationID', res);
-        backgroundApiProxy.dispatch(
-          setPushNotificationConfig({
-            registrationId: res.registerID,
-          }),
-        );
-      });
+      JPush.getRegistrationID(handleRegistrationIdCallback);
     });
     JPush.addNotificationListener(handleNotificaitonCallback);
     JPush.addLocalNotificationListener(handleNotificaitonCallback);
-  }, [handleNotificaitonCallback]);
+  }, [handleNotificaitonCallback, handleRegistrationIdCallback]);
 
   useEffect(() => {
     if (!JPUSH_KEY) {
@@ -163,8 +153,8 @@ const NotificationProvider: React.FC<{
       return;
     }
     jpushInitRef.current = true;
-    initJpush();
-  }, [initJpush, accountId, networkId, pushNotification?.pushEnable]);
+    addJpushListener();
+  }, [addJpushListener, accountId, networkId, pushNotification?.pushEnable]);
 
   return children;
 };

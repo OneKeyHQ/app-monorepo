@@ -28,7 +28,10 @@ import {
   defaultPushNotification,
   setPushNotificationConfig,
 } from '@onekeyhq/kit/src/store/reducers/settings';
-import { checkPushNotificationPermission } from '@onekeyhq/shared/src/notification';
+import {
+  checkPushNotificationPermission,
+  initJpush,
+} from '@onekeyhq/shared/src/notification';
 
 type OptionsProps = {
   title: string;
@@ -170,7 +173,7 @@ const PushNotification = () => {
   }, [navigation, intl, authenticationType]);
 
   const onChangePushNotification = useCallback(
-    (key: keyof SettingsState['pushNotification']) =>
+    (key: keyof Required<SettingsState>['pushNotification']) =>
       (value: string | number | boolean) => {
         dispatch(
           setPushNotificationConfig({
@@ -182,7 +185,7 @@ const PushNotification = () => {
     [dispatch, engine],
   );
 
-  const requestPermission = useCallback(async () => {
+  const checkPermission = useCallback(async () => {
     const hasPermission = await checkPushNotificationPermission();
     if (hasPermission) {
       return;
@@ -198,25 +201,27 @@ const PushNotification = () => {
 
   useEffect(() => {
     if (pushNotification.pushEnable) {
-      requestPermission();
+      initJpush().finally(() => {
+        checkPermission();
+      });
     }
     const listener = AppState.addEventListener('change', (state) => {
       if (state === 'active' && pushNotification.pushEnable) {
-        requestPermission();
+        checkPermission();
       }
     });
     return () => {
       listener.remove();
     };
-  }, [requestPermission, pushNotification.pushEnable]);
+  }, [checkPermission, pushNotification.pushEnable]);
 
   const validThresholds = useMemo(() => {
     // for test
-    if (devMode?.enableTestFiatEndpoint) {
+    if (devMode?.enableZeroNotificationThreshold) {
       return [0, ...thresholds];
     }
     return thresholds;
-  }, [devMode?.enableTestFiatEndpoint]);
+  }, [devMode?.enableZeroNotificationThreshold]);
 
   const marketArea = useMemo(
     () => (
@@ -239,7 +244,7 @@ const PushNotification = () => {
             title={intl.formatMessage({
               id: 'form__manage_threshold',
             })}
-            value={pushNotification.threshold}
+            value={pushNotification.threshold || validThresholds[0]}
             onChange={onChangePushNotification('threshold')}
             options={validThresholds.map((n) => ({
               label: `${n}%`,

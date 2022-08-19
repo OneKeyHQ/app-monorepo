@@ -17,7 +17,7 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-  [[JPushManager shareInstance] setupWithOptions:launchOptions];
+  [JPushManager shareInstance];
   
 #ifdef DEBUG
 #else

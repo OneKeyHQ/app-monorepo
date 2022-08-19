@@ -15,6 +15,7 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setDevMode,
   setEnableTestFiatEndpoint,
+  setEnableZeroNotificationThreshold,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceSys,
@@ -29,6 +30,7 @@ export const DevSettingSection = () => {
     updateDeviceBle,
     updateDeviceSys,
     enableTestFiatEndpoint,
+    enableZeroNotificationThreshold,
   } = useSettings().devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -113,6 +115,22 @@ export const DevSettingSection = () => {
               isChecked={enableTestFiatEndpoint}
               onToggle={() => {
                 dispatch(setEnableTestFiatEndpoint(!enableTestFiatEndpoint));
+              }}
+            />
+          </Container.Item>
+          <Container.Item
+            title="允许推送阈值设置为0"
+            titleColor="text-critical"
+          >
+            <Switch
+              labelType="false"
+              isChecked={!!enableZeroNotificationThreshold}
+              onToggle={() => {
+                dispatch(
+                  setEnableZeroNotificationThreshold(
+                    !enableZeroNotificationThreshold,
+                  ),
+                );
               }}
             />
           </Container.Item>

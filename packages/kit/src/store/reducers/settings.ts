@@ -46,8 +46,9 @@ export type SettingsState = {
     updateDeviceBle: boolean;
     updateDeviceSys: boolean;
     enableTestFiatEndpoint: boolean;
+    enableZeroNotificationThreshold?: boolean;
   };
-  pushNotification: {
+  pushNotification?: {
     registrationId?: string;
     threshold: number;
     pushEnable: boolean;
@@ -93,6 +94,7 @@ const initialState: SettingsState = {
     updateDeviceBle: false,
     updateDeviceSys: false,
     enableTestFiatEndpoint: false,
+    enableZeroNotificationThreshold: false,
   },
   pushNotification: defaultPushNotification,
   validationSetting: {
@@ -194,6 +196,12 @@ export const settingsSlice = createSlice({
         enableTestFiatEndpoint: action.payload,
       };
     },
+    setEnableZeroNotificationThreshold(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        enableZeroNotificationThreshold: action.payload,
+      };
+    },
     setDeviceUpdates(
       state,
       action: PayloadAction<{
@@ -249,6 +257,7 @@ export const settingsSlice = createSlice({
       action: PayloadAction<Partial<SettingsState['pushNotification']>>,
     ) {
       state.pushNotification = {
+        ...defaultPushNotification,
         ...state.pushNotification,
         ...action.payload,
       };
@@ -279,6 +288,7 @@ export const {
   setEnableHaptics,
   setHideSmallBalance,
   setPushNotificationConfig,
+  setEnableZeroNotificationThreshold,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
