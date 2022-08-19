@@ -9,7 +9,7 @@ import React, {
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { isString } from 'lodash';
+import { cloneDeep, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Modal, Spinner, useToast } from '@onekeyhq/components';
@@ -18,6 +18,7 @@ import {
   OneKeyError,
   OneKeyErrorClassNames,
 } from '@onekeyhq/engine/src/errors';
+import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -119,9 +120,30 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     if (!connector) {
       return;
     }
-    const result: string = await connector.signPersonalMessage(
-      unsignedMessage as any,
-    );
+    let result = '';
+    const rawMesssage = unsignedMessage.payload;
+    if (unsignedMessage.type === ETHMessageTypes.PERSONAL_SIGN) {
+      result = await connector.signPersonalMessage(rawMesssage);
+    } else if (unsignedMessage.type === ETHMessageTypes.ETH_SIGN) {
+      result = await connector.signMessage(rawMesssage);
+    } else {
+      const typedDataMessage = cloneDeep(rawMesssage) as any[];
+      if (
+        unsignedMessage.type === ETHMessageTypes.TYPED_DATA_V3 ||
+        unsignedMessage.type === ETHMessageTypes.TYPED_DATA_V4
+      ) {
+        const secondInfo = typedDataMessage?.[1];
+        if (secondInfo && typeof secondInfo === 'string') {
+          try {
+            // do NOT need to JSON object
+            // typedDataMessage[1] = JSON.parse(secondInfo);
+          } catch (error) {
+            debugLogger.common.error(error);
+          }
+        }
+      }
+      result = await connector.signTypedData(typedDataMessage);
+    }
     return result;
   }, [unsignedMessage, getExternalConnector]);
 
