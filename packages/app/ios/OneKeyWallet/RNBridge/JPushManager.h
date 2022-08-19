@@ -10,7 +10,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface JPushManager : NSObject<JPUSHRegisterDelegate>
+@interface JPushManager : NSObject<JPUSHRegisterDelegate,RCTBridgeModule>
 
 + (instancetype)shareInstance;
 

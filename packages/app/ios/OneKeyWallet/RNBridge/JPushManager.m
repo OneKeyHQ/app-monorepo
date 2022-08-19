@@ -11,6 +11,15 @@
 
 @implementation JPushManager
 
+RCT_EXPORT_MODULE();
+
+RCT_EXPORT_METHOD(registerNotification)
+{
+  JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];
+  entity.types = JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings;
+  [JPUSHService registerForRemoteNotificationConfig:entity delegate:self];
+}
+
 + (instancetype)shareInstance {
     static JPushManager *instance = nil;
     static dispatch_once_t onceToken;
@@ -30,18 +39,10 @@
             JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];
             entity.types = JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings;
             [JPUSHService registerForRemoteNotificationConfig:entity delegate:self];
-            // 自定义消息
-            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkDidReceiveMessage:) name:kJPFNetworkDidReceiveMessageNotification object:nil];
           }
       }];
     }
     return self;
-}
-
-//自定义消息
-- (void)networkDidReceiveMessage:(NSNotification *)notification {
-  NSDictionary * userInfo = [notification userInfo];
-  [[NSNotificationCenter defaultCenter] postNotificationName:J_CUSTOM_NOTIFICATION_EVENT object:userInfo];
 }
 
 //iOS 10 消息事件回调
