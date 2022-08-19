@@ -541,11 +541,20 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
         <TransactionField
           label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
         >
-          <Typography.Caption color="text-subdued">
-            {isNoCharge(tx.quoterType)
-              ? intl.formatMessage({ id: 'content__no_charge' })
-              : '0.2 - 0.875%'}
-          </Typography.Caption>
+          {isNoCharge(tx.quoterType) ? (
+            <Box flexDirection="column" alignItems="flex-end">
+              <Typography.Caption color="text-subdued" strikeThrough>
+                0.2 - 0.875%
+              </Typography.Caption>
+              <Typography.Caption color="text-success">
+                {intl.formatMessage({ id: 'form__free_limited_time' })}
+              </Typography.Caption>
+            </Box>
+          ) : (
+            <Typography.Caption color="text-subdued">
+              0.2 - 0.875%
+            </Typography.Caption>
+          )}
         </TransactionField>
         <TransactionField label={intl.formatMessage({ id: 'form__created' })}>
           <Typography.Caption color="text-subdued">
