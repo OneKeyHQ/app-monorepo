@@ -47,7 +47,7 @@ export type SettingsState = {
     updateDeviceSys: boolean;
     enableTestFiatEndpoint: boolean;
   };
-  pushNotification: {
+  pushNotification?: {
     registrationId?: string;
     threshold: number;
     pushEnable: boolean;
@@ -249,6 +249,7 @@ export const settingsSlice = createSlice({
       action: PayloadAction<Partial<SettingsState['pushNotification']>>,
     ) {
       state.pushNotification = {
+        ...defaultPushNotification,
         ...state.pushNotification,
         ...action.payload,
       };

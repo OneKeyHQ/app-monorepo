@@ -170,7 +170,7 @@ const PushNotification = () => {
   }, [navigation, intl, authenticationType]);
 
   const onChangePushNotification = useCallback(
-    (key: keyof SettingsState['pushNotification']) =>
+    (key: keyof Required<SettingsState>['pushNotification']) =>
       (value: string | number | boolean) => {
         dispatch(
           setPushNotificationConfig({
@@ -239,7 +239,7 @@ const PushNotification = () => {
             title={intl.formatMessage({
               id: 'form__manage_threshold',
             })}
-            value={pushNotification.threshold}
+            value={pushNotification.threshold || thresholds[0]}
             onChange={onChangePushNotification('threshold')}
             options={validThresholds.map((n) => ({
               label: `${n}%`,
