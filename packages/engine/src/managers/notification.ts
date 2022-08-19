@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { debounce } from 'lodash';
 
 import { appSelector } from '@onekeyhq/kit/src/store';
 import { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -31,19 +32,20 @@ async function fetchData<T>(
   }
 }
 
-export const syncPushNotificationConfig =
-  async (): Promise<PartialNotificationType> => {
-    const config: PartialNotificationType = appSelector((state) => ({
-      ...(state?.settings?.pushNotification || {}),
-      instanceId: state?.settings?.instanceId,
-      locale:
-        state.settings.locale === 'system'
-          ? getDefaultLocale()
-          : state.settings.locale,
-      currency: state.settings.selectedFiatMoneySymbol,
-    }));
-    if (!config.instanceId || !config.registrationId) {
-      return {};
-    }
-    return fetchData('/notification/config', config, {});
-  };
+const sync = async (): Promise<PartialNotificationType> => {
+  const config: PartialNotificationType = appSelector((state) => ({
+    ...(state?.settings?.pushNotification || {}),
+    instanceId: state?.settings?.instanceId,
+    locale:
+      state.settings.locale === 'system'
+        ? getDefaultLocale()
+        : state.settings.locale,
+    currency: state.settings.selectedFiatMoneySymbol,
+  }));
+  if (!config.instanceId || !config.registrationId) {
+    return {};
+  }
+  return fetchData('/notification/config', config, {});
+};
+
+export const syncPushNotificationConfig = debounce(sync, 10 * 1000);
