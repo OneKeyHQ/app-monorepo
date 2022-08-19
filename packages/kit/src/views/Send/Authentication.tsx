@@ -29,6 +29,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useWalletConnectSendInfo } from '../../components/WalletConnect/useWalletConnectSendInfo';
 import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
+import { wait } from '../../utils/helper';
 
 import { AuthExternalAccountInfo } from './AuthExternalAccountInfo';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
@@ -60,6 +61,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     accountId,
     encodedTx,
     onSuccess,
+    onFail,
     unsignedMessage,
     payloadInfo,
     backRouteName,
@@ -255,7 +257,8 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
         }
       }
     } catch (e) {
-      debugLogger.common.error(e);
+      const error = e as OneKeyError;
+      debugLogger.common.error(error);
       if (backRouteName) {
         // navigation.navigate(backRouteName);
         navigation.navigate({
@@ -273,43 +276,44 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
         navigation.getParent()?.goBack?.();
       }
 
+      // needs delay to show toast
+      await wait(600);
+
       // EIP 1559 fail:
       //  replacement transaction underpriced
       //  already known
-      setTimeout(() => {
-        const error = e as OneKeyError;
-        // TODO: better error displaying
+      // TODO: better error displaying
+      if (error?.code === -32603 && typeof error?.data?.message === 'string') {
+        toast.show(
+          {
+            title:
+              error.data.message ||
+              intl.formatMessage({ id: 'transaction__failed' }),
+            description: error.data.message, // TODO toast description not working
+          },
+          { type: 'error' },
+        );
+      } else {
+        const msg = error?.key
+          ? intl.formatMessage({ id: error?.key as any }, error?.info ?? {})
+          : error?.message ?? '';
         if (
-          error?.code === -32603 &&
-          typeof error?.data?.message === 'string'
+          error.className !==
+          OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
         ) {
           toast.show(
             {
-              title:
-                error.data.message ||
-                intl.formatMessage({ id: 'transaction__failed' }),
-              description: error.data.message, // TODO toast description not working
+              title: msg || intl.formatMessage({ id: 'transaction__failed' }),
+              description: msg,
             },
             { type: 'error' },
           );
-        } else {
-          const msg = error?.key
-            ? intl.formatMessage({ id: error?.key as any }, error?.info ?? {})
-            : error?.message ?? '';
-          if (
-            error.className !==
-            OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
-          ) {
-            toast.show(
-              {
-                title: msg || intl.formatMessage({ id: 'transaction__failed' }),
-                description: msg,
-              },
-              { type: 'error' },
-            );
-          }
         }
-      }, 600);
+      }
+
+      await wait(100);
+      // onFail() should be called after show toast, otherwise toast won't display
+      onFail?.(error);
     }
   }, [
     accountId,
@@ -320,6 +324,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     navigation,
     networkId,
     onSuccess,
+    onFail,
     payload,
     sendTx,
     signMsg,

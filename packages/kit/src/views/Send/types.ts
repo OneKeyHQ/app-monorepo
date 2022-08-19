@@ -114,6 +114,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   payload?: SendConfirmPayload; // use payload.payloadType // TODO remove
   payloadInfo?: SendConfirmPayloadInfo;
   onSuccess?: (tx: ISignedTx, data?: SendConfirmOnSuccessData) => void;
+  onFail?: (error: Error) => void;
   sourceInfo?: IDappSourceInfo;
   // TODO remove, use resendActionInfo instead
   actionType?: SendConfirmActionType; // 'speedUp' | 'cancel';
