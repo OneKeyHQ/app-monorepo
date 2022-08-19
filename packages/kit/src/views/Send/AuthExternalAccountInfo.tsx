@@ -12,16 +12,21 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
-import { ExternalAccountImg } from '../../components/WalletConnect/ExternalAccountImg';
+import ExternalAccountImg from '../../components/WalletConnect/ExternalAccountImg';
 import { WALLET_CONNECT_SHOW_DISCONNECT_BUTTON_DELAY } from '../../components/WalletConnect/walletConnectConsts';
 import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { TxDetailActionBox } from '../TxDetail/components/TxDetailActionBox';
 
-import { IWalletConnectExternalAccountInfo } from './types';
+import type { ISendAuthenticationModalTitleInfo } from './Authentication';
+import type { IWalletConnectExternalAccountInfo } from './types';
 
 const AuthExternalAccountInfo = React.memo(
-  (props: IWalletConnectExternalAccountInfo) => {
+  (
+    props: IWalletConnectExternalAccountInfo & {
+      setTitleInfo: (titleInfo: ISendAuthenticationModalTitleInfo) => void;
+    },
+  ) => {
     const {
       session,
       // walletService,
@@ -29,10 +34,23 @@ const AuthExternalAccountInfo = React.memo(
       currentNetwork,
       accountInfo,
       client,
+      setTitleInfo,
     } = props;
     const intl = useIntl();
     const navigation = useAppNavigation();
     const walletName = accountInfo?.walletName;
+
+    useEffect(() => {
+      setTitleInfo({
+        title: intl.formatMessage(
+          { id: 'action__connect_str' },
+          {
+            0: walletName,
+          },
+        ),
+        subTitle: currentNetwork.name,
+      });
+    }, [currentNetwork.name, intl, setTitleInfo, walletName]);
 
     const [retryVisible, setRetryVisible] = useState(false);
     useEffect(() => {

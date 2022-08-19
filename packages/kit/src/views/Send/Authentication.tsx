@@ -1,8 +1,15 @@
-import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { isString } from 'lodash';
+import { cloneDeep, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Modal, Spinner, useToast } from '@onekeyhq/components';
@@ -11,6 +18,7 @@ import {
   OneKeyError,
   OneKeyErrorClassNames,
 } from '@onekeyhq/engine/src/errors';
+import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -21,6 +29,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useWalletConnectSendInfo } from '../../components/WalletConnect/useWalletConnectSendInfo';
 import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
+import { wait } from '../../utils/helper';
 
 import { AuthExternalAccountInfo } from './AuthExternalAccountInfo';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
@@ -33,9 +42,13 @@ type NavigationProps = NavigationProp<
 >;
 type EnableLocalAuthenticationProps = {
   password: string;
+  setTitleInfo: (titleInfo: ISendAuthenticationModalTitleInfo) => void;
 };
 
-const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
+const SendAuth: FC<EnableLocalAuthenticationProps> = ({
+  password,
+  setTitleInfo,
+}) => {
   const navigation = useNavigation<NavigationProps>();
   const { validator } = backgroundApiProxy;
   const toast = useToast();
@@ -48,6 +61,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     accountId,
     encodedTx,
     onSuccess,
+    onFail,
     unsignedMessage,
     payloadInfo,
     backRouteName,
@@ -108,9 +122,30 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     if (!connector) {
       return;
     }
-    const result: string = await connector.signPersonalMessage(
-      unsignedMessage as any,
-    );
+    let result = '';
+    const rawMesssage = unsignedMessage.payload;
+    if (unsignedMessage.type === ETHMessageTypes.PERSONAL_SIGN) {
+      result = await connector.signPersonalMessage(rawMesssage);
+    } else if (unsignedMessage.type === ETHMessageTypes.ETH_SIGN) {
+      result = await connector.signMessage(rawMesssage);
+    } else {
+      const typedDataMessage = cloneDeep(rawMesssage) as any[];
+      if (
+        unsignedMessage.type === ETHMessageTypes.TYPED_DATA_V3 ||
+        unsignedMessage.type === ETHMessageTypes.TYPED_DATA_V4
+      ) {
+        const secondInfo = typedDataMessage?.[1];
+        if (secondInfo && typeof secondInfo === 'string') {
+          try {
+            // do NOT need to JSON object
+            // typedDataMessage[1] = JSON.parse(secondInfo);
+          } catch (error) {
+            debugLogger.common.error(error);
+          }
+        }
+      }
+      result = await connector.signTypedData(typedDataMessage);
+    }
     return result;
   }, [unsignedMessage, getExternalConnector]);
 
@@ -222,7 +257,8 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
         }
       }
     } catch (e) {
-      debugLogger.common.error(e);
+      const error = e as OneKeyError;
+      debugLogger.common.error(error);
       if (backRouteName) {
         // navigation.navigate(backRouteName);
         navigation.navigate({
@@ -240,43 +276,44 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
         navigation.getParent()?.goBack?.();
       }
 
+      // needs delay to show toast
+      await wait(600);
+
       // EIP 1559 fail:
       //  replacement transaction underpriced
       //  already known
-      setTimeout(() => {
-        const error = e as OneKeyError;
-        // TODO: better error displaying
+      // TODO: better error displaying
+      if (error?.code === -32603 && typeof error?.data?.message === 'string') {
+        toast.show(
+          {
+            title:
+              error.data.message ||
+              intl.formatMessage({ id: 'transaction__failed' }),
+            description: error.data.message, // TODO toast description not working
+          },
+          { type: 'error' },
+        );
+      } else {
+        const msg = error?.key
+          ? intl.formatMessage({ id: error?.key as any }, error?.info ?? {})
+          : error?.message ?? '';
         if (
-          error?.code === -32603 &&
-          typeof error?.data?.message === 'string'
+          error.className !==
+          OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
         ) {
           toast.show(
             {
-              title:
-                error.data.message ||
-                intl.formatMessage({ id: 'transaction__failed' }),
-              description: error.data.message, // TODO toast description not working
+              title: msg || intl.formatMessage({ id: 'transaction__failed' }),
+              description: msg,
             },
             { type: 'error' },
           );
-        } else {
-          const msg = error?.key
-            ? intl.formatMessage({ id: error?.key as any }, error?.info ?? {})
-            : error?.message ?? '';
-          if (
-            error.className !==
-            OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
-          ) {
-            toast.show(
-              {
-                title: msg || intl.formatMessage({ id: 'transaction__failed' }),
-                description: msg,
-              },
-              { type: 'error' },
-            );
-          }
         }
-      }, 600);
+      }
+
+      await wait(100);
+      // onFail() should be called after show toast, otherwise toast won't display
+      onFail?.(error);
     }
   }, [
     accountId,
@@ -287,6 +324,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     navigation,
     networkId,
     onSuccess,
+    onFail,
     payload,
     sendTx,
     signMsg,
@@ -306,7 +344,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     }
   }, [decodedTx, unsignedMessage, submit]);
   return externalAccountInfo ? (
-    <AuthExternalAccountInfo {...externalAccountInfo} />
+    <AuthExternalAccountInfo
+      {...externalAccountInfo}
+      setTitleInfo={setTitleInfo}
+    />
   ) : (
     <Center h="full" w="full">
       <Spinner size="lg" />
@@ -315,18 +356,32 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
 };
 const SendAuthMemo = React.memo(SendAuth);
 
+export type ISendAuthenticationModalTitleInfo = {
+  title: string;
+  subTitle: string;
+};
 export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
   const { walletId } = params;
 
+  const [titleInfo, setTitleInfo] = useState<
+    ISendAuthenticationModalTitleInfo | undefined
+  >();
+
   // TODO all Modal close should reject dapp call
   return (
-    <Modal footer={null}>
+    <Modal
+      header={titleInfo?.title}
+      headerDescription={titleInfo?.subTitle}
+      footer={null}
+    >
       <Box flex={1}>
         <DecodeTxButtonTest encodedTx={params.encodedTx} />
         <Protected walletId={walletId} field={ValidationFields.Payment}>
-          {(password) => <SendAuthMemo password={password} />}
+          {(password) => (
+            <SendAuthMemo setTitleInfo={setTitleInfo} password={password} />
+          )}
         </Protected>
       </Box>
     </Modal>

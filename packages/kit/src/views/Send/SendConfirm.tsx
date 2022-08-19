@@ -202,6 +202,11 @@ function SendConfirm() {
           feeInfoValue,
         });
       }
+      const onFail = (error: Error) => {
+        dappApprove.reject({
+          error,
+        });
+      };
       const onSuccess: SendAuthenticationParams['onSuccess'] = async (
         tx: ISignedTx,
         data,
@@ -248,6 +253,7 @@ function SendConfirm() {
         walletId,
         networkId,
         onSuccess,
+        onFail,
       };
       let nextRouteAction: 'replace' | 'navigate' = 'navigate';
       if (routeParams.autoConfirmAfterFeeSaved) {

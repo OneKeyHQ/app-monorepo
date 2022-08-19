@@ -29,6 +29,22 @@ const platformName = [
 ]
   .filter(Boolean)
   .join('-');
+
+// web platform default
+let platformNameShort = 'Wallet';
+if (platformEnv.isNativeAndroid) {
+  platformNameShort = 'Android';
+}
+if (platformEnv.isNativeIOS) {
+  platformNameShort = 'iOS';
+}
+if (platformEnv.isDesktop) {
+  platformNameShort = 'Desktop';
+}
+if (platformEnv.isExtension) {
+  platformNameShort = 'Extension';
+}
+
 export const WALLET_CONNECT_CLIENT_META = {
   description: 'Connect with OneKey',
   // wallet-connect identify different dapps by url
@@ -38,5 +54,5 @@ export const WALLET_CONNECT_CLIENT_META = {
     'https://www.onekey.so/favicon.ico',
     // 'https://example.walletconnect.org/favicon.ico'
   ],
-  name: `OneKey ${platformName}`,
+  name: `OneKey ${platformNameShort}`,
 };

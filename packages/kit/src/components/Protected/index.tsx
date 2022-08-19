@@ -206,5 +206,5 @@ const Protected: FC<ProtectedProps> = ({
   );
 };
 
-export default Protected;
+export default React.memo(Protected);
 export { ValidationFields };

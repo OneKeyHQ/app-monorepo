@@ -22,8 +22,9 @@ function useDappApproveAction({
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve
   const reject = useCallback(
-    ({ close }: { close?: () => void } = {}) => {
-      const error = rejectError || web3Errors.provider.userRejectedRequest();
+    ({ close, error }: { close?: () => void; error?: Error } = {}) => {
+      // eslint-disable-next-line no-param-reassign
+      error = error || rejectError || web3Errors.provider.userRejectedRequest();
       backgroundApiProxy.servicePromise.rejectCallback({
         id,
         error: toPlainErrorObject(error),
