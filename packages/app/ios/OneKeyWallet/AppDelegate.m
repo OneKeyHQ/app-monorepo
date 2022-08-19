@@ -74,7 +74,6 @@
 
 //注册 APNS 成功并上报 DeviceToken
 - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken {
-  NSLog(@"didRegisterForRemoteNotificationsWithDeviceToken = %@",deviceToken);
   [JPUSHService registerDeviceToken:deviceToken];
 }
 

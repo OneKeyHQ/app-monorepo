@@ -15,9 +15,11 @@ RCT_EXPORT_MODULE();
 
 RCT_EXPORT_METHOD(registerNotification)
 {
-  JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];
-  entity.types = JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings;
-  [JPUSHService registerForRemoteNotificationConfig:entity delegate:self];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];
+    entity.types = JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings;
+    [JPUSHService registerForRemoteNotificationConfig:entity delegate:self];
+  });
 }
 
 + (instancetype)shareInstance {
@@ -34,7 +36,6 @@ RCT_EXPORT_METHOD(registerNotification)
     if (self) {
       [JPUSHService requestNotificationAuthorization:^(JPAuthorizationStatus status) {
           if (status == JPAuthorizationStatusAuthorized) {
-            NSLog(@"registerForRemoteNotification");
             // APNS
             JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];
             entity.types = JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings;
