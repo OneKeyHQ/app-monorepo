@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "Gửi mã thông báo vào ví của bạn",
   "content__description": "Sự miêu tả",
   "content__details": "Thông tin chi tiết",
+  "content__disconnect_and_try_again": "Vui lòng nhấp vào \"Ngắt kết nối\" và gửi lại yêu cầu giao dịch nếu {0} không phản hồi.",
   "content__downloading": "Đang tải xuống",
   "content__downloading_str": "Đang tải xuống {0}",
   "content__encrypting_your_data": "<a> Mã hóa </a> <b> dữ liệu </b> của bạn",

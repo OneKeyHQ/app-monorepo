@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "Внесіть токени на свій гаманець",
   "content__description": "Опис",
   "content__details": "Деталі",
+  "content__disconnect_and_try_again": "Будь ласка, натисніть «Відключити» та надішліть запит на трансакцію знову, якщо {0} не відповість.",
   "content__downloading": "Завантаження",
   "content__downloading_str": "Завантаження {0}",
   "content__encrypting_your_data": "<a> Шифрування ваших </a> <b> даних </b>",

@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "Déposez des jetons dans votre portefeuille",
   "content__description": "Description",
   "content__details": "Détails",
+  "content__disconnect_and_try_again": "Veuillez cliquer sur \"Déconnecter\" et soumettre à nouveau la demande de transaction si {0} ne répond pas.",
   "content__downloading": "Téléchargement",
   "content__downloading_str": "Téléchargement de {0}",
   "content__encrypting_your_data": "<a> Cryptage de vos </a> <b> données </b>",

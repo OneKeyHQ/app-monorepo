@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "ฝากโทเค็นเข้ากระเป๋าสตางค์ของคุณ",
   "content__description": "คำอธิบาย",
   "content__details": "รายละเอียด",
+  "content__disconnect_and_try_again": "โปรดคลิก \"ยกเลิกการเชื่อมต่อ\" และส่งคำขอทำธุรกรรมอีกครั้งหาก {0} ไม่ตอบสนอง",
   "content__downloading": "กำลังดาวน์โหลด",
   "content__downloading_str": "กำลังดาวน์โหลด {0}",
   "content__encrypting_your_data": "<a> การเข้ารหัสข้อมูล </a> <b> ของคุณ </b>",

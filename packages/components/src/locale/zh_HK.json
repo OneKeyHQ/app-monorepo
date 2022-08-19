@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "將代幣存入您的錢包",
   "content__description": "描述",
   "content__details": "詳情",
+  "content__disconnect_and_try_again": "如果 {0} 長時間未響應，請點擊「斷開連接」並再次提交交易請求。",
   "content__downloading": "正在下載",
   "content__downloading_str": "正在下載{0}",
   "content__encrypting_your_data": "<a>加密您的</a><b>數據</b>",
