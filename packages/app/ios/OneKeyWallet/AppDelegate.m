@@ -17,7 +17,7 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-  [[JPushManager shareInstance] setupWithOptions:launchOptions];
+  [JPushManager shareInstance];
   
 #ifdef DEBUG
 #else
@@ -74,6 +74,7 @@
 
 //注册 APNS 成功并上报 DeviceToken
 - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken {
+  NSLog(@"didRegisterForRemoteNotificationsWithDeviceToken = %@",deviceToken);
   [JPUSHService registerDeviceToken:deviceToken];
 }
 

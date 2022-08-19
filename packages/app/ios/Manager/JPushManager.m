@@ -6,7 +6,6 @@
 //
 
 #import "JPushManager.h"
-#import "ReactNativeConfig.h"
 #import <UserNotifications/UserNotifications.h>
 
 
@@ -21,27 +20,22 @@
     return instance;
 }
 
-- (NSString *)jpushKey {
-  if ([ReactNativeConfig.env objectForKey:@"JPUSH_KEY"]) {
-    return [ReactNativeConfig.env objectForKey:@"JPUSH_KEY"];
-  }
-  return @"";
-}
-
-// JPush初始化配置
-- (void)setupWithOptions:(NSDictionary *)launchOptions {
-  if (self.jpushKey.length > 0) {
-    [JPUSHService setupWithOption:launchOptions appKey:self.jpushKey
-                          channel:@"prod" apsForProduction:YES];
-    // APNS
-    JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];
-    if (@available(iOS 12.0, *)) {
-      entity.types = JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings;
+- (id)init {
+    self = [super init];
+    if (self) {
+      [JPUSHService requestNotificationAuthorization:^(JPAuthorizationStatus status) {
+          if (status == JPAuthorizationStatusAuthorized) {
+            NSLog(@"registerForRemoteNotification");
+            // APNS
+            JPUSHRegisterEntity * entity = [[JPUSHRegisterEntity alloc] init];
+            entity.types = JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings;
+            [JPUSHService registerForRemoteNotificationConfig:entity delegate:self];
+            // 自定义消息
+            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkDidReceiveMessage:) name:kJPFNetworkDidReceiveMessageNotification object:nil];
+          }
+      }];
     }
-    [JPUSHService registerForRemoteNotificationConfig:entity delegate:self];
-    // 自定义消息
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkDidReceiveMessage:) name:kJPFNetworkDidReceiveMessageNotification object:nil];
-  }
+    return self;
 }
 
 //自定义消息
