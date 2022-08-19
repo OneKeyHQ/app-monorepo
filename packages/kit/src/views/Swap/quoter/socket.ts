@@ -170,14 +170,14 @@ export class SocketQuoter implements Quoter {
     return res?.data?.result as SupportedChain[];
   }
 
-  async getBridgeIconUrl(bridgeName: string) {
+  async getBridgeInfo(bridgeName: string) {
     if (!this.supportedBridges) {
       this.supportedBridges = await this.fetchSupportedBridges();
     }
     const bridge = this.supportedBridges.filter(
       (i) => i.bridgeName === bridgeName,
     )[0];
-    return bridge.icon;
+    return { icon: bridge.icon, displayName: bridge.displayName };
   }
 
   async fetchSupportedBridges(): Promise<SupportedBridge[]> {
@@ -276,11 +276,11 @@ export class SocketQuoter implements Quoter {
       }
 
       const bridgeIcons = await Promise.all(
-        route.usedBridgeNames.map((name) => this.getBridgeIconUrl(name)),
+        route.usedBridgeNames.map((name) => this.getBridgeInfo(name)),
       );
       const providers = route.usedBridgeNames.map((name, index) => ({
-        name,
-        logoUrl: bridgeIcons[index],
+        name: bridgeIcons[index]?.displayName,
+        logoUrl: bridgeIcons[index]?.icon,
       }));
       const result = {
         type: this.type,

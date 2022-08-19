@@ -211,11 +211,20 @@ const SwapQuote = () => {
           {intl.formatMessage({ id: 'form__included_onekey_fee' })}
         </Typography.Caption>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <Typography.Caption color="text-subdued">
-            {isNoCharge(quote.type)
-              ? intl.formatMessage({ id: 'content__no_charge' })
-              : '0.2 - 0.875%'}
-          </Typography.Caption>
+          {isNoCharge(quote.type) ? (
+            <Box flexDirection="column" alignItems="flex-end">
+              <Typography.Caption color="text-subdued" strikeThrough>
+                0.2 - 0.875%
+              </Typography.Caption>
+              <Typography.Caption color="text-success">
+                {intl.formatMessage({ id: 'form__free_limited_time' })}
+              </Typography.Caption>
+            </Box>
+          ) : (
+            <Typography.Caption color="text-subdued">
+              0.2 - 0.875%
+            </Typography.Caption>
+          )}
         </Box>
       </Box>
       <Box
