@@ -34,7 +34,10 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
       ),
     );
     (async () => {
-      await this.disconnect();
+      // ** do not disconnect previous session
+      // await this.disconnect();
+
+      // ** auto connect previous session
       await this.autoConnectLastSession();
     })();
   }
