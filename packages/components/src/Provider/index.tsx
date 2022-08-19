@@ -4,6 +4,7 @@ import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LOCALES, { LocaleSymbol } from '../locale';
@@ -157,8 +158,12 @@ const Provider: FC<UIProviderProps> = ({
         />
         <IntlProvider
           ref={(e) => {
-            // @ts-expect-error
-            intlRef.current = e?.state?.intl;
+            try {
+              // @ts-expect-error
+              intlRef.current = e?.state?.intl;
+            } catch (error) {
+              debugLogger.common.error('IntlProvider get ref error:', error);
+            }
           }}
           locale={locale}
           messages={LOCALES[locale]}
