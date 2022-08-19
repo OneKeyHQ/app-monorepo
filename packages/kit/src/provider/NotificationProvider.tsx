@@ -118,21 +118,12 @@ const NotificationProvider: React.FC<{
     [],
   );
 
-  const initJpush = useCallback(() => {
-    const config = {
-      'appKey': JPUSH_KEY,
-      // see: https://github.com/jpush/jpush-react-native/issues/861
-      'channel': 'prod',
-      'production': true,
-    };
-    debugLogger.common.debug(`JPUSH:init`, config);
+  const addJpushListener = useCallback(() => {
     // clear badges
     JPush.setBadge({
       badge: 0,
       appBadge: 0,
     });
-    // @ts-expect-error
-    JPush.init(config);
     JPush.getRegistrationID(handleRegistrationIdCallback);
     JPush.addConnectEventListener((result) => {
       debugLogger.common.debug('JPUSH.addConnectEventListener', result);
@@ -162,8 +153,8 @@ const NotificationProvider: React.FC<{
       return;
     }
     jpushInitRef.current = true;
-    initJpush();
-  }, [initJpush, accountId, networkId, pushNotification?.pushEnable]);
+    addJpushListener();
+  }, [addJpushListener, accountId, networkId, pushNotification?.pushEnable]);
 
   return children;
 };

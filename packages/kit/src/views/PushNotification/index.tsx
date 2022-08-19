@@ -28,7 +28,10 @@ import {
   defaultPushNotification,
   setPushNotificationConfig,
 } from '@onekeyhq/kit/src/store/reducers/settings';
-import { checkPushNotificationPermission } from '@onekeyhq/shared/src/notification';
+import {
+  checkPushNotificationPermission,
+  initJpush,
+} from '@onekeyhq/shared/src/notification';
 
 type OptionsProps = {
   title: string;
@@ -182,38 +185,35 @@ const PushNotification = () => {
     [dispatch, engine],
   );
 
-  const requestPermission = useCallback(
-    async (autoApplyPermission = false) => {
-      const hasPermission = await checkPushNotificationPermission(
-        autoApplyPermission,
-      );
-      if (hasPermission) {
-        return;
-      }
-      if (!pushNotification.pushEnable) {
-        return;
-      }
-      onChangePushNotification('pushEnable')(false);
-      DialogManager.show({
-        render: <PermissionDialog type="notification" />,
-      });
-    },
-    [onChangePushNotification, pushNotification.pushEnable],
-  );
+  const checkPermission = useCallback(async () => {
+    const hasPermission = await checkPushNotificationPermission();
+    if (hasPermission) {
+      return;
+    }
+    if (!pushNotification.pushEnable) {
+      return;
+    }
+    onChangePushNotification('pushEnable')(false);
+    DialogManager.show({
+      render: <PermissionDialog type="notification" />,
+    });
+  }, [onChangePushNotification, pushNotification.pushEnable]);
 
   useEffect(() => {
     if (pushNotification.pushEnable) {
-      requestPermission(true);
+      initJpush().finally(() => {
+        checkPermission();
+      });
     }
     const listener = AppState.addEventListener('change', (state) => {
       if (state === 'active' && pushNotification.pushEnable) {
-        requestPermission();
+        checkPermission();
       }
     });
     return () => {
       listener.remove();
     };
-  }, [requestPermission, pushNotification.pushEnable]);
+  }, [checkPermission, pushNotification.pushEnable]);
 
   const validThresholds = useMemo(() => {
     // for test
