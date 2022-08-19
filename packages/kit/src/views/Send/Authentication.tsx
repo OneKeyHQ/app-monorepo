@@ -1,4 +1,11 @@
-import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -33,9 +40,13 @@ type NavigationProps = NavigationProp<
 >;
 type EnableLocalAuthenticationProps = {
   password: string;
+  setTitleInfo: (titleInfo: ISendAuthenticationModalTitleInfo) => void;
 };
 
-const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
+const SendAuth: FC<EnableLocalAuthenticationProps> = ({
+  password,
+  setTitleInfo,
+}) => {
   const navigation = useNavigation<NavigationProps>();
   const { validator } = backgroundApiProxy;
   const toast = useToast();
@@ -306,7 +317,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
     }
   }, [decodedTx, unsignedMessage, submit]);
   return externalAccountInfo ? (
-    <AuthExternalAccountInfo {...externalAccountInfo} />
+    <AuthExternalAccountInfo
+      {...externalAccountInfo}
+      setTitleInfo={setTitleInfo}
+    />
   ) : (
     <Center h="full" w="full">
       <Spinner size="lg" />
@@ -315,18 +329,32 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
 };
 const SendAuthMemo = React.memo(SendAuth);
 
+export type ISendAuthenticationModalTitleInfo = {
+  title: string;
+  subTitle: string;
+};
 export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
   const { walletId } = params;
 
+  const [titleInfo, setTitleInfo] = useState<
+    ISendAuthenticationModalTitleInfo | undefined
+  >();
+
   // TODO all Modal close should reject dapp call
   return (
-    <Modal footer={null}>
+    <Modal
+      header={titleInfo?.title}
+      headerDescription={titleInfo?.subTitle}
+      footer={null}
+    >
       <Box flex={1}>
         <DecodeTxButtonTest encodedTx={params.encodedTx} />
         <Protected walletId={walletId} field={ValidationFields.Payment}>
-          {(password) => <SendAuthMemo password={password} />}
+          {(password) => (
+            <SendAuthMemo setTitleInfo={setTitleInfo} password={password} />
+          )}
         </Protected>
       </Box>
     </Modal>
