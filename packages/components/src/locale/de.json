@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "Hinterlegen Sie Token in Ihrer Brieftasche",
   "content__description": "Beschreibung",
   "content__details": "Einzelheiten",
+  "content__disconnect_and_try_again": "Bitte klicken Sie auf \"Trennen\" und senden Sie die Transaktionsanfrage erneut, wenn {0} nicht antwortet.",
   "content__downloading": "wird heruntergeladen",
   "content__downloading_str": "{0} wird heruntergeladen",
   "content__encrypting_your_data": "<a> Verschlüsseln Ihrer </a> <b> Daten </b>",

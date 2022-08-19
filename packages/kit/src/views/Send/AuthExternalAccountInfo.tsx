@@ -102,26 +102,34 @@ const AuthExternalAccountInfo = React.memo(
             },
           ]}
         />
-        <Box flex={1} />
         {retryVisible ? (
-          <Button
-            mt={6}
-            size="xl"
-            onPress={async () => {
-              // TODO confirm and hint
+          <>
+            <Text typography="Body2" mt={8}>
+              {intl.formatMessage(
+                { id: 'content__disconnect_and_try_again' },
+                { 0: walletName },
+              )}
+            </Text>
+            <Button
+              alignSelf="flex-start"
+              mt={4}
+              size="lg"
+              onPress={async () => {
+                // TODO confirm and hint
 
-              await walletConnectUtils.terminateWcConnection({
-                client,
-                walletUrl: accountInfo?.walletUrl,
-              });
+                await walletConnectUtils.terminateWcConnection({
+                  client,
+                  walletUrl: accountInfo?.walletUrl,
+                });
 
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              }
-            }}
-          >
-            {intl.formatMessage({ id: 'action__disconnect' })}
-          </Button>
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              }}
+            >
+              {intl.formatMessage({ id: 'action__disconnect' })}
+            </Button>
+          </>
         ) : null}
       </VStack>
     );

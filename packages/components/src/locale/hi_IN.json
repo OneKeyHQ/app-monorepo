@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "अपने वॉलेट में टोकन जमा करें",
   "content__description": "विवरण",
   "content__details": "विवरण",
+  "content__disconnect_and_try_again": "कृपया \"डिस्कनेक्ट\" पर क्लिक करें और यदि {0} जवाब नहीं देता है तो लेनदेन अनुरोध फिर से सबमिट करें।",
   "content__downloading": "डाउनलोड",
   "content__downloading_str": "डाउनलोड {0}",
   "content__encrypting_your_data": "<a> अपने </a> <b> डेटा को एन्क्रिप्ट करना </b>",

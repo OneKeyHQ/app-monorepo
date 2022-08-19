@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "Deposite tokens em sua carteira",
   "content__description": "Descrição",
   "content__details": "Detalhes",
+  "content__disconnect_and_try_again": "Clique em \"Desconectar\" e envie a solicitação de transação novamente se {0} não responder.",
   "content__downloading": "Baixando",
   "content__downloading_str": "Baixando {0}",
   "content__encrypting_your_data": "<a> Criptografando seus </a> <b> dados </b>",

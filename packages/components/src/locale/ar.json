@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "إيداع الرموز في محفظتك",
   "content__description": "وصف",
   "content__details": "تفاصيل",
+  "content__disconnect_and_try_again": "الرجاء النقر فوق \"قطع الاتصال\" وإرسال طلب المعاملة مرة أخرى إذا لم يستجب {0} .",
   "content__downloading": "جارى التحميل",
   "content__downloading_str": "تحميل {0}",
   "content__encrypting_your_data": "<a> تشفير </a> <b> بياناتك </b>",

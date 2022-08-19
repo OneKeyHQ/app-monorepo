@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "トークンをウォレットに預ける",
   "content__description": "説明",
   "content__details": "詳細",
+  "content__disconnect_and_try_again": "{0}が応答しない場合は、[切断] をクリックして、トランザクション リクエストを再度送信してください。",
   "content__downloading": "ダウンロード中",
   "content__downloading_str": "{0} をダウンロードしています",
   "content__encrypting_your_data": "<a>を暗号化する</a> <b>データ</b>",

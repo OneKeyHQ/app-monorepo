@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "আপনার ওয়ালেটে টোকেন জমা দিন",
   "content__description": "বর্ণনা",
   "content__details": "বিস্তারিত",
+  "content__disconnect_and_try_again": "অনুগ্রহ করে \"সংযোগ বিচ্ছিন্ন করুন\" এ ক্লিক করুন এবং {0} সাড়া না দিলে আবার লেনদেনের অনুরোধ জমা দিন।",
   "content__downloading": "ডাউনলোড হচ্ছে",
   "content__downloading_str": "ডাউনলোড হচ্ছে {0}",
   "content__encrypting_your_data": "<a> আপনার </a> <b> ডেটা এনক্রিপ্ট করা হচ্ছে </b>",

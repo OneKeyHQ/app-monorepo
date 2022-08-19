@@ -287,6 +287,7 @@
   "content__deposit_tokens_to_your_wallet": "지갑에 토큰 입금",
   "content__description": "설명",
   "content__details": "세부",
+  "content__disconnect_and_try_again": "{0} 이(가) 응답하지 않으면 \"연결 끊기\"를 클릭하고 트랜잭션 요청을 다시 제출하십시오.",
   "content__downloading": "다운로드 중",
   "content__downloading_str": "{0} 다운로드 중",
   "content__encrypting_your_data": "<a> </a> <b> 데이터 </b> 암호화",
