@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
-import { ExternalAccountImg } from '../../components/WalletConnect/ExternalAccountImg';
+import ExternalAccountImg from '../../components/WalletConnect/ExternalAccountImg';
 import { WALLET_CONNECT_SHOW_DISCONNECT_BUTTON_DELAY } from '../../components/WalletConnect/walletConnectConsts';
 import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import useAppNavigation from '../../hooks/useAppNavigation';

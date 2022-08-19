@@ -33,7 +33,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { wait } from '../../utils/helper';
 import { IWalletConnectExternalAccountInfo } from '../../views/Send/types';
 
-import { ExternalAccountImg } from './ExternalAccountImg';
+import ExternalAccountImg from './ExternalAccountImg';
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';
 import { WalletConnectClientForDapp } from './WalletConnectClientForDapp';

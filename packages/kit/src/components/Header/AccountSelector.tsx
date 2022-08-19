@@ -75,6 +75,11 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     );
   }, [isSmallLayout, visible, handleToggleVisible, setRef]);
 
+  const handleToggleVisibleDefault = useCallback(() => {
+    if (!visible) {
+      handleToggleVisible();
+    }
+  }, [handleToggleVisible, visible]);
   return (
     <Box
       ref={triggerRef}
@@ -87,11 +92,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       {renderTrigger?.({ visible, handleToggleVisible }) ?? (
         <AccountSelectorTrigger
           visible={visible}
-          handleToggleVisible={() => {
-            if (!visible) {
-              handleToggleVisible();
-            }
-          }}
+          handleToggleVisible={handleToggleVisibleDefault}
         />
       )}
       {child}

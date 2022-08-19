@@ -24,7 +24,7 @@ import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import { ExternalAccountImg } from '../WalletConnect/ExternalAccountImg';
+import ExternalAccountImg from '../WalletConnect/ExternalAccountImg';
 
 import WalletAvatar from './WalletAvatar';
 
@@ -91,6 +91,10 @@ const AccountSelectorTrigger: FC<Props> = ({
   }
 
   const { name } = account;
+
+  // ** Android will crash after account switch
+  const showExternalImg = !platformEnv.isNativeAndroid;
+  // const showExternalImg = true;
   return (
     <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
       {({ isHovered }) => (
@@ -122,16 +126,18 @@ const AccountSelectorTrigger: FC<Props> = ({
               size="sm"
               mr={3}
             />
-            <Box position="absolute" right="4px" bottom="-6px">
-              <ExternalAccountImg
-                key={account.id}
-                size={4}
-                radius="12px"
-                accountId={account.id}
-                borderWidth={2}
-                borderColor="background-default"
-              />
-            </Box>
+            {showExternalImg ? (
+              <Box position="absolute" right="4px" bottom="-6px">
+                <ExternalAccountImg
+                  size={4}
+                  radius="12px"
+                  accountId={account.id}
+                  borderWidth={2}
+                  borderColor="background-default"
+                />
+              </Box>
+            ) : null}
+
             {!!hasNotification && (
               <Box
                 position="absolute"

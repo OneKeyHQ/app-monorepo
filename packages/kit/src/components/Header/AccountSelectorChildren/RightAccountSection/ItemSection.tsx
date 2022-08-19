@@ -22,7 +22,7 @@ import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/Modi
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
-import { ExternalAccountImg } from '../../../WalletConnect/ExternalAccountImg';
+import ExternalAccountImg from '../../../WalletConnect/ExternalAccountImg';
 
 import ItemActionButton from './ItemActionButton';
 
