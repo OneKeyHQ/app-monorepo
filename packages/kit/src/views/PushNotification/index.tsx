@@ -182,23 +182,28 @@ const PushNotification = () => {
     [dispatch, engine],
   );
 
-  const requestPermission = useCallback(async () => {
-    const hasPermission = await checkPushNotificationPermission();
-    if (hasPermission) {
-      return;
-    }
-    if (!pushNotification.pushEnable) {
-      return;
-    }
-    onChangePushNotification('pushEnable')(false);
-    DialogManager.show({
-      render: <PermissionDialog type="notification" />,
-    });
-  }, [onChangePushNotification, pushNotification.pushEnable]);
+  const requestPermission = useCallback(
+    async (autoApplyPermission = false) => {
+      const hasPermission = await checkPushNotificationPermission(
+        autoApplyPermission,
+      );
+      if (hasPermission) {
+        return;
+      }
+      if (!pushNotification.pushEnable) {
+        return;
+      }
+      onChangePushNotification('pushEnable')(false);
+      DialogManager.show({
+        render: <PermissionDialog type="notification" />,
+      });
+    },
+    [onChangePushNotification, pushNotification.pushEnable],
+  );
 
   useEffect(() => {
     if (pushNotification.pushEnable) {
-      requestPermission();
+      requestPermission(true);
     }
     const listener = AppState.addEventListener('change', (state) => {
       if (state === 'active' && pushNotification.pushEnable) {
