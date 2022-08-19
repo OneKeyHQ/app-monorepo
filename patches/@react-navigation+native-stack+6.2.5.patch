@@ -1,24 +1,26 @@
 diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-index 9c7455f..f6f876a 100644
+index 9c7455f..dfc2d3b 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-@@ -34,6 +34,8 @@ import type {
- import DebugContainer from './DebugContainer';
- import HeaderConfig from './HeaderConfig';
+@@ -317,10 +317,20 @@ function NativeStackViewInner({ state, navigation, descriptors }: Props) {
+   );
+ }
  
 +import { RootSiblingParent } from 'react-native-root-siblings';
++import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 +
- const isAndroid = Platform.OS === 'android';
- 
- const MaybeNestedStack = ({
-@@ -320,7 +322,9 @@ function NativeStackViewInner({ state, navigation, descriptors }: Props) {
  export default function NativeStackView(props: Props) {
++  const isVerticalLayout = useIsVerticalLayout();
    return (
      <SafeAreaProviderCompat>
 -      <NativeStackViewInner {...props} />
-+      <RootSiblingParent>
++      {isVerticalLayout ? (
++        <RootSiblingParent>
++          <NativeStackViewInner {...props} />
++        </RootSiblingParent>
++      ) : (
 +        <NativeStackViewInner {...props} />
-+      </RootSiblingParent>
++      )}
      </SafeAreaProviderCompat>
    );
  }
