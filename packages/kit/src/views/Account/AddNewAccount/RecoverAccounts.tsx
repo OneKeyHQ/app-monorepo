@@ -25,7 +25,6 @@ import {
   Pressable,
   RecyclerListView,
   Spinner,
-  ToastManager,
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
@@ -199,7 +198,9 @@ const RecoverAccounts: FC = () => {
 
           isFetchingData.current = false;
 
-          deviceUtils.showErrorToast(e);
+          setTimeout(() => {
+            deviceUtils.showErrorToast(e);
+          }, 200);
 
           navigation?.goBack?.();
           navigation?.goBack?.();
