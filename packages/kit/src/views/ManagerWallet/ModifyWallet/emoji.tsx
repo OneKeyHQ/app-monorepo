@@ -52,21 +52,27 @@ const ColorSelecter = React.memo((props: ColorSelecterProps) => {
               onPress(item);
             }}
           >
-            <Center
-              width="40px"
-              height="40px"
-              borderRadius="20px"
-              bgColor={selected ? item : undefined}
-            >
-              <Box
-                bgColor={item}
-                width={selected ? '36px' : '28px'}
-                height={selected ? '36px' : '28px'}
-                borderRadius={selected ? '18px' : '14px'}
-                borderColor="surface-subdued"
-                borderWidth={selected ? '4px' : '0px'}
-              />
-            </Center>
+            {({ isHovered }) => (
+              <Center
+                width="40px"
+                height="40px"
+                p="2px"
+                borderRadius="full"
+                bgColor={
+                  // eslint-disable-next-line no-nested-ternary
+                  selected ? item : isHovered ? 'border-hovered' : undefined
+                }
+              >
+                <Box
+                  flex={1}
+                  alignSelf="stretch"
+                  bgColor={item}
+                  borderRadius="full"
+                  borderColor="surface-subdued"
+                  borderWidth="4px"
+                />
+              </Center>
+            )}
           </Pressable>
         );
       })}
@@ -123,6 +129,9 @@ const ModifyWalletEmojiViewModal: FC = () => {
                   onPress={() => {
                     updateEmoji(item);
                   }}
+                  borderRadius="12px"
+                  _hover={{ bg: 'surface-hovered' }}
+                  _pressed={{ bg: 'surface-pressed' }}
                 >
                   <Box
                     alignItems="center"

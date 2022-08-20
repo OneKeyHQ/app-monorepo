@@ -461,6 +461,7 @@ import ReceiptRefundSolid from "./react/solid/ReceiptRefund";
 import ReceiptTaxSolid from "./react/solid/ReceiptTax";
 import RefreshSolid from "./react/solid/Refresh";
 import ReplySolid from "./react/solid/Reply";
+import RestoreSolid from "./react/solid/Restore";
 import RewindSolid from "./react/solid/Rewind";
 import RssSolid from "./react/solid/Rss";
 import SaveSolid from "./react/solid/Save";
@@ -982,6 +983,7 @@ export type ICON_NAMES =
   | "ReceiptTaxSolid"
   | "RefreshSolid"
   | "ReplySolid"
+  | "RestoreSolid"
   | "RewindSolid"
   | "RssSolid"
   | "SaveSolid"
@@ -1503,6 +1505,7 @@ export default {
   ReceiptTaxSolid: ReceiptTaxSolid,
   RefreshSolid: RefreshSolid,
   ReplySolid: ReplySolid,
+  RestoreSolid: RestoreSolid,
   RewindSolid: RewindSolid,
   RssSolid: RssSolid,
   SaveSolid: SaveSolid,

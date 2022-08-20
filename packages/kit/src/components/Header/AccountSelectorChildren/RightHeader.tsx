@@ -195,7 +195,7 @@ const RightHeader: FC<RightHeaderProps> = ({
             }),
             value: 'restore',
             iconProps: {
-              name: 'RestoreOutline',
+              name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
             },
           },
           {
@@ -309,7 +309,7 @@ const RightHeader: FC<RightHeaderProps> = ({
                 }),
                 value: 'restore',
                 iconProps: {
-                  name: 'RestoreOutline',
+                  name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
                 },
               },
               {

@@ -105,32 +105,31 @@ const ModifyWalletNameViewModal: FC = () => {
             });
           }}
         >
-          <ZStack width="68px" height="68px">
-            <Box
-              width="full"
-              height="full"
-              justifyContent="center"
-              alignItems="center"
-            >
-              <WalletAvatar avatar={editAvatar} walletImage="hd" size="xl" />
-            </Box>
-            <Box
-              width="full"
-              height="full"
-              justifyContent="flex-end"
-              alignItems="flex-end"
-            >
+          {({ isHovered }) => (
+            <ZStack width="56px" height="56px">
               <Box
-                size={6}
-                borderRadius="full"
-                bg="surface-neutral-default"
+                width="full"
+                height="full"
                 justifyContent="center"
                 alignItems="center"
               >
+                <WalletAvatar avatar={editAvatar} walletImage="hd" size="xl" />
+              </Box>
+              <Box
+                size={6}
+                justifyContent="center"
+                alignItems="center"
+                borderWidth={2}
+                bg={isHovered ? 'surface-hovered' : 'surface-neutral-default'}
+                borderColor="surface-subdued"
+                borderRadius="full"
+                right="-12px"
+                bottom="-12px"
+              >
                 <Icon name="PencilSolid" size={16} />
               </Box>
-            </Box>
-          </ZStack>
+            </ZStack>
+          )}
         </Pressable>
       </Center>
     ),
@@ -144,7 +143,7 @@ const ModifyWalletNameViewModal: FC = () => {
     >
       <KeyboardDismissView px={{ base: 4, md: 0 }}>
         {ImageView}
-        <Form mt="3">
+        <Form mt="6">
           <Form.Item
             name="name"
             defaultValue=""
