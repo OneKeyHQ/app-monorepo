@@ -4,13 +4,15 @@
 //    node_modules/@react-native-async-storage/async-storage/types/index.d.ts
 import platformEnv, { isManifestV3 } from '../platformEnv';
 
-export interface IAsyncStorage {
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+
+export interface IAsyncStorageLegacy {
   /**
    * Fetches key and passes the result to callback, along with an Error if there is any.
    */
   getItem(
     key: string,
-    callback?: (error?: Error, result?: string) => void,
+    callback?: (error?: Error | null, result?: string | null) => void,
   ): Promise<string | null>;
 
   /**
@@ -19,10 +21,13 @@ export interface IAsyncStorage {
   setItem(
     key: string,
     value: string,
-    callback?: (error?: Error) => void,
+    callback?: (error?: Error | null) => void,
   ): Promise<void>;
 
-  removeItem(key: string, callback?: (error?: Error) => void): Promise<void>;
+  removeItem(
+    key: string,
+    callback?: (error?: Error | null) => void,
+  ): Promise<void>;
 
   /**
    * Merges existing value with input value, assuming they are stringified json. Returns a Promise object.
@@ -31,20 +36,20 @@ export interface IAsyncStorage {
   mergeItem(
     key: string,
     value: string,
-    callback?: (error?: Error) => void,
+    callback?: (error?: Error | null) => void,
   ): Promise<void>;
 
   /**
    * Erases all AsyncStorage for all clients, libraries, etc. You probably don't want to call this.
    * Use removeItem or multiRemove to clear only your own keys instead.
    */
-  clear(callback?: (error?: Error) => void): Promise<void>;
+  clear(callback?: (error?: Error | null) => void): Promise<void>;
 
   /**
    * Gets all keys known to the app, for all callers, libraries, etc
    */
   getAllKeys(
-    callback?: (error?: Error, keys?: string[]) => void,
+    callback?: (error?: Error | null, keys?: string[]) => void,
   ): Promise<string[]>;
 
   /**
@@ -85,7 +90,7 @@ export interface IAsyncStorage {
   ): Promise<void>;
 }
 
-class ExtensionStorage implements IAsyncStorage {
+class ExtensionStorage implements AsyncStorageStatic {
   browserApi: typeof chrome =
     platformEnv.isExtFirefox || !isManifestV3()
       ? global.browser
@@ -107,12 +112,12 @@ class ExtensionStorage implements IAsyncStorage {
     return this.browserApi.storage.local.remove(key);
   }
 
-  clear(callback?: (error?: Error) => void): Promise<void> {
+  clear(callback?: (error?: Error | null) => void): Promise<void> {
     return Promise.resolve(undefined);
   }
 
   getAllKeys(
-    callback?: (error?: Error, keys?: string[]) => void,
+    callback?: (error?: Error | null, keys?: string[]) => void,
   ): Promise<string[]> {
     return Promise.resolve([]);
   }
@@ -120,7 +125,7 @@ class ExtensionStorage implements IAsyncStorage {
   mergeItem(
     key: string,
     value: string,
-    callback?: (error?: Error) => void,
+    callback?: (error?: Error | null) => void,
   ): Promise<void> {
     return Promise.resolve(undefined);
   }
@@ -139,10 +144,11 @@ class ExtensionStorage implements IAsyncStorage {
     return Promise.resolve(undefined);
   }
 
-  multiRemove(
-    keys: string[],
-    callback?: (errors?: Error[]) => void,
-  ): Promise<void> {
+  // multiRemove(
+  //   keys: string[],
+  //   callback?: (errors?: Error[]) => void,
+  // )
+  multiRemove(): Promise<void> {
     return Promise.resolve(undefined);
   }
 
@@ -150,6 +156,10 @@ class ExtensionStorage implements IAsyncStorage {
     keyValuePairs: string[][],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
+    return Promise.resolve(undefined);
+  }
+
+  flushGetRequests() {
     return Promise.resolve(undefined);
   }
 }
