@@ -4,6 +4,10 @@ import JPush from 'jpush-react-native';
 import { AppState } from 'react-native';
 
 import {
+  EVMDecodedItem,
+  EVMDecodedTxType,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import {
   useActiveWalletAccount,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
@@ -47,6 +51,10 @@ const NotificationProvider: React.FC<{
       if (params.networkId) {
         backgroundApiProxy.serviceNetwork.changeActiveNetwork(params.networkId);
       }
+
+      const filter = params.tokenId
+        ? undefined
+        : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
       try {
         navigationRef.current?.navigate(RootRoutes.Root, {
           screen,
@@ -54,6 +62,7 @@ const NotificationProvider: React.FC<{
             accountId,
             networkId: params.networkId || networkId,
             tokenId: params.tokenId || '',
+            historyFilter: filter,
           },
         });
       } catch (error) {
