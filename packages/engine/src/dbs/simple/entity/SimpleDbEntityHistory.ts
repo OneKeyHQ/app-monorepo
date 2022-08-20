@@ -1,5 +1,7 @@
 import { uniqBy } from 'lodash';
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+
 import { HISTORY_CONSTS } from '../../../constants';
 import {
   IDecodedTxAction,
@@ -11,7 +13,13 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export type ISimpleDbEntityHistoryData = {
   items: IHistoryTx[];
+  lastCleanTime?: number;
 };
+
+const MAX_SAVED_HISTORY_COUNT = 1000;
+const AUTO_CLEAN_HISTORY_TIME = getTimeDurationMs({ day: 1 });
+// const MAX_SAVED_HISTORY_COUNT = 10;
+// const AUTO_CLEAN_HISTORY_TIME = getTimeDurationMs({ minute: 1 });
 
 class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryData> {
   entityName = 'history';
@@ -202,9 +210,10 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
     if (!items || !items.length) {
       return;
     }
-    let allData = (await this.getRawData())?.items || [];
+    const rawData = await this.getRawData();
+    let allData = rawData?.items || [];
 
-    // TODO uniqBy optimize and keep original order
+    // always keep saved items first, so that cleanHistory won't remove it
     allData = uniqBy([...items, ...allData], (item) => item.id);
 
     const { accountId, networkId } = this.accountHistoryCache;
@@ -221,9 +230,46 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
       };
     }
 
+    setTimeout(() => {
+      this.cleanHistory();
+    }, 5000);
+
     // TODO auto remove items in same network and account > 100
     return this.setRawData({
+      ...rawData,
       items: allData,
+    });
+  }
+
+  async cleanHistory() {
+    const rawData = await this.getRawData();
+    if (!rawData) {
+      return;
+    }
+    const allData = rawData?.items || [];
+    if (!allData.length) {
+      return;
+    }
+    const lastCleanTime = rawData?.lastCleanTime || 0;
+    if (Date.now() - lastCleanTime < AUTO_CLEAN_HISTORY_TIME) {
+      return;
+    }
+
+    const allDataCleaned = [];
+    let count = 0;
+    for (const tx of allData) {
+      if (!tx.isLocalCreated) {
+        count += 1;
+      }
+      allDataCleaned.push(tx);
+      if (count > MAX_SAVED_HISTORY_COUNT) {
+        break;
+      }
+    }
+    await this.setRawData({
+      ...rawData,
+      items: allDataCleaned,
+      lastCleanTime: Date.now(),
     });
   }
 }

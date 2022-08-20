@@ -2,7 +2,9 @@
 //    redux-persist failed to create sync storage. falling back to noop storage.
 // import storage from 'redux-persist/lib/storage';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage, {
+  AsyncStorageStatic,
+} from '@react-native-async-storage/async-storage';
 
 import platformEnv from '../platformEnv';
 
@@ -12,7 +14,7 @@ import MockStorage from './MockStorage';
 
 // const appStorage: WebStorage = storage; // use redux-persist built-in storage
 // const appStorage = AsyncStorage
-const appStorage = platformEnv.isExtension
+const appStorage: AsyncStorageStatic = platformEnv.isExtension
   ? new ExtensionStorage()
   : AsyncStorage;
 const mockStorage = new MockStorage();

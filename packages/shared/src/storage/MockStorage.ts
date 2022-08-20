@@ -1,23 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { IAsyncStorage } from './ExtensionStorage';
+/* eslint-disable  @typescript-eslint/no-unused-vars */
+import { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
-class MockStorage implements IAsyncStorage {
-  getItem(
-    key: string,
-    callback?: (error?: Error, result?: string) => void,
-  ): Promise<string | null> {
+class MockStorage implements AsyncStorageStatic {
+  getItem(): Promise<string | null> {
     return Promise.resolve(null);
   }
 
-  setItem(
-    key: string,
-    value: string,
-    callback?: (error?: Error) => void,
-  ): Promise<void> {
+  setItem(): Promise<void> {
     return Promise.resolve(undefined);
   }
 
-  removeItem(key: string, callback?: (error?: Error) => void): Promise<void> {
+  removeItem(): Promise<void> {
     return Promise.resolve(undefined);
   }
 
@@ -53,10 +46,7 @@ class MockStorage implements IAsyncStorage {
     return Promise.resolve(undefined);
   }
 
-  multiRemove(
-    keys: string[],
-    callback?: (errors?: Error[]) => void,
-  ): Promise<void> {
+  multiRemove(): Promise<void> {
     return Promise.resolve(undefined);
   }
 
@@ -64,6 +54,10 @@ class MockStorage implements IAsyncStorage {
     keyValuePairs: string[][],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
+    return Promise.resolve(undefined);
+  }
+
+  flushGetRequests() {
     return Promise.resolve(undefined);
   }
 }

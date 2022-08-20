@@ -101,6 +101,9 @@ function useAddExistingWallet({
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
       const { text } = values;
+      if (!text) {
+        return;
+      }
       const results = await backgroundApiProxy.validator.validateCreateInput({
         input: text,
         onlyFor: inputCategory,
@@ -304,7 +307,7 @@ function AddExistingWalletView(
           rules={{
             validate: async (text) => {
               if (!text) {
-                return false;
+                return true;
               }
               if (
                 (
