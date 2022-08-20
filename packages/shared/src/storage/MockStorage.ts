@@ -1,3 +1,4 @@
+/* eslint-disable  @typescript-eslint/no-unused-vars */
 import { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 class MockStorage implements AsyncStorageStatic {

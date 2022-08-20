@@ -1,6 +1,6 @@
 import { uniqBy } from 'lodash';
 
-import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { HISTORY_CONSTS } from '../../../constants';
 import {
@@ -16,10 +16,10 @@ export type ISimpleDbEntityHistoryData = {
   lastCleanTime?: number;
 };
 
-// const MAX_SAVED_HISTORY_COUNT = 2000;
-// const AUTO_CLEAN_HISTORY_TIME = getTimeDurationMs({ day: 1 });
-const MAX_SAVED_HISTORY_COUNT = 20;
-const AUTO_CLEAN_HISTORY_TIME = getTimeDurationMs({ minute: 1 });
+const MAX_SAVED_HISTORY_COUNT = 1000;
+const AUTO_CLEAN_HISTORY_TIME = getTimeDurationMs({ day: 1 });
+// const MAX_SAVED_HISTORY_COUNT = 10;
+// const AUTO_CLEAN_HISTORY_TIME = getTimeDurationMs({ minute: 1 });
 
 class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryData> {
   entityName = 'history';
