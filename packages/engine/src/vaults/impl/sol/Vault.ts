@@ -7,14 +7,28 @@ import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  TokenInstruction,
   createAssociatedTokenAccountInstruction,
   createTransferCheckedInstruction,
+  decodeInstruction,
+  decodeTransferCheckedInstruction,
+  decodeTransferInstruction,
   getAssociatedTokenAddress,
 } from '@solana/spl-token';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import {
+  AccountMeta,
+  PublicKey,
+  SystemInstruction,
+  SystemProgram,
+  Transaction,
+} from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
+import memoizee from 'memoizee';
+
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
   InvalidAddress,
@@ -29,13 +43,13 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { INativeTxSol } from './types';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
@@ -44,6 +58,11 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import type {
+  AssociatedTokenInfo,
+  INativeTxSol,
+  ParsedAccountInfo,
+} from './types';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -60,6 +79,141 @@ export default class Vault extends VaultBase {
     return (await this.engine.providerManager.getClient(
       this.networkId,
     )) as Solana;
+  }
+
+  private getAssociatedAccountInfo = memoizee(
+    async (ataAddress): Promise<AssociatedTokenInfo> => {
+      const client = await this.getClient();
+      const ataInfo = (await client.getAccountInfo(ataAddress)) ?? {};
+      const { mint, owner } = (ataInfo as ParsedAccountInfo).data.parsed.info;
+      return { mint, owner };
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+    },
+  );
+
+  private async decodeNativeTxActions(nativeTx: INativeTxSol) {
+    const ret: Array<IDecodedTxAction> = [];
+
+    for (const instruction of nativeTx.instructions) {
+      const createdAta: Record<string, AssociatedTokenInfo> = {};
+      // TODO: only support system transfer & token transfer now
+      if (
+        instruction.programId.toString() === SystemProgram.programId.toString()
+      ) {
+        try {
+          const instructionType =
+            SystemInstruction.decodeInstructionType(instruction);
+          if (instructionType === 'Transfer') {
+            const nativeToken = await this.engine.getNativeTokenInfo(
+              this.networkId,
+            );
+            const { fromPubkey, toPubkey, lamports } =
+              SystemInstruction.decodeTransfer(instruction);
+            const nativeAmount = new BigNumber(lamports.toString());
+            ret.push({
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              nativeTransfer: {
+                tokenInfo: nativeToken,
+                from: fromPubkey.toString(),
+                to: toPubkey.toString(),
+                amount: nativeAmount.shiftedBy(-nativeToken.decimals).toFixed(),
+                amountValue: nativeAmount.toFixed(),
+                extraInfo: null,
+              },
+            });
+          }
+        } catch {
+          // pass
+        }
+      } else if (
+        instruction.programId.toString() ===
+          ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
+        instruction.data.length === 0 &&
+        instruction.keys.length === 7 &&
+        instruction.keys[4].pubkey.toString() ===
+          SystemProgram.programId.toString() &&
+        instruction.keys[5].pubkey.toString() === TOKEN_PROGRAM_ID.toString()
+      ) {
+        // Associated token account is newly created.
+        const [, associatedToken, owner, mint] = instruction.keys;
+        if (associatedToken && owner && mint) {
+          createdAta[associatedToken.pubkey.toString()] = {
+            owner: owner.pubkey.toString(),
+            mint: mint.pubkey.toString(),
+          };
+        }
+      } else if (
+        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+      ) {
+        try {
+          const {
+            data: { instruction: instructionType },
+          } = decodeInstruction(instruction);
+          let nativeAmount;
+          let fromAddress;
+          let tokenAddress;
+          let ataAddress;
+
+          if (instructionType === TokenInstruction.TransferChecked) {
+            const {
+              data: { amount },
+              keys: { owner, mint, destination },
+            } = decodeTransferCheckedInstruction(instruction);
+
+            nativeAmount = new BigNumber(amount.toString());
+            fromAddress = owner.pubkey.toString();
+            tokenAddress = mint.pubkey.toString();
+            ataAddress = destination.pubkey.toString();
+          } else if (instructionType === TokenInstruction.Transfer) {
+            const {
+              data: { amount },
+              keys: { owner, destination },
+            } = decodeTransferInstruction(instruction);
+
+            nativeAmount = new BigNumber(amount.toString());
+            fromAddress = owner.pubkey.toString();
+            ataAddress = destination.pubkey.toString();
+          }
+
+          if (nativeAmount && fromAddress && ataAddress) {
+            const ataAccountInfo =
+              createdAta[ataAddress] ||
+              (await this.getAssociatedAccountInfo(ataAddress));
+            const { mint, owner: toAddress } = ataAccountInfo;
+
+            tokenAddress = tokenAddress || mint;
+            const tokenInfo = await this.engine.ensureTokenInDB(
+              this.networkId,
+              tokenAddress,
+            );
+            if (tokenInfo) {
+              ret.push({
+                type: IDecodedTxActionType.TOKEN_TRANSFER,
+                tokenTransfer: {
+                  tokenInfo,
+                  from: fromAddress,
+                  to: toAddress ?? ataAddress,
+                  amount: nativeAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
+                  amountValue: nativeAmount.toFixed(),
+                  extraInfo: null,
+                },
+              });
+            }
+          }
+        } catch {
+          // pass
+        }
+      }
+    }
+    if (ret.length === 0) {
+      ret.push({ type: IDecodedTxActionType.UNKNOWN });
+    }
+
+    return ret;
   }
 
   // Chain only methods
@@ -132,21 +286,24 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTx,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const { address: fromAddress } =
-      (await this.getDbAccount()) as DBSimpleAccount;
-    return Promise.resolve({
-      txid: '',
-      owner: fromAddress,
-      signer: fromAddress,
+    const nativeTx: Transaction = await this.helper.parseToNativeTx(encodedTx);
+    const owner = await this.getAccountAddress();
+    const decodedTx: IDecodedTx = {
+      txid: nativeTx.signature ? bs58.encode(nativeTx.signature) : '',
+      owner,
+      signer: nativeTx.feePayer?.toString() || owner,
       nonce: 0,
-      actions: [{ type: IDecodedTxActionType.UNKNOWN }],
+      actions: await this.decodeNativeTxActions(nativeTx),
 
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
 
       extraInfo: null,
-    });
+      encodedTx,
+    };
+
+    return decodedTx;
   }
 
   override decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
@@ -220,7 +377,7 @@ export default class Vault extends VaultBase {
       );
     }
 
-    return bs58.encode(nativeTx.serializeMessage());
+    return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
   }
 
   override buildEncodedTxFromApprove(
@@ -280,8 +437,8 @@ export default class Vault extends VaultBase {
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
 
-      // The first byte of message is numRequiredSignatures
-      limit: (nativeTx as INativeTxSol).serializeMessage()[0].toString(),
+      // Solana fee is price * number of signatures
+      limit: (nativeTx as Transaction).signatures.length.toString(),
       prices,
       defaultPresetIndex: '0',
 
