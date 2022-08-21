@@ -38,8 +38,8 @@ import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';
 import { WalletConnectClientForDapp } from './WalletConnectClientForDapp';
 import {
-  WALLET_CONNECT_SHOW_MISMATCH_CONFIRM_DELAY,
-  WALLET_CONNECT_SHOW_QRCODE_MODAL_DELAY,
+  WALLET_CONNECT_SEND_SHOW_MISMATCH_CONFIRM_DELAY,
+  WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY,
 } from './walletConnectConsts';
 import walletConnectUtils from './walletConnectUtils';
 
@@ -291,7 +291,7 @@ export function useWalletConnectSendInfo({
       });
 
       if (!savedSession?.connected) {
-        await wait(WALLET_CONNECT_SHOW_QRCODE_MODAL_DELAY);
+        await wait(WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY);
         if (isUnmountedRef.current) {
           return defaultReturn;
         }
@@ -335,7 +335,7 @@ export function useWalletConnectSendInfo({
       const isChainMismatched = peerChainId !== myChainId;
 
       if (isAddressMismatched || isChainMismatched) {
-        await wait(WALLET_CONNECT_SHOW_MISMATCH_CONFIRM_DELAY);
+        await wait(WALLET_CONNECT_SEND_SHOW_MISMATCH_CONFIRM_DELAY);
         if (isUnmountedRef.current) {
           return defaultReturn;
         }

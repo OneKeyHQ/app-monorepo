@@ -24,6 +24,7 @@
     "ios-install": "cd ./packages/app/ios && pod install && cd -",
     "ios-xcode": "open ./packages/app/ios/OneKeyWallet.xcworkspace",
     "android": "yarn copy:inject && yarn workspace @onekeyhq/app android",
+    "android:device": "yarn copy:inject && yarn workspace @onekeyhq/app android:device",
     "web": "yarn copy:inject && yarn workspace @onekeyhq/web start",
     "web-embed": "yarn copy:inject && yarn workspace @onekeyhq/web-embed start",
     "build:web-embed": "yarn copy:inject && yarn workspace @onekeyhq/web-embed build",

@@ -30,7 +30,7 @@ import {
 } from './WalletConnectClientForDapp';
 import {
   WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL,
-  WALLET_CONNECT_OPEN_APP_DELAY,
+  WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
 } from './walletConnectConsts';
 import walletConnectUtils from './walletConnectUtils';
 
@@ -85,8 +85,8 @@ export function useWalletConnectQrcodeModal() {
       });
       try {
         if (platformEnv.isNative) {
-          // add some delay to make sure message has been sent to wallet app by websocket
-          await wait(WALLET_CONNECT_OPEN_APP_DELAY);
+          // add some delay to make sure connection uri message has been sent to wallet app by websocket
+          await wait(WALLET_CONNECT_OPEN_WALLET_APP_DELAY);
         }
         let canOpenURL = false;
         let openConnectionUrl = connectionUrl;
@@ -238,6 +238,8 @@ export function useWalletConnectQrcodeModal() {
 
           // ** Android should open apps by uri="wc:"
           if (platformEnv.isNativeAndroid) {
+            // add some delay to make sure connection uri message has been sent to wallet app by websocket
+            await wait(WALLET_CONNECT_OPEN_WALLET_APP_DELAY);
             const canOpenURL = await Linking.canOpenURL(uri);
             if (canOpenURL) {
               await Linking.openURL(uri);

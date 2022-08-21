@@ -25,7 +25,7 @@ import {
 } from './WalletConnectClient';
 import {
   WALLET_CONNECT_CLIENT_META,
-  WALLET_CONNECT_OPEN_APP_DELAY,
+  WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
 } from './walletConnectConsts';
 import { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import walletConnectUtils from './walletConnectUtils';
@@ -216,7 +216,7 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
 
     if (payload && this.connector?.peerMeta && this.walletService) {
       // add some delay to make sure sendTransaction message has been sent to wallet app by websocket
-      await wait(WALLET_CONNECT_OPEN_APP_DELAY);
+      await wait(WALLET_CONNECT_OPEN_WALLET_APP_DELAY);
       await walletConnectUtils.dappOpenWalletApp({
         // peerMeta: this.connector?.peerMeta,
         walletService: this.walletService,
