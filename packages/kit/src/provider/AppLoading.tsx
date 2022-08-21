@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import AnimatedSplash from 'react-native-animated-splash-screen';
 import useSWR from 'swr';
 
-import { Box, Center, Spinner, useThemeValue } from '@onekeyhq/components';
+import { Box, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
@@ -77,6 +77,9 @@ const AppLoading: FC = ({ children }) => {
   return (
     <Box flex={1} bg={bg}>
       <AnimatedSplash
+        preload={false}
+        disableAppScale={platformEnv.isExtension}
+        disableImageBackgroundAnimation={platformEnv.isExtension}
         translucent={!platformEnv.isNativeAndroid}
         isLoaded={initDataReady}
         // eslint-disable-next-line global-require
@@ -85,13 +88,7 @@ const AppLoading: FC = ({ children }) => {
         logoHeight="100%"
         logoWidth="100%"
       >
-        {initDataReady ? (
-          children
-        ) : (
-          <Center w="full" h="full">
-            <Spinner />
-          </Center>
-        )}
+        {children}
       </AnimatedSplash>
     </Box>
   );

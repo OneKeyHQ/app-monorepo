@@ -1,14 +1,123 @@
 diff --git a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
-index a935e81..7932ca9 100644
+index a935e81..28bcb8c 100644
 --- a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
 +++ b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
-@@ -1,5 +1,4 @@
+@@ -1,12 +1,14 @@
  /* @flow */
--import PropTypes from "prop-types"
+ import PropTypes from "prop-types"
  import * as React from "react"
- import { View, Animated, StatusBar, StyleSheet } from "react-native"
+-import { View, Animated, StatusBar, StyleSheet } from "react-native"
++import { Image,Text,View, Animated, StatusBar, StyleSheet } from "react-native"
  import styles, {
-@@ -173,21 +172,4 @@ class AnimatedSplash extends React.Component {
+   _solidBackground,
++  _staticBackground,
+   _dynamicLogoStyle,
+   _dynamicCustomComponentStyle,
+   _dynamicImageBackground,
++  _staticLogoStyle,
+ } from "./AnimatedSplash.style"
+ 
+ class AnimatedSplash extends React.Component {
+@@ -17,18 +19,20 @@ class AnimatedSplash extends React.Component {
+   state = {
+     animationDone: false,
+     loadingProgress: new Animated.Value(0),
++    showStatusBar: true,
+   }
+ 
+   componentDidUpdate(prevProps) {
+-    const { isLoaded } = this.props
++    const { isLoaded , duration, delay } = this.props
+     const { loadingProgress } = this.state
+ 
+     if (isLoaded && !prevProps.isLoaded) {
+       Animated.timing(loadingProgress, {
+         toValue: 100,
+-        duration: 1000,
++        duration: duration || 1000,
++        delay: delay || 0,
+         useNativeDriver: true,
+-      }).start(() => {
++      }).start(({ finished }) => {
+         this.setState({
+           animationDone: true,
+         })
+@@ -61,6 +65,9 @@ class AnimatedSplash extends React.Component {
+       imageBackgroundResizeMode,
+       translucent,
+       customComponent,
++      disableAppScale,
++      disableImageBackgroundAnimation,
++      showStatusBar,
+     } = this.props
+ 
+     const opacityClearToVisible = {
+@@ -114,26 +121,31 @@ class AnimatedSplash extends React.Component {
+ 
+     return (
+       <View style={[styles.container]}>
+-        <StatusBar
+-          backgroundColor={backgroundColor || null}
+-          animated
+-          translucent={translucent}
+-        />
++        {showStatusBar && (
++          <StatusBar
++            backgroundColor={backgroundColor || null}
++            animated
++            translucent={translucent}
++          />
++        )}
+         {!animationDone && <View style={StyleSheet.absoluteFill} />}
+         <View style={styles.containerGlue}>
+           {!animationDone && (
+             <Animated.View
+-              style={_solidBackground(logoOpacity, backgroundColor)}
++              style={_staticBackground(logoOpacity, backgroundColor)}
+             />
+           )}
+-          <Animated.View style={[appScale, opacityClearToVisible, styles.flex]}>
++          <Animated.View style={[!disableAppScale && appScale, opacityClearToVisible, styles.flex]}>
+             {this.renderChildren()}
+           </Animated.View>
+           {!animationDone && (
+             <Animated.Image
+               resizeMode={imageBackgroundResizeMode || "cover"}
+               source={imageBackgroundSource || require("./background.png")}
+-              style={_dynamicImageBackground(
++              style={disableImageBackgroundAnimation ? _staticBackground(
++                1,
++                backgroundColor
++              ) : _dynamicImageBackground(
+                 imageScale,
+                 logoOpacity,
+                 backgroundColor
+@@ -149,15 +161,21 @@ class AnimatedSplash extends React.Component {
+                     logoOpacity,
+                     logoWidth,
+                     logoHeight
+-                  )}
+-                >
++                    )}>
+                   {customComponent}
+                 </Animated.View>
+               ) : (
+                 <Animated.Image
+                   source={logoImage}
+                   resizeMode={"contain"}
+-                  style={_dynamicLogoStyle(
++                  style={disableImageBackgroundAnimation
++                    ? _staticLogoStyle(
++                      logoScale,
++                      logoOpacity,
++                      logoWidth,
++                      logoHeight
++                    )
++                    : _dynamicLogoStyle(
+                     logoScale,
+                     logoOpacity,
+                     logoWidth,
+@@ -173,21 +191,5 @@ class AnimatedSplash extends React.Component {
    }
  }
  
@@ -28,5 +137,53 @@ index a935e81..7932ca9 100644
 -  translucent: PropTypes.bool,
 -  customComponent: PropTypes.element,
 -}
--
+ 
  export default AnimatedSplash
+\ No newline at end of file
+diff --git a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js
+index b1d085a..bce6d21 100644
+--- a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js
++++ b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js
+@@ -2,10 +2,18 @@ import { StyleSheet, Dimensions } from "react-native"
+ 
+ const { width, height } = Dimensions.get("screen")
+ 
+-export const _solidBackground = (logoOpacity, backgroundColor) => [
++export const _staticBackground = (logoOpacity, backgroundColor) => [
+   logoOpacity,
+   StyleSheet.absoluteFill,
+-  { backgroundColor: backgroundColor || null },
++  {
++    width,
++    height,
++    top: 0,
++    alignItems: "center",
++    justifyContent: "center",
++    backgroundColor: backgroundColor,
++    tintColor: backgroundColor || null,
++  },
+ ]
+ 
+ export const _dynamicImageBackground = (
+@@ -26,6 +34,21 @@ export const _dynamicImageBackground = (
+   },
+ ]
+ 
++export const _staticLogoStyle = (
++  logoScale,
++  logoOpacity,
++  logoWidth,
++  logoHeight
++) => [
++  1,
++  1,
++  {
++    width: logoWidth || 150,
++    height: logoHeight || 150,
++  },
++]
++
++
+ export const _dynamicLogoStyle = (
+   logoScale,
+   logoOpacity,
