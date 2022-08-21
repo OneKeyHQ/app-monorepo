@@ -108,7 +108,6 @@ function DialogConfirmMismatchOrContinue(
         onClose?.();
       }}
       contentProps={{
-        iconType: 'danger',
         // title: intl.formatMessage({ id: 'action__remove_account' }),
         // content: ''
         contentElement: (
@@ -122,7 +121,7 @@ function DialogConfirmMismatchOrContinue(
             />
             <VStack>
               <HStack>
-                <Image src={LogoOneKey} borderRadius="6px" size={6} />
+                <Image source={LogoOneKey} borderRadius="6px" size={6} />
                 <Text typography="Body1Strong" ml={3}>
                   OneKey
                 </Text>
