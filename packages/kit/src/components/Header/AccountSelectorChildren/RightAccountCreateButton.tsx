@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -29,6 +30,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { wait } from '../../../utils/helper';
 import { useAddExternalAccount } from '../../WalletConnect/useAddExternalAccount';
 import { useWalletConnectQrcodeModal } from '../../WalletConnect/useWalletConnectQrcodeModal';
+import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from '../../WalletConnect/walletConnectConsts';
 import { InitWalletServicesData } from '../../WalletConnect/WalletConnectQrcodeModal';
 
 import { AllNetwork } from './RightChainSelector';
@@ -275,6 +277,8 @@ const RightAccountCreateButton: FC<Props> = ({
     }
   }, [isExternal]);
 
+  const [isCreatLoading, setIsCreatLoading] = useState(false);
+  const timerRef = useRef<any>();
   return (
     <>
       {initWalletServiceRef.current}
@@ -282,10 +286,22 @@ const RightAccountCreateButton: FC<Props> = ({
         testID="AccountSelectorChildren-RightAccountCreateButton"
         leftIconName="UserAddSolid"
         size="xl"
-        isLoading={isLoading}
+        isLoading={isLoading || isCreatLoading}
         onPress={async () => {
           if (!activeWallet || isLoading) return;
-          await createAccount();
+          try {
+            clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(
+              () => setIsCreatLoading(false),
+              WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING,
+            );
+            setIsCreatLoading(true);
+
+            await createAccount();
+          } finally {
+            clearTimeout(timerRef.current);
+            setIsCreatLoading(false);
+          }
         }}
       >
         {intl.formatMessage({ id: 'action__add_account' })}

@@ -35,6 +35,7 @@ import {
   IConnectToWalletResult,
   useWalletConnectQrcodeModal,
 } from './useWalletConnectQrcodeModal';
+import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from './walletConnectConsts';
 
 import type { CreateWalletRoutesParams } from '../../routes';
 
@@ -104,7 +105,7 @@ export function ConnectWalletListItem({
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
       rounded="xl"
-      disabled={!available}
+      disabled={!available || isLoading}
       onPress={onPress}
     >
       <Image
@@ -165,7 +166,7 @@ export function ConnectWalletListView({
 
       loadingTimerRef.current = setTimeout(() => {
         setLoadingId('');
-      }, 10 * 1000);
+      }, WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING);
       try {
         if (connectToWalletService && uri && walletService) {
           await connectToWalletService(walletService, uri);

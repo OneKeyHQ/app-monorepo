@@ -13,7 +13,7 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import ExternalAccountImg from '../../components/WalletConnect/ExternalAccountImg';
-import { WALLET_CONNECT_SHOW_DISCONNECT_BUTTON_DELAY } from '../../components/WalletConnect/walletConnectConsts';
+import { WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY } from '../../components/WalletConnect/walletConnectConsts';
 import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { TxDetailActionBox } from '../TxDetail/components/TxDetailActionBox';
@@ -57,7 +57,7 @@ const AuthExternalAccountInfo = React.memo(
       if (session?.connected) {
         const timer = setTimeout(
           () => setRetryVisible(true),
-          WALLET_CONNECT_SHOW_DISCONNECT_BUTTON_DELAY,
+          WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY,
         );
         return () => {
           clearTimeout(timer);
