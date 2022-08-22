@@ -32,6 +32,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '../decorators';
+import { isDappScopeMatchNetwork } from '../utils';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
@@ -651,6 +652,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SwitchEthereumChainParameter,
   ) {
+    // TODO debounced switch chain
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
     const networkId = `evm--${parseInt(params.chainId)}`;
     const included = networks.some((network) => network.id === networkId);

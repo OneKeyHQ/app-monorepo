@@ -19,6 +19,7 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase from './ServiceBase';
+import { wait } from '../../utils/helper';
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
@@ -56,7 +57,8 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  notifyChainChanged(): void {
+  async notifyChainChanged(): Promise<void> {
+    await wait(600);
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
         provider.notifyDappChainChanged({
@@ -64,7 +66,9 @@ class ServiceNetwork extends ServiceBase {
         });
       },
     );
-    this.backgroundApi.walletConnect.notifySessionChanged();
+    await this.backgroundApi.walletConnect.notifySessionChanged();
+    // emit at next tick
+    await wait(100);
     appEventBus.emit(AppEventBusNames.NetworkChanged);
   }
 
