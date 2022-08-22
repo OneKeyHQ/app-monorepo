@@ -2002,8 +2002,9 @@ class Engine {
       presetRpcURLs: [],
     };
     const defaultRpcURL = presetRpcURLs[0] || network.rpcURL;
-    const urls = [network.rpcURL].concat(
-      presetRpcURLs.filter((url) => url !== network.rpcURL),
+    const selectedRpcURL = network.rpcURL || presetRpcURLs[0];
+    const urls = [selectedRpcURL].concat(
+      presetRpcURLs.filter((url) => url !== selectedRpcURL),
     );
     return { urls, defaultRpcURL };
   }

@@ -48,6 +48,7 @@ import {
   CreateHDWalletParams,
   CreateHWWalletParams,
   DBAPI,
+  DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
   ExportedCredential,
   MAIN_CONTEXT,
@@ -69,7 +70,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -177,6 +178,29 @@ class IndexedDBApi implements DBAPI {
         }
         if (oldVersion < 2) {
           db.createObjectStore(DEVICE_STORE_NAME, { keyPath: 'id' });
+        }
+        if (oldVersion < 5) {
+          // @ts-expect-error
+          const transaction = versionChangedEvent.target // @ts-expect-error
+            .transaction as IDBTransaction;
+          const openCursorRequest = transaction
+            .objectStore(NETWORK_STORE_NAME)
+            .openCursor();
+          openCursorRequest.onsuccess = (_cursorEvent) => {
+            const cursor = openCursorRequest.result as IDBCursorWithValue;
+            if (cursor) {
+              const network = cursor.value as DBNetwork;
+              const toClear = DEFAULT_RPC_ENDPOINT_TO_CLEAR[network.id];
+              if (
+                typeof toClear !== 'undefined' &&
+                network.rpcURL === toClear
+              ) {
+                network.rpcURL = '';
+                cursor.update(network);
+              }
+              cursor.continue();
+            }
+          };
         }
       };
     });
