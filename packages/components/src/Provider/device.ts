@@ -1,5 +1,5 @@
 export const SCREEN_SIZE = {
-  MEDIUM: 768, // tablets
+  MEDIUM: 744, // tablets
   LARGE: 1024, // laptops/desktops
   XLARGE: 1280, // extra Large laptops/desktops
 } as const;
