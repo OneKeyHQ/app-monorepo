@@ -91,6 +91,9 @@ function fromDBNetworkToNetwork(
     forNetwork.symbol = presetNetwork.symbol ?? forNetwork.symbol;
     forNetwork.logoURI = presetNetwork.logoURI ?? forNetwork.logoURI;
 
+    // Default rpc URL
+    forNetwork.rpcURL = forNetwork.rpcURL || presetNetwork.presetRpcURLs[0];
+
     [firstExplorer] = presetNetwork.explorers || [];
     if (dbNetwork.explorerURL) {
       matchedExplorer = (presetNetwork.explorers || []).find(

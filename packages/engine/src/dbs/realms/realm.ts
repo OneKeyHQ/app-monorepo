@@ -50,6 +50,7 @@ import {
   CreateHDWalletParams,
   CreateHWWalletParams,
   DBAPI,
+  DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
   ExportedCredential,
   MAIN_CONTEXT,
@@ -74,7 +75,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -102,6 +103,17 @@ class RealmDB implements DBAPI {
         DeviceSchema,
       ],
       schemaVersion: SCHEMA_VERSION,
+      migration: (oldRealm, newRealm) => {
+        if (oldRealm.schemaVersion < 13) {
+          const networks = newRealm.objects<NetworkSchema>('Network');
+          for (const network of networks) {
+            const toClear = DEFAULT_RPC_ENDPOINT_TO_CLEAR[network.id];
+            if (typeof toClear !== 'undefined' && network.rpcURL === toClear) {
+              network.rpcURL = '';
+            }
+          }
+        }
+      },
     })
       .then((realm) => {
         RealmDB.addSingletonWalletEntry({ realm, walletId: 'watching' });
