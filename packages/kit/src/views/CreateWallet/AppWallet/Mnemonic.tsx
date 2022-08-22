@@ -141,7 +141,7 @@ export const Mnemonic: FC<MnemonicProps> = ({
           size="xl"
           type="primary"
           mt="auto"
-          mb={insets.bottom}
+          mb={`${insets.bottom}px`}
           onPress={onPress}
           onPromise={onPromise}
         >

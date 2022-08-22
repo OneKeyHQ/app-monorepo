@@ -26,7 +26,7 @@ const MobileLayout: FC<LayoutProps> = ({ children, onNew }) => {
       <Box
         px="4"
         pt="4"
-        pb={bottom + 4}
+        pb={`${bottom + 16}px`}
         borderTopWidth="0.5"
         borderColor="border-subdued"
         bg="surface-subdued"

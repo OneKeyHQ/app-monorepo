@@ -194,7 +194,7 @@ const ScanQrcodeResult: FC = () => {
       header={header}
       footer={null}
       scrollViewProps={{
-        pb: bottom,
+        pb: `${bottom}px`,
         children: (
           <>
             <Box

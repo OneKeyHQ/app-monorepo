@@ -110,7 +110,7 @@ const ScanQrcode: FC = () => {
         header={intl.formatMessage({ id: 'title__scan_qr_code' })}
         footer={
           <Button
-            style={{ marginBottom: bottom }}
+            style={{ marginBottom: `${bottom}px` }}
             onPress={pickImage}
             h={isApp ? '55px' : '45px'}
             variant="unstyled"

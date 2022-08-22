@@ -56,7 +56,7 @@ export const Attentions: FC<AttentionsProps> = ({ onPress }) => {
         </Box>
         <Button
           mt={4}
-          mb={insets.bottom}
+          mb={`${insets.bottom}px`}
           size="xl"
           type="primary"
           onPress={onPress}
