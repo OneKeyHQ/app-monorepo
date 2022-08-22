@@ -6,6 +6,7 @@ import {
 import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -35,6 +36,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
+import { extractResponseError } from '../../../proxy';
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -217,6 +219,18 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only methods
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const client = await this.getClient();
+    try {
+      return await client.rpc.call(
+        request.method,
+        request.params as Record<string, any> | Array<any>,
+      );
+    } catch (e) {
+      throw extractResponseError(e);
+    }
+  }
 
   override createClientFromURL(url: string): Solana {
     return new Solana(url);

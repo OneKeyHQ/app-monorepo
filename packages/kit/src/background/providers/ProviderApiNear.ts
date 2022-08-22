@@ -120,7 +120,7 @@ class ProviderApiNear extends ProviderApiBase {
 
   @providerApiMethod()
   public async near_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.backgroundApi.info(
+    debugLogger.providerApi.info(
       'ProviderApiNear.near_requestAccounts',
       request,
     );

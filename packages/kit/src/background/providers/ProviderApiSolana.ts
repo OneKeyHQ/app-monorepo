@@ -3,13 +3,16 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
+  IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import bs58 from 'bs58';
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
 import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { getActiveWalletAccount } from '../../hooks/redux';
 import { backgroundClass, providerApiMethod } from '../decorators';
 
 import ProviderApiBase, {
@@ -53,11 +56,22 @@ class ProviderApiSolana extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // TODO
-    console.log(info);
+    debugLogger.providerApi.info(info);
   }
 
-  public rpcCall() {
-    throw web3Errors.rpc.methodNotFound();
+  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
+    const { networkId } = getActiveWalletAccount();
+
+    debugLogger.providerApi.info('solana rpcCall:', request, { networkId });
+    const result = await this.backgroundApi.engine.proxyJsonRPCCall(
+      networkId,
+      request,
+    );
+    debugLogger.providerApi.info('solana rpcCall RESULT:', request, {
+      networkId,
+      result,
+    });
+    return result;
   }
 
   // ----------------------------------------------
@@ -75,7 +89,7 @@ class ProviderApiSolana extends ProviderApiBase {
         .getConnectedAccounts({ origin })
         .map(({ address }) => address),
     });
-    console.log('disconnect');
+    debugLogger.providerApi.info('solana disconnect', origin);
   }
 
   @providerApiMethod()
@@ -114,7 +128,7 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    console.log('signAllTransactions', request, params);
+    debugLogger.providerApi.info('solana signAllTransactions', request, params);
 
     const ret = [];
     for (const tx of txsToBeSigned) {
@@ -145,7 +159,7 @@ class ProviderApiSolana extends ProviderApiBase {
       },
     )) as string;
     // todo: validate message is  transactions
-    console.log('signTransaction', request, params);
+    debugLogger.providerApi.info('solana signTransaction', request, params);
     return {
       signature: txid,
       publicKey: accounts[0].address,
@@ -166,7 +180,7 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    console.log('signMessage', payload, params);
+    debugLogger.providerApi.info('solana signMessage', payload, params);
     return {
       signature: Mocks.signedMessage,
       publicKey: Mocks.publicKey,
