@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -8,14 +9,28 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { WalletService } from './types';
 
 // https://registry.walletconnect.org/data/wallets.json
-const enabledWallets = [
-  'MetaMask',
-  'Trust Wallet',
-  'Rainbow',
-  'imToken',
-  'TokenPocket',
-  'BitKeep',
-];
+function buildEnabledWallets({
+  isVerticalLayout,
+}: {
+  isVerticalLayout: boolean;
+}) {
+  let enabledWallets = [
+    'MetaMask',
+    'Trust Wallet',
+    'Rainbow',
+    'imToken',
+    'TokenPocket',
+    'BitKeep',
+  ];
+  const enabledWalletsInVerticalOnly = [
+    //
+    'Zerion',
+  ];
+  if (isVerticalLayout) {
+    enabledWallets = enabledWallets.concat(enabledWalletsInVerticalOnly);
+  }
+  return enabledWallets;
+}
 
 const defaultState: {
   data: WalletService[];
@@ -57,6 +72,7 @@ export function useMobileRegistryOfWalletServices() {
   const { result: walletServicesLocal } = usePromiseResult(() =>
     simpleDb.walletConnect.getWalletServicesList(),
   );
+  const isVerticalLayout = useIsVerticalLayout();
   useEffect(() => {
     if (walletServicesRemote && walletServicesRemote.length) {
       simpleDb.walletConnect.saveWalletServicesList(walletServicesRemote);
@@ -71,12 +87,17 @@ export function useMobileRegistryOfWalletServices() {
     [walletServicesLocal, walletServicesRemote],
   );
 
+  const enabledWallets = useMemo(
+    () => buildEnabledWallets({ isVerticalLayout }),
+    [isVerticalLayout],
+  );
+
   const walletServicesEnabled = useMemo(
     () =>
       enabledWallets
         .map((name) => walletServices.find((item) => item.name === name))
         .filter(Boolean),
-    [walletServices],
+    [enabledWallets, walletServices],
   );
 
   return { data: walletServicesEnabled, allData: walletServices, error };

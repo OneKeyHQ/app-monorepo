@@ -101,6 +101,9 @@ function BehindTheSceneCreatingWallet({
       // safeGoBack();
 
       forceVisibleUnfocused?.();
+
+      // NOT need show Hardware setup success modal anymore
+      /*
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateWallet,
         params: {
@@ -111,6 +114,7 @@ function BehindTheSceneCreatingWallet({
           },
         },
       });
+      */
 
       return true;
     } catch (e: any) {
