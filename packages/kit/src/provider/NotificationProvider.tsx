@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo } from 'react';
 
 import JPush from 'jpush-react-native';
 import { AppState } from 'react-native';
@@ -13,10 +13,10 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { JPUSH_KEY } from '../config';
 import { setPushNotificationConfig } from '../store/reducers/settings';
 
 import { navigationRef } from './NavigationProvider';
@@ -43,7 +43,6 @@ const NotificationProvider: React.FC<{
   children: React.ReactElement<any, any> | null;
 }> = ({ children }) => {
   const { accountId, networkId } = useActiveWalletAccount();
-  const jpushInitRef = useRef<boolean>(false);
   const { pushNotification } = useSettings();
 
   const switchToScreen = useCallback(
@@ -76,6 +75,7 @@ const NotificationProvider: React.FC<{
   );
 
   const clearJpushBadge = useCallback(() => {
+    debugLogger.common.debug('clearJpushBadge');
     JPush.setBadge({
       badge: 0,
       appBadge: 0,
@@ -85,6 +85,9 @@ const NotificationProvider: React.FC<{
   const handleNotificaitonCallback = useCallback(
     (result: NotificationResult) => {
       debugLogger.common.debug('JPUSH.notificationListener', result);
+      if (result?.notificationEventType !== 'notificationArrived') {
+        clearJpushBadge();
+      }
       if (
         result?.notificationEventType !== 'notificationOpened' ||
         !result.extras
@@ -114,7 +117,14 @@ const NotificationProvider: React.FC<{
         params,
       });
     },
-    [switchToScreen],
+    [switchToScreen, clearJpushBadge],
+  );
+
+  const handleLocalNotificationCallback = useCallback(
+    (result: NotificationResult) => {
+      handleNotificaitonCallback(result);
+    },
+    [handleNotificaitonCallback],
   );
 
   const handleRegistrationIdCallback = useCallback(
@@ -130,56 +140,60 @@ const NotificationProvider: React.FC<{
     [],
   );
 
-  const addJpushListener = useCallback(() => {
-    // clear badges
-    JPush.setBadge({
-      badge: 0,
-      appBadge: 0,
-    });
-    JPush.getRegistrationID(handleRegistrationIdCallback);
-    JPush.addConnectEventListener((result) => {
+  const handleConnectStateChangeCallback = useCallback(
+    (result: { connectEnable: boolean }) => {
       debugLogger.common.debug('JPUSH.addConnectEventListener', result);
       if (!result.connectEnable) {
         return;
       }
       JPush.getRegistrationID(handleRegistrationIdCallback);
-    });
-    JPush.addNotificationListener(handleNotificaitonCallback);
-    JPush.addLocalNotificationListener(handleNotificaitonCallback);
-  }, [handleNotificaitonCallback, handleRegistrationIdCallback]);
+    },
+    [handleRegistrationIdCallback],
+  );
+
+  const shouldInitJpushListener = useMemo(() => {
+    if (!accountId || !networkId) {
+      return false;
+    }
+    if (!pushNotification?.pushEnable) {
+      return false;
+    }
+    return true;
+  }, [accountId, networkId, pushNotification?.pushEnable]);
 
   useEffect(() => {
-    if (!JPUSH_KEY) {
-      return;
-    }
-    if (jpushInitRef.current) {
-      return;
-    }
     if (!platformEnv.isNative) {
       return;
     }
-    if (!accountId || !networkId) {
-      return;
-    }
-    if (!pushNotification?.pushEnable) {
-      return;
-    }
-    jpushInitRef.current = true;
-    addJpushListener();
+    clearJpushBadge();
     const listener = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+      if (!['background', 'inactive'].includes(state)) {
         clearJpushBadge();
       }
     });
-    return () => {
+    const clear = () => {
       listener.remove();
+      JPush.removeListener(handleNotificaitonCallback);
+      JPush.removeListener(handleConnectStateChangeCallback);
+      JPush.removeListener(handleLocalNotificationCallback);
     };
+    if (!shouldInitJpushListener) {
+      return clear();
+    }
+    initJpush();
+    backgroundApiProxy.engine.syncPushNotificationConfig();
+    JPush.getRegistrationID(handleRegistrationIdCallback);
+    JPush.addConnectEventListener(handleConnectStateChangeCallback);
+    JPush.addNotificationListener(handleNotificaitonCallback);
+    JPush.addLocalNotificationListener(handleLocalNotificationCallback);
+    return clear;
   }, [
-    addJpushListener,
-    accountId,
-    networkId,
-    pushNotification?.pushEnable,
     clearJpushBadge,
+    shouldInitJpushListener,
+    handleNotificaitonCallback,
+    handleRegistrationIdCallback,
+    handleLocalNotificationCallback,
+    handleConnectStateChangeCallback,
   ]);
 
   return children;

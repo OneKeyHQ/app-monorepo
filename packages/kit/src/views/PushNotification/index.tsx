@@ -6,6 +6,7 @@ import React, {
   useMemo,
 } from 'react';
 
+import { requestPermissionsAsync } from 'expo-notifications';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
@@ -30,7 +31,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   checkPushNotificationPermission,
-  initJpush,
+  hasPermission,
 } from '@onekeyhq/shared/src/notification';
 
 type OptionsProps = {
@@ -186,24 +187,32 @@ const PushNotification = () => {
   );
 
   const checkPermission = useCallback(async () => {
-    const hasPermission = await checkPushNotificationPermission();
-    if (hasPermission) {
-      return;
-    }
-    if (!pushNotification.pushEnable) {
+    const alreadyHasPermission = await checkPushNotificationPermission();
+    if (alreadyHasPermission) {
       return;
     }
     onChangePushNotification('pushEnable')(false);
     DialogManager.show({
       render: <PermissionDialog type="notification" />,
     });
-  }, [onChangePushNotification, pushNotification.pushEnable]);
+  }, [onChangePushNotification]);
+
+  const handlePushEnableChange = useCallback(
+    async (value: boolean) => {
+      if (value) {
+        const permission = await requestPermissionsAsync();
+        if (!hasPermission(permission)) {
+          return checkPermission();
+        }
+      }
+      onChangePushNotification('pushEnable')(value);
+    },
+    [onChangePushNotification, checkPermission],
+  );
 
   useEffect(() => {
     if (pushNotification.pushEnable) {
-      initJpush().finally(() => {
-        checkPermission();
-      });
+      checkPermission();
     }
     const listener = AppState.addEventListener('change', (state) => {
       if (state === 'active' && pushNotification.pushEnable) {
@@ -269,7 +278,7 @@ const PushNotification = () => {
               id: 'form__notification',
             }),
             value: pushNotification.pushEnable,
-            onChange: onChangePushNotification('pushEnable'),
+            onChange: handlePushEnableChange,
           },
         ]}
       />
