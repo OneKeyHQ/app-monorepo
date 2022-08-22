@@ -35,7 +35,7 @@ const TermsOfService: FC = () => {
   return (
     <Center
       position="absolute"
-      bottom={{ base: insets.bottom, sm: 8 }}
+      bottom={{ base: `${insets.bottom}px`, sm: 8 }}
       w="full"
       pb="16px"
       bgColor="background-default"

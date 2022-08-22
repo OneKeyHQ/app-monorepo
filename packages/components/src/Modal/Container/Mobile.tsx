@@ -137,7 +137,11 @@ const MobileModal: FC<ModalProps> = ({
       {isValidElement(footer) || footer === null ? (
         footer
       ) : (
-        <Box pb={bottom} borderTopWidth={1} borderTopColor="border-subdued">
+        <Box
+          pb={`${bottom}px`}
+          borderTopWidth={1}
+          borderTopColor="border-subdued"
+        >
           <HStack
             p={4}
             display="flex"

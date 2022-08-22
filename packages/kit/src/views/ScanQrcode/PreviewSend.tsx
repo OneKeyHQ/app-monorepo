@@ -68,7 +68,7 @@ const PreviewSend: FC<PreviewSendProps> = () => {
       hideSecondaryAction
       header={intl.formatMessage({ id: 'modal__preview' })}
       scrollViewProps={{
-        pb: bottom,
+        pb: `${bottom}px`,
         children: (
           <>
             <Box

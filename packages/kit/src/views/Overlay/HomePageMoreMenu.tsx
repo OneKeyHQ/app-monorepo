@@ -60,7 +60,7 @@ const ModalizedMenu: FC<{ closeOverlay: () => void }> = ({
         header={intl.formatMessage({ id: 'action__more' })}
         footer={null}
         closeAction={closeOverlay}
-        staticChildrenProps={{ padding: 0, paddingBottom: bottom }}
+        staticChildrenProps={{ padding: 0, paddingBottom: `${bottom}px` }}
       >
         {children}
       </Modal>

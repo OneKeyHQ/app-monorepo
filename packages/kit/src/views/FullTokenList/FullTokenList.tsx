@@ -30,6 +30,11 @@ const FullTokenList: FC<FullTokenListProps> = () => {
     });
   }, [navigation, intl]);
 
-  return <AssetsList flatStyle ListFooterComponent={<Box h={12 + bottom} />} />;
+  return (
+    <AssetsList
+      flatStyle
+      ListFooterComponent={<Box h={`${48 + bottom}px`} />}
+    />
+  );
 };
 export default FullTokenList;

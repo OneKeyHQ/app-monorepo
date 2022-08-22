@@ -21,7 +21,7 @@ export const Me = () => {
   return (
     <Box bg="background-default" flex="1">
       <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
-        <Box w="full" maxW={768} mx="auto" pb={inset.bottom}>
+        <Box w="full" maxW={768} mx="auto" pb={`${inset.bottom}px`}>
           <UtilSection />
           <DefaultSection />
           <GenaralSection />

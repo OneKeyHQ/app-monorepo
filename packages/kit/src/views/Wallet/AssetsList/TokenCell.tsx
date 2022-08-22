@@ -115,7 +115,7 @@ const TokenCell: FC<TokenCellProps> = ({
         ) : (
           <Typography.Body2 color="text-subdued">
             {balance}
-            {token.symbol ? token.symbol : null}
+            {token.symbol ? ` ${token.symbol}` : null}
           </Typography.Body2>
         )}
       </Box>

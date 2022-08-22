@@ -106,7 +106,7 @@ const LeftSide: FC<LeftSideProps> = ({
       testID="AccountSelectorChildren-LeftSide"
       borderRightWidth={1}
       borderRightColor="border-subdued"
-      pb={bottom}
+      pb={`${bottom}px`}
     >
       <ScrollView>
         <VStack py={2}>
