@@ -5,10 +5,14 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Container,
+  Pressable,
   Switch,
+  Text,
   Typography,
   useTheme,
+  useToast,
 } from '@onekeyhq/components';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -23,7 +27,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const DevSettingSection = () => {
+  const toast = useToast();
   const { themeVariant } = useTheme();
+  const { devMode, pushNotification } = useSettings();
+  const { registrationId } = pushNotification || {};
   const {
     enable: devModeEnable,
     preReleaseUpdate,
@@ -31,7 +38,7 @@ export const DevSettingSection = () => {
     updateDeviceSys,
     enableTestFiatEndpoint,
     enableZeroNotificationThreshold,
-  } = useSettings().devMode || {};
+  } = devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
 
@@ -42,6 +49,11 @@ export const DevSettingSection = () => {
   const onToggleDebugMode = useCallback(() => {
     dispatch(setDevMode(!devModeEnable));
   }, [devModeEnable, dispatch]);
+
+  const copyRegistrationId = useCallback(() => {
+    copyToClipboard(registrationId || '');
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [toast, intl, registrationId]);
 
   const fiatEndpoint = useMemo(getFiatEndpoint, [enableTestFiatEndpoint]);
 
@@ -134,6 +146,15 @@ export const DevSettingSection = () => {
               }}
             />
           </Container.Item>
+          <Container.Item
+            title="registrationId"
+            titleColor="text-critical"
+            subDescribeCustom={
+              <Pressable onPress={copyRegistrationId}>
+                <Text color="text-subdued">{registrationId}</Text>
+              </Pressable>
+            }
+          />
           <Container.Item
             title={intl.formatMessage({ id: 'form__dev_platform_channel' })}
             titleColor="text-critical"
