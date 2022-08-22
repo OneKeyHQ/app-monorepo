@@ -191,11 +191,6 @@ const RecoverAccounts: FC = () => {
           );
         })
         .catch((e: any) => {
-          const { code } = e || {};
-          if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
-            return;
-          }
-
           isFetchingData.current = false;
 
           setTimeout(() => {
