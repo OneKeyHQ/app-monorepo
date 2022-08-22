@@ -74,6 +74,7 @@ const NFTSVG: FC<Props> = ({ ...rest }) => {
   return (
     <Box size={size}>
       <WebView
+        containerStyle={{ borderRadius: 20 }}
         originWhitelist={['*']}
         pointerEvents="none"
         scalesPageToFit
