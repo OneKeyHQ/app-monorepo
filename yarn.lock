@@ -14060,10 +14060,9 @@ jayson@^3.4.4:
     uuid "^8.3.2"
     ws "^7.4.5"
 
-jcore-react-native@2.0.3:
+"jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git":
   version "2.0.3"
-  resolved "https://registry.yarnpkg.com/jcore-react-native/-/jcore-react-native-2.0.3.tgz#26d4afe05a94e187acb3fc87c0c9060faf162499"
-  integrity sha512-AHf4/E1NdkBtDfWq5ab0geYAmbhctsak+W1qjxGMAALSixva1ykJb+zsNT5EUYWE7PTRyoeNE3DEdCKjvFp6Ug==
+  resolved "https://github.com/OneKeyHQ/jcore-react-native.git#2cadf288224242cec715a2e260f872235c58874c"
 
 jest-changed-files@^27.4.2:
   version "27.4.2"
@@ -14537,10 +14536,9 @@ join-component@^1.1.0:
   resolved "https://registry.yarnpkg.com/join-component/-/join-component-1.1.0.tgz#b8417b750661a392bee2c2537c68b2a9d4977cd5"
   integrity sha512-bF7vcQxbODoGK1imE2P9GS9aw4zD0Sd+Hni68IMZLj7zRnquH7dXUmMw9hDI5S/Jzt7q+IyTXN0rSg2GI0IKhQ==
 
-jpush-react-native@2.9.2:
+"jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git":
   version "2.9.2"
-  resolved "https://registry.yarnpkg.com/jpush-react-native/-/jpush-react-native-2.9.2.tgz#671aabd77d58dc2d481f31696cde99dbc8f5efad"
-  integrity sha512-L4cPt7QMxndfqR+KSHYT1E83aAHcoi2k2hDr+8Xz/8ER0xUqKZAr0sxMb0R7WHvJ0lmi8xae7mpmpHFvty49hg==
+  resolved "https://github.com/OneKeyHQ/jpush-react-native.git#43ee41675924e97620bfe91a81f9e9826bd9b067"
 
 js-conflux-sdk@^1.7.1:
   version "1.7.3"
