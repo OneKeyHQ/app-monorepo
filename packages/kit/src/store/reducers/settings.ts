@@ -261,7 +261,7 @@ export const settingsSlice = createSlice({
         ...state.pushNotification,
         ...action.payload,
       };
-      if (action.payload?.pushEnable && !config.pushEnable) {
+      if (action.payload?.pushEnable && !state.pushNotification?.pushEnable) {
         Object.assign(config, {
           btcAndEthPriceAlertEnable: true,
           favoriteTokensPriceAlertEnable: true,
