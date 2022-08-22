@@ -189,15 +189,15 @@ const RightHeader: FC<RightHeaderProps> = ({
                 : 'DocumentTextSolid',
             },
           },
-          {
-            label: intl.formatMessage({
-              id: 'action__recover_accounts',
-            }),
-            value: 'restore',
-            iconProps: {
-              name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
-            },
-          },
+          // {
+          //   label: intl.formatMessage({
+          //     id: 'action__recover_accounts',
+          //   }),
+          //   value: 'restore',
+          //   iconProps: {
+          //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
+          //   },
+          // },
           {
             label: intl.formatMessage({
               id: 'action__delete_wallet',
@@ -303,15 +303,15 @@ const RightHeader: FC<RightHeaderProps> = ({
                     : 'ShieldCheckSolid',
                 },
               },
-              {
-                label: intl.formatMessage({
-                  id: 'action__recover_accounts',
-                }),
-                value: 'restore',
-                iconProps: {
-                  name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
-                },
-              },
+              // {
+              //   label: intl.formatMessage({
+              //     id: 'action__recover_accounts',
+              //   }),
+              //   value: 'restore',
+              //   iconProps: {
+              //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
+              //   },
+              // },
               {
                 label: intl.formatMessage({ id: 'action__delete_wallet' }),
                 value: 'remove',

@@ -796,16 +796,20 @@ class Engine {
       return a.address;
     });
 
-    const balances: Array<BigNumber | undefined> = await vault.getBalances(
-      accounts.map((a) => {
-        if (a.type === AccountType.UTXO) {
-          const { xpub } = a as DBUTXOAccount;
-          return { address: xpub };
-        }
-        return { address: a.address };
-      }),
-    );
-
+    let balances: Array<BigNumber | undefined>;
+    try {
+      balances = await vault.getBalances(
+        accounts.map((a) => {
+          if (a.type === AccountType.UTXO) {
+            const { xpub } = a as DBUTXOAccount;
+            return { address: xpub };
+          }
+          return { address: a.address };
+        }),
+      );
+    } catch (e) {
+      balances = accounts.map(() => undefined);
+    }
     return balances.map((balance, index) => ({
       index: start + index,
       path: accounts[index].path,

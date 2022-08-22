@@ -91,6 +91,7 @@ const RecoverConfirm: FC = () => {
           pl="16px"
           alignItems="center"
           bgColor="surface-default"
+          borderTopRadius="12px"
           flex={1}
         >
           <Box>
@@ -102,14 +103,9 @@ const RecoverConfirm: FC = () => {
               onChange={selectAllHandle}
             />
           </Box>
-          <Box>
-            <Typography.Body1Strong>
-              {intl.formatMessage({ id: 'form__select_all' })}
-            </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage({ id: 'content__up_to_100_accounts' })}
-            </Typography.Body2>
-          </Box>
+          <Typography.Body1Strong>
+            {intl.formatMessage({ id: 'form__select_all' })}
+          </Typography.Body1Strong>
         </Box>
         <Divider />
       </Box>
@@ -198,7 +194,6 @@ const RecoverConfirm: FC = () => {
         keyExtractor: (item) => (item as ImportableHDAccount).path,
         ListHeaderComponent: header,
       }}
-      mt="10px"
     />
   );
 };
