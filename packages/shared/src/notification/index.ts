@@ -2,7 +2,6 @@ import {
   IosAuthorizationStatus,
   NotificationPermissionsStatus,
   getPermissionsAsync,
-  requestPermissionsAsync,
 } from 'expo-notifications';
 import JPush from 'jpush-react-native';
 import { NativeModules } from 'react-native';
@@ -13,8 +12,7 @@ import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
 
 let jpushInited = false;
-
-const hasPermission = (settings: NotificationPermissionsStatus) =>
+export const hasPermission = (settings: NotificationPermissionsStatus) =>
   settings.granted ||
   settings.ios?.status === IosAuthorizationStatus.PROVISIONAL;
 
@@ -23,12 +21,11 @@ export const checkPushNotificationPermission = async () => {
   return hasPermission(permissions);
 };
 
-export const initJpush = async () => {
+export const initJpush = () => {
   if (jpushInited) {
     return;
   }
   jpushInited = true;
-  await requestPermissionsAsync();
   const config = {
     'appKey': JPUSH_KEY,
     // see: https://github.com/jpush/jpush-react-native/issues/861

@@ -27,7 +27,10 @@ async function fetchData<T>(
     const { data } = await axios.put<T>(apiUrl, body);
     return data;
   } catch (error) {
-    debugLogger.common.error(`fetch ${apiUrl} error`);
+    debugLogger.common.error(
+      `fetch ${apiUrl} error`,
+      error instanceof Error ? error?.message : error,
+    );
     return fallback;
   }
 }
