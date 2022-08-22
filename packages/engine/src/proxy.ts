@@ -90,10 +90,12 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   }
 
   let providerOptions: Record<string, any> = {};
+  let { rpcURL } = dbNetwork;
 
   const presetNetwork = getPresetNetworks()[dbNetwork.id];
   if (typeof presetNetwork !== 'undefined') {
     ({ providerOptions } = presetNetwork.extensions || { providerOptions: {} });
+    rpcURL = rpcURL || presetNetwork.presetRpcURLs[0];
   }
 
   let implOptions = providerOptions || {};
@@ -117,8 +119,8 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
         name: defaultClient,
         args:
           dbNetwork.impl === IMPL_ALGO
-            ? [dbNetwork.rpcURL, { url: `${dbNetwork.rpcURL}/idx2` }]
-            : [dbNetwork.rpcURL],
+            ? [rpcURL, { url: `${rpcURL}/idx2` }]
+            : [rpcURL],
       },
     ],
   };
