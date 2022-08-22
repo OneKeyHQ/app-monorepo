@@ -18,6 +18,7 @@ import {
   KeyboardDismissView,
   Modal,
   Spinner,
+  Switch,
   Typography,
   useForm,
   useIsVerticalLayout,
@@ -119,6 +120,17 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
+      try {
+        await serviceNetwork.preAddNetwork(data.rpcURL || '');
+      } catch (error) {
+        toast.show(
+          { title: intl.formatMessage({ id: 'form__rpc_fetched_failed' }) },
+          {
+            type: 'error',
+          },
+        );
+        return;
+      }
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       refData.current.preventRemove = true;
@@ -236,13 +248,12 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                     defaultMessage: 'RPC URL',
                   })}
                   labelAddon={
-                    <Button
-                      size="xs"
-                      onPress={() => setIsCustomRpc((v) => !v)}
-                      type={isCustomRpc ? 'primary' : 'basic'}
-                    >
-                      {intl.formatMessage({ id: 'content__custom' })}
-                    </Button>
+                    <Switch
+                      size="sm"
+                      label={intl.formatMessage({ id: 'content__custom' })}
+                      isChecked={isCustomRpc}
+                      onToggle={() => setIsCustomRpc((v) => !v)}
+                    />
                   }
                   formControlProps={{ zIndex: 10 }}
                   helpText={
