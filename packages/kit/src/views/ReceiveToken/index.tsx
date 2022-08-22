@@ -108,8 +108,8 @@ const ReceiveToken = () => {
           borderRadius="24px"
           alignItems="center"
           justifyContent="center"
-          w={{ base: 296, md: 208 }}
-          h={{ base: 296, md: 208 }}
+          w={{ base: platformEnv.isExtension ? 240 : 296, md: 208 }}
+          h={{ base: platformEnv.isExtension ? 240 : 296, md: 208 }}
           bgColor="white"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="border-default"
@@ -143,7 +143,6 @@ const ReceiveToken = () => {
         <Box
           alignItems="center"
           mt={isVerticalLayout ? '32px' : '24px'}
-          maxW="256px"
           mx="auto"
         >
           <Text
@@ -155,6 +154,7 @@ const ReceiveToken = () => {
           </Text>
           <Text
             mt="8px"
+            maxW="256px"
             color="text-subdued"
             textAlign="center"
             typography={{ sm: 'Body1', md: 'Body2' }}
@@ -163,8 +163,7 @@ const ReceiveToken = () => {
             {isLoadingForHardware ? shownAddress : shortenAddress(shownAddress)}
           </Text>
           <Button
-            height={isVerticalLayout ? '50px' : '38px'}
-            mt={isVerticalLayout ? '32px' : '24px'}
+            mt="24px"
             type="primary"
             size={isVerticalLayout ? 'xl' : 'base'}
             isLoading={isLoadingForHardware}
@@ -240,15 +239,23 @@ const ReceiveToken = () => {
                   w="auto"
                   mx="auto"
                 >
-                  <Typography.Body2 color="text-subdued" textAlign="center">
+                  <Text
+                    typography={platformEnv.isExtension ? 'Caption' : 'Body2'}
+                    color="text-subdued"
+                    textAlign="center"
+                  >
                     {intl.formatMessage({ id: 'content__receive_description' })}
-                  </Typography.Body2>
+                  </Text>
                   {ignoreDeviceCheck && (
-                    <Typography.Body2 color="text-warning" textAlign="center">
+                    <Text
+                      typography={platformEnv.isExtension ? 'Caption' : 'Body2'}
+                      color="text-warning"
+                      textAlign="center"
+                    >
                       {intl.formatMessage({
                         id: 'content__address_not_confirmed_on_device',
                       })}
-                    </Typography.Body2>
+                    </Text>
                   )}
                 </Box>
                 <Box flex={1} justifyContent="center" flexDirection="column">
@@ -298,8 +305,7 @@ const ReceiveToken = () => {
                       {shownAddress}
                     </Text>
                     <Button
-                      height={isVerticalLayout ? '48px' : '36px'}
-                      mt={isVerticalLayout ? '32px' : '24px'}
+                      mt="24px"
                       type="plain"
                       size={isVerticalLayout ? 'xl' : 'base'}
                       leftIconName="DuplicateSolid"
