@@ -20,16 +20,30 @@ if (process.env.NODE_ENV !== 'production') {
   console.log('   Must reload extension for modifications to take effect.');
 }
 
-const removeScriptTagAfterInject = true;
-if (platformEnv.isManifestV3) {
-  bridgeSetup.contentScript.inject({ file: 'injected.js' });
-} else {
-  // bridgeSetup.contentScript.inject({ file: 'injected.js' });
-  bridgeSetup.contentScript.inject({
-    code: injectedCode,
-    remove: removeScriptTagAfterInject,
-  });
+function shouldInject() {
+  const { hostname } = window.location;
+  // zhihu search will fail if inject custom code
+  const blackList = ['www.zhihu.com', 'zhihu.com'];
+  if (blackList.includes(hostname)) {
+    return false;
+  }
+  return true;
 }
+
+const removeScriptTagAfterInject = true;
+
+if (shouldInject()) {
+  if (platformEnv.isManifestV3) {
+    bridgeSetup.contentScript.inject({ file: 'injected.js' });
+  } else {
+    // bridgeSetup.contentScript.inject({ file: 'injected.js' });
+    bridgeSetup.contentScript.inject({
+      code: injectedCode,
+      remove: removeScriptTagAfterInject,
+    });
+  }
+}
+
 bridgeSetup.contentScript.setupMessagePort();
 
 if (
