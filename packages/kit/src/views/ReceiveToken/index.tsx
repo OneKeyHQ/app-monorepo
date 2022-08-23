@@ -14,7 +14,6 @@ import {
   QRCode,
   Text,
   ToastManager,
-  Typography,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';

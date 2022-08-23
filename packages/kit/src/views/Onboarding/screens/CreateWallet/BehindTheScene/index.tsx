@@ -140,8 +140,6 @@ function BehindTheSceneCreatingWallet({
     isHardwareCreating?.device,
     isHardwareCreating?.features,
     forceVisibleUnfocused,
-    navigation,
-    onPressOnboardingFinished,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {

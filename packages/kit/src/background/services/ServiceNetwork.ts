@@ -15,11 +15,11 @@ import {
   changeActiveNetwork,
 } from '../../store/reducers/general';
 import { updateNetworks } from '../../store/reducers/runtime';
+import { wait } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase from './ServiceBase';
-import { wait } from '../../utils/helper';
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
