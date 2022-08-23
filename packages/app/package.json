@@ -57,6 +57,7 @@
     "react-native-auto-size-text": "^1.1.1",
     "react-native-ble-manager": "^8.1.0",
     "react-native-ble-plx": "^2.0.3",
+    "react-native-camera": "4.2.1",
     "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8",
     "react-native-collapsible-tab-view": "4.5.2",
     "react-native-config": "^1.4.5",

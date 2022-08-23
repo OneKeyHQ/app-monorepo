@@ -18428,6 +18428,13 @@ react-native-ble-plx@^2.0.3:
   resolved "https://registry.yarnpkg.com/react-native-ble-plx/-/react-native-ble-plx-2.0.3.tgz#b0a746f33389dbf7fd7b158513330d487d5d0fbb"
   integrity sha512-62LRDBPf/03K7sge+qq2ZuF8PWCGB782G+SBrpgNm5fA5Hs3FCY1ExTJZ1G0tB5ZhBPYEXcKRxPLuFegcDFrqA==
 
+react-native-camera@4.2.1:
+  version "4.2.1"
+  resolved "https://registry.yarnpkg.com/react-native-camera/-/react-native-camera-4.2.1.tgz#caf74081f055e89d7e9b0cd5108965d808c60e90"
+  integrity sha512-+Vkql24PFYQfsPRznJCvPwJQfyzCnjlcww/iZ4Ej80bgivKjL9eU0IMQIXp4yi6XCrKi4voWXxIDPMupQZKeIQ==
+  dependencies:
+    prop-types "^15.6.2"
+
 "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8":
   version "2.4.0"
   resolved "https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8"

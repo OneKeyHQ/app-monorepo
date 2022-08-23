@@ -156,6 +156,7 @@ android {
         configurations.all {
             resolutionStrategy { force 'androidx.core:core-ktx:1.6.0' }
         }
+        missingDimensionStrategy 'react-native-camera', 'mlkit'
         applicationId 'so.onekey.app.wallet'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion

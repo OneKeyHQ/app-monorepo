@@ -1,8 +1,7 @@
 import React, { FC } from 'react';
 
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { RNCamera as Camera } from 'react-native-camera';
 
-import { Camera } from './ExpoCamera.android';
 import { ScanCameraProps } from './types';
 
 const ScanCamera: FC<ScanCameraProps> = ({
@@ -14,11 +13,13 @@ const ScanCamera: FC<ScanCameraProps> = ({
   isActive ? (
     <Camera
       style={style}
-      onBarCodeScanned={({ data }) => onQrcodeScanned(data)}
-      barCodeScannerSettings={{
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
-      }}
+      captureAudio={false}
+      onGoogleVisionBarcodesDetected={({ barcodes }) =>
+        barcodes.length && onQrcodeScanned(barcodes[0].data)
+      }
+      googleVisionBarcodeType={
+        Camera.Constants.GoogleVisionBarcodeDetection.BarcodeType.QR_CODE
+      }
     >
       {children}
     </Camera>
