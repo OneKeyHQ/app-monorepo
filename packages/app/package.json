@@ -101,12 +101,5 @@
     "@types/react-native": "~0.67.7",
     "babel-plugin-module-resolver": "^4.1.0"
   },
-  "expo": {
-    "autolinking": {
-      "exclude": [
-        "expo-camera"
-      ]
-    }
-  },
   "private": true
 }

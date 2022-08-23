@@ -6,10 +6,11 @@ import {
   useIsFocused,
   useRoute,
 } from '@react-navigation/core';
+import { Camera as ExpoCamera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { PermissionStatus } from 'expo-modules-core';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
-import { PermissionStatus, PermissionsAndroid } from 'react-native';
 
 import {
   Center,
@@ -43,8 +44,9 @@ type ScanQrcodeNavProp = NavigationProp<
 const ScanQrcode: FC = () => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const [currentPermission, setCurrentPermission] =
-    useState<PermissionStatus>();
+  const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
+    PermissionStatus.UNDETERMINED,
+  );
   const scanned = useRef(false);
   const isFocused = useIsFocused();
   const isVerticalLayout = useIsVerticalLayout();
@@ -87,9 +89,7 @@ const ScanQrcode: FC = () => {
 
   useEffect(() => {
     (async () => {
-      const status = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-      );
+      const { status } = await ExpoCamera.requestCameraPermissionsAsync();
       setCurrentPermission(status);
     })();
   }, []);
@@ -102,7 +102,7 @@ const ScanQrcode: FC = () => {
   }, [isFocused]);
 
   const ChooseImageText = isApp ? Typography.Button1 : Typography.Button2;
-  if (currentPermission === 'granted') {
+  if (currentPermission === PermissionStatus.GRANTED) {
     return (
       <Modal
         hidePrimaryAction
@@ -141,7 +141,7 @@ const ScanQrcode: FC = () => {
       </Modal>
     );
   }
-  if (currentPermission === 'denied') {
+  if (currentPermission === PermissionStatus.DENIED) {
     return <PermissionDialog type="camera" />;
   }
   return null;
