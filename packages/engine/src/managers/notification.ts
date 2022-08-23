@@ -53,5 +53,5 @@ const sync = async (): Promise<PartialNotificationType> => {
 
 export const syncPushNotificationConfig = debounce(sync, 10 * 1000, {
   leading: true,
-  trailing: false,
+  trailing: true,
 });
