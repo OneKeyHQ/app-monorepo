@@ -84,6 +84,7 @@ import org.apache.tools.ant.taskdefs.condition.Os
  */
 
 project.ext.react = [
+        entryFile            : '__generated__/AppEntry.js',
         enableHermes         : (findProperty('expo.jsEngine') ?: "jsc") == "hermes",
         cliPath              : new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/cli.js",
         hermesCommand        : new File(["node", "--print", "require.resolve('hermes-engine/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/%OS-BIN%/hermesc",
