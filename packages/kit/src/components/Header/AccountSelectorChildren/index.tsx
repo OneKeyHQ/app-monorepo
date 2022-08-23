@@ -192,11 +192,11 @@ const AccountSelectorChildren: FC<{
 
   /** every time change active wallet */
   useEffect(() => {
-    if (!activeWallet?.id || !selectedNetworkId) return;
+    if (!activeWallet?.id || !selectedNetworkId || !isOpen) return;
     InteractionManager.runAfterInteractions(() => {
       refreshAccounts(activeWallet.id, selectedNetworkId);
     });
-  }, [activeWallet?.id, refreshAccounts, selectedNetworkId]);
+  }, [activeWallet?.id, refreshAccounts, selectedNetworkId, isOpen]);
 
   useEffect(() => {
     if (!previousIsOpen && isOpen) {

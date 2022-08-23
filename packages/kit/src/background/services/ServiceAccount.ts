@@ -29,6 +29,7 @@ import { passwordSet, release } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { Avatar } from '../../utils/emojiUtils';
+import { wait } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
@@ -127,7 +128,8 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  notifyAccountsChanged(): void {
+  async notifyAccountsChanged(): Promise<void> {
+    await wait(600);
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
         provider.notifyDappAccountsChanged({
@@ -135,11 +137,10 @@ class ServiceAccount extends ServiceBase {
         });
       },
     );
-    this.backgroundApi.walletConnect.notifySessionChanged();
+    await this.backgroundApi.walletConnect.notifySessionChanged();
     // emit at next tick
-    setTimeout(() => {
-      appEventBus.emit(AppEventBusNames.AccountChanged);
-    }, 10);
+    await wait(100);
+    appEventBus.emit(AppEventBusNames.AccountChanged);
   }
 
   @backgroundMethod()

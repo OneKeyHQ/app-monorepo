@@ -9,7 +9,6 @@ import React, {
   useState,
 } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 

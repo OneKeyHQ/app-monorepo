@@ -282,7 +282,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     '$private': undefined,
   };
 
-export const scopeMatchNetwork = (
+export const isDappScopeMatchNetwork = (
   scope?: IInjectedProviderNamesStrings,
   impl?: string,
 ) => {

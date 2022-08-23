@@ -1,5 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -105,12 +107,18 @@ class ServicePromise extends ServiceBase {
       if (method === 'reject') {
         if (callbackInfo.reject) {
           callbackInfo.reject(error);
+          debugLogger.dappApprove.info(
+            'rejectCallback',
+            id,
+            (error as Error)?.message,
+          );
         }
         // this.emit('error', error);
       }
       if (method === 'resolve') {
         if (callbackInfo.resolve) {
           callbackInfo.resolve(data);
+          debugLogger.dappApprove.info('resolveCallback', id, data);
         }
       }
       this.removeCallback(id);

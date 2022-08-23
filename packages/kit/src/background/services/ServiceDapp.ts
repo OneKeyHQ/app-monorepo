@@ -1,5 +1,9 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
+import { debounce } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,7 +28,7 @@ import { ManageTokenRoutes } from '../../views/ManageTokens/types';
 import { SendRoutes } from '../../views/Send/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
-import { ensureSerializable, scopeMatchNetwork } from '../utils';
+import { ensureSerializable, isDappScopeMatchNetwork } from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -118,6 +122,37 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
+  _openModalByRouteParams = ({
+    modalParams,
+    routeParams,
+    routeNames,
+  }: {
+    routeNames: any[];
+    routeParams: { query: string };
+    modalParams: { screen: any; params: any };
+  }) => {
+    if (platformEnv.isExtension) {
+      extUtils.openStandaloneWindow({
+        routes: routeNames,
+        params: routeParams,
+      });
+    } else {
+      global.$navigationRef.current?.navigate(
+        modalParams.screen,
+        modalParams.params,
+      );
+    }
+  };
+
+  _openModalByRouteParamsDebounced = debounce(
+    this._openModalByRouteParams,
+    800,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
   async openModal({
     request,
     screens = [],
@@ -134,11 +169,14 @@ class ServiceDapp extends ServiceBase {
       });
       const { network } = getActiveWalletAccount();
       let modalScreens = screens;
-      if (!scopeMatchNetwork(request.scope, network?.impl)) {
+      let isNotMatchedNetwork = false;
+      // TODO not matched network modal should be singleton and debounced
+      if (!isDappScopeMatchNetwork(request.scope, network?.impl)) {
         modalScreens = [
           ModalRoutes.DappConnectionModal,
           DappConnectionModalRoutes.NetworkNotMatchModal,
         ];
+        isNotMatchedNetwork = true;
       }
       const routeNames = [RootRoutes.Modal, ...modalScreens];
       const sourceInfo = {
@@ -162,16 +200,30 @@ class ServiceDapp extends ServiceBase {
 
       ensureSerializable(modalParams);
 
-      if (platformEnv.isExtension) {
-        extUtils.openStandaloneWindow({
-          routes: routeNames,
-          params: routeParams,
+      if (isNotMatchedNetwork) {
+        this._openModalByRouteParamsDebounced({
+          routeNames,
+          routeParams,
+          modalParams,
         });
+        const requestMethod = (request.data as IJsonRpcRequest)?.method || '';
+        if (requestMethod === 'eth_requestAccounts') {
+          // some dapps like https://polymm.finance/ will call `eth_requestAccounts` infinitely if reject() on Mobile
+          // so we should resolve([]) here
+          resolve([]);
+        } else {
+          reject(
+            new Error(
+              `OneKey Wallet chain/network not matched. method=${requestMethod}`,
+            ),
+          );
+        }
       } else {
-        global.$navigationRef.current?.navigate(
-          modalParams.screen,
-          modalParams.params,
-        );
+        this._openModalByRouteParams({
+          routeNames,
+          routeParams,
+          modalParams,
+        });
       }
     });
   }
