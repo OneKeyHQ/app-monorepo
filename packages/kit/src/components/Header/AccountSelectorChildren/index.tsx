@@ -26,6 +26,7 @@ import {
   useRuntime,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
 import LeftSide from './LeftSide';
@@ -168,6 +169,7 @@ const AccountSelectorChildren: FC<{
 
   useEffect(() => {
     (async () => {
+      await deviceUtils.syncDeviceConnectStatus();
       const hardwareWallets = wallets.filter((w) => w.type === 'hw');
       const hwDeviceRec = (
         await backgroundApiProxy.engine.getHWDevices()

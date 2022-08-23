@@ -8,6 +8,7 @@ import {
   FIRMWARE,
   FIRMWARE_EVENT,
   IDeviceType,
+  KnownDevice,
   LOG_EVENT,
   ReleaseInfoEvent,
   UiResponseEvent,
@@ -17,7 +18,11 @@ import axios from 'axios';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { DevicePayload } from '@onekeyhq/engine/src/types/device';
-import { setHardwarePopup } from '@onekeyhq/kit/src/store/reducers/hardware';
+import {
+  addConnectedConnectId,
+  removeConnectedConnectId,
+  setHardwarePopup,
+} from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
@@ -40,6 +45,8 @@ import { FirmwareDownloadFailed } from '../../utils/hardware/errors';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
+
+type ConnectedEvent = { device: KnownDevice };
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -127,6 +134,22 @@ class ServiceHardware extends ServiceBase {
             this._checkDeviceSettings(features);
           },
         );
+
+        instance.on(DEVICE.CONNECT, ({ device }: ConnectedEvent) => {
+          if (device.connectId) {
+            this.backgroundApi.dispatch(
+              addConnectedConnectId(device.connectId),
+            );
+          }
+        });
+
+        instance.on(DEVICE.DISCONNECT, ({ device }: ConnectedEvent) => {
+          if (device.connectId) {
+            this.backgroundApi.dispatch(
+              removeConnectedConnectId(device.connectId),
+            );
+          }
+        });
       }
       return instance;
     });
