@@ -707,10 +707,15 @@ class Engine {
           (await getBalancesFromApi(networkId, accountAddress, tokensToGet)) ||
           [];
         const missedTokenIds: string[] = [];
+        const localTokenData = await simpleDb.token.localTokens.getData();
+        const removedTokens = localTokenData[accountId]?.removed || [];
         for (const { address, balance } of balancesFromApi) {
           if (address && +balance > 0) {
             ret[address] = balance;
-            if (currentTokenIds.includes(address)) {
+            if (
+              !currentTokenIds.includes(address) &&
+              !removedTokens.includes(address)
+            ) {
               missedTokenIds.push(address);
             }
           } else {
