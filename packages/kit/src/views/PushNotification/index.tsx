@@ -72,7 +72,7 @@ const Options: FC<OptionsProps> = ({
         </Text>
       )}
     </Box>
-    <Box>
+    <Box ml="3">
       <Switch
         labelType="false"
         isChecked={value}
@@ -87,7 +87,7 @@ const SelectTrigger = ({ title, desc }: { title: string; desc: string }) => (
     <Text flex={1} typography="Body1Strong">
       {title}
     </Text>
-    <Text>{desc}</Text>
+    <Text mr="19px">{desc}</Text>
     <Icon name="ChevronRightSolid" size={20} />
   </Box>
 );
@@ -154,7 +154,11 @@ const NotificationArea = ({
         ))}
         {footer || null}
       </Box>
-      {extraText && <Text mt={2}>{extraText}</Text>}
+      {extraText && (
+        <Text mt={2} color="text-subdued" typography="Caption">
+          {extraText}
+        </Text>
+      )}
     </>
   );
 };
@@ -239,7 +243,7 @@ const PushNotification = () => {
         switchs={[
           {
             title: intl.formatMessage({
-              id: 'form__market_uppercase',
+              id: 'form__btc_and_eth_movement',
             }),
             desc: intl.formatMessage({
               id: 'form__btc_and_eth_movement_desc',
