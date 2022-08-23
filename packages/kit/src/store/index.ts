@@ -41,6 +41,7 @@ import reducerAccountSelector from './reducers/reducerAccountSelector';
 import refresherReducer from './reducers/refresher';
 import runtimeReducer from './reducers/runtime';
 import settingsReducer from './reducers/settings';
+import stakingReducer from './reducers/staking';
 import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
 import swapTransactionsReducer from './reducers/swapTransactions';
@@ -64,6 +65,7 @@ const allReducers = combineReducers({
   hardware: hardwareReducer,
   cloudBackup: cloudBackupReducer,
   accountSelector: reducerAccountSelector.reducer,
+  staking: stakingReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

@@ -15,6 +15,7 @@ import ServiceNetwork from './services/ServiceNetwork';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePassword from './services/ServicePassword';
 import ServicePromise from './services/ServicePromise';
+import ServiceStaking from './services/ServiceStaking';
 import ServiceSwap from './services/ServiceSwap';
 import ServiceToken from './services/ServiceToken';
 
@@ -82,6 +83,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceCloudBackup = new ServiceCloudBackup({
+    backgroundApi: this,
+  });
+
+  serviceStaking = new ServiceStaking({
     backgroundApi: this,
   });
 }

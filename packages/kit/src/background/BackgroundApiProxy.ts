@@ -21,6 +21,7 @@ import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
+import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 
@@ -80,6 +81,8 @@ class BackgroundApiProxy
   serviceCloudBackup = this._createProxyService(
     'serviceCloudBackup',
   ) as ServiceCloudBackup;
+
+  serviceStaking = this._createProxyService('serviceStaking') as ServiceStaking;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {
