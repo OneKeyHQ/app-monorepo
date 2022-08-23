@@ -113,11 +113,12 @@ export const SupportTokenList: FC = () => {
   const { balances } = useManageTokens();
   const currencies = fetchBalance(currenciesNobalance, balances);
   const [searchResult, updateSearchResult] = useState<CurrencyType[]>([]);
+  const [searchText, updateSearchText] = useState<string>('');
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const flatListData = useMemo(
-    () => (searchResult.length > 0 ? searchResult : currencies),
-    [currencies, searchResult],
+    () => (searchText.length > 0 ? searchResult : currencies),
+    [currencies, searchResult, searchText.length],
   );
   const renderItem: ListRenderItem<CurrencyType> = useCallback(
     ({ item, index }) => (
@@ -190,6 +191,7 @@ export const SupportTokenList: FC = () => {
         ListHeaderComponent: (
           <Header
             onChange={(text) => {
+              updateSearchText(text);
               updateSearchResult(() => searchTokens(currencies, text));
             }}
           />
