@@ -88,6 +88,9 @@ const NotificationProvider: React.FC<{
       if (result?.notificationEventType !== 'notificationArrived') {
         clearJpushBadge();
       }
+      if (!accountId || !networkId) {
+        return;
+      }
       if (
         result?.notificationEventType !== 'notificationOpened' ||
         !result.extras
@@ -117,7 +120,7 @@ const NotificationProvider: React.FC<{
         params,
       });
     },
-    [switchToScreen, clearJpushBadge],
+    [switchToScreen, clearJpushBadge, accountId, networkId],
   );
 
   const handleLocalNotificationCallback = useCallback(
@@ -152,14 +155,11 @@ const NotificationProvider: React.FC<{
   );
 
   const shouldInitJpushListener = useMemo(() => {
-    if (!accountId || !networkId) {
-      return false;
-    }
     if (!pushNotification?.pushEnable) {
       return false;
     }
     return true;
-  }, [accountId, networkId, pushNotification?.pushEnable]);
+  }, [pushNotification?.pushEnable]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
