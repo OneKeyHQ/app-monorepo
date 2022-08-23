@@ -51,4 +51,7 @@ const sync = async (): Promise<PartialNotificationType> => {
   return fetchData('/notification/config', config, {});
 };
 
-export const syncPushNotificationConfig = debounce(sync, 10 * 1000);
+export const syncPushNotificationConfig = debounce(sync, 10 * 1000, {
+  leading: true,
+  trailing: true,
+});

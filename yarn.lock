@@ -14539,7 +14539,7 @@ join-component@^1.1.0:
 
 "jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git":
   version "2.9.2"
-  resolved "https://github.com/OneKeyHQ/jpush-react-native.git#43ee41675924e97620bfe91a81f9e9826bd9b067"
+  resolved "https://github.com/OneKeyHQ/jpush-react-native.git#f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7"
 
 js-conflux-sdk@^1.7.1:
   version "1.7.3"
