@@ -225,6 +225,9 @@ const Input = React.forwardRef<
     return (
       <BaseInput
         ref={inputRef}
+        spellCheck={false}
+        autoCapitalize="none"
+        autoCorrect={false}
         selectionColor="text-default"
         isReadOnly={isReadOnly}
         isDisabled={isDisabled}
