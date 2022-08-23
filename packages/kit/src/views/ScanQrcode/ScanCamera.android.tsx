@@ -14,8 +14,12 @@ const ScanCamera: FC<ScanCameraProps> = ({
     <Camera
       style={style}
       captureAudio={false}
-      onBarCodeRead={(event) => onQrcodeScanned(event.data)}
-      barCodeTypes={[Camera.Constants.BarCodeType.qr]}
+      onGoogleVisionBarcodesDetected={({ barcodes }) =>
+        barcodes.length && onQrcodeScanned(barcodes[0].data)
+      }
+      googleVisionBarcodeType={
+        Camera.Constants.GoogleVisionBarcodeDetection.BarcodeType.QR_CODE
+      }
     >
       {children}
     </Camera>
