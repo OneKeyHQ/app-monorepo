@@ -12,7 +12,6 @@ export const balanceSupprtedNetwork: Record<string, string> = {
   // 'evm--1': 'eth',
   // 'evm--10': 'optimism',
   // 'evm--137': 'polygon',
-
   // moralis
   // avalanche: 'avalanche',
   // eth: 'eth',
