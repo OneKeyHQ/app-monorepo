@@ -3372,10 +3372,10 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyfe/blockchain-libs@^0.0.39":
-  version "0.0.39"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.39.tgz#cceedd1b687f32f787237f7b9af193cba700d80c"
-  integrity sha512-YfK3etzn/52C+icdivkIDoZTY1+D+XgQzsqm37JjYSaJ8CXs1NqvtoUTiuJ16iozfBmNG0rEzxvfOvjfiFFRCA==
+"@onekeyfe/blockchain-libs@^0.0.40":
+  version "0.0.40"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.40.tgz#f9518793fbcc58ef554b74cf1b2d4e6760ec9fc8"
+  integrity sha512-6bJU0weiQeni3tjM4nVP+3tsnscmzPYaJAlKBYCEaZxRwYZNU3k0DqaUz9Bqod7iOm/gRDMcO/AX8kNUGJSwMw==
   dependencies:
     "@conflux-dev/conflux-address-js" "^1.3.11"
     "@metamask/eth-sig-util" "^4.0.0"
@@ -3400,6 +3400,7 @@
     hi-base32 "^0.5.1"
     js-conflux-sdk "^1.7.1"
     js-sha512 "^0.8.0"
+    memoizee "^0.4.15"
     timeout-signal "^1.1.0"
     tweetnacl "^1.0.3"
     whatwg-url "^7.0.0"
@@ -3650,10 +3651,10 @@
     "@onekeyfe/cross-inpage-provider-core" "0.0.19"
     "@onekeyfe/cross-inpage-provider-types" "0.0.19"
 
-"@onekeyfe/network-list@1.5.9":
-  version "1.5.9"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.5.9.tgz#8b4ae6d6da68928169cd14c30fa9fd564bd269ce"
-  integrity sha512-GC/4D6HbbRigBpbrlo5E8MTBz25GjTry6lOdWMbu4Ntwm57PpM1F6X7+ICcW6MUwiXafg0JWk0VG65+jEcwNMg==
+"@onekeyfe/network-list@1.6.0":
+  version "1.6.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.6.0.tgz#129dfd94afe871505e6fcd3c564fb8cbf1b237b7"
+  integrity sha512-ZNbjHvX4X9p52BtS8yhViIpFcFatjgB8iLsdrC+9PmPnas/byTQgJRmt8TvH5D+I7o4mNv/qk5aHltgsK1i3Mg==
 
 "@onekeyfe/onekey-cross-webview@^0.0.19":
   version "0.0.19"
