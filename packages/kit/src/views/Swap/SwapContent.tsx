@@ -14,7 +14,6 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
-import { setQuote } from '../../store/reducers/swap';
 
 import TokenInput from './components/TokenInput';
 import {
@@ -73,7 +72,7 @@ const SwapContent = () => {
   }, []);
 
   useEffect(() => {
-    backgroundApiProxy.dispatch(setQuote(undefined));
+    backgroundApiProxy.serviceSwap.setQuote(undefined);
   }, [
     inputToken?.tokenIdOnNetwork,
     outputToken?.tokenIdOnNetwork,

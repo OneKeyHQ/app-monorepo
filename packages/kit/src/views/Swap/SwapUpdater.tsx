@@ -1,5 +1,7 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { useActiveWalletAccount, useInterval } from '../../hooks';
 
 import PendingTransaction from './components/PendingTransaction';
@@ -37,6 +39,7 @@ const QuoteUpdater = () => {
     ) {
       ref.current = true;
       try {
+        debugLogger.swap.info('swap interval quote');
         await onSwapQuote();
       } finally {
         ref.current = false;
