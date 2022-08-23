@@ -25,5 +25,11 @@ module.exports = {
         android: null, // disable Android platform, other platforms will still autolink if provided
       },
     },
+    'expo-camera': {
+      platforms: {
+        android: null,
+        ios: null,
+      },
+    },
   },
 };
