@@ -2,7 +2,7 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Center, Modal } from '@onekeyhq/components';
+import { Alert, Box, Center, Modal, Text } from '@onekeyhq/components';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -18,6 +18,7 @@ const NetworkNotMatch = () => {
     closeOnError: true,
   });
 
+  // TODO define <DappModal /> trigger onModalClose() on gesture close
   return (
     <Modal
       primaryActionTranslationId="action__confirm"
@@ -27,8 +28,12 @@ const NetworkNotMatch = () => {
         dappApprove.reject();
         close();
       }}
+      onModalClose={dappApprove.reject}
     >
       <Center flex={1}>
+        <Box mb={4}>
+          <Text>{sourceInfo?.origin || ''}</Text>
+        </Box>
         <Alert
           title={intl.formatMessage({ id: 'msg__mismatched_networks' })}
           alertType="error"

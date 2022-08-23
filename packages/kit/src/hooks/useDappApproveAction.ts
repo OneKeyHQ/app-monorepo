@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 function useDappApproveAction({
   id,

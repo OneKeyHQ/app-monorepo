@@ -1,5 +1,8 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 import { debounce } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -203,7 +206,18 @@ class ServiceDapp extends ServiceBase {
           routeParams,
           modalParams,
         });
-        reject(new Error('OneKey Wallet chain/network not matched.'));
+        const requestMethod = (request.data as IJsonRpcRequest)?.method || '';
+        if (requestMethod === 'eth_requestAccounts') {
+          // some dapps like https://polymm.finance/ will call `eth_requestAccounts` infinitely if reject() on Mobile
+          // so we should resolve([]) here
+          resolve([]);
+        } else {
+          reject(
+            new Error(
+              `OneKey Wallet chain/network not matched. method=${requestMethod}`,
+            ),
+          );
+        }
       } else {
         this._openModalByRouteParams({
           routeNames,

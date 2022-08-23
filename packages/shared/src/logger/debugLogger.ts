@@ -89,6 +89,7 @@ export enum LoggerNames {
   webview = 'webview',
   desktopInjected = 'desktopInjected',
   ethereum = 'ethereum', // TODO rename injectedEthereum
+  dappApprove = 'dappApprove', // TODO rename injectedEthereum
   extContentScripts = 'extContentScripts',
   extInjected = 'extInjected',
   backgroundApi = 'backgroundApi',
@@ -129,6 +130,7 @@ const debugLogger: Record<
     LoggerNames.desktopInjected,
   ),
   [LoggerNames.ethereum]: Cache.createLogger(LoggerNames.ethereum),
+  [LoggerNames.dappApprove]: Cache.createLogger(LoggerNames.dappApprove),
   [LoggerNames.extContentScripts]: Cache.createLogger(
     LoggerNames.extContentScripts,
   ),
