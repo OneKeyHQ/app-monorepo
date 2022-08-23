@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  useAccountTokensBalance,
   useActiveWalletAccount,
   useAppSelector,
   useDebounce,
@@ -25,6 +26,7 @@ import {
   nativeTokenAddress,
 } from '../utils';
 
+import { useCachedBalances } from './useSwapTokenUtils';
 import { useHasPendingApproval } from './useTransactions';
 
 class TokenAmount {
@@ -79,20 +81,29 @@ export function useTokenBalance(
   networkId?: string,
   accountId?: string,
 ): BigNumber | undefined {
-  const balances = useAccountTokensBalance(networkId ?? '', accountId ?? '');
+  const balances = useCachedBalances(networkId ?? '', accountId ?? '');
   useEffect(() => {
-    if (
-      token &&
-      networkId &&
-      accountId &&
-      balances[token.tokenIdOnNetwork || 'main'] === undefined
-    ) {
-      backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        tokenIds: [token.tokenIdOnNetwork],
-      });
+    async function main() {
+      if (
+        token &&
+        networkId &&
+        accountId &&
+        balances[token.tokenIdOnNetwork || 'main'] === undefined
+      ) {
+        debugLogger.swap.info(
+          'useTokenBalance',
+          token.tokenIdOnNetwork,
+          balances[token.tokenIdOnNetwork || 'main'],
+        );
+        const result = await backgroundApiProxy.serviceToken.fetchTokenBalance({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          tokenIds: [token.tokenIdOnNetwork],
+        });
+        debugLogger.swap.info('useTokenBalance result', result);
+      }
     }
+    main();
   }, [token, balances, networkId, accountId]);
   const balance = balances[token?.tokenIdOnNetwork || 'main'];
   return useMemo(() => {
@@ -216,7 +227,16 @@ export const useSwapQuoteCallback = function (
       refs.current.networkId = networkId;
       refs.current.params = params;
       refs.current.count += 1;
+      debugLogger.swap.info(
+        'quote params',
+        params.tokenIn.networkId,
+        params.tokenIn.tokenIdOnNetwork || 'native',
+        params.tokenOut.networkId,
+        params.tokenOut.tokenIdOnNetwork || 'native',
+        params.typedValue,
+      );
       const res = await SwapQuoter.client.fetchQuote(params);
+      debugLogger.swap.info('quote success');
       if (
         refs.current.accountId === accountId &&
         refs.current.networkId === networkId &&

@@ -100,6 +100,7 @@ export enum LoggerNames {
   redux = 'redux',
   common = 'common',
   cloudBackup = 'cloudBackup',
+  swap = 'swap',
 }
 
 export type LoggerEntity = {
@@ -141,6 +142,7 @@ const debugLogger: Record<
   [LoggerNames.sendTx]: Cache.createLogger(LoggerNames.sendTx),
   [LoggerNames.common]: Cache.createLogger(LoggerNames.common),
   [LoggerNames.cloudBackup]: Cache.createLogger(LoggerNames.cloudBackup),
+  [LoggerNames.swap]: Cache.createLogger(LoggerNames.swap),
 };
 
 if (platformEnv.isDev) {
