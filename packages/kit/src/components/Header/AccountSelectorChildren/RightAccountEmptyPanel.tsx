@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Center, Icon, Text } from '@onekeyhq/components';
+import { Center, Icon, PresenceTransition, Text } from '@onekeyhq/components';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -16,14 +16,12 @@ import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
 } from './RightAccountCreateButton';
-import { AccountGroup } from './RightAccountSection/ItemSection';
 
 export type IRightAccountEmptyPanelProps = {
-  activeAccounts: AccountGroup[];
   activeWallet: Wallet | null;
   selectedNetworkId: string;
 };
-export function RightAccountEmptyPanel({
+function RightAccountEmptyPanel({
   activeWallet,
   selectedNetworkId,
 }: IRightAccountEmptyPanelProps) {
@@ -35,7 +33,7 @@ export function RightAccountEmptyPanel({
 
   const { network } = useNetwork({ networkId: selectedNetworkId });
 
-  const emptyInfo = useMemo(() => {
+  const emptyInfoRaw = useMemo(() => {
     let title = '';
     let desc = '';
     if (activeWallet?.type === WALLET_TYPE_IMPORTED) {
@@ -72,24 +70,40 @@ export function RightAccountEmptyPanel({
     return undefined;
   }, [activeWallet?.type, isCreateAccountSupported, intl, network]);
 
+  // const emptyInfo = useDebounce(emptyInfoRaw, 600);
+  const emptyInfo = emptyInfoRaw;
+
   // if (selectedNetworkId === AllNetwork) return null;
-  if (!emptyInfo) return null;
 
   return (
-    <Center flex={1} px={4} py={8}>
-      <Text fontSize={48} textAlign="center">
-        {emptyInfo.title}
-      </Text>
-      <Text my={6} typography="DisplaySmall" textAlign="center">
-        {emptyInfo.desc}
-      </Text>
-      {isCreateAccountSupported ? (
-        <Icon
-          name="ArrowBottomLeftIllus"
-          size={62}
-          color="interactive-default"
-        />
-      ) : null}
-    </Center>
+    <PresenceTransition
+      style={{ flex: 1 }}
+      visible={!!emptyInfo}
+      initial={{ opacity: 0 }}
+      animate={{
+        opacity: 1,
+        transition: {
+          duration: 150,
+        },
+      }}
+    >
+      <Center flex={1} px={4} py={8}>
+        <Text fontSize={48} lineHeight={48} textAlign="center">
+          {emptyInfo?.title}
+        </Text>
+        <Text my={6} typography="DisplaySmall" textAlign="center">
+          {emptyInfo?.desc}
+        </Text>
+        {isCreateAccountSupported ? (
+          <Icon
+            name="ArrowBottomLeftIllus"
+            size={62}
+            color="interactive-default"
+          />
+        ) : null}
+      </Center>
+    </PresenceTransition>
   );
 }
+
+export default React.memo(RightAccountEmptyPanel);

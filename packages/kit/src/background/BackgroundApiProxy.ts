@@ -11,6 +11,7 @@ import ServicePassword from './services/ServicePassword';
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
+import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
@@ -45,6 +46,10 @@ class BackgroundApiProxy
   servicePromise = this._createProxyService('servicePromise') as ServicePromise;
 
   serviceDapp = this._createProxyService('serviceDapp') as ServiceDapp;
+
+  serviceAccountSelector = this._createProxyService(
+    'serviceAccountSelector',
+  ) as ServiceAccountSelector;
 
   serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
 

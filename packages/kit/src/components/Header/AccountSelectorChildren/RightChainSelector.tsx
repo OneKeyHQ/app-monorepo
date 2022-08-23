@@ -62,7 +62,7 @@ const RightChainSelector: FC<Props> = ({
       (network) => network.id === selectedNetworkId,
     );
     if (!selectNetworkExists) {
-      setTimeout(() => setSelectedNetworkId(AllNetwork));
+      // setTimeout(() => setSelectedNetworkId(AllNetwork));
     }
 
     if (!availableNetworks) return [];

@@ -131,11 +131,11 @@ const RightHeader: FC<RightHeaderProps> = ({
   const [showBackupDialog, setShowBackupDialog] = useState(false);
   const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
   const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
-  const [hasAvailableUpdate, setHasAvailableUpdate] = useState(false);
 
-  useEffect(() => {
-    setHasAvailableUpdate(deviceStatus?.hasUpgrade ?? false);
-  }, [deviceStatus]);
+  const hasAvailableUpdate = useMemo(
+    () => deviceStatus?.hasUpgrade ?? false,
+    [deviceStatus?.hasUpgrade],
+  );
 
   const onDeleteWallet = () => {
     if (selectedWallet?.type === 'hw') {

@@ -10,13 +10,16 @@ import { NetworkIcon } from '@onekeyhq/kit/src/views/ManageNetworks/Listing/Netw
 
 import AccountSectionItem, { AccountGroup } from './ItemSection';
 
-const LoadingSkeleton: FC<{ isLoading: boolean }> = ({ isLoading }) =>
-  isLoading ? (
-    <Box mx="2" borderRadius={12} p="2">
-      <Skeleton shape="Body2" />
-      <Skeleton shape="Body2" />
-    </Box>
-  ) : null;
+export const AccountSectionLoadingSkeleton = React.memo(
+  ({ isLoading }: { isLoading: boolean }) =>
+    isLoading ? (
+      <Box mx="2" borderRadius={12} p="2">
+        <Skeleton shape="Body2" />
+        <Skeleton shape="Body2" />
+      </Box>
+    ) : null,
+);
+AccountSectionLoadingSkeleton.displayName = 'AccountSectionLoadingSkeleton';
 
 type AccountSectionProps = {
   activeAccounts: AccountGroup[];
@@ -27,7 +30,7 @@ type AccountSectionProps = {
   refreshAccounts: (walletId: string, networkId: string) => void;
 };
 
-const AccountSection: FC<AccountSectionProps> = ({
+const RightAccountSection: FC<AccountSectionProps> = ({
   activeAccounts,
   activeWallet,
   loadingAccountWalletId,
@@ -44,7 +47,7 @@ const AccountSection: FC<AccountSectionProps> = ({
       <Box h={section?.leadingItem ? 2 : 0} />
     )}
     ListFooterComponent={() => (
-      <LoadingSkeleton
+      <AccountSectionLoadingSkeleton
         // isLoading={true}
         isLoading={activeWallet?.id === loadingAccountWalletId}
       />
@@ -80,4 +83,4 @@ const AccountSection: FC<AccountSectionProps> = ({
   />
 );
 
-export default memo(AccountSection);
+export default memo(RightAccountSection);

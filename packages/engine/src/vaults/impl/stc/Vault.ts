@@ -90,7 +90,7 @@ export default class Vault extends VaultBase {
         data: '',
         total: '0', // not available
       } as IDecodedTxLegacy;
-    } else if (type === IDecodedTxActionType.TRANSACTION) {
+    } else if (type === IDecodedTxActionType.UNKNOWN) {
       result = {
         txType: EVMDecodedTxType.NATIVE_TRANSFER,
         symbol: 'UNKNOWN',
@@ -188,7 +188,7 @@ export default class Vault extends VaultBase {
         const dataParamsStr = JSON.stringify(dataParams);
         */
         action = {
-          type: IDecodedTxActionType.TRANSACTION,
+          type: IDecodedTxActionType.UNKNOWN,
           direction: IDecodedTxDirection.SELF,
           unknownAction: {
             extraInfo: {},
@@ -198,7 +198,7 @@ export default class Vault extends VaultBase {
     } else {
       // TODO: support other types
       action = {
-        type: IDecodedTxActionType.TRANSACTION,
+        type: IDecodedTxActionType.UNKNOWN,
         direction: IDecodedTxDirection.OTHER,
         unknownAction: {
           extraInfo: {},
@@ -463,7 +463,7 @@ export default class Vault extends VaultBase {
           };
 
           let action: IDecodedTxAction = {
-            type: IDecodedTxActionType.TRANSACTION,
+            type: IDecodedTxActionType.UNKNOWN,
           };
           if (amountValue && tokenAddress) {
             let direction = IDecodedTxDirection.IN;

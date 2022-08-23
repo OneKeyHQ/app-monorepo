@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { Box, Empty } from '@onekeyhq/components';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AssetsList from '../Wallet/AssetsList';
 
@@ -67,6 +68,9 @@ function PreSendToken() {
                   transferInfo,
                   {
                     token: token.tokenIdOnNetwork,
+                    to: platformEnv.isDev
+                      ? '0xfedd943b4e1e7507d86c442f032af5b5e922d6f8'
+                      : undefined,
                   },
                 ),
               );

@@ -137,6 +137,7 @@ class ProviderApiNear extends ProviderApiBase {
     return this.near_requestAccounts(request);
   }
 
+  // signOut, sign out, logOut, log out, disconnect
   @providerApiMethod()
   public near_signOut(
     request: IJsBridgeMessagePayload,

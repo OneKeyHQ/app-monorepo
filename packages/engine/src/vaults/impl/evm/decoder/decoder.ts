@@ -1,5 +1,7 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { Transaction, TxStatus } from '../../../../types/covalent';
 import { HistoryEntryTransaction } from '../../../../types/history';
 
@@ -161,10 +163,16 @@ class EVMTxDecoder {
 
     // erc20 or erc721
     if (itemBuilder.protocol === 'erc20') {
-      const token = await this.engine.findToken({
-        networkId,
-        tokenIdOnNetwork: itemBuilder.toAddress,
-      });
+      let token;
+      try {
+        token = await this.engine.findToken({
+          networkId,
+          tokenIdOnNetwork: itemBuilder.toAddress,
+        });
+      } catch (e) {
+        debugLogger.common.error(e);
+      }
+
       // erc20 Token
       if (token) {
         switch (txType) {
@@ -229,7 +237,7 @@ class EVMTxDecoder {
         }
         itemBuilder.info = infoBuilder;
       } else {
-        // Maybe erc721, fallback to contract call type
+        // Maybe erc721, ui will fallback to contract call type
         itemBuilder.protocol = 'erc721';
         itemBuilder.txType = EVMDecodedTxType.ERC721_TRANSFER;
       }

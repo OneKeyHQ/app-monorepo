@@ -1052,8 +1052,21 @@ class Engine {
     return !!token;
   }
 
-  findToken = memoizee(
-    async (params: { networkId: string; tokenIdOnNetwork: string }) => {
+  async findToken(params: { networkId: string; tokenIdOnNetwork: string }) {
+    try {
+      // needs await to try catch memoizee function
+      return await this._findTokenWithMemo(params);
+    } catch (error) {
+      debugLogger.common.error(error);
+      return Promise.resolve(undefined);
+    }
+  }
+
+  _findTokenWithMemo = memoizee(
+    async (params: {
+      networkId: string;
+      tokenIdOnNetwork: string;
+    }): Promise<Token> => {
       const { networkId, tokenIdOnNetwork } = params;
       if (!tokenIdOnNetwork) {
         return this.getNativeTokenInfo(networkId);
@@ -1075,7 +1088,7 @@ class Engine {
         | undefined;
       const { impl, chainId } = parseNetworkId(networkId);
       if (!impl || !chainId) {
-        return;
+        throw new Error('findToken ERROR: token impl or chainId is not valid.');
       }
       tokenInfo = await fetchTokenDetail({
         impl,
@@ -1094,7 +1107,7 @@ class Engine {
         }
       }
       if (typeof tokenInfo === 'undefined') {
-        return;
+        throw new Error('findToken ERROR: token not found.');
       }
       return {
         id: tokenId,

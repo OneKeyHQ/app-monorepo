@@ -19,6 +19,10 @@ import {
   removeOldRef,
 } from '@onekeyhq/components/src/utils/SelectAutoHide';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../hooks';
+import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
+
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
 
@@ -33,12 +37,15 @@ type AccountSelectorProps = {
 };
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
-  const [innerVisible, setVisible] = useState(false);
   const isSmallLayout = useIsVerticalLayout();
   const navigation = useNavigation();
+  const { dispatch, serviceAccountSelector } = backgroundApiProxy;
+  const { wallet, network } = useActiveWalletAccount();
 
-  const isDrawerOpen = useDrawerStatus() === 'open';
   const triggerRef = useRef<HTMLElement>(null);
+
+  const [innerVisible, setVisible] = useState(false);
+  const isDrawerOpen = useDrawerStatus() === 'open';
   const visible = isSmallLayout ? isDrawerOpen : innerVisible;
 
   const handleToggleVisible = useCallback(() => {

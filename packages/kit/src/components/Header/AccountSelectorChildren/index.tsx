@@ -1,25 +1,18 @@
-import React, {
-  FC,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InteractionManager } from 'react-native';
 
 import {
   Box,
+  Button,
   IconButton,
   VStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { Device } from '@onekeyhq/engine/src/types/device';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePrevious } from '@onekeyhq/kit/src/hooks';
+import { useDebounce, usePrevious } from '@onekeyhq/kit/src/hooks';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -27,13 +20,20 @@ import {
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { changeActiveAccount } from '../../../store/reducers/general';
+import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 
 import LeftSide from './LeftSide';
 import RightAccountCreateButton from './RightAccountCreateButton';
-import { RightAccountEmptyPanel } from './RightAccountEmptyPanel';
-import AccountSection from './RightAccountSection';
+import RightAccountEmptyPanel from './RightAccountEmptyPanel';
+import RightAccountSection, {
+  AccountSectionLoadingSkeleton,
+} from './RightAccountSection';
 import RightChainSelector, { AllNetwork } from './RightChainSelector';
 import RightHeader from './RightHeader';
+import { useAccountSelectorInfo } from './useAccountSelectorInfo';
 
 import type { AccountGroup } from './RightAccountSection/ItemSection';
 
@@ -43,11 +43,14 @@ export type DeviceStatusType = {
   hasUpgrade: boolean;
 };
 
-const AccountSelectorChildren: FC<{
+export type IAccountSelectorChildrenProps = {
   isOpen?: boolean;
   // eslint-disable-next-line react/no-unused-prop-types
   toggleOpen?: (...args: any) => any;
-}> = ({ isOpen }) => {
+};
+const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
+  isOpen,
+}) => {
   const [loadingAccountWalletId, setLoadingAccountWalletId] =
     useState<string>('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -55,89 +58,36 @@ const AccountSelectorChildren: FC<{
   const { bottom } = useSafeAreaInsets();
   const { RemoveAccountDialog } = useRemoveAccountDialog();
 
-  const { engine } = backgroundApiProxy;
+  const { engine, dispatch } = backgroundApiProxy;
   const {
-    account: currentSelectedAccount,
-    wallet: defaultSelectedWallet,
-    network: activeNetwork,
+    account: currentActiveAccount,
+    wallet: currentActiveWallet,
+    network: currentActiveNetwork,
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
-  const { connected } = useAppSelector((s) => s.hardware);
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const { deviceUpdates } = useSettings();
 
-  const [deviceStatus, setDeviceStatus] =
-    useState<Record<string, DeviceStatusType | undefined>>();
+  const {
+    selectedWallet,
+    selectedNetwork,
+    setSelectedNetwork,
+    setSelectedWallet,
+    rightChainSelectorNetworkId,
+    setRightChainSelectorNetworkId,
+    accountsInGroup,
+    accountsInGroupLoading,
+    deviceStatus,
+    isSelectorOpen,
+  } = useAccountSelectorInfo({ isOpen });
 
-  const previousIsOpen = usePrevious(isOpen);
-  const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(
-    defaultSelectedWallet,
-  );
-  const [accountsMap, setAccountsMap] = useState<
-    Record<string, AccountGroup[]>
-  >({});
+  const activeSelectedWallet = selectedWallet;
 
-  const [selectedNetworkId, setSelectedNetworkId] = useState<string>(
-    activeNetwork?.id ?? AllNetwork,
-  );
-
-  const activeWallet = useMemo(() => {
-    const wallet =
-      wallets.find((_wallet) => _wallet.id === selectedWallet?.id) ??
-      wallets.find((_wallet) => _wallet.id === defaultSelectedWallet?.id) ??
-      null;
-    return wallet;
-  }, [selectedWallet?.id, wallets, defaultSelectedWallet]);
-
-  const refreshAccounts = useCallback(
-    async (walletId: string, networkId: string) => {
-      if (!walletId) {
-        return;
-      }
-      const networksMap = new Map(
-        (await engine.listNetworks()).map((key) => [key.id, key]),
-      );
-
-      let accountsGroup: AccountGroup[] = [];
-      if (networkId === AllNetwork) {
-        accountsGroup = (
-          await engine.getWalletAccountsGroupedByNetwork(walletId)
-        )
-          .reduce((accumulate, current) => {
-            const network = networksMap.get(current.networkId);
-            if (!network) return accumulate;
-            return [...accumulate, { title: network, data: current.accounts }];
-          }, [] as AccountGroup[])
-          .filter((group) => group.data.length > 0);
-      } else {
-        const network = networksMap.get(networkId);
-        if (!network || !walletId) return;
-        const currentWallet = await engine.getWallet(walletId);
-        const data = await engine.getAccounts(
-          currentWallet.accounts,
-          network.id,
-        );
-        accountsGroup = [
-          {
-            title: network,
-            data,
-          },
-        ];
-      }
-
-      setAccountsMap((prev) => ({
-        ...prev,
-        [walletId]: accountsGroup,
-      }));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  const refreshAccounts = useCallback(() => null, []);
 
   const onLoadingAccount = useCallback(
     (walletId: string, networkId: string, ready?: boolean) => {
       if (!ready) {
-        setSelectedNetworkId(networkId);
+        setRightChainSelectorNetworkId(networkId);
         setLoadingAccountWalletId(walletId ?? '');
       } else {
         setLoadingAccountWalletId('');
@@ -145,147 +95,141 @@ const AccountSelectorChildren: FC<{
           wallets.find((wallet) => wallet.id === walletId) ?? null;
         if (!targetWallet) return null;
         setSelectedWallet(targetWallet);
-        setSelectedNetworkId(networkId);
-        refreshAccounts(targetWallet.id, networkId);
+        setRightChainSelectorNetworkId(networkId);
+        // refreshAccounts(targetWallet.id, networkId);
       }
     },
-    [wallets, refreshAccounts],
+    [
+      setRightChainSelectorNetworkId,
+      wallets,
+      setSelectedWallet,
+      // refreshAccounts,
+    ],
   );
-
-  const getStatus = useCallback(
-    (connectId: string | undefined): DeviceStatusType | undefined => {
-      if (!connectId) return undefined;
-
-      return {
-        isConnected: connected.includes(connectId),
-        hasUpgrade:
-          !!deviceUpdates?.[connectId]?.ble ||
-          !!deviceUpdates?.[connectId]?.firmware,
-      };
-    },
-    [connected, deviceUpdates],
-  );
-
-  useEffect(() => {
-    (async () => {
-      const hardwareWallets = wallets.filter((w) => w.type === 'hw');
-      const hwDeviceRec = (
-        await backgroundApiProxy.engine.getHWDevices()
-      ).reduce((acc, device) => {
-        acc[device.id] = device;
-        return acc;
-      }, {} as Record<string, Device>);
-
-      setDeviceStatus(
-        hardwareWallets.reduce((acc, wallet) => {
-          if (!wallet.associatedDevice) return acc;
-
-          const device = hwDeviceRec[wallet.associatedDevice];
-          if (device) {
-            acc[wallet.associatedDevice] = getStatus(device.mac);
-          }
-          return acc;
-        }, {} as Record<string, DeviceStatusType | undefined>),
-      );
-    })();
-  }, [getStatus, wallets]);
-
-  /** every time change active wallet */
-  useEffect(() => {
-    if (!activeWallet?.id || !selectedNetworkId || !isOpen) return;
-    InteractionManager.runAfterInteractions(() => {
-      refreshAccounts(activeWallet.id, selectedNetworkId);
-    });
-  }, [activeWallet?.id, refreshAccounts, selectedNetworkId, isOpen]);
-
-  useEffect(() => {
-    if (!previousIsOpen && isOpen) {
-      const targetWallet =
-        wallets.find((wallet) => wallet.id === defaultSelectedWallet?.id) ??
-        null;
-      setSelectedWallet(targetWallet);
-      setSelectedNetworkId(activeNetwork?.id ?? AllNetwork);
-    }
-  }, [
-    previousIsOpen,
-    isOpen,
-    defaultSelectedWallet?.id,
-    wallets,
-    activeNetwork?.id,
-  ]);
 
   const onLock = useCallback(() => {
     backgroundApiProxy.serviceApp.lock(true);
   }, []);
 
-  const activeAccounts = useMemo(
-    () => (activeWallet?.id ? accountsMap[activeWallet?.id] ?? [] : []),
-    [accountsMap, activeWallet?.id],
-  );
-
+  const accountsGroup = accountsInGroup.payload;
   const isActiveAccountsEmpty = useMemo(() => {
-    if (!activeAccounts?.length) {
+    if (!accountsGroup?.length) {
       return true;
     }
     let dataLen = 0;
-    activeAccounts.forEach((acc) => (dataLen += acc?.data?.length || 0));
+    accountsGroup.forEach((acc) => (dataLen += acc?.data?.length || 0));
     return dataLen <= 0;
-  }, [activeAccounts]);
+  }, [accountsGroup]);
+
+  const activeSelectedWalletDeBounced = useDebounce(activeSelectedWallet, 600);
+
+  const loadingSkeletonRef = useRef(
+    <Box>
+      <AccountSectionLoadingSkeleton isLoading />
+      <AccountSectionLoadingSkeleton isLoading />
+      <AccountSectionLoadingSkeleton isLoading />
+    </Box>,
+  );
+  const rightContent = useMemo(() => {
+    if (!isSelectorOpen) {
+      // return null;
+    }
+    if (accountsInGroupLoading || !isSelectorOpen) {
+      return loadingSkeletonRef.current;
+    }
+
+    if (isActiveAccountsEmpty)
+      return (
+        <RightAccountEmptyPanel
+          activeWallet={activeSelectedWalletDeBounced}
+          selectedNetworkId={rightChainSelectorNetworkId}
+        />
+      );
+
+    return (
+      <RightAccountSection
+        activeAccounts={accountsGroup}
+        activeWallet={activeSelectedWallet}
+        activeNetwork={currentActiveNetwork}
+        activeAccount={currentActiveAccount}
+        loadingAccountWalletId={loadingAccountWalletId}
+        refreshAccounts={refreshAccounts}
+      />
+    );
+  }, [
+    isSelectorOpen,
+    accountsGroup,
+    accountsInGroupLoading,
+    activeSelectedWallet,
+    activeSelectedWalletDeBounced,
+    currentActiveAccount,
+    currentActiveNetwork,
+    isActiveAccountsEmpty,
+    loadingAccountWalletId,
+    refreshAccounts,
+    rightChainSelectorNetworkId,
+  ]);
 
   return (
     <>
       <LeftSide
-        selectedWallet={activeWallet}
+        selectedWallet={activeSelectedWallet}
         setSelectedWallet={setSelectedWallet}
         deviceStatus={deviceStatus}
       />
       <VStack flex={1} pb={`${bottom}px`}>
         <RightHeader
           onLoadingAccount={onLoadingAccount}
-          selectedWallet={activeWallet}
+          selectedWallet={activeSelectedWallet}
           deviceStatus={
-            deviceStatus?.[activeWallet?.associatedDevice ?? ''] ?? undefined
+            deviceStatus?.[activeSelectedWallet?.associatedDevice ?? ''] ??
+            undefined
           }
         />
         <Box
           testID="AccountSelectorChildren-RightChainSelector-Container"
           m={2}
         >
+          {platformEnv.isDev && (
+            <Button
+              onPress={() => {
+                // dispatch(
+                //   changeActiveAccount({
+                //     activeAccountId: "hd-1--m/44'/60'/0'/0/1",
+                //     activeWalletId: 'hello-world-0000',
+                //   }),
+                // );
+                console.log({
+                  accountsInGroup,
+                  selectedWallet,
+                  selectedNetwork,
+                  rightChainSelectorNetworkId,
+
+                  // setSelectedNetwork,
+                  // setSelectedWallet,
+                  // setRightChainSelectorNetworkId,
+                });
+              }}
+            >
+              Show
+            </Button>
+          )}
           <RightChainSelector
-            activeWallet={activeWallet}
-            selectedNetworkId={selectedNetworkId}
-            setSelectedNetworkId={setSelectedNetworkId}
+            activeWallet={activeSelectedWallet}
+            selectedNetworkId={rightChainSelectorNetworkId}
+            setSelectedNetworkId={setRightChainSelectorNetworkId}
           />
         </Box>
-        <Box flex={1}>
-          {isActiveAccountsEmpty ? (
-            <RightAccountEmptyPanel
-              activeAccounts={activeAccounts}
-              activeWallet={activeWallet}
-              selectedNetworkId={selectedNetworkId}
-            />
-          ) : (
-            <AccountSection
-              activeAccounts={activeAccounts}
-              activeWallet={activeWallet}
-              activeNetwork={activeNetwork}
-              activeAccount={currentSelectedAccount}
-              loadingAccountWalletId={loadingAccountWalletId}
-              refreshAccounts={refreshAccounts}
-            />
-          )}
-        </Box>
+        <Box flex={1}>{rightContent}</Box>
         <Box p={2} flexDirection="row">
           <Box flex="1">
-            {isOpen && (
-              <RightAccountCreateButton
-                onLoadingAccount={onLoadingAccount}
-                isLoading={!!loadingAccountWalletId}
-                activeNetwork={activeNetwork}
-                selectedNetworkId={selectedNetworkId}
-                activeWallet={activeWallet}
-              />
-            )}
+            <RightAccountCreateButton
+              onLoadingAccount={onLoadingAccount}
+              isLoading={!!loadingAccountWalletId}
+              activeNetwork={currentActiveNetwork}
+              selectedNetworkId={rightChainSelectorNetworkId}
+              activeWallet={activeSelectedWallet}
+            />
           </Box>
           {isPasswordSet ? (
             <IconButton
@@ -303,5 +247,13 @@ const AccountSelectorChildren: FC<{
     </>
   );
 };
+
+function AccountSelectorChildrenLazy(props: IAccountSelectorChildrenProps) {
+  const { isOpen } = props;
+  if (isOpen) {
+    return <AccountSelectorChildren {...props} />;
+  }
+  return null;
+}
 
 export default memo(AccountSelectorChildren);
