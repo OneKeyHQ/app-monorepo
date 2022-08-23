@@ -24,6 +24,7 @@ import {
   Pressable,
   RecyclerListView,
   Spinner,
+  ToastManager,
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
@@ -43,7 +44,6 @@ import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
-import { deviceUtils } from '../../../utils/hardware';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -189,18 +189,24 @@ const RecoverAccounts: FC = () => {
             ),
           );
         })
-        .catch((e: any) => {
+        .catch(() => {
           isFetchingData.current = false;
-
           setTimeout(() => {
-            deviceUtils.showErrorToast(e);
+            ToastManager.show(
+              {
+                title: intl.formatMessage({
+                  id: 'msg__engine__internal_error',
+                }),
+              },
+              { type: 'error' },
+            );
           }, 200);
 
           navigation?.goBack?.();
           navigation?.goBack?.();
         });
     },
-    [currentPage, network, password, walletId, navigation, purpose],
+    [walletId, network, password, purpose, currentPage, navigation, intl],
   );
 
   const checkBoxOnChange = useCallback(
