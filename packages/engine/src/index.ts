@@ -708,7 +708,14 @@ class Engine {
           [];
         const missedTokenIds: string[] = [];
         const localTokenData = await simpleDb.token.localTokens.getData();
-        const removedTokens = localTokenData[accountId]?.removed || [];
+        const removedTokens: string[] = [];
+        localTokenData[accountId]?.removed?.forEach((tokenIdWithNetwork) => {
+          // "evm--1--0x4fabb145d64652a948d72533023f6e7a623c7c53"
+          const [impl, chainId, tId] = tokenIdWithNetwork.split('--');
+          if (`${impl}--${chainId}` === networkId) {
+            removedTokens.push(tId);
+          }
+        });
         for (const { address, balance } of balancesFromApi) {
           if (address && +balance > 0) {
             ret[address] = balance;
