@@ -18,7 +18,7 @@ export function useCopyAddress({
   network,
   account,
 }: {
-  wallet: Wallet | null;
+  wallet: Wallet | null | undefined;
   network?: Network | null;
   account?: Account | null;
 }) {

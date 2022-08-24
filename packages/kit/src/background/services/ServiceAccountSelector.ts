@@ -3,7 +3,9 @@ import { debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { ACCOUNT_SELECTOR_REFRESH_DEBOUNCE } from '../../components/Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../components/Header/AccountSelectorChildren/RightChainSelector';
 import { getActiveWalletAccount } from '../../hooks/redux';
 import { getManageNetworks } from '../../hooks/useManageNetworks';
@@ -15,78 +17,104 @@ import ServiceBase from './ServiceBase';
 
 import type { AccountGroup } from '../../components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
 
+const {
+  updateSelectedWalletId,
+  updateSelectedNetworkId,
+  updateAccountsGroup,
+  updateIsLoading,
+  updatePreloadingCreateAccount,
+} = reducerAccountSelector.actions;
+
 @backgroundClass()
 export default class ServiceAccountSelector extends ServiceBase {
   @bindThis()
   @backgroundMethod()
-  async setSelectedWallet(wallet: IWallet | null) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(reducerAccountSelector.actions.updateSelectedWallet(wallet));
+  async setSelectedWalletToActive() {
+    const { network, wallet } = getActiveWalletAccount();
+    await this.updateSelectedNetwork(network?.id);
+    await this.updateSelectedWallet(wallet?.id);
   }
 
   @bindThis()
   @backgroundMethod()
-  async setSelectedNetwork(network: INetwork | null) {
+  async updateSelectedWallet(walletId?: string) {
     const { dispatch } = this.backgroundApi;
-    dispatch(reducerAccountSelector.actions.updateSelectedNetwork(network));
+
+    // TODO ignore update if create new account loading
+    dispatch(updateSelectedWalletId(walletId || undefined));
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  async updateSelectedNetwork(networkId?: string) {
+    const { dispatch } = this.backgroundApi;
+
+    dispatch(updateSelectedNetworkId(networkId || undefined));
   }
 
   @bindThis()
   @backgroundMethod()
   async setRightChainSelectorNetworkId(id: string | typeof AllNetwork) {
     if (id === AllNetwork || !id) {
-      await this.setSelectedNetwork(null);
+      await this.updateSelectedNetwork(undefined);
       return;
     }
-    const { enabledNetworks } = getManageNetworks();
-    const network = enabledNetworks.find((item) => item.id === id);
-    await this.setSelectedNetwork(network ?? null);
+    await this.updateSelectedNetwork(id);
   }
 
   async getAccountsByGroup() {
-    const { appSelector, engine, dispatch } = this.backgroundApi;
+    const { appSelector, engine } = this.backgroundApi;
 
-    console.log('calling getAccountsByGroup');
+    debugLogger.accountSelector.info('calling getAccountsByGroup');
     let groupData: AccountGroup[] = [];
-    const { enabledNetworks } = getManageNetworks();
-    const { selectedNetwork, selectedWallet, isSelectorOpen, accountsInGroup } =
-      appSelector((s) => s.accountSelector);
-    if (!isSelectorOpen) {
+    const { networkId, walletId, isOpenDelay } = appSelector(
+      (s) => s.accountSelector,
+    );
+    if (!isOpenDelay) {
       // return accountsInGroup;
       return groupData;
     }
-    if (!selectedWallet) {
+    if (!walletId) {
       return groupData;
     }
-    const selectedNetworkId = selectedNetwork?.id;
-    const walletAccounts = selectedWallet?.accounts || [];
+    const selectedNetworkId = networkId;
+    const selectedWalletId = walletId;
+    let network: INetwork | null = null;
+    let wallet: IWallet | null = null;
+    if (selectedNetworkId) {
+      network = await engine.getNetwork(selectedNetworkId);
+    }
+    if (selectedWalletId) {
+      wallet = await engine.getWallet(selectedWalletId);
+    }
+    const walletAccounts = wallet?.accounts || [];
     const accountsIdInSelected = walletAccounts.filter((accountId) =>
       selectedNetworkId
         ? isAccountCompatibleWithNetwork(accountId, selectedNetworkId)
         : true,
     );
-
-    console.log('getAccountsByGroup calling', selectedNetwork);
     const accountsList = await engine.getAccounts(accountsIdInSelected);
-    if (selectedNetwork) {
+
+    if (network) {
       if (accountsList && accountsList.length)
         groupData = [
           {
             // TODO use network id
-            title: selectedNetwork,
+            title: network,
             // TODO use account id
             data: accountsList,
           },
         ];
     } else {
-      enabledNetworks.forEach((network) => {
+      const { enabledNetworks } = getManageNetworks();
+      enabledNetworks.forEach((networkItem) => {
         const data = accountsList.filter((account) =>
-          isAccountCompatibleWithNetwork(account.id, network.id),
+          isAccountCompatibleWithNetwork(account.id, networkItem.id),
         );
         if (data && data.length) {
           groupData.push({
             // TODO use network id
-            title: network,
+            title: networkItem,
             // TODO use account id
             data,
           });
@@ -94,46 +122,28 @@ export default class ServiceAccountSelector extends ServiceBase {
       });
     }
 
-    // await wait(600);
     return groupData;
   }
 
-  _reloadAccountsByGroup = debounce(
+  _refreshAccountsGroup = debounce(
     async () => {
-      const { appSelector, engine, dispatch } = this.backgroundApi;
+      const { dispatch } = this.backgroundApi;
       try {
-        const {
-          selectedNetwork,
-          selectedWallet,
-          isSelectorOpen,
-          accountsInGroup,
-        } = appSelector((s) => s.accountSelector);
-        if (!isSelectorOpen) {
-          return;
+        dispatch(updateIsLoading(true));
+
+        let data: AccountGroup[] = [];
+        try {
+          data = await this.getAccountsByGroup();
+        } catch (error) {
+          debugLogger.accountSelector.error(error);
         }
 
-        dispatch(
-          reducerAccountSelector.actions.updateAccountsInGroupLoading(true),
-        );
-
-        const data = await this.getAccountsByGroup();
-
-        await wait(300);
-
-        dispatch(
-          reducerAccountSelector.actions.updateAccountsInGroup({
-            walletId: selectedWallet?.id,
-            networkId: selectedNetwork?.id,
-            payload: data,
-          }),
-        );
+        dispatch(updateAccountsGroup(data));
       } finally {
-        dispatch(
-          reducerAccountSelector.actions.updateAccountsInGroupLoading(false),
-        );
+        dispatch(updateIsLoading(false));
       }
     },
-    100,
+    ACCOUNT_SELECTOR_REFRESH_DEBOUNCE,
     {
       leading: false,
       trailing: true,
@@ -142,15 +152,54 @@ export default class ServiceAccountSelector extends ServiceBase {
 
   @bindThis()
   @backgroundMethod()
-  async reloadAccountsByGroup() {
-    this._reloadAccountsByGroup();
+  async refreshAccountsGroup({ delay = 0 }: { delay?: number } = {}) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const { isOpenDelay } = appSelector((s) => s.accountSelector);
+    if (!isOpenDelay) {
+      return;
+    }
+    dispatch(updateIsLoading(true));
+    await wait(delay);
+    this._refreshAccountsGroup();
   }
 
   @bindThis()
   @backgroundMethod()
-  async setSelectedWalletByActive() {
-    const { network, wallet } = getActiveWalletAccount();
-    await this.setSelectedNetwork(network);
-    await this.setSelectedWallet(wallet);
+  async preloadingCreateAccount(info: { networkId: string; walletId: string }) {
+    const { dispatch } = this.backgroundApi;
+
+    const { networkId, walletId } = info;
+
+    await this.updateSelectedWallet(walletId);
+    await this.updateSelectedNetwork(networkId);
+
+    dispatch(updatePreloadingCreateAccount(info));
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  async preloadingCreateAccountDone({
+    networkId,
+    walletId,
+    accountId,
+    delay = 600,
+  }: {
+    networkId?: string;
+    walletId?: string;
+    accountId?: string;
+    delay?: number;
+  } = {}) {
+    const { dispatch } = this.backgroundApi;
+
+    if (walletId) await this.updateSelectedWallet(walletId);
+    if (networkId) await this.updateSelectedNetwork(networkId);
+
+    if (delay > 0) {
+      dispatch(
+        updatePreloadingCreateAccount({ networkId, walletId, accountId }),
+      );
+    }
+    await wait(delay);
+    dispatch(updatePreloadingCreateAccount(undefined));
   }
 }

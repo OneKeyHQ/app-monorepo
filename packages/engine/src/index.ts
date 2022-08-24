@@ -325,6 +325,16 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getWalletSafe(walletId: string): Promise<Wallet | undefined> {
+    try {
+      return await this.getWallet(walletId);
+    } catch (error) {
+      debugLogger.common.error(error);
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
   async getWalletByDeviceId(deviceId: string): Promise<Wallet> {
     const wallet = await this.dbApi.getWalletByDeviceId(deviceId);
     if (typeof wallet !== 'undefined') {
@@ -1947,6 +1957,16 @@ class Engine {
     // so getNetwork() does NOT including vaultSettings field
     //    please use getVaultSettings()
     return fromDBNetworkToNetwork(dbObj, {} as IVaultSettings);
+  }
+
+  @backgroundMethod()
+  async getNetworkSafe(networkId: string): Promise<Network | undefined> {
+    try {
+      return await this.getNetwork(networkId);
+    } catch (error) {
+      debugLogger.common.error(error);
+      return undefined;
+    }
   }
 
   @backgroundMethod()

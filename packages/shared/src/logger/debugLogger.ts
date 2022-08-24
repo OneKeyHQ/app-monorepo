@@ -94,6 +94,7 @@ export enum LoggerNames {
   extInjected = 'extInjected',
   backgroundApi = 'backgroundApi',
   walletConnect = 'walletConnect',
+  accountSelector = 'accountSelector',
   engine = 'engine',
   sendTx = 'sendTx',
   navigation = 'navigation',
@@ -138,6 +139,9 @@ const debugLogger: Record<
   [LoggerNames.extInjected]: Cache.createLogger(LoggerNames.extInjected),
   [LoggerNames.backgroundApi]: Cache.createLogger(LoggerNames.backgroundApi),
   [LoggerNames.walletConnect]: Cache.createLogger(LoggerNames.walletConnect),
+  [LoggerNames.accountSelector]: Cache.createLogger(
+    LoggerNames.accountSelector,
+  ),
   [LoggerNames.engine]: Cache.createLogger(LoggerNames.engine),
   [LoggerNames.sendTx]: Cache.createLogger(LoggerNames.sendTx),
   [LoggerNames.common]: Cache.createLogger(LoggerNames.common),

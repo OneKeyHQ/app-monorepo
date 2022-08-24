@@ -1,72 +1,71 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
-
 import type { AccountGroup } from '../../components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
 
-export const REDUCER_NAME_ACCOUNT_SELECTOR = 'accountSelector';
-
 type InitialState = {
-  selectedWallet: IWallet | null;
-  selectedNetwork: INetwork | null;
-  isSelectorOpen: boolean;
-  accountsInGroupLoading: boolean;
-  accountsInGroup: {
-    walletId?: string;
+  isOpenDelay: boolean; // isOpenDelay 600ms
+  isLoading: boolean;
+  walletId?: string;
+  networkId?: string;
+  accountsGroup: AccountGroup[];
+  preloadingCreateAccount?: {
     networkId?: string;
-    payload: AccountGroup[];
+    walletId?: string;
+    accountId?: string;
   };
 };
 
 const initialState: InitialState = {
-  selectedWallet: null,
-  selectedNetwork: null,
   // check packages/kit/src/components/Header/AccountSelector.tsx
   //      const visible = isSmallLayout ? isDrawerOpen : innerVisible;
-  isSelectorOpen: false,
-  accountsInGroupLoading: false,
-  accountsInGroup: {
-    payload: [],
-  },
+  isOpenDelay: false,
+  isLoading: false,
+  walletId: undefined,
+  networkId: undefined,
+  accountsGroup: [],
+  preloadingCreateAccount: undefined,
 };
 
 export const reducerSlice = createSlice({
-  name: REDUCER_NAME_ACCOUNT_SELECTOR,
+  name: 'accountSelector',
   initialState,
   reducers: {
-    updateSelectedWallet(
+    updateSelectedWalletId(
       state,
-      action: PayloadAction<InitialState['selectedWallet']>,
+      action: PayloadAction<InitialState['walletId']>,
     ) {
-      state.selectedWallet = action.payload;
+      state.walletId = action.payload;
     },
-    updateSelectedNetwork(
+    updateSelectedNetworkId(
       state,
-      action: PayloadAction<InitialState['selectedNetwork']>,
+      action: PayloadAction<InitialState['networkId']>,
     ) {
-      state.selectedNetwork = action.payload;
+      state.networkId = action.payload;
     },
-    updateIsSelectorOpen(
+    updateIsOpenDelay(
       state,
-      action: PayloadAction<InitialState['isSelectorOpen']>,
+      action: PayloadAction<InitialState['isOpenDelay']>,
     ) {
-      if (state.isSelectorOpen !== action.payload) {
-        state.isSelectorOpen = action.payload;
+      if (state.isOpenDelay !== action.payload) {
+        state.isOpenDelay = action.payload;
       }
     },
-    updateAccountsInGroupLoading(
-      state,
-      action: PayloadAction<InitialState['accountsInGroupLoading']>,
-    ) {
-      if (state.accountsInGroupLoading !== action.payload) {
-        state.accountsInGroupLoading = action.payload;
+    updateIsLoading(state, action: PayloadAction<InitialState['isLoading']>) {
+      if (state.isLoading !== action.payload) {
+        state.isLoading = action.payload;
       }
     },
-    updateAccountsInGroup(
+    updateAccountsGroup(
       state,
-      action: PayloadAction<InitialState['accountsInGroup']>,
+      action: PayloadAction<InitialState['accountsGroup']>,
     ) {
-      state.accountsInGroup = action.payload;
+      state.accountsGroup = action.payload;
+    },
+    updatePreloadingCreateAccount(
+      state,
+      action: PayloadAction<InitialState['preloadingCreateAccount']>,
+    ) {
+      state.preloadingCreateAccount = action.payload;
     },
   },
 });

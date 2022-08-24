@@ -11,6 +11,7 @@ import React, {
 
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
+import { InteractionManager } from 'react-native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -18,10 +19,6 @@ import {
   addNewRef,
   removeOldRef,
 } from '@onekeyhq/components/src/utils/SelectAutoHide';
-
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks';
-import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
 
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
@@ -39,8 +36,6 @@ type AccountSelectorProps = {
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const isSmallLayout = useIsVerticalLayout();
   const navigation = useNavigation();
-  const { dispatch, serviceAccountSelector } = backgroundApiProxy;
-  const { wallet, network } = useActiveWalletAccount();
 
   const triggerRef = useRef<HTMLElement>(null);
 
@@ -49,11 +44,13 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const visible = isSmallLayout ? isDrawerOpen : innerVisible;
 
   const handleToggleVisible = useCallback(() => {
-    if (isSmallLayout) {
-      // @ts-expect-error
-      navigation?.toggleDrawer?.();
-    }
-    setVisible((v) => !v);
+    InteractionManager.runAfterInteractions(() => {
+      if (isSmallLayout) {
+        // @ts-expect-error
+        navigation?.toggleDrawer?.();
+      }
+      setVisible((v) => !v);
+    });
   }, [navigation, isSmallLayout]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);

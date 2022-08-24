@@ -48,6 +48,8 @@ export function useAddExternalAccount() {
       // closeDrawer();
       // resetToRoot();
       // closeExtensionWindowIfOnboardingFinished();
+
+      return addedAccount;
     },
     [externalWallet?.nextAccountIds?.global, serviceAccount],
   );

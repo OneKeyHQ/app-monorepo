@@ -68,9 +68,7 @@ function PreSendToken() {
                   transferInfo,
                   {
                     token: token.tokenIdOnNetwork,
-                    to: platformEnv.isDev
-                      ? '0xfedd943b4e1e7507d86c442f032af5b5e922d6f8'
-                      : undefined,
+                    to: undefined,
                   },
                 ),
               );

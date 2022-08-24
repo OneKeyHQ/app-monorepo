@@ -13,6 +13,7 @@ import { useIntl } from 'react-intl';
 import { Button, useToast } from '@onekeyhq/components';
 import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import { isExternalWallet } from '@onekeyhq/engine/src/engineUtils';
+import { IAccount } from '@onekeyhq/engine/src/types';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
@@ -35,17 +36,11 @@ import { InitWalletServicesData } from '../../WalletConnect/WalletConnectQrcodeM
 
 import { AllNetwork } from './RightChainSelector';
 
-type OnLoadingAccountCallback = (
-  walletId: string,
-  networkId: string,
-  ready?: boolean,
-) => void;
 type Props = {
-  activeWallet: null | Wallet;
+  activeWallet: null | Wallet | undefined;
   isLoading: boolean;
-  selectedNetworkId: string;
+  selectedNetworkId: string | undefined;
   activeNetwork: null | Network;
-  onLoadingAccount: OnLoadingAccountCallback;
 };
 
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
@@ -54,13 +49,11 @@ export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
 export function useCreateAccountInWallet({
   networkId,
   walletId,
-  onLoadingAccount,
 }: {
   networkId?: string;
   walletId?: string;
-  onLoadingAccount?: OnLoadingAccountCallback;
 }) {
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceAccountSelector } = backgroundApiProxy;
   const navigation = useNavigation();
   const toast = useToast();
   const intl = useIntl();
@@ -68,7 +61,8 @@ export function useCreateAccountInWallet({
   const addExternalAccount = useAddExternalAccount();
 
   const { result: walletAndNetworkInfo } = usePromiseResult(async () => {
-    const selectedNetworkId = networkId === AllNetwork ? undefined : networkId;
+    const selectedNetworkId =
+      !networkId || networkId === AllNetwork ? undefined : networkId;
 
     let network: Network | undefined;
     let activeWallet: Wallet | undefined;
@@ -152,6 +146,7 @@ export function useCreateAccountInWallet({
     }
     if (activeWallet?.type === 'external') {
       let isConnected = false;
+      let addedAccount: IAccount | undefined;
       try {
         const result = await connectToWallet({
           isNewSession: true,
@@ -159,13 +154,12 @@ export function useCreateAccountInWallet({
         isConnected = true;
 
         // refresh accounts in drawer list
-        onLoadingAccount?.(
-          activeWallet.id,
-          network?.id || NETWORK_ID_EVM_ETH,
-          false,
-        );
+        await serviceAccountSelector.preloadingCreateAccount({
+          walletId: activeWallet.id,
+          networkId: network?.id || NETWORK_ID_EVM_ETH,
+        });
 
-        await addExternalAccount(result);
+        addedAccount = await addExternalAccount(result);
       } catch (error) {
         debugLogger.common.error(error);
       } finally {
@@ -173,11 +167,12 @@ export function useCreateAccountInWallet({
 
         if (isConnected) {
           // refresh accounts in drawer list after created
-          onLoadingAccount?.(
-            activeWallet.id,
-            network?.id || NETWORK_ID_EVM_ETH,
-            true,
-          );
+
+          await serviceAccountSelector.preloadingCreateAccountDone({
+            walletId: activeWallet.id,
+            networkId: network?.id || NETWORK_ID_EVM_ETH,
+            accountId: addedAccount?.id,
+          });
         }
       }
       return;
@@ -215,7 +210,6 @@ export function useCreateAccountInWallet({
         screen: CreateAccountModalRoutes.CreateAccountForm,
         params: {
           walletId: activeWallet?.id || '',
-          onLoadingAccount,
           selectedNetworkId,
         },
       },
@@ -225,7 +219,7 @@ export function useCreateAccountInWallet({
     connectToWallet,
     intl,
     navigation,
-    onLoadingAccount,
+    serviceAccountSelector,
     toast,
     walletAndNetworkInfo,
     walletId,
@@ -242,7 +236,6 @@ const RightAccountCreateButton: FC<Props> = ({
   selectedNetworkId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   activeNetwork,
-  onLoadingAccount,
 }) => {
   const intl = useIntl();
 
@@ -250,7 +243,6 @@ const RightAccountCreateButton: FC<Props> = ({
   const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     networkId: selectedNetworkId,
     walletId: activeWallet?.id,
-    onLoadingAccount,
   });
   const isExternal = useMemo(() => {
     if (!activeWallet?.id) {

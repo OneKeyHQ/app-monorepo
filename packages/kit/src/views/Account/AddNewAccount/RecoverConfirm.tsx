@@ -12,6 +12,7 @@ import {
   Modal,
   Typography,
 } from '@onekeyhq/components';
+import { IAccount } from '@onekeyhq/engine/src/types';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -39,22 +40,25 @@ type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 const RecoverConfirm: FC = () => {
   const intl = useIntl();
-  const { serviceAccount } = backgroundApiProxy;
+  const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
 
   const route = useRoute<RouteProps>();
-  const { accounts, walletId, network, purpose, onLoadingAccount } =
-    route.params;
+  const { accounts, walletId, network, purpose } = route.params;
   const [flatListData, updateFlatListData] = useState<FlatDataType[]>(accounts);
   const [isVaild, setIsVaild] = useState(true);
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const authenticationDone = async (password: string) => {
+    let addedAccount: IAccount | undefined;
     try {
       const selectedIndexes = flatListData
         .filter((i) => i.selected)
         .map((i) => i.index);
-      onLoadingAccount?.(walletId, network, false);
-      await serviceAccount.addHDAccounts(
+      await serviceAccountSelector.preloadingCreateAccount({
+        walletId,
+        networkId: network,
+      });
+      const addedAccounts = await serviceAccount.addHDAccounts(
         password,
         walletId,
         network,
@@ -62,10 +66,15 @@ const RecoverConfirm: FC = () => {
         undefined,
         purpose,
       );
+      addedAccount = addedAccounts?.[0];
     } catch (e: any) {
       deviceUtils.showErrorToast(e, 'action__connection_timeout');
     } finally {
-      onLoadingAccount?.(walletId, network, true);
+      await serviceAccountSelector.preloadingCreateAccountDone({
+        walletId,
+        networkId: network,
+        accountId: addedAccount?.id,
+      });
     }
 
     if (navigation?.canGoBack?.()) {

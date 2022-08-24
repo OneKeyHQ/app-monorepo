@@ -31,6 +31,7 @@ export type ISelectorBuilder = (
 
 function mockUseMemo<T>(
   factory: () => T,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   deps: React.DependencyList | undefined,
 ) {
   return factory();

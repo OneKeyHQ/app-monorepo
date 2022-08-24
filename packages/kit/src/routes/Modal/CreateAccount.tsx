@@ -19,35 +19,25 @@ export enum CreateAccountModalRoutes {
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
 }
 
-type OnLoadingAccountType = (
-  walletId: string,
-  networkId: string,
-  ready?: boolean,
-) => void;
-
 export type CreateAccountRoutesParams = {
   [CreateAccountModalRoutes.CreateAccountForm]: {
     walletId: string;
     selectedNetworkId?: string;
-    onLoadingAccount?: OnLoadingAccountType;
   };
   [CreateAccountModalRoutes.CreateAccountAuthentication]: {
     onDone: (password: string) => void;
     walletId: string;
   };
   [CreateAccountModalRoutes.RecoverySelectChainList]: {
-    onLoadingAccount?: OnLoadingAccountType;
     walletId: string;
   };
   [CreateAccountModalRoutes.RecoverAccountsList]: {
-    onLoadingAccount?: OnLoadingAccountType;
     walletId: string;
     network: string;
     password: string;
     purpose: number;
   };
   [CreateAccountModalRoutes.RecoverAccountsConfirm]: {
-    onLoadingAccount?: OnLoadingAccountType;
     accounts: (ImportableHDAccount & {
       selected: boolean;
       isDisabled: boolean;

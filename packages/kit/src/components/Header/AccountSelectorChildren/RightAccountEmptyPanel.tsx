@@ -18,8 +18,8 @@ import {
 } from './RightAccountCreateButton';
 
 export type IRightAccountEmptyPanelProps = {
-  activeWallet: Wallet | null;
-  selectedNetworkId: string;
+  activeWallet: Wallet | null | undefined;
+  selectedNetworkId: string | undefined;
 };
 function RightAccountEmptyPanel({
   activeWallet,
@@ -33,7 +33,7 @@ function RightAccountEmptyPanel({
 
   const { network } = useNetwork({ networkId: selectedNetworkId });
 
-  const emptyInfoRaw = useMemo(() => {
+  const emptyInfo = useMemo(() => {
     let title = '';
     let desc = '';
     if (activeWallet?.type === WALLET_TYPE_IMPORTED) {
@@ -69,9 +69,6 @@ function RightAccountEmptyPanel({
     }
     return undefined;
   }, [activeWallet?.type, isCreateAccountSupported, intl, network]);
-
-  // const emptyInfo = useDebounce(emptyInfoRaw, 600);
-  const emptyInfo = emptyInfoRaw;
 
   // if (selectedNetworkId === AllNetwork) return null;
 
