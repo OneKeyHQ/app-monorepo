@@ -59,7 +59,7 @@ const TokenCell: FC<TokenCellProps> = ({
     basePrice = chart[0][1];
   }
   if (typeof price === 'string') {
-    tokenValue = new BigNumber(balance).times(price).toNumber();
+    tokenValue = new BigNumber(balance).times(price).toNumber() || 0;
   } else if (price === null) {
     tokenValue = 0;
   }
