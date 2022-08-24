@@ -24,6 +24,7 @@ import { LazyDisplayView } from '../../LazyDisplayView';
 
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ACCOUNT_SELECTOR_SELECTED_WALLET_DEBOUNCED,
 } from './accountSelectorConsts';
 import LeftSide from './LeftSide';
