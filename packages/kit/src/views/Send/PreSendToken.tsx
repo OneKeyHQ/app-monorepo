@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import { Box, Empty } from '@onekeyhq/components';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AssetsList from '../Wallet/AssetsList';
 
