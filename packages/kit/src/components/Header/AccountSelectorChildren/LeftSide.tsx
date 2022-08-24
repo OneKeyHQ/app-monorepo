@@ -195,9 +195,6 @@ const LeftSide: FC<LeftSideProps> = ({
           size="xl"
           onPress={() => {
             navigation.navigate(RootRoutes.Onboarding);
-            // navigation.navigate(RootRoutes.Root, {
-            //   screen: HomeRoutes.HomeOnboarding,
-            // });
           }}
         />
       </Box>

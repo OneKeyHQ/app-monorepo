@@ -42,6 +42,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           cd packages/web && yarn build && cd ../..
 

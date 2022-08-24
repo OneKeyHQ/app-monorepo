@@ -4,7 +4,6 @@ import {
   UI_HTML_DEFAULT_MIN_HEIGHT,
   UI_HTML_DEFAULT_MIN_WIDTH,
 } from '../../../ext/src/ui/popupSizeFix';
-import { IS_LAZY_NAVIGATE_SUB_ROUTER } from '../views/Send/sendConfirmConsts';
 
 let expandTabId: number | undefined;
 export type OpenUrlRouteInfo = {
@@ -28,12 +27,7 @@ function buildExtRouteUrl(
       hash = `${hash}?${paramsStr || ''}`;
     }
   }
-  if (hash && IS_LAZY_NAVIGATE_SUB_ROUTER) {
-    const navigateRouterHash = encodeURIComponent(hash);
-    return chrome.runtime.getURL(
-      `/${htmlFile}?navigateRouterHash=${navigateRouterHash}`,
-    );
-  }
+
   return chrome.runtime.getURL(`/${htmlFile}${hash}`);
 }
 

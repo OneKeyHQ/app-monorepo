@@ -1,5 +1,5 @@
 export enum EOnboardingRoutes {
-  Welcome = 'Welcome',
+  Welcome = 'welcome',
 
   // ConnectWallet
   ConnectWallet = 'ConnectWallet',
