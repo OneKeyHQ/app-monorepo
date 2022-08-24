@@ -10,6 +10,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import {
   useActiveWalletAccount,
@@ -18,7 +19,13 @@ import {
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ACCOUNT_SELECTOR_SELECTED_WALLET_DEBOUNCED } from './accountSelectorConsts';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { LazyDisplayView } from '../../LazyDisplayView';
+
+import {
+  ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
+  ACCOUNT_SELECTOR_SELECTED_WALLET_DEBOUNCED,
+} from './accountSelectorConsts';
 import LeftSide from './LeftSide';
 import RightAccountCreateButton from './RightAccountCreateButton';
 import RightAccountEmptyPanel from './RightAccountEmptyPanel';
@@ -80,10 +87,10 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
     backgroundApiProxy.serviceApp.lock(true);
   }, []);
 
-  const selectedWalletDeBounced = useDebounce(
-    selectedWallet,
-    ACCOUNT_SELECTOR_SELECTED_WALLET_DEBOUNCED,
-  );
+  // const selectedWalletDeBounced = useDebounce(
+  //   selectedWallet,
+  //   ACCOUNT_SELECTOR_SELECTED_WALLET_DEBOUNCED,
+  // );
 
   const loadingSkeletonRef = useRef(
     <Box>
@@ -102,10 +109,13 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
         return loadingSkeletonRef.current;
       }
       return (
-        <RightAccountEmptyPanel
-          activeWallet={selectedWalletDeBounced}
-          selectedNetworkId={selectedNetworkId}
-        />
+        <LazyDisplayView delay={ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY}>
+          <RightAccountEmptyPanel
+            // activeWallet={selectedWalletDeBounced}
+            activeWallet={selectedWallet}
+            selectedNetworkId={selectedNetworkId}
+          />
+        </LazyDisplayView>
       );
     }
     return (
@@ -127,7 +137,6 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
     currentActiveAccount,
     refreshAccounts,
     isLoading,
-    selectedWalletDeBounced,
     selectedNetworkId,
   ]);
 

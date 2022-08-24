@@ -21,15 +21,22 @@ export type IRightAccountEmptyPanelProps = {
   activeWallet: Wallet | null | undefined;
   selectedNetworkId: string | undefined;
 };
+
 function RightAccountEmptyPanel({
   activeWallet,
   selectedNetworkId,
 }: IRightAccountEmptyPanelProps) {
   const intl = useIntl();
+  const activeWalletId = activeWallet?.id;
   const { isCreateAccountSupported } = useCreateAccountInWallet({
     networkId: selectedNetworkId,
-    walletId: activeWallet?.id,
+    walletId: activeWalletId,
   });
+
+  const isSupported = useMemo(
+    () => isCreateAccountSupported,
+    [isCreateAccountSupported],
+  );
 
   const { network } = useNetwork({ networkId: selectedNetworkId });
 
@@ -55,7 +62,7 @@ function RightAccountEmptyPanel({
       });
     }
 
-    if (!isCreateAccountSupported) {
+    if (!isSupported) {
       title = '🌍';
       desc = intl.formatMessage(
         {
@@ -68,39 +75,43 @@ function RightAccountEmptyPanel({
       return { title, desc };
     }
     return undefined;
-  }, [activeWallet?.type, isCreateAccountSupported, intl, network]);
+  }, [activeWallet?.type, isSupported, intl, network]);
 
   // if (selectedNetworkId === AllNetwork) return null;
 
-  return (
-    <PresenceTransition
-      style={{ flex: 1 }}
-      visible={!!emptyInfo}
-      initial={{ opacity: 0 }}
-      animate={{
-        opacity: 1,
-        transition: {
-          duration: 150,
-        },
-      }}
-    >
-      <Center flex={1} px={4} py={8}>
-        <Text fontSize={48} lineHeight={48} textAlign="center">
-          {emptyInfo?.title}
-        </Text>
-        <Text my={6} typography="DisplaySmall" textAlign="center">
-          {emptyInfo?.desc}
-        </Text>
-        {isCreateAccountSupported ? (
-          <Icon
-            name="ArrowBottomLeftIllus"
-            size={62}
-            color="interactive-default"
-          />
-        ) : null}
-      </Center>
-    </PresenceTransition>
+  const content = useMemo(
+    () => (
+      <PresenceTransition
+        style={{ flex: 1 }}
+        visible={!!emptyInfo}
+        initial={{ opacity: 0 }}
+        animate={{
+          opacity: 1,
+          transition: {
+            duration: 150,
+          },
+        }}
+      >
+        <Center flex={1} px={4} py={8}>
+          <Text fontSize={48} lineHeight={48} textAlign="center">
+            {emptyInfo?.title}
+          </Text>
+          <Text my={6} typography="DisplaySmall" textAlign="center">
+            {emptyInfo?.desc}
+          </Text>
+          {isSupported ? (
+            <Icon
+              name="ArrowBottomLeftIllus"
+              size={62}
+              color="interactive-default"
+            />
+          ) : null}
+        </Center>
+      </PresenceTransition>
+    ),
+    [emptyInfo, isSupported],
   );
+  return content;
 }
 
 export default React.memo(RightAccountEmptyPanel);
