@@ -92,9 +92,7 @@ export interface IAsyncStorageLegacy {
 
 class ExtensionStorage implements AsyncStorageStatic {
   browserApi: typeof chrome =
-    platformEnv.isExtFirefox || !isManifestV3()
-      ? global.browser
-      : global.chrome;
+    platformEnv.isExtFirefox || !isManifestV3 ? global.browser : global.chrome;
 
   async getItem(key: string) {
     const data = (await this.browserApi.storage.local.get(key)) ?? {};

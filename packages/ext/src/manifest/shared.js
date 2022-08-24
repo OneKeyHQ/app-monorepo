@@ -56,6 +56,8 @@ module.exports = {
     // '*://*.eth/',
     'storage',
     'unlimitedStorage',
+    'webRequest',
+    'webRequestBlocking',
     // 'clipboardWrite',
     // 'notifications',
     // 'activeTab',

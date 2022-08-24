@@ -32,17 +32,11 @@ export function buildModalRouteParams({
 export function useAutoNavigateOnMount() {
   useEffect(() => {
     setTimeout(() => {
-      if (!platformEnv.isExtensionUiStandaloneWindow) {
-        return;
-      }
-      if (!IS_LAZY_NAVIGATE_SUB_ROUTER) {
-        return;
-      }
       try {
         const uriInfo = parseUrlObject(window.location.href);
         const routerHash = uriInfo.searchParams.get('navigateRouterHash');
         if (routerHash) {
-          const mockUrl = `https://helloworld.com/${routerHash.replace(
+          const mockUrl = `https://app.onekey.so/${routerHash.replace(
             '#/',
             '',
           )}`;

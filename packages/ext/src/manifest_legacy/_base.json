@@ -79,6 +79,7 @@
     "clipboardWrite",
     "activeTab",
     "webRequest",
+    "webRequestBlocking",
     "notifications"
   ],
   "short_name": "__MSG_appName__",

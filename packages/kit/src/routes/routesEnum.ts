@@ -47,7 +47,7 @@ export enum RootRoutes {
 }
 export enum HomeRoutes {
   // InitialTab = 'overview',
-  InitialTab = 'home',
+  InitialTab = 'initial',
   Dev = 'dev',
   HomeOnboarding = 'HomeOnboarding',
   FullTokenListScreen = 'FullTokenListScreen',
