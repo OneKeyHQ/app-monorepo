@@ -65,5 +65,5 @@ const getBalances = async (
 };
 export const getBalancesFromApi = memoizee(getBalances, {
   maxAge: 5000,
-  normalizer: JSON.stringify,
+  normalizer: (...args) => JSON.stringify(args),
 });
