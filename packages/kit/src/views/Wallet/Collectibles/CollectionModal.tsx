@@ -93,7 +93,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
 
   const cardInnerPadding = isSmallScreen ? 8 : 12;
   const imageWidth = cardWidth - 2 * cardInnerPadding;
-  const cardHeight = imageWidth + cardInnerPadding + 36;
+  const cardHeight = imageWidth + cardInnerPadding + 56;
 
   const route =
     useRoute<

@@ -18,6 +18,8 @@ export type Collection = {
   description?: string;
   logoUrl?: string;
   ownsTotal?: string;
+  floorPrice?: number;
+  priceSymbol?: string;
   assets: NFTAsset[];
 };
 
@@ -37,6 +39,9 @@ export type NFTAsset = {
   name?: string;
   description?: string;
   attributes?: Traits[];
+  mintPrice?: number;
+  latestTradePrice?: number;
+  latestTradeSymbol?: string;
   collection: {
     contractName?: string;
     logoUrl?: string;

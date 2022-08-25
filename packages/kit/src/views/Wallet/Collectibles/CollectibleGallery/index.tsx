@@ -1,16 +1,13 @@
-import React, { ComponentProps, FC, useCallback, useMemo } from 'react';
+import React, { ComponentProps, FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { SectionListRenderItem } from 'react-native';
 
 import {
-  Badge,
   Box,
   Empty,
   FlatList,
   HStack,
   IconButton,
-  NetImage,
   Typography,
   useIsVerticalLayout,
   useUserDevice,
@@ -68,41 +65,13 @@ type FlatListShareProps = Pick<
   | 'numColumns'
 >;
 
-type CollectionSection = {
-  title: Omit<Collection, 'assets'>;
-  data: { assets: NFTAsset[] }[];
-};
-
-const CollectibleSectionList: FC<
+const ExpandList: FC<
   CollectibleGalleryProps & { flatListProps: FlatListShareProps }
 > = ({ collectibles, onSelectAsset, flatListProps }) => {
-  const { numColumns } = flatListProps;
-  const renderGridSectionHeader = (
-    logo?: string,
-    title?: string | null,
-    length?: number | string | null,
-  ) => (
-    <Box
-      flexDirection="column"
-      justifyContent="flex-start"
-      key={`SectionHeader${title ?? ''}`}
-      paddingBottom="8px"
-    >
-      <HStack alignItems="center" height="28px">
-        {!!logo && (
-          <NetImage src={logo} width="20px" height="20px" borderRadius="20px" />
-        )}
-        <Typography.Subheading color="text-subdued" ml="8px" mr="12px">
-          {title}
-        </Typography.Subheading>
-        {!!length && (
-          <Badge type="default" title={length.toString()} size="sm" />
-        )}
-      </HStack>
-      {/* <BalanceText text="563.12" typography="DisplayMedium" /> */}
-    </Box>
+  const allAssets = useMemo(
+    () => collectibles.map((collection) => collection.assets).flat(),
+    [collectibles],
   );
-
   const renderAssetItem = React.useCallback<
     NonNullable<FlatListProps<NFTAsset>['renderItem']>
   >(
@@ -117,50 +86,17 @@ const CollectibleSectionList: FC<
     [onSelectAsset],
   );
 
-  const renderList: SectionListRenderItem<Collection, CollectionSection> =
-    useCallback(
-      ({ item }) => (
-        <FlatList
-          data={item.assets}
-          renderItem={renderAssetItem}
-          numColumns={numColumns}
-        />
-      ),
-      [numColumns, renderAssetItem],
-    );
-
-  const sections: CollectionSection[] = collectibles.map(
-    (collection): CollectionSection => {
-      const { assets, ...props } = collection;
-      return {
-        data: [{ assets }],
-        title: props,
-      };
-    },
-  );
-
   return (
-    <Tabs.SectionList
-      sections={sections}
-      stickySectionHeadersEnabled={false}
-      // @ts-ignore
-      renderSectionHeader={({ section }: { section: CollectionSection }) => {
-        const header = renderGridSectionHeader(
-          section.title.logoUrl,
-          section.title.contractName,
-          section.title.ownsTotal,
-        );
-
-        return header;
-      }}
-      // @ts-ignore
-      renderItem={renderList}
+    <Tabs.FlatList<NFTAsset>
       {...flatListProps}
+      data={allAssets}
+      renderItem={renderAssetItem}
+      keyExtractor={(item) => item.contractAddress + item.tokenId}
     />
   );
 };
 
-const CollectibleFlatList: FC<
+const PackupList: FC<
   CollectibleGalleryProps & { flatListProps: FlatListShareProps }
 > = ({ collectibles, onSelectCollection, flatListProps }) => {
   const renderCollectionItem = React.useCallback<
@@ -252,19 +188,18 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
           }}
         />
       ),
-      data: collectibles,
     }),
     [EmptyView, collectibles, expand, numColumns],
   );
 
   return expand ? (
-    <CollectibleSectionList
+    <ExpandList
       flatListProps={sharedProps}
       collectibles={collectibles}
       onSelectAsset={onSelectAsset}
     />
   ) : (
-    <CollectibleFlatList
+    <PackupList
       flatListProps={sharedProps}
       collectibles={collectibles}
       onSelectCollection={onSelectCollection}
