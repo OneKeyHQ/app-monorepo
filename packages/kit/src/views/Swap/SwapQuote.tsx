@@ -7,12 +7,12 @@ import { Box, Icon, Pressable, Typography, utils } from '@onekeyhq/components';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-import { setReceiving } from '../../store/reducers/swap';
+import { setRecipient } from '../../store/reducers/swap';
 import { AddressBookRoutes } from '../AddressBook/routes';
 
 import SwappingVia from './components/SwappingVia';
 import TransactionRate from './components/TransactionRate';
-import { useReceivingAddress, useSwapState } from './hooks/useSwap';
+import { useSwapRecipient, useSwapState } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
 import { isNoCharge } from './utils';
 
@@ -46,26 +46,31 @@ const SwapArrivalTime = () => {
 const SwapReceiving = () => {
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
-  const { address, name } = useReceivingAddress();
+  const recipient = useSwapRecipient();
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.AddressBook,
       params: {
         screen: AddressBookRoutes.EnterAddressRoute,
         params: {
-          defaultAddress: address,
+          defaultAddress: recipient?.address,
           networkId: outputTokenNetwork?.id,
           onSelected: ({ address: selectedAddress, name: selectedName }) => {
             backgroundApiProxy.dispatch(
-              setReceiving({ address: selectedAddress, name: selectedName }),
+              setRecipient({
+                address: selectedAddress,
+                name: selectedName,
+                networkId: outputTokenNetwork?.id,
+              }),
             );
           },
         },
       },
     });
-  }, [navigation, outputTokenNetwork?.id, address]);
+  }, [navigation, outputTokenNetwork?.id, recipient?.address]);
 
   let text = '';
+  const { address, name } = recipient ?? {};
   if (address && name) {
     text = `${name}(${address.slice(-4)})`;
   } else if (address) {
@@ -90,7 +95,7 @@ const SwapQuote = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { inputToken, outputToken, quote } = useSwapState();
-  const { address } = useReceivingAddress();
+  const recipient = useSwapRecipient();
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
@@ -110,7 +115,7 @@ const SwapQuote = () => {
 
   return (
     <Box>
-      {address ? (
+      {recipient ? (
         <Box
           display="flex"
           flexDirection="row"

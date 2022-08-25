@@ -8,6 +8,7 @@ import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
+import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
@@ -56,6 +57,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAccount: ServiceAccount;
   serviceNetwork: ServiceNetwork;
   serviceApp: ServiceApp;
+  serviceAccountSelector: ServiceAccountSelector;
   serviceCronJob: ServiceCronJob;
   serviceOnboarding: ServiceOnboarding;
   serviceToken: ServiceToken;

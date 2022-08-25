@@ -1,15 +1,18 @@
+import { useMemo } from 'react';
+
 import { TypedUseSelectorHook, useSelector } from 'react-redux';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
-import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
+import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HW,
+} from '@onekeyhq/engine/src/types/wallet';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appDispatch, appSelector } from '../store';
 
 import type { IAppState } from '../store';
-import type { INetwork } from '../store/reducers/runtime';
 
 export const useAppDispatch = () => {
   console.error(
@@ -19,14 +22,30 @@ export const useAppDispatch = () => {
 };
 export const useAppSelector: TypedUseSelectorHook<IAppState> = useSelector;
 
-export type ISelectorBuilder = (selector: typeof useAppSelector) => unknown;
+export type ISelectorBuilder = (
+  selector: typeof useAppSelector,
+  helpers: {
+    useMemo: typeof useMemo;
+  },
+) => unknown;
+
+function mockUseMemo<T>(
+  factory: () => T,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  deps: React.DependencyList | undefined,
+) {
+  return factory();
+}
 
 export function makeSelector<T>(builder: ISelectorBuilder) {
   return {
     // hooks for UI
-    use: (): T => builder(useAppSelector) as T,
+    use: (): T => builder(useAppSelector, { useMemo }) as T,
     // getter for Background
-    get: (): T => builder(appSelector) as T,
+    get: (): T =>
+      builder(appSelector, {
+        useMemo: mockUseMemo,
+      }) as T,
   };
 }
 
@@ -57,13 +76,26 @@ export const useGeneral = () => {
 
 export const useRuntime = () => useAppSelector((s) => s.runtime);
 
+// TODO rename like useManageNetworks
+export const useRuntimeWallets = () => {
+  const wallets = useAppSelector((s) => s.runtime.wallets);
+  const hardwareWallets = useMemo(
+    () => wallets.filter((w) => w.type === WALLET_TYPE_HW),
+    [wallets],
+  );
+  return {
+    wallets,
+    hardwareWallets,
+  };
+};
+
 export const useAutoUpdate = () => useAppSelector((s) => s.autoUpdate);
 
 export type IActiveWalletAccount = {
-  wallet: Wallet | null;
-  account: Account | null;
+  wallet: IWallet | null;
+  account: IAccount | null;
   network: INetwork | null;
-  externalWallet: Wallet | null;
+  externalWallet: IWallet | null;
   networkId: string;
   walletId: string;
   accountId: string;

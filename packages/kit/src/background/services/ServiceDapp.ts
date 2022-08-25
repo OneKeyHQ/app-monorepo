@@ -3,7 +3,7 @@ import {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { debounce } from 'lodash';
+import { cloneDeep, debounce } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -38,6 +38,7 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
+  // TODO rename getActiveConnectedAccounts
   getConnectedAccounts({ origin }: { origin: string }): DappSiteConnection[] {
     // TODO unlock status check
     const { networkImpl, accountAddress } = getActiveWalletAccount();
@@ -47,11 +48,17 @@ class ServiceDapp extends ServiceBase {
     const accounts = connections
       .filter(
         (item) =>
-          item.site.origin === origin &&
-          item.networkImpl === networkImpl &&
-          item.address === accountAddress, // only match current active account
+          item.site.origin === origin && item.networkImpl === networkImpl,
+        // && item.address === accountAddress, // only match current active account
       )
       .filter((item) => item.address && item.networkImpl);
+
+    if (accounts.length) {
+      const list = cloneDeep(accounts);
+      // support all accounts for dapp connection, do NOT need approval again
+      list.forEach((item) => (item.address = accountAddress));
+      return list;
+    }
     return accounts;
   }
 

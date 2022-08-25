@@ -11,20 +11,17 @@ import {
   useAppSelector,
   useDebounce,
 } from '../../../hooks';
+import { useRuntime } from '../../../hooks/redux';
 import {
   setError,
   setLoading,
   setQuoteLimited,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { enabledChainIds } from '../config';
+import { enabledNetworkIds } from '../config';
 import { SwapQuoter } from '../quoter';
 import { ApprovalState, FetchQuoteParams, SwapError } from '../typings';
-import {
-  getChainIdFromNetwork,
-  greaterThanZeroOrUndefined,
-  nativeTokenAddress,
-} from '../utils';
+import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
 
 import { useCachedBalances } from './useSwapTokenUtils';
 import { useHasPendingApproval } from './useTransactions';
@@ -66,12 +63,6 @@ export function useTokenAmount(token?: Token, amount?: string) {
   }, [token, amount]);
 }
 
-export function useSwapEnabled() {
-  const { network } = useActiveWalletAccount();
-  const chainId = getChainIdFromNetwork(network ?? undefined);
-  return network?.impl === 'evm' && enabledChainIds.includes(chainId);
-}
-
 export function useSwapState() {
   return useAppSelector((s) => s.swap);
 }
@@ -81,7 +72,7 @@ export function useTokenBalance(
   networkId?: string,
   accountId?: string,
 ): BigNumber | undefined {
-  const balances = useCachedBalances(networkId ?? '', accountId ?? '');
+  const balances = useCachedBalances(networkId, accountId);
   useEffect(() => {
     async function main() {
       if (
@@ -114,42 +105,15 @@ export function useTokenBalance(
   }, [token, networkId, accountId, balance]);
 }
 
-export function useReceivingAddress() {
-  const { account } = useActiveWalletAccount();
-  const {
-    inputTokenNetwork,
-    outputTokenNetwork,
-    receivingAddress,
-    receivingName,
-  } = useSwapState();
-  return useMemo(() => {
-    let address: string | undefined;
-    let name: string | undefined;
-    if (outputTokenNetwork?.id !== inputTokenNetwork?.id) {
-      if (receivingAddress) {
-        address = receivingAddress;
-        name = receivingName;
-      } else {
-        address = account?.address;
-        name = account?.name;
-      }
-    }
-    return { address, name };
-  }, [
-    receivingAddress,
-    receivingName,
-    account,
-    inputTokenNetwork,
-    outputTokenNetwork,
-  ]);
+export function useSwapRecipient() {
+  return useAppSelector((s) => s.swap.recipient);
 }
 
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
-  const { account, network } = useActiveWalletAccount();
-  const { address } = useReceivingAddress();
+  const { account } = useActiveWalletAccount();
   const {
     inputToken,
     outputToken,
@@ -167,34 +131,29 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       !inputTokenNetwork ||
       !outputTokenNetwork ||
       !account ||
-      !network ||
       new BigNumber(typedValue).lte(0)
     ) {
       return;
     }
     return {
+      typedValue,
+      independentField,
       networkOut: outputTokenNetwork,
       networkIn: inputTokenNetwork,
       tokenOut: outputToken,
       tokenIn: inputToken,
       slippagePercentage: swapSlippagePercent,
-      typedValue,
-      independentField,
       activeAccount: account,
-      activeNetwok: network,
-      receivingAddress: address,
     };
   }, [
+    typedValue,
+    independentField,
     inputToken,
     outputToken,
     inputTokenNetwork,
     outputTokenNetwork,
-    typedValue,
     swapSlippagePercent,
-    independentField,
     account,
-    network,
-    address,
   ]);
 }
 
@@ -203,15 +162,12 @@ export const useSwapQuoteCallback = function (
 ) {
   const { showLoading } = options;
   const requestParams = useSwapQuoteRequestParams();
-  const { accountId, networkId } = useActiveWalletAccount();
   const params = useDebounce(requestParams, 500);
-  const refs = useRef({ accountId, networkId, params, count: 0 });
+  const refs = useRef({ params, count: 0 });
 
   useEffect(() => {
-    refs.current.accountId = accountId;
-    refs.current.networkId = networkId;
     refs.current.params = params;
-  }, [accountId, networkId, params]);
+  }, [params]);
 
   const onSwapQuote = useCallback(async () => {
     if (!params) {
@@ -223,8 +179,6 @@ export const useSwapQuoteCallback = function (
     }
     backgroundApiProxy.dispatch(setError(undefined));
     try {
-      refs.current.accountId = accountId;
-      refs.current.networkId = networkId;
       refs.current.params = params;
       refs.current.count += 1;
       debugLogger.swap.info(
@@ -237,14 +191,13 @@ export const useSwapQuoteCallback = function (
       );
       const res = await SwapQuoter.client.fetchQuote(params);
       debugLogger.swap.info('quote success');
-      if (
-        refs.current.accountId === accountId &&
-        refs.current.networkId === networkId &&
-        refs.current.params === params
-      ) {
+      if (refs.current.params === params) {
         backgroundApiProxy.dispatch(setLoading(false));
         if (res) {
           if (res.data) {
+            await backgroundApiProxy.serviceSwap.setReceivingAddress(
+              params.networkOut.id,
+            );
             backgroundApiProxy.serviceSwap.setQuote(res.data);
           }
           backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
@@ -261,7 +214,7 @@ export const useSwapQuoteCallback = function (
         backgroundApiProxy.dispatch(setLoading(false));
       }
     }
-  }, [params, showLoading, accountId, networkId]);
+  }, [params, showLoading]);
   return onSwapQuote;
 };
 
@@ -423,7 +376,7 @@ export function useInputLimitsError(): Error | undefined {
   }, [inputAmount, inputToken, maxAmount, minAmount, intl]);
 }
 
-export function useSwftcTokens(
+export function useRestrictedTokens(
   tokens: Token[],
   included?: string[],
   excluded?: string[],
@@ -450,4 +403,28 @@ export function useSwftcTokens(
     }
     return result;
   }, [tokens, included, excluded]);
+}
+
+export function useEnabledSwappableNetworks() {
+  const { networks } = useRuntime();
+  return useMemo(
+    () =>
+      networks.filter(
+        (item) => item.enabled && enabledNetworkIds.includes(item.id),
+      ),
+    [networks],
+  );
+}
+
+export function useSwappableNativeTokens() {
+  const enabledNativeTokens = useAppSelector(
+    (s) => s.tokens.enabledNativeTokens,
+  );
+  return useMemo(() => {
+    if (!enabledNativeTokens) {
+      return [];
+    }
+    const networkIds = ['evm--1', 'evm--56', 'evm--137', 'btc--0', 'evm--128'];
+    return enabledNativeTokens.filter((item) => networkIds.includes(item.id));
+  }, [enabledNativeTokens]);
 }

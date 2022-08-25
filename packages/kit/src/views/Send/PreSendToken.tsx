@@ -67,6 +67,7 @@ function PreSendToken() {
                   transferInfo,
                   {
                     token: token.tokenIdOnNetwork,
+                    to: undefined,
                   },
                 ),
               );

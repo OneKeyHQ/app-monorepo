@@ -10,7 +10,7 @@ import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
 import SwapHeader from './SwapHeader';
-import SwapListener from './SwapListener';
+import SwapObserver from './SwapObserver';
 import SwapQuote from './SwapQuote';
 import SwapUpdater from './SwapUpdater';
 
@@ -31,7 +31,7 @@ const Swap = () => {
       }
     >
       <SwapHeader />
-      <SwapListener />
+      <SwapObserver />
       <Center px="4">
         <Box maxW="420" width="full">
           <SwapContent />

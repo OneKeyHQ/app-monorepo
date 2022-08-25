@@ -122,8 +122,7 @@ const AccountCell: FC<CellProps> = ({
 const RecoverAccounts: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { password, walletId, network, purpose, onLoadingAccount } =
-    route.params;
+  const { password, walletId, network, purpose } = route.params;
   const bgColor = useThemeValue('surface-default');
 
   const [currentPage, setCurrentPage] = useState(0);
@@ -312,7 +311,6 @@ const RecoverAccounts: FC = () => {
           walletId,
           network,
           purpose,
-          onLoadingAccount,
         });
       }}
       primaryActionProps={{
@@ -375,4 +373,4 @@ const RecoverAccounts: FC = () => {
   );
 };
 
-export default RecoverAccounts;
+export default React.memo(RecoverAccounts);

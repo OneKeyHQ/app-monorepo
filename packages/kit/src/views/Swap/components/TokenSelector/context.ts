@@ -2,31 +2,13 @@ import { createContext } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-type NetworkSelectorContextValues = {
-  showNetworkSelector: boolean;
+type TokenSelectorContextValues = {
   selectedToken?: Token;
-  networkId: string;
-  setNetworkId?: (networkId: string) => void;
+  networkId?: string;
+  setNetworkId?: (networkId?: string) => void;
+  impl?: string;
 };
 
-export const NetworkSelectorContext =
-  createContext<NetworkSelectorContextValues>({
-    networkId: '',
-    showNetworkSelector: false,
-  });
-
-type SearchContextValues = {
-  isLoading: boolean;
-  keyword: string;
-  setKeyword: (text: string) => void;
-  terms: string;
-  tokens: Token[];
-};
-
-export const SearchContext = createContext<SearchContextValues>({
-  isLoading: false,
-  keyword: '',
-  setKeyword: () => {},
-  terms: '',
-  tokens: [],
+export const TokenSelectorContext = createContext<TokenSelectorContextValues>({
+  networkId: '',
 });

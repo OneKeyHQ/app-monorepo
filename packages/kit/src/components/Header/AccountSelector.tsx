@@ -11,6 +11,7 @@ import React, {
 
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
+import { InteractionManager } from 'react-native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -33,20 +34,23 @@ type AccountSelectorProps = {
 };
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
-  const [innerVisible, setVisible] = useState(false);
   const isSmallLayout = useIsVerticalLayout();
   const navigation = useNavigation();
 
-  const isDrawerOpen = useDrawerStatus() === 'open';
   const triggerRef = useRef<HTMLElement>(null);
+
+  const [innerVisible, setVisible] = useState(false);
+  const isDrawerOpen = useDrawerStatus() === 'open';
   const visible = isSmallLayout ? isDrawerOpen : innerVisible;
 
   const handleToggleVisible = useCallback(() => {
-    if (isSmallLayout) {
-      // @ts-expect-error
-      navigation?.toggleDrawer?.();
-    }
-    setVisible((v) => !v);
+    InteractionManager.runAfterInteractions(() => {
+      if (isSmallLayout) {
+        // @ts-expect-error
+        navigation?.toggleDrawer?.();
+      }
+      setVisible((v) => !v);
+    });
   }, [navigation, isSmallLayout]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);

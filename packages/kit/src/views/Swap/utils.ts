@@ -3,7 +3,6 @@ import BigNumber from 'bignumber.js';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import { enabledChainIds } from './config';
 import { QuoterType } from './typings';
 
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
@@ -129,21 +128,6 @@ export function getChainIdFromNetworkId(networdId: string) {
 
 export function getEvmTokenAddress(token: Token) {
   return token.tokenIdOnNetwork ? token.tokenIdOnNetwork : nativeTokenAddress;
-}
-
-export function isNetworkEnabled(
-  network: Network,
-  whitelist: string[] = [],
-): boolean {
-  if (whitelist.includes(network.id)) {
-    return true;
-  }
-  const chainId = getChainIdFromNetworkId(network.id);
-  return (
-    network.impl === 'evm' &&
-    network.enabled &&
-    enabledChainIds.includes(chainId)
-  );
 }
 
 export function isNoCharge(type?: QuoterType): boolean {

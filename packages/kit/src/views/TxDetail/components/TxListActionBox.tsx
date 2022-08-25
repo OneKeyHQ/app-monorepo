@@ -60,7 +60,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
     <Box>
       <HStack space={2}>
         {iconView ? <Box py="6px">{iconView}</Box> : null}
-        <Box flex={1} flexDirection="column">
+        <Box flex={1} flexDirection="column" justifyContent="center">
           <HStack space={2} flexDirection="row" justifyContent="space-between">
             <Box maxW={contentView ? '50%' : '100%'}>{titleView}</Box>
             {!!contentView && (

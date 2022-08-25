@@ -4,29 +4,16 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import {
-  useInputLimitsError,
-  useSwapEnabled,
-  useSwapState,
-} from './hooks/useSwap';
-import { SwapError } from './typings';
+import { useActiveWalletAccount } from '../../hooks';
 
-const DepositLimitAlert = () => {
-  const limitsError = useInputLimitsError();
-  if (limitsError) {
-    return (
-      <Box mt="6">
-        <Alert title={limitsError.message} alertType="warn" dismiss={false} />
-      </Box>
-    );
-  }
-  return <></>;
-};
+import { enabledNetworkIds } from './config';
+import { useInputLimitsError, useSwapState } from './hooks/useSwap';
+import { SwapError } from './typings';
 
 const NetworkDisabledAlert = () => {
   const intl = useIntl();
-  const isSwapEnabled = useSwapEnabled();
-  if (!isSwapEnabled) {
+  const { network } = useActiveWalletAccount();
+  if (!network || !enabledNetworkIds.includes(network.id)) {
     return (
       <Box mt="6">
         <Alert
@@ -37,6 +24,18 @@ const NetworkDisabledAlert = () => {
           alertType="error"
           dismiss={false}
         />
+      </Box>
+    );
+  }
+  return <></>;
+};
+
+const DepositLimitAlert = () => {
+  const limitsError = useInputLimitsError();
+  if (limitsError) {
+    return (
+      <Box mt="6">
+        <Alert title={limitsError.message} alertType="warn" dismiss={false} />
       </Box>
     );
   }
@@ -77,8 +76,8 @@ const ErrorAlert = () => {
 
 const SwapWarning: FC = () => (
   <>
-    <DepositLimitAlert />
     <NetworkDisabledAlert />
+    <DepositLimitAlert />
     <ErrorAlert />
   </>
 );

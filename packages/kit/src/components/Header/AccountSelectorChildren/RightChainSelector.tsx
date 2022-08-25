@@ -18,9 +18,9 @@ import { ManageNetworkRoutes } from '@onekeyhq/kit/src/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 type Props = {
-  selectedNetworkId: string;
+  selectedNetworkId: string | undefined;
   setSelectedNetworkId: (id: string) => void;
-  activeWallet: null | Wallet;
+  activeWallet: null | Wallet | undefined;
 };
 
 export const AllNetwork = 'all';
@@ -31,38 +31,39 @@ const RightChainSelector: FC<Props> = ({
   activeWallet,
 }) => {
   const intl = useIntl();
+  // eslint-disable-next-line no-param-reassign
+  selectedNetworkId = selectedNetworkId || AllNetwork;
   const navigation = useAppNavigation();
   const isVerticalLayout = useIsVerticalLayout();
   const { enabledNetworks } = useManageNetworks();
 
   const options = useMemo(() => {
-    const availableNetworks =
-      activeWallet === null
-        ? enabledNetworks
-        : // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          enabledNetworks.filter(({ settings }) => {
-            switch (activeWallet.type) {
-              case 'hw':
-                return true;
-              // return settings.hardwareAccountEnabled;
-              case 'imported':
-                return true;
-              // return settings.importedAccountEnabled;
-              case 'watching':
-                return true;
-              // return settings.watchingAccountEnabled;
-              case 'external':
-                return true;
-              // return settings.externalAccountEnabled;
-              default:
-                return true; // HD accounts are always supported.
-            }
-          });
+    const availableNetworks = !activeWallet
+      ? enabledNetworks
+      : // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        enabledNetworks.filter(({ settings }) => {
+          switch (activeWallet.type) {
+            case 'hw':
+              return true;
+            // return settings.hardwareAccountEnabled;
+            case 'imported':
+              return true;
+            // return settings.importedAccountEnabled;
+            case 'watching':
+              return true;
+            // return settings.watchingAccountEnabled;
+            case 'external':
+              return true;
+            // return settings.externalAccountEnabled;
+            default:
+              return true; // HD accounts are always supported.
+          }
+        });
     const selectNetworkExists = availableNetworks.find(
       (network) => network.id === selectedNetworkId,
     );
     if (!selectNetworkExists) {
-      setTimeout(() => setSelectedNetworkId(AllNetwork));
+      // setTimeout(() => setSelectedNetworkId(AllNetwork));
     }
 
     if (!availableNetworks) return [];
@@ -96,7 +97,7 @@ const RightChainSelector: FC<Props> = ({
       positionTranslateY={4}
       dropdownPosition="right"
       value={selectedNetworkId}
-      onChange={setSelectedNetworkId}
+      onChange={(v) => setSelectedNetworkId(v === AllNetwork ? '' : v)}
       title={intl.formatMessage({ id: 'network__networks' })}
       options={options}
       isTriggerPlain

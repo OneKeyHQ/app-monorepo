@@ -485,7 +485,7 @@ async function createOutputActionFromCovalent({
     }
   }
   const commonAction = {
-    type: IDecodedTxActionType.TRANSACTION,
+    type: IDecodedTxActionType.UNKNOWN,
     evmInfo: {
       from: covalentTx.from_address,
       to: covalentTx.to_address,

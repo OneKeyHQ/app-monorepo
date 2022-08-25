@@ -110,7 +110,7 @@ const LeftSide: FC<LeftSideProps> = ({
     >
       <ScrollView>
         <VStack py={2}>
-          {/* APP HD Wallet */}
+          {/* All APP HD Wallets */}
           <VStack space={2}>
             {wallets
               .filter((wallet) => wallet.type === 'hd')
@@ -127,7 +127,7 @@ const LeftSide: FC<LeftSideProps> = ({
               ))}
             {wallets.some((wallet) => wallet.type === 'hd') && <Box h={4} />}
           </VStack>
-          {/* Hardware Wallet */}
+          {/* All Hardware Wallets */}
           <VStack space={2}>
             {wallets
               .filter((wallet) => wallet.type === 'hw')
@@ -152,7 +152,7 @@ const LeftSide: FC<LeftSideProps> = ({
               ))}
           </VStack>
           {wallets.some((wallet) => wallet.type === 'hw') && <Box h={4} />}
-          {/* Imported or watched wallet */}
+          {/* imported | watching | external  wallet */}
           <VStack space={2}>
             {singletonWallet.imported ? (
               <WalletItem

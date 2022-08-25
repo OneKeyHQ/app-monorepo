@@ -22,7 +22,6 @@ import {
 import {
   TokenAmount,
   div,
-  getChainIdFromNetwork,
   getEvmTokenAddress,
   getTokenAmountString,
   multiply,
@@ -30,20 +29,21 @@ import {
   plus,
 } from '../utils';
 
-function getSwftcNetworkName(chainId?: string): string {
+function getSwftcNetworkName(network: Network): string {
   const records: Record<string, string> = {
-    '1': 'ETH',
-    '56': 'BSC',
-    '128': 'HECO',
-    '137': 'POLYGON',
-    '43114': 'AVAXC',
-    '66': 'OKExChain',
-    '250': 'FTM',
-    '42161': 'ARB',
-    '42220': 'CELO',
-    '10': 'Optimism',
+    'btc--0': 'BTC',
+    'evm--1': 'ETH',
+    'evm--56': 'BSC',
+    'evm--128': 'HECO',
+    'evm--137': 'POLYGON',
+    'evm--43114': 'AVAXC',
+    'evm--66': 'OKExChain',
+    'evm--250': 'FTM',
+    'evm--42161': 'ARB',
+    'evm--42220': 'CELO',
+    'evm--10': 'Optimism',
   };
-  return records[chainId ?? ''] ?? '';
+  return records[network.id] ?? '';
 }
 
 function getChainIdFromSwftcNetworkName(name: string): string {
@@ -169,7 +169,7 @@ export class SwftcQuoter implements Quoter {
   }
 
   async getCoin(network: Network, address: string): Promise<Coin | undefined> {
-    const networkName = getSwftcNetworkName(getChainIdFromNetwork(network));
+    const networkName = getSwftcNetworkName(network);
     const networkAddrRecords = await this.getNetworkAddrRecords();
     return networkAddrRecords[networkName]?.[address];
   }
@@ -210,10 +210,7 @@ export class SwftcQuoter implements Quoter {
 
   private async getRemoteCoins(): Promise<Coin[]> {
     const url = `${this.baseUrl}/queryCoinList`;
-    const res = await this.client.post(
-      url,
-      // { supportType: 'advanced' }
-    );
+    const res = await this.client.post(url);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const coins = res.data.data as Coin[];
     return coins;
@@ -299,8 +296,8 @@ export class SwftcQuoter implements Quoter {
       return;
     }
     const coins = await this.getNetworkAddrRecords();
-    const fromNetwork = getSwftcNetworkName(getChainIdFromNetwork(networkIn));
-    const toNetwork = getSwftcNetworkName(getChainIdFromNetwork(networkOut));
+    const fromNetwork = getSwftcNetworkName(networkIn);
+    const toNetwork = getSwftcNetworkName(networkOut);
     const fromToken = getEvmTokenAddress(tokenIn);
     const toToken = getEvmTokenAddress(tokenOut);
     if (fromNetwork && toNetwork) {
@@ -387,13 +384,13 @@ export class SwftcQuoter implements Quoter {
     const {
       typedValue,
       independentField,
-      activeNetwok,
       activeAccount,
       tokenIn,
+      networkIn,
       receivingAddress,
     } = params;
     const data = await this.fetchSwftcQuote(params);
-    if (data && activeNetwok && activeAccount) {
+    if (data && activeAccount) {
       const { depositCoinCode, receiveCoinCode, rate } = data;
       let depositCoinAmt = '';
       let receiveCoinAmt = '';
@@ -420,7 +417,7 @@ export class SwftcQuoter implements Quoter {
         if (!tokenIn.tokenIdOnNetwork) {
           const txdata =
             await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
-              networkId: activeNetwok.id,
+              networkId: networkIn.id,
               accountId: activeAccount.id,
               transferInfo: {
                 from: activeAccount.address,
@@ -435,7 +432,7 @@ export class SwftcQuoter implements Quoter {
         }
         const txdata =
           await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
-            networkId: activeNetwok.id,
+            networkId: networkIn.id,
             accountId: activeAccount.id,
             transferInfo: {
               from: activeAccount.address,

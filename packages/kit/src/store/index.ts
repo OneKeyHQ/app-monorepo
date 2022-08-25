@@ -37,6 +37,7 @@ import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
 import hardwareReducer from './reducers/hardware';
+import reducerAccountSelector from './reducers/reducerAccountSelector';
 import refresherReducer from './reducers/refresher';
 import runtimeReducer from './reducers/runtime';
 import settingsReducer from './reducers/settings';
@@ -62,6 +63,7 @@ const allReducers = combineReducers({
   refresher: refresherReducer,
   hardware: hardwareReducer,
   cloudBackup: cloudBackupReducer,
+  accountSelector: reducerAccountSelector.reducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

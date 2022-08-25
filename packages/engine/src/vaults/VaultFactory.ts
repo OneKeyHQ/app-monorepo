@@ -41,7 +41,7 @@ export class VaultFactory {
     {
       promise: true,
       primitive: true,
-      normalizer: (args) => JSON.stringify(args),
+      normalizer: (...args) => JSON.stringify(args),
       max: 3,
       maxAge: 1000 * 60 * 15,
     },

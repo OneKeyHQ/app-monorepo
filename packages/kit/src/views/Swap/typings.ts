@@ -72,9 +72,7 @@ export type FetchQuoteParams = {
   slippagePercentage: string;
   typedValue: string;
   independentField: FieldType;
-  activeNetwok: Network;
   activeAccount: Account;
-  receivingAddress?: string;
 };
 
 export type QuoteLimited = {
@@ -112,6 +110,7 @@ export interface TransactionAttachment {
 }
 
 export type BuildTransactionParams = FetchQuoteParams & {
+  receivingAddress?: string;
   txData?: TransactionData;
   txAttachment?: TransactionAttachment;
 };

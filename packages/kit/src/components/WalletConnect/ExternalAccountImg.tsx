@@ -8,6 +8,7 @@ import ImgImToken from '@onekeyhq/kit/assets/onboarding/logo_imtoken.png';
 import ImgMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { wait } from '../../utils/helper';
 
 export function MockExternalAccountImg(props: ComponentProps<typeof Image>) {
   const source = ImgImToken;
@@ -36,9 +37,16 @@ function ExternalAccountImg({
 }) {
   const { result: accountImg } = usePromiseResult(async () => {
     if (isExternalAccount({ accountId })) {
-      const imgInfo = await simpleDb.walletConnect.getExternalAccountImage({
+      let imgInfo = await simpleDb.walletConnect.getExternalAccountImage({
         accountId,
       });
+      // may be simpleDB not saved yet, try again
+      if (!imgInfo) {
+        await wait(1000);
+        imgInfo = await simpleDb.walletConnect.getExternalAccountImage({
+          accountId,
+        });
+      }
       return imgInfo?.sm || imgInfo?.md || imgInfo?.lg || '';
     }
     return '';

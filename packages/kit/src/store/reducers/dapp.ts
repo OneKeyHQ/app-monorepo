@@ -47,9 +47,10 @@ export const dappSlicer = createSlice({
       connections = connections.filter(
         (connc) =>
           !(
+            payload.addresses.length &&
+            //  payload.addresses.includes(connc.address) &&
             payload.origin === connc.site.origin &&
-            payload.networkImpl === connc.networkImpl &&
-            payload.addresses.includes(connc.address)
+            payload.networkImpl === connc.networkImpl
           ),
       );
       state.connections = connections;

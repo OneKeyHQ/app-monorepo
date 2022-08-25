@@ -13,26 +13,17 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { difference, isNil, isNumber, isString, merge, toLower } from 'lodash';
+import { difference, isNil, isString, merge, toLower } from 'lodash';
 import memoizee from 'memoizee';
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { HISTORY_CONSTS } from '../../../constants';
-import simpleDb from '../../../dbs/simple/simpleDb';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-  PendingQueueTooLong,
-} from '../../../errors';
+import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
-import { parseCovalentTxToDecodedTx } from '../../../managers/covalent';
-import {
-  extractResponseError,
-  fillUnsignedTx,
-  fillUnsignedTxObj,
-} from '../../../proxy';
+import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
 import {
   HistoryEntry,
@@ -170,6 +161,18 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
+  decodeTxMemoizee = memoizee(
+    async (encodedTx: IEncodedTxEvm, payload?: any): Promise<IDecodedTx> =>
+      this.decodeTx(encodedTx, payload),
+    {
+      promise: true,
+      primitive: true,
+      normalizer: (...args) => JSON.stringify(args),
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
   async legacyDecodeTx(
     encodedTx: IEncodedTx,
     payload?: any,
@@ -203,7 +206,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     const action: IDecodedTxAction = {
-      type: IDecodedTxActionType.TRANSACTION,
+      type: IDecodedTxActionType.UNKNOWN,
       direction: await this.buildTxActionDirection({
         from: decodedTxLegacy.fromAddress,
         to: decodedTxLegacy.toAddress,
@@ -213,6 +216,25 @@ export default class Vault extends VaultBase {
         extraInfo: {},
       },
     };
+
+    let extraNativeTransferAction: IDecodedTxAction | undefined;
+    if (encodedTx.value) {
+      const valueBn = new BigNumber(encodedTx.value);
+      if (!valueBn.isNaN() && valueBn.gt(0)) {
+        extraNativeTransferAction = {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          nativeTransfer: {
+            tokenInfo: nativeToken,
+            from: encodedTx.from || decodedTxLegacy.fromAddress,
+            to: encodedTx.to,
+            amount: valueBn.shiftedBy(-network.decimals).toFixed(),
+            amountValue: valueBn.toFixed(),
+            extraInfo: null,
+          },
+        };
+      }
+    }
+
     if (decodedTxLegacy.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
       action.type = IDecodedTxActionType.NATIVE_TRANSFER;
       action.nativeTransfer = {
@@ -223,6 +245,7 @@ export default class Vault extends VaultBase {
         amountValue: decodedTxLegacy.value,
         extraInfo: null,
       };
+      extraNativeTransferAction = undefined;
     }
     if (decodedTxLegacy.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
       const info = decodedTxLegacy.info as EVMDecodedItemERC20Transfer;
@@ -304,7 +327,7 @@ export default class Vault extends VaultBase {
       owner: address,
       signer: decodedTxLegacy.fromAddress,
       nonce: decodedTxLegacy.nonce || 0,
-      actions: [action],
+      actions: [action, extraNativeTransferAction].filter(Boolean),
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -555,12 +578,13 @@ export default class Vault extends VaultBase {
 
     const network = await this.getNetwork();
     const prices = await this.engine.getGasPrice(this.networkId);
-    const {
-      actions: [{ type: actionType }],
-    } = await this.decodeTx(encodedTx);
+    const { actions } = await this.decodeTxMemoizee(encodedTx);
 
     let unsignedTx: IUnsignedTxPro | undefined;
-    if (actionType === IDecodedTxActionType.NATIVE_TRANSFER) {
+    if (
+      actions.length === 1 &&
+      actions?.[0]?.type === IDecodedTxActionType.NATIVE_TRANSFER
+    ) {
       // First try using value=0 to calculate native transfer gas limit to
       // avoid maximum transfer failure.
       try {

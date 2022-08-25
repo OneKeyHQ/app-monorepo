@@ -221,7 +221,7 @@ export default class Vault extends VaultBase {
     const actions = await Promise.all(
       nativeTx.actions.map(async (nativeAction) => {
         const action: IDecodedTxAction = {
-          type: IDecodedTxActionType.TRANSACTION,
+          type: IDecodedTxActionType.UNKNOWN,
           direction: IDecodedTxDirection.SELF,
           unknownAction: {
             // TODO other actions parse

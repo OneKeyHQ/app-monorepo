@@ -1,5 +1,5 @@
 // TODO auto update feeInfo
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
@@ -40,6 +40,7 @@ export function useFeeInfoPayload({
   const [feeInfoPayload, setFeeInfoPayload] = useState<IFeeInfoPayload | null>(
     null,
   );
+  const feeInfoPayloadCacheRef = useRef<IFeeInfoPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const route = useRoute();
   const toast = useToast();
@@ -234,9 +235,22 @@ export function useFeeInfoPayload({
         }
         try {
           const info = await fetchFeeInfo();
-          setFeeInfoPayload(info);
+          if (info) {
+            setFeeInfoPayload(info);
+            feeInfoPayloadCacheRef.current = info;
+          } else if (feeInfoPayloadCacheRef.current) {
+            // ** use last cache if error
+            setFeeInfoPayload(feeInfoPayloadCacheRef.current);
+            setFeeInfoError(null);
+          }
         } catch (error: any) {
-          setFeeInfoError(error);
+          if (feeInfoPayloadCacheRef.current) {
+            // ** use last cache if error
+            setFeeInfoPayload(feeInfoPayloadCacheRef.current);
+            setFeeInfoError(null);
+          } else {
+            setFeeInfoError(error);
+          }
           debugLogger.sendTx.error('feeInfoPollingInterval ERROR: ', error);
         }
       }, pollingInterval);

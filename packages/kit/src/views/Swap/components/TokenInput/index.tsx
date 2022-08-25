@@ -55,7 +55,7 @@ const TokenInput: FC<TokenInputProps> = ({
     if (!token || !value) {
       return;
     }
-    if (token.tokenIdOnNetwork) {
+    if (token.tokenIdOnNetwork || tokenNetwork?.impl !== 'evm') {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
       const chainId = getChainIdFromNetworkId(token.networkId);
@@ -76,7 +76,7 @@ const TokenInput: FC<TokenInputProps> = ({
         });
       }
     }
-  }, [token, value, type, toast, intl]);
+  }, [token, value, type, toast, intl, tokenNetwork]);
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';
@@ -174,7 +174,7 @@ const TokenInput: FC<TokenInputProps> = ({
               borderRadius={0}
               onChangeText={onChange}
               py="1"
-              pr="0"
+              pr="2"
               textAlign="right"
               isDisabled={isDisabled}
               rightCustomElement={null}
