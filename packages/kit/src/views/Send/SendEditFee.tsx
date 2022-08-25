@@ -930,7 +930,7 @@ function ScreenSendEditFee({ ...rest }) {
     <Modal
       height="598px"
       trigger={trigger}
-      primaryActionTranslationId="action__save"
+      primaryActionTranslationId="action__apply"
       primaryActionProps={{
         isDisabled: feeInfoLoading,
       }}

@@ -250,7 +250,7 @@ function useAddExistingWallet({
     ];
     return `${intl.formatMessage({
       id: 'content__enter',
-    })} ${words.filter(Boolean).join(',')}`;
+    })} ${words.filter(Boolean).join(', ')}`;
   }, [intl, mode]);
 
   return {

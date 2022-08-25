@@ -83,7 +83,11 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
                     },
                   )}
                 </Typography.PageHeading>
-                <Typography.Body1 mt="2" color="text-subdued">
+                <Typography.Body1
+                  mt="2"
+                  color="text-subdued"
+                  textAlign="center"
+                >
                   {intl.formatMessage(
                     {
                       id: 'content__allow_this_site_to_switch_your_network_to_str',

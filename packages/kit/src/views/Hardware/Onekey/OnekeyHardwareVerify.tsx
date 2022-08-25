@@ -221,6 +221,9 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
             <Typography.Heading>
               {intl.formatMessage({ id: 'action__verify_success' })}
             </Typography.Heading>
+            <Typography.Body2 mt={2} color="text-subdued">
+              {intl.formatMessage({ id: 'content__running_official_firmware' })}
+            </Typography.Body2>
           </Center>
         </PresenceTransition>
       );

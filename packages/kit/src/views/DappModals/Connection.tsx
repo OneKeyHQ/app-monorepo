@@ -2,8 +2,10 @@ import React, { useCallback, useState } from 'react';
 
 import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
+  Box,
   Center,
   HStack,
   Icon,
@@ -12,8 +14,6 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import Check from '@onekeyhq/kit/assets/connect_check.png';
-import Sight from '@onekeyhq/kit/assets/connect_sight.png';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import X from '@onekeyhq/kit/assets/connect_x.png';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
@@ -30,11 +30,11 @@ const MockData = {
   permissions: [
     {
       text: 'content__view_the_address_of_your_permitted_accounts_required',
-      icon: Sight,
+      icon: 'EyeOutline',
     },
     {
       text: 'content__send_transactions_and_signature_request',
-      icon: Check,
+      icon: 'CheckOutline',
     },
     // {
     //   text: 'content__send_transactions_and_signature_request',
@@ -134,49 +134,72 @@ const Connection = () => {
             // Add padding to escape the footer
             <VStack flex="1" space={6}>
               <Center flex="1" mt="12px">
-                <HStack>
-                  <Image
-                    size="64px"
-                    borderRadius="full"
-                    mr="-16px"
-                    zIndex={100}
-                    source={Logo}
-                  />
-                  <Image
-                    size="64px"
-                    source={{ uri: `${origin}/favicon.ico` }}
-                    fallbackElement={<Token size="64px" />}
-                  />
+                <HStack alignItems="center">
+                  <Box
+                    size="44px"
+                    borderWidth={2}
+                    borderColor="surface-subdued"
+                    mr="-8px"
+                    zIndex={2}
+                    rounded="full"
+                  >
+                    <Image
+                      w="full"
+                      h="full"
+                      borderRadius="full"
+                      zIndex={100}
+                      source={Logo}
+                    />
+                  </Box>
+                  <Box size="40px" overflow="hidden" rounded="full">
+                    <Image
+                      w="full"
+                      h="full"
+                      source={{ uri: `${origin}/favicon.ico` }}
+                      fallbackElement={<Token size="40px" />}
+                    />
+                  </Box>
                 </HStack>
 
-                <Typography.PageHeading mt="24px">
+                <Typography.DisplayXLarge mt="16px">
                   {intl.formatMessage({
                     id: 'title__connect_to_website',
                   })}
-                </Typography.PageHeading>
-
-                <HStack justifyContent="center" alignItems="center" mt="16px">
-                  <Typography.Body1 mr="18px">
-                    {origin?.split('://')[1] ?? 'DApp'}
-                  </Typography.Body1>
-                  <Icon size={20} name="SwitchHorizontalSolid" />
-                  <Image
-                    src={network?.logoURI}
-                    ml="18px"
-                    mr="8px"
-                    width="16px"
-                    height="16px"
-                    borderRadius="full"
-                  />
-                  <Typography.Body2>{account?.name}</Typography.Body2>
-                </HStack>
+                </Typography.DisplayXLarge>
+                <Typography.Body2 textAlign="right" color="text-subdued" mt={1}>
+                  {origin?.split('://')[1] ?? 'DApp'}
+                </Typography.Body2>
               </Center>
 
-              <VStack space={6} ml="12px" mt="24px">
+              <VStack space={6} mx="8px" mt="40px">
+                <HStack
+                  alignItems="center"
+                  borderBottomWidth={StyleSheet.hairlineWidth}
+                  borderColor="border-subdued"
+                  pb={6}
+                >
+                  <Typography.Body1Strong color="text-subdued" flex={1}>
+                    {intl.formatMessage({ id: 'form__account' })}
+                  </Typography.Body1Strong>
+                  <HStack alignItems="center">
+                    <Image
+                      src={network?.logoURI}
+                      size="24px"
+                      borderRadius="full"
+                    />
+                    <Typography.Body1 ml="12px">
+                      {account?.name}
+                    </Typography.Body1>
+                  </HStack>
+                </HStack>
                 {MockData.permissions.map((permission, index) => (
                   <HStack key={index}>
-                    <Image size="36px" source={permission.icon} />
-                    <Typography.Body1 ml="16px" alignSelf="center">
+                    <Icon
+                      size={24}
+                      name={permission.icon}
+                      color="icon-success"
+                    />
+                    <Typography.Body1 ml="12px" alignSelf="center" flex={1}>
                       {intl.formatMessage({
                         id: permission.text,
                       })}
