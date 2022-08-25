@@ -17,9 +17,7 @@ function SendConfirmFromDapp() {
   const {
     sourceInfo,
     unsignedMessage,
-    // @ts-expect-error
     encodedTx,
-    // @ts-expect-error
     signOnly = false,
   } = useDappParams();
   useEffect(() => {
