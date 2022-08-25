@@ -54,9 +54,14 @@ class ProviderApiSolana extends ProviderApiBase {
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
       const result = {
-        // TODO do not emit events to EVM Dapps, injected provider check scope
-        method: 'accountsChanged',
-        params: await this.getConnectedAcccountPublicKey({ origin }),
+        method: 'wallet_events_accountChanged',
+        params: {
+          accounts: [
+            {
+              publicKey: await this.getConnectedAcccountPublicKey({ origin }),
+            },
+          ],
+        },
       };
       return result;
     };
@@ -205,6 +210,10 @@ class ProviderApiSolana extends ProviderApiBase {
     if (!publicKey && !onlyIfTrusted) {
       await this.backgroundApi.serviceDapp.openConnectionModal(request);
       publicKey = await this.getConnectedAcccountPublicKey(request);
+    }
+
+    if (publicKey === '') {
+      throw web3Errors.provider.userRejectedRequest();
     }
 
     return { publicKey };
