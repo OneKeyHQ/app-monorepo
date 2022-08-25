@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Icon, LottieView, Text } from '@onekeyhq/components';
+import { Box, Icon, LottieView, Text } from '@onekeyhq/components';
 import EnterPassphraseOnClassic from '@onekeyhq/kit/assets/animations/lottie-onekey-classic-enter-passphrase-on-device.json';
 import EnterPassphraseOnMini from '@onekeyhq/kit/assets/animations/lottie-onekey-mini-enter-passphrase-on-device.json';
 import EnterPassphraseOnTouch from '@onekeyhq/kit/assets/animations/lottie-onekey-touch-enter-passphrase-on-device.json';

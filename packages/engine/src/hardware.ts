@@ -28,6 +28,7 @@ import {
 import { ETHMessageTypes } from './types/message';
 
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
+import type { WalletPassphraseState } from './vaults/keyring/KeyringHardwareBase';
 import type { EVMTransaction, EVMTransactionEIP1559 } from '@onekeyfe/hd-core';
 
 /**
@@ -42,15 +43,14 @@ export async function ethereumGetAddress(
   deviceId: string,
   path: string | number[],
   display = false,
-  passphraseState?: string,
+  passphraseState?: WalletPassphraseState,
 ): Promise<string> {
   let response;
   try {
     response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
       path,
       showOnOneKey: display,
-      passphraseState,
-      notUsePassphrase: !passphraseState,
+      ...passphraseState,
     });
   } catch (error: any) {
     console.error(error);
@@ -127,7 +127,7 @@ export async function ethereumSignMessage({
 }: {
   connectId: string;
   deviceId: string;
-  passphraseState?: string;
+  passphraseState?: WalletPassphraseState;
   path: string;
   message: IUnsignedMessageEvm;
 }): Promise<string> {
@@ -159,8 +159,7 @@ export async function ethereumSignMessage({
     const res = await HardwareSDK.evmSignMessage(connectId, deviceId, {
       path,
       messageHex,
-      passphraseState,
-      notUsePassphrase: !passphraseState,
+      ...passphraseState,
     });
 
     if (!res.success) {
@@ -198,8 +197,7 @@ export async function ethereumSignMessage({
       data,
       domainHash,
       messageHash,
-      passphraseState,
-      notUsePassphrase: !passphraseState,
+      ...passphraseState,
     });
 
     if (!res.success) {
@@ -228,7 +226,7 @@ export async function ethereumSignTransaction(
   path: string,
   chainId: string,
   unsignedTx: UnsignedTx,
-  passphraseState?: string,
+  passphraseState?: WalletPassphraseState,
 ): Promise<SignedTx> {
   let response;
 
@@ -298,8 +296,7 @@ export async function ethereumSignTransaction(
     response = await HardwareSDK.evmSignTransaction(connectId, deviceId, {
       path,
       transaction: txToSign,
-      passphraseState,
-      notUsePassphrase: !passphraseState,
+      ...passphraseState,
     });
   } catch (error: any) {
     console.error(error);
@@ -331,7 +328,7 @@ export async function getXpubs(
   type: IPrepareHardwareAccountsParams['type'],
   connectId: string,
   deviceId: string,
-  passphraseState?: string,
+  passphraseState?: WalletPassphraseState,
 ): Promise<Array<{ path: string; info: string }>> {
   if (impl !== IMPL_EVM || outputFormat !== 'address') {
     return Promise.resolve([]);
@@ -350,15 +347,13 @@ export async function getXpubs(
            */
           showOnOneKey: false,
         })),
-        passphraseState,
-        notUsePassphrase: !passphraseState,
+        ...passphraseState,
       });
     } else {
       response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
         path: paths[0],
         showOnOneKey: false,
-        passphraseState,
-        notUsePassphrase: !passphraseState,
+        ...passphraseState,
       });
     }
   } catch (error: any) {

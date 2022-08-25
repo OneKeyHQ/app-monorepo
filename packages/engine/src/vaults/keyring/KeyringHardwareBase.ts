@@ -4,6 +4,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 
 import { KeyringBase } from './KeyringBase';
 
+export type WalletPassphraseState = {
+  passphraseState?: string;
+};
+
 export abstract class KeyringHardwareBase extends KeyringBase {
   async getHardwareInfo() {
     const device = await this.engine.getHWDeviceByWalletId(this.vault.walletId);
@@ -13,10 +17,10 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     };
   }
 
-  async getWalletInfo() {
+  async getWalletPassphraseState(): Promise<WalletPassphraseState> {
     const wallet = await this.engine.getWallet(this.vault.walletId);
     return {
-      passphraseState: wallet?.passphraseState ?? '',
+      passphraseState: wallet?.passphraseState,
     };
   }
 

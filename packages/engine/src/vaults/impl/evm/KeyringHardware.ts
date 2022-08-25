@@ -30,7 +30,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const path = await this.getAccountPath();
     const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
-    const { passphraseState } = await this.getWalletInfo();
+    const passphraseState = await this.getWalletPassphraseState();
     return OneKeyHardware.ethereumSignTransaction(
       connectId,
       deviceId,
@@ -47,7 +47,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<string[]> {
     const path = await this.getAccountPath();
     const { connectId, deviceId } = await this.getHardwareInfo();
-    const { passphraseState } = await this.getWalletInfo();
+    const passphraseState = await this.getWalletPassphraseState();
     return Promise.all(
       messages.map((message) =>
         OneKeyHardware.ethereumSignMessage({
@@ -66,7 +66,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<Array<DBSimpleAccount>> {
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
-    const { passphraseState } = await this.getWalletInfo();
+    const passphraseState = await this.getWalletPassphraseState();
     const { indexes, names, type } = params;
 
     let addressInfos;
@@ -79,7 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         response = await HardwareSDK.evmGetPublicKey(connectId, deviceId, {
           path: PATH_PREFIX,
           showOnOneKey: false,
-          passphraseState,
+          ...passphraseState,
         });
       } catch (e: any) {
         debugLogger.engine.error(e);
@@ -133,7 +133,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   async getAddress(params: IGetAddressParams): Promise<string> {
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
-    const { passphraseState } = await this.getWalletInfo();
+    const passphraseState = await this.getWalletPassphraseState();
     const address = await OneKeyHardware.ethereumGetAddress(
       connectId,
       deviceId,
