@@ -41,12 +41,22 @@ const Mocks = {
 class ProviderApiSolana extends ProviderApiBase {
   public providerName = IInjectedProviderNames.solana;
 
+  private getConnectedAcccountPublicKey(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    const [account] = this.backgroundApi.serviceDapp?.getConnectedAccounts({
+      origin: request.origin as string,
+    });
+
+    return Promise.resolve(account?.address ?? '');
+  }
+
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
       const result = {
         // TODO do not emit events to EVM Dapps, injected provider check scope
         method: 'accountsChanged',
-        params: { accounts: [] },
+        params: await this.getConnectedAcccountPublicKey({ origin }),
       };
       return result;
     };
@@ -148,10 +158,7 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
-      origin: request.origin as string,
-    });
-
+    const publicKey = await this.getConnectedAcccountPublicKey(request);
     const txid = (await this.backgroundApi.serviceDapp?.openApprovalModal(
       request,
       {
@@ -162,7 +169,7 @@ class ProviderApiSolana extends ProviderApiBase {
     debugLogger.providerApi.info('solana signTransaction', request, params);
     return {
       signature: txid,
-      publicKey: accounts[0].address,
+      publicKey,
     };
   }
 
@@ -194,20 +201,13 @@ class ProviderApiSolana extends ProviderApiBase {
   ) {
     const { onlyIfTrusted = false } = params || {};
 
-    if (onlyIfTrusted) {
-      // throw error if user haven't trusted the app
-    } else {
-      // mock user action delay
+    let publicKey = await this.getConnectedAcccountPublicKey(request);
+    if (!publicKey && !onlyIfTrusted) {
+      await this.backgroundApi.serviceDapp.openConnectionModal(request);
+      publicKey = await this.getConnectedAcccountPublicKey(request);
     }
 
-    await this.backgroundApi.serviceDapp.openConnectionModal(request);
-    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
-      origin: request.origin as string,
-    });
-
-    return {
-      publicKey: accounts[0].address,
-    };
+    return { publicKey };
   }
 }
 
