@@ -29,6 +29,8 @@ import {
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
+import { deviceUtils } from '../../../utils/hardware';
+
 type PrivateKeyFormValues = {
   network: string;
   name: string;
@@ -196,14 +198,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             addedAccount = acc?.[0];
           })
           .catch((e) => {
-            const { key } = e || {};
-
-            ToastManager.show(
-              {
-                title: intl.formatMessage({ id: key }),
-              },
-              { type: 'error' },
-            );
+            deviceUtils.showErrorToast(e);
           })
           .finally(() => {
             serviceAccountSelector.preloadingCreateAccountDone({

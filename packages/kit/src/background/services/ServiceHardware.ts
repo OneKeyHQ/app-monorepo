@@ -22,6 +22,7 @@ import {
   addConnectedConnectId,
   removeConnectedConnectId,
   setHardwarePopup,
+  updateDevicePassphraseOpenedState,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -102,18 +103,39 @@ class ServiceHardware extends ServiceBase {
             if (!features || !features.device_id) return;
 
             try {
-              const wallets = await this.backgroundApi.engine.getWallets();
               const device =
                 await this.backgroundApi.engine.getHWDeviceByDeviceId(
                   features.device_id,
                 );
               if (!device) return;
-              const wallet = wallets.find(
-                (w) => w.associatedDevice === device.id && !w.passphraseState,
-              );
-              if (!wallet) return;
-              this.featursCache[wallet.id] = features;
-              this.syncDeviceLabel(features, wallet.id);
+
+              try {
+                const wallets = await this.backgroundApi.engine.getWallets();
+                const wallet = wallets.find(
+                  (w) => w.associatedDevice === device.id && !w.passphraseState,
+                );
+                if (!wallet) return;
+                this.featursCache[wallet.id] = features;
+                this.syncDeviceLabel(features, wallet.id);
+              } catch {
+                // ignore
+              }
+
+              try {
+                if (
+                  features.passphrase_protection === true ||
+                  features.passphrase_protection === false
+                ) {
+                  this.backgroundApi.dispatch(
+                    updateDevicePassphraseOpenedState({
+                      deviceId: device.id,
+                      opened: features.passphrase_protection,
+                    }),
+                  );
+                }
+              } catch {
+                // ignore
+              }
             } catch {
               // empty
             }

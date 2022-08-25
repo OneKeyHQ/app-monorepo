@@ -22,10 +22,12 @@ export type HardwarePopup = {
 
 type InitialState = {
   connected: string[]; // connectId array
+  passphraseOpened: string[]; // deviceId array, open passphrase device list
   lastCheckUpdateTime: Record<string, number>; // connectId -> time
 };
 const initialState: InitialState = {
   connected: [],
+  passphraseOpened: [],
   lastCheckUpdateTime: {},
 };
 export const hardwareSlice = createSlice({
@@ -46,6 +48,23 @@ export const hardwareSlice = createSlice({
     closeHardwarePopup() {
       closeHardwarePopupUI();
     },
+    updateDevicePassphraseOpenedState: (
+      state,
+      action: PayloadAction<{ deviceId: string; opened: boolean }>,
+    ) => {
+      if (action.payload.opened) {
+        if (state.passphraseOpened.indexOf(action.payload.deviceId) === -1) {
+          state.passphraseOpened = [
+            ...state.passphraseOpened,
+            action.payload.deviceId,
+          ];
+        }
+      } else {
+        state.passphraseOpened = state.passphraseOpened.filter(
+          (id) => id !== action.payload.deviceId,
+        );
+      }
+    },
   },
 });
 
@@ -54,6 +73,7 @@ export const {
   removeConnectedConnectId,
   setHardwarePopup,
   closeHardwarePopup,
+  updateDevicePassphraseOpenedState,
 } = hardwareSlice.actions;
 
 export default hardwareSlice.reducer;

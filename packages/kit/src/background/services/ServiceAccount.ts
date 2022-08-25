@@ -35,6 +35,7 @@ import { passwordSet, release } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { Avatar } from '../../utils/emojiUtils';
+import { DeviceNotOpenedPassphrase } from '../../utils/hardware/errors';
 import { wait } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
@@ -572,10 +573,12 @@ class ServiceAccount extends ServiceBase {
     features,
     avatar,
     connectId,
+    onlyPassphrase,
   }: {
     features: IOneKeyDeviceFeatures;
     avatar?: Avatar;
     connectId: string;
+    onlyPassphrase?: boolean;
   }) {
     const { dispatch, engine, serviceAccount, serviceHardware, appSelector } =
       this.backgroundApi;
@@ -592,6 +595,9 @@ class ServiceAccount extends ServiceBase {
     let walletExistButNoAccount = null;
 
     const passphraseState = await serviceHardware.getPassphraseState(connectId);
+    if (!!onlyPassphrase && !passphraseState) {
+      throw new DeviceNotOpenedPassphrase();
+    }
 
     if (existDeviceId) {
       walletExistButNoAccount = wallets.find((w) => {
@@ -656,12 +662,6 @@ class ServiceAccount extends ServiceBase {
     dispatch(release());
 
     await this.initWallets();
-    console.log('======: backgroundMethod createHWWallet end');
-    console.log(
-      '======: backgroundMethod changeActiveAccount ',
-      account,
-      wallet,
-    );
 
     serviceAccount.changeActiveAccount({
       accountId: account?.id ?? null,

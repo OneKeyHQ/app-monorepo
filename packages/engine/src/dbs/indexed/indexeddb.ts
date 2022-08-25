@@ -1099,7 +1099,6 @@ class IndexedDBApi implements DBAPI {
                   const wallet = getWalletRequest?.result as Wallet | undefined;
 
                   if (!wallet) {
-                    console.log('=======: create wallet', wallet);
                     ret = {
                       id: walletId,
                       name,
@@ -1116,7 +1115,6 @@ class IndexedDBApi implements DBAPI {
                   } else if (passphraseState) {
                     // exists wallet and passphraseState is not empty
                     // update wallet state, display wallet
-                    console.log('=======: update wallet', wallet);
                     if (wallet) {
                       wallet.hidden = false;
 

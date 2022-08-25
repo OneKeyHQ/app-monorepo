@@ -486,6 +486,11 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getHWDevice(id: string) {
+    return this.dbApi.getDevice(id);
+  }
+
+  @backgroundMethod()
   async getHWDeviceByWalletId(walletId: string) {
     const wallet = await this.dbApi.getWallet(walletId);
     if (wallet?.associatedDevice) {
@@ -906,8 +911,6 @@ class Engine {
       purpose: usedPurpose,
       names,
     });
-
-    console.log('======: prepareAccounts accounts', accounts);
 
     const ret: Array<Account> = [];
     for (const dbAccount of accounts) {
