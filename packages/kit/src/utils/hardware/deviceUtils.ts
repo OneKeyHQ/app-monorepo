@@ -304,6 +304,8 @@ class DeviceUtils {
         return new Error.BleWriteCharacteristicError({ message: msg });
       case HardwareErrorCode.BleScanError:
         return new Error.BleScanThrottleError({ message: msg });
+      case HardwareErrorCode.BleAlreadyConnected:
+        return new Error.BleAlreadyConnectedError({ message: msg });
       case HardwareErrorCode.RuntimeError:
         if (msg.indexOf('EIP712 blind sign is disabled') !== -1) {
           return new Error.OpenBlindSign({ message: msg });
