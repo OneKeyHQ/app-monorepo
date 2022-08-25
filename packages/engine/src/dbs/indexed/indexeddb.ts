@@ -4,7 +4,6 @@
 import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
-import { get } from 'lodash';
 
 import {
   AccountAlreadyExists,

@@ -166,7 +166,9 @@ const RequestPinView: FC<RequestPinViewProps> = ({
       onCancel={onCancel}
       mobileFillWidth={!innerOnDeviceInput}
       closeWay={innerOnDeviceInput ? 'delay' : 'now'}
-      borderBottomRadius={platformEnv.isNativeAndroid ? '0px' : '12px'}
+      borderBottomRadius={
+        platformEnv.isNativeAndroid && !innerOnDeviceInput ? '0px' : '12px'
+      }
     >
       {innerOnDeviceInput ? (
         pinOnDevice

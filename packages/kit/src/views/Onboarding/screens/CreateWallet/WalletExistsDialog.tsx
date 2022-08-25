@@ -25,8 +25,10 @@ const WalletExistsDialog: FC<WalletExistsDialogDialogProps> = ({
         }}
         contentProps={{
           icon: <Icon name="ExclamationOutline" size={48} />,
-          title: '钱包已存在',
-          content: '钱包已存在，是否切换到当前钱包',
+          title: intl.formatMessage({ id: 'msg_create_wallet_is_exists' }),
+          content: intl.formatMessage({
+            id: 'msg_create_wallet_is_exists_dsc',
+          }),
         }}
         footerButtonProps={{
           primaryActionTranslationId: 'action__switch',

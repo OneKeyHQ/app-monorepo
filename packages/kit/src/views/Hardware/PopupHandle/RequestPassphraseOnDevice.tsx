@@ -55,7 +55,7 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
           {intl.formatMessage({ id: 'msg__enter_passphrase_on_device_dsc' })}
         </Text>
       ) : (
-        <Box flexDirection="column" mt={6} flex={1} mr={4}>
+        <Box mt={6} mr={4}>
           <Box flexDirection="row">
             <Box>
               <Icon name="EyeOffOutline" size={20} color="icon-subdued" />

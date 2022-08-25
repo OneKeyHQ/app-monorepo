@@ -496,7 +496,7 @@ class ServiceHardware extends ServiceBase {
       const { inputPinOnSoftware, device } = payload;
       const { deviceId } = device || {};
 
-      if (deviceId && !inputPinOnSoftware) {
+      if (deviceId && !inputPinOnSoftware.support) {
         await this.updateDevicePayload(deviceId, {
           onDeviceInputPin: true,
         });

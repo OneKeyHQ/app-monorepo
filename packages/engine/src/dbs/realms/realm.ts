@@ -3,7 +3,6 @@
 import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
-import { get } from 'lodash';
 import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
@@ -760,7 +759,20 @@ class RealmDB implements DBAPI {
   }
 
   hideSpecialWallet(): Promise<void> {
-    return Promise.resolve();
+    try {
+      const wallets = this.realm!.objects<WalletSchema>('Wallet').filter(
+        (w) => !!w.passphraseState,
+      );
+      this.realm!.write(() => {
+        for (const wallet of wallets) {
+          wallet.hidden = true;
+        }
+      });
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
   }
 
   /**
