@@ -91,8 +91,7 @@ class ServiceHistory extends ServiceBase {
     const vault = await engine.getVault({ networkId, accountId });
 
     const nonce = await vault.getAccountNonce();
-    const statusList = await engine.providerManager.getTransactionStatuses(
-      networkId,
+    const statusList = await vault.getTransactionStatuses(
       items.map((item) => item.decodedTx.txid),
     );
     const itemsToUpdate: IHistoryTx[] = [];

@@ -78,9 +78,6 @@ type Curve = 'secp256k1' | 'ed25519';
 
 function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   const defaultClient = IMPL_MAPPINGS[dbNetwork.impl]?.defaultClient;
-  if (typeof defaultClient === 'undefined') {
-    throw new OneKeyInternalError('Unable to build chain info from dbNetwork.');
-  }
 
   let providerOptions: Record<string, any> = {};
   let { rpcURL } = dbNetwork;

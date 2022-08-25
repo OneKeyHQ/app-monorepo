@@ -684,6 +684,7 @@ class Engine {
       '0': 'btc--0',
       '101010': 'stc--1',
       '501': 'sol--101',
+      '195': 'tron--0x2b6653dc',
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -1447,22 +1448,24 @@ class Engine {
       return [];
     }
 
-    const { displayAddress, normalizedAddress, isValid } =
-      await this.providerManager.verifyTokenAddress(networkId, searchTerm);
+    let tokenAddress = '';
+    try {
+      const vault = await this.getChainOnlyVault(networkId);
+      tokenAddress = await vault.validateTokenAddress(searchTerm);
+    } catch {
+      // pass
+    }
 
-    if (
-      isValid &&
-      typeof displayAddress !== 'undefined' &&
-      typeof normalizedAddress !== 'undefined'
-    ) {
+    if (tokenAddress.length > 0) {
       const token = await this.findToken({
         networkId,
-        tokenIdOnNetwork: normalizedAddress,
+        tokenIdOnNetwork: tokenAddress,
       });
       if (token) {
         return [token];
       }
     }
+
     const { impl, chainId } = parseNetworkId(networkId);
     if (!impl || !chainId) {
       return [];

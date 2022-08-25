@@ -6,7 +6,10 @@ import {
   BaseClient,
   BaseProvider,
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -14,7 +17,7 @@ import { isNil } from 'lodash';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HISTORY_CONSTS } from '../constants';
+import { HISTORY_CONSTS, IMPL_TRON } from '../constants';
 import simpleDb from '../dbs/simple/simpleDb';
 import {
   InvalidAddress,
@@ -64,6 +67,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   engineProvider!: BaseProvider;
 
   async initProvider() {
+    // TODO
+    if ((await this.getNetwork()).impl === 'tron') {
+      return;
+    }
     this.engineProvider = await this.engine.providerManager.getProvider(
       this.networkId,
     );
@@ -142,6 +149,15 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         address,
         coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
       })),
+    );
+  }
+
+  getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    return this.engine.providerManager.getTransactionStatuses(
+      this.networkId,
+      txids,
     );
   }
 

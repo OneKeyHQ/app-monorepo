@@ -21,6 +21,9 @@ const COINTYPE_CFX = '503';
 const IMPL_BTC = 'btc';
 const COINTYPE_BTC = '0';
 
+const IMPL_TRON = 'tron';
+const COINTYPE_TRON = '195';
+
 export const NETWORK_ID_EVM_ETH = 'evm--1';
 
 const SUPPORTED_IMPLS = new Set([
@@ -31,6 +34,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_SOL,
   // IMPL_ALGO,
   IMPL_STC,
+  IMPL_TRON,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -39,6 +43,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_BTC,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TRON,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -73,5 +78,7 @@ export {
   COINTYPE_CFX,
   IMPL_BTC,
   COINTYPE_BTC,
+  IMPL_TRON,
+  COINTYPE_TRON,
   getSupportedImpls,
 };
