@@ -30,6 +30,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.getDbAccount();
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const { passphraseState } = await this.getWalletInfo();
 
     const { nativeTx: transaction, feePayer } = unsignedTx.payload as {
       nativeTx: Transaction;
@@ -39,6 +40,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     const response = await HardwareSDK.solSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
       rawTx: transaction.serializeMessage().toString('hex'),
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
 
     if (response.success && response.payload.signature) {
@@ -70,11 +73,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     const showOnOneKey = false;
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const { passphraseState } = await this.getWalletInfo();
 
     let addressesResponse;
     try {
       addressesResponse = await HardwareSDK.solGetAddress(connectId, deviceId, {
         bundle: paths.map((path) => ({ path, showOnOneKey })),
+        passphraseState,
+        notUsePassphrase: !passphraseState,
       });
     } catch (error: any) {
       debugLogger.common.error(error);
@@ -101,9 +107,13 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async getAddress(params: IGetAddressParams): Promise<string> {
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const { passphraseState } = await this.getWalletInfo();
+
     const response = await HardwareSDK.solGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
     if (response.success) {
       return response.payload.address ?? '';
