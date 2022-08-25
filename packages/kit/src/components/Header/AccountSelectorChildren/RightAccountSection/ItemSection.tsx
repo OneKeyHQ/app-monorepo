@@ -1,6 +1,7 @@
 import React, { FC, memo, useCallback } from 'react';
 
 import { DrawerActions } from '@react-navigation/native';
+import { InteractionManager } from 'react-native';
 
 import {
   Account,
@@ -22,7 +23,9 @@ import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/Modi
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
+import { wait } from '../../../../utils/helper';
 import ExternalAccountImg from '../../../WalletConnect/ExternalAccountImg';
+import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../accountSelectorConsts';
 
 import ItemActionButton from './ItemActionButton';
 
@@ -33,7 +36,7 @@ export type AccountGroup = { title: Network; data: AccountEngineType[] };
 type Props = {
   section: SectionListData<AccountEngineType, AccountGroup>;
   item: AccountEngineType;
-  activeWallet: Wallet | null;
+  activeWallet: Wallet | null | undefined;
   activeNetwork: Network | null;
   activeAccount: AccountEngineType | null;
   refreshAccounts: (walletId: string, networkId: string) => void;
@@ -154,14 +157,16 @@ const AccountSectionItem: FC<Props> = ({
     <>
       <Pressable
         px={2}
-        onPress={async () => {
-          await serviceNetwork.changeActiveNetwork(section?.title?.id);
-          await serviceAccount.changeActiveAccount({
-            accountId: item.id,
-            walletId: activeWallet?.id ?? '',
-          });
-          setTimeout(() => {
-            navigation.dispatch(DrawerActions.closeDrawer());
+        onPress={() => {
+          navigation.dispatch(DrawerActions.closeDrawer());
+          InteractionManager.runAfterInteractions(async () => {
+            await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
+
+            await serviceNetwork.changeActiveNetwork(section?.title?.id);
+            await serviceAccount.changeActiveAccount({
+              accountId: item.id,
+              walletId: activeWallet?.id ?? '',
+            });
           });
         }}
       >

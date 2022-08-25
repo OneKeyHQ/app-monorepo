@@ -19,6 +19,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { INetwork } from '@onekeyhq/engine/src/types';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -31,7 +32,6 @@ import {
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
-import { INetwork } from '../../store/reducers/runtime';
 import { wait } from '../../utils/helper';
 import { AutoSizeText } from '../FiatPay/AmountInput/AutoSizeText';
 

@@ -1,4 +1,4 @@
-import React, { FC, memo, useEffect, useMemo, useState } from 'react';
+import React, { FC, memo, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,6 +8,7 @@ import {
   HStack,
   Icon,
   Select,
+  Spinner,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -22,6 +23,7 @@ import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Manager
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAppSelector } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import ManagerWalletDeleteDialog, {
@@ -35,12 +37,6 @@ type RightHeaderProps = {
   selectedWallet?: Wallet | null;
   // eslint-disable-next-line react/no-unused-prop-types
   deviceStatus?: DeviceStatusType;
-  // eslint-disable-next-line react/no-unused-prop-types
-  onLoadingAccount?: (
-    walletId: string,
-    networkId: string,
-    ready?: boolean,
-  ) => void;
 };
 
 type CustomSelectTriggerProps = {
@@ -120,7 +116,6 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
 const RightHeader: FC<RightHeaderProps> = ({
   selectedWallet,
   deviceStatus,
-  onLoadingAccount,
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -131,11 +126,12 @@ const RightHeader: FC<RightHeaderProps> = ({
   const [showBackupDialog, setShowBackupDialog] = useState(false);
   const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
   const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
-  const [hasAvailableUpdate, setHasAvailableUpdate] = useState(false);
+  const { isLoading } = useAppSelector((s) => s.accountSelector);
 
-  useEffect(() => {
-    setHasAvailableUpdate(deviceStatus?.hasUpgrade ?? false);
-  }, [deviceStatus]);
+  const hasAvailableUpdate = useMemo(
+    () => deviceStatus?.hasUpgrade ?? false,
+    [deviceStatus?.hasUpgrade],
+  );
 
   const onDeleteWallet = () => {
     if (selectedWallet?.type === 'hw') {
@@ -235,7 +231,15 @@ const RightHeader: FC<RightHeaderProps> = ({
   return (
     <>
       <HStack py={3} px={4} space={4} alignItems="center">
-        <HeaderTitle selectedWallet={selectedWallet} />
+        <HStack>
+          <HeaderTitle selectedWallet={selectedWallet} />
+          {isLoading ? (
+            <HStack ml={2} alignItems="center" justifyContent="center">
+              <Spinner size="sm" />
+            </HStack>
+          ) : null}
+        </HStack>
+        <Box flex={1} />
         {['hd', 'normal'].includes(selectedWallet?.type ?? '') ? (
           <Select
             onChange={(_value) => {
@@ -272,7 +276,6 @@ const RightHeader: FC<RightHeaderProps> = ({
                       screen: CreateAccountModalRoutes.RecoverySelectChainList,
                       params: {
                         walletId: selectedWallet?.id ?? '',
-                        onLoadingAccount,
                       },
                     },
                   });
@@ -372,7 +375,6 @@ const RightHeader: FC<RightHeaderProps> = ({
                       screen: CreateAccountModalRoutes.RecoverySelectChainList,
                       params: {
                         walletId: selectedWallet?.id ?? '',
-                        onLoadingAccount,
                       },
                     },
                   });

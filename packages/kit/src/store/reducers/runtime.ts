@@ -2,22 +2,34 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import type { Network as BaseNetwork } from '@onekeyhq/engine/src/types/network';
-import type { Wallet as BaseWallet } from '@onekeyhq/engine/src/types/wallet';
-
-export type INetwork = BaseNetwork;
-export type IWallet = BaseWallet;
+import {
+  Wallet as BaseWallet,
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/engine/src/types/wallet';
 
 type InitialState = {
   wallets: BaseWallet[];
   networks: BaseNetwork[];
   /** accounts will always change by different wallet and different networks */
-  accounts: BaseAccount[];
+  accounts: BaseAccount[]; // accounts in current wallet and network
 };
 
 const initialState: InitialState = {
   wallets: [],
   networks: [],
   accounts: [],
+};
+
+const WALLET_SORT_WEIGHT = {
+  [WALLET_TYPE_HD]: 1,
+  [WALLET_TYPE_HW]: 10,
+  [WALLET_TYPE_IMPORTED]: 20,
+  [WALLET_TYPE_WATCHING]: 30,
+  [WALLET_TYPE_EXTERNAL]: 40,
 };
 
 export const walletSlice = createSlice({
@@ -48,7 +60,10 @@ export const walletSlice = createSlice({
       state.networks = action.payload;
     },
     updateWallets(state, action: PayloadAction<BaseWallet[]>) {
-      state.wallets = action.payload;
+      state.wallets = action.payload.sort(
+        (item1, item2) =>
+          WALLET_SORT_WEIGHT[item1.type] - WALLET_SORT_WEIGHT[item2.type],
+      );
     },
     updateWallet(state, action: PayloadAction<BaseWallet>) {
       state.wallets = state.wallets.map((w) =>

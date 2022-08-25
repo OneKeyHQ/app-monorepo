@@ -246,7 +246,7 @@ export enum IDecodedTxActionType {
   FUNCTION_CALL = 'FUNCTION_CALL',
 
   // other
-  TRANSACTION = 'TRANSACTION',
+  UNKNOWN = 'UNKNOWN',
 }
 
 export type IDecodedTxActionBase = {
@@ -260,7 +260,7 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
   target: string; // contractAddress
   functionName: string; // approve
   functionHash?: string; // 0x095ea7b3
-  functionSignature?: string; //
+  functionSignature?: string; // approve(address, amount)
   args: any[];
 };
 

@@ -8,6 +8,9 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppSelector } from './redux';
 
 function useNetwork({ networkId }: { networkId?: string }) {
+  if (networkId === 'all') {
+    debugger;
+  }
   const networkInRedux = useAppSelector((s) =>
     s.runtime.networks?.find((n) => n.id === networkId),
   );

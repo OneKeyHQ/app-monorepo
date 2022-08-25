@@ -28,6 +28,19 @@ function DebugLoggerSettings() {
   return (
     <Box>
       <Typography.DisplayXLarge>DebugLogger</Typography.DisplayXLarge>
+      <Button
+        onPress={() => {
+          if (global.localStorage) {
+            const key = '@onekey_debug_useEffect_log';
+            global.localStorage.setItem(
+              key,
+              global.localStorage.getItem(key) ? '' : 'on',
+            );
+          }
+        }}
+      >
+        Toggle UseEffect log
+      </Button>
       {keys.map((key: LoggerNames) => (
         <Box py={1} key={key}>
           <CheckBox

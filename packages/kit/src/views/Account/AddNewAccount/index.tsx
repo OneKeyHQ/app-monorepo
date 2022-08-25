@@ -17,6 +17,7 @@ import {
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
@@ -47,7 +48,8 @@ type RouteProps = RouteProp<
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { dispatch, serviceAccount } = backgroundApiProxy;
+  const { dispatch, serviceAccount, serviceAccountSelector } =
+    backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
     useForm<PrivateKeyFormValues>({
       defaultValues: { name: '', addressType: 'default' },
@@ -60,11 +62,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
 
   const isSmallScreen = useIsVerticalLayout();
 
-  const {
-    walletId: selectedWalletId,
-    selectedNetworkId,
-    onLoadingAccount,
-  } = route.params;
+  const { walletId: selectedWalletId, selectedNetworkId } = route.params;
 
   const wallet = useMemo(
     () => wallets.find((wallet) => wallet.id === selectedWalletId),
@@ -176,9 +174,14 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
 
   const authenticationDone = useCallback(
     (password: string) => {
-      const network = getValues('network');
-      const name = getValues('name');
-      onLoadingAccount?.(selectedWalletId, network, false);
+      const network: string = getValues('network');
+      const name: string = getValues('name');
+
+      serviceAccountSelector.preloadingCreateAccount({
+        walletId: selectedWalletId,
+        networkId: network,
+      });
+      let addedAccount: IAccount | undefined;
       setTimeout(() => {
         serviceAccount
           .addHDAccounts(
@@ -189,6 +192,9 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             [name],
             purpose,
           )
+          .then((acc) => {
+            addedAccount = acc?.[0];
+          })
           .catch((e) => {
             const { key } = e || {};
 
@@ -200,7 +206,11 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             );
           })
           .finally(() => {
-            onLoadingAccount?.(selectedWalletId, network, true);
+            serviceAccountSelector.preloadingCreateAccountDone({
+              walletId: selectedWalletId,
+              networkId: network,
+              accountId: addedAccount?.id,
+            });
           });
       }, 10);
       navigation.getParent()?.goBack?.();
@@ -304,7 +314,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                             network,
                             password,
                             purpose,
-                            onLoadingAccount,
                           },
                         );
                       },

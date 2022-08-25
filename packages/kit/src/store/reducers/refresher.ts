@@ -4,6 +4,7 @@ const NAME = 'refresher';
 
 const initialState = {
   refreshHistoryTs: 0,
+  refreshAccountSelectorTs: 0,
 };
 
 export const slicer = createSlice({
@@ -13,9 +14,12 @@ export const slicer = createSlice({
     refreshHistory(state) {
       state.refreshHistoryTs = Date.now();
     },
+    refreshAccountSelector(state) {
+      state.refreshAccountSelectorTs = Date.now();
+    },
   },
 });
 
-export const { refreshHistory } = slicer.actions;
+export const { refreshHistory, refreshAccountSelector } = slicer.actions;
 
 export default slicer.reducer;

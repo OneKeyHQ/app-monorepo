@@ -36,7 +36,7 @@ const RecoverSelectChainModal: FC = () => {
   const { enabledNetworks: networks } = useManageNetworks();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { walletId: selectedWalletId, onLoadingAccount } = route.params;
+  const { walletId: selectedWalletId } = route.params;
 
   const wallet = useMemo(
     () => wallets.find((w) => w.id === selectedWalletId),
@@ -79,13 +79,12 @@ const RecoverSelectChainModal: FC = () => {
               walletId: selectedWalletId,
               network: network.id,
               password,
-              onLoadingAccount,
             });
           },
         },
       );
     },
-    [navigation, onLoadingAccount, selectedWalletId],
+    [navigation, selectedWalletId],
   );
 
   const renderItem: ListRenderItem<Network> = useCallback(

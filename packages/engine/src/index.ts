@@ -325,6 +325,16 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getWalletSafe(walletId: string): Promise<Wallet | undefined> {
+    try {
+      return await this.getWallet(walletId);
+    } catch (error) {
+      debugLogger.common.error(error);
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
   async getWalletByDeviceId(deviceId: string): Promise<Wallet> {
     const wallet = await this.dbApi.getWalletByDeviceId(deviceId);
     if (typeof wallet !== 'undefined') {
@@ -1064,8 +1074,21 @@ class Engine {
     return !!token;
   }
 
-  findToken = memoizee(
-    async (params: { networkId: string; tokenIdOnNetwork: string }) => {
+  async findToken(params: { networkId: string; tokenIdOnNetwork: string }) {
+    try {
+      // needs await to try catch memoizee function
+      return await this._findTokenWithMemo(params);
+    } catch (error) {
+      debugLogger.common.error(error);
+      return Promise.resolve(undefined);
+    }
+  }
+
+  _findTokenWithMemo = memoizee(
+    async (params: {
+      networkId: string;
+      tokenIdOnNetwork: string;
+    }): Promise<Token> => {
       const { networkId, tokenIdOnNetwork } = params;
       if (!tokenIdOnNetwork) {
         return this.getNativeTokenInfo(networkId);
@@ -1087,7 +1110,7 @@ class Engine {
         | undefined;
       const { impl, chainId } = parseNetworkId(networkId);
       if (!impl || !chainId) {
-        return;
+        throw new Error('findToken ERROR: token impl or chainId is not valid.');
       }
       tokenInfo = await fetchTokenDetail({
         impl,
@@ -1106,7 +1129,7 @@ class Engine {
         }
       }
       if (typeof tokenInfo === 'undefined') {
-        return;
+        throw new Error('findToken ERROR: token not found.');
       }
       return {
         id: tokenId,
@@ -1946,6 +1969,16 @@ class Engine {
     // so getNetwork() does NOT including vaultSettings field
     //    please use getVaultSettings()
     return fromDBNetworkToNetwork(dbObj, {} as IVaultSettings);
+  }
+
+  @backgroundMethod()
+  async getNetworkSafe(networkId: string): Promise<Network | undefined> {
+    try {
+      return await this.getNetwork(networkId);
+    } catch (error) {
+      debugLogger.common.error(error);
+      return undefined;
+    }
   }
 
   @backgroundMethod()
