@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   VStack,
+  useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
@@ -71,6 +72,7 @@ const LeftSide: FC<LeftSideProps> = ({
   setSelectedWallet,
   deviceStatus,
 }) => {
+  const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();
 
   const { wallets } = useRuntime();
@@ -106,7 +108,7 @@ const LeftSide: FC<LeftSideProps> = ({
       testID="AccountSelectorChildren-LeftSide"
       borderRightWidth={1}
       borderRightColor="border-subdued"
-      pb={`${bottom}px`}
+      pb={`${isVerticalLayout ? bottom : 0}px`}
     >
       <ScrollView>
         <VStack py={2}>
