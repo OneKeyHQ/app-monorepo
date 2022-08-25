@@ -85,25 +85,17 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw deviceUtils.convertDeviceError(addressesResponse.payload);
     }
 
-    return addressesResponse.payload.reduce(
-      (ret: Array<DBSimpleAccount>, { address, path }, index) =>
-        ret.concat(
-          address
-            ? [
-                {
-                  id: `${this.walletId}--${path}`,
-                  name: (names || [])[index] || `SOL #${indexes[index] + 1}`,
-                  type: AccountType.SIMPLE,
-                  path,
-                  coinType: COIN_TYPE,
-                  pub: address, // base58 encoded
-                  address,
-                },
-              ]
-            : [],
-        ),
-      [],
-    );
+    return addressesResponse.payload
+      .map(({ address, path }, index) => ({
+        id: `${this.walletId}--${path}`,
+        name: (names || [])[index] || `SOL #${indexes[index] + 1}`,
+        type: AccountType.SIMPLE,
+        path,
+        coinType: COIN_TYPE,
+        pub: address ?? '', // base58 encoded
+        address: address ?? '',
+      }))
+      .filter(({ address }) => !!address);
   }
 
   override async getAddress(params: IGetAddressParams): Promise<string> {
