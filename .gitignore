@@ -60,3 +60,7 @@ web-build/
 
 # Ignore code-workspaces
 *.code-workspace
+
+# Ignore yalc
+.yalc/
+yalc.lock
