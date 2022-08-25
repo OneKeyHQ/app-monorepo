@@ -577,7 +577,6 @@ class ServiceAccount extends ServiceBase {
     avatar?: Avatar;
     connectId: string;
   }) {
-    console.log('======: backgroundMethod createHWWallet', features, connectId);
     const { dispatch, engine, serviceAccount, serviceHardware, appSelector } =
       this.backgroundApi;
     const devices = await engine.getHWDevices();
@@ -594,11 +593,6 @@ class ServiceAccount extends ServiceBase {
 
     const passphraseState = await serviceHardware.getPassphraseState(connectId);
 
-    console.log(
-      '======: backgroundMethod createHWWallet passphraseState',
-      passphraseState,
-    );
-
     if (existDeviceId) {
       walletExistButNoAccount = wallets.find((w) => {
         const targetWallet =
@@ -611,10 +605,23 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
+    let walletName: string | undefined;
+    if (passphraseState) {
+      if (existDeviceId) {
+        const size = wallets.filter(
+          (w) => w.associatedDevice === existDeviceId && w.passphraseState,
+        ).length;
+        walletName = `Hidden Wallet#${size + 1}`;
+      } else {
+        walletName = 'Hidden Wallet#1';
+      }
+    }
+
     if (walletExistButNoAccount) {
       wallet = walletExistButNoAccount;
     } else {
       wallet = await engine.createHWWallet({
+        name: walletName,
         avatar: avatar ?? randomAvatar(),
         features,
         connectId,

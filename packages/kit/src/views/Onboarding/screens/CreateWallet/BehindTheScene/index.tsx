@@ -130,15 +130,14 @@ function BehindTheSceneCreatingWallet({
       // safeGoBack();
       const { className, message, data } = e || {};
       if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
-        const { walletId, accountId } = data || {};
+        const { walletId } = data || {};
 
         DialogManager.show({
           render: (
             <WalletExistsDialog
               onDone={() => {
-                backgroundApiProxy.serviceAccount.changeActiveAccount({
+                backgroundApiProxy.serviceAccount.autoChangeAccount({
                   walletId: walletId ?? null,
-                  accountId: accountId ?? null,
                 });
                 closeModal();
               }}
@@ -165,6 +164,7 @@ function BehindTheSceneCreatingWallet({
     isHardwareCreating?.device,
     isHardwareCreating?.features,
     forceVisibleUnfocused,
+    closeModal,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {

@@ -109,7 +109,7 @@ class ServiceHardware extends ServiceBase {
                 );
               if (!device) return;
               const wallet = wallets.find(
-                (w) => w.associatedDevice === device.id,
+                (w) => w.associatedDevice === device.id && !w.passphraseState,
               );
               if (!wallet) return;
               this.featursCache[wallet.id] = features;

@@ -1092,10 +1092,7 @@ class RealmDB implements DBAPI {
       // exists Passphrase wallet does not report errors
       if (hasExistWallet && !passphraseState) {
         return await Promise.reject(
-          new OneKeyAlreadyExistWalletError(
-            hasExistWallet.id,
-            get(hasExistWallet, 'accounts[0].id', undefined),
-          ),
+          new OneKeyAlreadyExistWalletError(hasExistWallet.id),
         );
       }
 
@@ -1152,10 +1149,7 @@ class RealmDB implements DBAPI {
         }
       } else {
         return await Promise.reject(
-          new OneKeyAlreadyExistWalletError(
-            wallet.id,
-            get(wallet, 'accounts[0].id', undefined),
-          ),
+          new OneKeyAlreadyExistWalletError(wallet.id),
         );
       }
 

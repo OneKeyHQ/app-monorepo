@@ -110,7 +110,7 @@ export class OneKeyAlreadyExistWalletError extends OneKeyError<{
 
   override key: LocaleIds = 'msg__wallet_already_exist';
 
-  constructor(walletId: string, accountId: string | undefined) {
+  constructor(walletId: string, accountId?: string | undefined) {
     super();
     this.data = {
       walletId,

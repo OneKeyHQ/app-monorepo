@@ -14,7 +14,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
-import { SelectGroupItem } from '@onekeyhq/components/src/Select';
+import { SelectGroupItem, SelectItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
@@ -176,48 +176,53 @@ const RightHeader: FC<RightHeaderProps> = ({
   ]);
 
   const hwWalletOptions = useMemo(() => {
+    const normalGroup: SelectItem[] = [];
+
+    if (!selectedWallet?.passphraseState) {
+      normalGroup.push({
+        label: intl.formatMessage({ id: 'action__edit' }),
+        value: 'rename',
+        iconProps: {
+          name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+        },
+      });
+    }
+
+    normalGroup.push(
+      {
+        label: intl.formatMessage({
+          id: 'action__view_device_details',
+        }),
+        value: 'details',
+        iconProps: {
+          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextSolid',
+        },
+      },
+      // {
+      //   label: intl.formatMessage({
+      //     id: 'action__recover_accounts',
+      //   }),
+      //   value: 'restore',
+      //   iconProps: {
+      //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
+      //   },
+      // },
+      {
+        label: intl.formatMessage({
+          id: 'action__delete_wallet',
+        }),
+        value: 'remove',
+        iconProps: {
+          name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+        },
+        destructive: true,
+      },
+    );
+
     const options: SelectGroupItem<string>[] = [
       {
         title: '',
-        options: [
-          {
-            label: intl.formatMessage({ id: 'action__edit' }),
-            value: 'rename',
-            iconProps: {
-              name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
-            },
-          },
-          {
-            label: intl.formatMessage({
-              id: 'action__view_device_details',
-            }),
-            value: 'details',
-            iconProps: {
-              name: isVerticalLayout
-                ? 'DocumentTextOutline'
-                : 'DocumentTextSolid',
-            },
-          },
-          // {
-          //   label: intl.formatMessage({
-          //     id: 'action__recover_accounts',
-          //   }),
-          //   value: 'restore',
-          //   iconProps: {
-          //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
-          //   },
-          // },
-          {
-            label: intl.formatMessage({
-              id: 'action__delete_wallet',
-            }),
-            value: 'remove',
-            iconProps: {
-              name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
-            },
-            destructive: true,
-          },
-        ],
+        options: normalGroup,
       },
     ];
     if (hasAvailableUpdate) {
@@ -239,7 +244,12 @@ const RightHeader: FC<RightHeaderProps> = ({
       });
     }
     return options;
-  }, [hasAvailableUpdate, intl, isVerticalLayout]);
+  }, [
+    hasAvailableUpdate,
+    intl,
+    isVerticalLayout,
+    selectedWallet?.passphraseState,
+  ]);
 
   const optionsView = useMemo(() => {
     if (isLoading) {

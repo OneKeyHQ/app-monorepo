@@ -1062,12 +1062,7 @@ class IndexedDBApi implements DBAPI {
 
               // exists Passphrase wallet does not report errors
               if (hasExistWallet && !passphraseState) {
-                reject(
-                  new OneKeyAlreadyExistWalletError(
-                    hasExistWallet.id,
-                    get(hasExistWallet, 'accounts[0]', undefined),
-                  ),
-                );
+                reject(new OneKeyAlreadyExistWalletError(hasExistWallet.id));
                 return;
               }
 
@@ -1129,12 +1124,7 @@ class IndexedDBApi implements DBAPI {
                       ret = wallet;
                     }
                   } else {
-                    reject(
-                      new OneKeyAlreadyExistWalletError(
-                        wallet.id,
-                        get(hasExistWallet, 'accounts[0]', undefined),
-                      ),
-                    );
+                    reject(new OneKeyAlreadyExistWalletError(wallet.id));
                   }
                 };
               };
