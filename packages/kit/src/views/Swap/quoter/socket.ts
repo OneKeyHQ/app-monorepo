@@ -218,7 +218,10 @@ export class SocketQuoter implements Quoter {
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
     const url = `${baseURL}/quote`;
-    if (params.independentField === 'OUTPUT') {
+    if (
+      !this.isSupported(params.networkIn, params.networkOut) ||
+      params.independentField === 'OUTPUT'
+    ) {
       return undefined;
     }
 
@@ -232,7 +235,6 @@ export class SocketQuoter implements Quoter {
           toTokenAddress: getEvmTokenAddress(params.tokenOut),
           fromAmount: getTokenAmountString(params.tokenIn, params.typedValue),
           userAddress: params.activeAccount.address,
-          recipient: params.receivingAddress,
           sort: 'output',
           singleTxOnly: true,
         },

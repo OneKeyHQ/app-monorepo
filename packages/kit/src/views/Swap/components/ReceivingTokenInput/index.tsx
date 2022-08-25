@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useCallback } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,18 +10,10 @@ import {
   Pressable,
   Token as TokenImage,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useAccountTokensBalance,
-  useActiveWalletAccount,
-} from '../../../../hooks';
 import { Token as TokenType } from '../../../../store/typings';
-import { Chains } from '../../config';
-import { formatAmount, getChainIdFromNetworkId } from '../../utils';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -43,44 +35,9 @@ const TokenInput: FC<TokenInputProps> = ({
   tokenNetwork,
   onChange,
   containerProps,
-  type,
   isDisabled,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
-  const { accountId } = useActiveWalletAccount();
-  const balances = useAccountTokensBalance(tokenNetwork?.id ?? '', accountId);
-  const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : '0';
-  const onMax = useCallback(() => {
-    if (!token || !value) {
-      return;
-    }
-    if (token.tokenIdOnNetwork || tokenNetwork?.impl !== 'evm') {
-      backgroundApiProxy.serviceSwap.userInput(type, value);
-    } else {
-      const chainId = getChainIdFromNetworkId(token.networkId);
-      let minuend = 0.1;
-      if (chainId === Chains.MAINNET || chainId === Chains.BSC) {
-        minuend = 0.01;
-      } else if (chainId === Chains.POLYGON) {
-        minuend = 0.03;
-      }
-      const v = Math.max(0, Number(value) - minuend);
-      if (v > 0) {
-        backgroundApiProxy.serviceSwap.userInput(type, String(v));
-      } else if (Number(value) > 0) {
-        toast.show({
-          title: intl.formatMessage({
-            id: 'msg__current_token_balance_is_insufficient',
-          }),
-        });
-      }
-    }
-  }, [token, value, type, toast, intl, tokenNetwork]);
-  let text = formatAmount(value, 6);
-  if (!value || Number(value) === 0 || Number.isNaN(+value)) {
-    text = '0';
-  }
   return (
     <Box {...containerProps} position="relative">
       <Box position="relative">
@@ -93,24 +50,6 @@ const TokenInput: FC<TokenInputProps> = ({
           <Typography.Caption p="2" color="text-subdued" fontWeight={500}>
             {label}
           </Typography.Caption>
-          <Pressable
-            onPress={() => {
-              if (isDisabled) {
-                return;
-              }
-              onMax();
-            }}
-            rounded="xl"
-            _hover={{ bg: 'surface-hovered' }}
-            _pressed={{ bg: 'surface-pressed' }}
-            p="2"
-          >
-            <Box flexDirection="row" alignItems="center">
-              <Typography.Caption color="text-subdued" fontWeight={500}>
-                {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
-              </Typography.Caption>
-            </Box>
-          </Pressable>
         </Box>
         <Box
           display="flex"

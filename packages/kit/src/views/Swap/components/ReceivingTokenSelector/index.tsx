@@ -1,9 +1,7 @@
 import React, { FC, useCallback, useContext, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
+import { ImageSourcePropType, ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -17,22 +15,15 @@ import {
   ScrollView,
   Searchbar,
   Spinner,
-  Token as TokenImage,
   TokenVerifiedIcon,
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
-import {
-  ModalRoutes,
-  RootRoutes,
-  RootRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
+import SwapAllChainsLogoPNG from '@onekeyhq/kit/assets/swap_all_chains_logo.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { FormatBalance, FormatCurrency } from '../../../../components/Format';
 import {
   useAccountTokens,
   useActiveWalletAccount,
@@ -43,34 +34,23 @@ import { enabledNetworkIds } from '../../config';
 import {
   useEnabledSwappableNetworks,
   useRestrictedTokens,
+  useSwappableNativeTokens,
 } from '../../hooks/useSwap';
-import {
-  useCachedBalances,
-  useCachedPrices,
-  useTokenSearch,
-} from '../../hooks/useSwapTokenUtils';
-import { SwapRoutes } from '../../typings';
+import { useTokenSearch } from '../../hooks/useSwapTokenUtils';
 
-import { TokenSelectorContext } from './context';
+import { ReceivingTokenSelectorContext } from './context';
 import { DataUpdaters } from './refresher';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  RootRoutesParams,
-  RootRoutes.Root
->;
-
-const isValidateAddr = (addr: string) => addr.length === 42;
-
 type NetworkItemProps = {
-  network: Network;
+  logoURI?: ImageSourcePropType;
+  value?: string;
+  name: string;
 };
-const NetworkItem: FC<NetworkItemProps> = ({ network }) => {
-  const { networkId, setNetworkId } = useContext(TokenSelectorContext);
+const NetworkItem: FC<NetworkItemProps> = ({ name, logoURI, value }) => {
+  const { networkId, setNetworkId } = useContext(ReceivingTokenSelectorContext);
   const onPress = useCallback(() => {
-    setNetworkId?.(network.id);
-  }, [setNetworkId, network]);
+    setNetworkId?.(value);
+  }, [setNetworkId, value]);
   return (
     <Pressable
       mr="2"
@@ -78,7 +58,7 @@ const NetworkItem: FC<NetworkItemProps> = ({ network }) => {
       pl="1.5"
       pr="2.5"
       bg={
-        network.id === networkId
+        value === networkId
           ? 'surface-neutral-hovered'
           : 'surface-neutral-subdued'
       }
@@ -88,39 +68,56 @@ const NetworkItem: FC<NetworkItemProps> = ({ network }) => {
       mb="2"
       onPress={onPress}
     >
-      <TokenImage size="5" src={network.logoURI} />
-      <Typography.Body2Strong ml="1">
-        {network.shortName}
-      </Typography.Body2Strong>
+      {logoURI ? <Image size="5" source={logoURI} /> : null}
+      <Typography.Body2Strong ml="1">{name}</Typography.Body2Strong>
     </Pressable>
   );
 };
 
 const NetworkSelector: FC = () => {
   const networks = useEnabledSwappableNetworks();
-  const { impl } = useContext(TokenSelectorContext);
+  const intl = useIntl();
   const enabledNetworks = useMemo(() => {
-    let items = networks;
-    if (impl) {
-      items = items.filter((item) => item.impl === impl);
-    }
-    return items.sort((a, b) => {
+    const evmNetworks = networks.sort((a, b) => {
       const networkIdA = enabledNetworkIds.indexOf(a.id);
       const networkIdB = enabledNetworkIds.indexOf(b.id);
       return networkIdA < networkIdB ? -1 : 1;
     });
-  }, [networks, impl]);
+    return evmNetworks;
+  }, [networks]);
 
   return platformEnv.isNative ? (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} mb="2">
+      <NetworkItem
+        name={intl.formatMessage({ id: 'option__all' })}
+        logoURI={SwapAllChainsLogoPNG}
+        value={undefined}
+        key="option__all"
+      />
       {enabledNetworks.map((item) => (
-        <NetworkItem network={item} key={item.id} />
+        <NetworkItem
+          name={item.shortName}
+          logoURI={{ uri: item.logoURI }}
+          value={item.id}
+          key={item.id}
+        />
       ))}
     </ScrollView>
   ) : (
     <Box display="flex" flexDirection="row" mb="2" flexWrap="wrap">
+      <NetworkItem
+        name={intl.formatMessage({ id: 'option__all' })}
+        logoURI={SwapAllChainsLogoPNG}
+        value={undefined}
+        key="option__all"
+      />
       {enabledNetworks.map((item) => (
-        <NetworkItem network={item} key={item.id} />
+        <NetworkItem
+          name={item.shortName}
+          logoURI={{ uri: item.logoURI }}
+          value={item.id}
+          key={item.id}
+        />
       ))}
     </Box>
   );
@@ -161,8 +158,6 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   terms,
 }) => {
   const intl = useIntl();
-  const { networkId } = useContext(TokenSelectorContext);
-  const navigation = useNavigation<NavigationProps>();
   if (isLoading) {
     return (
       <Center w="full" h="20">
@@ -181,48 +176,24 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
         id: 'content__no_results_desc',
         defaultMessage: 'The token you searched for was not found',
       })}
-      actionTitle={intl.formatMessage({
-        id: 'action__add_custom_tokens',
-        defaultMessage: 'Add Custom Token',
-      })}
-      handleAction={() => {
-        const params: { address?: string; networkId?: string } = { networkId };
-        if (isValidateAddr(terms)) {
-          params.address = terms;
-        }
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Swap,
-          params: {
-            screen: SwapRoutes.CustomToken,
-            params,
-          },
-        });
-      }}
     />
   ) : null;
 };
 
-type TokenSelectorItem = {
-  token: Token;
-  balance?: string | null;
-  price?: string | null;
-};
-
 type ListRenderTokenProps = {
-  item: TokenSelectorItem;
+  token: Token;
   isFirst?: boolean;
   isLast?: boolean;
   onSelect?: (item: Token) => void;
 };
 
 const ListRenderToken: FC<ListRenderTokenProps> = ({
-  item,
+  token,
   isFirst,
   isLast,
   onSelect,
 }) => {
-  const { token, balance, price } = item;
-  const { selectedToken } = useContext(TokenSelectorContext);
+  const { selectedToken } = useContext(ReceivingTokenSelectorContext);
 
   const onPress = useCallback(() => {
     onSelect?.(token);
@@ -246,65 +217,39 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       width="full"
       opacity={isSelected ? 60 : 1000}
     >
-      <Box flex="1">
-        <Box display="flex" alignItems="center" flexDirection="row">
-          <Image
-            source={{ uri: token.logoURI }}
-            alt="logoURI"
-            size="8"
-            borderRadius="full"
-            fallbackElement={
-              <Center
-                w={8}
-                h={8}
-                rounded="full"
-                bgColor="surface-neutral-default"
-              >
-                <Icon size={20} name="QuestionMarkOutline" />
-              </Center>
-            }
-          />
-          <Box ml="3">
-            <Box alignItems="center" flexDirection="row">
-              <Text
-                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                maxW="56"
-                numberOfLines={2}
-                color="text-default"
-              >
-                {token.symbol}
-              </Text>
-              <TokenVerifiedIcon token={token} />
-            </Box>
-            <Box maxW="full">
-              <Typography.Body2
-                numberOfLines={2}
-                maxWidth="full"
-                color="text-subdued"
-              >
-                {token.name}
-              </Typography.Body2>
-            </Box>
+      <Box display="flex" alignItems="center" flexDirection="row">
+        <Image
+          source={{ uri: token.logoURI }}
+          alt="logoURI"
+          size="8"
+          borderRadius="full"
+          fallbackElement={
+            <Center
+              w={8}
+              h={8}
+              rounded="full"
+              bgColor="surface-neutral-default"
+            >
+              <Icon size={20} name="QuestionMarkOutline" />
+            </Center>
+          }
+        />
+        <Box ml="3">
+          <Box alignItems="center" flexDirection="row">
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              maxW="56"
+              numberOfLines={2}
+              color="text-default"
+            >
+              {token.symbol}
+            </Text>
+            <TokenVerifiedIcon token={token} />
           </Box>
+          <Typography.Body2 numberOfLines={1} color="text-subdued">
+            {token.name}
+          </Typography.Body2>
         </Box>
-      </Box>
-      <Box display="flex" flexDirection="column" alignItems="flex-end">
-        <Typography.Body1 numberOfLines={1} color="text-default">
-          <FormatBalance
-            balance={balance ?? '0'}
-            formatOptions={{ fixed: 6 }}
-          />
-        </Typography.Body1>
-        <Typography.Body2 color="text-subdued" numberOfLines={2}>
-          <FormatCurrency
-            numbers={[price ?? 0, balance ?? 0]}
-            render={(ele) => (
-              <Typography.Body2Strong ml={3} color="text-subdued">
-                {price ? ele : '-'}
-              </Typography.Body2Strong>
-            )}
-          />
-        </Typography.Body2>
       </Box>
     </Pressable>
   );
@@ -323,15 +268,15 @@ const TokenSelector: FC<TokenSelectorProps> = ({
 }) => {
   const intl = useIntl();
   const { accountId: activeAccountId } = useActiveWalletAccount();
-  const { networkId: activeNetworkId } = useContext(TokenSelectorContext);
+  const { networkId: activeNetworkId } = useContext(
+    ReceivingTokenSelectorContext,
+  );
+  const swappableNativeTokens = useSwappableNativeTokens();
 
   const accountsTokens = useAccountTokens(activeNetworkId, activeAccountId);
   const networkTokens = useNetworkTokens(activeNetworkId);
 
-  const balances = useCachedBalances(activeNetworkId, activeAccountId);
-  const prices = useCachedPrices(activeNetworkId);
-
-  const tokens = useMemo(() => {
+  const deduplicated = useMemo(() => {
     const items = [...accountsTokens, ...networkTokens];
     const result = items.reduce<Record<string, Token>>((a, b) => {
       a[b.tokenIdOnNetwork] = b;
@@ -339,6 +284,11 @@ const TokenSelector: FC<TokenSelectorProps> = ({
     }, {});
     return Object.values(result);
   }, [accountsTokens, networkTokens]);
+
+  const tokens = useMemo(
+    () => (!activeNetworkId ? swappableNativeTokens ?? [] : deduplicated),
+    [deduplicated, swappableNativeTokens, activeNetworkId],
+  );
 
   const restrictedTokens = useRestrictedTokens(tokens, included, excluded);
 
@@ -356,32 +306,10 @@ const TokenSelector: FC<TokenSelectorProps> = ({
     [terms, searchedTokens, restrictedTokens],
   );
 
-  const listRenderItems = useMemo<TokenSelectorItem[]>(() => {
-    let items = listItems.map((token) => ({
-      price: prices[token.tokenIdOnNetwork || 'main'],
-      balance: balances[token.tokenIdOnNetwork || 'main'],
-      token,
-    }));
-    items = items.sort((a, b) => {
-      if (a.balance && a.price && b.balance && b.price) {
-        const prev = new BigNumber(a.balance).multipliedBy(a.price);
-        const next = new BigNumber(b.balance).multipliedBy(b.price);
-        if (prev.gt(next)) {
-          return -1;
-        }
-        if (prev.lt(next)) {
-          return 1;
-        }
-      }
-      return 0;
-    });
-    return items;
-  }, [listItems, balances, prices]);
-
-  const renderItem: ListRenderItem<TokenSelectorItem> = useCallback(
+  const renderItem: ListRenderItem<Token> = useCallback(
     ({ item, index }) => (
       <ListRenderToken
-        item={item}
+        token={item}
         onSelect={onSelect}
         isFirst={index === 0}
         isLast={index === listItems.length - 1}
@@ -398,13 +326,13 @@ const TokenSelector: FC<TokenSelectorProps> = ({
         footer={null}
         hidePrimaryAction
         flatListProps={{
-          data: listRenderItems,
+          data: listItems,
           // @ts-ignore
           renderItem,
           ItemSeparatorComponent: Divider,
           keyExtractor: (item) =>
-            `${(item as TokenSelectorItem)?.token?.tokenIdOnNetwork}:${
-              (item as TokenSelectorItem)?.token?.networkId
+            `${(item as Token)?.tokenIdOnNetwork}:${
+              (item as Token)?.networkId
             }`,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (

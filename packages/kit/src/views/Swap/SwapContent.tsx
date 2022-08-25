@@ -15,10 +15,11 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 
+import ReceivingTokenInput from './components/ReceivingTokenInput';
 import TokenInput from './components/TokenInput';
+import { enabledNetworkIds } from './config';
 import {
   useDerivedSwapState,
-  useSwapEnabled,
   useSwapQuoteCallback,
   useSwapState,
 } from './hooks/useSwap';
@@ -37,12 +38,12 @@ const SwapContent = () => {
     independentField,
     loading,
   } = useSwapState();
-  const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { account, wallet, network } = useActiveWalletAccount();
   const { formattedAmounts } = useDerivedSwapState();
 
-  const isDisabled = !isSwapEnabled || !wallet || !account;
+  const isDisabled =
+    !wallet || !account || !network || !enabledNetworkIds.includes(network.id);
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -68,8 +69,15 @@ const SwapContent = () => {
   }, []);
 
   const onSwitchTokens = useCallback(() => {
+    if (
+      outputTokenNetwork &&
+      inputTokenNetwork &&
+      outputTokenNetwork?.impl !== inputTokenNetwork?.impl
+    ) {
+      return;
+    }
     backgroundApiProxy.serviceSwap.switchTokens();
-  }, []);
+  }, [outputTokenNetwork, inputTokenNetwork]);
 
   useEffect(() => {
     backgroundApiProxy.serviceSwap.setQuote(undefined);
@@ -84,10 +92,6 @@ const SwapContent = () => {
     onSwapQuoteCallback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSwapQuoteCallback]);
-
-  const disableSwitchTokens =
-    (outputTokenNetwork && outputTokenNetwork.id !== network?.id) ||
-    (inputTokenNetwork && inputTokenNetwork.id !== network?.id);
 
   return (
     <Box
@@ -125,7 +129,6 @@ const SwapContent = () => {
               borderRadius="full"
               borderColor="border-disabled"
               borderWidth="0.5"
-              disabled={disableSwitchTokens}
               bg="surface-default"
               onPress={onSwitchTokens}
               size="lg"
@@ -133,7 +136,7 @@ const SwapContent = () => {
             />
           </Center>
         </Box>
-        <TokenInput
+        <ReceivingTokenInput
           type="OUTPUT"
           label={intl.formatMessage({ id: 'action__receive' })}
           token={outputToken}

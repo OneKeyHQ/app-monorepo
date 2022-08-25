@@ -12,7 +12,9 @@ import {
   setOutputToken,
   setQuote,
   setQuoteTime,
-  setSelectedNetworkId,
+  setReceivingNetworkId,
+  setRecipient,
+  setSendingNetworkId,
   setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
@@ -30,7 +32,7 @@ export default class ServiceSwap extends ServiceBase {
     }
     const { appSelector } = this.backgroundApi;
     const networks = appSelector((s) => s.runtime.networks);
-    return networks.filter((network) => network.id === networkId)[0];
+    return networks.find((network) => network.id === networkId);
   }
 
   @backgroundMethod()
@@ -112,9 +114,15 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async selectNetworkId(networkId?: string) {
+  async setSendingNetworkId(networkId?: string) {
     const { dispatch } = this.backgroundApi;
-    dispatch(setSelectedNetworkId(networkId));
+    dispatch(setSendingNetworkId(networkId));
+  }
+
+  @backgroundMethod()
+  async setReceivingNetworkId(networkId?: string) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setReceivingNetworkId(networkId));
   }
 
   @backgroundMethod()
@@ -143,6 +151,48 @@ export default class ServiceSwap extends ServiceBase {
       dispatch(setQuoteTime(Date.now()));
     } else {
       dispatch(setQuoteTime(undefined));
+    }
+  }
+
+  @backgroundMethod()
+  async setReceivingAddress(networkId: string) {
+    const { dispatch, appSelector, engine } = this.backgroundApi;
+    const recipient = appSelector((s) => s.swap.recipient);
+    if (recipient?.address && recipient.networkId === networkId) {
+      return;
+    }
+    const { wallets } = appSelector((s) => s.runtime);
+    const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
+      (s) => s.general,
+    );
+    const wallet = wallets.find((item) => item.id === activeWalletId);
+    if (!wallet) {
+      return;
+    }
+    if (networkId === activeNetworkId) {
+      const accounts = await engine.getAccounts(wallet.accounts, networkId);
+      const account = accounts.find((acc) => acc.id === activeAccountId);
+      if (account) {
+        dispatch(
+          setRecipient({
+            address: account.address,
+            name: account.name,
+            networkId,
+          }),
+        );
+      }
+    } else {
+      const accounts = await engine.getAccounts(wallet.accounts, networkId);
+      const account = accounts[0];
+      if (account) {
+        dispatch(
+          setRecipient({
+            address: account.address,
+            name: account.name,
+            networkId,
+          }),
+        );
+      }
     }
   }
 }
