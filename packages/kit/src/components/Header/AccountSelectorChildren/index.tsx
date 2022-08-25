@@ -7,6 +7,7 @@ import {
   Button,
   IconButton,
   VStack,
+  useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -53,6 +54,7 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
 }) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
+  const isVerticalLayout = useIsVerticalLayout();
   const { bottom } = useSafeAreaInsets();
   const { RemoveAccountDialog } = useRemoveAccountDialog();
 
@@ -150,7 +152,7 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
         }
         deviceStatus={deviceStatus}
       />
-      <VStack flex={1} pb={`${bottom}px`}>
+      <VStack flex={1} pb={`${isVerticalLayout ? bottom : 0}px`}>
         <RightHeader
           selectedWallet={selectedWallet}
           deviceStatus={

@@ -13,14 +13,14 @@ import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AppLock } from '@onekeyhq/kit/src/components/AppLock';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
+import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
+import { RouteOnboarding } from '@onekeyhq/kit/src/views/Onboarding/routes/RouteOnboarding';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { AppLock } from '../../components/AppLock';
-import appUpdates from '../../utils/updates/AppUpdates';
-import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
 import ModalStackNavigator from '../Modal';
 import {
   UpdateFeatureModalRoutes,

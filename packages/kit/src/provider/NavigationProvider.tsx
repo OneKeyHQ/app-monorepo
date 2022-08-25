@@ -16,9 +16,9 @@ import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import linking from '../routes/linking';
+import buildLinking from '../routes/linking';
 
-import { useAutoNavigateOnMount } from './useAutoNavigateOnMount';
+import RedirectProvider from './RedirectProvider';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = React.createRef<RootNavContainerRef>();
@@ -32,7 +32,6 @@ declare global {
 global.$navigationRef = navigationRef;
 
 const NavigationApp = () => {
-  useAutoNavigateOnMount();
   const routeNameRef = useRef<string>();
   const isVerticalLayout = useIsVerticalLayout();
   const [bgColor, textColor, dividerColor] = useThemeValue([
@@ -40,6 +39,11 @@ const NavigationApp = () => {
     'text-default',
     'divider',
   ]);
+
+  const linking = useMemo(
+    () => buildLinking(isVerticalLayout),
+    [isVerticalLayout],
+  );
 
   /**
    * native-android & vertical layout web or ext
@@ -106,7 +110,9 @@ const NavigationApp = () => {
       linking={linking}
     >
       <RootSiblingParent>
-        <RootStack />
+        <RedirectProvider>
+          <RootStack />
+        </RedirectProvider>
       </RootSiblingParent>
     </NavigationContainer>
   );
