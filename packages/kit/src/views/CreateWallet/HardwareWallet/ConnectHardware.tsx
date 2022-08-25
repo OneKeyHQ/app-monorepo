@@ -330,7 +330,7 @@ const ConnectHardwareModal: FC = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            disabled={!!device.using}
+            // disabled={!!device.using}
             onPress={() => {
               handleConnectDeviceWithDevice(device);
             }}

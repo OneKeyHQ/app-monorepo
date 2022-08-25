@@ -3,6 +3,7 @@
 import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
+import { get } from 'lodash';
 import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
@@ -77,7 +78,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -745,20 +746,21 @@ class RealmDB implements DBAPI {
     }
   }
 
-  getWalletByDeviceId(deviceId: string): Promise<Wallet | undefined> {
+  getWalletByDeviceId(deviceId: string): Promise<Array<Wallet>> {
     try {
       const wallet = this.realm!.objects<WalletSchema>('Wallet').filtered(
         'associatedDevice.id == $0',
         deviceId,
       );
-      if (wallet.length === 0) {
-        return Promise.resolve(undefined);
-      }
-      return Promise.resolve(wallet[0].internalObj);
+      return Promise.resolve(wallet.map((w) => w.internalObj));
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
     }
+  }
+
+  hideSpecialWallet(): Promise<void> {
+    return Promise.resolve();
   }
 
   /**
@@ -1069,41 +1071,55 @@ class RealmDB implements DBAPI {
     deviceType,
     deviceUUID,
     features,
+    passphraseState,
   }: CreateHWWalletParams): Promise<Wallet> {
     try {
-      const walletId = `hw-${id}`;
-
       const wallets = await this.getWallets();
       const devices = await this.getDevices();
 
-      const hasExistWallet = wallets.some((w) => {
-        if (w.associatedDevice) {
-          const device = devices.find((d) => d.id === w.associatedDevice);
-          if (device) {
-            return device.deviceId === deviceId && device.uuid === deviceUUID;
-          }
-          return false;
-        }
-        return false;
+      const existDevice = devices.find(
+        (d) => d.deviceId === deviceId && d.uuid === deviceUUID,
+      );
+      const hasExistWallet = wallets.find((w) => {
+        if (!existDevice) return null;
+
+        return (
+          w.associatedDevice === existDevice?.id &&
+          w.passphraseState === passphraseState
+        );
       });
 
-      if (hasExistWallet) {
-        return await Promise.reject(new OneKeyAlreadyExistWalletError());
+      // exists Passphrase wallet does not report errors
+      if (hasExistWallet && !passphraseState) {
+        return await Promise.reject(
+          new OneKeyAlreadyExistWalletError(
+            hasExistWallet.id,
+            get(hasExistWallet, 'accounts[0].id', undefined),
+          ),
+        );
       }
 
-      await this.insertDevice(
-        id,
-        name,
-        connectId,
-        deviceUUID,
-        deviceId ?? '',
-        deviceType,
-        features,
-      );
+      if (!existDevice) {
+        await this.insertDevice(
+          id,
+          name,
+          connectId,
+          deviceUUID,
+          deviceId ?? '',
+          deviceType,
+          features,
+        );
+      }
+
+      const deviceTableId = existDevice ? existDevice.id : id;
+      let walletId = `hw-${deviceTableId}`;
+      if (passphraseState) {
+        walletId = `hw-${deviceTableId}-${passphraseState}`;
+      }
 
       const foundDevice = this.realm!.objectForPrimaryKey<DeviceSchema>(
         'Device',
-        id,
+        deviceTableId,
       );
       if (typeof foundDevice === 'undefined') {
         return await Promise.reject(
@@ -1125,11 +1141,24 @@ class RealmDB implements DBAPI {
             backuped: true,
             associatedDevice: foundDevice,
             deviceType,
+            passphraseState,
           });
         });
+      } else if (passphraseState) {
+        if (wallet) {
+          this.realm!.write(() => {
+            wallet!.hidden = false;
+          });
+        }
       } else {
-        return await Promise.reject(new OneKeyAlreadyExistWalletError());
+        return await Promise.reject(
+          new OneKeyAlreadyExistWalletError(
+            wallet.id,
+            get(wallet, 'accounts[0].id', undefined),
+          ),
+        );
       }
+
       return await Promise.resolve(wallet!.internalObj);
     } catch (error: any) {
       if (error.className === 'OneKeyHardwareError') {
@@ -1179,6 +1208,18 @@ class RealmDB implements DBAPI {
           return Promise.reject(new WrongPassword());
         }
       }
+
+      let removeDevice = false;
+      if (wallet.type === WALLET_TYPE_HW && wallet.associatedDevice) {
+        const hwWallet = this.realm!.objects<WalletSchema>('Wallet').filtered(
+          'associatedDevice.id == $0',
+          wallet.associatedDevice.id,
+        );
+        if (hwWallet.length <= 1) {
+          removeDevice = true;
+        }
+      }
+
       const accountIds = Array.from(wallet.accounts!).map(
         (account) => account.id,
       );
@@ -1197,7 +1238,7 @@ class RealmDB implements DBAPI {
       );
       this.realm!.write(() => {
         this.realm!.delete(Array.from(wallet.accounts!));
-        if (wallet.associatedDevice) {
+        if (removeDevice && wallet.associatedDevice) {
           this.realm!.delete(wallet.associatedDevice);
         }
         this.realm!.delete(wallet);
@@ -1457,6 +1498,58 @@ class RealmDB implements DBAPI {
           if (wallet.nextAccountIds![category] === index + 1) {
             wallet.nextAccountIds![category] = index;
           }
+        }
+      });
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  removeAccounts(
+    walletId: string,
+    password: string | undefined,
+  ): Promise<void> {
+    try {
+      const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
+        'Wallet',
+        walletId,
+      );
+      if (typeof wallet === 'undefined') {
+        return Promise.reject(
+          new OneKeyInternalError(`Wallet ${walletId} not found.`),
+        );
+      }
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (typeof context === 'undefined') {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      if (wallet.type === WALLET_TYPE_HD) {
+        // Only check password for HD wallet deletion.
+        if (!password || !checkPassword(context.internalObj, password)) {
+          return Promise.reject(new WrongPassword());
+        }
+      }
+      const accountIds = Array.from(wallet.accounts!).map(
+        (account) => account.id,
+      );
+      const historyEntries =
+        accountIds.length > 0
+          ? this.realm!.objects<HistoryEntrySchema>('HistoryEntry').filtered(
+              accountIds
+                .map((_, index) => `accountId == $${index}`)
+                .join(' OR '),
+              ...accountIds,
+            )
+          : [];
+      this.realm!.write(() => {
+        this.realm!.delete(Array.from(wallet.accounts!));
+        if (historyEntries.length > 0) {
+          this.realm!.delete(historyEntries);
         }
       });
       return Promise.resolve();

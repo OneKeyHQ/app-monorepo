@@ -14,6 +14,7 @@ import PermissionDialog from '../../../components/PermissionDialog/PermissionDia
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 
 import RequestConfirmView from './RequestConfirm';
+import RequestPassphraseOnDeviceView from './RequestPassphraseOnDevice';
 import RequestPinView from './RequestPin';
 
 export type HardwareUiEventPayload = {
@@ -39,6 +40,7 @@ export const UI_REQUEST = {
   REQUEST_PIN: 'ui-request_pin',
   INVALID_PIN: 'ui-invalid_pin',
   REQUEST_BUTTON: 'ui-button',
+  REQUEST_PASSPHRASE_ON_DEVICE: 'ui-request_passphrase_on_device',
 
   CLOSE_UI_WINDOW: 'ui-close_window',
 
@@ -149,6 +151,19 @@ export default async function showHardwarePopup({
       <RequestConfirmView
         deviceType={deviceType}
         bootLoader={payload?.deviceBootLoaderMode}
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+      />
+    );
+  }
+
+  if (uiRequest === UI_REQUEST.REQUEST_PASSPHRASE_ON_DEVICE) {
+    const deviceType = payload?.deviceType ?? 'classic';
+
+    popupView = (
+      <RequestPassphraseOnDeviceView
+        deviceType={deviceType}
         onCancel={() => {
           handleCancelPopup();
         }}

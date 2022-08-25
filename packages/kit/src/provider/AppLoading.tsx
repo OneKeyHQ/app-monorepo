@@ -40,6 +40,9 @@ const AppLoading: FC = ({ children }) => {
 
   useEffect(() => {
     async function main() {
+      // hidden passphrase wallet
+      await backgroundApiProxy.engine.hideSpecialWallet();
+
       await waitForDataLoaded({
         logName: 'WaitBackgroundReady',
         data: async () => {

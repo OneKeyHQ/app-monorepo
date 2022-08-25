@@ -60,6 +60,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
     const prevTxs = await provider.collectTxs(prevTxids);
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const { passphraseState } = await this.getWalletInfo();
     await this.getHardwareSDKInstance();
 
     const response = await HardwareSDK.btcSignTransaction(connectId, deviceId, {
@@ -68,6 +69,8 @@ export class KeyringHardware extends KeyringHardwareBase {
       inputs: inputs.map((i) => this.buildHardwareInput(i, signers[i.address])),
       outputs: outputs.map((o) => this.buildHardwareOutput(o)),
       refTxs: Object.values(prevTxs).map((i) => this.buildPrevTx(i)),
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
 
     if (response.success) {
@@ -103,12 +106,15 @@ export class KeyringHardware extends KeyringHardwareBase {
     let response;
     try {
       const { connectId, deviceId } = await this.getHardwareInfo();
+      const { passphraseState } = await this.getWalletInfo();
       await this.getHardwareSDKInstance();
       response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
         bundle: usedIndexes.map((index) => ({
           path: `m/${usedPurpose}'/${COIN_TYPE}'/${index}'`,
           showOnOneKey: false,
         })),
+        passphraseState,
+        notUsePassphrase: !passphraseState,
       });
     } catch (error: any) {
       console.error(error);
@@ -238,10 +244,13 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const { passphraseState } = await this.getWalletInfo();
     const response = await HardwareSDK.btcGetAddress(connectId, deviceId, {
       path: `${path}/${pathSuffix}`,
       showOnOneKey: params.showOnOneKey,
       coin: 'btc',
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
     if (response.success) {
       return response.payload.address;

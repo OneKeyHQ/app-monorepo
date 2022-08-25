@@ -42,12 +42,15 @@ export async function ethereumGetAddress(
   deviceId: string,
   path: string | number[],
   display = false,
+  passphraseState?: string,
 ): Promise<string> {
   let response;
   try {
     response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
       path,
       showOnOneKey: display,
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
   } catch (error: any) {
     console.error(error);
@@ -118,11 +121,13 @@ function getResultFromResponse<T>(response: Unsuccessful | Success<T>): T {
 export async function ethereumSignMessage({
   connectId,
   deviceId,
+  passphraseState,
   path,
   message,
 }: {
   connectId: string;
   deviceId: string;
+  passphraseState?: string;
   path: string;
   message: IUnsignedMessageEvm;
 }): Promise<string> {
@@ -154,6 +159,8 @@ export async function ethereumSignMessage({
     const res = await HardwareSDK.evmSignMessage(connectId, deviceId, {
       path,
       messageHex,
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
 
     if (!res.success) {
@@ -191,6 +198,8 @@ export async function ethereumSignMessage({
       data,
       domainHash,
       messageHash,
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
 
     if (!res.success) {
@@ -219,6 +228,7 @@ export async function ethereumSignTransaction(
   path: string,
   chainId: string,
   unsignedTx: UnsignedTx,
+  passphraseState?: string,
 ): Promise<SignedTx> {
   let response;
 
@@ -288,6 +298,8 @@ export async function ethereumSignTransaction(
     response = await HardwareSDK.evmSignTransaction(connectId, deviceId, {
       path,
       transaction: txToSign,
+      passphraseState,
+      notUsePassphrase: !passphraseState,
     });
   } catch (error: any) {
     console.error(error);
@@ -319,6 +331,7 @@ export async function getXpubs(
   type: IPrepareHardwareAccountsParams['type'],
   connectId: string,
   deviceId: string,
+  passphraseState?: string,
 ): Promise<Array<{ path: string; info: string }>> {
   if (impl !== IMPL_EVM || outputFormat !== 'address') {
     return Promise.resolve([]);
@@ -337,11 +350,15 @@ export async function getXpubs(
            */
           showOnOneKey: false,
         })),
+        passphraseState,
+        notUsePassphrase: !passphraseState,
       });
     } else {
       response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
         path: paths[0],
         showOnOneKey: false,
+        passphraseState,
+        notUsePassphrase: !passphraseState,
       });
     }
   } catch (error: any) {

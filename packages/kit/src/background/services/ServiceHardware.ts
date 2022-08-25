@@ -221,6 +221,22 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getPassphraseState(connectId: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    const response = await hardwareSDK?.getPassphraseState(connectId, {
+      initSession: true,
+    });
+
+    if (response.success) {
+      return response.payload ?? undefined;
+    }
+
+    const deviceError = deviceUtils.convertDeviceError(response.payload);
+
+    return Promise.reject(deviceError);
+  }
+
+  @backgroundMethod()
   async cancel(connectId: string) {
     return (await this.getSDKInstance()).cancel(connectId);
   }
@@ -362,9 +378,10 @@ class ServiceHardware extends ServiceBase {
     if (!onDeviceInputPin) {
       const payload = await this.getDeviceSupportFeatures(connectId);
 
-      if (!payload.inputPinOnSoftware)
-        // TODO: optimize the error message
-        throw new FirmwareVersionTooLow('', { require: '2.3.0' });
+      if (!payload.inputPinOnSoftware?.support)
+        throw new FirmwareVersionTooLow('', {
+          require: payload.inputPinOnSoftware.require,
+        });
     }
 
     return this.updateDevicePayload(deviceId, {

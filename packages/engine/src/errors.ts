@@ -10,6 +10,7 @@ export enum OneKeyErrorClassNames {
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
+  OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
@@ -101,8 +102,21 @@ export class OneKeyHardwareAbortError extends OneKeyError {
   override key = 'msg__engine__internal_error';
 }
 
-export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError {
+export class OneKeyAlreadyExistWalletError extends OneKeyError<{
+  walletId: string;
+  accountId: string | undefined;
+}> {
+  override className = OneKeyErrorClassNames.OneKeyAlreadyExistWalletError;
+
   override key: LocaleIds = 'msg__wallet_already_exist';
+
+  constructor(walletId: string, accountId: string | undefined) {
+    super();
+    this.data = {
+      walletId,
+      accountId,
+    };
+  }
 }
 
 export class OneKeyValidatorError extends OneKeyError {

@@ -577,7 +577,8 @@ class ServiceAccount extends ServiceBase {
     avatar?: Avatar;
     connectId: string;
   }) {
-    const { dispatch, engine, serviceAccount, appSelector } =
+    console.log('======: backgroundMethod createHWWallet', features, connectId);
+    const { dispatch, engine, serviceAccount, serviceHardware, appSelector } =
       this.backgroundApi;
     const devices = await engine.getHWDevices();
     const networkId = appSelector((s) => s.general.activeNetworkId) || '';
@@ -590,9 +591,20 @@ class ServiceAccount extends ServiceBase {
         device.mac === connectId && device.deviceId === features.device_id,
     )?.id;
     let walletExistButNoAccount = null;
+
+    const passphraseState = await serviceHardware.getPassphraseState(connectId);
+
+    console.log(
+      '======: backgroundMethod createHWWallet passphraseState',
+      passphraseState,
+    );
+
     if (existDeviceId) {
       walletExistButNoAccount = wallets.find((w) => {
-        const targetWallet = w.associatedDevice === existDeviceId;
+        const targetWallet =
+          w.associatedDevice === existDeviceId &&
+          w.passphraseState === passphraseState;
+
         if (!targetWallet) return false;
         if (!w.accounts.length) return true;
         return false;
@@ -606,6 +618,7 @@ class ServiceAccount extends ServiceBase {
         avatar: avatar ?? randomAvatar(),
         features,
         connectId,
+        passphraseState,
       });
     }
 
@@ -636,6 +649,13 @@ class ServiceAccount extends ServiceBase {
     dispatch(release());
 
     await this.initWallets();
+    console.log('======: backgroundMethod createHWWallet end');
+    console.log(
+      '======: backgroundMethod changeActiveAccount ',
+      account,
+      wallet,
+    );
+
     serviceAccount.changeActiveAccount({
       accountId: account?.id ?? null,
       walletId: wallet?.id ?? null,

@@ -17,6 +17,24 @@ export class InvalidPIN extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_invalid_pin_error';
 }
 
+export class InvalidPassphrase extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceCheckPassphraseStateError;
+
+  override key: LocaleIds = 'msg__hardware_device_passphrase_state_error';
+}
+
+export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
+
+  override key: LocaleIds = 'msg__hardware_not_opened_passphrase';
+}
+
+export class DeviceOpenedPassphrase extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceOpenedPassphrase;
+
+  override key: LocaleIds = 'msg__hardware_opened_passphrase';
+}
+
 export class UserCancel extends OneKeyHardwareError {
   override code = HardwareErrorCode.ActionCancelled;
 
