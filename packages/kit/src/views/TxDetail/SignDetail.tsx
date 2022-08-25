@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
-  Center,
   HStack,
   Image,
   Text,
@@ -124,7 +123,7 @@ const renderMessageCard = (unsignedMessage: IUnsignedMessageEvm) => {
   }
 
   return (
-    <VStack bg="surface-default" borderRadius="12px" mt="4">
+    <VStack bg="surface-default" borderRadius="12px" mt="2">
       <HStack justifyContent="space-between" space="16px" padding="16px">
         <Text flex={1} overflowWrap="anywhere">
           {renderMessage(messageObject)}
@@ -201,37 +200,27 @@ const SignDetail: FC<{
   const renderTabBar = () => {
     const isMessageTab = curTab === 'message';
     return (
-      <HStack
-        borderBottomWidth={1}
-        borderBottomColor="border-subdued"
-        space={2}
-      >
-        <VStack mb="-1px">
-          <Button
-            type="plain"
-            size="base"
-            _text={{ color: isMessageTab ? 'text-default' : 'text-subdued' }}
-            onPress={() => setCurTab('message')}
-          >
-            {intl.formatMessage({
-              id: 'form__message_tab',
-            })}
-          </Button>
-          {isMessageTab && <Center bg="action-primary-default" height="2px" />}
-        </VStack>
-        <VStack mb="-1px">
-          <Button
-            type="plain"
-            size="base"
-            _text={{ color: !isMessageTab ? 'text-default' : 'text-subdued' }}
-            onPress={() => setCurTab('data')}
-          >
-            {intl.formatMessage({
-              id: 'form__data_tab',
-            })}
-          </Button>
-          {!isMessageTab && <Center bg="action-primary-default" height="2px" />}
-        </VStack>
+      <HStack space={2} mt={2}>
+        <Button
+          type="plain"
+          size="base"
+          _text={{ color: isMessageTab ? 'text-default' : 'text-subdued' }}
+          onPress={() => setCurTab('message')}
+        >
+          {intl.formatMessage({
+            id: 'form__message_tab',
+          })}
+        </Button>
+        <Button
+          type="plain"
+          size="base"
+          _text={{ color: !isMessageTab ? 'text-default' : 'text-subdued' }}
+          onPress={() => setCurTab('data')}
+        >
+          {intl.formatMessage({
+            id: 'form__data_tab',
+          })}
+        </Button>
       </HStack>
     );
   };
