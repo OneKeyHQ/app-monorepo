@@ -74,7 +74,7 @@
     "react-native-reanimated": "npm:@onekeyfe/react-native-reanimated",
     "react-native-restart": "0.0.24",
     "react-native-safe-area-context": "4.3.1",
-    "react-native-screens": "3.16.0",
+    "react-native-screens": "3.17.0",
     "react-native-share": "^7.6.6",
     "react-native-svg": "^12.3.0",
     "react-native-toast-message": "2.1.5",
