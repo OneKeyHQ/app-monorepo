@@ -38,6 +38,7 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
+  // TODO rename getActiveConnectedAccounts
   getConnectedAccounts({ origin }: { origin: string }): DappSiteConnection[] {
     // TODO unlock status check
     const { networkImpl, accountAddress } = getActiveWalletAccount();
