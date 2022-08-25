@@ -14,8 +14,12 @@ type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
-  // @ts-ignore
-  const { sourceInfo, encodedTx, unsignedMessage } = useDappParams();
+  const {
+    sourceInfo,
+    unsignedMessage,
+    encodedTx,
+    signOnly = false,
+  } = useDappParams();
   useEffect(() => {
     let action: any;
     // TODO providerName
@@ -25,6 +29,7 @@ function SendConfirmFromDapp() {
         encodedTx,
         feeInfoEditable: true,
         feeInfoUseFeeInTx: false,
+        signOnly,
       };
       // replace router to SendConfirm
       action = StackActions.replace(SendRoutes.SendConfirm, params);
@@ -38,7 +43,7 @@ function SendConfirmFromDapp() {
     if (action) {
       navigation.dispatch(action);
     }
-  }, [encodedTx, navigation, sourceInfo, unsignedMessage]);
+  }, [encodedTx, navigation, sourceInfo, unsignedMessage, signOnly]);
 
   return null;
 }

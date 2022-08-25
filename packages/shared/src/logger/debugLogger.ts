@@ -102,6 +102,7 @@ export enum LoggerNames {
   common = 'common',
   cloudBackup = 'cloudBackup',
   swap = 'swap',
+  providerApi = 'providerApi',
 }
 
 export type LoggerEntity = {
@@ -147,6 +148,7 @@ const debugLogger: Record<
   [LoggerNames.common]: Cache.createLogger(LoggerNames.common),
   [LoggerNames.cloudBackup]: Cache.createLogger(LoggerNames.cloudBackup),
   [LoggerNames.swap]: Cache.createLogger(LoggerNames.swap),
+  [LoggerNames.providerApi]: Cache.createLogger(LoggerNames.providerApi),
 };
 
 if (platformEnv.isDev) {

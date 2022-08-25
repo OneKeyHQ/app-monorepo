@@ -126,14 +126,13 @@ const getDistributionChannel = (): IDistributionChannel | undefined => {
   if (isNativeAndroid) return 'native-android';
 };
 
-const isRuntimeBrowser = (): boolean =>
-  typeof window !== 'undefined' && !isNative;
+const isRuntimeBrowser: boolean = typeof window !== 'undefined' && !isNative;
 
 // @ts-ignore
-const isRuntimeFirefox = (): boolean => typeof InstallTrigger !== 'undefined';
+const isRuntimeFirefox: boolean = typeof InstallTrigger !== 'undefined';
 
-const isRuntimeChrome = (): boolean => {
-  if (!isRuntimeBrowser()) {
+const checkIsRuntimeChrome = (): boolean => {
+  if (!isRuntimeBrowser) {
     return false;
   }
   // please note,
@@ -169,44 +168,46 @@ const isRuntimeChrome = (): boolean => {
   return false;
 };
 
+const isRuntimeChrome = checkIsRuntimeChrome();
+
 // Ext manifest v2 background
-export const isExtensionBackgroundHtml = (): boolean =>
+export const isExtensionBackgroundHtml: boolean =
   isExtension &&
-  isRuntimeBrowser() &&
+  isRuntimeBrowser &&
   window.location.pathname.startsWith('/background.html');
 
 // Ext manifest v3 background
-export const isExtensionBackgroundServiceWorker = (): boolean =>
+export const isExtensionBackgroundServiceWorker: boolean =
   isExtension &&
-  !isRuntimeBrowser() &&
+  !isRuntimeBrowser &&
   // @ts-ignore
   Boolean(global.serviceWorker) &&
   // @ts-ignore
   global.serviceWorker instanceof ServiceWorker;
 
-export const isExtensionBackground = (): boolean =>
-  isExtensionBackgroundHtml() || isExtensionBackgroundServiceWorker();
+export const isExtensionBackground: boolean =
+  isExtensionBackgroundHtml || isExtensionBackgroundServiceWorker;
 
-export const isExtensionUi = (): boolean =>
+export const isExtensionUi: boolean =
   isExtension &&
-  isRuntimeBrowser() &&
+  isRuntimeBrowser &&
   window.location.pathname.startsWith('/ui-');
 
-export const isExtensionUiPopup = (): boolean =>
-  isExtensionUi() && window.location.pathname.startsWith('/ui-popup.html');
+export const isExtensionUiPopup: boolean =
+  isExtensionUi && window.location.pathname.startsWith('/ui-popup.html');
 
-export const isExtensionUiExpandTab = (): boolean =>
-  isExtensionUi() && window.location.pathname.startsWith('/ui-expand-tab.html');
+export const isExtensionUiExpandTab: boolean =
+  isExtensionUi && window.location.pathname.startsWith('/ui-expand-tab.html');
 
-export const isExtensionUiStandaloneWindow = (): boolean =>
-  isExtensionUi() &&
+export const isExtensionUiStandaloneWindow: boolean =
+  isExtensionUi &&
   window.location.pathname.startsWith('/ui-standalone-window.html');
 
-export const isManifestV3 = (): boolean =>
+export const isManifestV3: boolean =
   // TODO firefox check v3
   isExtension && chrome.runtime.getManifest().manifest_version === 3;
 
-export const canGetClipboard = (): boolean => !isWeb && !isExtension;
+export const canGetClipboard: boolean = !isWeb && !isExtension;
 
 const platformEnv: IPlatformEnv = {
   isLegacyHistory: false, // TODO remove
@@ -239,21 +240,21 @@ const platformEnv: IPlatformEnv = {
   symbol: getPlatformSymbol(),
   distributionChannel: getDistributionChannel(),
 
-  isManifestV3: isManifestV3(),
-  isExtensionBackground: isExtensionBackground(),
-  isExtensionBackgroundHtml: isExtensionBackgroundHtml(),
-  isExtensionBackgroundServiceWorker: isExtensionBackgroundServiceWorker(),
-  isExtensionUi: isExtensionUi(),
-  isExtensionUiPopup: isExtensionUiPopup(),
-  isExtensionUiExpandTab: isExtensionUiExpandTab(),
-  isExtensionUiStandaloneWindow: isExtensionUiStandaloneWindow(),
-  isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup(),
+  isManifestV3,
+  isExtensionBackground,
+  isExtensionBackgroundHtml,
+  isExtensionBackgroundServiceWorker,
+  isExtensionUi,
+  isExtensionUiPopup,
+  isExtensionUiExpandTab,
+  isExtensionUiStandaloneWindow,
+  isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
 
-  isRuntimeBrowser: isRuntimeBrowser(),
-  isRuntimeFirefox: isRuntimeFirefox(),
-  isRuntimeChrome: isRuntimeChrome(),
+  isRuntimeBrowser,
+  isRuntimeFirefox,
+  isRuntimeChrome,
 
-  canGetClipboard: canGetClipboard(),
+  canGetClipboard,
 };
 
 if (isDev) {

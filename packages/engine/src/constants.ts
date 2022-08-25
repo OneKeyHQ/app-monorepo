@@ -26,14 +26,20 @@ export const NETWORK_ID_EVM_ETH = 'evm--1';
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
-  IMPL_CFX,
+  // IMPL_CFX,
   IMPL_BTC,
-  // IMPL_SOL,  // TODO: bigint issue
-  // IMPL_ALGO,  // TODO: bigint issue
+  IMPL_SOL,
+  // IMPL_ALGO,
   IMPL_STC,
 ]);
 
-const PRODUCTION_IMPLS = new Set([IMPL_EVM, IMPL_NEAR, IMPL_BTC, IMPL_STC]);
+const PRODUCTION_IMPLS = new Set([
+  IMPL_EVM,
+  IMPL_NEAR,
+  IMPL_BTC,
+  IMPL_SOL,
+  IMPL_STC,
+]);
 
 export const HISTORY_CONSTS = {
   GET_LOCAL_LIMIT: 100,

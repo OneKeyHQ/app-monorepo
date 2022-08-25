@@ -5,27 +5,23 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { cloneDeep, debounce } from 'lodash';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { getActiveWalletAccount } from '../../hooks/redux';
-import { buildModalRouteParams } from '../../provider/useAutoNavigateOnMount';
-import {
-  DappModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '../../routes/routesEnum';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import {
   DappSiteConnection,
   DappSiteConnectionRemovePayload,
   DappSiteConnectionSavePayload,
   dappRemoveSiteConnections,
   dappSaveSiteConnection,
-} from '../../store/reducers/dapp';
-import extUtils from '../../utils/extUtils';
-import { DappConnectionModalRoutes } from '../../views/DappModals/types';
-import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
-import { ManageTokenRoutes } from '../../views/ManageTokens/types';
-import { SendRoutes } from '../../views/Send/types';
+} from '@onekeyhq/kit/src/store/reducers/dapp';
+import extUtils from '@onekeyhq/kit/src/utils/extUtils';
+import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/types';
+import { ManageNetworkRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/types';
+import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import { ensureSerializable, isDappScopeMatchNetwork } from '../utils';
@@ -88,7 +84,7 @@ class ServiceDapp extends ServiceBase {
       request,
       screens: [
         ModalRoutes.DappConnectionModal,
-        DappModalRoutes.ConnectionModal,
+        DappConnectionModalRoutes.ConnectionModal,
       ],
     });
   }

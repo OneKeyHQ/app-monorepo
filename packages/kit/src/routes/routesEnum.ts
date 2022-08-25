@@ -36,18 +36,16 @@ export enum ModalRoutes {
   AddressBook = 'AddressBook',
   ImportBackupPassword = 'ImportBackupPassword',
 }
-export enum DappModalRoutes {
-  ConnectionModal = 'ConnectionModal',
-}
+
 export enum RootRoutes {
   Root = 'root',
   Modal = 'modal',
   Tab = 'tab',
-  Onboarding = 'Onboarding',
+  Onboarding = 'onboarding',
 }
 export enum HomeRoutes {
   // InitialTab = 'overview',
-  InitialTab = 'home',
+  InitialTab = 'initial',
   Dev = 'dev',
   HomeOnboarding = 'HomeOnboarding',
   FullTokenListScreen = 'FullTokenListScreen',

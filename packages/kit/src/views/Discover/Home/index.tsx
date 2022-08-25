@@ -71,6 +71,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
                 onItemSelect(item);
               }
             }}
+            width={isSmallScreen ? 294 : cardWidth}
             height="100%"
             bgColor="surface-default"
             borderRadius="12px"

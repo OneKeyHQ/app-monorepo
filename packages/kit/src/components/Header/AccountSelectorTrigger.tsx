@@ -151,7 +151,12 @@ const AccountSelectorTrigger: FC<Props> = ({
               />
             )}
           </Box>
-          <Typography.Body2Strong isTruncated numberOfLines={1} mr={1}>
+          <Typography.Body2Strong
+            isTruncated
+            numberOfLines={1}
+            mr={1}
+            maxWidth={isVerticalLayout ? '106px' : '144px'}
+          >
             {name}
           </Typography.Body2Strong>
           <Box ml={!isVerticalLayout ? 'auto' : undefined}>

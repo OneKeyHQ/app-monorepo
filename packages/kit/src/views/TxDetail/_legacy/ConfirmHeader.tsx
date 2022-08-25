@@ -1,5 +1,8 @@
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
 import {
   Box,
   Center,
@@ -19,6 +22,7 @@ export type ConfirmHeaderProps = {
 const ConfirmHeader: FC<ConfirmHeaderProps> = (props) => {
   const { title, origin } = props;
   const { account, network } = useActiveWalletAccount();
+  const intl = useIntl();
 
   const logoURI = origin ? `${origin}/favicon.ico` : '';
   const host = origin?.split('://')[1] ?? 'DApp';
@@ -28,40 +32,46 @@ const ConfirmHeader: FC<ConfirmHeaderProps> = (props) => {
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
-      mb="8"
       mt="2"
     >
       <Image
         source={{ uri: logoURI }}
         alt="logoURI"
-        size="56px"
+        size="40px"
         borderRadius="full"
         fallbackElement={
           <Center
-            w="56px"
-            h="56px"
+            w="40px"
+            h="40px"
             rounded="full"
             bgColor="surface-neutral-default"
           >
-            <Icon size={32} name="QuestionMarkOutline" />
+            <Icon size={24} name="QuestionMarkOutline" />
           </Center>
         }
       />
 
-      <Typography.PageHeading mt="4">{title}</Typography.PageHeading>
+      <Typography.DisplayXLarge mt="4">{title}</Typography.DisplayXLarge>
+      <Typography.Body1 mt={1} color="text-subdued">
+        {host}
+      </Typography.Body1>
 
-      <HStack justifyContent="center" alignItems="center" mt="16px">
-        <Typography.Body1 mr="18px">{host}</Typography.Body1>
-        <Icon size={20} name="SwitchHorizontalSolid" />
-        <Image
-          src={network?.logoURI}
-          ml="18px"
-          mr="8px"
-          width="16px"
-          height="16px"
-          borderRadius="full"
-        />
-        <Typography.Body2>{account?.name}</Typography.Body2>
+      <HStack
+        alignItems="center"
+        borderBottomWidth={StyleSheet.hairlineWidth}
+        borderColor="border-subdued"
+        mt="32px"
+        alignSelf="stretch"
+        px="16px"
+        pb="12px"
+      >
+        <Typography.Body1Strong color="text-subdued" flex={1}>
+          {intl.formatMessage({ id: 'form__account' })}
+        </Typography.Body1Strong>
+        <HStack alignItems="center">
+          <Image src={network?.logoURI} size="24px" borderRadius="full" />
+          <Typography.Body1 ml="12px">{account?.name}</Typography.Body1>
+        </HStack>
       </HStack>
     </Box>
   );

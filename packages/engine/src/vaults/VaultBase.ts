@@ -234,8 +234,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async signAndSendTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
+    signOnly: boolean,
   ): Promise<ISignedTx> {
     const signedTx = await this.signTransaction(unsignedTx, options);
+    if (signOnly) {
+      return { ...signedTx, encodedTx: unsignedTx.encodedTx };
+    }
     return this.broadcastTransaction({
       ...signedTx,
       txid: '',

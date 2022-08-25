@@ -2,7 +2,7 @@
 
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
 import ProviderApiBase from './providers/ProviderApiBase';
@@ -80,7 +80,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
       serviceName = '';
     }
     let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
-    if (platformEnv.isExtension && isExtensionUi()) {
+    if (platformEnv.isExtension && platformEnv.isExtensionUi) {
       const data = {
         service: serviceName,
         method: backgroundMethodName,

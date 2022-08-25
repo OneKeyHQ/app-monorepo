@@ -163,7 +163,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     if (networkImpl !== IMPL_STC) {
       return;
     }
-    debugLogger.ethereum.info('BgApi rpcCall:', request, { networkId });
+    debugLogger.providerApi.info('BgApi rpcCall:', request, { networkId });
 
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
@@ -171,7 +171,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
       request,
     );
 
-    debugLogger.ethereum.info('BgApi rpcCall RESULT:', request, {
+    debugLogger.providerApi.info('BgApi rpcCall RESULT:', request, {
       networkId,
       result,
     });
@@ -186,7 +186,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
       };
       return result;
     };
-    // debugLogger.ethereum('notifyDappAccountsChanged', data);
+    // debugLogger.providerApi.info('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
@@ -232,7 +232,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
-    debugLogger.ethereum.info('stc_sendTransaction', request, transaction);
+    debugLogger.providerApi.info('stc_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
@@ -244,7 +244,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
       },
     );
 
-    debugLogger.ethereum.info(
+    debugLogger.providerApi.info(
       'stc_sendTransaction DONE',
       result,
       request,
@@ -357,7 +357,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
 
   @providerApiMethod()
   async stc_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.backgroundApi.info(
+    debugLogger.providerApi.info(
       'ProviderApiStarcoin.stc_requestAccounts',
       request,
     );
