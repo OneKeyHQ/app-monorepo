@@ -92,6 +92,11 @@ function normalizeConfig({ platform, config, env }) {
   config.resolve.extensions = lodash.uniq(
     config.resolve.extensions.concat(resolveExtensions),
   );
+  config.resolve.alias = {
+    ...config.resolve.alias,
+    '@solana/buffer-layout-utils': '@solana/buffer-layout-utils/lib/cjs/index.js',
+    '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
+  }
   return config;
 }
 

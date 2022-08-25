@@ -189,14 +189,14 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           payloadData?.method
         }`,
       );
-      debugLogger.common.error(error);
+      debugLogger.backgroundApi.error(error);
       throw error;
     }
     // throw web3Errors.provider.custom({
     //   code: 3881,
     //   message: 'test custom error to dapp',
     // });
-    debugLogger.ethereum.info(
+    debugLogger.backgroundApi.info(
       'provider.handleMethods ====> ',
       payloadData.method,
       payload,
@@ -205,7 +205,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     ensureSerializable(result);
     // TODO non rpc result return in some chain provider
     const resultWrapped = this.rpcResult(result, payloadData);
-    debugLogger.ethereum.info(
+    debugLogger.backgroundApi.info(
       'provider.handleMethods RESULT:',
       payloadData,
       '\r\n ----> \r\n',

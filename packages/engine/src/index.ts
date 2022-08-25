@@ -13,6 +13,7 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
+import bs58 from 'bs58';
 import bs58check from 'bs58check';
 import { cloneDeep } from 'lodash';
 import memoizee from 'memoizee';
@@ -36,6 +37,7 @@ import {
   IMPL_BTC,
   IMPL_EVM,
   IMPL_NEAR,
+  IMPL_SOL,
   NETWORK_ID_EVM_ETH,
   getSupportedImpls,
 } from './constants';
@@ -672,6 +674,7 @@ class Engine {
       '397': 'near--0',
       '0': 'btc--0',
       '101010': 'stc--1',
+      '501': 'sol--101',
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -927,6 +930,13 @@ class Engine {
           const [prefix, encoded] = credential.split(':');
           const decodedPrivateKey = Buffer.from(baseDecode(encoded));
           if (prefix === 'ed25519' && decodedPrivateKey.length === 64) {
+            privateKey = decodedPrivateKey.slice(0, 32);
+          }
+          break;
+        }
+        case IMPL_SOL: {
+          const decodedPrivateKey = bs58.decode(credential);
+          if (decodedPrivateKey.length === 64) {
             privateKey = decodedPrivateKey.slice(0, 32);
           }
           break;
@@ -1518,11 +1528,13 @@ class Engine {
     password,
     networkId,
     accountId,
+    signOnly,
   }: {
     encodedTx: any;
     password: string;
     networkId: string;
     accountId: string;
+    signOnly: boolean;
   }) {
     const vault = await this.getVault({
       accountId,
@@ -1534,9 +1546,13 @@ class Engine {
       encodedTx,
     };
 
-    return vault.signAndSendTransaction(unsignedTx, {
-      password,
-    });
+    return vault.signAndSendTransaction(
+      unsignedTx,
+      {
+        password,
+      },
+      signOnly,
+    );
   }
 
   @backgroundMethod()

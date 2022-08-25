@@ -66,6 +66,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     payloadInfo,
     backRouteName,
     sourceInfo,
+    signOnly = false,
   } = route.params;
   const payload = payloadInfo || route.params.payload;
   const { getExternalConnector, externalAccountInfo } =
@@ -161,6 +162,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       networkId,
       accountId,
       encodedTx,
+      signOnly,
     });
     debugLogger.sendTx.info(
       'Authentication sendTx DONE:',
@@ -176,6 +178,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     accountId,
     encodedTx,
     sendTxForExternalAccount,
+    signOnly,
   ]);
 
   const signMsg = useCallback(async (): Promise<string | undefined> => {

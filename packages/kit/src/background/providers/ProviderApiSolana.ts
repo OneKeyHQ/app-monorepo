@@ -3,11 +3,16 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
+  IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import bs58 from 'bs58';
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
-import { wait } from '../../utils/helper';
+import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { getActiveWalletAccount } from '../../hooks/redux';
 import { backgroundClass, providerApiMethod } from '../decorators';
 
 import ProviderApiBase, {
@@ -36,12 +41,27 @@ const Mocks = {
 class ProviderApiSolana extends ProviderApiBase {
   public providerName = IInjectedProviderNames.solana;
 
+  private getConnectedAcccountPublicKey(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    const [account] = this.backgroundApi.serviceDapp?.getConnectedAccounts({
+      origin: request.origin as string,
+    });
+
+    return Promise.resolve(account?.address ?? '');
+  }
+
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
       const result = {
-        // TODO do not emit events to EVM Dapps, injected provider check scope
-        method: 'accountsChanged',
-        params: { accounts: [] },
+        method: 'wallet_events_accountChanged',
+        params: {
+          accounts: [
+            {
+              publicKey: await this.getConnectedAcccountPublicKey({ origin }),
+            },
+          ],
+        },
       };
       return result;
     };
@@ -51,51 +71,90 @@ class ProviderApiSolana extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // TODO
-    console.log(info);
+    debugLogger.providerApi.info(info);
   }
 
-  public rpcCall() {
-    throw web3Errors.rpc.methodNotFound();
+  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
+    const { networkId } = getActiveWalletAccount();
+
+    debugLogger.providerApi.info('solana rpcCall:', request, { networkId });
+    const result = await this.backgroundApi.engine.proxyJsonRPCCall(
+      networkId,
+      request,
+    );
+    debugLogger.providerApi.info('solana rpcCall RESULT:', request, {
+      networkId,
+      result,
+    });
+    return result;
   }
 
   // ----------------------------------------------
 
   @providerApiMethod()
-  public disconnect() {
-    console.log('disconnect');
+  public disconnect(request: IJsBridgeMessagePayload) {
+    const { origin } = request;
+    if (!origin) {
+      return;
+    }
+    this.backgroundApi.serviceDapp.removeConnectedAccounts({
+      origin,
+      networkImpl: IMPL_SOL,
+      addresses: this.backgroundApi.serviceDapp
+        .getConnectedAccounts({ origin })
+        .map(({ address }) => address),
+    });
+    debugLogger.providerApi.info('solana disconnect', origin);
   }
 
   @providerApiMethod()
-  public signTransaction(
-    payload: IJsBridgeMessagePayload,
+  public async signTransaction(
+    request: IJsBridgeMessagePayload,
     params: { message: string },
   ) {
     if (typeof params.message !== 'string') {
       throw web3Errors.rpc.invalidInput();
     }
-    // TODO: validate message is a transaction
-    return Mocks.tx;
+
+    // TODO: sign only, not send
+    const rawTx = (await this.backgroundApi.serviceDapp?.openApprovalModal(
+      request,
+      {
+        encodedTx: params.message,
+        signOnly: true,
+      },
+    )) as string;
+    // Signed transaction is base64 encoded, inpage provider expects base58.
+    return bs58.encode(Buffer.from(rawTx, 'base64'));
   }
 
   @providerApiMethod()
-  public signAllTransactions(
-    payload: IJsBridgeMessagePayload,
+  public async signAllTransactions(
+    request: IJsBridgeMessagePayload,
     params: { message: string[] },
   ) {
-    const { message } = params;
+    const { message: txsToBeSigned } = params;
 
-    if (!isArray(message) || message.length === 0 || !message.every(isString)) {
+    if (
+      !isArray(txsToBeSigned) ||
+      txsToBeSigned.length === 0 ||
+      !txsToBeSigned.every(isString)
+    ) {
       throw web3Errors.rpc.invalidInput();
     }
 
-    // todo: validate message is  transactions
-    console.log('signAllTransactions', payload, params);
-    return message.map(() => Mocks.tx);
+    debugLogger.providerApi.info('solana signAllTransactions', request, params);
+
+    const ret = [];
+    for (const tx of txsToBeSigned) {
+      ret.push(await this.signTransaction(request, { message: tx }));
+    }
+    return ret;
   }
 
   @providerApiMethod()
-  public signAndSendTransaction(
-    payload: IJsBridgeMessagePayload,
+  public async signAndSendTransaction(
+    request: IJsBridgeMessagePayload,
     params: { message: string; options?: SolanaSendOptions },
   ) {
     const { message } = params;
@@ -104,11 +163,18 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
+    const publicKey = await this.getConnectedAcccountPublicKey(request);
+    const txid = (await this.backgroundApi.serviceDapp?.openApprovalModal(
+      request,
+      {
+        encodedTx: message,
+      },
+    )) as string;
     // todo: validate message is  transactions
-    console.log('signTransaction', payload, params);
+    debugLogger.providerApi.info('solana signTransaction', request, params);
     return {
-      signature: Mocks.txSignature,
-      publicKey: Mocks.publicKey,
+      signature: txid,
+      publicKey,
     };
   }
 
@@ -126,7 +192,7 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    console.log('signMessage', payload, params);
+    debugLogger.providerApi.info('solana signMessage', payload, params);
     return {
       signature: Mocks.signedMessage,
       publicKey: Mocks.publicKey,
@@ -135,21 +201,22 @@ class ProviderApiSolana extends ProviderApiBase {
 
   @providerApiMethod()
   public async connect(
-    _: IJsBridgeMessagePayload,
+    request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
     const { onlyIfTrusted = false } = params || {};
 
-    if (onlyIfTrusted) {
-      // throw error if user haven't trusted the app
-    } else {
-      // mock user action delay
-      await wait(3000);
+    let publicKey = await this.getConnectedAcccountPublicKey(request);
+    if (!publicKey && !onlyIfTrusted) {
+      await this.backgroundApi.serviceDapp.openConnectionModal(request);
+      publicKey = await this.getConnectedAcccountPublicKey(request);
     }
 
-    return {
-      publicKey: Mocks.publicKey,
-    };
+    if (publicKey === '') {
+      throw web3Errors.provider.userRejectedRequest();
+    }
+
+    return { publicKey };
   }
 }
 
