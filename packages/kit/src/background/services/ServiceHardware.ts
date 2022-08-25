@@ -70,7 +70,7 @@ class ServiceHardware extends ServiceBase {
           const { type, payload } = e;
 
           setTimeout(() => {
-            const { device, type: eventType } = payload || {};
+            const { device, type: eventType, passphraseState } = payload || {};
             const { deviceType, connectId, deviceId, features } = device || {};
             const { bootloader_mode: bootLoaderMode } = features || {};
 
@@ -83,6 +83,7 @@ class ServiceHardware extends ServiceBase {
                   deviceId,
                   deviceConnectId: connectId,
                   deviceBootLoaderMode: !!bootLoaderMode,
+                  passphraseState,
                 },
               }),
             );

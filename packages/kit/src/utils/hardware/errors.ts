@@ -192,7 +192,11 @@ export class NetworkError extends OneKeyHardwareError {
 export class NotSupportPassphraseError extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceNotSupportPassphrase;
 
-  override key: LocaleIds = 'message__not_support_passphrase_yet';
+  override key: LocaleIds = 'msg__not_support_passphrase_need_upgrade';
+
+  constructor(message: string, params?: any) {
+    super({ message, info: { 0: get(params, 'require', '') } });
+  }
 }
 
 // 未知错误

@@ -12,6 +12,7 @@ export type HardwareUiEventPayload = {
   deviceId: string;
   deviceConnectId: string;
   deviceBootLoaderMode: boolean;
+  passphraseState: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
 };
 
 export type HardwarePopup = {

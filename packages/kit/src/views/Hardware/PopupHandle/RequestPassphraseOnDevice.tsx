@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
-import { LottieView, Text } from '@onekeyhq/components';
+import { Alert, Box, Icon, LottieView, Text } from '@onekeyhq/components';
 import EnterPassphraseOnClassic from '@onekeyhq/kit/assets/animations/lottie-onekey-classic-enter-passphrase-on-device.json';
 import EnterPassphraseOnMini from '@onekeyhq/kit/assets/animations/lottie-onekey-mini-enter-passphrase-on-device.json';
 import EnterPassphraseOnTouch from '@onekeyhq/kit/assets/animations/lottie-onekey-touch-enter-passphrase-on-device.json';
@@ -12,6 +12,7 @@ import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
 type RequestPassphraseOnDeviceViewProps = {
   deviceType: IDeviceType;
+  passphraseState?: string;
 } & Omit<BaseRequestViewProps, 'children'>;
 
 const getEnterPassphraseAnimation = (type: string) => {
@@ -27,6 +28,7 @@ const getEnterPassphraseAnimation = (type: string) => {
 
 const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
   deviceType,
+  passphraseState,
   ...props
 }) => {
   const intl = useIntl();
@@ -48,9 +50,34 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
       >
         {intl.formatMessage({ id: 'msg__enter_passphrase_on_device' })}
       </Text>
-      <Text typography="Body2" mr={2} textAlign="center" color="text-subdued">
-        {intl.formatMessage({ id: 'msg__enter_passphrase_on_device_dsc' })}
-      </Text>
+      {passphraseState ? (
+        <Text typography="Body2" mr={2} textAlign="center" color="text-subdued">
+          {intl.formatMessage({ id: 'msg__enter_passphrase_on_device_dsc' })}
+        </Text>
+      ) : (
+        <Box flexDirection="column" mt={6} flex={1} mr={4}>
+          <Box flexDirection="row">
+            <Box>
+              <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
+            </Box>
+            <Text ml={3} mr={2} typography="Body2" color="text-default">
+              {intl.formatMessage({
+                id: 'msg__use_passphrase_enter_hint_hide_wallet',
+              })}
+            </Text>
+          </Box>
+          <Box flexDirection="row" mt={4}>
+            <Box>
+              <Icon name="ExclamationOutline" size={20} color="icon-warning" />
+            </Box>
+            <Text typography="Body2" ml={3} mr={2} color="text-default">
+              {intl.formatMessage({
+                id: 'msg__use_passphrase_enter_hint_not_forget',
+              })}
+            </Text>
+          </Box>
+        </Box>
+      )}
     </BaseRequestView>
   );
 };

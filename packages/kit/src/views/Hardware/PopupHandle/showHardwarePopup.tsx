@@ -7,8 +7,8 @@ import RootSiblingsManager from 'react-native-root-siblings';
 
 import DialogManager from '@onekeyhq/components/src/DialogManager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { HardwareUiEventPayload } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import PermissionDialog from '../../../components/PermissionDialog/PermissionDialog';
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
@@ -16,14 +16,6 @@ import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import RequestConfirmView from './RequestConfirm';
 import RequestPassphraseOnDeviceView from './RequestPassphraseOnDevice';
 import RequestPinView from './RequestPin';
-
-export type HardwareUiEventPayload = {
-  type: string;
-  deviceType: IOneKeyDeviceType;
-  deviceId: string;
-  deviceConnectId: string;
-  deviceBootLoaderMode: boolean;
-};
 
 export type HardwarePopup = {
   uiRequest?: string;
@@ -164,6 +156,7 @@ export default async function showHardwarePopup({
     popupView = (
       <RequestPassphraseOnDeviceView
         deviceType={deviceType}
+        passphraseState={payload?.passphraseState}
         onCancel={() => {
           handleCancelPopup();
         }}
