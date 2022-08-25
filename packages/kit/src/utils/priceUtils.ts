@@ -72,8 +72,8 @@ export function getTokenValues({
 }) {
   return tokens.map((token) => {
     const tokenId = token?.tokenIdOnNetwork || 'main';
-    const balance = balances[tokenId];
-    if (typeof balance !== 'undefined') {
+    const balance = balances[tokenId] || 0;
+    if (balance !== undefined) {
       const price = new BigNumber(prices[tokenId] || 0);
       return new BigNumber(balance).times(price);
     }
