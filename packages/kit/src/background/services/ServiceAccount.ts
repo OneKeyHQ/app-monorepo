@@ -472,6 +472,9 @@ class ServiceAccount extends ServiceBase {
         await servicePassword.savePassword(password);
       }
     }
+
+    this.backgroundApi.serviceNetwork.notifyChainChanged();
+    this.backgroundApi.serviceAccount.notifyAccountsChanged();
   }
 
   @backgroundMethod()
