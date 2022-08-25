@@ -230,7 +230,8 @@ const DiscoverNative: FC<DiscoverProps> = ({
         Object.keys(syncData.increment).length > 0 ? 'data' : 'network',
       );
     }
-  }, [dispatch, locale, syncData.increment]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, locale]);
 
   const noData = () => {
     switch (pageStatus) {
