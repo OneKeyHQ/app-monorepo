@@ -190,16 +190,18 @@ const RecoverAccounts: FC = () => {
         })
         .catch(() => {
           isFetchingData.current = false;
-          setTimeout(() => {
-            ToastManager.show(
-              {
-                title: intl.formatMessage({
-                  id: 'msg__engine__internal_error',
-                }),
-              },
-              { type: 'error' },
-            );
-          }, 200);
+          if (navigation.isFocused()) {
+            setTimeout(() => {
+              ToastManager.show(
+                {
+                  title: intl.formatMessage({
+                    id: 'msg__engine__internal_error',
+                  }),
+                },
+                { type: 'error' },
+              );
+            }, 200);
+          }
 
           navigation?.goBack?.();
           navigation?.goBack?.();
