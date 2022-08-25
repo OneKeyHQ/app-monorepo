@@ -731,12 +731,11 @@ class Engine {
         });
         for (const { address, balance } of balancesFromApi) {
           if (address && +balance > 0) {
-            ret[address] = balance;
-            if (
-              !currentTokenIds.includes(address) &&
-              !removedTokens.includes(address)
-            ) {
-              missedTokenIds.push(address);
+            if (!removedTokens.includes(address)) {
+              ret[address] = balance;
+              if (!currentTokenIds.includes(address)) {
+                missedTokenIds.push(address);
+              }
             }
           } else {
             ret.main = balance;
