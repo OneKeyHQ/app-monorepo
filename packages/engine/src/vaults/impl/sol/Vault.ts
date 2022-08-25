@@ -100,8 +100,8 @@ export default class Vault extends VaultBase {
   private async decodeNativeTxActions(nativeTx: INativeTxSol) {
     const ret: Array<IDecodedTxAction> = [];
 
+    const createdAta: Record<string, AssociatedTokenInfo> = {};
     for (const instruction of nativeTx.instructions) {
-      const createdAta: Record<string, AssociatedTokenInfo> = {};
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
