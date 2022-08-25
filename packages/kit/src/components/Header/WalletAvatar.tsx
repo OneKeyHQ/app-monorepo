@@ -126,7 +126,7 @@ const WalletStatus: FC<Partial<WalletAvatarProps>> = ({ size, status }) => (
     borderColor="surface-subdued"
     rounded="full"
     size={size === 'xl' || size === 'lg' ? '16px' : '12px'}
-    bgColor={status === 'connected' ? 'interactive-default' : 'icon-warning'}
+    bgColor={status === 'warning' ? 'icon-warning' : 'interactive-default'}
   />
 );
 

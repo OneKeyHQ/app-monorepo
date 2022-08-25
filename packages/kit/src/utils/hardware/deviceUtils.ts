@@ -128,6 +128,31 @@ class DeviceUtils {
     this.tryCount = 0;
   }
 
+  /**
+   * For USB connections, just call the searchDevice api,
+   * capture the connection status via events.
+   *
+   * For Bluetooth connections, events will be sended in ble-transport.
+   */
+  async syncDeviceConnectStatus() {
+    if (platformEnv.isNative) return;
+    if (searchPromise) {
+      await searchPromise.promise;
+      debugLogger.hardwareSDK.info(
+        'sync device connect status throttling, await search promise and return',
+      );
+      return;
+    }
+
+    searchPromise = createDeferred();
+    try {
+      await backgroundApiProxy.serviceHardware.searchDevices();
+    } finally {
+      searchPromise.resolve();
+      searchPromise = null;
+    }
+  }
+
   async checkDeviceBonded(connectId: string) {
     let retry = 0;
     const maxRetryCount = 5;

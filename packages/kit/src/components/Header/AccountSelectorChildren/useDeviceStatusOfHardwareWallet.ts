@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { Device } from '@onekeyhq/engine/src/types/device';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -45,6 +46,7 @@ export function useDeviceStatusOfHardwareWallet() {
       return;
     }
     (async () => {
+      await deviceUtils.syncDeviceConnectStatus();
       const hwDeviceRec = (
         await backgroundApiProxy.engine.getHWDevices()
       ).reduce((acc, device) => {
