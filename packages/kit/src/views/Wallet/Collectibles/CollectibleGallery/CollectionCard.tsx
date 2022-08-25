@@ -97,14 +97,8 @@ const CollectionCard: FC<Props> = ({
   const contentSize = width - 2 * padding;
 
   return (
-    <Pressable
-      onPress={() => {
-        if (onSelectCollection) {
-          onSelectCollection(collectible);
-        }
-      }}
-    >
-      <Box
+    <Box mb="16px" {...rest}>
+      <Pressable
         bgColor="surface-default"
         padding={`${padding}px`}
         overflow="hidden"
@@ -112,9 +106,13 @@ const CollectionCard: FC<Props> = ({
         borderColor="border-subdued"
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         width={width}
-        mb="16px"
         flexDirection="column"
-        {...rest}
+        _hover={{ bg: 'surface-hovered' }}
+        onPress={() => {
+          if (onSelectCollection) {
+            onSelectCollection(collectible);
+          }
+        }}
       >
         <SubItemList collectible={collectible} width={contentSize} />
         <Text
@@ -127,8 +125,8 @@ const CollectionCard: FC<Props> = ({
         </Text>
         {/* <Text typography="Body2" height="20px" /> */}
         {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}
-      </Box>
-    </Pressable>
+      </Pressable>
+    </Box>
   );
 };
 

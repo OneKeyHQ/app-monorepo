@@ -33,7 +33,7 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
 
   if (uri) {
     if (componentType === undefined) {
-      return <CustomSkeleton size={imageWidth} />;
+      return <CustomSkeleton size={imageWidth} borderRadius="20px" />;
     }
     if (componentType === ComponentType.Image) {
       return (

@@ -37,14 +37,8 @@ const CollectibleCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const { themeVariant } = useTheme();
 
   return (
-    <Pressable
-      onPress={() => {
-        if (onSelectAsset) {
-          onSelectAsset(asset);
-        }
-      }}
-    >
-      <Box
+    <Box mb="16px" {...rest}>
+      <Pressable
         flexDirection="column"
         bgColor="surface-default"
         padding={`${padding}px`}
@@ -53,8 +47,12 @@ const CollectibleCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         borderColor="border-subdued"
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         width={cardWidth}
-        mb="16px"
-        {...rest}
+        _hover={{ bg: 'surface-hovered' }}
+        onPress={() => {
+          if (onSelectAsset) {
+            onSelectAsset(asset);
+          }
+        }}
       >
         <CollectibleListImage
           asset={asset}
@@ -67,12 +65,14 @@ const CollectibleCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
           mt={`${padding}px`}
           numberOfLines={1}
         >
-          {asset.name}
+          {asset.name ??
+            `${asset.collection.contractName ?? ''} #${asset.tokenId}`}
         </Text>
-        {/* <Text typography="Body2" height="20px" /> */}
-        {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}
-      </Box>
-    </Pressable>
+        <Text typography="Body2" height="20px" color="text-subdued">
+          {`Last Sale: ${asset.latestTradePrice ?? 'N/A'}`}
+        </Text>
+      </Pressable>
+    </Box>
   );
 };
 
