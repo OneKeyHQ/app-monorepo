@@ -9,7 +9,7 @@ import {
   Icon,
   Modal,
   PresenceTransition,
-  Typography,
+  Text,
   useIsVerticalLayout,
   useSafeAreaInsets,
   useThemeValue,
@@ -60,7 +60,10 @@ const ModalizedMenu: FC<{ closeOverlay: () => void }> = ({
         header={intl.formatMessage({ id: 'action__more' })}
         footer={null}
         closeAction={closeOverlay}
-        staticChildrenProps={{ padding: 0, paddingBottom: `${bottom}px` }}
+        staticChildrenProps={{
+          padding: '8px',
+          paddingBottom: `${bottom + 8}px`,
+        }}
       >
         {children}
       </Modal>
@@ -101,6 +104,7 @@ const DesktopMenu: FC<{
           bg="surface-subdued"
           position="absolute"
           w="240px"
+          p="4px"
           borderRadius="12px"
           borderWidth={1}
           borderColor="border-subdued"
@@ -171,9 +175,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
             },
           });
         },
-        icon: isVerticalLayout
-          ? 'CurrencyDollarOutline'
-          : 'CurrencyDollarSolid',
+        icon: isVerticalLayout ? 'PlusOutline' : 'PlusSolid',
       },
       walletType !== 'watching' && {
         id: 'action__sell_crypto',
@@ -229,20 +231,24 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
           key={id}
           flexDirection="row"
           alignItems="center"
-          py="16px"
-          px="20px"
+          py={{ base: '12px', sm: '8px' }}
+          px={{ base: '16px', sm: '8px' }}
           bg="transparent"
+          borderRadius="12px"
           onPress={() => {
             closeOverlay();
             onPress();
           }}
         >
-          <Icon size={18} name={icon} />
-          <Typography.Body1Strong ml="16px">
+          <Icon size={isVerticalLayout ? 24 : 20} name={icon} />
+          <Text
+            typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
+            ml="12px"
+          >
             {intl.formatMessage({
               id,
             })}
-          </Typography.Body1Strong>
+          </Text>
         </PressableItem>
       ))}
     </Box>
