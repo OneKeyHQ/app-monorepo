@@ -23,6 +23,7 @@ const Container: FC<ContainerProps> = ({
   onTabChange,
   onIndexChange,
   onRefresh,
+  containerStyle,
   ...props
 }) => {
   const tabs = Children.map(children, (child) =>
@@ -49,9 +50,7 @@ const Container: FC<ContainerProps> = ({
     <NestedTabView
       {...props}
       values={tabs}
-      style={{
-        flex: 1,
-      }}
+      style={containerStyle}
       disableRefresh={disableRefresh}
       refresh={refreshing}
       tabViewStyle={{
