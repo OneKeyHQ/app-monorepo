@@ -15,7 +15,7 @@ import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
 import bs58 from 'bs58';
 import bs58check from 'bs58check';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
@@ -75,8 +75,9 @@ import {
 } from './managers/network';
 import { syncPushNotificationConfig } from './managers/notification';
 import {
+  fetchOnlineTokens,
   fetchTokenDetail,
-  fetchTokenTop2000,
+  formatServerToken,
   getNetworkIdFromTokenId,
 } from './managers/token';
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
@@ -1123,7 +1124,7 @@ class Engine {
       }
       tokenInfo = await fetchTokenDetail({
         impl,
-        chainId: +chainId,
+        chainId,
         address: tokenIdOnNetwork,
       });
       if (!tokenInfo) {
@@ -1187,7 +1188,7 @@ class Engine {
     }
     tokenInfo = await fetchTokenDetail({
       impl,
-      chainId: +chainId,
+      chainId,
       address: tokenIdOnNetwork,
     });
     if (!tokenInfo) {
@@ -1399,9 +1400,9 @@ class Engine {
     if (!impl || !chainId) {
       return;
     }
-    const tokens = await fetchTokenTop2000({
+    const tokens = await fetchOnlineTokens({
       impl,
-      chainId: +chainId,
+      chainId,
     });
     if (tokens.length) {
       await simpleDb.token.updateTokens(impl, +chainId, tokens);
@@ -1455,12 +1456,31 @@ class Engine {
       }
       return typeof token !== 'undefined' ? [token] : [];
     }
+    const { impl, chainId } = parseNetworkId(networkId);
+    if (!impl || !chainId) {
+      return [];
+    }
+    let onlineTokens: Token[] = [];
+    try {
+      const result = await fetchOnlineTokens({
+        impl,
+        chainId,
+        query: searchTerm,
+      });
+      onlineTokens = result.map((t) => formatServerToken(networkId, t));
+    } catch (error) {
+      debugLogger.engine.error('search online tokens error', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
     const matchPattern = new RegExp(searchTerm, 'i');
     const tokens = await this.getTokens(networkId);
-    return tokens.filter(
+    const localTokens = tokens.filter(
       (token) =>
         token.name.match(matchPattern) || token.symbol.match(matchPattern),
     );
+
+    return uniqBy(onlineTokens.concat(localTokens), 'tokenIdOnNetwork');
   }
 
   @backgroundMethod()

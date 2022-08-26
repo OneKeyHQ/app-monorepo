@@ -1,7 +1,8 @@
 // import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
 
-import { IMPL_SOL, IMPL_STC, getSupportedImpls } from '../../../constants';
+import { getSupportedImpls } from '../../../constants';
 import { parseNetworkId } from '../../../managers/network';
+import { formatServerToken } from '../../../managers/token';
 import { ServerToken, Token } from '../../../types/token';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
@@ -10,8 +11,6 @@ import { SimpleDbEntityLocalTokens } from './SimpleDbEntityLocalTokens';
 export type ISimpleDbEntityTokensData = {
   [key: string]: Token[];
 };
-
-const caseSensitiveImpls = new Set([IMPL_SOL, IMPL_STC]);
 
 export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityTokensData> {
   entityName = 'tokens';
@@ -38,20 +37,7 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   async updateTokens(impl: string, chainId: number, tokens: ServerToken[]) {
     const networkId = `${impl}--${chainId}`;
-    const normalizedTokens = tokens.map((t) => {
-      const { address = '', logoURI } = t;
-      const tokenAddress = caseSensitiveImpls.has(impl)
-        ? address
-        : address.toLowerCase();
-      return {
-        ...t,
-        id: `${networkId}--${tokenAddress}`,
-        networkId,
-        logoURI: logoURI || '',
-        tokenIdOnNetwork: tokenAddress,
-        address: tokenAddress,
-      };
-    });
+    const normalizedTokens = tokens.map((t) => formatServerToken(networkId, t));
     await this.saveTokens(networkId, normalizedTokens);
   }
 

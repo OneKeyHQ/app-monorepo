@@ -4,13 +4,15 @@ import qs from 'qs';
 import { ServerToken, Token } from '@onekeyhq/kit/src/store/typings';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { SEPERATOR } from '../constants';
+import { IMPL_SOL, IMPL_STC, SEPERATOR } from '../constants';
 import { getFiatEndpoint } from '../endpoint';
 import { OneKeyInternalError } from '../errors';
 
+import { parseNetworkId } from './network';
+
 export type TokenQuery = {
   impl: string;
-  chainId: number;
+  chainId: string;
   query?: string;
 };
 
@@ -22,9 +24,11 @@ export type TokenSource = {
 
 export type TokenDetailQuery = {
   impl: string;
-  chainId: number;
+  chainId: string;
   address: string;
 };
+
+export const caseSensitiveImpls = new Set([IMPL_SOL, IMPL_STC]);
 
 let cachedTokenSourceList: TokenSource[] = [];
 
@@ -37,6 +41,25 @@ function getNetworkIdFromTokenId(tokenId: string): string {
   }
   throw new OneKeyInternalError(`Invalid tokenId ${tokenId}.`);
 }
+
+export const formatServerToken = (networkId: string, token: ServerToken) => {
+  const { address = '', logoURI } = token;
+  const { impl = '' } = parseNetworkId(networkId);
+  let tokenAddress = address;
+  if (impl) {
+    tokenAddress = caseSensitiveImpls.has(impl)
+      ? address
+      : address.toLowerCase();
+  }
+  return {
+    ...token,
+    id: `${networkId}--${tokenAddress}`,
+    networkId,
+    logoURI: logoURI || '',
+    tokenIdOnNetwork: tokenAddress,
+    address: tokenAddress,
+  };
+};
 
 async function doFetch<T>(url: string, fallback: T) {
   try {
@@ -75,7 +98,7 @@ export const checkTokenUpdate = async (timestamp: number): Promise<boolean> =>
     false,
   );
 
-export const fetchTokenTop2000 = async (
+export const fetchOnlineTokens = async (
   params: TokenQuery,
 ): Promise<ServerToken[]> => {
   const { chainId, impl, query } = params;
