@@ -10,7 +10,6 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { CloseButton, SelectProps } from '@onekeyhq/components/src/Select';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 
