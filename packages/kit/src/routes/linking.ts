@@ -1,6 +1,7 @@
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
 import { LinkingOptions } from '@react-navigation/native';
 import { createURL } from 'expo-linking';
+import { merge } from 'lodash';
 
 import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,7 +15,14 @@ import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
 const prefix = createURL('/');
 
-const tabRoutesWhiteList = [
+type WhiteListItem = {
+  path: string;
+  screen: string;
+};
+
+type WhiteListItemList = WhiteListItem[];
+
+const tabRoutesWhiteList: WhiteListItemList = [
   {
     screen: `${TabRoutes.Home}`,
     path: `/${RootRoutes.Tab}/${TabRoutes.Home}`,
@@ -33,41 +41,69 @@ const tabRoutesWhiteList = [
   },
 ];
 
-const onBoardingWhiteList = [
+const normalRouteWhiteList: WhiteListItemList = [
   {
-    screen: `${EOnboardingRoutes.Welcome}`,
+    screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
     path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },
-];
-
-const modalWhiteList = [
   {
-    screen: `${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
   },
   {
-    screen: `${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.AddNetworkConfirm}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.AddNetworkConfirm}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.AddNetworkConfirm}`,
   },
   {
-    screen: `${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.SwitchNetwork}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.SwitchNetwork}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.SwitchNetwork}`,
   },
   {
-    screen: `${ModalRoutes.ManageToken}/${ManageTokenRoutes.AddToken}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageToken}/${ManageTokenRoutes.AddToken}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.ManageToken}/${ManageTokenRoutes.AddToken}`,
   },
   {
-    screen: `${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
   },
 ];
 
-const whiteList = [
-  ...tabRoutesWhiteList,
-  ...onBoardingWhiteList,
-  ...modalWhiteList,
-];
+/**
+ * split white list config and generate hierarchy config for react-navigation linking config
+ */
+const generateScreenHierarchyRouteConfig = (
+  screenListStr: string,
+  path: string,
+): Record<string, any> => {
+  const screens = screenListStr.split('/').filter(Boolean);
+  const pathList = path.split('/').filter(Boolean);
+  if (!screens.length || !pathList.length) {
+    return {};
+  }
+
+  const currentRoute = screens[0];
+  const currentPath = pathList[0];
+  return {
+    [currentRoute]: {
+      path: `/${currentPath}`,
+      screens: generateScreenHierarchyRouteConfig(
+        screens.slice(1).join('/'),
+        pathList.slice(1).join('/'),
+      ),
+    },
+  };
+};
+
+const generateScreenHierarchyRouteConfigList = (
+  whiteListConfig: WhiteListItemList,
+) =>
+  whiteListConfig.reduce(
+    (memo, tab) =>
+      merge(memo, generateScreenHierarchyRouteConfig(tab.screen, tab.path)),
+    {},
+  );
+
+const whiteList = [...tabRoutesWhiteList, ...normalRouteWhiteList];
 
 /**
  *  For tab routes:
@@ -136,47 +172,7 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
           },
         },
       },
-      [RootRoutes.Onboarding]: {
-        path: '/onboarding',
-        screens: {
-          [EOnboardingRoutes.Welcome]: {
-            path: '/welcome',
-          },
-        },
-      },
-      [RootRoutes.Modal]: {
-        path: RootRoutes.Modal,
-        screens: {
-          [ModalRoutes.DappConnectionModal]: {
-            path: ModalRoutes.DappConnectionModal,
-            screens: {
-              [DappConnectionModalRoutes.ConnectionModal]:
-                DappConnectionModalRoutes.ConnectionModal,
-            },
-          },
-          [ModalRoutes.ManageNetwork]: {
-            path: ModalRoutes.ManageNetwork,
-            screens: {
-              [ManageNetworkRoutes.AddNetworkConfirm]:
-                ManageNetworkRoutes.AddNetworkConfirm,
-              [ManageNetworkRoutes.SwitchNetwork]:
-                ManageNetworkRoutes.SwitchNetwork,
-            },
-          },
-          [ModalRoutes.ManageToken]: {
-            path: ModalRoutes.ManageToken,
-            screens: {
-              [ManageTokenRoutes.AddToken]: ManageTokenRoutes.AddToken,
-            },
-          },
-          [ModalRoutes.Send]: {
-            path: ModalRoutes.Send,
-            screens: {
-              [SendRoutes.SendConfirmFromDapp]: SendRoutes.SendConfirmFromDapp,
-            },
-          },
-        },
-      },
+      ...generateScreenHierarchyRouteConfigList(normalRouteWhiteList),
       NotFound: '*',
     },
   },
