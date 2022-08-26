@@ -254,7 +254,7 @@ export const ReplyTicket: FC = () => {
                 formControlProps={{ width: 'full' }}
                 defaultValue=""
               >
-                <Form.Textarea borderRadius="12px" />
+                <Form.Textarea enableInputWhiteSpace borderRadius="12px" />
               </Form.Item>
               {imagesList()}
             </Form>

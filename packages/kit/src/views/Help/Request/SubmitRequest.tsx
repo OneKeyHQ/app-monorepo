@@ -484,6 +484,7 @@ export const SubmitRequest: FC = () => {
                 defaultValue=""
               >
                 <Form.Textarea
+                  enableInputWhiteSpace
                   placeholder={intl.formatMessage({
                     id: 'form__your_question_is',
                   })}
