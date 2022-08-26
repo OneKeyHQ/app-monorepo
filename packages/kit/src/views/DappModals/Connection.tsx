@@ -114,7 +114,7 @@ const Connection = () => {
       {/* Main Modal */}
       <Modal
         primaryActionTranslationId="action__confirm"
-        secondaryActionTranslationId="action__reject"
+        secondaryActionTranslationId="action__cancel"
         onPrimaryActionPress={async ({ close }) => {
           if (!computedIsRug) {
             const result = getResolveData();

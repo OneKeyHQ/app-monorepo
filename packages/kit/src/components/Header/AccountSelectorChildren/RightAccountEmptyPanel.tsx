@@ -93,7 +93,7 @@ function RightAccountEmptyPanel({
         }}
       >
         <Center flex={1} px={4} py={8}>
-          <Text fontSize={48} lineHeight={48} textAlign="center">
+          <Text fontSize={48} textAlign="center">
             {emptyInfo?.title}
           </Text>
           <Text my={6} typography="DisplaySmall" textAlign="center">

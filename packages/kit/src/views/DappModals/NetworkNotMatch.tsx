@@ -23,7 +23,7 @@ const NetworkNotMatch = () => {
     <Modal
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{ isDisabled: true }}
-      secondaryActionTranslationId="action__reject"
+      secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={({ close }) => {
         dappApprove.reject();
         close();
