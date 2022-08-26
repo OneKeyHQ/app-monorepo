@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Hier finden Sie Ihren Transaktionsverlauf",
   "msg__your_transaction_may_be_frontrun": "Ihre Transaktion kann ein Frontrun sein",
   "msg__your_transaction_may_fail": "Ihre Transaktion kann fehlschlagen",
+  "msg_create_wallet_is_exists": "Die Wallet, die Sie erstellen möchten, existiert bereits",
+  "msg_create_wallet_is_exists_dsc": "Die Wallet, die Sie erstellen möchten, existiert bereits, wechseln Sie also sofort zu ihr.",
   "network__network": "Netzwerk",
   "network__networks": "Netzwerke",
   "onboarding__landing_encryption_desc": "OneKey verwendet branchenführende Verschlüsselungstechnologie, um Ihre Daten lokal zu speichern. Nur Sie können die Informationen entschlüsseln.",

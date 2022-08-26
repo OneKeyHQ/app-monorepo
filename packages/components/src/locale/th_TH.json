@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "คุณสามารถค้นหาประวัติการทำธุรกรรมของคุณได้ที่นี่",
   "msg__your_transaction_may_be_frontrun": "ธุรกรรมของคุณอาจเป็น frontrun",
   "msg__your_transaction_may_fail": "ธุรกรรมของคุณอาจล้มเหลว",
+  "msg_create_wallet_is_exists": "กระเป๋าเงินที่คุณต้องการสร้างมีอยู่แล้ว",
+  "msg_create_wallet_is_exists_dsc": "กระเป๋าเงินที่คุณต้องการสร้างมีอยู่แล้ว ดังนั้นให้เปลี่ยนไปใช้กระเป๋าเงินนั้นทันที",
   "network__network": "เครือข่าย",
   "network__networks": "เครือข่าย",
   "onboarding__landing_encryption_desc": "OneKey ใช้เทคโนโลยีการเข้ารหัสระดับแนวหน้าของอุตสาหกรรมเพื่อจัดเก็บข้อมูลของคุณไว้ในเครื่อง มีเพียงคุณเท่านั้นที่สามารถถอดรหัสข้อมูลได้",

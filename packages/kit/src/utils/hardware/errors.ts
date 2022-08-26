@@ -104,6 +104,12 @@ export class BleScanThrottleError extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_device_ble_scan_throttle';
 }
 
+export class BleAlreadyConnectedError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BleAlreadyConnected;
+
+  override key: LocaleIds = 'msg__hardware_device_ble_already_connected';
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 

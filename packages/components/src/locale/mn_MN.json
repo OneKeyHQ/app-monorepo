@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Та гүйлгээнийхээ түүхийг эндээс харах боломжтой",
   "msg__your_transaction_may_be_frontrun": "Таны гүйлгээ урьдчилж хийгдэж магадгүй",
   "msg__your_transaction_may_fail": "Таны гүйлгээ амжилтгүй болж магадгүй",
+  "msg_create_wallet_is_exists": "Таны үүсгэхийг хүссэн түрийвч аль хэдийн байна",
+  "msg_create_wallet_is_exists_dsc": "Таны үүсгэхийг хүссэн түрийвч аль хэдийн байгаа тул нэн даруй түүн рүү шилжинэ үү.",
   "network__network": "Сүлжээ",
   "network__networks": "Сүлжээ",
   "onboarding__landing_encryption_desc": "OneKey нь таны мэдээллийг дотооддоо хадгалахын тулд салбартаа тэргүүлэгч шифрлэлтийн технологийг ашигладаг. Зөвхөн та мэдээллийн шифрийг тайлж чадна.",

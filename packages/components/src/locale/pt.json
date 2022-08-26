@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Você pode encontrar seu histórico de transações aqui",
   "msg__your_transaction_may_be_frontrun": "Sua transação pode ser frontrun",
   "msg__your_transaction_may_fail": "Sua transação pode falhar",
+  "msg_create_wallet_is_exists": "A carteira que você deseja criar já existe",
+  "msg_create_wallet_is_exists_dsc": "A carteira que você deseja criar já existe, então mude para ela imediatamente.",
   "network__network": "Rede",
   "network__networks": "Redes",
   "onboarding__landing_encryption_desc": "OneKey usa tecnologia de criptografia líder do setor para armazenar suas informações localmente. Só você pode descriptografar as informações.",

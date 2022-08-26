@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Puede encontrar su historial de transacciones aquí",
   "msg__your_transaction_may_be_frontrun": "Su transacción puede ser anticipada",
   "msg__your_transaction_may_fail": "Su transacción puede fallar",
+  "msg_create_wallet_is_exists": "El monedero que quieres crear ya existe",
+  "msg_create_wallet_is_exists_dsc": "La billetera que desea crear ya existe, así que cámbiela de inmediato.",
   "network__network": "Red",
   "network__networks": "Redes",
   "onboarding__landing_encryption_desc": "OneKey utiliza una tecnología de cifrado líder en el sector para almacenar su información localmente. Sólo usted puede descifrar la información.",

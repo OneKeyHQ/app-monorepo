@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Ви можете переглянути свою історію транзакцій тут",
   "msg__your_transaction_may_be_frontrun": "Ваша транзакція може бути передовою",
   "msg__your_transaction_may_fail": "Ваша транзакція може зірватися",
+  "msg_create_wallet_is_exists": "Гаманець, який ви хочете створити, уже існує",
+  "msg_create_wallet_is_exists_dsc": "Гаманець, який ви хочете створити, уже існує, тому негайно перейдіть на нього.",
   "network__network": "мережа",
   "network__networks": "мережі",
   "onboarding__landing_encryption_desc": "OneKey використовує передову в галузі технологію шифрування для локального зберігання вашої інформації. Тільки ви можете розшифрувати інформацію.",

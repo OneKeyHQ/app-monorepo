@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "आप अपना लेन-देन इतिहास यहां देख सकते हैं",
   "msg__your_transaction_may_be_frontrun": "आपका लेन-देन आगे बढ़ सकता है",
   "msg__your_transaction_may_fail": "आपका लेन-देन विफल हो सकता है",
+  "msg_create_wallet_is_exists": "आप जो बटुआ बनाना चाहते हैं वह पहले से मौजूद है",
+  "msg_create_wallet_is_exists_dsc": "आप जो बटुआ बनाना चाहते हैं वह पहले से मौजूद है, इसलिए उस पर तुरंत स्विच करें।",
   "network__network": "नेटवर्क",
   "network__networks": "नेटवर्क",
   "onboarding__landing_encryption_desc": "OneKey आपकी जानकारी को स्थानीय रूप से संग्रहीत करने के लिए उद्योग-अग्रणी एन्क्रिप्शन तकनीक का उपयोग करता है। केवल आप ही जानकारी को डिक्रिप्ट कर सकते हैं।",

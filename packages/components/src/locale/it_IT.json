@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Puoi trovare la cronologia delle transazioni qui",
   "msg__your_transaction_may_be_frontrun": "La tua transazione potrebbe essere anticipata",
   "msg__your_transaction_may_fail": "La tua transazione potrebbe non riuscire",
+  "msg_create_wallet_is_exists": "Il portafoglio che desideri creare esiste già",
+  "msg_create_wallet_is_exists_dsc": "Il portafoglio che desideri creare esiste già, quindi passa ad esso immediatamente.",
   "network__network": "Rete",
   "network__networks": "Reti",
   "onboarding__landing_encryption_desc": "OneKey utilizza una tecnologia di crittografia leader nel settore per memorizzare le tue informazioni a livello locale. Solo tu puoi decifrare le informazioni.",

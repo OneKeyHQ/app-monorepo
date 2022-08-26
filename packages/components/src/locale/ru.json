@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Вы можете найти историю транзакций здесь",
   "msg__your_transaction_may_be_frontrun": "Ваша транзакция может быть запущена с опережением",
   "msg__your_transaction_may_fail": "Ваша транзакция может завершиться неудачей",
+  "msg_create_wallet_is_exists": "Кошелек, который вы хотите создать, уже существует",
+  "msg_create_wallet_is_exists_dsc": "Кошелек, который вы хотите создать, уже существует, поэтому немедленно переключитесь на него.",
   "network__network": "Сеть",
   "network__networks": "сети",
   "onboarding__landing_encryption_desc": "OneKey использует ведущую в отрасли технологию шифрования для локального хранения вашей информации. Расшифровать информацию можете только вы.",

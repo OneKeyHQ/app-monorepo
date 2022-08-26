@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "Bạn có thể tìm thấy lịch sử giao dịch của mình tại đây",
   "msg__your_transaction_may_be_frontrun": "Giao dịch của bạn có thể chạy trước",
   "msg__your_transaction_may_fail": "Giao dịch của bạn có thể thất bại",
+  "msg_create_wallet_is_exists": "Ví bạn muốn tạo đã tồn tại",
+  "msg_create_wallet_is_exists_dsc": "Ví bạn muốn tạo đã tồn tại, vì vậy hãy chuyển sang ví đó ngay lập tức.",
   "network__network": "Mạng",
   "network__networks": "Mạng",
   "onboarding__landing_encryption_desc": "OneKey sử dụng công nghệ mã hóa hàng đầu trong ngành để lưu trữ cục bộ thông tin của bạn. Chỉ bạn mới có thể giải mã thông tin.",

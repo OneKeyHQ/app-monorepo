@@ -1066,6 +1066,8 @@
   "msg__you_can_find_your_transaction_history_here": "여기에서 거래 내역을 찾을 수 있습니다.",
   "msg__your_transaction_may_be_frontrun": "귀하의 거래가 최전선에 있을 수 있습니다",
   "msg__your_transaction_may_fail": "거래가 실패할 수 있습니다.",
+  "msg_create_wallet_is_exists": "생성하려는 지갑이 이미 존재합니다.",
+  "msg_create_wallet_is_exists_dsc": "생성하려는 지갑이 이미 존재하므로 즉시 지갑으로 전환하십시오.",
   "network__network": "회로망",
   "network__networks": "네트워크",
   "onboarding__landing_encryption_desc": "OneKey는 업계 최고의 암호화 기술을 사용하여 정보를 로컬에 저장합니다. 당신만이 정보를 해독할 수 있습니다.",
