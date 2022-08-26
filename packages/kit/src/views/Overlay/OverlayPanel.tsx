@@ -1,4 +1,5 @@
 import { FC, useEffect, useRef } from 'react';
+
 import { Modalize } from 'react-native-modalize';
 
 import {
@@ -10,8 +11,8 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
-import { CloseButton, SelectProps } from '@onekeyhq/components/src/Select';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
+import { CloseButton, SelectProps } from '@onekeyhq/components/src/Select';
 
 const ModalizedPanel: FC<{
   closeOverlay: () => void;
@@ -44,7 +45,10 @@ const ModalizedPanel: FC<{
         visible
         footer={null}
         closeAction={closeOverlay}
-        staticChildrenProps={{ padding: 0, paddingBottom: `${bottom}px` }}
+        staticChildrenProps={{
+          padding: '8px',
+          paddingBottom: `${bottom + 8}px`,
+        }}
         {...modalProps}
       >
         {children}
@@ -87,6 +91,7 @@ const DesktopDropdown: FC<{
           bg="surface-subdued"
           position="absolute"
           w="240px"
+          p="4px"
           borderRadius="12px"
           borderWidth={1}
           borderColor="border-subdued"
