@@ -161,6 +161,7 @@ function AssetsList({
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: '100%',
         marginHorizontal: 'auto',
+        alignSelf: 'center',
       }}
       contentContainerStyle={[
         {
