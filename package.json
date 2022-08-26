@@ -126,6 +126,7 @@
     "**/got": "^11.8.5",
     "**/shell-quote": "^1.7.3",
     "react-native-svg": "12.3.0",
-    "react-native-qrcode-svg": "6.1.2"
+    "react-native-qrcode-svg": "6.1.2",
+    "@solana/web3.js": "1.47.3"
   }
 }
