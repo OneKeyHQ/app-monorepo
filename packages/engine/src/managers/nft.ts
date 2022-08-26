@@ -95,22 +95,16 @@ export const getUserNFTAssets = async (params: {
   return camelcaseKeys(data, { deep: true });
 };
 
-type UploadImagePayload =
-  | {
-      source: string;
-      thumbnail: string;
-    }
-  | undefined;
 export const syncImage = async (params: {
-  contractAddress: string;
+  contractAddress?: string;
   tokenId: string;
   imageURI: string;
-}): Promise<UploadImagePayload> => {
+}) => {
   const endpoint = getFiatEndpoint();
   const apiUrl = `${endpoint}/NFT/sync`;
   const data = await axios
-    .post<UploadImagePayload>(apiUrl, params)
-    .then((resp) => resp.data)
-    .catch(() => undefined);
+    .post(apiUrl, params, { timeout: 3 * 60 * 1000 })
+    .then(() => true)
+    .catch(() => false);
   return data;
 };

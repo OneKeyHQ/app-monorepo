@@ -24,7 +24,7 @@ export function componentTypeWithContentType(
   ) {
     return ComponentType.Image;
   }
-  if (contentType === 'image/svg') {
+  if (contentType === 'image/svg' || contentType === 'image/svg+xml') {
     return ComponentType.SVG;
   }
   if (contentType === 'video/mp4') {
@@ -70,7 +70,7 @@ export default function useUniqueToken(asset: NFTAsset): UniqueTokenResult {
     const uploadSource = getContentWithAsset(asset);
     if (uploadSource) {
       const contentType = await axios
-        .head(uploadSource, { timeout: 1000 })
+        .head(uploadSource, { timeout: 10000 })
         .then((resp) => resp.headers['content-type'])
         .catch(() => '404');
       if (contentType === '404') {

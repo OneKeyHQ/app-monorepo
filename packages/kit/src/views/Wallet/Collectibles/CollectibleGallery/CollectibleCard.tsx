@@ -65,8 +65,7 @@ const CollectibleCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
           mt={`${padding}px`}
           numberOfLines={1}
         >
-          {asset.name ??
-            `${asset.collection.contractName ?? ''} #${asset.tokenId}`}
+          {asset.name ?? asset.collection.contractName ?? ''}
         </Text>
         <Text typography="Body2" height="20px" color="text-subdued">
           {`Last Sale: ${asset.latestTradePrice ?? 'N/A'}`}

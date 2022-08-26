@@ -4,6 +4,7 @@ export const NFTChainMap: Record<string, string> = {
   [NETWORK_ID_EVM_ETH]: 'eth',
   'evm--56': 'bsc',
   'evm--137': 'polygon',
+  'sol--101': 'sol',
 };
 
 export type ERCType = 'erc721' | 'erc1155';
@@ -24,9 +25,10 @@ export type Collection = {
 };
 
 export type NFTAsset = {
-  contractAddress: string;
-  contractTokenId: string;
-  tokenId: string;
+  tokenAddress?: string;
+  contractAddress?: string;
+  contractTokenId?: string;
+  tokenId?: string;
   contractName?: string;
   ercType?: string;
   amount?: string;

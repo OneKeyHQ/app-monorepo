@@ -91,7 +91,15 @@ const ExpandList: FC<
       {...flatListProps}
       data={allAssets}
       renderItem={renderAssetItem}
-      keyExtractor={(item) => item.contractAddress + item.tokenId}
+      keyExtractor={(item, index) => {
+        if (item.contractAddress && item.tokenId) {
+          return item.contractAddress + item.tokenId;
+        }
+        if (item.tokenAddress) {
+          return item.tokenAddress;
+        }
+        return `NFTAsset ${index}`;
+      }}
     />
   );
 };
@@ -116,7 +124,15 @@ const PackupList: FC<
       {...flatListProps}
       data={collectibles}
       renderItem={renderCollectionItem}
-      keyExtractor={(item) => `${item.contractAddress ?? ''}Collection`}
+      keyExtractor={(item, index) => {
+        if (item.contractAddress) {
+          return `Collection ${item.contractAddress}`;
+        }
+        if (item.contractName) {
+          return `Collection ${item.contractName}`;
+        }
+        return `Collection ${index}`;
+      }}
     />
   );
 };
