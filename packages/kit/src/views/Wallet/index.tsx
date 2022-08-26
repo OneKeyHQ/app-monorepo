@@ -104,6 +104,7 @@ const WalletTabs: FC = () => {
           marginHorizontal: 'auto', // Center align vertically
           backgroundColor: tabbarBgColor,
           alignSelf: 'center',
+          flex: 1,
         }}
         headerContainerStyle={{
           shadowOffset: { width: 0, height: 0 },
