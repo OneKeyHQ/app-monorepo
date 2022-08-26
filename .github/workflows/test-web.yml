@@ -12,7 +12,7 @@ jobs:
   test-web:
     runs-on: ubuntu-latest
     env:
-      TEST_ENDPOINT: app.test.onekey.so
+      TEST_ENDPOINT: app.onekeytest.so
     steps:
       - uses: actions/checkout@v2
       - name: Setup Environment
