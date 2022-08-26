@@ -23,6 +23,7 @@ const Container: FC<ContainerProps> = ({
   initialTabName,
   onRefresh,
   refreshing,
+  containerStyle,
 }) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
@@ -51,7 +52,7 @@ const Container: FC<ContainerProps> = ({
   return (
     <Context.Provider value={tabs[selectedIndex].name}>
       <NestedTabView
-        style={{ flex: 1 }}
+        style={containerStyle}
         values={tabs}
         defaultIndex={selectedIndex}
         disableRefresh={disableRefresh}
