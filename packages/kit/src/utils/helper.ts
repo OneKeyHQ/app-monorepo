@@ -55,3 +55,6 @@ export const generateUUID = () => uuid.v4() as string;
 
 export const hexlify = (...args: Parameters<typeof utils.hexlify>) =>
   utils.hexlify.apply(utils.hexlify, args);
+
+export const isHexString = (...args: Parameters<typeof utils.isHexString>) =>
+  utils.isHexString.apply(utils.isHexString, args);

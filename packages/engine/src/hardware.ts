@@ -16,6 +16,7 @@ import { TypedDataUtils } from 'eth-sig-util';
 
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { isHexString } from '@onekeyhq/kit/src/utils/helper';
 
 import { IMPL_EVM } from './constants';
 import * as engineUtils from './engineUtils';
@@ -138,6 +139,8 @@ export async function ethereumSignMessage({
   ) {
     let messageBuffer: Buffer;
     try {
+      if (!isHexString(message.message)) throw new Error('not hex string');
+
       messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
     } catch (error) {
       messageBuffer = Buffer.from('');
