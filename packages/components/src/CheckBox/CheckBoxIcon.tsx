@@ -14,13 +14,17 @@ export const getCheckBoxIcon = (
 ) => {
   if (disable) {
     if (defaultIsChecked) {
-      return <Icon as={SvgCheckBoxIconDefaultDisable} />;
+      return (
+        <Icon as={SvgCheckBoxIconDefaultDisable} color="interactive-disabled" />
+      );
     }
-    return <Icon as={SvgCheckBoxIconCheckedDisable} />;
+    return (
+      <Icon as={SvgCheckBoxIconCheckedDisable} color="interactive-disabled" />
+    );
   }
 
   if (defaultIsChecked) {
-    return <Icon as={SvgCheckBoxIconDefault} />;
+    return <Icon as={SvgCheckBoxIconDefault} color="interactive-default" />;
   }
-  return <Icon as={SvgCheckBoxIconChecked} />;
+  return <Icon as={SvgCheckBoxIconChecked} color="interactive-default" />;
 };
