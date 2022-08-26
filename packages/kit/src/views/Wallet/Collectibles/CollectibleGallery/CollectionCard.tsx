@@ -65,7 +65,9 @@ const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
         const marginBottom = itemIndex < 2 ? 9 : 0;
         return (
           <CollectibleListImage
-            key={`CollectibleListImage${asset.tokenId}${itemIndex}`}
+            key={`CollectibleListImage${
+              asset.tokenId ?? asset.tokenAddress ?? ''
+            }${itemIndex}`}
             asset={asset}
             borderRadius="6px"
             marginRight={`${marginRight}px`}

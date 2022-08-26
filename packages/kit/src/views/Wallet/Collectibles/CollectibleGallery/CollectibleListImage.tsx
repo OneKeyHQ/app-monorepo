@@ -28,7 +28,8 @@ const CollectibleListImage: FC<Props> = ({
   const imageUrl =
     url ?? (thumbnail ? asset.image.thumbnail : asset.image.source);
   const source = getImageWithAsset(asset);
-  if (source) {
+  const tokenId = asset.contractTokenId ?? asset.tokenAddress;
+  if (source && tokenId) {
     return (
       <Box size={`${size}px`} {...props} overflow="hidden">
         <NFTImage
@@ -38,7 +39,7 @@ const CollectibleListImage: FC<Props> = ({
           s3Url={imageUrl}
           nftSource={{
             contractAddress: asset.contractAddress,
-            tokenId: asset.contractTokenId,
+            tokenId,
             url: source,
           }}
           skeleton={skeleton}
