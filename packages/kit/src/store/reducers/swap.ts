@@ -3,7 +3,12 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import { QuoteData, QuoteLimited, SwapError } from '../../views/Swap/typings';
+import {
+  QuoteData,
+  QuoteLimited,
+  Recipient,
+  SwapError,
+} from '../../views/Swap/typings';
 
 type SwapState = {
   inputTokenNetwork?: Network | null;
@@ -18,12 +23,11 @@ type SwapState = {
   loading: boolean;
   error?: SwapError;
 
-  recipient?: { address?: string; name?: string; networkId?: string };
+  recipient?: Recipient;
 
   receivingNetworkId?: string;
   sendingNetworkId?: string;
 
-  receivingName?: string;
   swftcSupportedTokens: Record<string, string[]>;
   approvalSubmitted?: boolean;
 };
@@ -83,7 +87,6 @@ export const swapSlice = createSlice({
     clearState(state) {
       state.independentField = 'INPUT';
       state.typedValue = '';
-      state.receivingName = undefined;
       state.quote = undefined;
       state.quoteTime = undefined;
       state.error = undefined;
@@ -99,7 +102,7 @@ export const swapSlice = createSlice({
 
       state.typedValue = '';
       state.recipient = undefined;
-      state.receivingName = undefined;
+
       state.quote = undefined;
       state.quoteTime = undefined;
       state.loading = false;
@@ -121,14 +124,7 @@ export const swapSlice = createSlice({
     setError(state, action: PayloadAction<SwapError | undefined>) {
       state.error = action.payload;
     },
-    setRecipient(
-      state,
-      action: PayloadAction<{
-        address?: string;
-        name?: string;
-        networkId?: string;
-      }>,
-    ) {
+    setRecipient(state, action: PayloadAction<Recipient | undefined>) {
       state.recipient = action.payload;
     },
     setReceivingNetworkId(state, action: PayloadAction<string | undefined>) {

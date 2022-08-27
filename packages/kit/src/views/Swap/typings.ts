@@ -57,6 +57,8 @@ export enum QuoterType {
 
 export type FieldType = 'INPUT' | 'OUTPUT';
 
+export type Recipient = { address?: string; name?: string; networkId?: string };
+
 export type TransactionData = {
   from: string;
   to: string;
