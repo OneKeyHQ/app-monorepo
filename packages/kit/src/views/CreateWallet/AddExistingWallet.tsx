@@ -89,10 +89,13 @@ function useAddExistingWallet({
   const inputCategory = useMemo(() => {
     let onlyForcategory: UserInputCategory | undefined;
     if (mode === 'mnemonic') {
+      // HD
       onlyForcategory = UserInputCategory.MNEMONIC;
     } else if (mode === 'imported') {
+      // PrivateKey
       onlyForcategory = UserInputCategory.IMPORTED;
     } else if (mode === 'watching') {
+      // Address
       onlyForcategory = UserInputCategory.WATCHING;
     }
     return onlyForcategory;
@@ -519,6 +522,7 @@ const AddExistingWallet = () => {
       (supportedNFC || platformEnv.isDev) && mode === 'all' ? (
         <Box>
           <Box flex={1} />
+          <Box h={2} />
           <OneKeyLiteRecoveryButton />
         </Box>
       ) : null,

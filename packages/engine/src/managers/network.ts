@@ -10,7 +10,7 @@ import {
 } from '../types/network';
 import { IVaultSettings } from '../vaults/types';
 
-import { getAccountNameInfoByImpl } from './impl';
+import { getAccountNameInfoByImpl, implToCoinTypes } from './impl';
 
 function getEVMNetworkToCreate(
   id: string,
@@ -151,6 +151,20 @@ function parseNetworkId(networkId: string): {
   };
 }
 
+function getNetworkImpl(networkId: string) {
+  const [impl] = networkId.split(SEPERATOR);
+  return impl;
+}
+
+function getCoinTypeFromImpl(impl: string) {
+  return implToCoinTypes[impl];
+}
+
+function getCoinTypeFromNetworkId(networkId: string) {
+  const impl = getNetworkImpl(networkId);
+  return getCoinTypeFromImpl(impl);
+}
+
 function generateNetworkIdByChainId({
   impl,
   chainId,
@@ -163,6 +177,9 @@ function generateNetworkIdByChainId({
 }
 
 export {
+  getNetworkImpl,
+  getCoinTypeFromNetworkId,
+  getCoinTypeFromImpl,
   getEVMNetworkToCreate,
   fromDBNetworkToNetwork,
   parseNetworkId,

@@ -24,9 +24,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { LazyDisplayView } from '../../LazyDisplayView';
 
 import {
+  ACCOUNT_SELECTOR_EMPTY_VIEW_SELECTED_WALLET_DEBOUNCED,
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ACCOUNT_SELECTOR_SELECTED_WALLET_DEBOUNCED,
 } from './accountSelectorConsts';
 import LeftSide from './LeftSide';
 import RightAccountCreateButton from './RightAccountCreateButton';
@@ -48,9 +47,12 @@ export type IAccountSelectorChildrenProps = {
   isOpen?: boolean;
   // eslint-disable-next-line react/no-unused-prop-types
   toggleOpen?: (...args: any) => any;
+  accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 };
 const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isOpen,
+  accountSelectorInfo,
 }) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
@@ -58,7 +60,7 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
   const { bottom } = useSafeAreaInsets();
   const { RemoveAccountDialog } = useRemoveAccountDialog();
 
-  const { serviceAccountSelector } = backgroundApiProxy;
+  const { serviceAccountSelector, serviceAccount } = backgroundApiProxy;
   const { account: currentActiveAccount, network: currentActiveNetwork } =
     useActiveWalletAccount();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
@@ -80,7 +82,7 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
     accountsGroup,
     // ** for rename/update/remove account
     refreshAccounts,
-  } = useAccountSelectorInfo({ isOpen });
+  } = accountSelectorInfo;
 
   // ** for creating new account
   // serviceAccountSelector.preloadingCreateAccount
@@ -90,10 +92,10 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
     backgroundApiProxy.serviceApp.lock(true);
   }, []);
 
-  // const selectedWalletDeBounced = useDebounce(
-  //   selectedWallet,
-  //   ACCOUNT_SELECTOR_SELECTED_WALLET_DEBOUNCED,
-  // );
+  const selectedWalletDeBounced = useDebounce(
+    selectedWallet,
+    ACCOUNT_SELECTOR_EMPTY_VIEW_SELECTED_WALLET_DEBOUNCED,
+  );
 
   const loadingSkeletonRef = useRef(
     <Box>
@@ -102,20 +104,23 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
       {/* <AccountSectionLoadingSkeleton isLoading /> */}
     </Box>,
   );
+  const isSelectorVisibleAndReady = useMemo(
+    () => Boolean(isOpenDelay && isOpenDelayForShow && selectedWalletId),
+    [isOpenDelay, isOpenDelayForShow, selectedWalletId],
+  );
   const rightContent = useMemo(() => {
-    if (!isOpenDelay || !isOpenDelayForShow) {
-      return loadingSkeletonRef.current;
-    }
-
     if (isAccountsGroupEmpty) {
       if (isLoading) {
+        return loadingSkeletonRef.current;
+      }
+      if (!isSelectorVisibleAndReady) {
         return loadingSkeletonRef.current;
       }
       return (
         <LazyDisplayView delay={ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY}>
           <RightAccountEmptyPanel
-            // activeWallet={selectedWalletDeBounced}
-            activeWallet={selectedWallet}
+            activeWallet={selectedWalletDeBounced}
+            // activeWallet={selectedWallet}
             selectedNetworkId={selectedNetworkId}
           />
         </LazyDisplayView>
@@ -125,14 +130,14 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
       <RightAccountSection
         activeAccounts={accountsGroup}
         activeWallet={selectedWallet}
+        selectedNetwork={selectedNetwork}
         activeNetwork={currentActiveNetwork}
         activeAccount={currentActiveAccount}
         refreshAccounts={refreshAccounts}
       />
     );
   }, [
-    isOpenDelay,
-    isOpenDelayForShow,
+    selectedNetwork,
     isAccountsGroupEmpty,
     accountsGroup,
     selectedWallet,
@@ -140,6 +145,8 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
     currentActiveAccount,
     refreshAccounts,
     isLoading,
+    isSelectorVisibleAndReady,
+    selectedWalletDeBounced,
     selectedNetworkId,
   ]);
 
@@ -176,7 +183,7 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
           <Button
             size="xs"
             mx={2}
-            onPress={() => {
+            onPress={async () => {
               // dispatch(
               //   changeActiveAccount({
               //     activeAccountId: "hd-1--m/44'/60'/0'/0/1",
@@ -188,9 +195,16 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
                 selectedWallet,
                 selectedNetwork,
               });
+
+              console.log(
+                'getDBAccountByAddress',
+                await serviceAccount.getDBAccountByAddress({
+                  address: accountsGroup?.[0]?.data?.[0]?.address,
+                }),
+              );
             }}
           >
-            Show
+            ShowLog
           </Button>
         )}
         <Box p={2} flexDirection="row">

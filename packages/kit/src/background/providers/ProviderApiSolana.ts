@@ -60,7 +60,7 @@ class ProviderApiSolana extends ProviderApiBase {
             {
               publicKey: await this.getConnectedAcccountPublicKey({ origin }),
             },
-          ],
+          ].filter((item) => !!item.publicKey),
         },
       };
       return result;
@@ -117,7 +117,7 @@ class ProviderApiSolana extends ProviderApiBase {
     }
 
     // TODO: sign only, not send
-    const rawTx = (await this.backgroundApi.serviceDapp?.openApprovalModal(
+    const rawTx = (await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
         encodedTx: params.message,
@@ -164,7 +164,7 @@ class ProviderApiSolana extends ProviderApiBase {
     }
 
     const publicKey = await this.getConnectedAcccountPublicKey(request);
-    const txid = (await this.backgroundApi.serviceDapp?.openApprovalModal(
+    const txid = (await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
         encodedTx: message,
@@ -212,7 +212,7 @@ class ProviderApiSolana extends ProviderApiBase {
       publicKey = await this.getConnectedAcccountPublicKey(request);
     }
 
-    if (publicKey === '') {
+    if (!publicKey) {
       throw web3Errors.provider.userRejectedRequest();
     }
 

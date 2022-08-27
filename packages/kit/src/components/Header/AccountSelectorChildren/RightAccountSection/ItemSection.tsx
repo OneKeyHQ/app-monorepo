@@ -9,6 +9,7 @@ import {
   DialogManager,
   HStack,
   Pressable,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -23,6 +24,7 @@ import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/Modi
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
+import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
 import ExternalAccountImg from '../../../WalletConnect/ExternalAccountImg';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../accountSelectorConsts';
@@ -42,6 +44,8 @@ type Props = {
   refreshAccounts: (walletId: string, networkId: string) => void;
 };
 
+const { updateIsRefreshDisabled } = reducerAccountSelector.actions;
+
 const AccountSectionItem: FC<Props> = ({
   section,
   item,
@@ -50,9 +54,11 @@ const AccountSectionItem: FC<Props> = ({
   activeAccount,
   refreshAccounts,
 }) => {
-  const { serviceAccount, serviceNetwork } = backgroundApiProxy;
+  const { serviceAccount, dispatch, serviceNetwork, serviceAccountSelector } =
+    backgroundApiProxy;
   const navigation = useNavigation();
 
+  const isVertical = useIsVerticalLayout();
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
@@ -104,7 +110,11 @@ const AccountSectionItem: FC<Props> = ({
           });
           break;
         case 'remove':
-          if (activeWallet?.type === 'watching') {
+          // bypass password verify
+          if (
+            activeWallet?.type === 'watching' ||
+            activeWallet?.type === 'external'
+          ) {
             showRemoveAccountDialog(
               activeWallet?.id ?? '',
               item.id,
@@ -160,13 +170,23 @@ const AccountSectionItem: FC<Props> = ({
         onPress={() => {
           navigation.dispatch(DrawerActions.closeDrawer());
           InteractionManager.runAfterInteractions(async () => {
-            await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
+            try {
+              dispatch(updateIsRefreshDisabled(true));
 
-            await serviceNetwork.changeActiveNetwork(section?.title?.id);
-            await serviceAccount.changeActiveAccount({
-              accountId: item.id,
-              walletId: activeWallet?.id ?? '',
-            });
+              if (isVertical) {
+                await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
+              }
+
+              await serviceNetwork.changeActiveNetwork(section?.title?.id);
+              await serviceAccount.changeActiveAccount({
+                accountId: item.id,
+                walletId: activeWallet?.id ?? '',
+              });
+              await serviceAccountSelector.setSelectedWalletToActive();
+            } finally {
+              await wait(100);
+              dispatch(updateIsRefreshDisabled(false));
+            }
           });
         }}
       >

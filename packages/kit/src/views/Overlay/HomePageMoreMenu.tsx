@@ -145,6 +145,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   );
 };
 
+// @ts-ignore
 export const showHomePageMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
   showOverlay((closeOverlay) => (
     <OverlayPanel

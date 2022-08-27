@@ -222,10 +222,10 @@ export function ConnectWalletListView({
       {!platformEnv.isNative || platformEnv.isNativeAndroid ? (
         <ConnectWalletListItem
           available
-          label="WalletConenct"
+          label="WalletConnect"
           logoSource={LogoWalletConnect}
-          isLoading={loadingId === 'WalletConenctDirectly'}
-          onPress={() => doConnect({ itemLoadingId: 'WalletConenctDirectly' })}
+          isLoading={loadingId === 'WalletConnectDirectly'}
+          onPress={() => doConnect({ itemLoadingId: 'WalletConnectDirectly' })}
         />
       ) : null}
     </>

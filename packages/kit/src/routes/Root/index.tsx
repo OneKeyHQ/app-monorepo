@@ -29,6 +29,8 @@ import {
 import StackScreen from '../Stack';
 import { ModalRoutes, ModalScreenProps, RootRoutes } from '../types';
 
+import AccountRootLanding from './AccountRootLanding';
+
 const RootNativeStack = createNativeStackNavigator();
 const RootStack = createStackNavigator();
 
@@ -91,6 +93,10 @@ const App = () => {
   return (
     <RootNavigatorContainer>
       <RootStack.Screen name={RootRoutes.Root} component={StackScreen} />
+      <RootStack.Screen
+        name={RootRoutes.Account}
+        component={AccountRootLanding}
+      />
       <RootStack.Screen
         name={RootRoutes.Onboarding}
         component={RouteOnboarding}

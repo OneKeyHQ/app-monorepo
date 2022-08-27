@@ -6,9 +6,9 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
-  SEPERATOR,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
+import { getNetworkImpl } from '../managers/network';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -32,11 +32,6 @@ import { VaultHelperBase } from './VaultHelperBase';
 import type { KeyringBase } from './keyring/KeyringBase';
 import type { IVaultFactoryOptions, IVaultOptions } from './types';
 import type { VaultBase } from './VaultBase';
-
-function getNetworkImpl(networkId: string) {
-  const [impl] = networkId.split(SEPERATOR);
-  return impl;
-}
 
 export function createVaultHelperInstance(
   options: IVaultFactoryOptions,

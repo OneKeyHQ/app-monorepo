@@ -3,8 +3,13 @@ import { find, flatten } from 'lodash';
 import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
-import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
-import { Account } from '@onekeyhq/engine/src/types/account';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import {
+  generateNetworkIdByChainId,
+  getCoinTypeFromNetworkId,
+} from '@onekeyhq/engine/src/managers/network';
+import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
 import { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import {
@@ -24,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { getActiveWalletAccount } from '../../hooks/redux';
 import { getManageNetworks } from '../../hooks/useManageNetworks';
 import { passwordSet, release } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
@@ -318,6 +324,90 @@ class ServiceAccount extends ServiceBase {
       password,
     });
 
+    return account;
+  }
+
+  @backgroundMethod()
+  async changeActiveAccountByAddress({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId?: string;
+  }): Promise<
+    { wallet: IWallet; account: DBAccount; network: INetwork } | undefined
+  > {
+    try {
+      const { appSelector, serviceNetwork } = this.backgroundApi;
+      // TODO skip change if match to current active address
+      const account = await this.getDBAccountByAddress({ address, networkId });
+      if (account) {
+        const { wallets, networks } = appSelector((s) => s.runtime);
+        // TODO walletId in active
+        const wallet = wallets.find((item) =>
+          item.accounts.includes(account.id),
+        );
+        // TODO networkId in params, networkId in active
+        const network = networks.find((item) =>
+          isAccountCompatibleWithNetwork(account.id, item.id),
+        );
+        if (wallet && account && network) {
+          await serviceNetwork.changeActiveNetwork(network.id);
+          await this.changeActiveAccount({
+            accountId: account.id,
+            walletId: wallet.id,
+          });
+          return { wallet, account, network };
+        }
+      }
+    } catch (error) {
+      return undefined;
+    }
+
+    return undefined;
+  }
+
+  @backgroundMethod()
+  async getDBAccountByAddress({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId?: string;
+  }): Promise<DBAccount> {
+    const coinType = networkId ? getCoinTypeFromNetworkId(networkId) : '';
+    const { engine } = this.backgroundApi;
+    const dbAccount = await engine.dbApi.getAccountByAddress({
+      address,
+      coinType,
+    });
+    return dbAccount;
+  }
+
+  @backgroundMethod()
+  async addTemporaryWatchAccount({ address }: { address: string }) {
+    const { engine } = this.backgroundApi;
+    const { watchingWallet } = getActiveWalletAccount();
+    const id = watchingWallet?.nextAccountIds?.global;
+    const name = id ? `Account #${id}` : '';
+    const networkId = NETWORK_ID_EVM_ETH;
+    // TODO remove prev temp account
+    // TODO set new account is temp
+    const account = await engine.addWatchingOrExternalAccount({
+      networkId,
+      address,
+      name,
+      walletType: 'watching',
+      checkExists: true,
+    });
+    await this.postAccountAdded({
+      networkId,
+      account,
+      walletType: 'watching',
+      checkOnBoarding: false,
+      checkPasswordSet: false,
+      shouldBackup: false,
+    });
     return account;
   }
 

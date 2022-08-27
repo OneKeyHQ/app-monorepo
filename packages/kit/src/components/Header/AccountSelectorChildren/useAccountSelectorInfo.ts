@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { InteractionManager } from 'react-native';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -15,32 +16,27 @@ import {
 import { useRuntimeWallets } from '../../../hooks/redux';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
+import { wait } from '../../../utils/helper';
 
 import {
-  ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY,
+  ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
+  ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
 } from './accountSelectorConsts';
 import { useDeviceStatusOfHardwareWallet } from './useDeviceStatusOfHardwareWallet';
 
-const { updateIsOpenDelay, updateAccountsGroup, updateIsLoading } =
-  reducerAccountSelector.actions;
+const { updateIsLoading } = reducerAccountSelector.actions;
 
 export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
   const { dispatch, serviceAccountSelector, engine } = backgroundApiProxy;
+  const isVertical = useIsVerticalLayout();
 
-  // delay wait drawer closed animation done
-  const isOpenDelay = useDebounce(
-    isOpen,
-    ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY,
-  );
   const isOpenDelayForShow = useDebounce(
     isOpen,
-    ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
+    isVertical
+      ? ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY
+      : ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY + 100,
   );
-
-  useEffect(() => {
-    dispatch(updateIsOpenDelay(Boolean(isOpenDelay)));
-  }, [dispatch, isOpenDelay]);
 
   const { wallets } = useRuntimeWallets();
 
@@ -59,34 +55,46 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
     accountsGroup,
     isLoading,
     preloadingCreateAccount,
+    isOpenDelay,
   } = useAppSelector((s) => s.accountSelector);
   const { refreshAccountSelectorTs } = useAppSelector((s) => s.refresher);
 
+  useEffect(() => {
+    debugLogger.accountSelector.info('useAccountSelectorInfo mount');
+    return () => {
+      debugLogger.accountSelector.info('useAccountSelectorInfo unmounted');
+    };
+  }, []);
+
+  const isOpenDelayRef = useRef<boolean | undefined>();
+  isOpenDelayRef.current = isOpenDelay && isOpen;
+
   const refreshAccounts = useCallback(() => {
     InteractionManager.runAfterInteractions(() => {
-      if (isOpenDelay && isOpen) {
+      if (isOpenDelayRef.current) {
+        // TODO dispatch loading action directly in UI?
         serviceAccountSelector.refreshAccountsGroup();
       }
     });
-  }, [isOpen, isOpenDelay, serviceAccountSelector]);
+  }, [serviceAccountSelector]);
 
   const { result: selectedWallet } = usePromiseResult(
     (): Promise<IWallet | null | undefined> =>
       walletId ? engine.getWalletSafe(walletId) : Promise.resolve(null),
-    [walletId],
+    [walletId, wallets],
   );
   const { result: selectedNetwork } = usePromiseResult(
     (): Promise<INetwork | null | undefined> =>
       networkId ? engine.getNetworkSafe(networkId) : Promise.resolve(null),
-    [networkId],
+    [networkId, enabledNetworks],
   );
 
   const selectedNetworkId = networkId;
   useEffect(() => {
-    debugLogger.accountSelector.info(
-      'useEffect selectedNetworkId changed: ',
+    debugLogger.accountSelector.info('useEffect selectedNetworkId changed: ', {
       selectedNetworkId,
-    );
+      isOpenDelay,
+    });
     if (!isOpenDelay) {
       return;
     }
@@ -113,10 +121,10 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
 
   const selectedWalletId = walletId;
   useEffect(() => {
-    debugLogger.accountSelector.info(
-      'useEffect selectedWalletId changed: ',
+    debugLogger.accountSelector.info('useEffect selectedWalletId changed: ', {
       selectedWalletId,
-    );
+      isOpenDelay,
+    });
     if (!isOpenDelay) {
       return;
     }
@@ -165,12 +173,13 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
   }, [refreshHookDeps, refreshAccounts]);
 
   useEffect(() => {
-    InteractionManager.runAfterInteractions(() => {
+    InteractionManager.runAfterInteractions(async () => {
       if (!isOpenDelay) {
-        dispatch(updateAccountsGroup([]));
+        await wait(ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY);
+        // dispatch(updateAccountsGroup([]));
         dispatch(updateIsLoading(false));
-        serviceAccountSelector.preloadingCreateAccountDone({ delay: 0 });
-        serviceAccountSelector.setSelectedWalletToActive();
+        await serviceAccountSelector.preloadingCreateAccountDone({ delay: 0 });
+        await serviceAccountSelector.setSelectedWalletToActive();
       }
     });
   }, [dispatch, isOpenDelay, serviceAccountSelector]);

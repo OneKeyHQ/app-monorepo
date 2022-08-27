@@ -13,6 +13,7 @@ import {
   ScrollView,
   Typography,
   VStack,
+  useToast,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -54,6 +55,8 @@ export const Debug = () => {
   const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
   const { width, height } = useWindowDimensions();
   const { network, account, wallet } = useActiveWalletAccount();
+  const { serviceAccount } = backgroundApiProxy;
+  const toast = useToast();
 
   const pressableProps = {
     p: '4',
@@ -164,9 +167,13 @@ export const Debug = () => {
                 } catch (err) {
                   console.error(err);
                 }
-                await backgroundApiProxy.walletConnect.connect({
-                  uri: uriText,
-                });
+                if (uriText) {
+                  await backgroundApiProxy.walletConnect.connect({
+                    uri: uriText,
+                  });
+                } else {
+                  console.error('walletConnect connect ERROR:  uri is Empty');
+                }
               }}
             >
               <Typography.Body1>连接 WalletConnect</Typography.Body1>
@@ -178,6 +185,25 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>断开 WalletConnect</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={async () => {
+                try {
+                  const address = (await getClipboard()) || '';
+                  const acc = await serviceAccount.addTemporaryWatchAccount({
+                    address,
+                  });
+                  console.log('Add Temp Watching Account', acc, address);
+                  toast.show({
+                    title: `Added temp watching: ${address}`,
+                  });
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+            >
+              <Typography.Body1>Add Temp Watching Account</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}

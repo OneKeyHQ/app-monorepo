@@ -27,6 +27,7 @@ type AccountSectionProps = {
   activeAccounts: AccountGroup[];
   activeWallet: Wallet | null | undefined;
   activeNetwork: Network | null;
+  selectedNetwork: Network | null | undefined;
   activeAccount: AccountEngineType | null;
   refreshAccounts: (walletId: string, networkId: string) => void;
 };
@@ -35,6 +36,7 @@ const RightAccountSection: FC<AccountSectionProps> = ({
   activeAccounts,
   activeWallet,
   activeNetwork,
+  selectedNetwork,
   activeAccount,
   refreshAccounts,
 }) => {
@@ -80,7 +82,7 @@ const RightAccountSection: FC<AccountSectionProps> = ({
         )
       }
       renderSectionHeader={({ section: { title } }) =>
-        activeAccounts.length > 1 ? (
+        activeAccounts.length > 1 || !selectedNetwork ? (
           <Box
             px={4}
             p={2}

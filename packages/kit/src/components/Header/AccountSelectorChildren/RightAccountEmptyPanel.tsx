@@ -92,7 +92,7 @@ function RightAccountEmptyPanel({
           },
         }}
       >
-        <Center flex={1} px={4} py={8}>
+        <Center flex={1} px={4} py={4}>
           <Text fontSize={48} textAlign="center">
             {emptyInfo?.title}
           </Text>
@@ -111,6 +111,11 @@ function RightAccountEmptyPanel({
     ),
     [emptyInfo, isSupported],
   );
+
+  if (!activeWallet || !activeWallet?.type) {
+    return null;
+  }
+
   return content;
 }
 

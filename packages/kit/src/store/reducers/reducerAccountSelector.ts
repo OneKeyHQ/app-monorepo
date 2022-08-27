@@ -5,6 +5,7 @@ import type { AccountGroup } from '../../components/Header/AccountSelectorChildr
 type InitialState = {
   isOpenDelay: boolean; // isOpenDelay 600ms
   isLoading: boolean;
+  isRefreshDisabled: boolean;
   walletId?: string;
   networkId?: string;
   accountsGroup: AccountGroup[];
@@ -20,6 +21,7 @@ const initialState: InitialState = {
   //      const visible = isSmallLayout ? isDrawerOpen : innerVisible;
   isOpenDelay: false,
   isLoading: false,
+  isRefreshDisabled: false,
   walletId: undefined,
   networkId: undefined,
   accountsGroup: [],
@@ -53,6 +55,14 @@ export const reducerSlice = createSlice({
     updateIsLoading(state, action: PayloadAction<InitialState['isLoading']>) {
       if (state.isLoading !== action.payload) {
         state.isLoading = action.payload;
+      }
+    },
+    updateIsRefreshDisabled(
+      state,
+      action: PayloadAction<InitialState['isRefreshDisabled']>,
+    ) {
+      if (state.isRefreshDisabled !== action.payload) {
+        state.isRefreshDisabled = action.payload;
       }
     },
     updateAccountsGroup(

@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
-import { CloseButton, SelectProps } from '@onekeyhq/components/src/Select';
+import { CloseBackDrop, SelectProps } from '@onekeyhq/components/src/Select';
 
 const ModalizedPanel: FC<{
   closeOverlay: () => void;
@@ -74,7 +74,7 @@ const DesktopDropdown: FC<{
     });
   return (
     <Box position="absolute" w="full" h="full">
-      <CloseButton onClose={closeOverlay} />
+      <CloseBackDrop onClose={closeOverlay} />
       <PresenceTransition
         visible={!isPositionNotReady}
         initial={{ opacity: 0, translateY: 0 }}

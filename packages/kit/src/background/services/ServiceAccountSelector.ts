@@ -6,7 +6,6 @@ import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { ACCOUNT_SELECTOR_REFRESH_DEBOUNCE } from '../../components/Header/AccountSelectorChildren/accountSelectorConsts';
-import { AllNetwork } from '../../components/Header/AccountSelectorChildren/RightChainSelector';
 import { getActiveWalletAccount } from '../../hooks/redux';
 import { getManageNetworks } from '../../hooks/useManageNetworks';
 import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
@@ -52,28 +51,12 @@ export default class ServiceAccountSelector extends ServiceBase {
     dispatch(updateSelectedNetworkId(networkId || undefined));
   }
 
-  @bindThis()
-  @backgroundMethod()
-  async setRightChainSelectorNetworkId(id: string | typeof AllNetwork) {
-    if (id === AllNetwork || !id) {
-      await this.updateSelectedNetwork(undefined);
-      return;
-    }
-    await this.updateSelectedNetwork(id);
-  }
-
   async getAccountsByGroup() {
     const { appSelector, engine } = this.backgroundApi;
 
     debugLogger.accountSelector.info('calling getAccountsByGroup');
     let groupData: AccountGroup[] = [];
-    const { networkId, walletId, isOpenDelay } = appSelector(
-      (s) => s.accountSelector,
-    );
-    if (!isOpenDelay) {
-      // return accountsInGroup;
-      return groupData;
-    }
+    const { networkId, walletId } = appSelector((s) => s.accountSelector);
     if (!walletId) {
       return groupData;
     }
@@ -154,10 +137,11 @@ export default class ServiceAccountSelector extends ServiceBase {
   @backgroundMethod()
   async refreshAccountsGroup({ delay = 0 }: { delay?: number } = {}) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const { isOpenDelay } = appSelector((s) => s.accountSelector);
-    if (!isOpenDelay) {
+    const { isRefreshDisabled } = appSelector((s) => s.accountSelector);
+    if (isRefreshDisabled) {
       return;
     }
+    debugLogger.accountSelector.info('refreshAccountsGroup start');
     dispatch(updateIsLoading(true));
     await wait(delay);
     this._refreshAccountsGroup();

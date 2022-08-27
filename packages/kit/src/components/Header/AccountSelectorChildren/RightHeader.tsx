@@ -1,4 +1,4 @@
-import React, { FC, memo, useMemo, useState } from 'react';
+import React, { FC, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,7 @@ import {
   Dialog,
   HStack,
   Icon,
+  Pressable,
   Select,
   Spinner,
   Typography,
@@ -23,9 +24,11 @@ import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Manager
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
+import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
@@ -46,6 +49,8 @@ type CustomSelectTriggerProps = {
   isNotification?: boolean;
   notificationColor?: string;
 };
+
+const { updateIsLoading } = reducerAccountSelector.actions;
 
 const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   isSelectVisible,
@@ -106,7 +111,9 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
       testID="AccountSelectorChildren-HeaderTitle"
       flex={1}
       key={title}
-      lineHeight={36}
+      lineHeight="36px"
+      minHeight="36px"
+      numberOfLines={1}
     >
       {title}
     </Typography.Body1Strong>
@@ -119,6 +126,7 @@ const RightHeader: FC<RightHeaderProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { dispatch } = backgroundApiProxy;
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -133,7 +141,7 @@ const RightHeader: FC<RightHeaderProps> = ({
     [deviceStatus?.hasUpgrade],
   );
 
-  const onDeleteWallet = () => {
+  const onDeleteWallet = useCallback(() => {
     if (selectedWallet?.type === 'hw') {
       setDeleteWallet({
         walletId: selectedWallet?.id ?? '',
@@ -160,7 +168,12 @@ const RightHeader: FC<RightHeaderProps> = ({
     } else {
       setShowBackupDialog(true);
     }
-  };
+  }, [
+    selectedWallet?.backuped,
+    selectedWallet?.id,
+    selectedWallet?.type,
+    showVerify,
+  ]);
 
   const hwWalletOptions = useMemo(() => {
     const options: SelectGroupItem<string>[] = [
@@ -228,196 +241,219 @@ const RightHeader: FC<RightHeaderProps> = ({
     return options;
   }, [hasAvailableUpdate, intl, isVerticalLayout]);
 
+  const optionsView = useMemo(() => {
+    if (isLoading) {
+      return (
+        <Pressable
+          p={2}
+          onPress={() => {
+            dispatch(updateIsLoading(false));
+          }}
+        >
+          <Spinner size="sm" />
+        </Pressable>
+      );
+    }
+    if (['hd', 'normal'].includes(selectedWallet?.type ?? '')) {
+      return (
+        <Select
+          onChange={(_value) => {
+            switch (_value) {
+              case 'rename':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManagerWallet,
+                  params: {
+                    screen:
+                      ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                    },
+                  },
+                });
+                break;
+              case 'backup':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.BackupWallet,
+                  params: {
+                    screen: platformEnv.isNative
+                      ? BackupWalletModalRoutes.BackupWalletOptionsModal
+                      : BackupWalletModalRoutes.BackupWalletManualModal,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                    },
+                  },
+                });
+                break;
+              case 'restore':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CreateAccount,
+                  params: {
+                    screen: CreateAccountModalRoutes.RecoverySelectChainList,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                    },
+                  },
+                });
+                break;
+              case 'remove':
+                onDeleteWallet();
+                break;
+              default:
+                break;
+            }
+          }}
+          dropdownPosition="right"
+          activatable={false}
+          options={[
+            {
+              label: intl.formatMessage({ id: 'action__edit' }),
+              value: 'rename',
+              iconProps: {
+                name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+              },
+            },
+            {
+              label: intl.formatMessage({ id: 'action__backup' }),
+              value: 'backup',
+              iconProps: {
+                name: isVerticalLayout
+                  ? 'ShieldCheckOutline'
+                  : 'ShieldCheckSolid',
+              },
+            },
+            // {
+            //   label: intl.formatMessage({
+            //     id: 'action__recover_accounts',
+            //   }),
+            //   value: 'restore',
+            //   iconProps: {
+            //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
+            //   },
+            // },
+            {
+              label: intl.formatMessage({ id: 'action__delete_wallet' }),
+              value: 'remove',
+              iconProps: {
+                name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+              },
+              destructive: true,
+            },
+          ]}
+          headerShown={false}
+          footer={null}
+          containerProps={{ width: 'auto' }}
+          dropdownProps={{
+            width: 248,
+          }}
+          renderTrigger={(activeOption, isHovered, visible, isPressed) => (
+            <CustomSelectTrigger
+              isTriggerHovered={isHovered}
+              isSelectVisible={visible}
+              isTriggerPressed={isPressed}
+            />
+          )}
+        />
+      );
+    }
+    if (['hw'].includes(selectedWallet?.type ?? '')) {
+      return (
+        <Select
+          onChange={(_value) => {
+            switch (_value) {
+              case 'rename':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.OnekeyHardware,
+                  params: {
+                    screen:
+                      OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                      deviceName: '',
+                    },
+                  },
+                });
+                break;
+              case 'details':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.OnekeyHardware,
+                  params: {
+                    screen:
+                      OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                    },
+                  },
+                });
+                break;
+              case 'restore':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CreateAccount,
+                  params: {
+                    screen: CreateAccountModalRoutes.RecoverySelectChainList,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                    },
+                  },
+                });
+                break;
+              case 'remove':
+                onDeleteWallet();
+                break;
+
+              case 'update':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.HardwareUpdate,
+                  params: {
+                    screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                    },
+                  },
+                });
+                break;
+
+              default:
+                break;
+            }
+          }}
+          dropdownPosition="right"
+          activatable={false}
+          options={hwWalletOptions}
+          headerShown={false}
+          footer={null}
+          containerProps={{ width: 'auto' }}
+          dropdownProps={{
+            width: 248,
+          }}
+          renderTrigger={(activeOption, isHovered, visible) => (
+            <CustomSelectTrigger
+              isTriggerHovered={isHovered}
+              isSelectVisible={visible}
+              isNotification={hasAvailableUpdate}
+              notificationColor="icon-warning"
+            />
+          )}
+        />
+      );
+    }
+  }, [
+    isLoading,
+    selectedWallet?.type,
+    selectedWallet?.id,
+    dispatch,
+    intl,
+    isVerticalLayout,
+    navigation,
+    onDeleteWallet,
+    hwWalletOptions,
+    hasAvailableUpdate,
+  ]);
+
   return (
     <>
-      <HStack py={3} px={4} space={4} alignItems="center">
-        <HStack>
-          <HeaderTitle selectedWallet={selectedWallet} />
-          {isLoading ? (
-            <HStack ml={2} alignItems="center" justifyContent="center">
-              <Spinner size="sm" />
-            </HStack>
-          ) : null}
-        </HStack>
-        <Box flex={1} />
-        {['hd', 'normal'].includes(selectedWallet?.type ?? '') ? (
-          <Select
-            onChange={(_value) => {
-              switch (_value) {
-                case 'rename':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.ManagerWallet,
-                    params: {
-                      screen:
-                        ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
-                      params: {
-                        walletId: selectedWallet?.id ?? '',
-                      },
-                    },
-                  });
-                  break;
-                case 'backup':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.BackupWallet,
-                    params: {
-                      screen: platformEnv.isNative
-                        ? BackupWalletModalRoutes.BackupWalletOptionsModal
-                        : BackupWalletModalRoutes.BackupWalletManualModal,
-                      params: {
-                        walletId: selectedWallet?.id ?? '',
-                      },
-                    },
-                  });
-                  break;
-                case 'restore':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateAccount,
-                    params: {
-                      screen: CreateAccountModalRoutes.RecoverySelectChainList,
-                      params: {
-                        walletId: selectedWallet?.id ?? '',
-                      },
-                    },
-                  });
-                  break;
-                case 'remove':
-                  onDeleteWallet();
-                  break;
-                default:
-                  break;
-              }
-            }}
-            dropdownPosition="right"
-            activatable={false}
-            options={[
-              {
-                label: intl.formatMessage({ id: 'action__edit' }),
-                value: 'rename',
-                iconProps: {
-                  name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
-                },
-              },
-              {
-                label: intl.formatMessage({ id: 'action__backup' }),
-                value: 'backup',
-                iconProps: {
-                  name: isVerticalLayout
-                    ? 'ShieldCheckOutline'
-                    : 'ShieldCheckSolid',
-                },
-              },
-              // {
-              //   label: intl.formatMessage({
-              //     id: 'action__recover_accounts',
-              //   }),
-              //   value: 'restore',
-              //   iconProps: {
-              //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
-              //   },
-              // },
-              {
-                label: intl.formatMessage({ id: 'action__delete_wallet' }),
-                value: 'remove',
-                iconProps: {
-                  name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
-                },
-                destructive: true,
-              },
-            ]}
-            headerShown={false}
-            footer={null}
-            containerProps={{ width: 'auto' }}
-            dropdownProps={{
-              width: 248,
-            }}
-            renderTrigger={(activeOption, isHovered, visible, isPressed) => (
-              <CustomSelectTrigger
-                isTriggerHovered={isHovered}
-                isSelectVisible={visible}
-                isTriggerPressed={isPressed}
-              />
-            )}
-          />
-        ) : null}
-        {['hw'].includes(selectedWallet?.type ?? '') ? (
-          <Select
-            onChange={(_value) => {
-              switch (_value) {
-                case 'rename':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.OnekeyHardware,
-                    params: {
-                      screen:
-                        OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
-                      params: {
-                        walletId: selectedWallet?.id ?? '',
-                        deviceName: '',
-                      },
-                    },
-                  });
-                  break;
-                case 'details':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.OnekeyHardware,
-                    params: {
-                      screen:
-                        OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
-                      params: {
-                        walletId: selectedWallet?.id ?? '',
-                      },
-                    },
-                  });
-                  break;
-                case 'restore':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateAccount,
-                    params: {
-                      screen: CreateAccountModalRoutes.RecoverySelectChainList,
-                      params: {
-                        walletId: selectedWallet?.id ?? '',
-                      },
-                    },
-                  });
-                  break;
-                case 'remove':
-                  onDeleteWallet();
-                  break;
-
-                case 'update':
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.HardwareUpdate,
-                    params: {
-                      screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
-                      params: {
-                        walletId: selectedWallet?.id ?? '',
-                      },
-                    },
-                  });
-                  break;
-
-                default:
-                  break;
-              }
-            }}
-            dropdownPosition="right"
-            activatable={false}
-            options={hwWalletOptions}
-            headerShown={false}
-            footer={null}
-            containerProps={{ width: 'auto' }}
-            dropdownProps={{
-              width: 248,
-            }}
-            renderTrigger={(activeOption, isHovered, visible) => (
-              <CustomSelectTrigger
-                isTriggerHovered={isHovered}
-                isSelectVisible={visible}
-                isNotification={hasAvailableUpdate}
-                notificationColor="icon-warning"
-              />
-            )}
-          />
-        ) : null}
+      <HStack py={3} px={4} alignItems="center">
+        <HeaderTitle selectedWallet={selectedWallet} />
+        <HStack justifyContent="flex-end">{optionsView}</HStack>
       </HStack>
       <ManagerWalletDeleteDialog
         visible={showDeleteWalletDialog}

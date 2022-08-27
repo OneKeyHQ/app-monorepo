@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
 
 import {
   Box,
@@ -6,11 +6,13 @@ import {
   PresenceTransition,
 } from '@onekeyhq/components';
 import { useDomID } from '@onekeyhq/components/src/hooks/useClickDocumentClose';
-import { CloseButton } from '@onekeyhq/components/src/Select';
+import { CloseBackDrop } from '@onekeyhq/components/src/Select';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
+import { useAccountSelectorInfo } from './AccountSelectorChildren/useAccountSelectorInfo';
 
 type ChildDropdownProps = {
   visible: boolean;
@@ -28,23 +30,19 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
       domId,
     }));
 
-    if (!visible) {
-      return null;
-    }
+    const accountSelectorInfo = useAccountSelectorInfo({
+      isOpen: visible,
+    });
 
-    const content = (
-      <PresenceTransition
-        visible={visible}
-        initial={{ opacity: 0, translateY: 0 }}
-        animate={{
-          opacity: 1,
-          translateY,
-          transition: {
-            duration: 150,
-          },
-        }}
-        style={{ width: '100%' }}
-      >
+    useEffect(() => {
+      debugLogger.accountSelector.info('AccountSelectorDesktop mount');
+      return () => {
+        debugLogger.accountSelector.info('AccountSelectorDesktop unmounted');
+      };
+    }, []);
+
+    const accountSelectorChildren = useMemo(
+      () => (
         <Box
           marginTop="4px"
           nativeID={domId}
@@ -63,24 +61,46 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
           <AccountSelectorChildren
             isOpen={visible}
             toggleOpen={toggleVisible}
+            accountSelectorInfo={accountSelectorInfo}
           />
         </Box>
-      </PresenceTransition>
+      ),
+      [accountSelectorInfo, domId, isBrowser, toggleVisible, visible],
+    );
+
+    const accountSelectorChildrenRef = useRef<JSX.Element | undefined>();
+    accountSelectorChildrenRef.current = accountSelectorChildren;
+
+    if (!visible) {
+      // return null;
+    }
+
+    const content = (
+      <>
+        {visible && <CloseBackDrop onClose={toggleVisible} />}
+        {/* <Box display={visible ? 'block' : 'none'}> */}
+        {/*  {accountSelectorChildren} */}
+        {/* </Box> */}
+        <PresenceTransition
+          visible={visible}
+          initial={{ opacity: 0, translateY: 0 }}
+          animate={{
+            opacity: 1,
+            translateY,
+            transition: {
+              duration: 150,
+            },
+          }}
+          style={{ width: visible ? '100%' : 0 }}
+        >
+          {accountSelectorChildrenRef.current}
+        </PresenceTransition>
+      </>
     );
     if (isBrowser) {
-      return (
-        <>
-          <CloseButton onClose={toggleVisible} />
-          {content}
-        </>
-      );
+      return content;
     }
-    return (
-      <OverlayContainer>
-        <CloseButton onClose={toggleVisible} />
-        {content}
-      </OverlayContainer>
-    );
+    return <OverlayContainer>{content}</OverlayContainer>;
   },
 );
 

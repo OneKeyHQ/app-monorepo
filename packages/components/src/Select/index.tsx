@@ -36,7 +36,7 @@ export interface CloseButtonProps {
   onClose: (event: GestureResponderEvent) => void;
 }
 
-export function CloseButton({ onClose }: CloseButtonProps) {
+export function CloseBackDrop({ onClose }: CloseButtonProps) {
   const { width, height } = useWindowDimensions();
   return (
     <TouchableWithoutFeedback onPress={onClose}>
@@ -263,7 +263,7 @@ function Select<T = string>({
     }
     return (
       <OverlayContainer>
-        <CloseButton onClose={toggleVisible} />
+        <CloseBackDrop onClose={toggleVisible} />
         <Desktop<T> {...childContainerProps} />
       </OverlayContainer>
     );
