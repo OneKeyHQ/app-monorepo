@@ -40,6 +40,7 @@ const SwapContent = () => {
   } = useSwapState();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { account, wallet, network } = useActiveWalletAccount();
+
   const { formattedAmounts } = useDerivedSwapState();
 
   const isDisabled =

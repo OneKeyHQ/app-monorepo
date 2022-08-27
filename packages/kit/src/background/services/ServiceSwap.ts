@@ -188,5 +188,6 @@ export default class ServiceSwap extends ServiceBase {
       dispatch(setRecipient(data));
       return data;
     }
+    dispatch(setRecipient());
   }
 }
