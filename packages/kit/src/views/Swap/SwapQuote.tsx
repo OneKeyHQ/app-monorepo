@@ -61,13 +61,19 @@ const SwapReceiving = () => {
                 address: selectedAddress,
                 name: selectedName,
                 networkId: outputTokenNetwork?.id,
+                networkImpl: outputTokenNetwork?.impl,
               }),
             );
           },
         },
       },
     });
-  }, [navigation, outputTokenNetwork?.id, recipient?.address]);
+  }, [
+    navigation,
+    outputTokenNetwork?.id,
+    recipient?.address,
+    outputTokenNetwork?.impl,
+  ]);
 
   let text = '';
   const { address, name } = recipient ?? {};

@@ -189,15 +189,18 @@ export const useSwapQuoteCallback = function (
         params.tokenOut.tokenIdOnNetwork || 'native',
         params.typedValue,
       );
-      const res = await SwapQuoter.client.fetchQuote(params);
+      const recipient = await backgroundApiProxy.serviceSwap.setRecipient(
+        params.networkOut,
+      );
+      const res = await SwapQuoter.client.fetchQuote({
+        ...params,
+        receivingAddress: recipient?.address,
+      });
       debugLogger.swap.info('quote success');
       if (refs.current.params === params) {
         backgroundApiProxy.dispatch(setLoading(false));
         if (res) {
           if (res.data) {
-            await backgroundApiProxy.serviceSwap.setReceivingAddress(
-              params.networkOut.id,
-            );
             backgroundApiProxy.serviceSwap.setQuote(res.data);
           }
           backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
