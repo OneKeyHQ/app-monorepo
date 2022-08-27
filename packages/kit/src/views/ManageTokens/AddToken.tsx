@@ -245,12 +245,16 @@ function AddTokenModal() {
             address,
             logoURI,
           );
-        toast.show({
-          title: intl.formatMessage({
-            id: 'msg__token_added',
-            defaultMessage: 'Token Added',
-          }),
-        });
+        setTimeout(
+          () =>
+            toast.show({
+              title: intl.formatMessage({
+                id: 'msg__token_added',
+                defaultMessage: 'Token Added',
+              }),
+            }),
+          200,
+        );
         await dappApprove.resolve({ close, result: addedToken });
       }
     },
