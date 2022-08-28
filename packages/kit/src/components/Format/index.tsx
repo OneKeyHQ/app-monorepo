@@ -310,11 +310,11 @@ export function FormatCurrencyNumber({
   onlyNumber?: boolean;
 }) {
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-  const map = useAppSelector((s) => s.fiatMoney.map);
+  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
   if (typeof value !== 'number' && !(value instanceof BigNumber)) {
     return null;
   }
-  const fiat = map[selectedFiatMoneySymbol];
+  const fiat = fiatMap[selectedFiatMoneySymbol] || 0;
   const maxDecimals =
     decimals ??
     getSuggestedDecimals(value instanceof BigNumber ? value.toNumber() : value);

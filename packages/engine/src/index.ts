@@ -698,9 +698,7 @@ class Engine {
       this.getTokens(networkId, undefined, false),
     ]);
     const decimalsMap: Record<string, number> = {};
-    const currentTokenIds: string[] = [];
     tokens.forEach((token) => {
-      currentTokenIds.push(token.tokenIdOnNetwork);
       if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
         decimalsMap[token.tokenIdOnNetwork] = token.decimals;
       }
@@ -734,7 +732,7 @@ class Engine {
           if (address && +balance > 0) {
             if (!removedTokens.includes(address)) {
               ret[address] = balance;
-              if (!currentTokenIds.includes(address)) {
+              if (!tokensToGet.includes(address)) {
                 missedTokenIds.push(address);
               }
             }
