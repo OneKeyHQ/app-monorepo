@@ -289,7 +289,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountBalance(tokenIds: Array<string>, withMain = true) {
-    const { address } = await this.getDbAccount();
+    const { address } = await this.getOutputAccount();
     return this.getBalances(
       (withMain ? [{ address }] : []).concat(
         tokenIds.map((tokenAddress) => ({ address, tokenAddress })),
