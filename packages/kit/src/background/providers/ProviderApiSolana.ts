@@ -10,6 +10,7 @@ import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
 import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
+import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
@@ -26,15 +27,6 @@ type SolanaSendOptions = {
   preflightCommitment?: string;
   /** Maximum number of times for the RPC node to retry sending the transaction to the leader. */
   maxRetries?: number;
-};
-
-const Mocks = {
-  publicKey: 'GWYfd2h4UhEb3hTj52M5jc6aefCKN2thnUkc5uk924kr',
-  tx: 'C45YSQ38Zu1mYrNAqbBH48oKWziYvjMv82MLvPss8LQ1kr5iV6QEQuQtqfbxdLmM45Bg6Mi87mkGauaWdnhxLcuUYoSsaVJyn4PkoQALU1ef2vEhQAwQY2FY7xUfeNXkiEmaFrvTzUMBZCKsZEcYCUp2NyahbJe7QAidPmsfmwMWZjA1drjvpYQd7htAuKbPY3XxH65doYp6zBnXF3LFaFwfb9g2Avam5UhsLiUqYYDoYXsfQc7PkKgrj',
-  txSignature:
-    'x7GahzCceEaCCyw8y3GJ8bNMM2GRuwHGT8aEdzQdqhUaTCXECPvqBDeEEg1PSCDhxwHa4u6iK94FutptzaHkhdb',
-  signedMessage:
-    '3XkHEaU3NzNsnyYqAX53DeoXfziByN4XffWLqvM3jK7Lq82FjqBrGk2tgsd2CqnUZ36EVFMpSekFDc72PPfLE6J2',
 };
 
 @backgroundClass()
@@ -179,8 +171,8 @@ class ProviderApiSolana extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public signMessage(
-    payload: IJsBridgeMessagePayload,
+  public async signMessage(
+    request: IJsBridgeMessagePayload,
     params: {
       message: string;
       display?: 'hex' | 'utf8';
@@ -192,11 +184,18 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    debugLogger.providerApi.info('solana signMessage', payload, params);
-    return {
-      signature: Mocks.signedMessage,
-      publicKey: Mocks.publicKey,
-    };
+    debugLogger.providerApi.info('solana signMessage', request, params);
+    const publicKey = await this.getConnectedAcccountPublicKey(request);
+    const signature =
+      await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
+        unsignedMessage: {
+          // Use ETH_SIGN to sign plain message
+          type: ETHMessageTypes.ETH_SIGN,
+          // TODO: different display needed?
+          message: bs58.decode(message).toString(),
+        },
+      });
+    return { signature, publicKey };
   }
 
   @providerApiMethod()

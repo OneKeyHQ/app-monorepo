@@ -25,3 +25,11 @@ export async function signTransaction(
       .toString('base64'),
   };
 }
+
+export async function signMessage(
+  message: string,
+  signer: Signer,
+): Promise<string> {
+  const [signature] = await signer.sign(Buffer.from(message));
+  return bs58.encode(signature);
+}
