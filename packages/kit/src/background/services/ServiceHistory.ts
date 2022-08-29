@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { refreshHistory } from '../../store/reducers/refresher';
-import { sleep } from '../../utils/promiseUtils';
 import {
   SendConfirmOnSuccessData,
   SendConfirmResendActionInfo,

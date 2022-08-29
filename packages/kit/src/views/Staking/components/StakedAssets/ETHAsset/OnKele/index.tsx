@@ -12,8 +12,8 @@ import {
   Stack,
   Typography,
 } from '@onekeyhq/components';
+import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 
-import KeleLogoPNG from '../../../../../../../assets/staking/kele_pool.png';
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/types';
@@ -139,7 +139,7 @@ function NoAssetsOnKele() {
             <Typography.Caption>
               {intl.formatMessage(
                 { id: 'form__stake_earn_desc' },
-                { '0': '7%' },
+                { '0': '4.12%' },
               )}
             </Typography.Caption>
           </Box>
@@ -179,7 +179,12 @@ const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
       </Box>
       <Box flex="1">
         <Box>
-          <Typography.Body1Strong>Staked On kelepool</Typography.Body1Strong>
+          <Typography.Body1Strong>
+            {intl.formatMessage(
+              { id: 'title__staked_on_str' },
+              { '0': 'kelepool' },
+            )}
+          </Typography.Body1Strong>
           <Typography.Body2 color="text-subdued">{`${
             state.total ?? '0'
           } ETH`}</Typography.Body2>

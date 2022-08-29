@@ -124,7 +124,7 @@ const ListHeaderComponent = () => {
         <Box>
           <Box flexDirection="row">
             <Typography.Body1>Kele Pool ・</Typography.Body1>
-            <Typography.Body1 color="text-success">7.05% APY</Typography.Body1>
+            <Typography.Body1 color="text-success">4.12% APY</Typography.Body1>
           </Box>
           <Typography.Body2 color="text-subdued">
             {intl.formatMessage({ id: 'content__third_party_validator' })}
@@ -157,7 +157,7 @@ const ListHeaderComponent = () => {
             </Typography.Body1>
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage(
-                { id: 'form__str_is_activating_desc' },
+                { id: 'form__str_is_activating_eth_desc' },
                 { '0': 'ETH', '1': '24' },
               )}
             </Typography.Body2>

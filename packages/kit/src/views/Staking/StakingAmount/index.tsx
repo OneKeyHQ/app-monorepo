@@ -461,8 +461,10 @@ export default function StakingAmount() {
               </Box>
             </Box>
             <Button
+              isDisabled={Number(tokenBalance) - 0.01 <= 0}
               onPress={() => {
-                setTextByAmount(tokenBalance ?? '0');
+                const value = Math.max(Number(tokenBalance) - 0.01, 0);
+                setTextByAmount(String(value));
               }}
             >
               {intl.formatMessage({ id: 'action__max' })}
@@ -481,7 +483,7 @@ export default function StakingAmount() {
               <Box flexDirection="row">
                 <Typography.Body1>Kele Pool </Typography.Body1>
                 <Typography.Body1 color="text-success">
-                  7.05% APY
+                  4.12% APY
                 </Typography.Body1>
               </Box>
               <Typography.Body2 color="text-subdued">

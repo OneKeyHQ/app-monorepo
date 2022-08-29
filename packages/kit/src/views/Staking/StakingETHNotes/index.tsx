@@ -8,7 +8,7 @@ import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
 
 import ETHLogoPNG from '../../../../assets/staking/eth_staking.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks';
+import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { SendRoutes } from '../../Send/types';
 import { useKelePoolStakingState } from '../hooks';
@@ -22,60 +22,78 @@ export default function StakingETHNotes() {
   const { params } = useRoute<RouteProps>();
   const { account } = useActiveWalletAccount();
   const state = useKelePoolStakingState(params.networkId, account?.id);
-  const onSubmit = useCallback(
-    async ({ close }: { close?: () => void }) => {
-      if (account) {
-        await backgroundApiProxy.serviceStaking.registerOnKele({
-          payeeAddr: account.address,
-          networdId: params.networkId,
+  const tokenInfo = useNativeToken(params.networkId, account?.id);
+  const onClose = useCallback(() => {
+    const parent = navigation.getParent();
+    if (parent?.canGoBack()) {
+      parent.goBack();
+    }
+  }, [navigation]);
+  const onSubmit = useCallback(async () => {
+    if (account && tokenInfo) {
+      await backgroundApiProxy.serviceStaking.registerOnKele({
+        payeeAddr: account.address,
+        networdId: params.networkId,
+      });
+      const encodedTx =
+        await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
+          value: new BigNumber(10)
+            .exponentiatedBy(18)
+            .multipliedBy(params.amount)
+            .toFixed(0),
+          networkId: params.networkId,
         });
-        const encodedTx =
-          await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
-            value: new BigNumber(10)
-              .exponentiatedBy(18)
-              .multipliedBy(params.amount)
-              .toFixed(0),
-            networkId: params.networkId,
-          });
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Send,
+      onClose();
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendConfirm,
           params: {
-            screen: SendRoutes.SendConfirm,
-            params: {
-              feeInfoEditable: true,
-              feeInfoUseFeeInTx: false,
-              encodedTx: { ...encodedTx, from: account?.address },
-              onSuccess: (tx, data) => {
-                backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-                  networkId: params.networkId,
-                  accountId: account.id,
-                  data: {
-                    nonce: data?.decodedTx?.nonce,
-                    oldValue: state?.total,
-                    txid: tx.txid,
-                    amount: params.amount,
-                    createdAt: Date.now(),
-                    type: 'kele',
-                  },
-                });
-                close?.();
+            payloadInfo: {
+              type: 'InternalStake',
+              stakeInfo: {
+                tokenInfo,
+                amount: params.amount,
+                accountAddress: account.address,
               },
             },
+            feeInfoEditable: true,
+            feeInfoUseFeeInTx: false,
+            encodedTx: { ...encodedTx, from: account?.address },
+            onSuccess: (tx, data) => {
+              backgroundApiProxy.serviceStaking.setAccountStakingActivity({
+                networkId: params.networkId,
+                accountId: account.id,
+                data: {
+                  nonce: data?.decodedTx?.nonce,
+                  oldValue: state?.total,
+                  txid: tx.txid,
+                  amount: params.amount,
+                  createdAt: Date.now(),
+                  type: 'kele',
+                },
+              });
+            },
           },
-        });
-      }
-    },
-    [account, params.networkId, params.amount, navigation, state?.total],
-  );
+        },
+      });
+    }
+  }, [
+    account,
+    params.networkId,
+    params.amount,
+    navigation,
+    state?.total,
+    tokenInfo,
+    onClose,
+  ]);
   return (
     <Modal
       hideSecondaryAction
       primaryActionTranslationId="action__confirm"
-      onPrimaryActionPress={({ close }) => {
-        close();
-        onSubmit?.({ close });
+      primaryActionProps={{
+        onPromise: onSubmit,
       }}
-      // primaryActionProps={{ onPromise: onSubmit }}
       scrollViewProps={{
         children: (
           <Box>

@@ -744,7 +744,7 @@
   "form__str_hours_after_the_validator_is_made": "{0} годин після створення валідатора",
   "form__str_is_activating": "{0} активується",
   "form__str_is_activating_desc": "Час активації нового стейкінгу {0} становить {0} годин.",
-  "form__str_is_activating_eth_desc": "{0} нової ставки потрібно активувати через {0} годин після створення валідатора.",
+  "form__str_is_activating_eth_desc": "{0} нової ставки потрібно активувати через {1} годин після створення валідатора.",
   "form__str_minimum_transfer": "{0} Мінімальна сума переказу",
   "form__str_minute": "{0} хвилин",
   "form__str_of_the_rewards": "{0} винагород",

@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-member-access */
 import axios, { Axios } from 'axios';
 
+import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+
 import {
   setAccountStakingActivity,
   setKeleETH2StakingState,
@@ -14,8 +17,6 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
-const MainnetBaseurl = 'https://api.kelepool.com';
-const TestnetBaseUrl = 'https://test-api.kelepool.com';
 const TestnetContractAddress = '0x09D93B9d2E7fb79f5Bf26687b35844cf1993DAFa';
 const MainnetContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';
 
@@ -27,17 +28,17 @@ export default class ServiceStaking extends ServiceBase {
   }
 
   getKeleBaseUrl(networkId: string) {
-    if (networkId === 'evm--1') {
-      return MainnetBaseurl;
+    if (networkId === NETWORK_ID_EVM_ETH) {
+      return `${getFiatEndpoint()}/keleMainnet`;
     }
     if (networkId === 'evm--3') {
-      return TestnetBaseUrl;
+      return `${getFiatEndpoint()}/keleTestnet`;
     }
     throw new Error('Not supported network');
   }
 
   getKeleContractAddress(networkId: string): string {
-    if (networkId === 'evm--1') {
+    if (networkId === NETWORK_ID_EVM_ETH) {
       return MainnetContractAddress;
     }
     if (networkId === 'evm--3') {
@@ -46,7 +47,7 @@ export default class ServiceStaking extends ServiceBase {
     throw new Error('Not supported network');
   }
 
-  private client: Axios = axios.create({ timeout: 10 * 1000 });
+  private client: Axios = axios.create({ timeout: 60 * 1000 });
 
   @backgroundMethod()
   async registerOnKele(params: { payeeAddr: string; networdId: string }) {
@@ -65,7 +66,7 @@ export default class ServiceStaking extends ServiceBase {
     networkId: string;
   }) {
     return {
-      data: '0xd0e30db0',
+      data: '0xd0e30db0', // bytes4(keccak256(bytes('deposit()')))
       to: this.getKeleContractAddress(params.networkId),
       value: params.value,
     };
