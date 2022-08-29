@@ -15,6 +15,7 @@ import {
 import Config from 'electron-config';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isString } from 'lodash';
 
 import { PrefType } from './preload';
