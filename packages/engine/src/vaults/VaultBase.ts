@@ -402,7 +402,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     if (!txid) {
       throw new Error('buildHistoryTx txid not found');
     }
-    const address = await this.getAccountAddress();
+    const { address } = await this.getOutputAccount();
     decodedTx.txid = txid || decodedTx.txid;
     decodedTx.owner = address;
     if (isSigner) {

@@ -7,6 +7,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import { Conflux as ConfluxSDK, Drip } from 'js-conflux-sdk';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -17,7 +18,10 @@ import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
   IDecodedTxLegacy,
+  IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
@@ -33,10 +37,23 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { IEncodedTxCfx } from './types';
+
+let confluxSDK: ConfluxSDK | null = null;
 
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
   settings = settings;
+
+  private async getConfluxInstance() {
+    if (confluxSDK) return confluxSDK;
+    const { rpcURL } = await this.getNetwork();
+    confluxSDK = new ConfluxSDK({
+      url: rpcURL,
+      networkId: Number(this.networkId),
+    });
+    return confluxSDK;
+  }
 
   private async getJsonRPCClient(): Promise<Conflux> {
     return (await this.engine.providerManager.getClient(
@@ -47,20 +64,109 @@ export default class Vault extends VaultBase {
   attachFeeInfoToEncodedTx(params: {
     encodedTx: any;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<any> {
-    throw new Error('Method not implemented.');
+  }): Promise<IEncodedTxCfx> {
+    const { encodedTx, feeInfoValue } = params;
+    const { limit, price } = feeInfoValue;
+    const encodedTxWithFee: IEncodedTxCfx = {
+      ...encodedTx,
+    };
+
+    if (limit) {
+      encodedTxWithFee.gas = limit;
+    }
+
+    if (price) {
+      encodedTxWithFee.gasPrice = Drip.fromCFX(price as string).toString();
+    }
+
+    return Promise.resolve(encodedTxWithFee);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
-    throw new NotImplemented();
+    return Promise.resolve({} as IDecodedTxLegacy);
   }
 
-  decodeTx(encodedTx: IEncodedTx, payload?: any): Promise<IDecodedTx> {
-    throw new NotImplemented();
+  override async decodeTx(encodedTx: IEncodedTxCfx): Promise<IDecodedTx> {
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    const account = await this.getOutputAccount();
+
+    let nativeTransferAction: IDecodedTxAction | undefined;
+
+    if (encodedTx.value) {
+      nativeTransferAction = {
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        direction: await this.buildTxActionDirection({
+          from: encodedTx.from,
+          to: encodedTx.to,
+          address: account.address,
+        }),
+        nativeTransfer: {
+          tokenInfo: nativeToken,
+          from: encodedTx.from,
+          to: encodedTx.to,
+          amount: new Drip(encodedTx.value).toCFX(),
+          amountValue: encodedTx.value,
+          extraInfo: null,
+        },
+      };
+    }
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: account.address,
+      signer: encodedTx.from,
+      nonce: Number(encodedTx.nonce),
+      actions: [nativeTransferAction].filter(Boolean),
+
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+
+      extraInfo: null,
+    };
+
+    return decodedTx;
   }
 
-  buildEncodedTxFromTransfer(transferInfo: ITransferInfo): Promise<any> {
-    throw new Error('Method not implemented.');
+  async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxCfx> {
+    const { token, amount, from, to } = transferInfo;
+    const isTransferToken = !!token;
+    const conflux = await this.getConfluxInstance();
+
+    const status = await conflux.getStatus();
+    const epochNumber = await conflux.getEpochNumber();
+    const nonce = (await conflux.getNextNonce(from)).toString();
+
+    let data;
+
+    let amountBN = new BigNumber(amount);
+    if (amountBN.isNaN()) {
+      amountBN = new BigNumber('0');
+    }
+    let value = Drip.fromCFX(amount).toString();
+
+    if (isTransferToken) {
+      const hasToken = await this.engine.ensureTokenInDB(
+        this.networkId,
+        token ?? '',
+      );
+      if (!hasToken) {
+        throw new Error(`Token not found: ${transferInfo.token as string}`);
+      }
+      value = '0x0';
+    }
+
+    return {
+      from,
+      to,
+      value,
+      data,
+      nonce,
+      epochHeight: epochNumber.toString(),
+      chainId: status.chainId.toString(),
+    };
   }
 
   buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
@@ -74,12 +180,56 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+  async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxCfx,
+  ): Promise<IUnsignedTxPro> {
+    const { from, to, value, data } = encodedTx;
+
+    const conflux = await this.getConfluxInstance();
+    const estimate = await conflux.estimateGasAndCollateral({
+      from,
+      to,
+      value,
+      data,
+    });
+
+    const unsignedTx: IUnsignedTxPro = {
+      inputs: [],
+      outputs: [],
+      payload: {
+        ...encodedTx,
+        storageLimit: estimate.storageCollateralized,
+      },
+      encodedTx,
+    };
+    return unsignedTx;
   }
 
-  async fetchFeeInfo(encodedTx: any): Promise<IFeeInfo> {
-    throw new Error('Method not implemented.');
+  async fetchFeeInfo(encodedTx: IEncodedTxCfx): Promise<IFeeInfo> {
+    const network = await this.getNetwork();
+    const conflux = await this.getConfluxInstance();
+    const { from, to, value, data } = encodedTx;
+
+    const gasPrice = new Drip(await conflux.getGasPrice()).toCFX();
+
+    const estimate = await conflux.estimateGasAndCollateral({
+      from,
+      to,
+      value,
+      data,
+    });
+
+    return {
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
+
+      limit: estimate.gasLimit.toString(),
+      prices: [gasPrice],
+      defaultPresetIndex: '1',
+      tx: null,
+    };
   }
 
   keyringMap = {

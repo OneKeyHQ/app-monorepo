@@ -1,4 +1,8 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
@@ -6,7 +10,12 @@ import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBVariantAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import { IPrepareSoftwareAccountsParams } from '../../types';
+import {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
+
+import { signTransaction } from './util';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
@@ -82,5 +91,22 @@ export class KeyringHd extends KeyringHdBase {
       index += 1;
     }
     return ret;
+  }
+
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+      this.networkId
+    ];
+
+    const signers = await this.getSigners(options.password || '', [
+      selectedAddress,
+    ]);
+    const signer = signers[selectedAddress];
+
+    return signTransaction(unsignedTx, signer);
   }
 }
