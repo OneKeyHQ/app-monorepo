@@ -65,6 +65,8 @@ export function closeHardwarePopup() {
     hardwarePopupHolder = null;
   }
 }
+let lastParams = '';
+let lastCallTime = 0;
 export default async function showHardwarePopup({
   uiRequest,
   payload,
@@ -72,6 +74,14 @@ export default async function showHardwarePopup({
   if (!uiRequest) {
     return;
   }
+  const currentCallTime = Date.now();
+  const currentParams = JSON.stringify({ uiRequest, payload });
+  if (currentCallTime - lastCallTime < 1000 && lastParams === currentParams) {
+    // ignore frequent calls
+    return;
+  }
+  lastCallTime = currentCallTime;
+  lastParams = currentParams;
   let popupType = 'normal';
   let popupView: ReactElement | undefined;
 
@@ -197,14 +207,14 @@ export default async function showHardwarePopup({
   if (!popupView) {
     return setTimeout(() => {
       closeHardwarePopup();
-    }, 10);
+    });
   }
 
   const nativeInputContentAlign = platformEnv.isNative ? 'flex-end' : 'center';
   const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
-  closeHardwarePopup();
   setTimeout(() => {
+    closeHardwarePopup();
     hardwarePopupHolder = new RootSiblingsManager(
       (
         <Modal
