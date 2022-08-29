@@ -17,17 +17,21 @@ export const isCollectibleSupportedChainId = (networkId?: string) => {
 };
 
 export function getImageWithAsset(asset: NFTAsset) {
-  const { nftscanUri, imageUri, contentType } = asset;
+  const { nftscanUri, imageUri, contentType, contentUri } = asset;
   if (nftscanUri) {
     return nftscanUri;
   }
-  if (
-    imageUri &&
-    !contentType?.startsWith('video') &&
-    !contentType?.startsWith('audio') &&
-    !imageUri.endsWith('.mp4') &&
-    !imageUri.endsWith('.mp3')
-  ) {
+  if (imageUri) {
+    if (
+      (contentType?.startsWith('image') ||
+        contentType?.startsWith('unknown')) &&
+      !imageUri.endsWith('.mp4') &&
+      !imageUri.endsWith('.mp3')
+    ) {
+      return imageUri;
+    }
+  }
+  if (contentUri && imageUri && imageUri !== contentUri) {
     return imageUri;
   }
 }
@@ -59,6 +63,9 @@ export function getContentWithAsset(asset: NFTAsset) {
       contentUri.toLowerCase().startsWith('ba')
     ) {
       return `https://cloudflare-ipfs.com/ipfs/${contentUri}`;
+    }
+    if (contentUri.startsWith('ipfs://')) {
+      return contentUri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/');
     }
     if (contentUri.startsWith('ar://')) {
       return `https://arweave.net/${contentUri.replace('ar://', '')}`;

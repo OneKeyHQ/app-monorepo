@@ -2,8 +2,10 @@ import { NETWORK_ID_EVM_ETH } from '../constants';
 
 export const NFTChainMap: Record<string, string> = {
   [NETWORK_ID_EVM_ETH]: 'eth',
+  'evm--10': 'optimism',
   'evm--56': 'bsc',
   'evm--137': 'polygon',
+  'evm--42161': 'arbitrum',
   'sol--101': 'sol',
 };
 
