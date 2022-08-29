@@ -98,7 +98,6 @@ export class MdexQuoter implements Quoter {
       slippagePercentage,
       independentField,
       typedValue,
-      activeAccount,
     } = quoteParams;
     if (!this.isSupported(networkIn, networkOut)) {
       return;
@@ -140,7 +139,6 @@ export class MdexQuoter implements Quoter {
     };
     if (data.data) {
       result.txData = {
-        from: activeAccount.address,
         to: data.to,
         data: data.data,
         value: data.value,
@@ -198,10 +196,7 @@ export class MdexQuoter implements Quoter {
     // eslint-disable-next-line
     const data = res.data as QuoteResponse;
     return {
-      data: {
-        ...data,
-        from: activeAccount.address,
-      },
+      data,
     };
   }
 

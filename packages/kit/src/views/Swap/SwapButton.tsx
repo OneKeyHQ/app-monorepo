@@ -310,7 +310,7 @@ const ExchangeButton = () => {
       key="submit"
       size="xl"
       type="primary"
-      isDisabled={!quote}
+      isDisabled={!quote || !recipient}
       onPromise={onSubmit}
     >
       {intl.formatMessage({ id: 'title__swap' })}

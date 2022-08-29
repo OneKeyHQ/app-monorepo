@@ -126,6 +126,13 @@ export function getChainIdFromNetworkId(networdId: string) {
   return networdId.split('--')[1] ?? '';
 }
 
+export function isEvmNetworkId(networdId?: string) {
+  if (!networdId) {
+    return;
+  }
+  return networdId.split('--')[0] === 'evm';
+}
+
 export function getEvmTokenAddress(token: Token) {
   return token.tokenIdOnNetwork ? token.tokenIdOnNetwork : nativeTokenAddress;
 }

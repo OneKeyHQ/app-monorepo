@@ -18,7 +18,7 @@ import {
   setQuoteLimited,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { enabledNetworkIds } from '../config';
+import { enabledNetworkIds, nativeTokenList } from '../config';
 import { SwapQuoter } from '../quoter';
 import { ApprovalState, FetchQuoteParams, SwapError } from '../typings';
 import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
@@ -189,15 +189,18 @@ export const useSwapQuoteCallback = function (
         params.tokenOut.tokenIdOnNetwork || 'native',
         params.typedValue,
       );
-      const res = await SwapQuoter.client.fetchQuote(params);
+      const recipient = await backgroundApiProxy.serviceSwap.setRecipient(
+        params.networkOut,
+      );
+      const res = await SwapQuoter.client.fetchQuote({
+        ...params,
+        receivingAddress: recipient?.address,
+      });
       debugLogger.swap.info('quote success');
       if (refs.current.params === params) {
         backgroundApiProxy.dispatch(setLoading(false));
         if (res) {
           if (res.data) {
-            await backgroundApiProxy.serviceSwap.setReceivingAddress(
-              params.networkOut.id,
-            );
             backgroundApiProxy.serviceSwap.setQuote(res.data);
           }
           backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
@@ -424,7 +427,8 @@ export function useSwappableNativeTokens() {
     if (!enabledNativeTokens) {
       return [];
     }
-    const networkIds = ['evm--1', 'evm--56', 'evm--137', 'btc--0', 'evm--128'];
-    return enabledNativeTokens.filter((item) => networkIds.includes(item.id));
+    return enabledNativeTokens.filter((item) =>
+      nativeTokenList.includes(item.id),
+    );
   }, [enabledNativeTokens]);
 }

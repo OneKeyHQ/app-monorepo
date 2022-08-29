@@ -42,6 +42,7 @@ function getSwftcNetworkName(network: Network): string {
     'evm--42161': 'ARB',
     'evm--42220': 'CELO',
     'evm--10': 'Optimism',
+    'sol--101': 'SOL',
   };
   return records[network.id] ?? '';
 }
@@ -292,6 +293,7 @@ export class SwftcQuoter implements Quoter {
     params: FetchQuoteParams,
   ): Promise<InternalRateResult | undefined> {
     const { networkIn, networkOut, tokenOut, tokenIn } = params;
+    console.log('test');
     if (!this.isSupported(networkIn, networkOut)) {
       return;
     }

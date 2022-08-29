@@ -57,8 +57,14 @@ export enum QuoterType {
 
 export type FieldType = 'INPUT' | 'OUTPUT';
 
+export type Recipient = {
+  address?: string;
+  name?: string;
+  networkId?: string;
+  networkImpl?: string;
+};
+
 export type TransactionData = {
-  from: string;
   to: string;
   data: string;
   value: string;
@@ -73,6 +79,7 @@ export type FetchQuoteParams = {
   typedValue: string;
   independentField: FieldType;
   activeAccount: Account;
+  receivingAddress?: string;
 };
 
 export type QuoteLimited = {
@@ -110,7 +117,6 @@ export interface TransactionAttachment {
 }
 
 export type BuildTransactionParams = FetchQuoteParams & {
-  receivingAddress?: string;
   txData?: TransactionData;
   txAttachment?: TransactionAttachment;
 };

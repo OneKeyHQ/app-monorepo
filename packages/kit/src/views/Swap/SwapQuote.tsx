@@ -14,7 +14,7 @@ import SwappingVia from './components/SwappingVia';
 import TransactionRate from './components/TransactionRate';
 import { useSwapRecipient, useSwapState } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
-import { isNoCharge } from './utils';
+import { isEvmNetworkId, isNoCharge } from './utils';
 
 const SwapArrivalTime = () => {
   const intl = useIntl();
@@ -44,6 +44,7 @@ const SwapArrivalTime = () => {
 };
 
 const SwapReceiving = () => {
+  const intl = useIntl();
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const recipient = useSwapRecipient();
@@ -61,13 +62,19 @@ const SwapReceiving = () => {
                 address: selectedAddress,
                 name: selectedName,
                 networkId: outputTokenNetwork?.id,
+                networkImpl: outputTokenNetwork?.impl,
               }),
             );
           },
         },
       },
     });
-  }, [navigation, outputTokenNetwork?.id, recipient?.address]);
+  }, [
+    navigation,
+    outputTokenNetwork?.id,
+    recipient?.address,
+    outputTokenNetwork?.impl,
+  ]);
 
   let text = '';
   const { address, name } = recipient ?? {};
@@ -87,15 +94,24 @@ const SwapReceiving = () => {
       </Pressable>
     );
   }
-
-  return null;
+  return (
+    <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
+      <Typography.Caption
+        color="action-critical-default"
+        mr="1"
+        numberOfLines={1}
+      >
+        {intl.formatMessage({ id: 'content__set_receiving_address' })}
+      </Typography.Caption>
+      <Icon size={16} name="PencilAltOutline" color="action-critical-default" />
+    </Pressable>
+  );
 };
 
 const SwapQuote = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { inputToken, outputToken, quote } = useSwapState();
-  const recipient = useSwapRecipient();
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
@@ -115,7 +131,8 @@ const SwapQuote = () => {
 
   return (
     <Box>
-      {recipient ? (
+      {outputToken?.networkId === inputToken?.networkId &&
+      isEvmNetworkId(outputToken?.networkId) ? null : (
         <Box
           display="flex"
           flexDirection="row"
@@ -132,7 +149,7 @@ const SwapQuote = () => {
             </Box>
           </Box>
         </Box>
-      ) : null}
+      )}
       <Box
         display="flex"
         flexDirection="row"

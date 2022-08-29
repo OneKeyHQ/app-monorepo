@@ -19,7 +19,7 @@ import {
   switchTokens,
 } from '../../store/reducers/swap';
 import { clearAccountTransactions } from '../../store/reducers/swapTransactions';
-import { FieldType, QuoteData } from '../../views/Swap/typings';
+import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -155,44 +155,39 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setReceivingAddress(networkId: string) {
+  async setRecipient(network: Network): Promise<Recipient | undefined> {
     const { dispatch, appSelector, engine } = this.backgroundApi;
     const recipient = appSelector((s) => s.swap.recipient);
-    if (recipient?.address && recipient.networkId === networkId) {
-      return;
+    if (recipient?.address && recipient.networkImpl === network.impl) {
+      return recipient;
     }
-    const { wallets } = appSelector((s) => s.runtime);
+    const { wallets, networks } = appSelector((s) => s.runtime);
     const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
       (s) => s.general,
     );
-    const wallet = wallets.find((item) => item.id === activeWalletId);
-    if (!wallet) {
+    const activeWallet = wallets.find((item) => item.id === activeWalletId);
+    const activeNetwork = networks.find((item) => item.id === activeNetworkId);
+    if (!activeWallet || !activeNetwork) {
       return;
     }
-    if (networkId === activeNetworkId) {
-      const accounts = await engine.getAccounts(wallet.accounts, networkId);
-      const account = accounts.find((acc) => acc.id === activeAccountId);
-      if (account) {
-        dispatch(
-          setRecipient({
-            address: account.address,
-            name: account.name,
-            networkId,
-          }),
-        );
-      }
-    } else {
-      const accounts = await engine.getAccounts(wallet.accounts, networkId);
-      const account = accounts[0];
-      if (account) {
-        dispatch(
-          setRecipient({
-            address: account.address,
-            name: account.name,
-            networkId,
-          }),
-        );
-      }
+    const accounts = await engine.getAccounts(
+      activeWallet.accounts,
+      network.id,
+    );
+    const account =
+      network.impl === activeNetwork.impl
+        ? accounts.find((acc) => acc.id === activeAccountId)
+        : accounts[0];
+    if (account) {
+      const data = {
+        address: account.address,
+        name: account.name,
+        networkId: network.id,
+        networkImpl: network.impl,
+      };
+      dispatch(setRecipient(data));
+      return data;
     }
+    dispatch(setRecipient());
   }
 }

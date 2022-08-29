@@ -35,6 +35,14 @@ if (platformEnv.isDev) {
   enabledNetworkIds.push('evm--3', 'evm--42');
 }
 
+export const nativeTokenList: string[] = [
+  'evm--1',
+  'evm--56',
+  'evm--137',
+  'btc--0',
+  'evm--128',
+];
+
 const serverURL = 'https://0x.onekey.so';
 
 export const networkRecords: Record<string, string> = {

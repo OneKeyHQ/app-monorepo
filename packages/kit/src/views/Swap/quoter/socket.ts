@@ -235,6 +235,7 @@ export class SocketQuoter implements Quoter {
           toTokenAddress: getEvmTokenAddress(params.tokenOut),
           fromAmount: getTokenAmountString(params.tokenIn, params.typedValue),
           userAddress: params.activeAccount.address,
+          recipient: params.receivingAddress,
           sort: 'output',
           singleTxOnly: true,
         },
@@ -270,7 +271,6 @@ export class SocketQuoter implements Quoter {
       let txData: TransactionData | undefined;
       if (transactionData) {
         txData = {
-          from: params.activeAccount.address,
           value: transactionData.value,
           to: transactionData.txTarget,
           data: transactionData.txData,
