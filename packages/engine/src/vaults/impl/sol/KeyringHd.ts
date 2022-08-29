@@ -11,7 +11,7 @@ import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { signTransaction } from './utils';
+import { signMessage, signTransaction } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type {
@@ -90,5 +90,20 @@ export class KeyringHd extends KeyringHdBase {
     const signer = signers[dbAccount.address];
 
     return signTransaction(unsignedTx, signer);
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = await this.getDbAccount();
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+
+    return Promise.all(
+      messages.map(({ message }) => signMessage(message, signer)),
+    );
   }
 }

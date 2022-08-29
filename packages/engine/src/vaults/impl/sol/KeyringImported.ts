@@ -1,12 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { PublicKey } from '@solana/web3.js';
 
 import { COINTYPE_SOL as COIN_TYPE } from '../../../constants';
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+
+import { signMessage, signTransaction } from './utils';
 
 import type {
   IPrepareImportedAccountsParams,
@@ -62,15 +63,32 @@ export class KeyringImported extends KeyringImportedBase {
     };
   }
 
-  override signTransaction(
+  override async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
-    // TODO
-    throw new NotImplemented();
+    const dbAccount = await this.getDbAccount();
+
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+
+    return signTransaction(unsignedTx, signer);
   }
 
-  override signMessage(messages: any[], options: ISignCredentialOptions): any {
-    throw new NotImplemented();
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = await this.getDbAccount();
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+
+    return Promise.all(
+      messages.map(({ message }) => signMessage(message, signer)),
+    );
   }
 }
