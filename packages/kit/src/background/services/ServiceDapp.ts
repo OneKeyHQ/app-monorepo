@@ -19,7 +19,6 @@ import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/ty
 import { ManageNetworkRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
