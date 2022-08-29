@@ -177,6 +177,12 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
   override key: LocaleIds = 'message__not_support_passphrase_yet';
 }
 
+export class DisabledBlindSignError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BlindSignDisabled;
+
+  override key: LocaleIds = 'msg__hardware_open_blind_sign_error';
+}
+
 // 未知错误
 export class UnknownHardwareError extends OneKeyHardwareError {
   override data = { reconnect: true };

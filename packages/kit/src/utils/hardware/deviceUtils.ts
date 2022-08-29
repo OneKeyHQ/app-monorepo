@@ -338,6 +338,8 @@ class DeviceUtils {
         return new Error.BridgeTimeoutError({ message: msg });
       case HardwareErrorCode.PollingTimeout:
         return new Error.ConnectTimeoutError({ message: msg });
+      case HardwareErrorCode.BlindSignDisabled:
+        return new Error.DisabledBlindSignError({ message: msg });
       default:
         return new Error.UnknownHardwareError({ message: msg });
     }
