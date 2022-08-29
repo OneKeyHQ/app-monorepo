@@ -110,8 +110,8 @@ export class KeyringHardware extends KeyringHardwareBase {
       showOnOneKey: params.showOnOneKey,
       ...passphraseState,
     });
-    if (response.success) {
-      return response.payload.address ?? '';
+    if (response.success && !!response.payload?.address) {
+      return response.payload.address;
     }
     throw deviceUtils.convertDeviceError(response.payload);
   }

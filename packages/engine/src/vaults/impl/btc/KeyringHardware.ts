@@ -119,7 +119,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyHardwareError(error);
     }
 
-    if (!response.success) {
+    if (!response.success || !response.payload) {
       console.error(response.payload);
       throw deviceUtils.convertDeviceError(response.payload);
     }

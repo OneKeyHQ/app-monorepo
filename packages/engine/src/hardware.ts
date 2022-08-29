@@ -56,7 +56,7 @@ export async function ethereumGetAddress(
     console.error(error);
     throw new OneKeyHardwareError(error);
   }
-  if (response.success) {
+  if (response.success && !!response.payload?.address) {
     return engineUtils.fixAddressCase({
       address: response.payload.address,
       impl: IMPL_EVM,
