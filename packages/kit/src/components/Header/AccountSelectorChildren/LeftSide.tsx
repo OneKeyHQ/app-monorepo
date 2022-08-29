@@ -98,8 +98,8 @@ const LeftSide: FC<LeftSideProps> = ({
 
   const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
     if (!status) return undefined;
-    if (status?.isConnected) return 'connected';
     if (status?.hasUpgrade) return 'warning';
+    if (status?.isConnected) return 'connected';
     return undefined;
   };
 
