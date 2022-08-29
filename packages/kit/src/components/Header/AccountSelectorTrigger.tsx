@@ -132,6 +132,7 @@ const AccountSelectorTrigger: FC<Props> = ({
                   size={4}
                   radius="12px"
                   accountId={account.id}
+                  account={account}
                   borderWidth={2}
                   borderColor="background-default"
                 />

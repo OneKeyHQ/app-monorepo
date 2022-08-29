@@ -7,6 +7,7 @@ import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,
+  WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -96,6 +97,7 @@ export type IActiveWalletAccount = {
   account: IAccount | null;
   network: INetwork | null;
   externalWallet: IWallet | null;
+  watchingWallet: IWallet | null;
   networkId: string;
   walletId: string;
   accountId: string;
@@ -115,6 +117,8 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
 
     const externalWallet =
       wallets.find((wallet) => wallet.id === WALLET_TYPE_EXTERNAL) ?? null;
+    const watchingWallet =
+      wallets.find((wallet) => wallet.id === WALLET_TYPE_WATCHING) ?? null;
 
     const activeWallet =
       wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
@@ -147,6 +151,7 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
       account: activeAccountInfo,
       network: activeNetwork,
       externalWallet,
+      watchingWallet,
       accountId,
       networkId,
       networkImpl,

@@ -23,7 +23,7 @@ enum Curve {
   ED25519 = 'ed25519',
 }
 
-const implToCoinTypes: Record<string, string> = {
+const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_EVM]: COINTYPE_ETH,
   [IMPL_SOL]: COINTYPE_SOL,
   [IMPL_ALGO]: COINTYPE_ALGO,

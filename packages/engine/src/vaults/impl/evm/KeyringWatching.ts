@@ -48,7 +48,7 @@ export class KeyringWatching extends KeyringWatchingBase {
 
     return Promise.resolve([
       {
-        id: `${accountIdPrefix}--${COIN_TYPE}--${target}`,
+        id: `${accountIdPrefix}--${COIN_TYPE}--${normalizedAddress}`,
         name: name || '',
         type: AccountType.SIMPLE,
         path: '',

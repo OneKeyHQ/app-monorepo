@@ -560,6 +560,11 @@ class Engine {
     for (const network of networks) {
       networkToAccounts[network.id] = [];
       const coinType = implToCoinTypes[network.impl];
+      if (!coinType) {
+        throw new OneKeyInternalError(
+          `coinType of impl=${network.impl} not found.`,
+        );
+      }
       if (coinType in coinTypeToNetworks) {
         coinTypeToNetworks[coinType].push(network.id);
       } else {
@@ -875,8 +880,12 @@ class Engine {
 
     const { impl } = dbNetwork;
     const usedPurpose = purpose || getDefaultPurpose(impl);
+    const coinType = implToCoinTypes[impl];
+    if (!coinType) {
+      throw new OneKeyInternalError(`coinType of impl=${impl} not found.`);
+    }
     const usedIndexes = indexes || [
-      wallet.nextAccountIds[`${usedPurpose}'/${implToCoinTypes[impl]}'`] || 0,
+      wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0,
     ];
     if (usedIndexes.some((index) => index >= 2 ** 31)) {
       throw new OneKeyInternalError(

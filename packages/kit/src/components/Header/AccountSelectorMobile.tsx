@@ -7,10 +7,15 @@ import {
 } from '@react-navigation/drawer';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
+import { useAccountSelectorInfo } from './AccountSelectorChildren/useAccountSelectorInfo';
 
 const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
   const status = useDrawerStatus();
   const isOpen = status === 'open';
+
+  const accountSelectorInfo = useAccountSelectorInfo({
+    isOpen,
+  });
 
   return (
     <DrawerContentScrollView
@@ -18,7 +23,10 @@ const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
       scrollEnabled={false}
       contentContainerStyle={{ flexDirection: 'row', flex: 1 }}
     >
-      <AccountSelectorChildren isOpen={isOpen} />
+      <AccountSelectorChildren
+        isOpen={isOpen}
+        accountSelectorInfo={accountSelectorInfo}
+      />
     </DrawerContentScrollView>
   );
 };

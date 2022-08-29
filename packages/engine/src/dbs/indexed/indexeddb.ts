@@ -1543,6 +1543,44 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
+  getAccountByAddress({
+    address,
+    coinType,
+  }: {
+    address: string;
+    coinType?: string;
+  }): Promise<DBAccount> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const request: IDBRequest = db
+            .transaction([ACCOUNT_STORE_NAME])
+            .objectStore(ACCOUNT_STORE_NAME)
+            .openCursor();
+
+          request.onsuccess = (_event) => {
+            const cursor: IDBCursorWithValue =
+              request.result as IDBCursorWithValue;
+
+            if (cursor) {
+              const account = cursor.value as DBAccount | undefined;
+              let isFound = account && account?.address === address;
+              if (coinType) {
+                isFound = isFound && account?.coinType === coinType;
+              }
+              if (account && isFound) {
+                resolve(account);
+              } else {
+                cursor.continue();
+              }
+            } else {
+              reject(new OneKeyInternalError(`Account ${address} not found.`));
+            }
+          };
+        }),
+    );
+  }
+
   getAccount(accountId: string): Promise<DBAccount> {
     return this.ready.then(
       (db) =>

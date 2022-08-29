@@ -148,7 +148,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     unsignedMessage: IUnsignedMessageEvm,
   ) {
-    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
+    const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
         unsignedMessage,
@@ -237,7 +237,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
-    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
+    const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
         encodedTx: transaction,

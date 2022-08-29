@@ -6,11 +6,16 @@ import { merge } from 'lodash';
 import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  ONEKEY_APP_DEEP_LINK,
+  WALLET_CONNECT_DEEP_LINK,
+} from '../components/WalletConnect/walletConnectConsts';
 import { ManageNetworkRoutes } from '../views/ManageNetworks/types';
 import { ManageTokenRoutes } from '../views/ManageTokens/types';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 import { SendRoutes } from '../views/Send/types';
 
+import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
 const prefix = createURL('/');
@@ -43,12 +48,20 @@ const tabRoutesWhiteList: WhiteListItemList = [
 
 const normalRouteWhiteList: WhiteListItemList = [
   {
+    screen: `${RootRoutes.Account}`,
+    path: `/${RootRoutes.Account}`,
+  },
+  {
     screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
     path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.NetworkNotMatchModal}`,
+    path: `/${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.NetworkNotMatchModal}`,
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.AddNetworkConfirm}`,
@@ -140,9 +153,25 @@ function generateTabHierarchy(isVerticalLayout?: boolean) {
   );
 }
 
+export function getExtensionIndexHtml() {
+  if (platformEnv.isExtensionBackgroundHtml) {
+    return 'background.html';
+  }
+  if (platformEnv.isExtensionUiPopup) {
+    return 'ui-popup.html';
+  }
+  if (platformEnv.isExtensionUiExpandTab) {
+    return 'ui-expand-tab.html';
+  }
+  if (platformEnv.isExtensionUiStandaloneWindow) {
+    return 'ui-standalone-window.html';
+  }
+  return 'ui-expand-tab.html';
+}
+
 const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
   enabled: true,
-  prefixes: [prefix, 'onekey-wallet://'],
+  prefixes: [prefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
   /**
    * Only change url at whitelist routes, or return home page
    */
@@ -151,16 +180,22 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
      * firefox route issue, refresh cannot recognize hash, just redirect to home page after refresh.
      */
     if (platformEnv.isExtFirefox) {
-      return '/ui-expand-tab.html';
+      return `/${getExtensionIndexHtml()}`;
     }
     const defaultPath = getPathFromStateDefault(state, options);
-    const isWhiteList = whiteList.some((item) => item.path === defaultPath);
+    const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
+
+    const isWhiteList = whiteList.some(
+      (item) =>
+        defaultPathWithoutQuery && item.path === defaultPathWithoutQuery,
+    );
     if (isWhiteList) return defaultPath;
     return '/';
   },
   config: {
     initialRouteName: RootRoutes.Root,
     screens: {
+      [RootRoutes.Account]: AccountRootLandingPathSchema,
       [RootRoutes.Root]: {
         screens: {
           [HomeRoutes.InitialTab]: {

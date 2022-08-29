@@ -22,7 +22,9 @@ function DebugLoggerSettings() {
     Partial<Record<LoggerNames, boolean>>
   >({});
   useEffect(() => {
-    const allKeys = Object.keys(LoggerNames).filter((key) => key !== 'debug');
+    const allKeys = Object.keys(LoggerNames)
+      .sort()
+      .filter((key) => key !== 'debug');
     setKeys(allKeys as LoggerNames[]);
   }, []);
   return (
@@ -32,9 +34,10 @@ function DebugLoggerSettings() {
         onPress={() => {
           if (global.localStorage) {
             const key = '@onekey_debug_useEffect_log';
-            global.localStorage.setItem(
-              key,
-              global.localStorage.getItem(key) ? '' : 'on',
+            const value = global.localStorage.getItem(key) ? '' : 'on';
+            global.localStorage.setItem(key, value);
+            console.log(
+              `localStorage setItem:  @onekey_debug_useEffect_log=${value}`,
             );
           }
         }}

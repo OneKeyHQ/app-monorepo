@@ -12,6 +12,13 @@ import {
   isUndefined,
 } from 'lodash';
 
+import {
+  IMPL_CFX,
+  IMPL_EVM,
+  IMPL_NEAR,
+  IMPL_SOL,
+  IMPL_STC,
+} from '@onekeyhq/engine/src/constants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function throwCrossError(msg: string, ...args: any) {
@@ -272,12 +279,12 @@ export const MAX_LOG_LENGTH = 1000;
 
 const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
   {
-    'ethereum': 'evm',
-    'near': 'near',
-    'conflux': 'cfx',
-    'solana': 'sol',
-    'starcoin': 'stc',
-    'sollet': undefined,
+    'ethereum': IMPL_EVM,
+    'near': IMPL_NEAR,
+    'conflux': IMPL_CFX,
+    'solana': IMPL_SOL,
+    'sollet': IMPL_SOL,
+    'starcoin': IMPL_STC,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };

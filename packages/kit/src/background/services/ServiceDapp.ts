@@ -7,7 +7,6 @@ import { cloneDeep, debounce } from 'lodash';
 
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import {
   DappSiteConnection,
   DappSiteConnectionRemovePayload,
@@ -20,8 +19,10 @@ import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/ty
 import { ManageNetworkRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import { ensureSerializable, isDappScopeMatchNetwork } from '../utils';
@@ -70,13 +71,16 @@ class ServiceDapp extends ServiceBase {
 
   // TODO to decorator @permissionRequired()
   authorizedRequired(request: IJsBridgeMessagePayload) {
+    if (!this.isDappAuthorized(request)) {
+      throw web3Errors.provider.unauthorized();
+    }
+  }
+
+  isDappAuthorized(request: IJsBridgeMessagePayload) {
     const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
       origin: request.origin as string,
     });
-    if (!accounts || !accounts.length) {
-      // TODO move to UI check
-      throw web3Errors.provider.unauthorized();
-    }
+    return Boolean(accounts && accounts.length);
   }
 
   openConnectionModal(request: CommonRequestParams['request']) {
@@ -89,12 +93,15 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
-  openApprovalModal(request: IJsBridgeMessagePayload, params: any) {
-    this.authorizedRequired(request);
+  openSignAndSendModal(request: IJsBridgeMessagePayload, params: any) {
+    // Move authorizedRequired to UI check
+    // this.authorizedRequired(request);
+
     return this.openModal({
       request,
       screens: [ModalRoutes.Send, SendRoutes.SendConfirmFromDapp],
       params,
+      isAuthorizedRequired: true,
     });
   }
 
@@ -160,26 +167,36 @@ class ServiceDapp extends ServiceBase {
     request,
     screens = [],
     params = {},
+    isAuthorizedRequired,
   }: {
     request: IJsBridgeMessagePayload;
     screens: any[];
     params?: any;
+    isAuthorizedRequired?: boolean;
   }) {
+    const { network } = getActiveWalletAccount();
+    const isNotAuthorized = !this.isDappAuthorized(request);
+    let isNotMatchedNetwork = !isDappScopeMatchNetwork(
+      request.scope,
+      network?.impl,
+    );
+
+    if (isAuthorizedRequired && isNotAuthorized) {
+      isNotMatchedNetwork = true;
+    }
+
     return new Promise((resolve, reject) => {
       const id = this.backgroundApi.servicePromise.createCallback({
         resolve,
         reject,
       });
-      const { network } = getActiveWalletAccount();
       let modalScreens = screens;
-      let isNotMatchedNetwork = false;
       // TODO not matched network modal should be singleton and debounced
-      if (!isDappScopeMatchNetwork(request.scope, network?.impl)) {
+      if (isNotMatchedNetwork) {
         modalScreens = [
           ModalRoutes.DappConnectionModal,
           DappConnectionModalRoutes.NetworkNotMatchModal,
         ];
-        isNotMatchedNetwork = true;
       }
       const routeNames = [RootRoutes.Modal, ...modalScreens];
       const sourceInfo = {
@@ -215,9 +232,14 @@ class ServiceDapp extends ServiceBase {
           // so we should resolve([]) here
           resolve([]);
         } else {
+          if (isNotAuthorized) {
+            debugLogger.dappApprove.error(web3Errors.provider.unauthorized());
+          }
           reject(
             new Error(
-              `OneKey Wallet chain/network not matched. method=${requestMethod}`,
+              `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
+                request.scope || ''
+              }`,
             ),
           );
         }

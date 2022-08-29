@@ -146,7 +146,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       let accounts = await this.ethereumRequest<string[]>(connector, {
         method: 'eth_accounts',
       });
-      // TODO do not disconnect, but keep prevAccount if active account changed
+      // TODO do not disconnect session, but keep prevAccount if wallet active account changed
       if (!accounts || !accounts.length) {
         accounts = prevAccounts;
 

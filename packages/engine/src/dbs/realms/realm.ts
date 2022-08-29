@@ -6,6 +6,8 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -926,6 +928,36 @@ class RealmDB implements DBAPI {
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  getAccountByAddress({
+    address,
+    coinType,
+  }: {
+    address: string;
+    coinType?: string;
+  }): Promise<DBAccount> {
+    try {
+      let entries = this.realm!.objects<AccountSchema>('Account').filtered(
+        'address == $0',
+        address,
+      );
+      if (coinType) {
+        entries = entries.filtered('coinType == $0', coinType);
+      }
+
+      if (entries.length === 0) {
+        return Promise.reject(
+          new OneKeyInternalError(`Account ${address} not found.`),
+        );
+      }
+      return Promise.resolve(entries[0].internalObj);
+    } catch (error: any) {
+      debugLogger.common.error(error);
+      return Promise.reject(
+        new OneKeyInternalError(`Account ${address} not found.`),
+      );
     }
   }
 

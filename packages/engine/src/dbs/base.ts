@@ -155,6 +155,10 @@ interface DBAPI {
   ): Promise<DBAccount>;
   getAllAccounts(): Promise<Array<DBAccount>>;
   getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>>;
+  getAccountByAddress(params: {
+    address: string;
+    coinType?: string;
+  }): Promise<DBAccount>;
   getAccount(accountId: string): Promise<DBAccount>;
   removeAccount(
     walletId: string,

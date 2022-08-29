@@ -2,7 +2,7 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Center, Modal, Text } from '@onekeyhq/components';
+import { Alert, Center, Modal, Text, VStack } from '@onekeyhq/components';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -23,6 +23,7 @@ const NetworkNotMatch = () => {
     <Modal
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{ isDisabled: true }}
+      hidePrimaryAction
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={({ close }) => {
         dappApprove.reject();
@@ -31,9 +32,10 @@ const NetworkNotMatch = () => {
       onModalClose={dappApprove.reject}
     >
       <Center flex={1}>
-        <Box mb={4}>
+        <VStack alignItems="center" mb={4}>
           <Text>{sourceInfo?.origin || ''}</Text>
-        </Box>
+          <Text fontWeight="bold">{sourceInfo?.scope || ''}</Text>
+        </VStack>
         <Alert
           title={intl.formatMessage({ id: 'msg__mismatched_networks' })}
           alertType="error"

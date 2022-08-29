@@ -21,7 +21,8 @@ export const WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY = 10 * 1000;
 export const WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL = platformEnv.isNative;
 // export const WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL = true;
 
-export const ONEKEY_UNIVERSAL_LINK = 'onekeyx://'; // onekey:// will open onekey legacy
+export const ONEKEY_APP_DEEP_LINK = 'onekey-wallet://'; // onekey:// will open onekey legacy
+export const WALLET_CONNECT_DEEP_LINK = 'wc://';
 
 const platformName = [
   process.env.ONEKEY_PLATFORM ?? '',

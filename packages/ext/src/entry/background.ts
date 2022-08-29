@@ -5,6 +5,7 @@ import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 import urlParse from 'url-parse';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getExtensionIndexHtml } from '@onekeyhq/kit/src/routes/linking';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import serviceWorker from '../background/serviceWorker';
@@ -48,17 +49,15 @@ if (platformEnv.isDev) {
   );
 }
 
-function getHTMLPath() {
-  return 'ui-expand-tab.html';
-}
-
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
     const parsedUrl = urlParse(details.url);
 
     if (parsedUrl.pathname.includes('.')) return;
+    let indexHtml = getExtensionIndexHtml();
+    indexHtml = 'ui-expand-tab.html';
     const newUrl = chrome.runtime.getURL(
-      `/${getHTMLPath()}/#${parsedUrl.pathname}`,
+      `/${indexHtml}/#${parsedUrl.pathname}`,
     );
 
     return { redirectUrl: newUrl };

@@ -6,13 +6,13 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletService } from './types';
-import { ONEKEY_UNIVERSAL_LINK } from './walletConnectConsts';
+import { ONEKEY_APP_DEEP_LINK } from './walletConnectConsts';
 
 import type { WalletConnectClientForDapp } from './WalletConnectClientForDapp';
 
 const connectionRedirectUrl =
   platformEnv.isNative || platformEnv.isDesktop
-    ? ONEKEY_UNIVERSAL_LINK
+    ? ONEKEY_APP_DEEP_LINK
     : window.location.origin;
 
 // some needs url fixing cases:

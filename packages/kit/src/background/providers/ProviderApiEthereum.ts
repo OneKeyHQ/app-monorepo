@@ -120,7 +120,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   _getCurrentNetworkExtraInfo(): EvmExtraInfo {
     const { network } = getActiveWalletAccount();
-    // return a random chainId in non-evm, as empty string may cause dapp error
+    // return a mocked chainId in non-evm, as empty string may cause dapp error
     let networkInfo: EvmExtraInfo = {
       chainId: '0x736d17dc',
       networkVersion: '1936529372',
@@ -135,7 +135,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     unsignedMessage: IUnsignedMessageEvm,
   ) {
-    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
+    const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
         unsignedMessage,
@@ -220,7 +220,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
-    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
+    const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
         encodedTx: transaction,
