@@ -56,7 +56,6 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
     }
     if (componentType === ComponentType.Audio) {
       const imageUrl = getHttpImageWithAsset(asset);
-
       return <NFTAudio url={uri} size={imageWidth} poster={imageUrl} />;
     }
   }
