@@ -43,6 +43,15 @@ const desktopApi = {
   arch: process.arch,
   platform: process.platform,
   reload: () => ipcRenderer.send('app/reload'),
+  addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
+    ipcRenderer.addListener(event, listener);
+  },
+  removeIpcEventListener: (
+    event: string,
+    listener: (...args: any[]) => void,
+  ) => {
+    ipcRenderer.removeListener(event, listener);
+  },
   onAppState: (cb: (state: 'active' | 'background') => void) => {
     const handler = (_: any, value: any) => cb(value);
     ipcRenderer.addListener('appState', handler);

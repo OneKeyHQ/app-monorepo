@@ -26,6 +26,9 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>so.onekey.app.wallet</string>
+				<string>onekey-wallet</string>
+				<string>wc</string>
+				<string>ethereum</string>
 			</array>
 		</dict>
 	</array>

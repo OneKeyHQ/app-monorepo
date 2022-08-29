@@ -22,6 +22,10 @@ module.exports = {
     '!dist/__**',
     'package.json',
   ],
+  'protocols': {
+    'name': 'electron-deep-linking',
+    'schemes': ['onekey-wallet', 'wc', 'ethereum'],
+  },
   'extraResources': [
     {
       'from': 'build/static/images/icons/512x512.png',

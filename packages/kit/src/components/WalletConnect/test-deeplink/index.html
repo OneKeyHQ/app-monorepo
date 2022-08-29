@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width'>
+  <title>Title</title>
+  <style>
+  </style>
+</head>
+<body>
+
+<div>
+  <input id='text-uri' type='text' />
+  <button onclick="document.getElementById('text-uri').value='';">Clear</button>
+</div>
+<div>
+  <button onclick="window.open(document.getElementById('text-uri').value)">Go with wc</button>
+</div>
+<div>
+  <button onclick="window.open(
+  'onekey-wallet://wc?uri='+
+  encodeURIComponent(document.getElementById('text-uri').value)
+  )">Go with onekey-wallet
+  </button>
+</div>
+<div>
+  <button
+    onclick="window.open('https://app.onekey.so/account/aaaaa')"
+  >
+    Go with universal-link TODO
+  </button>
+</div>
+
+<ul>
+  <li>
+    <a href='wc://'>empty wc://</a>
+  </li>
+  <li>
+    <a
+      href='wc:c157eb01-8262-40e4-963e-7ebee47d0eac@1?bridge=https%3A%2F%2F7.bridge.walletconnect.org&key=881d859aa3ae028e284dd03e3be1d09c486329a400509a39c85246813808956b'>
+      wc: full link
+    </a>
+  </li>
+  <li>
+    <a href='onekey-wallet://'>empty onekey-wallet:</a>
+  </li>
+  <li>
+    <a
+      href='onekey-wallet://wc?uri=wc%3Afa75a793-a3fb-48e4-8629-8f1f034ec6eb%401%3Fbridge%3Dhttps%253A%252F%252Fy.bridge.walletconnect.org%26key%3D9e97f71a32b4e629cb60106295dca54d733d124da480b4031d0d848b678fd610/'>
+      onekey-wallet: with wc:// link
+    </a>
+  </li>
+  <li>
+    <a
+      href='onekey-wallet:///wc?uri=wc%3Afa75a793-a3fb-48e4-8629-8f1f034ec6eb%401%3Fbridge%3Dhttps%253A%252F%252Fy.bridge.walletconnect.org%26key%3D9e97f71a32b4e629cb60106295dca54d733d124da480b4031d0d848b678fd610/'>
+      onekey-wallet: with wc:/// link
+    </a>
+  </li>
+  <li>
+    <a
+      href='onekey-wallet:wc?uri=wc%3Afa75a793-a3fb-48e4-8629-8f1f034ec6eb%401%3Fbridge%3Dhttps%253A%252F%252Fy.bridge.walletconnect.org%26key%3D9e97f71a32b4e629cb60106295dca54d733d124da480b4031d0d848b678fd610/'>
+      onekey-wallet: with wc: link
+    </a>
+  </li>
+</ul>
+
+
+</body>
+</html>
