@@ -1,5 +1,24 @@
+/* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
-import keytar from 'keytar';
+
+let keytar = {
+  async setPassword(...args: any[]) {
+    // noop
+    console.error('keytar.setPassword() not working.');
+  },
+  async getPassword(...args: any[]) {
+    console.error('keytar.getPassword() not working.');
+    return Promise.resolve('');
+  },
+};
+
+try {
+  // eslint-disable-next-line global-require
+  keytar = require('keytar');
+} catch (error) {
+  // Error: dlopen(//app-monorepo/node_modules/keytar/build/Release/keytar.node, 0x0001): tried: '//app-monorepo/node_modules/keytar/build/Release/keytar.node' (mach-o file, but is an incompatible architecture (have 'x86_64', need 'arm64e'))
+  console.error(error);
+}
 
 export type PrefType = 'camera' | 'bluetooth' | 'location' | 'notification';
 export type DesktopAPI = {

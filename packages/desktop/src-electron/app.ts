@@ -18,8 +18,9 @@ import logger from 'electron-log';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isString } from 'lodash';
 
-import { PrefType } from './preload';
 import initProcess, { restartBridge } from './process/index';
+
+import type { PrefType } from './preload';
 
 const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
 
