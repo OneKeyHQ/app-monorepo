@@ -93,14 +93,13 @@ class Validators {
       }
 
       category = UserInputCategory.ADDRESS;
-      if (
-        filterCategories.includes(category) &&
-        (await vault.validateAddress(input).then(
-          () => true,
-          () => false,
-        ))
-      ) {
-        ret.push({ category, possibleNetworks });
+      if (filterCategories.includes(category)) {
+        try {
+          await vault.validateAddress(input);
+          ret.push({ category, possibleNetworks });
+        } catch {
+          // pass
+        }
       }
     }
 

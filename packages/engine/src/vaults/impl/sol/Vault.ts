@@ -254,7 +254,7 @@ export default class Vault extends VaultBase {
     } catch {
       // pass
     }
-    throw new InvalidAddress();
+    return Promise.reject(new InvalidAddress());
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {
