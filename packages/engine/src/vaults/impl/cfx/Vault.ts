@@ -6,7 +6,6 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import BigNumber from 'bignumber.js';
 import { Conflux as ConfluxSDK, Drip } from 'js-conflux-sdk';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -24,9 +23,10 @@ import {
   IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
-  ISignCredentialOptions,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -141,10 +141,6 @@ export default class Vault extends VaultBase {
 
     let data;
 
-    let amountBN = new BigNumber(amount);
-    if (amountBN.isNaN()) {
-      amountBN = new BigNumber('0');
-    }
     let value = Drip.fromCFX(amount).toString();
 
     if (isTransferToken) {
@@ -241,11 +237,14 @@ export default class Vault extends VaultBase {
   };
 
   async updateEncodedTx(
-    encodedTx: IEncodedTx,
-    payload: any,
+    encodedTx: IEncodedTxCfx,
+    payload: IEncodedTxUpdatePayloadTransfer,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+    if (options.type === IEncodedTxUpdateType.transfer) {
+      encodedTx.value = Drip.fromCFX(payload.amount).toString();
+    }
+    return Promise.resolve(encodedTx);
   }
 
   override async getOutputAccount(): Promise<Account> {
