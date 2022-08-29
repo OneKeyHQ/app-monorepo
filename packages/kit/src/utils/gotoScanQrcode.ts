@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -20,11 +21,15 @@ export const handleScanResult = async (data: string) => {
     });
     return;
   } else {
-    const possibleNetworks =
-      await backgroundApiProxy.validator.validateAnyAddress(data);
-    if (possibleNetworks.length > 0) {
-      scanResult.type = 'address';
-      scanResult.possibleNetworks = possibleNetworks;
+    try {
+      const possibleNetworks =
+        await backgroundApiProxy.validator.validateAnyAddress(data);
+      if (possibleNetworks.length > 0) {
+        scanResult.type = 'address';
+        scanResult.possibleNetworks = possibleNetworks;
+      }
+    } catch (e) {
+      debugLogger.backgroundApi.error(e);
     }
   }
   return scanResult;
