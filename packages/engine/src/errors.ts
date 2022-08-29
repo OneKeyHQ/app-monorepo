@@ -16,7 +16,7 @@ export enum OneKeyErrorClassNames {
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
 export type OneKeyHardwareErrorData = {
-  reconnect: boolean;
+  reconnect?: boolean;
 };
 
 export class OneKeyError<T = Error> extends Web3RpcError<T> {
@@ -71,12 +71,10 @@ export class OneKeyInternalError extends OneKeyError {
   override key = 'msg__engine__internal_error';
 }
 
-export class OneKeyHardwareError extends OneKeyError<OneKeyHardwareErrorData> {
+export class OneKeyHardwareError<
+  T extends OneKeyHardwareErrorData = OneKeyHardwareErrorData,
+> extends OneKeyError<T> {
   override className = OneKeyErrorClassNames.OneKeyHardwareError;
-
-  override data: OneKeyHardwareErrorData = {
-    reconnect: false,
-  };
 
   codeHardware?: string;
 
@@ -102,10 +100,12 @@ export class OneKeyHardwareAbortError extends OneKeyError {
   override key = 'msg__engine__internal_error';
 }
 
-export class OneKeyAlreadyExistWalletError extends OneKeyError<{
-  walletId: string;
-  accountId: string | undefined;
-}> {
+export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError<
+  {
+    walletId: string;
+    accountId: string | undefined;
+  } & OneKeyHardwareErrorData
+> {
   override className = OneKeyErrorClassNames.OneKeyAlreadyExistWalletError;
 
   override key: LocaleIds = 'msg__wallet_already_exist';

@@ -215,8 +215,10 @@ class ServiceHardware extends ServiceBase {
       try {
         const result = await this.getFeatures(connectId);
         return result !== null;
-      } catch (e) {
-        if (e instanceof OneKeyHardwareError && !e.data.reconnect) {
+      } catch (e: any) {
+        const { data } = e || {};
+        const { reconnect } = data || {};
+        if (e instanceof OneKeyHardwareError && !reconnect) {
           return Promise.reject(e);
         }
       }

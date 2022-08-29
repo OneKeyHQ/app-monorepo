@@ -14,6 +14,7 @@ import {
   NotImplemented,
   OneKeyAlreadyExistWalletError,
   OneKeyError,
+  OneKeyHardwareError,
   OneKeyInternalError,
   TooManyDerivedAccounts,
   TooManyExternalAccounts,
@@ -1171,7 +1172,7 @@ class RealmDB implements DBAPI {
 
       return await Promise.resolve(wallet!.internalObj);
     } catch (error: any) {
-      if (error.className === 'OneKeyHardwareError') {
+      if (error instanceof OneKeyHardwareError) {
         return Promise.reject(error);
       }
       return Promise.reject(new OneKeyInternalError(error?.message ?? ''));
