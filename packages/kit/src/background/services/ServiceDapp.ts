@@ -182,6 +182,7 @@ class ServiceDapp extends ServiceBase {
     );
 
     if (isAuthorizedRequired && isNotAuthorized) {
+      // TODO show different modal for isNotAuthorized
       isNotMatchedNetwork = true;
     }
 
@@ -232,16 +233,16 @@ class ServiceDapp extends ServiceBase {
           // so we should resolve([]) here
           resolve([]);
         } else {
-          if (isNotAuthorized) {
-            debugLogger.dappApprove.error(web3Errors.provider.unauthorized());
-          }
-          reject(
-            new Error(
-              `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
-                request.scope || ''
-              }`,
-            ),
+          let error = new Error(
+            `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
+              request.scope || ''
+            }`,
           );
+          if (isAuthorizedRequired && isNotAuthorized) {
+            // debugLogger.dappApprove.error(web3Errors.provider.unauthorized());
+            error = web3Errors.provider.unauthorized();
+          }
+          reject(error);
         }
       } else {
         this._openModalByRouteParams({

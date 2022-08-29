@@ -16,6 +16,7 @@ import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import '../routes/deepLink';
 import buildLinking from '../routes/linking';
 
 import RedirectProvider from './RedirectProvider';

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "scheme": "onekey-native",
+    "scheme": "onekey-wallet",
     "name": "OneKey Wallet",
     "slug": "OneKey-Wallet",
     "owner": "onekeyhq",

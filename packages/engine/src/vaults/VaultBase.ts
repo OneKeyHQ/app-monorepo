@@ -210,6 +210,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   abstract updateEncodedTx(
     encodedTx: IEncodedTx,
+    // TODO merge payload to options, just like IDecodedTxAction
     payload: any,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx>;

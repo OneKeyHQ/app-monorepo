@@ -49,7 +49,8 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
 
   const isOut =
     action.direction === IDecodedTxDirection.OUT ||
-    action.direction === IDecodedTxDirection.SELF;
+    action.direction === IDecodedTxDirection.SELF ||
+    action.direction === IDecodedTxDirection.OTHER;
   const titleInfo: ITxActionMetaTitle = {
     // TODO i18n
     titleKey: isOut ? 'action__send' : 'action__receive',
