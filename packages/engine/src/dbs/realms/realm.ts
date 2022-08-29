@@ -8,6 +8,7 @@ import Realm from 'realm';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { isSpecialWallet } from '../../engineUtils';
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -758,17 +759,17 @@ class RealmDB implements DBAPI {
     }
   }
 
-  hideSpecialWallet(): Promise<void> {
+  hideSpecialWallet(): Promise<number> {
     try {
       const wallets = this.realm!.objects<WalletSchema>('Wallet').filter(
-        (w) => !!w.passphraseState,
+        (w) => isSpecialWallet(w) && !w.hidden,
       );
       this.realm!.write(() => {
         for (const wallet of wallets) {
           wallet.hidden = true;
         }
       });
-      return Promise.resolve();
+      return Promise.resolve(wallets.length);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));

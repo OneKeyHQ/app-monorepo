@@ -2,11 +2,13 @@ import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus
 import { toLower } from 'lodash';
 
 import { IMPL_EVM } from './constants';
+import { WalletSchema } from './dbs/realms/schemas';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_WATCHING,
+  Wallet,
 } from './types/wallet';
 
 export function fixAddressCase({
@@ -42,6 +44,10 @@ export function isHardwareWallet({ walletId }: { walletId: string }) {
 
 export function isExternalWallet({ walletId }: { walletId: string }) {
   return !!(walletId && walletId === WALLET_TYPE_EXTERNAL);
+}
+
+export function isSpecialWallet(wallet: Wallet | WalletSchema) {
+  return !!wallet.passphraseState;
 }
 
 export { toBigIntHex };

@@ -135,7 +135,7 @@ interface DBAPI {
   getWallets(): Promise<Array<Wallet>>;
   getWallet(walletId: string): Promise<Wallet | undefined>;
   getWalletByDeviceId(deviceId: string): Promise<Array<Wallet>>;
-  hideSpecialWallet(): Promise<void>;
+  hideSpecialWallet(): Promise<number>;
   createHDWallet(params: CreateHDWalletParams): Promise<Wallet>;
   addHWWallet(params: CreateHWWalletParams): Promise<Wallet>;
   removeWallet(walletId: string, password: string): Promise<void>;

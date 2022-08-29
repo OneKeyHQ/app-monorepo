@@ -318,8 +318,8 @@ class Engine {
   }
 
   @backgroundMethod()
-  async hideSpecialWallet(): Promise<void> {
-    await this.dbApi.hideSpecialWallet();
+  async hideSpecialWallet(): Promise<number> {
+    return this.dbApi.hideSpecialWallet();
   }
 
   @backgroundMethod()

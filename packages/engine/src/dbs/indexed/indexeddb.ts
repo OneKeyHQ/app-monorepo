@@ -5,6 +5,7 @@ import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
 
+import { isSpecialWallet } from '../../engineUtils';
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -895,7 +896,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  hideSpecialWallet(): Promise<void> {
+  hideSpecialWallet(): Promise<number> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -903,25 +904,25 @@ class IndexedDBApi implements DBAPI {
             [WALLET_STORE_NAME],
             'readwrite',
           );
+          const wallets: Wallet[] = [];
           transaction.onerror = (_tevent) => {
             // Hidden failures
-            resolve();
+            resolve(0);
           };
           transaction.oncomplete = (_tevent) => {
-            resolve();
+            resolve(wallets.length);
           };
 
           const request: IDBRequest = transaction
             .objectStore(WALLET_STORE_NAME)
             .openCursor();
 
-          const wallets: Wallet[] = [];
           request.onsuccess = (_event) => {
             const cursor: IDBCursorWithValue =
               request.result as IDBCursorWithValue;
             if (cursor) {
               const wallet: Wallet = cursor.value as Wallet;
-              if (wallet.passphraseState) {
+              if (isSpecialWallet(wallet) && !wallet.hidden) {
                 wallets.push(wallet);
               }
               cursor.continue();
@@ -930,7 +931,6 @@ class IndexedDBApi implements DBAPI {
                 wallet.hidden = true;
                 transaction.objectStore(WALLET_STORE_NAME).put(wallet);
               });
-              resolve();
             }
           };
         }),
