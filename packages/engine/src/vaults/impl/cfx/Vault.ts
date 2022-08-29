@@ -6,7 +6,8 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { Conflux as ConfluxSDK, Drip } from 'js-conflux-sdk';
+import BigNumber from 'bignumber.js';
+import { Conflux as ConfluxSDK, Contract, Drip } from 'js-conflux-sdk';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -40,6 +41,10 @@ import settings from './settings';
 import { IEncodedTxCfx } from './types';
 
 let confluxSDK: ConfluxSDK | null = null;
+
+// TODO Save the corresponding contract for each token
+// eslint-disable-next-line prefer-const
+let contract: Contract | null = null;
 
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
@@ -90,16 +95,44 @@ export default class Vault extends VaultBase {
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     const account = await this.getOutputAccount();
 
-    let nativeTransferAction: IDecodedTxAction | undefined;
+    let transferAction: IDecodedTxAction | undefined;
 
-    if (encodedTx.value) {
-      nativeTransferAction = {
+    const direction = await this.buildTxActionDirection({
+      from: encodedTx.from,
+      to: encodedTx.to,
+      address: account.address,
+    });
+
+    if (encodedTx.data) {
+      const tokenInfo = await this.engine.ensureTokenInDB(
+        this.networkId,
+        encodedTx.to,
+      );
+      if (tokenInfo) {
+        const { recipient, amountValue } = contract?.abi?.decodeData(
+          encodedTx.data,
+        ).object;
+        const amount = new BigNumber(amountValue)
+          .shiftedBy(tokenInfo.decimals * -1)
+          .toFixed();
+
+        transferAction = {
+          type: IDecodedTxActionType.TOKEN_TRANSFER,
+          direction,
+          tokenTransfer: {
+            tokenInfo,
+            from: encodedTx.from,
+            to: recipient,
+            amount,
+            amountValue,
+            extraInfo: null,
+          },
+        };
+      }
+    } else {
+      transferAction = {
         type: IDecodedTxActionType.NATIVE_TRANSFER,
-        direction: await this.buildTxActionDirection({
-          from: encodedTx.from,
-          to: encodedTx.to,
-          address: account.address,
-        }),
+        direction,
         nativeTransfer: {
           tokenInfo: nativeToken,
           from: encodedTx.from,
@@ -116,7 +149,7 @@ export default class Vault extends VaultBase {
       owner: account.address,
       signer: encodedTx.from,
       nonce: Number(encodedTx.nonce),
-      actions: [nativeTransferAction].filter(Boolean),
+      actions: [transferAction].filter(Boolean),
 
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
@@ -139,26 +172,42 @@ export default class Vault extends VaultBase {
     const epochNumber = await conflux.getEpochNumber();
     const nonce = (await conflux.getNextNonce(from)).toString();
 
-    let data;
-
-    let value = Drip.fromCFX(amount).toString();
-
     if (isTransferToken) {
-      const hasToken = await this.engine.ensureTokenInDB(
+      const tokenInfo = await this.engine.ensureTokenInDB(
         this.networkId,
         token ?? '',
       );
-      if (!hasToken) {
+      if (!tokenInfo) {
         throw new Error(`Token not found: ${transferInfo.token as string}`);
       }
-      value = '0x0';
+
+      // not sure how to get contract abi/bytecode
+      /* 
+      const tokenContract = conflux.Contract({
+        abi: '',
+        bytecode: '',
+        address: tokenInfo.address,
+      });
+
+      contract = tokenContract;
+
+      const resp = tokenContract.transfer(to, amount);
+      return {
+        from,
+        to: resp.to,
+        value: '0x0',
+        data: resp.data,
+        nonce,
+        epochHeight: epochNumber.toString(),
+        chainId: status.chainId.toString(),
+      }
+      */
     }
 
     return {
       from,
       to,
-      value,
-      data,
+      value: Drip.fromCFX(amount).toString(),
       nonce,
       epochHeight: epochNumber.toString(),
       chainId: status.chainId.toString(),
