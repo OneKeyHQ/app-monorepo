@@ -230,9 +230,9 @@ class Validators {
 
   @backgroundMethod()
   async validateHWWalletNumber(): Promise<void> {
-    const hwWallets = (await this.dbApi.getWallets()).filter((w) =>
-      w.id.startsWith(WALLET_TYPE_HW),
-    );
+    const hwWallets = (
+      await this.dbApi.getWallets({ filterHideWallet: true })
+    ).filter((w) => w.id.startsWith(WALLET_TYPE_HW));
     if (hwWallets.length >= limits.HW_WALLET_MAX_NUM) {
       throw new errors.TooManyHWWallets(limits.HW_WALLET_MAX_NUM);
     }

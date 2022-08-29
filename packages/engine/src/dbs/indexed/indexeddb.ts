@@ -765,7 +765,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  getWallets(): Promise<Array<Wallet>> {
+  getWallets(option?: { filterHideWallet?: boolean }): Promise<Array<Wallet>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -785,7 +785,11 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
           transaction.oncomplete = (_tevent) => {
-            resolve(ret);
+            if (option?.filterHideWallet) {
+              resolve(ret.filter((w) => w.hidden !== true));
+            } else {
+              resolve(ret);
+            }
           };
 
           const request = transaction.objectStore(WALLET_STORE_NAME).getAll();

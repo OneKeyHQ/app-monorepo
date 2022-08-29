@@ -614,7 +614,9 @@ class ServiceAccount extends ServiceBase {
     let walletName: string | undefined;
     if (passphraseState) {
       if (existDeviceId) {
-        const size = wallets.filter(
+        const size = (
+          await engine.getWallets({ filterHideWallet: false })
+        ).filter(
           (w) => w.associatedDevice === existDeviceId && w.passphraseState,
         ).length;
         walletName = `Hidden Wallet#${size + 1}`;
