@@ -1,5 +1,4 @@
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const swftcCustomerSupportUrl =
   'https://www.bangwo8.com/osp2016/im/pc/index.php?vendorID=782460&uid=&customSource=onekey';
@@ -29,11 +28,9 @@ export const enabledNetworkIds: string[] = [
   'evm--250',
   'evm--43114',
   'evm--42220',
+  'evm--3',
+  'evm--42',
 ];
-
-if (platformEnv.isDev) {
-  enabledNetworkIds.push('evm--3', 'evm--42');
-}
 
 export const nativeTokenList: string[] = [
   'evm--1',
