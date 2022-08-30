@@ -271,8 +271,23 @@ function init() {
 
 const singleInstance = app.requestSingleInstanceLock();
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function quitOrMinimizeApp(event?: Event) {
+  // On OS X it is common for applications and their menu bar
+  // to stay active until the user quits explicitly with Cmd + Q
+  if (process.platform === 'darwin') {
+    // **** renderer app will reload after minimize, and keytar not working.
+    // event?.preventDefault();
+    // mainWindow?.minimize();
+    // ****
+    app.quit();
+  } else {
+    app.quit();
+  }
+}
+
 if (!singleInstance && !process.mas) {
-  app.quit();
+  quitOrMinimizeApp();
 } else {
   app.on('second-instance', (e, argv) => {
     if (mainWindow) {
@@ -291,29 +306,30 @@ if (!singleInstance && !process.mas) {
 
   app.name = APP_NAME;
   app.on('ready', () => {
-    init();
-    mainWindow = createMainWindow();
+    if (!mainWindow) {
+      init();
+      mainWindow = createMainWindow();
+    }
   });
 }
 
 app.on('activate', () => {
-  if (mainWindow === null) {
+  if (!mainWindow) {
     mainWindow = createMainWindow();
   }
 });
 
 app.on('before-quit', () => {
-  if (!mainWindow) return;
-  mainWindow.removeAllListeners();
+  if (mainWindow) {
+    mainWindow?.removeAllListeners();
+    mainWindow?.removeAllListeners('close');
+    mainWindow?.close();
+  }
 });
 
 // Quit when all windows are closed.
-app.on('window-all-closed', () => {
-  // On OS X it is common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+app.on('window-all-closed', (event: Event) => {
+  quitOrMinimizeApp(event);
 });
 
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
