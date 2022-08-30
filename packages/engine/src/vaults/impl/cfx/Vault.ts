@@ -53,9 +53,13 @@ export default class Vault extends VaultBase {
   private async getConfluxInstance() {
     if (confluxSDK) return confluxSDK;
     const { rpcURL } = await this.getNetwork();
+    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
+      this.networkId,
+    );
+
     confluxSDK = new ConfluxSDK({
       url: rpcURL,
-      networkId: Number(this.networkId),
+      networkId: chainInfo.implOptions.chainId,
     });
     return confluxSDK;
   }
