@@ -79,9 +79,11 @@ function AssetsList({
     const sortedTokens = accountTokens
       .filter((t) => {
         if (t.tokenIdOnNetwork && !prices[t.tokenIdOnNetwork]) {
+          if (hideSmallBalance) {
+            return false;
+          }
           // lower the priority of tokens without price info.
           tokenValues.set(t, new BigNumber(-1));
-          return true;
         }
         const [v] = getTokenValues({
           tokens: [t],
