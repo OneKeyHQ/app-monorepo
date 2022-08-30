@@ -310,13 +310,10 @@ class Engine {
 
   @backgroundMethod()
   async getWallets(option?: {
-    filterHideWallet?: boolean;
+    includingHiddenWallet?: boolean;
   }): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    const wallets = await this.dbApi.getWallets({
-      filterHideWallet: true,
-      ...option,
-    });
+    const wallets = await this.dbApi.getWallets(option);
     return wallets.sort((a, b) =>
       natsort({ insensitive: true })(a.name, b.name),
     );

@@ -132,7 +132,9 @@ interface DBAPI {
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token>;
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void>;
 
-  getWallets(option?: { filterHideWallet?: boolean }): Promise<Array<Wallet>>;
+  getWallets(option?: {
+    includingHiddenWallet?: boolean;
+  }): Promise<Array<Wallet>>;
   getWallet(walletId: string): Promise<Wallet | undefined>;
   getWalletByDeviceId(deviceId: string): Promise<Array<Wallet>>;
   hideSpecialWallet(): Promise<number>;

@@ -688,7 +688,7 @@ class RealmDB implements DBAPI {
    * retrieve all accounts
    * @returns {Promise<Wallet[]>}
    */
-  getWallets(option?: { filterHideWallet?: boolean }): Promise<Wallet[]> {
+  getWallets(option?: { includingHiddenWallet?: boolean }): Promise<Wallet[]> {
     try {
       const ret = [];
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
@@ -718,10 +718,10 @@ class RealmDB implements DBAPI {
           ret.push(wallet.internalObj);
         }
       }
-      if (option?.filterHideWallet) {
-        return Promise.resolve(ret.filter((w) => w.hidden !== true));
+      if (option?.includingHiddenWallet) {
+        return Promise.resolve(ret);
       }
-      return Promise.resolve(ret);
+      return Promise.resolve(ret.filter((w) => w.hidden !== true));
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));

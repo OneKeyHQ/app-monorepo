@@ -71,7 +71,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -765,7 +765,9 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  getWallets(option?: { filterHideWallet?: boolean }): Promise<Array<Wallet>> {
+  getWallets(option?: {
+    includingHiddenWallet?: boolean;
+  }): Promise<Array<Wallet>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -785,10 +787,10 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
           transaction.oncomplete = (_tevent) => {
-            if (option?.filterHideWallet) {
-              resolve(ret.filter((w) => w.hidden !== true));
-            } else {
+            if (option?.includingHiddenWallet) {
               resolve(ret);
+            } else {
+              resolve(ret.filter((w) => w.hidden !== true));
             }
           };
 
