@@ -29,6 +29,7 @@ import PasswordModal from './Password';
 import ReceiveToken from './ReceiveToken';
 import ScanQrcode from './ScanQrcode';
 import Send from './Send';
+import StakingModal from './Staking';
 import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
 import TransactionDetailModal from './TransactionDetail';
@@ -147,6 +148,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.ImportBackupPassword,
     component: ImportBackupPassword,
+  },
+  {
+    name: ModalRoutes.Staking,
+    component: StakingModal,
   },
 ];
 

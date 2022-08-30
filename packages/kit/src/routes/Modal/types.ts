@@ -25,3 +25,4 @@ export type { UpdateFeatureRoutesParams } from './UpdateFeature';
 export type { FiatPayModalRoutesParams } from './FiatPay';
 export type { AddressBookRoutesParams } from '../../views/AddressBook/routes';
 export type { ImportBackupPasswordRoutesParams } from './ImportBackupPassword';
+export type { StakingRoutesParams } from '../../views/Staking/typing';

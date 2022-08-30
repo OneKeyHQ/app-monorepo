@@ -10,6 +10,7 @@ import {
   IEncodedTx,
   IFeeInfoSelected,
   ISignedTx,
+  IStakeInfo,
   ISwapInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -98,9 +99,10 @@ export type SendConfirmOnSuccessData = {
   decodedTx?: IDecodedTx | null;
 };
 export type SendConfirmPayloadInfo = {
-  type: 'Transfer' | 'InternalSwap';
+  type: 'Transfer' | 'InternalSwap' | 'InternalStake';
   transferInfo?: ITransferInfo;
   swapInfo?: ISwapInfo;
+  stakeInfo?: IStakeInfo;
 };
 export type SendConfirmSharedParams = {
   encodedTx?: IEncodedTx;

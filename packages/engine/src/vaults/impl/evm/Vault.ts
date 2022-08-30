@@ -287,6 +287,14 @@ export default class Vault extends VaultBase {
       //   action.type = IDecodedTxActionType.INTERNAL_SWAP;
       // }
     }
+    if (payload?.type === 'InternalStake' && payload?.stakeInfo) {
+      action.internalStake = {
+        ...payload.stakeInfo,
+        extraInfo: null,
+      };
+      action.type = IDecodedTxActionType.INTERNAL_STAKE;
+      extraNativeTransferAction = undefined;
+    }
     const { gasInfo } = decodedTxLegacy;
     let feeInfo: IFeeInfoUnit;
     const limit = new BigNumber(gasInfo.gasLimit).toFixed();

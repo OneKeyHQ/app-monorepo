@@ -7,9 +7,10 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens } from '../../hooks';
+import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import PriceChart from '../PriceChart/PriceChart';
+import StakedAssets from '../Staking/components/StakedAssets';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import { TokenDetailRoutesParams } from './routes';
@@ -29,15 +30,14 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
   const [network, setNetwork] = useState<Network>();
-  const { accountTokensMap, nativeToken } = useManageTokens();
-  const token = accountTokensMap.get(tokenId);
+  const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
 
   useEffect(() => {
     backgroundApiProxy.engine.getNetwork(networkId).then(setNetwork);
   }, [networkId]);
 
   useEffect(() => {
-    const title = token?.name || nativeToken?.name;
+    const title = token?.name || '';
     if (title) {
       navigation.setOptions({ title });
     } else {
@@ -50,11 +50,15 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
           console.error('find account error');
         });
     }
-  }, [navigation, token, nativeToken, accountId, networkId]);
+  }, [navigation, token, accountId, networkId]);
 
   const headerView = (
     <>
       <TokenInfo token={token} />
+      <StakedAssets
+        networkId={token?.networkId}
+        tokenIdOnNetwork={token?.tokenIdOnNetwork}
+      />
       <PriceChart
         style={{
           marginBottom: 20,

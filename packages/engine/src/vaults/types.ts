@@ -81,6 +81,12 @@ export type ISwapInfo = {
   swapQuote: QuoteData;
 };
 
+export type IStakeInfo = {
+  tokenInfo: Token;
+  amount: string;
+  accountAddress: string;
+};
+
 // EncodedTx\RawTx\SignedTx ----------------------------------------------
 export type IEncodedTx =
   | IEncodedTxEvm
@@ -246,6 +252,7 @@ export enum IDecodedTxActionType {
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',
+  INTERNAL_STAKE = 'INTERNAL_STAKE',
   // SWAP = 'SWAP',
 
   // Contract Interaction
@@ -305,6 +312,7 @@ export type IDecodedTxActionEvmInfo = {
   data?: string;
 };
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
+export type IDecodedTxActionInternalStake = IDecodedTxActionBase & IStakeInfo;
 // other Unknown Action
 export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 export type IDecodedTxAction = {
@@ -315,6 +323,7 @@ export type IDecodedTxAction = {
   tokenTransfer?: IDecodedTxActionTokenTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
   internalSwap?: IDecodedTxActionInternalSwap;
+  internalStake?: IDecodedTxActionInternalStake;
   functionCall?: IDecodedTxActionFunctionCall;
   // other Unknown Action
   unknownAction?: IDecodedTxActionUnknown;

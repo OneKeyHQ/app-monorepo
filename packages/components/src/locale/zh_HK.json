@@ -744,7 +744,7 @@
   "form__str_hours_after_the_validator_is_made": "{0}驗證器生成後的幾小時",
   "form__str_is_activating": "{0}正在激活",
   "form__str_is_activating_desc": "新質押{0}的激活時間為{0}小時。",
-  "form__str_is_activating_eth_desc": "新質押的{0}需要在驗證人生成後{0}小時後激活。",
+  "form__str_is_activating_eth_desc": "新質押的{0}需要在驗證人完成{1}小時後激活。",
   "form__str_minimum_transfer": "最小轉賬數量 {0}",
   "form__str_minute": "{0}分鐘",
   "form__str_of_the_rewards": "{0}的獎勵",
