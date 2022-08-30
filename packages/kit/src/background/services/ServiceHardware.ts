@@ -16,7 +16,7 @@ import {
 } from '@onekeyfe/hd-core';
 import axios from 'axios';
 
-import { isSpecialWallet } from '@onekeyhq/engine/src/engineUtils';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { DevicePayload } from '@onekeyhq/engine/src/types/device';
 import {
@@ -114,11 +114,12 @@ class ServiceHardware extends ServiceBase {
                 const wallets = await this.backgroundApi.engine.getWallets();
                 const wallet = wallets.find(
                   (w) =>
-                    w.associatedDevice === device.id && !isSpecialWallet(w),
+                    w.associatedDevice === device.id && !isPassphraseWallet(w),
                 );
-                if (!wallet) return;
-                this.featursCache[wallet.id] = features;
-                this.syncDeviceLabel(features, wallet.id);
+                if (wallet) {
+                  this.featursCache[wallet.id] = features;
+                  this.syncDeviceLabel(features, wallet.id);
+                }
               } catch {
                 // ignore
               }

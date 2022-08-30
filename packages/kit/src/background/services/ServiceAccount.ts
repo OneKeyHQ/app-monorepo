@@ -615,7 +615,7 @@ class ServiceAccount extends ServiceBase {
     if (passphraseState) {
       if (existDeviceId) {
         const size = (
-          await engine.getWallets({ includingHiddenWallet: true })
+          await engine.getWallets({ includePassphrase: true })
         ).filter(
           (w) => w.associatedDevice === existDeviceId && w.passphraseState,
         ).length;

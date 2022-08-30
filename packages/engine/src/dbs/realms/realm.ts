@@ -6,9 +6,11 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
+import { filterPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { isSpecialWallet } from '../../engineUtils';
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -688,7 +690,7 @@ class RealmDB implements DBAPI {
    * retrieve all accounts
    * @returns {Promise<Wallet[]>}
    */
-  getWallets(option?: { includingHiddenWallet?: boolean }): Promise<Wallet[]> {
+  getWallets(option?: { includePassphrase?: boolean }): Promise<Wallet[]> {
     try {
       const ret = [];
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
@@ -718,10 +720,10 @@ class RealmDB implements DBAPI {
           ret.push(wallet.internalObj);
         }
       }
-      if (option?.includingHiddenWallet) {
-        return Promise.resolve(ret);
-      }
-      return Promise.resolve(ret.filter((w) => w.hidden !== true));
+      const isPassphraseWallet = (w: Wallet) =>
+        option?.includePassphrase || filterPassphraseWallet(w);
+
+      return Promise.resolve(ret.filter(isPassphraseWallet));
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -757,23 +759,6 @@ class RealmDB implements DBAPI {
         deviceId,
       );
       return Promise.resolve(wallet.map((w) => w.internalObj));
-    } catch (error: any) {
-      console.error(error);
-      return Promise.reject(new OneKeyInternalError(error));
-    }
-  }
-
-  hideSpecialWallet(): Promise<number> {
-    try {
-      const wallets = this.realm!.objects<WalletSchema>('Wallet').filter(
-        (w) => isSpecialWallet(w) && !w.hidden,
-      );
-      this.realm!.write(() => {
-        for (const wallet of wallets) {
-          wallet.hidden = true;
-        }
-      });
-      return Promise.resolve(wallets.length);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -1144,6 +1129,13 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
+
+      if (typeof wallet !== 'undefined' && !passphraseState) {
+        return await Promise.reject(
+          new OneKeyAlreadyExistWalletError(wallet.id),
+        );
+      }
+
       if (typeof wallet === 'undefined') {
         this.realm!.write(() => {
           wallet = this.realm!.create('Wallet', {
@@ -1158,16 +1150,13 @@ class RealmDB implements DBAPI {
             passphraseState,
           });
         });
-      } else if (passphraseState) {
+      }
+
+      if (passphraseState) {
         if (wallet) {
-          this.realm!.write(() => {
-            wallet!.hidden = false;
-          });
+          const { dispatch } = backgroundApiProxy;
+          dispatch(addDisplayPassphraseWallet(wallet.id));
         }
-      } else {
-        return await Promise.reject(
-          new OneKeyAlreadyExistWalletError(wallet.id),
-        );
       }
 
       return await Promise.resolve(wallet!.internalObj);

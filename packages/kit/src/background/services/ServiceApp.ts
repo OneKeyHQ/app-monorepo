@@ -40,7 +40,7 @@ class ServiceApp extends ServiceBase {
     super(props);
     if (platformEnv.isExtensionBackground) {
       this.autoOpenOnboardingIfExtensionInstalled();
-      this.initApp(true);
+      this.initApp();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
     // TODO recheck last reset status and resetApp here
@@ -176,8 +176,8 @@ class ServiceApp extends ServiceBase {
    * Initialize APP job, will show splash screen at first time.
    */
   @backgroundMethod()
-  async initApp(initialize = false) {
-    const { engine, dispatch, serviceAccount, serviceNetwork, appSelector } =
+  async initApp() {
+    const { dispatch, serviceAccount, serviceNetwork, appSelector } =
       this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -189,11 +189,6 @@ class ServiceApp extends ServiceBase {
     await this.initPassword();
     await this.initLocalAuthentication();
     await this.checkLockStatus();
-
-    // hidden passphrase wallet
-    if (!platformEnv.isExtension || initialize) {
-      await engine.hideSpecialWallet();
-    }
 
     const networks = await serviceNetwork.initNetworks();
     const wallets = await serviceAccount.initWallets();

@@ -5,7 +5,10 @@ import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
 
-import { isSpecialWallet } from '../../engineUtils';
+import { filterPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -765,9 +768,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  getWallets(option?: {
-    includingHiddenWallet?: boolean;
-  }): Promise<Array<Wallet>> {
+  getWallets(option?: { includePassphrase?: boolean }): Promise<Array<Wallet>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -787,11 +788,10 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
           transaction.oncomplete = (_tevent) => {
-            if (option?.includingHiddenWallet) {
-              resolve(ret);
-            } else {
-              resolve(ret.filter((w) => w.hidden !== true));
-            }
+            const passphraseWallet = (w: Wallet) =>
+              option?.includePassphrase || filterPassphraseWallet(w);
+
+            resolve(ret.filter(passphraseWallet));
           };
 
           const request = transaction.objectStore(WALLET_STORE_NAME).getAll();
@@ -896,47 +896,6 @@ class IndexedDBApi implements DBAPI {
               cursor.continue();
             } else {
               resolve(wallets);
-            }
-          };
-        }),
-    );
-  }
-
-  hideSpecialWallet(): Promise<number> {
-    return this.ready.then(
-      (db) =>
-        new Promise((resolve, _reject) => {
-          const transaction: IDBTransaction = db.transaction(
-            [WALLET_STORE_NAME],
-            'readwrite',
-          );
-          const wallets: Wallet[] = [];
-          transaction.onerror = (_tevent) => {
-            // Hidden failures
-            resolve(0);
-          };
-          transaction.oncomplete = (_tevent) => {
-            resolve(wallets.length);
-          };
-
-          const request: IDBRequest = transaction
-            .objectStore(WALLET_STORE_NAME)
-            .openCursor();
-
-          request.onsuccess = (_event) => {
-            const cursor: IDBCursorWithValue =
-              request.result as IDBCursorWithValue;
-            if (cursor) {
-              const wallet: Wallet = cursor.value as Wallet;
-              if (isSpecialWallet(wallet) && !wallet.hidden) {
-                wallets.push(wallet);
-              }
-              cursor.continue();
-            } else {
-              wallets.forEach((wallet) => {
-                wallet.hidden = true;
-                transaction.objectStore(WALLET_STORE_NAME).put(wallet);
-              });
             }
           };
         }),
@@ -1103,6 +1062,11 @@ class IndexedDBApi implements DBAPI {
                 getWalletRequest.onsuccess = (_wevent) => {
                   const wallet = getWalletRequest?.result as Wallet | undefined;
 
+                  if (wallet && !passphraseState) {
+                    reject(new OneKeyAlreadyExistWalletError(wallet.id));
+                    return;
+                  }
+
                   if (!wallet) {
                     ret = {
                       id: walletId,
@@ -1117,17 +1081,18 @@ class IndexedDBApi implements DBAPI {
                       passphraseState,
                     };
                     walletStore.add(ret);
-                  } else if (passphraseState) {
-                    // exists wallet and passphraseState is not empty
-                    // update wallet state, display wallet
-                    if (wallet) {
-                      wallet.hidden = false;
+                  }
 
-                      walletStore.put(wallet);
+                  if (passphraseState) {
+                    if (wallet) {
                       ret = wallet;
                     }
-                  } else {
-                    reject(new OneKeyAlreadyExistWalletError(wallet.id));
+
+                    // update wallet state, display wallet
+                    if (ret) {
+                      const { dispatch } = backgroundApiProxy;
+                      dispatch(addDisplayPassphraseWallet(ret.id));
+                    }
                   }
                 };
               };
