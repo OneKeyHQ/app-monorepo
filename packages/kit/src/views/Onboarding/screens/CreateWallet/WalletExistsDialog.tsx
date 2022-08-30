@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,30 +16,28 @@ const WalletExistsDialog: FC<WalletExistsDialogDialogProps> = ({
   const intl = useIntl();
 
   return (
-    <>
-      <Dialog
-        visible
-        hasFormInsideDialog
-        onClose={() => {
+    <Dialog
+      visible
+      hasFormInsideDialog
+      onClose={() => {
+        onClose?.();
+      }}
+      contentProps={{
+        icon: <Icon name="ExclamationOutline" size={48} />,
+        title: intl.formatMessage({ id: 'msg_create_wallet_is_exists' }),
+        content: intl.formatMessage({
+          id: 'msg_create_wallet_is_exists_dsc',
+        }),
+      }}
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__switch',
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        onPrimaryActionPress: ({ onClose }) => {
+          onDone();
           onClose?.();
-        }}
-        contentProps={{
-          icon: <Icon name="ExclamationOutline" size={48} />,
-          title: intl.formatMessage({ id: 'msg_create_wallet_is_exists' }),
-          content: intl.formatMessage({
-            id: 'msg_create_wallet_is_exists_dsc',
-          }),
-        }}
-        footerButtonProps={{
-          primaryActionTranslationId: 'action__switch',
-          // eslint-disable-next-line @typescript-eslint/no-shadow
-          onPrimaryActionPress: ({ onClose }) => {
-            onDone();
-            onClose?.();
-          },
-        }}
-      />
-    </>
+        },
+      }}
+    />
   );
 };
 

@@ -6,18 +6,24 @@ import { useIntl } from 'react-intl';
 import { LottieView, Text } from '@onekeyhq/components';
 import ConfirmOnClassic from '@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json';
 import ConfirmOnMini from '@onekeyhq/kit/assets/animations/confirm-on-onekey-mini.json';
+import ConfirmOnPro from '@onekeyhq/kit/assets/animations/confirm-on-onekey-pro.json';
 import ConfirmOnTouch from '@onekeyhq/kit/assets/animations/confirm-on-onekey-touch.json';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
-const getConfirmAnimation = (type: string) => {
+const getConfirmAnimation = (type: IDeviceType) => {
   switch (type) {
+    case 'classic':
+      return ConfirmOnClassic;
     case 'mini':
       return ConfirmOnMini;
     case 'touch':
       return ConfirmOnTouch;
+    case 'pro':
+      return ConfirmOnPro;
     default:
-      return ConfirmOnClassic;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+      const checkType: never = type;
   }
 };
 

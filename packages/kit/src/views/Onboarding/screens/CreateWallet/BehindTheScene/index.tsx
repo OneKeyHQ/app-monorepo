@@ -145,8 +145,6 @@ function BehindTheSceneCreatingWallet({
           ),
         });
       } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        console.log(e);
-
         deviceUtils.showErrorToast(e);
       } else {
         ToastManager.show(

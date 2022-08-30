@@ -125,10 +125,7 @@ class ServiceHardware extends ServiceBase {
               }
 
               try {
-                if (
-                  features.passphrase_protection === true ||
-                  features.passphrase_protection === false
-                ) {
+                if (typeof features.passphrase_protection === 'boolean') {
                   this.backgroundApi.dispatch(
                     updateDevicePassphraseOpenedState({
                       deviceId: device.id,

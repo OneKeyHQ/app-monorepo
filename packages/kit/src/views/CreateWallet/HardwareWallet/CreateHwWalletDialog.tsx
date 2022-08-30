@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,24 +22,28 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
 }) => {
   const intl = useIntl();
   const { serviceAccount, engine } = backgroundApiProxy;
-  engine
-    .getHWDevice(deviceId)
-    .then((device: Device | null) => {
-      if (!device) throw new DeviceNotFind();
-      if (!device?.features) throw new DeviceNotFind();
 
-      return serviceAccount.createHWWallet({
-        features: JSON.parse(device.features),
-        onlyPassphrase,
-        connectId: device.mac ?? '',
+  useEffect(() => {
+    engine
+      .getHWDevice(deviceId)
+      .then((device: Device | null) => {
+        if (!device) throw new DeviceNotFind();
+        if (!device?.features) throw new DeviceNotFind();
+
+        return serviceAccount.createHWWallet({
+          features: JSON.parse(device.features),
+          onlyPassphrase,
+          connectId: device.mac ?? '',
+        });
+      })
+      .catch((e) => {
+        deviceUtils.showErrorToast(e);
+      })
+      .finally(() => {
+        onClose();
       });
-    })
-    .catch((e) => {
-      deviceUtils.showErrorToast(e);
-    })
-    .finally(() => {
-      onClose();
-    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Dialog

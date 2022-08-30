@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Icon, LottieView, Text } from '@onekeyhq/components';
 import EnterPassphraseOnClassic from '@onekeyhq/kit/assets/animations/lottie-onekey-classic-enter-passphrase-on-device.json';
 import EnterPassphraseOnMini from '@onekeyhq/kit/assets/animations/lottie-onekey-mini-enter-passphrase-on-device.json';
+import EnterPassphraseOnPro from '@onekeyhq/kit/assets/animations/lottie-onekey-pro-enter-passphrase-on-device.json';
 import EnterPassphraseOnTouch from '@onekeyhq/kit/assets/animations/lottie-onekey-touch-enter-passphrase-on-device.json';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
@@ -15,14 +16,19 @@ type RequestPassphraseOnDeviceViewProps = {
   passphraseState?: string;
 } & Omit<BaseRequestViewProps, 'children'>;
 
-const getEnterPassphraseAnimation = (type: string) => {
+const getEnterPassphraseAnimation = (type: IDeviceType) => {
   switch (type) {
+    case 'classic':
+      return EnterPassphraseOnClassic;
     case 'mini':
       return EnterPassphraseOnMini;
     case 'touch':
       return EnterPassphraseOnTouch;
+    case 'pro':
+      return EnterPassphraseOnPro;
     default:
-      return EnterPassphraseOnClassic;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+      const checkType: never = type;
   }
 };
 

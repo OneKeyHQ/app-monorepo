@@ -1554,7 +1554,6 @@ class RealmDB implements DBAPI {
       });
       return Promise.resolve();
     } catch (error: any) {
-      console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
     }
   }
