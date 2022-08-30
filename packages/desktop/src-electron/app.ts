@@ -268,8 +268,10 @@ function createMainWindow() {
     // hide() instead of close() on MAC
     if (isMac) {
       event.preventDefault();
-      browserWindow.hide();
-      // browserWindow.minimize();
+      if (!browserWindow.isDestroyed()) {
+        browserWindow.hide();
+        // browserWindow.minimize();
+      }
     }
   });
 
@@ -289,7 +291,9 @@ function quitOrMinimizeApp(event?: Event) {
   if (isMac) {
     // **** renderer app will reload after minimize, and keytar not working.
     event?.preventDefault();
-    mainWindow?.hide();
+    if (!mainWindow?.isDestroyed()) {
+      mainWindow?.hide();
+    }
     // ****
     // app.quit();
   } else {
