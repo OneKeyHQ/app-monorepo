@@ -80,6 +80,7 @@ const AppLoading: FC = ({ children }) => {
         preload={false}
         disableAppScale={platformEnv.isExtension}
         disableImageBackgroundAnimation={platformEnv.isExtension}
+        // imageBackgroundSource
         translucent={!platformEnv.isNativeAndroid}
         isLoaded={initDataReady}
         // eslint-disable-next-line global-require
