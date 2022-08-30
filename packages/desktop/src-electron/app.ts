@@ -47,6 +47,8 @@ const staticPath = isDev
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
 
+const isMac = process.platform === 'darwin';
+
 function handleDeepLinkUrl(event: Event | null, url: string, argv?: string[]) {
   if (!mainWindow) {
     return;
@@ -262,6 +264,17 @@ function createMainWindow() {
     );
   }
 
+  browserWindow.on('close', (event: Event) => {
+    // hide() instead of close() on MAC
+    if (isMac) {
+      event.preventDefault();
+      if (!browserWindow.isDestroyed()) {
+        browserWindow.hide();
+        // browserWindow.minimize();
+      }
+    }
+  });
+
   return browserWindow;
 }
 
@@ -275,12 +288,14 @@ const singleInstance = app.requestSingleInstanceLock();
 function quitOrMinimizeApp(event?: Event) {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
-  if (process.platform === 'darwin') {
+  if (isMac) {
     // **** renderer app will reload after minimize, and keytar not working.
-    // event?.preventDefault();
-    // mainWindow?.minimize();
+    event?.preventDefault();
+    if (!mainWindow?.isDestroyed()) {
+      mainWindow?.hide();
+    }
     // ****
-    app.quit();
+    // app.quit();
   } else {
     app.quit();
   }
@@ -292,6 +307,7 @@ if (!singleInstance && !process.mas) {
   app.on('second-instance', (e, argv) => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
       mainWindow.focus();
 
       // Protocol handler for win32
@@ -310,6 +326,7 @@ if (!singleInstance && !process.mas) {
       init();
       mainWindow = createMainWindow();
     }
+    mainWindow.show();
   });
 }
 
@@ -317,6 +334,7 @@ app.on('activate', () => {
   if (!mainWindow) {
     mainWindow = createMainWindow();
   }
+  mainWindow.show();
 });
 
 app.on('before-quit', () => {
