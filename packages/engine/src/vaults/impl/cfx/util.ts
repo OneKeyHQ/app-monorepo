@@ -1,3 +1,5 @@
+import { hexZeroPad } from '@ethersproject/bytes';
+import { keccak256 } from '@ethersproject/keccak256';
 import {
   SignedTx,
   UnsignedTx,
@@ -10,14 +12,23 @@ export async function signTransaction(
   unsignedTx: UnsignedTx,
   signer: Signer,
 ): Promise<SignedTx> {
-  const privateKey = await signer.getPrvkey();
-  const transaction = new Transaction(unsignedTx.payload);
-  transaction.sign(
-    `0x${privateKey.toString('hex')}`,
-    Number(unsignedTx.payload.chainId),
+  const unsignedTransaction = new Transaction(unsignedTx.payload);
+  const digest = keccak256(unsignedTransaction.encode(false));
+
+  const [sig, recoveryParam] = await signer.sign(
+    Buffer.from(digest.slice(2), 'hex'),
   );
+  const [r, s]: [Buffer, Buffer] = [sig.slice(0, 32), sig.slice(32)];
+
+  const signedTransaction = new Transaction({
+    ...unsignedTx.payload,
+    r: hexZeroPad(`0x${r.toString('hex')}`, 32),
+    s: hexZeroPad(`0x${s.toString('hex')}`, 32),
+    v: recoveryParam,
+  });
+
   return {
-    txid: transaction.hash,
-    rawTx: transaction.serialize(),
+    txid: signedTransaction.hash,
+    rawTx: signedTransaction.serialize(),
   };
 }
