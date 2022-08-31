@@ -22,6 +22,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
@@ -37,6 +38,7 @@ import {
   useAccountTokens,
   useActiveWalletAccount,
   useDebounce,
+  useNetwork,
   useNetworkTokens,
 } from '../../../../hooks';
 import { enabledNetworkIds } from '../../config';
@@ -222,7 +224,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   onSelect,
 }) => {
   const { token, balance, price } = item;
-  const { selectedToken } = useContext(TokenSelectorContext);
+  const { selectedToken, networkId } = useContext(TokenSelectorContext);
+
+  const tokenNetwork = useNetwork(token.networkId);
 
   const onPress = useCallback(() => {
     onSelect?.(token);
@@ -230,6 +234,13 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   const isSelected =
     token.networkId === selectedToken?.networkId &&
     token.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork;
+
+  let description: string = token.name;
+  if (!networkId && tokenNetwork) {
+    description = tokenNetwork?.shortName;
+  } else if (token.tokenIdOnNetwork) {
+    description = shortenAddress(token.tokenIdOnNetwork);
+  }
   return (
     <Pressable
       borderTopRadius={isFirst ? '12' : undefined}
@@ -282,7 +293,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
                 maxWidth="full"
                 color="text-subdued"
               >
-                {token.name}
+                {description}
               </Typography.Body2>
             </Box>
           </Box>
