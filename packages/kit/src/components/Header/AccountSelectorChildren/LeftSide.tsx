@@ -1,8 +1,20 @@
-import React, { ComponentProps, FC, memo, useMemo } from 'react';
+import React, {
+  ComponentProps,
+  FC,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import { orderBy } from 'lodash';
 
 import {
   Box,
+  Center,
   HStack,
+  Icon,
   IconButton,
   Pressable,
   ScrollView,
@@ -12,19 +24,35 @@ import {
 } from '@onekeyhq/components';
 import {
   WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
   Wallet,
 } from '@onekeyhq/engine/src/types/wallet';
-import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
+import { showOverlay } from '../../../utils/overlayUtils';
+import CreateHwWalletDialog from '../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
 import WalletAvatar from '../WalletAvatar';
 
 import type { AccountType, DeviceStatusType } from './index';
+
+const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
+  if (!status) return undefined;
+  if (status?.hasUpgrade) return 'warning';
+  if (status?.isConnected) return 'connected';
+  return undefined;
+};
+
+type HwWalletGroupType = {
+  deviceId: string;
+
+  wallets: Wallet[];
+};
 
 type WalletItemProps = {
   isSelected?: boolean;
@@ -55,6 +83,116 @@ const WalletItem: FC<WalletItemProps> = ({ isSelected, ...rest }) => (
   </Pressable>
 );
 
+type HwWalletGroupProps = {
+  index: number;
+  walletGroup: HwWalletGroupType;
+  selectedWallet?: Wallet | null;
+  setSelectedWallet: (v: Wallet) => void;
+  deviceStatus?: Record<string, DeviceStatusType | undefined>;
+  onAddPassphraseWallet?: (deviceId: string) => void;
+};
+
+const HwWalletGroup: FC<HwWalletGroupProps> = ({
+  index,
+  walletGroup,
+  selectedWallet,
+  setSelectedWallet,
+  deviceStatus,
+  onAddPassphraseWallet,
+}) => {
+  const passphraseOpenedList = useAppSelector(
+    (state) => state.hardware.passphraseOpened,
+  );
+  const [existsSelectedWallet, setExistsSelectedWallet] = useState(false);
+
+  useEffect(() => {
+    setExistsSelectedWallet(
+      !!walletGroup.wallets.find((w) => w.id === selectedWallet?.id),
+    );
+  }, [selectedWallet, walletGroup]);
+
+  const passphraseMode = useMemo(
+    () => passphraseOpenedList.find((v) => v === walletGroup.deviceId),
+    [walletGroup, passphraseOpenedList],
+  );
+
+  const isGroup = useMemo(
+    () => walletGroup.wallets.length > 1 || passphraseMode,
+    [walletGroup, passphraseMode],
+  );
+
+  const getWalletItemStatus = useCallback(
+    (wallet: Wallet, walletIndex: number) => {
+      const status = convertDeviceStatus(
+        deviceStatus?.[wallet.associatedDevice ?? ''],
+      );
+
+      if (existsSelectedWallet && selectedWallet?.id === wallet.id) {
+        return status;
+      }
+      if (!existsSelectedWallet && walletIndex === 0) {
+        return status;
+      }
+
+      return undefined;
+    },
+    [deviceStatus, existsSelectedWallet, selectedWallet?.id],
+  );
+
+  return (
+    <Box>
+      {isGroup && (
+        <Box
+          py={1}
+          pl={1}
+          pr={1.5}
+          w="100%"
+          h="100%"
+          style={{ position: 'absolute', top: 0, left: 0 }}
+        >
+          <Box rounded={12} flex={1} bg="surface-neutral-subdued" />
+        </Box>
+      )}
+      <VStack space={2} pt={isGroup ? 2 : 0} pb={isGroup ? 2 : 0}>
+        {walletGroup.wallets.map((wallet, childIndex) => (
+          <WalletItem
+            key={`${wallet.id}${index}${childIndex}`}
+            onPress={() => {
+              setSelectedWallet(wallet);
+            }}
+            isSelected={selectedWallet?.id === wallet.id}
+            walletImage={wallet.type}
+            avatar={wallet.avatar}
+            walletType="hw"
+            hwWalletType={
+              (wallet.deviceType as IOneKeyDeviceType) ||
+              getDeviceTypeByDeviceId(wallet.associatedDevice)
+            }
+            status={getWalletItemStatus(wallet, childIndex)}
+            isPassphrase={!!wallet.passphraseState}
+          />
+        ))}
+        {!!passphraseMode && onAddPassphraseWallet && (
+          <Center mr={0.5}>
+            <Pressable
+              size="48px"
+              justifyContent="center"
+              alignItems="center"
+              onPress={() => {
+                onAddPassphraseWallet?.(walletGroup.deviceId);
+              }}
+            >
+              <Box>
+                <Icon name="PlusOutline" size={24} />
+              </Box>
+            </Pressable>
+          </Center>
+        )}
+      </VStack>
+    </Box>
+  );
+};
+
 const WalletItemDefaultProps = {
   isSelected: false,
   decorationColor: 'surface-neutral-default',
@@ -76,6 +214,7 @@ const LeftSide: FC<LeftSideProps> = ({
   const navigation = useAppNavigation();
 
   const { wallets } = useRuntime();
+  const [hwWallet, setHwWallet] = React.useState<Array<HwWalletGroupType>>([]);
 
   const singletonWallet = useMemo(() => {
     const imported = wallets.filter(
@@ -96,12 +235,50 @@ const LeftSide: FC<LeftSideProps> = ({
 
   const { bottom } = useSafeAreaInsets();
 
-  const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
-    if (!status) return undefined;
-    if (status?.hasUpgrade) return 'warning';
-    if (status?.isConnected) return 'connected';
-    return undefined;
-  };
+  useEffect(() => {
+    const hwWallets = wallets.filter(
+      (w) => w.type === WALLET_TYPE_HW && w.associatedDevice,
+    );
+    const walletRecord = hwWallets.reduce((result, w) => {
+      const key = w.associatedDevice ?? '';
+      if (!result[key]) {
+        result[key] = [];
+      }
+      result[key].push(w);
+      return result;
+    }, {} as Record<string, Wallet[]>);
+
+    // sort by device id
+    const hwGroup: HwWalletGroupType[] = [];
+    Object.keys(walletRecord).forEach((key) => {
+      const value = walletRecord[key];
+      const normal = value.find((w) => !w.passphraseState);
+
+      const sortWallet = orderBy(
+        value.filter((w) => w.passphraseState),
+        ['name'],
+        ['asc'],
+      );
+      if (normal) sortWallet.unshift(normal);
+
+      hwGroup.push({
+        deviceId: key,
+        wallets: sortWallet,
+      });
+    });
+
+    setHwWallet(hwGroup);
+  }, [wallets]);
+
+  const onAddPassphraseWallet = useCallback((deviceId: string) => {
+    showOverlay((onClose) => (
+      <CreateHwWalletDialog
+        deviceId={deviceId}
+        onlyPassphrase
+        onClose={onClose}
+      />
+    ));
+  }, []);
 
   return (
     <VStack
@@ -131,27 +308,17 @@ const LeftSide: FC<LeftSideProps> = ({
           </VStack>
           {/* All Hardware Wallets */}
           <VStack space={2}>
-            {wallets
-              .filter((wallet) => wallet.type === 'hw')
-              .map((wallet, index) => (
-                <WalletItem
-                  key={`${wallet.id}${index}`}
-                  onPress={() => {
-                    setSelectedWallet(wallet);
-                  }}
-                  isSelected={selectedWallet?.id === wallet.id}
-                  walletImage={wallet.type}
-                  avatar={wallet.avatar}
-                  walletType="hw"
-                  hwWalletType={
-                    (wallet.deviceType as IOneKeyDeviceType) ||
-                    getDeviceTypeByDeviceId(wallet.associatedDevice)
-                  }
-                  status={convertDeviceStatus(
-                    deviceStatus?.[wallet.associatedDevice ?? ''],
-                  )}
-                />
-              ))}
+            {hwWallet.map((wallet, index) => (
+              <HwWalletGroup
+                key={`${index}`}
+                index={index}
+                walletGroup={wallet}
+                selectedWallet={selectedWallet}
+                setSelectedWallet={setSelectedWallet}
+                deviceStatus={deviceStatus}
+                onAddPassphraseWallet={onAddPassphraseWallet}
+              />
+            ))}
           </VStack>
           {wallets.some((wallet) => wallet.type === 'hw') && <Box h={4} />}
           {/* imported | watching | external  wallet */}

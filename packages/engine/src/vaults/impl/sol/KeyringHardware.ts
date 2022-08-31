@@ -30,7 +30,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.getDbAccount();
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
-
+    const passphraseState = await this.getWalletPassphraseState();
     const { nativeTx: transaction, feePayer } = unsignedTx.payload as {
       nativeTx: Transaction;
       feePayer: PublicKey;
@@ -39,6 +39,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const response = await HardwareSDK.solSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
       rawTx: transaction.serializeMessage().toString('hex'),
+      ...passphraseState,
     });
 
     if (response.success && response.payload.signature) {
@@ -70,11 +71,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     const showOnOneKey = false;
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
 
     let addressesResponse;
     try {
       addressesResponse = await HardwareSDK.solGetAddress(connectId, deviceId, {
         bundle: paths.map((path) => ({ path, showOnOneKey })),
+        ...passphraseState,
       });
     } catch (error: any) {
       debugLogger.common.error(error);
@@ -101,12 +104,14 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async getAddress(params: IGetAddressParams): Promise<string> {
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.solGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
+      ...passphraseState,
     });
-    if (response.success) {
-      return response.payload.address ?? '';
+    if (response.success && !!response.payload?.address) {
+      return response.payload.address;
     }
     throw deviceUtils.convertDeviceError(response.payload);
   }

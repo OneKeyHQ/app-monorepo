@@ -36,7 +36,7 @@ export const AppLockOverlayMode: FC<AppLockProps> = ({ children }) => {
         </OverlayContainer>
       ) : null}
       {prerequisites && isUnlock ? <AppStateUpdater /> : null}
-      {prerequisites && isUnlock ? <AppStateHeartbeat /> : null}
+      {isUnlock ? <AppStateHeartbeat /> : null}
       {children}
     </Box>
   );
@@ -62,7 +62,7 @@ export const AppLockNormalMode: FC<AppLockProps> = ({ children }) => {
   return (
     <Box w="full" h="full">
       {prerequisites && isUnlock ? <AppStateUpdater /> : null}
-      {prerequisites && isUnlock ? <AppStateHeartbeat /> : null}
+      {isUnlock ? <AppStateHeartbeat /> : null}
       {children}
     </Box>
   );

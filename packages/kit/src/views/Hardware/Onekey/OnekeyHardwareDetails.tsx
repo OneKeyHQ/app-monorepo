@@ -83,7 +83,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         deviceUtils.showErrorToast(err, 'action__connection_timeout');
       }
     })();
-  }, [engine, intl, navigation, serviceHardware, walletId]);
+  }, [deviceType, engine, intl, navigation, serviceHardware, walletId]);
 
   return (
     <Box

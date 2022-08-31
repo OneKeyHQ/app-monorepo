@@ -7,22 +7,15 @@ import RootSiblingsManager from 'react-native-root-siblings';
 
 import DialogManager from '@onekeyhq/components/src/DialogManager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { HardwareUiEventPayload } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import PermissionDialog from '../../../components/PermissionDialog/PermissionDialog';
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 
 import RequestConfirmView from './RequestConfirm';
+import RequestPassphraseOnDeviceView from './RequestPassphraseOnDevice';
 import RequestPinView from './RequestPin';
-
-export type HardwareUiEventPayload = {
-  type: string;
-  deviceType: IOneKeyDeviceType;
-  deviceId: string;
-  deviceConnectId: string;
-  deviceBootLoaderMode: boolean;
-};
 
 export type HardwarePopup = {
   uiRequest?: string;
@@ -39,6 +32,7 @@ export const UI_REQUEST = {
   REQUEST_PIN: 'ui-request_pin',
   INVALID_PIN: 'ui-invalid_pin',
   REQUEST_BUTTON: 'ui-button',
+  REQUEST_PASSPHRASE_ON_DEVICE: 'ui-request_passphrase_on_device',
 
   CLOSE_UI_WINDOW: 'ui-close_window',
 
@@ -149,6 +143,20 @@ export default async function showHardwarePopup({
       <RequestConfirmView
         deviceType={deviceType}
         bootLoader={payload?.deviceBootLoaderMode}
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+      />
+    );
+  }
+
+  if (uiRequest === UI_REQUEST.REQUEST_PASSPHRASE_ON_DEVICE) {
+    const deviceType = payload?.deviceType ?? 'classic';
+
+    popupView = (
+      <RequestPassphraseOnDeviceView
+        deviceType={deviceType}
+        passphraseState={payload?.passphraseState}
         onCancel={() => {
           handleCancelPopup();
         }}

@@ -309,9 +309,11 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getWallets(): Promise<Array<Wallet>> {
+  async getWallets(option?: {
+    includePassphrase?: boolean;
+  }): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    const wallets = await this.dbApi.getWallets();
+    const wallets = await this.dbApi.getWallets(option);
     return wallets.sort((a, b) =>
       natsort({ insensitive: true })(a.name, b.name),
     );
@@ -338,14 +340,9 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getWalletByDeviceId(deviceId: string): Promise<Wallet> {
-    const wallet = await this.dbApi.getWalletByDeviceId(deviceId);
-    if (typeof wallet !== 'undefined') {
-      return wallet;
-    }
-    throw new OneKeyInternalError(
-      `Wallet with device id ${deviceId} not found.`,
-    );
+  async getWalletByDeviceId(deviceId: string): Promise<Array<Wallet>> {
+    const wallets = await this.dbApi.getWalletByDeviceId(deviceId);
+    return wallets;
   }
 
   @backgroundMethod()
@@ -419,11 +416,13 @@ class Engine {
     avatar,
     features,
     connectId,
+    passphraseState,
   }: {
     name?: string;
     avatar?: Avatar;
     features: IOneKeyDeviceFeatures;
     connectId: string;
+    passphraseState?: string;
   }): Promise<Wallet> {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
@@ -457,11 +456,14 @@ class Engine {
       deviceUUID,
       connectId,
       features: JSON.stringify(features),
+      passphraseState,
     });
     // Add BTC & ETH accounts by default.
     try {
-      await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
-      await this.addHdOrHwAccounts('', wallet.id, NETWORK_ID_EVM_ETH);
+      if (wallet.accounts.length === 0) {
+        await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
+        await this.addHdOrHwAccounts('', wallet.id, NETWORK_ID_EVM_ETH);
+      }
     } catch (e) {
       await this.removeWallet(wallet.id, '');
       if (e instanceof OneKeyHardwareError) throw e;
@@ -478,6 +480,11 @@ class Engine {
   @backgroundMethod()
   async getHWDevices() {
     return this.dbApi.getDevices();
+  }
+
+  @backgroundMethod()
+  async getHWDevice(id: string) {
+    return this.dbApi.getDevice(id);
   }
 
   @backgroundMethod()

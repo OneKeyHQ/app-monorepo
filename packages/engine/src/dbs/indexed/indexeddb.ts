@@ -5,6 +5,10 @@ import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
 
+import { filterPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -70,7 +74,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -764,7 +768,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  getWallets(): Promise<Array<Wallet>> {
+  getWallets(option?: { includePassphrase?: boolean }): Promise<Array<Wallet>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -784,7 +788,10 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
           transaction.oncomplete = (_tevent) => {
-            resolve(ret);
+            const passphraseWallet = (w: Wallet) =>
+              option?.includePassphrase || filterPassphraseWallet(w);
+
+            resolve(ret.filter(passphraseWallet));
           };
 
           const request = transaction.objectStore(WALLET_STORE_NAME).getAll();
@@ -868,7 +875,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  getWalletByDeviceId(deviceId: string): Promise<Wallet | undefined> {
+  getWalletByDeviceId(deviceId: string): Promise<Array<Wallet>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -876,15 +883,19 @@ class IndexedDBApi implements DBAPI {
             .transaction([WALLET_STORE_NAME])
             .objectStore(WALLET_STORE_NAME)
             .openCursor();
+
+          const wallets: Wallet[] = [];
           request.onsuccess = (_event) => {
             const cursor: IDBCursorWithValue =
               request.result as IDBCursorWithValue;
             if (cursor) {
               const wallet: Wallet = cursor.value as Wallet;
               if (wallet.associatedDevice === deviceId) {
-                resolve(wallet);
+                wallets.push(wallet);
               }
               cursor.continue();
+            } else {
+              resolve(wallets);
             }
           };
         }),
@@ -967,6 +978,7 @@ class IndexedDBApi implements DBAPI {
     deviceType,
     deviceUUID,
     features,
+    passphraseState,
   }: CreateHWWalletParams): Promise<Wallet> {
     let ret: Wallet;
     return this.ready.then(
@@ -974,7 +986,13 @@ class IndexedDBApi implements DBAPI {
         // eslint-disable-next-line no-async-promise-executor
         new Promise((resolve, reject) => {
           const transaction = db.transaction(
-            [WALLET_STORE_NAME, DEVICE_STORE_NAME],
+            [
+              WALLET_STORE_NAME,
+              DEVICE_STORE_NAME,
+              ACCOUNT_STORE_NAME,
+              TOKEN_BINDING_STORE_NAME,
+              HISTORY_STORE_NAME,
+            ],
             'readwrite',
           );
           transaction.onerror = (_tevent) => {
@@ -984,7 +1002,6 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
 
-          const walletId = `hw-${id}`;
           const deviceStore = transaction.objectStore(DEVICE_STORE_NAME);
           const walletStore = transaction.objectStore(WALLET_STORE_NAME);
 
@@ -995,38 +1012,44 @@ class IndexedDBApi implements DBAPI {
 
             getDevicesRequest.onsuccess = async (_devent) => {
               const devices = getDevicesRequest.result as Device[];
-              const hasExistWallet = wallets.some((w) => {
-                if (w.associatedDevice) {
-                  const device = devices.find(
-                    (d) => d.id === w.associatedDevice,
-                  );
-                  if (device) {
-                    return (
-                      device.deviceId === deviceId && device.uuid === deviceUUID
-                    );
-                  }
-                  return false;
-                }
-                return false;
+              const existDevice = devices.find(
+                (d) => d.deviceId === deviceId && d.uuid === deviceUUID,
+              );
+              const hasExistWallet = wallets.find((w) => {
+                if (!existDevice) return null;
+
+                return (
+                  w.associatedDevice === existDevice?.id &&
+                  w.passphraseState === passphraseState
+                );
               });
 
-              if (hasExistWallet) {
-                reject(new OneKeyAlreadyExistWalletError());
+              // exists Passphrase wallet does not report errors
+              if (hasExistWallet && !passphraseState) {
+                reject(new OneKeyAlreadyExistWalletError(hasExistWallet.id));
                 return;
               }
 
-              await this.insertDevice(
-                id,
-                name,
-                connectId,
-                deviceUUID,
-                deviceId ?? '',
-                deviceType,
-                features,
-                deviceStore,
-              );
+              if (!existDevice) {
+                await this.insertDevice(
+                  id,
+                  name,
+                  connectId,
+                  deviceUUID,
+                  deviceId ?? '',
+                  deviceType,
+                  features,
+                  deviceStore,
+                );
+              }
 
-              const getNewDeviceRequest = deviceStore.get(id);
+              const deviceTableId = existDevice ? existDevice.id : id;
+              let walletId = `hw-${deviceTableId}`;
+              if (passphraseState) {
+                walletId = `hw-${deviceTableId}-${passphraseState}`;
+              }
+
+              const getNewDeviceRequest = deviceStore.get(deviceTableId);
               getNewDeviceRequest.onsuccess = () => {
                 const newDevice = getNewDeviceRequest.result as Device;
                 if (typeof newDevice === 'undefined') {
@@ -1037,23 +1060,40 @@ class IndexedDBApi implements DBAPI {
 
                 const getWalletRequest = walletStore.get(walletId);
                 getWalletRequest.onsuccess = (_wevent) => {
-                  if (typeof getWalletRequest.result !== 'undefined') {
-                    reject(new OneKeyAlreadyExistWalletError());
+                  const wallet = getWalletRequest?.result as Wallet | undefined;
+
+                  if (wallet && !passphraseState) {
+                    reject(new OneKeyAlreadyExistWalletError(wallet.id));
                     return;
                   }
 
-                  ret = {
-                    id: walletId,
-                    name,
-                    avatar,
-                    type: WALLET_TYPE_HW,
-                    backuped: true,
-                    accounts: [],
-                    nextAccountIds: {},
-                    associatedDevice: id,
-                    deviceType,
-                  };
-                  walletStore.add(ret);
+                  if (!wallet) {
+                    ret = {
+                      id: walletId,
+                      name,
+                      avatar,
+                      type: WALLET_TYPE_HW,
+                      backuped: true,
+                      accounts: [],
+                      nextAccountIds: {},
+                      associatedDevice: deviceTableId,
+                      deviceType,
+                      passphraseState,
+                    };
+                    walletStore.add(ret);
+                  }
+
+                  if (passphraseState) {
+                    if (wallet) {
+                      ret = wallet;
+                    }
+
+                    // update wallet state, display wallet
+                    if (ret) {
+                      const { dispatch } = backgroundApiProxy;
+                      dispatch(addDisplayPassphraseWallet(ret.id));
+                    }
+                  }
                 };
               };
             };
@@ -1103,30 +1143,60 @@ class IndexedDBApi implements DBAPI {
               return;
             }
 
-            const getMainContextRequest = transaction
-              .objectStore(CONTEXT_STORE_NAME)
-              .get(MAIN_CONTEXT);
-            getMainContextRequest.onsuccess = (_cevent) => {
-              const context: OneKeyContext =
-                getMainContextRequest.result as OneKeyContext;
-              if (wallet.type === WALLET_TYPE_HD) {
-                // Only check password for HD wallet deletion.
-                if (!checkPassword(context, password)) {
-                  reject(new WrongPassword());
-                  return;
+            const deleteWallet = (removeDevice = true) => {
+              const getMainContextRequest = transaction
+                .objectStore(CONTEXT_STORE_NAME)
+                .get(MAIN_CONTEXT);
+              getMainContextRequest.onsuccess = (_cevent) => {
+                const context: OneKeyContext =
+                  getMainContextRequest.result as OneKeyContext;
+                if (wallet.type === WALLET_TYPE_HD) {
+                  // Only check password for HD wallet deletion.
+                  if (!checkPassword(context, password)) {
+                    reject(new WrongPassword());
+                    return;
+                  }
+                } else if (wallet.associatedDevice && removeDevice) {
+                  walletStore.transaction
+                    .objectStore(DEVICE_STORE_NAME)
+                    .delete(wallet.associatedDevice);
                 }
-              } else {
-                transaction
-                  .objectStore(DEVICE_STORE_NAME)
-                  .delete(wallet.associatedDevice as string);
-              }
-              const { accounts } = wallet;
-              accounts.forEach((accountId) => {
-                this.cleanupAccount(transaction, wallet, accountId);
-              });
-              walletStore.delete(walletId);
-              transaction.objectStore(CREDENTIAL_STORE_NAME).delete(walletId);
+
+                const { accounts } = wallet;
+                accounts.forEach((accountId) => {
+                  this.cleanupAccount(transaction, wallet, accountId);
+                });
+                walletStore.delete(walletId);
+                transaction.objectStore(CREDENTIAL_STORE_NAME).delete(walletId);
+              };
             };
+
+            if (wallet.type === WALLET_TYPE_HW) {
+              const walletRequest: IDBRequest = transaction
+                .objectStore(WALLET_STORE_NAME)
+                .openCursor();
+
+              const wallets: Wallet[] = [];
+              walletRequest.onsuccess = (_event) => {
+                const cursor: IDBCursorWithValue =
+                  walletRequest.result as IDBCursorWithValue;
+
+                if (cursor) {
+                  const deviceWallet: Wallet = cursor.value as Wallet;
+                  if (
+                    deviceWallet.associatedDevice === wallet.associatedDevice
+                  ) {
+                    wallets.push(wallet);
+                  }
+                  cursor.continue();
+                } else {
+                  const deleteDevice = wallets.length <= 1;
+                  deleteWallet(deleteDevice);
+                }
+              };
+            } else {
+              deleteWallet(false);
+            }
           };
         }),
     );

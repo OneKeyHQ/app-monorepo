@@ -35,6 +35,7 @@ import { passwordSet, release } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { Avatar } from '../../utils/emojiUtils';
+import { DeviceNotOpenedPassphrase } from '../../utils/hardware/errors';
 import { wait } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
@@ -572,12 +573,14 @@ class ServiceAccount extends ServiceBase {
     features,
     avatar,
     connectId,
+    onlyPassphrase,
   }: {
     features: IOneKeyDeviceFeatures;
     avatar?: Avatar;
     connectId: string;
+    onlyPassphrase?: boolean;
   }) {
-    const { dispatch, engine, serviceAccount, appSelector } =
+    const { dispatch, engine, serviceAccount, serviceHardware, appSelector } =
       this.backgroundApi;
     const devices = await engine.getHWDevices();
     const networkId = appSelector((s) => s.general.activeNetworkId) || '';
@@ -590,22 +593,47 @@ class ServiceAccount extends ServiceBase {
         device.mac === connectId && device.deviceId === features.device_id,
     )?.id;
     let walletExistButNoAccount = null;
+
+    const passphraseState = await serviceHardware.getPassphraseState(connectId);
+    if (!!onlyPassphrase && !passphraseState) {
+      throw new DeviceNotOpenedPassphrase();
+    }
+
     if (existDeviceId) {
       walletExistButNoAccount = wallets.find((w) => {
-        const targetWallet = w.associatedDevice === existDeviceId;
+        const targetWallet =
+          w.associatedDevice === existDeviceId &&
+          w.passphraseState === passphraseState;
+
         if (!targetWallet) return false;
         if (!w.accounts.length) return true;
         return false;
       });
     }
 
+    let walletName: string | undefined;
+    if (passphraseState) {
+      if (existDeviceId) {
+        const size = (
+          await engine.getWallets({ includePassphrase: true })
+        ).filter(
+          (w) => w.associatedDevice === existDeviceId && w.passphraseState,
+        ).length;
+        walletName = `Hidden Wallet#${size + 1}`;
+      } else {
+        walletName = 'Hidden Wallet#1';
+      }
+    }
+
     if (walletExistButNoAccount) {
       wallet = walletExistButNoAccount;
     } else {
       wallet = await engine.createHWWallet({
+        name: walletName,
         avatar: avatar ?? randomAvatar(),
         features,
         connectId,
+        passphraseState,
       });
     }
 
@@ -636,6 +664,7 @@ class ServiceAccount extends ServiceBase {
     dispatch(release());
 
     await this.initWallets();
+
     serviceAccount.changeActiveAccount({
       accountId: account?.id ?? null,
       walletId: wallet?.id ?? null,

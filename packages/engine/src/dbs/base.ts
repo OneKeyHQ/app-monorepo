@@ -71,6 +71,7 @@ type CreateHWWalletParams = {
   deviceType: IDeviceType;
   deviceUUID: string;
   features: string;
+  passphraseState?: string;
 };
 
 type SetWalletNameAndAvatarParams = {
@@ -131,9 +132,9 @@ interface DBAPI {
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token>;
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void>;
 
-  getWallets(): Promise<Array<Wallet>>;
+  getWallets(option?: { includePassphrase?: boolean }): Promise<Array<Wallet>>;
   getWallet(walletId: string): Promise<Wallet | undefined>;
-  getWalletByDeviceId(deviceId: string): Promise<Wallet | undefined>;
+  getWalletByDeviceId(deviceId: string): Promise<Array<Wallet>>;
   createHDWallet(params: CreateHDWalletParams): Promise<Wallet>;
   addHWWallet(params: CreateHWWalletParams): Promise<Wallet>;
   removeWallet(walletId: string, password: string): Promise<void>;

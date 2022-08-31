@@ -1,12 +1,16 @@
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { toLower } from 'lodash';
 
+import store from '@onekeyhq/kit/src/store';
+
 import { IMPL_EVM } from './constants';
+import { WalletSchema } from './dbs/realms/schemas';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_WATCHING,
+  Wallet,
 } from './types/wallet';
 
 export function fixAddressCase({
@@ -43,5 +47,17 @@ export function isHardwareWallet({ walletId }: { walletId: string }) {
 export function isExternalWallet({ walletId }: { walletId: string }) {
   return !!(walletId && walletId === WALLET_TYPE_EXTERNAL);
 }
+
+export function isPassphraseWallet(wallet: Wallet | WalletSchema) {
+  return !!wallet.passphraseState;
+}
+
+export const filterPassphraseWallet = (wallet: Wallet | WalletSchema) => {
+  if (!isPassphraseWallet(wallet)) return true;
+
+  return store
+    .getState()
+    .runtime.displayPassphraseWalletIdList.includes(wallet.id);
+};
 
 export { toBigIntHex };

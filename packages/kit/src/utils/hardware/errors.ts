@@ -17,6 +17,24 @@ export class InvalidPIN extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_invalid_pin_error';
 }
 
+export class InvalidPassphrase extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceCheckPassphraseStateError;
+
+  override key: LocaleIds = 'msg__hardware_device_passphrase_state_error';
+}
+
+export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
+
+  override key: LocaleIds = 'msg__hardware_not_opened_passphrase';
+}
+
+export class DeviceOpenedPassphrase extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DeviceOpenedPassphrase;
+
+  override key: LocaleIds = 'msg__hardware_opened_passphrase';
+}
+
 export class UserCancel extends OneKeyHardwareError {
   override code = HardwareErrorCode.ActionCancelled;
 
@@ -174,7 +192,11 @@ export class NetworkError extends OneKeyHardwareError {
 export class NotSupportPassphraseError extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceNotSupportPassphrase;
 
-  override key: LocaleIds = 'message__not_support_passphrase_yet';
+  override key: LocaleIds = 'msg__not_support_passphrase_need_upgrade';
+
+  constructor(message: string, params?: any) {
+    super({ message, info: { 0: get(params, 'require', '') } });
+  }
 }
 
 // 未知错误
