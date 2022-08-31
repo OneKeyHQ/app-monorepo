@@ -4,6 +4,8 @@ import { InteractionManager } from 'react-native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -58,6 +60,11 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
     isOpenDelay,
   } = useAppSelector((s) => s.accountSelector);
   const { refreshAccountSelectorTs } = useAppSelector((s) => s.refresher);
+
+  const existsHardwareWallet = useMemo(
+    () => wallets.some((w) => w.type === WALLET_TYPE_HW),
+    [wallets],
+  );
 
   useEffect(() => {
     debugLogger.accountSelector.info('useAccountSelectorInfo mount');
@@ -183,6 +190,13 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
       }
     });
   }, [dispatch, isOpenDelay, serviceAccountSelector]);
+
+  useEffect(() => {
+    if (isOpen && existsHardwareWallet) {
+      // open account selector refresh device connect status
+      deviceUtils.syncDeviceConnectStatus();
+    }
+  }, [existsHardwareWallet, isOpen]);
 
   // InteractionManager.runAfterInteractions(() => {
   // });
