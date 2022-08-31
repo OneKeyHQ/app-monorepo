@@ -104,6 +104,7 @@ export class SimpleQuoter implements Quoter {
       slippagePercentage,
       independentField,
       typedValue,
+      activeAccount,
     } = quoteParams;
     if (!this.isSupported(networkIn, networkOut)) {
       return;
@@ -145,6 +146,7 @@ export class SimpleQuoter implements Quoter {
 
     if (data.data) {
       result.txData = {
+        from: activeAccount.address,
         to: data.to,
         data: data.data,
         value: data.value,
@@ -200,7 +202,7 @@ export class SimpleQuoter implements Quoter {
     }
     const { data } = await this.fetch0xQuote(baseURL, params);
 
-    return { data };
+    return { data: { ...data, from: activeAccount.address } };
   }
 
   async queryTransactionProgress(

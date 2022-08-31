@@ -279,13 +279,6 @@ export default class Vault extends VaultBase {
       };
       action.type = IDecodedTxActionType.INTERNAL_SWAP;
       extraNativeTransferAction = undefined;
-
-      // Only support same chain swap
-      // if (
-      //   payload.swapInfo.send.networkId === payload.swapInfo.receive.networkId
-      // ) {
-      //   action.type = IDecodedTxActionType.INTERNAL_SWAP;
-      // }
     }
     if (payload?.type === 'InternalStake' && payload?.stakeInfo) {
       action.internalStake = {

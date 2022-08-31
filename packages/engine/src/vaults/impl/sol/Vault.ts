@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-member-access */
 import {
   Solana,
   Provider as SolanaProvider,
@@ -302,14 +302,28 @@ export default class Vault extends VaultBase {
     payload?: any,
   ): Promise<IDecodedTx> {
     const nativeTx: Transaction = await this.helper.parseToNativeTx(encodedTx);
+    let actions: IDecodedTxAction[] = await this.decodeNativeTxActions(
+      nativeTx,
+    );
+
+    if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
+      actions = [
+        {
+          type: IDecodedTxActionType.INTERNAL_SWAP,
+          internalSwap: {
+            ...payload.swapInfo,
+            extraInfo: null,
+          },
+        },
+      ];
+    }
     const owner = await this.getAccountAddress();
     const decodedTx: IDecodedTx = {
       txid: nativeTx.signature ? bs58.encode(nativeTx.signature) : '',
       owner,
       signer: nativeTx.feePayer?.toString() || owner,
       nonce: 0,
-      actions: await this.decodeNativeTxActions(nativeTx),
-
+      actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
