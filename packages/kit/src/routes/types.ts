@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
+import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 import { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
@@ -111,6 +112,10 @@ export type HomeRoutesParams = {
     numOfContacts: number;
   };
   [HomeRoutes.PushNotification]: undefined;
+  [HomeRoutes.PushNotificationManagePriceAlert]: {
+    alerts: PriceAlertItem[];
+  };
+  [HomeRoutes.PushNotificationManageAccountDynamic]: undefined;
 };
 /** HomeStack */
 

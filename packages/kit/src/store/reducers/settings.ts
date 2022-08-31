@@ -55,6 +55,7 @@ export type SettingsState = {
     pushEnable: boolean;
     btcAndEthPriceAlertEnable: boolean;
     favoriteTokensPriceAlertEnable: boolean;
+    priceAlertEnable: boolean;
     accountActivityPushEnable: boolean;
   };
   validationSetting: {
@@ -71,6 +72,7 @@ export type SettingsState = {
 export const defaultPushNotification = {
   threshold: 5,
   pushEnable: false,
+  priceAlertEnable: false,
   btcAndEthPriceAlertEnable: false,
   favoriteTokensPriceAlertEnable: false,
   accountActivityPushEnable: false,
@@ -289,6 +291,7 @@ export const settingsSlice = createSlice({
       };
       if (action.payload?.pushEnable && !state.pushNotification?.pushEnable) {
         Object.assign(config, {
+          priceAlertEnable: true,
           btcAndEthPriceAlertEnable: true,
           favoriteTokensPriceAlertEnable: true,
           accountActivityPushEnable: true,

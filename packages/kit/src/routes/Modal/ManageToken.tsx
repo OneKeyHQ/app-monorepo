@@ -13,6 +13,8 @@ import {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
 } from '../../views/ManageTokens/types';
+import { PriceAlertAddModal } from '../../views/PushNotification/PriceAlertAddModal';
+import { PriceAlertListModal } from '../../views/PushNotification/PriceAlertListModal';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -38,6 +40,14 @@ const modalRoutes = [
   {
     name: ManageTokenRoutes.VerifiedToken,
     component: VerifiedToken,
+  },
+  {
+    name: ManageTokenRoutes.PriceAlertList,
+    component: PriceAlertListModal,
+  },
+  {
+    name: ManageTokenRoutes.PriceAlertAdd,
+    component: PriceAlertAddModal,
   },
 ];
 

@@ -1,14 +1,24 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
-import { Box } from '@onekeyhq/components';
+import { Box, Icon, Select } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks';
+import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
-import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  RootRoutes,
+} from '../../routes/types';
+import { ManageTokenRoutes } from '../ManageTokens/types';
 import PriceChart from '../PriceChart/PriceChart';
 import StakedAssets from '../Staking/components/StakedAssets';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -26,14 +36,16 @@ export type TokenDetailViewProps = NativeStackScreenProps<
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
 const TokenDetail: React.FC<TokenDetailViewProps> = () => {
+  const intl = useIntl();
+  const firstUpdate = useRef(true);
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
+  const { pushNotification } = useSettings();
   const { accountId, networkId, tokenId } = route.params;
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
 
-  const firstUpdate = useRef(true);
   useLayoutEffect(() => {
     if (firstUpdate.current) {
       firstUpdate.current = false;
@@ -60,6 +72,52 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         });
     }
   }, [navigation, token, accountId, networkId]);
+
+  useLayoutEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    const currentToken = token;
+    navigation.setOptions({
+      headerRight: () => (
+        <Select
+          dropdownPosition="right"
+          title={intl.formatMessage({ id: 'action__more' })}
+          onChange={(v) => {
+            if (v === 'priceAlert') {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.ManageToken,
+                params: {
+                  screen: ManageTokenRoutes.PriceAlertList,
+                  params: {
+                    token: currentToken as Token,
+                  },
+                },
+              });
+            }
+          }}
+          footer={null}
+          activatable={false}
+          triggerProps={{
+            width: '40px',
+          }}
+          dropdownProps={{
+            width: 248,
+          }}
+          options={[
+            {
+              label: intl.formatMessage({
+                id: 'form__price_alert',
+              }),
+              value: 'priceAlert',
+              iconProps: { name: 'BellOutline' },
+            },
+          ]}
+          renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
+        />
+      ),
+    });
+  }, [navigation, pushNotification, intl, token]);
 
   const headerView = (
     <>

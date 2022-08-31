@@ -73,7 +73,17 @@ import {
   getEVMNetworkToCreate,
   parseNetworkId,
 } from './managers/network';
-import { syncPushNotificationConfig } from './managers/notification';
+import {
+  AccountDynamicItem,
+  ChangePriceAlertConfig,
+  addAccountDynamic,
+  addPriceAlertConfig,
+  queryAccountDynamic,
+  queryPriceAlertList,
+  removeAccountDynamic,
+  removePriceAlertConfig,
+  syncPushNotificationConfig,
+} from './managers/notification';
 import {
   fetchOnlineTokens,
   fetchTokenDetail,
@@ -2419,6 +2429,38 @@ class Engine {
   @backgroundMethod()
   async syncPushNotificationConfig(type: 'reset' | 'normal' = 'normal') {
     return syncPushNotificationConfig(type);
+  }
+
+  @backgroundMethod()
+  async addPriceAlertConfig(body: ChangePriceAlertConfig) {
+    return addPriceAlertConfig(body);
+  }
+
+  @backgroundMethod()
+  async removePriceAlertConfig(body: ChangePriceAlertConfig) {
+    return removePriceAlertConfig(body);
+  }
+
+  @backgroundMethod()
+  async queryPriceAlertList(
+    query?: Pick<Token, 'impl' | 'chainId' | 'address'>,
+  ) {
+    return queryPriceAlertList(query);
+  }
+
+  @backgroundMethod()
+  async addAccountDynamic(body: Omit<AccountDynamicItem, 'instanceId'>) {
+    return addAccountDynamic(body);
+  }
+
+  @backgroundMethod()
+  async removeAccountDynamic(body: Omit<AccountDynamicItem, 'instanceId'>) {
+    return removeAccountDynamic(body);
+  }
+
+  @backgroundMethod()
+  async queryAccountDynamic() {
+    return queryAccountDynamic();
   }
 }
 
