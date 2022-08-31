@@ -1176,50 +1176,16 @@ class Engine {
     logoURI?: string,
   ): Promise<Token | undefined> {
     // This method ensures token info is correctly added into DB.
-    if (!tokenIdOnNetwork) {
-      return this.getNativeTokenInfo(networkId);
-    }
-    const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    const presetToken = await simpleDb.token.getPresetToken(
+    const token = await this.findToken({
       networkId,
       tokenIdOnNetwork,
-    );
-    if (presetToken) {
-      return presetToken;
-    }
-    let tokenInfo:
-      | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-          logoURI?: string;
-        })
-      | undefined;
-    const { impl, chainId } = parseNetworkId(networkId);
-    if (!impl || !chainId) {
-      return;
-    }
-    tokenInfo = await fetchTokenDetail({
-      impl,
-      chainId,
-      address: tokenIdOnNetwork,
     });
-    if (!tokenInfo) {
-      const vault = await this.getChainOnlyVault(networkId);
-      try {
-        [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
-      } catch (e) {
-        debugLogger.engine.error('fetchTokenInfos error', {
-          message: e instanceof Error ? e.message : e,
-        });
-      }
-    }
-    if (typeof tokenInfo === 'undefined') {
+    if (!token) {
       return;
     }
     return simpleDb.token.addToken({
-      networkId,
-      tokenIdOnNetwork,
-      id: tokenId,
-      ...tokenInfo,
-      logoURI: tokenInfo.logoURI || logoURI || '',
+      ...token,
+      logoURI: token.logoURI || logoURI || '',
     } as Token);
   }
 
