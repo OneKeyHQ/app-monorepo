@@ -533,9 +533,9 @@ class ServiceHardware extends ServiceBase {
     }
 
     // dev
-    const settings: { devMode: any } =
-      this.backgroundApi.appSelector((s) => s.settings) || {};
-    const { enable, updateDeviceSys } = settings.devMode || {};
+    const settings = this.backgroundApi.appSelector((s) => s.settings) ?? {};
+    const enable = settings?.devMode?.enable ?? false;
+    const updateDeviceSys = settings?.devMode?.updateDeviceSys ?? false;
     const alwaysUpgrade = !!enable && !!updateDeviceSys;
 
     const { dispatch } = this.backgroundApi;
@@ -580,9 +580,9 @@ class ServiceHardware extends ServiceBase {
     }
 
     // dev
-    const settings: { devMode: any } =
-      this.backgroundApi.appSelector((s) => s.settings) || {};
-    const { enable, updateDeviceBle } = settings.devMode || {};
+    const settings = this.backgroundApi.appSelector((s) => s.settings) ?? {};
+    const enable = settings?.devMode?.enable ?? false;
+    const updateDeviceBle = settings?.devMode?.updateDeviceBle ?? false;
     const alwaysUpgrade = !!enable && !!updateDeviceBle;
 
     const { dispatch } = this.backgroundApi;
