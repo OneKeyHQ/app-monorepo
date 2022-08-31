@@ -152,12 +152,12 @@ export const fetchChartData = async ({
   vs_currency = 'usd',
   days,
 }: PriceApiProps) => {
-  const charts = await backgroundApiProxy.engine.getChart(
+  const charts = await backgroundApiProxy.engine.getChart({
     platform,
-    [contract],
+    addresses: [contract],
     days,
     vs_currency,
-  );
+  });
 
   return charts[contract];
 };

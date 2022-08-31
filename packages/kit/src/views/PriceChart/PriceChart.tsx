@@ -24,8 +24,8 @@ const PriceChart: React.FC<PriceChartProps> = ({
   const { charts: reduxCachedCharts, prices } = useManageTokens();
   const tokenId = contract || 'main';
   const isNoPriceData = prices[tokenId] === null;
-  const initChartData = reduxCachedCharts[tokenId] || [];
-  const dataMap = useRef<MarketApiData[][]>([initChartData]);
+  const dayData = reduxCachedCharts[tokenId];
+  const dataMap = useRef<MarketApiData[][]>([]);
 
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
@@ -42,8 +42,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
           platform,
           days: TIMEOPTIONS_VALUE[newTimeIndex],
         });
-        const dayData = dataMap.current[0];
-        if (dayData.length && newData.length) {
+        if (dayData.length && newData?.length) {
           latestPriceData = dayData[dayData.length - 1];
           newData = newData.filter((d) => d[0] < latestPriceData[0]);
           newData.push(latestPriceData);
@@ -53,7 +52,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
       setSelectedTimeIndex(newTimeIndex);
       setIsFetching(false);
     },
-    [contract, platform, dataMap],
+    [platform, contract, dayData],
   );
 
   useEffect(() => {
