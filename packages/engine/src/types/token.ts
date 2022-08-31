@@ -11,13 +11,15 @@ export type ServerToken = {
   verified: boolean;
   security: boolean;
   addToIndex: boolean;
-  chainId: number;
+  chainId: string;
   source: string[];
   checked: boolean;
   marketCap: number;
+  isNative?: boolean;
 };
 
 export type Token = HasName & {
+  isNative?: boolean;
   networkId: string;
   tokenIdOnNetwork: string;
   symbol: string;
@@ -25,7 +27,7 @@ export type Token = HasName & {
   logoURI: string;
   address?: string;
   impl?: string;
-  chainId?: number;
+  chainId?: string;
   source?: string[];
   coingeckoId?: string;
   swftId?: string;

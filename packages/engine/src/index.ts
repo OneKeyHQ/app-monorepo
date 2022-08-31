@@ -1305,8 +1305,13 @@ class Engine {
   }
 
   async getNativeTokenInfo(networkId: string) {
-    const network = await this.getNetwork(networkId);
+    const tokens = await this.getTokens(networkId);
+    const token = tokens.find((t) => t.isNative);
+    if (token) {
+      return token;
+    }
 
+    const network = await this.getNetwork(networkId);
     return {
       id: network.id,
       name: network.symbol,
@@ -1354,9 +1359,8 @@ class Engine {
       }
     }
     if (typeof accountId !== 'undefined') {
-      if (withMain) {
-        const nativeToken = await this.getNativeTokenInfo(networkId);
-        tokens.unshift(nativeToken);
+      if (!withMain) {
+        return tokens.filter((t) => !t.isNative);
       }
       if (filterRemoved) {
         const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
