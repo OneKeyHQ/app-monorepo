@@ -8,12 +8,9 @@ import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
 import { useDebounce } from '../../../hooks';
-import { AddressBookRoutes, AddressBookRoutesParams } from '../routes';
+import { SwapRoutes, SwapRoutesParams } from '../typings';
 
-type RouteProps = RouteProp<
-  AddressBookRoutesParams,
-  AddressBookRoutes.EnterAddressRoute
->;
+type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.EnterAddress>;
 
 type EnterAddressValues = {
   address: string;
@@ -25,7 +22,7 @@ const EnterAddress = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { onSelected, networkId, defaultAddress } = route.params ?? {};
+  const { onSelected, networkId } = route.params ?? {};
   const {
     control,
     watch,
@@ -35,7 +32,7 @@ const EnterAddress = () => {
     handleSubmit,
     formState: { isValid },
   } = useForm<EnterAddressValues>({
-    defaultValues: { address: defaultAddress ?? '' },
+    defaultValues: { address: '' },
     mode: 'onChange',
   });
   const watchedAddress = useDebounce(watch('address'), 300);
@@ -73,10 +70,15 @@ const EnterAddress = () => {
           return;
         }
       }
-      onSelected?.({ address: values.address.trim(), name: values.name });
-      navigation.goBack();
+      onSelected?.({ address: values.address, name: values.name });
+      const parent = navigation.getParent();
+      if (parent?.canGoBack()) {
+        parent.goBack();
+      } else {
+        navigation.goBack();
+      }
     },
-    [navigation, onSelected, toast, intl, networkId],
+    [navigation, onSelected, networkId, toast, intl],
   );
 
   return (
@@ -104,7 +106,7 @@ const EnterAddress = () => {
         <AddressInput
           networkId={networkId}
           onChangeAddressName={(name) => setValue('name', name)}
-          plugins={['contact', 'paste', 'scan']}
+          plugins={['paste', 'scan']}
         />
       </Form.Item>
     </Modal>

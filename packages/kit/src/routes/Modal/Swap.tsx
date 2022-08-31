@@ -10,6 +10,8 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import CustomToken from '../../views/ManageTokens/CustomToken';
+import EnterAddress from '../../views/Swap/EnterAddress';
+import PickRecipient from '../../views/Swap/PickRecipient';
 import Share from '../../views/Swap/Share';
 import SwftcHelp from '../../views/Swap/SwftcHelp';
 import Transaction from '../../views/Swap/Transaction';
@@ -51,6 +53,14 @@ const modalRoutes = [
   {
     name: SwapRoutes.Share,
     component: Share,
+  },
+  {
+    name: SwapRoutes.PickRecipient,
+    component: PickRecipient,
+  },
+  {
+    name: SwapRoutes.EnterAddress,
+    component: EnterAddress,
   },
 ];
 

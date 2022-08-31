@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ETHLogoPNG from '../../../../assets/staking/eth_staking.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -31,10 +32,14 @@ export default function StakingETHNotes() {
   }, [navigation]);
   const onSubmit = useCallback(async () => {
     if (account && tokenInfo) {
-      await backgroundApiProxy.serviceStaking.registerOnKele({
-        payeeAddr: account.address,
-        networdId: params.networkId,
-      });
+      try {
+        await backgroundApiProxy.serviceStaking.registerOnKele({
+          payeeAddr: account.address,
+          networdId: params.networkId,
+        });
+      } catch {
+        debugLogger.common.error('registerOnKele failed');
+      }
       const encodedTx =
         await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
           value: new BigNumber(10)
