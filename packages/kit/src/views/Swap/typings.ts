@@ -1,6 +1,7 @@
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import type { SendConfirmPayloadBase } from '../Send/types';
 
@@ -64,11 +65,7 @@ export type Recipient = {
   networkImpl?: string;
 };
 
-export type TransactionData = {
-  to: string;
-  data: string;
-  value: string;
-};
+export type TransactionData = IEncodedTx;
 
 export type FetchQuoteParams = {
   networkOut: Network;
@@ -132,7 +129,9 @@ export type BuildTransactionResponse = {
   error?: BuildTransactionError;
 };
 
-export type SwapQuoteTx = SendConfirmPayloadBase & QuoteData & TransactionData;
+export type SwapQuoteTx = SendConfirmPayloadBase &
+  QuoteData &
+  TransactionData & { to: string; value: string };
 
 export interface SerializableTransactionReceipt {
   to: string;

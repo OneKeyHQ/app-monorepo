@@ -762,6 +762,20 @@ class ServiceAccount extends ServiceBase {
       address,
     };
   }
+
+  @backgroundMethod()
+  async getAccountByAddress({ address }: { address: string }) {
+    const { engine } = this.backgroundApi;
+    const wallets = await engine.getWallets();
+    for (let i = 0; i < wallets.length; i += 1) {
+      const wallet = wallets[i];
+      const accounts = await engine.getAccounts(wallet.accounts);
+      const target = accounts.find((item) => item.address === address);
+      if (target) {
+        return target;
+      }
+    }
+  }
 }
 
 export default ServiceAccount;

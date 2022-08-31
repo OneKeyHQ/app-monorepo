@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Box, Button, useToast } from '@onekeyhq/components';
 import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
@@ -210,10 +210,16 @@ const ExchangeButton = () => {
     });
 
     if (res?.data) {
-      const encodedTx: IEncodedTxEvm = {
-        ...res?.data,
-        from: account.address,
-      };
+      let encodedTx: IEncodedTx | undefined;
+      if (typeof res?.data === 'object') {
+        encodedTx = {
+          ...res?.data,
+          from: account.address,
+        };
+      } else {
+        encodedTx = res.data;
+      }
+
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {

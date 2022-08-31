@@ -28,6 +28,7 @@ export const enabledNetworkIds: string[] = [
   'evm--250',
   'evm--43114',
   'evm--42220',
+  'sol--101',
   'evm--3',
   'evm--42',
 ];
