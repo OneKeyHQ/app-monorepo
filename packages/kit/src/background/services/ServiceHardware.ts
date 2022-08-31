@@ -536,7 +536,7 @@ class ServiceHardware extends ServiceBase {
     const settings: { devMode: any } =
       this.backgroundApi.appSelector((s) => s.settings) || {};
     const { enable, updateDeviceSys } = settings.devMode || {};
-    const neverUpgrade = !!enable && !!updateDeviceSys;
+    const alwaysUpgrade = !!enable && !!updateDeviceSys;
 
     const { dispatch } = this.backgroundApi;
     dispatch(
@@ -545,7 +545,7 @@ class ServiceHardware extends ServiceBase {
         type: 'firmware',
         value: {
           forceFirmware: hasFirmwareForce,
-          firmware: neverUpgrade || hasSysUpgrade ? firmware : undefined,
+          firmware: alwaysUpgrade || hasSysUpgrade ? firmware : undefined,
         },
       }),
     );
@@ -583,7 +583,7 @@ class ServiceHardware extends ServiceBase {
     const settings: { devMode: any } =
       this.backgroundApi.appSelector((s) => s.settings) || {};
     const { enable, updateDeviceBle } = settings.devMode || {};
-    const neverUpgrade = !!enable && !!updateDeviceBle;
+    const alwaysUpgrade = !!enable && !!updateDeviceBle;
 
     const { dispatch } = this.backgroundApi;
     dispatch(
@@ -592,7 +592,7 @@ class ServiceHardware extends ServiceBase {
         type: 'ble',
         value: {
           forceBle: hasBleForce,
-          ble: neverUpgrade || hasBleUpgrade ? bleFirmware : undefined,
+          ble: alwaysUpgrade || hasBleUpgrade ? bleFirmware : undefined,
         },
       }),
     );
