@@ -103,7 +103,11 @@ export class PriceController {
           if (!address || address === 'main') {
             delete params.contract;
           }
-          if (points) {
+          if (
+            points &&
+            // TODO: remove this condition after new fiat server deployment
+            getFiatEndpoint().includes('test')
+          ) {
             params.points = points;
           }
           const marketData = await this.fetchApi<{
