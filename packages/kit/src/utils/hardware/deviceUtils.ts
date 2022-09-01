@@ -345,7 +345,7 @@ class DeviceUtils {
       case HardwareErrorCode.PollingTimeout:
         return new Error.ConnectTimeoutError({ message: msg });
       case HardwareErrorCode.BlindSignDisabled:
-        return new Error.DisabledBlindSignError({ message: msg });
+        return new Error.OpenBlindSign({ message: msg });
       default:
         return new Error.UnknownHardwareError({ message: msg });
     }

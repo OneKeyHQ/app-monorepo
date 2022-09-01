@@ -129,7 +129,7 @@ export class BleAlreadyConnectedError extends OneKeyHardwareError {
 }
 
 export class OpenBlindSign extends OneKeyHardwareError {
-  override code = HardwareErrorCode.RuntimeError;
+  override code = HardwareErrorCode.BlindSignDisabled;
 
   override key: LocaleIds = 'msg__hardware_open_blind_sign_error';
 }
@@ -197,12 +197,6 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
   constructor(message: string, params?: any) {
     super({ message, info: { 0: get(params, 'require', '') } });
   }
-}
-
-export class DisabledBlindSignError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BlindSignDisabled;
-
-  override key: LocaleIds = 'msg__hardware_open_blind_sign_error';
 }
 
 // 未知错误
