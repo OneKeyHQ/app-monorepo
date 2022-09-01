@@ -15,6 +15,8 @@ export enum SwapRoutes {
   Webview = 'Webview',
   Share = 'Share',
   SwftcHelp = 'SwftcHelp',
+  PickRecipient = 'PickRecipient',
+  EnterAddress = 'EnterAddress',
 }
 
 export type SwapRoutesParams = {
@@ -24,6 +26,18 @@ export type SwapRoutesParams = {
   [SwapRoutes.Settings]: undefined;
   [SwapRoutes.Webview]: { url: string };
   [SwapRoutes.SwftcHelp]: { orderid: string };
+  [SwapRoutes.PickRecipient]:
+    | {
+        networkId?: string;
+        onSelected?: (data: { address: string; name?: string }) => void;
+      }
+    | undefined;
+  [SwapRoutes.EnterAddress]:
+    | {
+        networkId?: string;
+        onSelected?: (data: { address: string; name?: string }) => void;
+      }
+    | undefined;
   [SwapRoutes.CustomToken]: { address?: string } | undefined;
   [SwapRoutes.Transaction]: {
     txid: string;
