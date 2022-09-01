@@ -3,9 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { monotoneCubicInterpolation } from '@onekeyfe/react-native-animated-charts';
 import { debounce } from 'lodash';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { MarketApiData } from '../chartService';
 
-export const UniBalanceHeightDifference = 100;
+export const POINT_LIMITS = platformEnv.isNativeIOSPad ? 300 : 100;
+const DUMMY_POINTS = 10;
 
 interface Point {
   x: number;
@@ -21,7 +24,7 @@ const traverseData = (prev: AnimatedChartData, data: MarketApiData[]) => {
   }
   // some data only has one point like "frapped usdt"
   if (data.length === 1) {
-    const dummyData = new Array(100)
+    const dummyData = new Array(DUMMY_POINTS)
       .fill(0)
       .map(() => ({ x: data[0][0], y: data[0][1] }));
     return {
@@ -38,16 +41,25 @@ const traverseData = (prev: AnimatedChartData, data: MarketApiData[]) => {
   ) {
     return prev;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const points: Point[] = monotoneCubicInterpolation({
-    data: filtered,
-    includeExtremes: true,
-    range: 100,
-  });
   return {
     nativePoints: filtered,
-    points,
+    points:
+      filtered.length > POINT_LIMITS
+        ? monotoneCubicInterpolation({
+            data: filtered,
+            includeExtremes: true,
+            range: POINT_LIMITS,
+          })
+        : filtered,
   };
+};
+
+const initPoints = new Array(DUMMY_POINTS)
+  .fill(0)
+  .map((_, index) => ({ x: index, y: 0 }));
+const initData = {
+  nativePoints: initPoints,
+  points: initPoints,
 };
 
 export default function useChartThrottledPoints({
@@ -57,20 +69,15 @@ export default function useChartThrottledPoints({
   originData: MarketApiData[];
   fetchingCharts?: boolean;
 }) {
-  const [throttledPoints, setThrottledPoints] = useState(() => {
-    const initPoints = new Array(100)
-      .fill(0)
-      .map((_, index) => ({ x: index, y: 0 }));
-    const initData = {
-      nativePoints: initPoints,
-      points: initPoints,
-    };
-    return traverseData(initData, originData);
-  });
+  const [throttledPoints, setThrottledPoints] = useState(() =>
+    traverseData(initData, originData),
+  );
 
   useEffect(() => {
-    // @ts-ignore
-    setThrottledPoints((prev) => traverseData(prev, originData));
+    if (originData.length > POINT_LIMITS) {
+      // @ts-ignore
+      setThrottledPoints((prev) => traverseData(prev, originData));
+    }
   }, [originData]);
 
   const [throttledData, setThrottledData] = useState({

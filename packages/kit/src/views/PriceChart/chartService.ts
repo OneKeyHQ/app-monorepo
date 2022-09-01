@@ -144,20 +144,24 @@ export type PriceApiProps = {
   contract?: string;
   'vs_currency'?: string;
   days: string;
+  points?: string;
 };
+
 export const fetchChartData = async ({
   platform = 'ethereum',
   contract = 'main',
   // eslint-disable-next-line camelcase
   vs_currency = 'usd',
+  points,
   days,
 }: PriceApiProps) => {
-  const charts = await backgroundApiProxy.engine.getChart(
+  const charts = await backgroundApiProxy.engine.getChart({
     platform,
-    [contract],
+    addresses: [contract],
     days,
     vs_currency,
-  );
+    points,
+  });
 
   return charts[contract];
 };
