@@ -5,13 +5,16 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Divider,
+  IconButton,
   Modal,
   ScrollView,
   Typography,
   VStack,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -42,6 +45,7 @@ const Mobile: FC<Props> = ({ imageContent, content }) => (
 
 const CollectibleDetailModal: FC = () => {
   const intl = useIntl();
+  const toast = useToast();
   const isSmallScreen = useIsVerticalLayout();
   const route =
     useRoute<
@@ -54,9 +58,9 @@ const CollectibleDetailModal: FC = () => {
   const shareProps: Props = {
     imageContent: <CollectibleContent asset={asset} />,
     content: asset && (
-      <VStack space={6} w="100%">
+      <Box w="100%">
         {/* Asset name and collection name */}
-        <VStack>
+        <VStack mb="24px">
           <Typography.DisplayLarge fontWeight="700">
             {asset.name}
           </Typography.DisplayLarge>
@@ -69,7 +73,7 @@ const CollectibleDetailModal: FC = () => {
 
         {/* Description */}
         {!!asset.description && (
-          <VStack space={3}>
+          <VStack space={3} mb="24px">
             <Typography.Heading fontWeight="600">
               {intl.formatMessage({ id: 'content__description' })}
             </Typography.Heading>
@@ -81,7 +85,7 @@ const CollectibleDetailModal: FC = () => {
 
         {/* traits */}
         {!!asset.attributes?.length && (
-          <VStack space={3}>
+          <VStack space="12px" mb="12px">
             <Typography.Heading>
               {intl.formatMessage({ id: 'content__attributes' })}
             </Typography.Heading>
@@ -90,20 +94,19 @@ const CollectibleDetailModal: FC = () => {
                 <Box
                   key={`${trait.traitType}-${index}`}
                   alignSelf="flex-start"
-                  px="3"
-                  py="2"
-                  mr="2"
-                  mb="2"
+                  padding="16px"
+                  mr="12px"
+                  mb="12px"
                   bgColor="surface-default"
                   borderRadius="12px"
                 >
-                  <Typography.Caption
+                  <Typography.Body2
                     color="text-subdued"
                     textTransform="uppercase"
                   >
                     {trait.traitType}
-                  </Typography.Caption>
-                  <Typography.Body2>{trait.value}</Typography.Body2>
+                  </Typography.Body2>
+                  <Typography.Body1Strong>{trait.value}</Typography.Body1Strong>
                 </Box>
               ))}
             </Box>
@@ -112,82 +115,97 @@ const CollectibleDetailModal: FC = () => {
 
         {/* Details */}
         <VStack>
-          <Typography.Heading>
+          <Typography.Heading mb="12px">
             {intl.formatMessage({ id: 'content__details' })}
           </Typography.Heading>
-          <Box
-            flexDirection="row"
-            alignItems="flex-start"
-            justifyContent="space-between"
-            py="4"
-          >
-            <Typography.Body1Strong color="text-subdued">
-              Token ID
-            </Typography.Body1Strong>
-            <Typography.Body1Strong
-              ml="4"
-              textAlign="right"
-              flex="1"
-              numberOfLines={999}
-            >
-              {asset.tokenId}
-            </Typography.Body1Strong>
-          </Box>
-          {!!network && (
-            <>
-              <Divider />
+          <VStack bgColor="surface-default" borderRadius="12px">
+            {!!asset.tokenId && (
               <Box
-                display="flex"
-                flexDirection="row"
+                flexDirection="column"
                 alignItems="flex-start"
-                justifyContent="space-between"
-                py="4"
+                padding="16px"
               >
-                <Typography.Body1Strong color="text-subdued">
+                <Typography.Body1Strong color="text-subdued" mb="4px">
+                  Token ID
+                </Typography.Body1Strong>
+                <Typography.Body1Strong>{asset.tokenId}</Typography.Body1Strong>
+              </Box>
+            )}
+            {!!network && (
+              <Box
+                flexDirection="column"
+                alignItems="flex-start"
+                padding="16px"
+              >
+                <Typography.Body1Strong color="text-subdued" mb="4px">
                   {intl.formatMessage({ id: 'content__blockchain' })}
                 </Typography.Body1Strong>
 
-                <Typography.Body1Strong
-                  ml="4"
-                  flex="1"
-                  textAlign="right"
-                  numberOfLines={999}
-                >
+                <Typography.Body1Strong flex="1">
                   {network.name}
                 </Typography.Body1Strong>
               </Box>
-            </>
-          )}
-          {!!asset.contractAddress && (
-            <>
-              <Divider />
+            )}
+            {!!asset.contractAddress && (
               <Box
-                display="flex"
-                flexDirection="row"
+                flexDirection="column"
                 alignItems="flex-start"
-                justifyContent="space-between"
-                py="4"
+                padding="16px"
               >
-                <Typography.Body1Strong color="text-subdued">
+                <Typography.Body1Strong color="text-subdued" mb="4px">
                   {intl.formatMessage({
                     id: 'transaction__contract_address',
                   })}
                 </Typography.Body1Strong>
 
-                <Typography.Body1Strong
-                  ml="4"
-                  flex="1"
-                  textAlign="right"
-                  numberOfLines={999}
-                  selectable
-                >
-                  {asset.contractAddress}
-                </Typography.Body1Strong>
+                <Box flexDirection="row" alignItems="center">
+                  <Typography.Body1Strong>
+                    {shortenAddress(asset.contractAddress, 6)}
+                  </Typography.Body1Strong>
+                  <IconButton
+                    size="sm"
+                    type="plain"
+                    name="DuplicateSolid"
+                    onPress={() => {
+                      copyToClipboard(asset.contractAddress ?? '');
+                      toast.show({
+                        title: intl.formatMessage({ id: 'msg__copied' }),
+                      });
+                    }}
+                  />
+                </Box>
               </Box>
-            </>
-          )}
+            )}
+            {!!asset.tokenAddress && (
+              <Box
+                flexDirection="column"
+                alignItems="flex-start"
+                padding="16px"
+              >
+                <Typography.Body1Strong color="text-subdued" mb="4px">
+                  Token address
+                </Typography.Body1Strong>
+                <Box flexDirection="row" alignItems="center">
+                  <Typography.Body1Strong>
+                    {shortenAddress(asset.tokenAddress, 6)}
+                  </Typography.Body1Strong>
+                  <IconButton
+                    size="sm"
+                    type="plain"
+                    name="DuplicateSolid"
+                    onPress={() => {
+                      copyToClipboard(asset.tokenAddress ?? '');
+                      toast.show({
+                        title: intl.formatMessage({ id: 'msg__copied' }),
+                      });
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
+          </VStack>
         </VStack>
-      </VStack>
+      </Box>
     ),
   };
 

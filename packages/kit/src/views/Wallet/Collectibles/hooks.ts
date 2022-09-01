@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getUserNFTAssets } from '@onekeyhq/engine/src/managers/nft';
+import {
+  getNFTSymbolPrice,
+  getUserNFTAssets,
+  isCollectibleSupportedChainId,
+} from '@onekeyhq/engine/src/managers/nft';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collection, NFTScanNFTsResp } from '@onekeyhq/engine/src/types/nft';
 
@@ -27,7 +31,17 @@ export const parseCollectiblesData = (
 ) => {
   const { data } = nftsResp;
   if (data) {
-    USER_COLLECTIBLE_CACHE.set(mainKey, data ?? []);
+    USER_COLLECTIBLE_CACHE.set(
+      mainKey,
+      data.map((collection) => {
+        let totalPrice = 0;
+        collection.assets.forEach((asset) => {
+          totalPrice += asset.latestTradePrice ?? 0;
+        });
+        collection.totalPrice = totalPrice;
+        return collection;
+      }) ?? [],
+    );
   }
 };
 
@@ -113,4 +127,31 @@ export const useCollectiblesData = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getData, isLoading, listData, mainKey]);
+};
+
+type UseNFTPriceArgs = {
+  network?: Network | null;
+};
+
+export const useNFTPrice = ({ network }: UseNFTPriceArgs) => {
+  const [price, updatePrice] = useState(0);
+  const isCollectibleSupported = isCollectibleSupportedChainId(network?.id);
+
+  const getPrice = useCallback(async () => {
+    if (network?.id && isCollectibleSupported) {
+      const data = await getNFTSymbolPrice(network);
+      updatePrice(data);
+    }
+  }, [isCollectibleSupported, network]);
+
+  useEffect(() => {
+    getPrice();
+  }, [getPrice]);
+
+  return useMemo(() => {
+    if (!isCollectibleSupported) {
+      return 0;
+    }
+    return price;
+  }, [isCollectibleSupported, price]);
 };

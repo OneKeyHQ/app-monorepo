@@ -9,6 +9,15 @@ export const NFTChainMap: Record<string, string> = {
   'sol--101': 'sol',
 };
 
+export const NFTSymbolMap: Record<string, string> = {
+  [NETWORK_ID_EVM_ETH]: 'ethereum',
+  'evm--10': 'ethereum',
+  'evm--56': 'binancecoin',
+  'evm--137': 'weth',
+  'evm--42161': 'ethereum',
+  'sol--101': 'solana',
+};
+
 export type ERCType = 'erc721' | 'erc1155';
 export type Traits = {
   traitType: string;
@@ -24,6 +33,7 @@ export type Collection = {
   floorPrice?: number;
   priceSymbol?: string;
   assets: NFTAsset[];
+  totalPrice: number;
 };
 
 export type NFTAsset = {

@@ -27,6 +27,7 @@ import {
 } from '../../../routes/Modal/Collectibles';
 
 import CollectibleCard from './CollectibleGallery/CollectibleCard';
+import { useNFTPrice } from './hooks';
 
 const ViewTypes = {
   LOGO: 0,
@@ -103,6 +104,8 @@ const CollectionModal: FC<CollectionModalProps> = () => {
       >
     >();
   const { collectible, network } = route.params;
+
+  const price = useNFTPrice({ network });
 
   // Open Asset detail modal
   const handleSelectAsset = React.useCallback(
@@ -200,6 +203,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
         case ViewTypes.NFTCard:
           return (
             <CollectibleCard
+              price={price}
               asset={data as NFTAsset}
               key={index}
               onSelectAsset={handleSelectAsset}
@@ -209,7 +213,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
           return <Box flex={1} />;
       }
     },
-    [handleSelectAsset],
+    [handleSelectAsset, price],
   );
 
   return (

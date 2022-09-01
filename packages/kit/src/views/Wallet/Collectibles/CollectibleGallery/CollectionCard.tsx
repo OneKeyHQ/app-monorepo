@@ -14,9 +14,12 @@ import {
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 
+import { FormatCurrencyNumber } from '../../../../components/Format';
+
 import CollectibleListImage from './CollectibleListImage';
 
 type Props = ComponentProps<typeof Box> & {
+  price: number;
   collectible: Collection;
   onSelectCollection?: (cols: Collection) => void;
 };
@@ -84,6 +87,7 @@ const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
 };
 
 const CollectionCard: FC<Props> = ({
+  price,
   onSelectCollection,
   collectible,
   ...rest
@@ -125,8 +129,12 @@ const CollectionCard: FC<Props> = ({
         >
           {collectible.contractName}
         </Text>
-        {/* <Text typography="Body2" height="20px" /> */}
-        {/* <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2> */}
+        <Text typography="Body2" height="20px" color="text-subdued">
+          <FormatCurrencyNumber
+            decimals={2}
+            value={price * (collectible.totalPrice ?? 0)}
+          />
+        </Text>
       </Pressable>
     </Box>
   );
