@@ -83,11 +83,8 @@ import {
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { syncLatestNetworkList } from './presets/network';
-import {
-  PriceController,
-  ProviderController,
-  fromDBNetworkToChainInfo,
-} from './proxy';
+import { ChartQueryParams, PriceController } from './priceController';
+import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
 import {
   Account,
   AccountType,
@@ -2194,19 +2191,9 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getChart(
-    platform: string,
-    addresses: Array<string>,
-    days = '1',
-    vs_currency = 'usd',
-  ) {
+  async getChart(params: ChartQueryParams) {
     // Get price chart data.
-    return this.priceManager.getCgkTokensChart(
-      platform,
-      addresses,
-      days,
-      vs_currency,
-    );
+    return this.priceManager.getCgkTokensChart(params);
   }
 
   @backgroundMethod()

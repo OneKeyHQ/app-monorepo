@@ -1,4 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import deepEqual from 'dequal';
 import uuid from 'react-native-uuid';
 
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';
@@ -124,6 +125,17 @@ export function setThemePreloadToLocalStorage(
 }
 setThemePreloadToLocalStorage(initialState.theme, false);
 
+function equalFirmwareUpdate(a: any, b: any): boolean {
+  try {
+    // a and b are Proxy objects, so we need to use JSON to compare
+    const valueA = JSON.parse(JSON.stringify(a));
+    const valueB = JSON.parse(JSON.stringify(b));
+    return deepEqual(valueA, valueB);
+  } catch (error) {
+    return false;
+  }
+}
+
 export const settingsSlice = createSlice({
   name: 'settings',
   initialState,
@@ -223,13 +235,17 @@ export const settingsSlice = createSlice({
       const currentValue =
         state.deviceUpdates?.[action.payload.connectId] ?? {};
 
-      state.deviceUpdates = {
-        ...state.deviceUpdates,
-        [action.payload.connectId]: {
-          ...currentValue,
-          ...updateValue,
-        },
-      } as Record<string, FirmwareUpdate>;
+      const newValue = {
+        ...currentValue,
+        ...updateValue,
+      };
+
+      if (!equalFirmwareUpdate(currentValue, newValue)) {
+        state.deviceUpdates = {
+          ...state.deviceUpdates,
+          [action.payload.connectId]: newValue,
+        } as Record<string, FirmwareUpdate>;
+      }
     },
     setDeviceDoneUpdate(
       state,

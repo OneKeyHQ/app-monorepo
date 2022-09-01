@@ -8,7 +8,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setRecipient } from '../../store/reducers/swap';
-import { AddressBookRoutes } from '../AddressBook/routes';
 
 import SwappingVia from './components/SwappingVia';
 import TransactionRate from './components/TransactionRate';
@@ -50,11 +49,10 @@ const SwapReceiving = () => {
   const recipient = useSwapRecipient();
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.AddressBook,
+      screen: ModalRoutes.Swap,
       params: {
-        screen: AddressBookRoutes.EnterAddressRoute,
+        screen: SwapRoutes.PickRecipient,
         params: {
-          defaultAddress: recipient?.address,
           networkId: outputTokenNetwork?.id,
           onSelected: ({ address: selectedAddress, name: selectedName }) => {
             backgroundApiProxy.dispatch(
@@ -69,12 +67,7 @@ const SwapReceiving = () => {
         },
       },
     });
-  }, [
-    navigation,
-    outputTokenNetwork?.id,
-    recipient?.address,
-    outputTokenNetwork?.impl,
-  ]);
+  }, [navigation, outputTokenNetwork?.id, outputTokenNetwork?.impl]);
 
   let text = '';
   const { address, name } = recipient ?? {};

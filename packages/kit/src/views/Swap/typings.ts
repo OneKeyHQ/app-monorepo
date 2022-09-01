@@ -1,6 +1,7 @@
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import type { SendConfirmPayloadBase } from '../Send/types';
 
@@ -14,6 +15,8 @@ export enum SwapRoutes {
   Webview = 'Webview',
   Share = 'Share',
   SwftcHelp = 'SwftcHelp',
+  PickRecipient = 'PickRecipient',
+  EnterAddress = 'EnterAddress',
 }
 
 export type SwapRoutesParams = {
@@ -23,6 +26,18 @@ export type SwapRoutesParams = {
   [SwapRoutes.Settings]: undefined;
   [SwapRoutes.Webview]: { url: string };
   [SwapRoutes.SwftcHelp]: { orderid: string };
+  [SwapRoutes.PickRecipient]:
+    | {
+        networkId?: string;
+        onSelected?: (data: { address: string; name?: string }) => void;
+      }
+    | undefined;
+  [SwapRoutes.EnterAddress]:
+    | {
+        networkId?: string;
+        onSelected?: (data: { address: string; name?: string }) => void;
+      }
+    | undefined;
   [SwapRoutes.CustomToken]: { address?: string } | undefined;
   [SwapRoutes.Transaction]: {
     txid: string;
@@ -64,11 +79,7 @@ export type Recipient = {
   networkImpl?: string;
 };
 
-export type TransactionData = {
-  to: string;
-  data: string;
-  value: string;
-};
+export type TransactionData = IEncodedTx;
 
 export type FetchQuoteParams = {
   networkOut: Network;
@@ -132,7 +143,9 @@ export type BuildTransactionResponse = {
   error?: BuildTransactionError;
 };
 
-export type SwapQuoteTx = SendConfirmPayloadBase & QuoteData & TransactionData;
+export type SwapQuoteTx = SendConfirmPayloadBase &
+  QuoteData &
+  TransactionData & { to: string; value: string };
 
 export interface SerializableTransactionReceipt {
   to: string;

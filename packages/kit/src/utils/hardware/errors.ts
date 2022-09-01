@@ -129,7 +129,7 @@ export class BleAlreadyConnectedError extends OneKeyHardwareError {
 }
 
 export class OpenBlindSign extends OneKeyHardwareError {
-  override code = HardwareErrorCode.RuntimeError;
+  override code = HardwareErrorCode.BlindSignDisabled;
 
   override key: LocaleIds = 'msg__hardware_open_blind_sign_error';
 }
@@ -159,7 +159,7 @@ export class FirmwareDownloadFailed extends OneKeyHardwareError {
 export class DeviceNotSame extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 
-  override key: LocaleIds = 'msg__hardware_not_same';
+  override key: LocaleIds = 'msg__not_the_same_wallet';
 }
 
 export class DeviceNotFind extends OneKeyHardwareError {

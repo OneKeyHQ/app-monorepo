@@ -29,10 +29,34 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
             },
           }),
         );
-        backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: tx.accountId,
-          activeNetworkId: tx.networkId,
-        });
+        if (tx.tokens) {
+          const { from } = tx.tokens;
+          const fromTokenIds = from.token.tokenIdOnNetwork
+            ? [from.token.tokenIdOnNetwork]
+            : [];
+          backgroundApiProxy.serviceToken.fetchTokenBalance({
+            activeAccountId: tx.accountId,
+            activeNetworkId: from.networkId,
+            tokenIds: fromTokenIds,
+          });
+          if (tx.receivingAddress) {
+            const receivingAccount =
+              await backgroundApiProxy.serviceAccount.getAccountByAddress({
+                address: tx.receivingAddress,
+              });
+            const { to } = tx.tokens;
+            if (receivingAccount) {
+              const toTokenIds = to.token.tokenIdOnNetwork
+                ? [to.token.tokenIdOnNetwork]
+                : [];
+              backgroundApiProxy.serviceToken.fetchTokenBalance({
+                activeAccountId: receivingAccount.id,
+                activeNetworkId: to.networkId,
+                tokenIds: toTokenIds,
+              });
+            }
+          }
+        }
       }
       if (progressRes.destinationTransactionHash) {
         backgroundApiProxy.dispatch(

@@ -160,8 +160,9 @@ export class SwftcQuoter implements Quoter {
     this.getCoins();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isSupported(networkA: Network, networkB: Network): boolean {
-    return networkA !== networkB;
+    return true;
   }
 
   async getGroupedCoins() {
@@ -293,7 +294,6 @@ export class SwftcQuoter implements Quoter {
     params: FetchQuoteParams,
   ): Promise<InternalRateResult | undefined> {
     const { networkIn, networkOut, tokenOut, tokenIn } = params;
-    console.log('test');
     if (!this.isSupported(networkIn, networkOut)) {
       return;
     }

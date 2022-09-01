@@ -532,6 +532,12 @@ class ServiceHardware extends ServiceBase {
         break;
     }
 
+    // dev
+    const settings = this.backgroundApi.appSelector((s) => s.settings) ?? {};
+    const enable = settings?.devMode?.enable ?? false;
+    const updateDeviceSys = settings?.devMode?.updateDeviceSys ?? false;
+    const alwaysUpgrade = !!enable && !!updateDeviceSys;
+
     const { dispatch } = this.backgroundApi;
     dispatch(
       setDeviceUpdates({
@@ -539,27 +545,10 @@ class ServiceHardware extends ServiceBase {
         type: 'firmware',
         value: {
           forceFirmware: hasFirmwareForce,
-          firmware: hasSysUpgrade ? firmware : undefined,
+          firmware: alwaysUpgrade || hasSysUpgrade ? firmware : undefined,
         },
       }),
     );
-
-    // dev
-    const settings: { devMode: any } =
-      this.backgroundApi.appSelector((s) => s.settings) || {};
-    const { enable, updateDeviceSys } = settings.devMode || {};
-    if (enable) {
-      dispatch(
-        setDeviceUpdates({
-          connectId,
-          type: 'firmware',
-          value: {
-            forceFirmware: hasFirmwareForce,
-            firmware: updateDeviceSys || hasSysUpgrade ? firmware : undefined,
-          },
-        }),
-      );
-    }
   }
 
   @backgroundMethod()
@@ -590,6 +579,12 @@ class ServiceHardware extends ServiceBase {
         break;
     }
 
+    // dev
+    const settings = this.backgroundApi.appSelector((s) => s.settings) ?? {};
+    const enable = settings?.devMode?.enable ?? false;
+    const updateDeviceBle = settings?.devMode?.updateDeviceBle ?? false;
+    const alwaysUpgrade = !!enable && !!updateDeviceBle;
+
     const { dispatch } = this.backgroundApi;
     dispatch(
       setDeviceUpdates({
@@ -597,27 +592,10 @@ class ServiceHardware extends ServiceBase {
         type: 'ble',
         value: {
           forceBle: hasBleForce,
-          ble: hasBleUpgrade ? bleFirmware : undefined,
+          ble: alwaysUpgrade || hasBleUpgrade ? bleFirmware : undefined,
         },
       }),
     );
-
-    // dev
-    const settings: { devMode: any } =
-      this.backgroundApi.appSelector((s) => s.settings) || {};
-    const { enable, updateDeviceBle } = settings.devMode || {};
-    if (enable) {
-      dispatch(
-        setDeviceUpdates({
-          connectId,
-          type: 'ble',
-          value: {
-            forceBle: hasBleForce,
-            ble: updateDeviceBle || hasBleUpgrade ? bleFirmware : undefined,
-          },
-        }),
-      );
-    }
   }
 
   @backgroundMethod()

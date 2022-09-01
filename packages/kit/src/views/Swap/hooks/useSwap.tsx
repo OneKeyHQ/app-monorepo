@@ -18,7 +18,7 @@ import {
   setQuoteLimited,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { enabledNetworkIds, nativeTokenList } from '../config';
+import { enabledNetworkIds } from '../config';
 import { SwapQuoter } from '../quoter';
 import { ApprovalState, FetchQuoteParams, SwapError } from '../typings';
 import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
@@ -428,7 +428,7 @@ export function useSwappableNativeTokens() {
       return [];
     }
     return enabledNativeTokens.filter((item) =>
-      nativeTokenList.includes(item.id),
+      enabledNetworkIds.includes(item.id),
     );
   }, [enabledNativeTokens]);
 }
