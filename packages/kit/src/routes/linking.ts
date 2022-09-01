@@ -1,6 +1,6 @@
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
 import { LinkingOptions } from '@react-navigation/native';
-import { createURL } from 'expo-linking';
+import * as Linking from 'expo-linking';
 import { merge } from 'lodash';
 
 import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/types';
@@ -18,7 +18,7 @@ import { SendRoutes } from '../views/Send/types';
 import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
-const prefix = createURL('/');
+const prefix = Linking.createURL('/');
 
 type WhiteListItem = {
   path: string;

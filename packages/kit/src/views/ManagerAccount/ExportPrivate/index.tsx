@@ -47,6 +47,7 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
   const toast = useToast();
   const { engine } = backgroundApiProxy;
   const isSmallScreen = useIsVerticalLayout();
+  const qrCodeContainerSize = { base: 296, md: 208 };
 
   const [privateKey, setPrivateKey] = useState<string>();
 
@@ -69,12 +70,12 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
   }, [toast, privateKey, intl]);
 
   const renderLoading = () => (
-    <ZStack w={{ base: 296, md: 208 }} h={{ base: 296, md: 208 }}>
+    <ZStack w={qrCodeContainerSize} h={qrCodeContainerSize}>
       <Image
         borderRadius="24px"
         source={BlurQRCode}
-        w={{ base: 296, md: 208 }}
-        h={{ base: 296, md: 208 }}
+        w={qrCodeContainerSize}
+        h={qrCodeContainerSize}
       />
       <Center w="100%" h="100%">
         <Spinner />
@@ -85,7 +86,11 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
   return (
     <Box py="24px" justifyContent="center" flexDirection="column">
       <>
-        <Box alignItems="center" flexDirection="column">
+        <Box
+          minH={qrCodeContainerSize}
+          alignItems="center"
+          flexDirection="column"
+        >
           {privateKey ? (
             <Box
               borderRadius="24px"
@@ -112,13 +117,13 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
       <Box
         alignItems="center"
         mt={isSmallScreen ? '32px' : '24px'}
-        px={isSmallScreen ? '67px' : '72px'}
+        px={isSmallScreen ? '54px' : '68px'}
       >
         <Text
           color="text-subdued"
           textAlign="center"
           typography={{ sm: 'Body1', md: 'Body2' }}
-          noOfLines={3}
+          noOfLines={4}
         >
           {privateKey}
         </Text>

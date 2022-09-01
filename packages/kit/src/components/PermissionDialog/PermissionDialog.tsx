@@ -9,7 +9,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Icon } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { PrefType } from '@onekeyhq/desktop/src-electron/preload';
+import type { PrefType } from '@onekeyhq/desktop/src-electron/preload';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

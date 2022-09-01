@@ -15,9 +15,14 @@ import {
 import Config from 'electron-config';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { isString } from 'lodash';
 
-import { PrefType } from './preload';
 import initProcess, { restartBridge } from './process/index';
+
+import type { PrefType } from './preload';
+
+const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
 const config = new Config() as
@@ -41,6 +46,26 @@ const staticPath = isDev
   : path.join((global as any).resourcesPath, 'static');
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
+
+const isMac = process.platform === 'darwin';
+
+function handleDeepLinkUrl(event: Event | null, url: string, argv?: string[]) {
+  if (!mainWindow) {
+    return;
+  }
+
+  // TODO wait delay for kit app initialized ?
+  //      or renderer emit kit ui ready event?
+  setTimeout(() => {
+    if (mainWindow) {
+      mainWindow.webContents.send('event-open-url', { url, argv });
+    }
+  }, 1000);
+
+  if (event) {
+    event?.preventDefault();
+  }
+}
 
 function createMainWindow() {
   const display = screen.getPrimaryDisplay();
@@ -94,6 +119,18 @@ function createMainWindow() {
       staticPath: `file://${staticPath}`,
       preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
     });
+
+    // Protocol handler for win32
+    if (process.platform === 'win32') {
+      // Keep only command line / deep linked arguments
+      const deeplinkingUrl = process.argv[1];
+      handleDeepLinkUrl(null, deeplinkingUrl, process.argv);
+    }
+
+    // TODO app.on('will-finish-launching',
+    // deeplink: Handle the protocol. In this case, we choose to show an Error Box.
+    app.off('open-url', handleDeepLinkUrl);
+    app.on('open-url', handleDeepLinkUrl);
   });
 
   browserWindow.on('resize', () => {
@@ -227,6 +264,17 @@ function createMainWindow() {
     );
   }
 
+  browserWindow.on('close', (event: Event) => {
+    // hide() instead of close() on MAC
+    if (isMac) {
+      event.preventDefault();
+      if (!browserWindow.isDestroyed()) {
+        browserWindow.hide();
+        // browserWindow.minimize();
+      }
+    }
+  });
+
   return browserWindow;
 }
 
@@ -236,32 +284,70 @@ function init() {
 
 const singleInstance = app.requestSingleInstanceLock();
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function quitOrMinimizeApp(event?: Event) {
+  // On OS X it is common for applications and their menu bar
+  // to stay active until the user quits explicitly with Cmd + Q
+  if (isMac) {
+    // **** renderer app will reload after minimize, and keytar not working.
+    event?.preventDefault();
+    if (!mainWindow?.isDestroyed()) {
+      mainWindow?.hide();
+    }
+    // ****
+    // app.quit();
+  } else {
+    app.quit();
+  }
+}
+
 if (!singleInstance && !process.mas) {
-  app.quit();
+  quitOrMinimizeApp();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (e, argv) => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
       mainWindow.focus();
+
+      // Protocol handler for win32
+      // argv: An array of the second instance’s (command line / deep linked) arguments
+      if (process.platform === 'win32') {
+        // Keep only command line / deep linked arguments
+        const deeplinkingUrl = argv[1];
+        handleDeepLinkUrl(null, deeplinkingUrl, argv);
+      }
     }
   });
 
   app.name = APP_NAME;
   app.on('ready', () => {
-    init();
-    mainWindow = createMainWindow();
+    if (!mainWindow) {
+      init();
+      mainWindow = createMainWindow();
+    }
+    mainWindow.show();
   });
 }
 
 app.on('activate', () => {
-  if (mainWindow === null) {
+  if (!mainWindow) {
     mainWindow = createMainWindow();
   }
+  mainWindow.show();
 });
 
 app.on('before-quit', () => {
-  if (!mainWindow) return;
-  mainWindow.removeAllListeners();
+  if (mainWindow) {
+    mainWindow?.removeAllListeners();
+    mainWindow?.removeAllListeners('close');
+    mainWindow?.close();
+  }
+});
+
+// Quit when all windows are closed.
+app.on('window-all-closed', (event: Event) => {
+  quitOrMinimizeApp(event);
 });
 
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
@@ -271,4 +357,22 @@ if (isDev) {
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');
+}
+
+// register deeplink for desktop
+//  https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(
+      ONEKEY_APP_DEEP_LINK_NAME,
+      process.execPath,
+      [path.resolve(process.argv[1])],
+    );
+  }
+} else {
+  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
+}
+if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
+  // Define custom protocol handler. Deep linking works on packaged versions of the application!
+  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }

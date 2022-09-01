@@ -26,6 +26,7 @@ declare global {
   var $$appStorage: any;
   var $$platformEnv: any;
   var $$debugLogger: any;
+  var $$localforage: any;
 
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api

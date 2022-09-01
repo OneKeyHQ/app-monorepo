@@ -1,0 +1,16 @@
+diff --git a/node_modules/zbar.wasm/dist/load-browser.js b/node_modules/zbar.wasm/dist/load-browser.js
+index 7d61a95..9b4a9ad 100644
+--- a/node_modules/zbar.wasm/dist/load-browser.js
++++ b/node_modules/zbar.wasm/dist/load-browser.js
+@@ -24,6 +24,11 @@ const locateFile = (file, _scriptDir) => {
+ };
+ const loadWasmInstance = async (importObj) => {
+     importObj['locateFile'] = locateFile;
++    // drop_console will remove the logger in wasm module
++    // which would cause error when the logger is called
++    const noop = () => {};
++    importObj['print'] = noop;
++    importObj['printErr'] = noop;
+     return await (0, zbar_1.default)(importObj);
+ };
+ exports.loadWasmInstance = loadWasmInstance;

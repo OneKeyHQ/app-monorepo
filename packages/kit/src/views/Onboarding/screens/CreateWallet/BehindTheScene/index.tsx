@@ -13,8 +13,15 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, ToastManager, useToast } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  DialogManager,
+  ToastManager,
+  useToast,
+} from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger, {
@@ -44,6 +51,7 @@ import {
   IOnboardingBehindTheSceneParams,
   IOnboardingRoutesParams,
 } from '../../../routes/types';
+import WalletExistsDialog from '../WalletExistsDialog';
 
 import {
   ONBOARDING_PAUSED_INDEX_HARDWARE,
@@ -78,6 +86,7 @@ function BehindTheSceneCreatingWallet({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { onboardingGoBack } = useOnboardingClose();
+  const closeModal = useModalClose();
   const { password, mnemonic, withEnableAuthentication, isHardwareCreating } =
     routeParams;
 
@@ -119,10 +128,23 @@ function BehindTheSceneCreatingWallet({
       return true;
     } catch (e: any) {
       // safeGoBack();
+      const { className, message, data } = e || {};
+      if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
+        const { walletId } = data || {};
 
-      const { className, message } = e || {};
-
-      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+        DialogManager.show({
+          render: (
+            <WalletExistsDialog
+              onDone={() => {
+                backgroundApiProxy.serviceAccount.autoChangeAccount({
+                  walletId: walletId ?? null,
+                });
+                closeModal();
+              }}
+            />
+          ),
+        });
+      } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
         deviceUtils.showErrorToast(e);
       } else {
         ToastManager.show(
@@ -140,6 +162,7 @@ function BehindTheSceneCreatingWallet({
     isHardwareCreating?.device,
     isHardwareCreating?.features,
     forceVisibleUnfocused,
+    closeModal,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {

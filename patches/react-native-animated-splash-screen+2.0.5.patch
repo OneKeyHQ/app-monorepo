@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
-index a935e81..28bcb8c 100644
+index a935e81..b3a4256 100644
 --- a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
 +++ b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.js
 @@ -1,12 +1,14 @@
@@ -81,10 +81,13 @@ index a935e81..28bcb8c 100644
              {this.renderChildren()}
            </Animated.View>
            {!animationDone && (
-             <Animated.Image
-               resizeMode={imageBackgroundResizeMode || "cover"}
-               source={imageBackgroundSource || require("./background.png")}
+-            <Animated.Image
+-              resizeMode={imageBackgroundResizeMode || "cover"}
+-              source={imageBackgroundSource || require("./background.png")}
 -              style={_dynamicImageBackground(
++            <Animated.View
++              // resizeMode={imageBackgroundResizeMode || "cover"}
++              // source={imageBackgroundSource || require("./background.png")}
 +              style={disableImageBackgroundAnimation ? _staticBackground(
 +                1,
 +                backgroundColor
@@ -139,9 +142,8 @@ index a935e81..28bcb8c 100644
 -}
  
  export default AnimatedSplash
-\ No newline at end of file
 diff --git a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js
-index b1d085a..bce6d21 100644
+index b1d085a..52a2e6f 100644
 --- a/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js
 +++ b/node_modules/react-native-animated-splash-screen/lib/AnimatedSplash.style.js
 @@ -2,10 +2,18 @@ import { StyleSheet, Dimensions } from "react-native"

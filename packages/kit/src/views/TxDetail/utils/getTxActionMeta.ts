@@ -1,6 +1,11 @@
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
 import {
+  TxActionStake,
+  TxActionStakeT0,
+  getTxActionStakeInfo,
+} from '../TxAction/TxActionStake';
+import {
   TxActionSwap,
   TxActionSwapT0,
   getTxActionSwapInfo,
@@ -85,6 +90,16 @@ export function getTxActionMeta(
       T0: TxActionSwapT0,
       T1: TxActionSwap,
       T2: TxActionSwap,
+    };
+  }
+  if (action.type === IDecodedTxActionType.INTERNAL_STAKE) {
+    const info = getTxActionStakeInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionStakeT0,
+      T1: TxActionStake,
+      T2: TxActionStake,
     };
   }
   return {

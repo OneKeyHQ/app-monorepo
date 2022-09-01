@@ -24,7 +24,10 @@ const ScanCamera: FC<ScanCameraProps> = ({
     const detectedBarcodes = scanBarcodes(frame, [BarcodeFormat.QR_CODE], {
       checkInverted: true,
     });
-    runOnJS(onQrcodeScanned)(detectedBarcodes[0]?.rawValue);
+    const data = detectedBarcodes[0]?.rawValue;
+    if (data) {
+      runOnJS(onQrcodeScanned)(data);
+    }
   }, []);
   return device ? (
     <>

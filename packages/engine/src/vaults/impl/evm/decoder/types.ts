@@ -20,6 +20,8 @@ enum EVMDecodedTxType {
   SWAP = 'swap',
   INTERNAL_SWAP = 'internal_swap',
 
+  INTERNAL_STAKE = 'internal_stake',
+
   // Generic contract interaction
   TRANSACTION = 'transaction',
 }
@@ -50,6 +52,15 @@ interface EVMDecodedItemInternalSwap {
   sellTokenSymbol: string;
   buyAmount: string;
   sellAmount: string;
+}
+
+interface EVMDecodedItemInternalStake {
+  type: EVMDecodedTxType.INTERNAL_STAKE;
+  token: Token;
+  amount: string;
+  value: string;
+  recipient: string;
+  from?: string;
 }
 
 interface EVMBaseDecodedItem {
@@ -127,5 +138,6 @@ export type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
   EVMDecodedItemInternalSwap,
+  EVMDecodedItemInternalStake,
   EVMDecodedInfoType,
 };

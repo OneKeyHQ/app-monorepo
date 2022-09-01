@@ -46,7 +46,6 @@ export function useDeviceStatusOfHardwareWallet() {
       return;
     }
     (async () => {
-      await deviceUtils.syncDeviceConnectStatus();
       const hwDeviceRec = (
         await backgroundApiProxy.engine.getHWDevices()
       ).reduce((acc, device) => {

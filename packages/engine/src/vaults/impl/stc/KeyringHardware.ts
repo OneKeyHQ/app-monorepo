@@ -52,6 +52,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
     await this.getHardwareSDKInstance();
     const response = await HardwareSDK.starcoinSignTransaction(
       connectId,
@@ -59,6 +61,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       {
         path: dbAccount.path,
         rawTx: Buffer.from(rawUserTransactionBytes).toString('hex'),
+        ...passphraseState,
       },
     );
 
@@ -81,6 +84,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.getDbAccount();
     const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
     await this.getHardwareSDKInstance();
 
     return Promise.all(
@@ -94,6 +98,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             {
               path: dbAccount.path,
               messageHex,
+              ...passphraseState,
             },
           );
         } catch (error: any) {
@@ -133,6 +138,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const showOnOneKey = false;
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
 
     let pubkeys: Array<string> = [];
     if (!isSearching) {
@@ -140,6 +146,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       try {
         response = await HardwareSDK.starcoinGetPublicKey(connectId, deviceId, {
           bundle: paths.map((path) => ({ path, showOnOneKey })),
+          ...passphraseState,
         });
       } catch (error: any) {
         debugLogger.common.error(error);
@@ -163,6 +170,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         deviceId,
         {
           bundle: paths.map((path) => ({ path, showOnOneKey })),
+          ...passphraseState,
         },
       );
     } catch (error: any) {
@@ -198,12 +206,14 @@ export class KeyringHardware extends KeyringHardwareBase {
   async getAddress(params: IGetAddressParams): Promise<string> {
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.starcoinGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
+      ...passphraseState,
     });
-    if (response.success) {
-      return response.payload.address ?? '';
+    if (response.success && !!response.payload?.address) {
+      return response.payload.address;
     }
     throw deviceUtils.convertDeviceError(response.payload);
   }

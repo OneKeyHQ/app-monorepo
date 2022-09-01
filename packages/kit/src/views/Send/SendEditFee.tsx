@@ -431,10 +431,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           defaultValue=""
           helpText={gasPriceTip && <FeeTipsWarning message={gasPriceTip} />}
         >
-          <Form.NumberInput
-            size={isSmallScreen ? 'xl' : undefined}
-            decimal={3}
-          />
+          <Form.NumberInput size={isSmallScreen ? 'xl' : undefined} />
         </Form.Item>
       )}
 

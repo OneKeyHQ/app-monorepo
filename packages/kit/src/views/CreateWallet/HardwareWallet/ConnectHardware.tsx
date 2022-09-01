@@ -330,7 +330,7 @@ const ConnectHardwareModal: FC = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            disabled={!!device.using}
+            // disabled={!!device.using}
             onPress={() => {
               handleConnectDeviceWithDevice(device);
             }}
@@ -345,7 +345,7 @@ const ConnectHardwareModal: FC = () => {
               <Typography.Body1>{device.name}</Typography.Body1>
             </HStack>
 
-            {device.using ? (
+            {/* {device.using ? (
               <HStack alignItems="center">
                 <Badge
                   size="sm"
@@ -353,23 +353,23 @@ const ConnectHardwareModal: FC = () => {
                   type="success"
                 />
               </HStack>
-            ) : (
-              <HStack space={3} alignItems="center">
-                {!!device.useBefore && platformEnv.isNative && (
-                  <Badge
-                    size="sm"
-                    title={intl.formatMessage({
-                      id: 'content__have_been_connected',
-                    })}
-                    type="success"
-                  />
-                )}
-                {isConnectingDeviceId === device.connectId && (
-                  <Spinner size="sm" />
-                )}
-                <Icon name="ChevronRightOutline" />
-              </HStack>
-            )}
+            ) : ( */}
+            <HStack space={3} alignItems="center">
+              {!!device.useBefore && platformEnv.isNative && (
+                <Badge
+                  size="sm"
+                  title={intl.formatMessage({
+                    id: 'content__have_been_connected',
+                  })}
+                  type="success"
+                />
+              )}
+              {isConnectingDeviceId === device.connectId && (
+                <Spinner size="sm" />
+              )}
+              <Icon name="ChevronRightOutline" />
+            </HStack>
+            {/* )} */}
           </PressableItem>
         ))}
       </VStack>

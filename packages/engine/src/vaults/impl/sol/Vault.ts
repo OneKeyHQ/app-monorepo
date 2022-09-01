@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-member-access */
 import {
   Solana,
   Provider as SolanaProvider,
@@ -55,6 +55,7 @@ import type {
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
@@ -253,7 +254,7 @@ export default class Vault extends VaultBase {
     } catch {
       // pass
     }
-    throw new InvalidAddress();
+    return Promise.reject(new InvalidAddress());
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {
@@ -301,14 +302,28 @@ export default class Vault extends VaultBase {
     payload?: any,
   ): Promise<IDecodedTx> {
     const nativeTx: Transaction = await this.helper.parseToNativeTx(encodedTx);
+    let actions: IDecodedTxAction[] = await this.decodeNativeTxActions(
+      nativeTx,
+    );
+
+    if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
+      actions = [
+        {
+          type: IDecodedTxActionType.INTERNAL_SWAP,
+          internalSwap: {
+            ...payload.swapInfo,
+            extraInfo: null,
+          },
+        },
+      ];
+    }
     const owner = await this.getAccountAddress();
     const decodedTx: IDecodedTx = {
       txid: nativeTx.signature ? bs58.encode(nativeTx.signature) : '',
       owner,
       signer: nativeTx.feePayer?.toString() || owner,
       nonce: 0,
-      actions: await this.decodeNativeTxActions(nativeTx),
-
+      actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -409,13 +424,43 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
-  override updateEncodedTx(
+  override async updateEncodedTx(
     encodedTx: IEncodedTx,
     payload: any,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
-    // TODO
-    throw new NotImplemented();
+    const nativeTx = (await this.helper.parseToNativeTx(
+      encodedTx,
+    )) as Transaction;
+    const [instruction] = nativeTx.instructions;
+    // max native token transfer update
+    if (
+      options.type === 'transfer' &&
+      nativeTx.instructions.length === 1 &&
+      instruction.programId.toString() === SystemProgram.programId.toString()
+    ) {
+      const instructionType =
+        SystemInstruction.decodeInstructionType(instruction);
+      if (instructionType === 'Transfer') {
+        const { fromPubkey, toPubkey } =
+          SystemInstruction.decodeTransfer(instruction);
+        const nativeToken = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
+        const { amount } = payload as IEncodedTxUpdatePayloadTransfer;
+        nativeTx.instructions = [
+          SystemProgram.transfer({
+            fromPubkey,
+            toPubkey,
+            lamports: BigInt(
+              new BigNumber(amount).shiftedBy(nativeToken.decimals).toFixed(),
+            ),
+          }),
+        ];
+        return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+      }
+    }
+    return Promise.resolve(encodedTx);
   }
 
   override async buildUnsignedTxFromEncodedTx(

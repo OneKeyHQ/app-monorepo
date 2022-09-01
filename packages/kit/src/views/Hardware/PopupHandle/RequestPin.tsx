@@ -19,6 +19,7 @@ import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-classic.json';
 import EnterPinCodeOnMini from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-mini.json';
+import EnterPinCodeOnPro from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-pro.json';
 import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-touch.json';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -26,14 +27,19 @@ import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
 export const PINCodeMaxLength = 9;
 
-const getEnterPinCodeAnimation = (type: string) => {
+const getEnterPinCodeAnimation = (type: IDeviceType) => {
   switch (type) {
+    case 'classic':
+      return EnterPinCodeOnClassic;
     case 'mini':
       return EnterPinCodeOnMini;
     case 'touch':
       return EnterPinCodeOnTouch;
+    case 'pro':
+      return EnterPinCodeOnPro;
     default:
-      return EnterPinCodeOnClassic;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+      const checkType: never = type;
   }
 };
 
@@ -166,7 +172,9 @@ const RequestPinView: FC<RequestPinViewProps> = ({
       onCancel={onCancel}
       mobileFillWidth={!innerOnDeviceInput}
       closeWay={innerOnDeviceInput ? 'delay' : 'now'}
-      borderBottomRadius={platformEnv.isNativeAndroid ? '0px' : '12px'}
+      borderBottomRadius={
+        platformEnv.isNativeAndroid && !innerOnDeviceInput ? '0px' : '12px'
+      }
     >
       {innerOnDeviceInput ? (
         pinOnDevice

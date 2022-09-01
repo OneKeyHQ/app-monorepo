@@ -23,6 +23,8 @@ type Wallet = HasName & {
   associatedDevice?: string;
   avatar?: Avatar;
   deviceType?: string;
+  hidden?: boolean;
+  passphraseState?: string;
 };
 
 export {

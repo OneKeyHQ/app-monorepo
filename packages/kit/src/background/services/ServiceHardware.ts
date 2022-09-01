@@ -16,12 +16,14 @@ import {
 } from '@onekeyfe/hd-core';
 import axios from 'axios';
 
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { DevicePayload } from '@onekeyhq/engine/src/types/device';
 import {
   addConnectedConnectId,
   removeConnectedConnectId,
   setHardwarePopup,
+  updateDevicePassphraseOpenedState,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -70,7 +72,7 @@ class ServiceHardware extends ServiceBase {
           const { type, payload } = e;
 
           setTimeout(() => {
-            const { device, type: eventType } = payload || {};
+            const { device, type: eventType, passphraseState } = payload || {};
             const { deviceType, connectId, deviceId, features } = device || {};
             const { bootloader_mode: bootLoaderMode } = features || {};
 
@@ -83,6 +85,7 @@ class ServiceHardware extends ServiceBase {
                   deviceId,
                   deviceConnectId: connectId,
                   deviceBootLoaderMode: !!bootLoaderMode,
+                  passphraseState,
                 },
               }),
             );
@@ -101,18 +104,38 @@ class ServiceHardware extends ServiceBase {
             if (!features || !features.device_id) return;
 
             try {
-              const wallets = await this.backgroundApi.engine.getWallets();
               const device =
                 await this.backgroundApi.engine.getHWDeviceByDeviceId(
                   features.device_id,
                 );
               if (!device) return;
-              const wallet = wallets.find(
-                (w) => w.associatedDevice === device.id,
-              );
-              if (!wallet) return;
-              this.featursCache[wallet.id] = features;
-              this.syncDeviceLabel(features, wallet.id);
+
+              try {
+                const wallets = await this.backgroundApi.engine.getWallets();
+                const wallet = wallets.find(
+                  (w) =>
+                    w.associatedDevice === device.id && !isPassphraseWallet(w),
+                );
+                if (wallet) {
+                  this.featursCache[wallet.id] = features;
+                  this.syncDeviceLabel(features, wallet.id);
+                }
+              } catch {
+                // ignore
+              }
+
+              try {
+                if (typeof features.passphrase_protection === 'boolean') {
+                  this.backgroundApi.dispatch(
+                    updateDevicePassphraseOpenedState({
+                      deviceId: device.id,
+                      opened: features.passphrase_protection,
+                    }),
+                  );
+                }
+              } catch {
+                // ignore
+              }
             } catch {
               // empty
             }
@@ -190,8 +213,10 @@ class ServiceHardware extends ServiceBase {
       try {
         const result = await this.getFeatures(connectId);
         return result !== null;
-      } catch (e) {
-        if (e instanceof OneKeyHardwareError && !e.data.reconnect) {
+      } catch (e: any) {
+        const { data } = e || {};
+        const { reconnect } = data || {};
+        if (e instanceof OneKeyHardwareError && !reconnect) {
           return Promise.reject(e);
         }
       }
@@ -213,6 +238,22 @@ class ServiceHardware extends ServiceBase {
 
       this.connectedDeviceType = getDeviceType(response.payload);
       return response.payload;
+    }
+
+    const deviceError = deviceUtils.convertDeviceError(response.payload);
+
+    return Promise.reject(deviceError);
+  }
+
+  @backgroundMethod()
+  async getPassphraseState(connectId: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    const response = await hardwareSDK?.getPassphraseState(connectId, {
+      initSession: true,
+    });
+
+    if (response.success) {
+      return response.payload ?? undefined;
     }
 
     const deviceError = deviceUtils.convertDeviceError(response.payload);
@@ -362,9 +403,10 @@ class ServiceHardware extends ServiceBase {
     if (!onDeviceInputPin) {
       const payload = await this.getDeviceSupportFeatures(connectId);
 
-      if (!payload.inputPinOnSoftware)
-        // TODO: optimize the error message
-        throw new FirmwareVersionTooLow('', { require: '2.3.0' });
+      if (!payload.inputPinOnSoftware?.support)
+        throw new FirmwareVersionTooLow('', {
+          require: payload.inputPinOnSoftware.require,
+        });
     }
 
     return this.updateDevicePayload(deviceId, {
@@ -456,7 +498,7 @@ class ServiceHardware extends ServiceBase {
       const { inputPinOnSoftware, device } = payload;
       const { deviceId } = device || {};
 
-      if (deviceId && !inputPinOnSoftware) {
+      if (deviceId && !inputPinOnSoftware.support) {
         await this.updateDevicePayload(deviceId, {
           onDeviceInputPin: true,
         });

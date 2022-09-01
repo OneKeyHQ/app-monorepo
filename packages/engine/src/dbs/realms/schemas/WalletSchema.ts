@@ -25,6 +25,8 @@ class WalletSchema extends Realm.Object {
 
   public deviceType?: string;
 
+  public passphraseState?: string;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Wallet',
     primaryKey: 'id',
@@ -42,6 +44,7 @@ class WalletSchema extends Realm.Object {
       },
       associatedDevice: 'Device?',
       deviceType: 'string?',
+      passphraseState: 'string?',
     },
   };
 
@@ -63,6 +66,7 @@ class WalletSchema extends Realm.Object {
       ),
       associatedDevice: this.associatedDevice?.id,
       deviceType: this.deviceType,
+      passphraseState: this.passphraseState,
     };
   }
 }

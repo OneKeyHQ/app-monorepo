@@ -16,12 +16,14 @@ type InitialState = {
   networks: BaseNetwork[];
   /** accounts will always change by different wallet and different networks */
   accounts: BaseAccount[]; // accounts in current wallet and network
+  displayPassphraseWalletIdList: string[]; // Passphrase Wallet can be displayed
 };
 
 const initialState: InitialState = {
   wallets: [],
   networks: [],
   accounts: [],
+  displayPassphraseWalletIdList: [],
 };
 
 const WALLET_SORT_WEIGHT = {
@@ -73,6 +75,17 @@ export const walletSlice = createSlice({
     addWallet(state, action: PayloadAction<BaseWallet>) {
       state.wallets.push(action.payload);
     },
+    addDisplayPassphraseWallet(state, action: PayloadAction<string>) {
+      if (!state.displayPassphraseWalletIdList.includes(action.payload)) {
+        state.displayPassphraseWalletIdList = [
+          ...state.displayPassphraseWalletIdList,
+          action.payload,
+        ];
+      }
+    },
+    clearDisplayPassphraseWallet(state) {
+      state.displayPassphraseWalletIdList = [];
+    },
   },
 });
 
@@ -83,6 +96,8 @@ export const {
   updateNetworks,
   updateAccounts,
   updateAccountDetail,
+  addDisplayPassphraseWallet,
+  clearDisplayPassphraseWallet,
 } = walletSlice.actions;
 
 export default walletSlice.reducer;

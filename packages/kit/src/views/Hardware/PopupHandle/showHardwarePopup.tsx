@@ -7,22 +7,15 @@ import RootSiblingsManager from 'react-native-root-siblings';
 
 import DialogManager from '@onekeyhq/components/src/DialogManager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { HardwareUiEventPayload } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import PermissionDialog from '../../../components/PermissionDialog/PermissionDialog';
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 
 import RequestConfirmView from './RequestConfirm';
+import RequestPassphraseOnDeviceView from './RequestPassphraseOnDevice';
 import RequestPinView from './RequestPin';
-
-export type HardwareUiEventPayload = {
-  type: string;
-  deviceType: IOneKeyDeviceType;
-  deviceId: string;
-  deviceConnectId: string;
-  deviceBootLoaderMode: boolean;
-};
 
 export type HardwarePopup = {
   uiRequest?: string;
@@ -39,6 +32,7 @@ export const UI_REQUEST = {
   REQUEST_PIN: 'ui-request_pin',
   INVALID_PIN: 'ui-invalid_pin',
   REQUEST_BUTTON: 'ui-button',
+  REQUEST_PASSPHRASE_ON_DEVICE: 'ui-request_passphrase_on_device',
 
   CLOSE_UI_WINDOW: 'ui-close_window',
 
@@ -65,6 +59,8 @@ export function closeHardwarePopup() {
     hardwarePopupHolder = null;
   }
 }
+let lastParams = '';
+let lastCallTime = 0;
 export default async function showHardwarePopup({
   uiRequest,
   payload,
@@ -72,6 +68,14 @@ export default async function showHardwarePopup({
   if (!uiRequest) {
     return;
   }
+  const currentCallTime = Date.now();
+  const currentParams = JSON.stringify({ uiRequest, payload });
+  if (currentCallTime - lastCallTime < 1000 && lastParams === currentParams) {
+    // ignore frequent calls
+    return;
+  }
+  lastCallTime = currentCallTime;
+  lastParams = currentParams;
   let popupType = 'normal';
   let popupView: ReactElement | undefined;
 
@@ -146,6 +150,20 @@ export default async function showHardwarePopup({
     );
   }
 
+  if (uiRequest === UI_REQUEST.REQUEST_PASSPHRASE_ON_DEVICE) {
+    const deviceType = payload?.deviceType ?? 'classic';
+
+    popupView = (
+      <RequestPassphraseOnDeviceView
+        deviceType={deviceType}
+        passphraseState={payload?.passphraseState}
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+      />
+    );
+  }
+
   if (
     uiRequest === UI_REQUEST.LOCATION_PERMISSION ||
     uiRequest === UI_REQUEST.BLUETOOTH_PERMISSION
@@ -197,40 +215,42 @@ export default async function showHardwarePopup({
   if (!popupView) {
     return setTimeout(() => {
       closeHardwarePopup();
-    }, 10);
+    });
   }
 
   const nativeInputContentAlign = platformEnv.isNative ? 'flex-end' : 'center';
   const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
-  closeHardwarePopup();
   setTimeout(() => {
-    hardwarePopupHolder = new RootSiblingsManager(
-      (
-        <Modal
-          isVisible
-          onModalHide={closeHardwarePopup}
-          backdropColor="overlay"
-          animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
-          animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
-          animationOutTiming={300}
-          backdropTransitionOutTiming={0}
-          coverScreen
-          useNativeDriver
-          hideModalContentWhileAnimating
-          style={{
-            justifyContent:
-              popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
-            alignItems: 'center',
-            padding: 0,
-            margin: 0,
-            top: popupType === 'normal' ? modalTop : 0,
-          }}
-        >
-          {popupView}
-        </Modal>
-      ),
+    const modalPopup = (
+      <Modal
+        isVisible
+        onModalHide={closeHardwarePopup}
+        backdropColor="overlay"
+        animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
+        animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
+        animationOutTiming={300}
+        backdropTransitionOutTiming={0}
+        coverScreen
+        useNativeDriver
+        hideModalContentWhileAnimating
+        style={{
+          justifyContent:
+            popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
+          alignItems: 'center',
+          padding: 0,
+          margin: 0,
+          top: popupType === 'normal' ? modalTop : 0,
+        }}
+      >
+        {popupView}
+      </Modal>
     );
+    if (hardwarePopupHolder) {
+      hardwarePopupHolder.update(modalPopup);
+    } else {
+      hardwarePopupHolder = new RootSiblingsManager(modalPopup);
+    }
   });
 
   return hardwarePopupHolder;

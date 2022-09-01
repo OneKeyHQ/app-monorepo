@@ -431,9 +431,9 @@ const UpdatingModal: FC = () => {
         setMaxProgress(100);
         setProgress(100);
         engine.getWalletByDeviceId(device?.id ?? '').then((wallet) => {
-          if (wallet) {
-            serviceHardware.cleanFeaturesCache(wallet.id);
-          }
+          wallet.forEach((w) => {
+            serviceHardware.cleanFeaturesCache(w.id);
+          });
         });
         setProgressState('done');
         setStateViewInfo({ type: 'success' });

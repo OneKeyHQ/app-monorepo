@@ -28,6 +28,10 @@ export function buildAccountLandingLink({
   return `${webOrigin}${url}`;
 }
 
+/*
+$navigationRef.current.navigate('account',{address:'0x'})
+*/
+
 function AccountRootLanding() {
   const { serviceAccount } = backgroundApiProxy;
   const route = useRoute();

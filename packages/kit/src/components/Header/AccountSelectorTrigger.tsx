@@ -58,10 +58,10 @@ const AccountSelectorTrigger: FC<Props> = ({
         const { ble, firmware } = deviceUpdates[device.mac] || {};
         const hasConnected = connected.includes(device.mac);
         setHasNotification(!!ble || !!firmware || !!hasConnected);
-        if (hasConnected) {
-          setNotificationColor('icon-success');
-        } else if (ble || firmware) {
+        if (ble || firmware) {
           setNotificationColor('icon-warning');
+        } else if (hasConnected) {
+          setNotificationColor('icon-success');
         }
       });
     } else {

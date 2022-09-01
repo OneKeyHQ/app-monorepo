@@ -283,7 +283,7 @@ class DeviceUtils {
       case HardwareErrorCode.DeviceInterruptedFromUser:
         return new Error.UserCancelFromOutside({ message: msg });
       case HardwareErrorCode.DeviceNotSupportPassphrase:
-        return new Error.NotSupportPassphraseError({ message: msg });
+        return new Error.NotSupportPassphraseError(msg, errorParams);
       case HardwareErrorCode.IFrameLoadFail:
         return new Error.InitIframeLoadFail({ message: msg });
       case HardwareErrorCode.IframeTimeout:
@@ -319,6 +319,12 @@ class DeviceUtils {
         return new Error.UnknownHardwareError({ message: msg });
       case HardwareErrorCode.PinInvalid:
         return new Error.InvalidPIN({ message: msg });
+      case HardwareErrorCode.DeviceCheckPassphraseStateError:
+        return new Error.InvalidPassphrase({ message: msg });
+      case HardwareErrorCode.DeviceOpenedPassphrase:
+        return new Error.DeviceOpenedPassphrase({ message: msg });
+      case HardwareErrorCode.DeviceNotOpenedPassphrase:
+        return new Error.DeviceNotOpenedPassphrase({ message: msg });
       case HardwareErrorCode.PinCancelled:
       case HardwareErrorCode.ActionCancelled:
         return new Error.UserCancel({ message: msg });

@@ -18,6 +18,7 @@ type WalletAvatarProps = {
   hwWalletType?: IOneKeyDeviceType;
   avatar?: Avatar;
   status?: 'connected' | 'warning';
+  isPassphrase?: boolean;
 } & ComponentProps<typeof Center>;
 
 const defaultProps: WalletAvatarProps = {
@@ -130,6 +131,24 @@ const WalletStatus: FC<Partial<WalletAvatarProps>> = ({ size, status }) => (
   />
 );
 
+const PassphraseStatus: FC<Partial<WalletAvatarProps>> = ({ size }) => (
+  <Center
+    position="absolute"
+    right={-3}
+    bottom={-3}
+    borderColor="surface-subdued"
+    rounded="full"
+    size={size === 'xl' || size === 'lg' ? '16px' : '12px'}
+    bgColor="surface-neutral-subdued"
+  >
+    <Icon
+      name="LockClosedSolid"
+      color="icon-default"
+      size={size === 'xl' || size === 'lg' ? 12 : 10}
+    />
+  </Center>
+);
+
 const WalletAvatar: FC<WalletAvatarProps> = ({
   size,
   avatarBgColor,
@@ -138,6 +157,7 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
   hwWalletType,
   avatar,
   status,
+  isPassphrase,
   ...rest
 }) => {
   const hdAvatar = avatar ?? defaultAvatar;
@@ -167,6 +187,7 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
         avatar={hdAvatar}
       />
       {status ? <WalletStatus size={size} status={status} /> : undefined}
+      {isPassphrase ? <PassphraseStatus size={size} /> : undefined}
     </Center>
   );
 };

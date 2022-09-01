@@ -9,4 +9,5 @@ export const persistWhiteList = [
   'swapTransactions',
   'fiatMoney',
   'cloudBackup',
+  'staking',
 ];

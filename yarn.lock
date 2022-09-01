@@ -7017,6 +7017,13 @@ async-limiter@~1.0.0:
   resolved "https://registry.yarnpkg.com/async-limiter/-/async-limiter-1.0.1.tgz#dd379e94f0db8310b08291f9d64c3209766617fd"
   integrity sha512-csOlWGAcRFJaI6m+F2WKdnMKr4HhdhFVBk0H/QbJFMCr+uO2kwohwXQPxw/9OCxp05r5ghVBFSyioixx3gfkNQ==
 
+async-mutex@^0.3.2:
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/async-mutex/-/async-mutex-0.3.2.tgz#1485eda5bda1b0ec7c8df1ac2e815757ad1831df"
+  integrity sha512-HuTK7E7MT7jZEh1P9GtRW9+aTWiDWWi9InbZ5hjxrnRa39KS4BW04+xLBhYNS2aXhHUIKZSw3gj4Pn1pj+qGAA==
+  dependencies:
+    tslib "^2.3.1"
+
 async@^1.5.2:
   version "1.5.2"
   resolved "https://registry.yarnpkg.com/async/-/async-1.5.2.tgz#ec6a61ae56480c0c3cb241c95618e20892f9672a"
@@ -15134,7 +15141,7 @@ localStorage@^1.0.4:
   resolved "https://registry.yarnpkg.com/localStorage/-/localStorage-1.0.4.tgz#57dfa28084385f81431accb8ae24b196398223f7"
   integrity sha512-r35zrihcDiX+dqWlJSeIwS9nrF95OQTgqMFm3FB2D/+XgdmZtcutZOb7t0xXkhOEM8a9kpuu7cc28g1g36I5DQ==
 
-localforage@^1.8.1:
+localforage@^1.10.0, localforage@^1.8.1:
   version "1.10.0"
   resolved "https://registry.yarnpkg.com/localforage/-/localforage-1.10.0.tgz#5c465dc5f62b2807c3a84c0c6a1b1b3212781dd4"
   integrity sha512-14/H1aX7hzBBmmh7sGPd+AOMkkIrHM3Z1PAyGgZigA1H1p5O5ANnMyWzvpAETtG68/dC4pC0ncy3+PPGzXZHPg==
@@ -21437,7 +21444,7 @@ tsconfig-paths@^3.11.0:
     minimist "^1.2.0"
     strip-bom "^3.0.0"
 
-tslib@2.4.0, tslib@^1.10.0, tslib@^1.8.1, tslib@^1.9.0, tslib@^1.9.3, tslib@^2.0.0, tslib@^2.0.1, tslib@^2.0.3, tslib@^2.1.0, tslib@^2.4.0, tslib@~2.1.0:
+tslib@2.4.0, tslib@^1.10.0, tslib@^1.8.1, tslib@^1.9.0, tslib@^1.9.3, tslib@^2.0.0, tslib@^2.0.1, tslib@^2.0.3, tslib@^2.1.0, tslib@^2.3.1, tslib@^2.4.0, tslib@~2.1.0:
   version "2.4.0"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.4.0.tgz#7cecaa7f073ce680a05847aa77be941098f36dc3"
   integrity sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==
