@@ -23,7 +23,7 @@ import {
 import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import imageUrl from '@onekeyhq/kit/assets/alert.png';
-import { useNavigation, useNetworkTokens } from '@onekeyhq/kit/src/hooks';
+import { useNavigation } from '@onekeyhq/kit/src/hooks';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -31,6 +31,7 @@ import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { usePriceAlertlist, useSingleToken } from './hooks';
 
 type ListEmptyComponentProps = {
   isLoading: boolean;
@@ -167,11 +168,9 @@ export const Item: FC<{
 };
 
 const Section = ({
-  tokenId,
   alerts,
   onRemove,
 }: {
-  tokenId: string;
   alerts: PriceAlertItem[];
   onRemove: (item?: PriceAlertItem) => void;
 }) => {
@@ -179,12 +178,8 @@ const Section = ({
   const { themeVariant } = useTheme();
 
   const networkId = `${alerts[0].impl}--${alerts[0].chainId}`;
-  const allTokens: TokenType[] = useNetworkTokens(networkId);
 
-  const token = useMemo(
-    () => allTokens.find((t) => t.id === tokenId),
-    [allTokens, tokenId],
-  );
+  const token = useSingleToken(networkId, alerts[0].address);
 
   const handleRemove = useCallback(
     (price: string) => {
@@ -227,31 +222,25 @@ const Section = ({
 const NotificationPriceAlert = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const [data, setData] = useState<[string, PriceAlertItem[]][]>([]);
+  const {
+    alerts, 
+    fetchPriceAlerts
+  } = usePriceAlertlist();
 
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await backgroundApiProxy.engine.queryPriceAlertList();
-      const groupedData = groupBy(
-        res,
-        (item) => `${item.impl}--${item.chainId}--${item.address}`,
-      );
-      setData(Object.entries(groupedData));
-    } catch (error) {
-      debugLogger.common.error(
-        `queryPriceAlertList failed`,
-        error instanceof Error ? error?.message : error,
-      );
-    }
-  }, []);
+  const data = useMemo(() => {
+    const groupedData = groupBy(
+      alerts,
+      (item) => `${item.impl}--${item.chainId}--${item.address}`,
+    );
+    return Object.entries(groupedData);
+  }, [alerts])
 
   useLayoutEffect(() => {
     const title = intl.formatMessage({ id: 'title__manage_price_alert' });
     navigation.setOptions({
       title,
     });
-    fetchData();
-  }, [navigation, intl, fetchData]);
+  }, [navigation, intl]);
 
   return (
     <ScrollView
@@ -266,9 +255,8 @@ const NotificationPriceAlert = () => {
         data.map(([tokenId, alerts]) => (
           <Section
             key={tokenId}
-            tokenId={tokenId}
             alerts={alerts}
-            onRemove={() => fetchData()}
+            onRemove={fetchPriceAlerts}
           />
         ))
       ) : (

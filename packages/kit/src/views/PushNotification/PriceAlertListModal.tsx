@@ -18,6 +18,8 @@ import {
 import { Item, ListEmptyComponent } from './PriceAlertListStack';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSettings } from '../../hooks/redux';
+import { setPushNotificationConfig } from '../../store/reducers/settings';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
@@ -37,8 +39,11 @@ export const PriceAlertListModal: FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PriceAlertItem[]>([]);
   const route = useRoute<RouteProps>();
+  const {pushNotification} = useSettings();
   const { token } = route.params;
   const navigation = useNavigation<NavigationProps>();
+
+  const {engine, dispatch} = backgroundApiProxy;
 
   const disabled = useMemo(() => data.length >= MAX_ALERT, [data.length]);
 
@@ -49,7 +54,7 @@ export const PriceAlertListModal: FC = () => {
           return;
         }
         setLoading(true);
-        const res = await backgroundApiProxy.engine.queryPriceAlertList(
+        const res = await engine.queryPriceAlertList(
           pick(token, 'impl', 'chainId', 'address'),
         );
         setData(res);
@@ -65,6 +70,15 @@ export const PriceAlertListModal: FC = () => {
     },
     [token],
   );
+
+  const onPrimaryActionPress = useCallback(() => {
+    if(!pushNotification?.pushEnable){
+      dispatch(setPushNotificationConfig({pushEnable: true}));
+    }
+    navigation.navigate(ManageTokenRoutes.PriceAlertAdd, {
+      token,
+    });
+  }, [pushNotification?.pushEnable])
 
   useFocusEffect(
     useCallback(() => {
@@ -112,11 +126,7 @@ export const PriceAlertListModal: FC = () => {
       height="560px"
       headerDescription={token.symbol}
       hideSecondaryAction
-      onPrimaryActionPress={() => {
-        navigation.navigate(ManageTokenRoutes.PriceAlertAdd, {
-          token,
-        });
-      }}
+      onPrimaryActionPress={onPrimaryActionPress}
       primaryActionProps={{
         type: disabled ? 'basic' : 'primary',
         leftIconName: 'PlusOutline',

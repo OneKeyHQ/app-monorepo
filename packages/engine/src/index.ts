@@ -1104,6 +1104,7 @@ class Engine {
     return !!token;
   }
 
+  @backgroundMethod()
   async findToken(params: { networkId: string; tokenIdOnNetwork: string }) {
     try {
       // needs await to try catch memoizee function

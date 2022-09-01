@@ -8,6 +8,7 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
 export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
@@ -68,3 +69,20 @@ export const usePriceAlertlist = () => {
     fetchPriceAlerts,
   };
 };
+
+export const useSingleToken = (networkId: string, address: string) => {
+  const [token, setToken] = useState<Token>();
+
+  useEffect(() => {
+    backgroundApiProxy.engine.findToken({
+      networkId,
+      tokenIdOnNetwork: address,
+    }).then(t => {
+        if(t){
+          setToken(t);
+        }
+      });
+  }, []);
+
+  return token;
+}
