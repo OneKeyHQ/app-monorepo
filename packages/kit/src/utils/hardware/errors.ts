@@ -141,7 +141,7 @@ export class FirmwareDownloadFailed extends OneKeyHardwareError {
 export class DeviceNotSame extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 
-  override key: LocaleIds = 'msg__hardware_not_same';
+  override key: LocaleIds = 'msg__not_the_same_wallet';
 }
 
 export class DeviceNotFind extends OneKeyHardwareError {
