@@ -36,7 +36,7 @@ async function fetchData<T>(
 }
 
 const sync = async (
-  type: 'reset' | 'normal',
+  type: 'reset' | 'normal' = 'normal',
 ): Promise<PartialNotificationType> => {
   const config: PartialNotificationType = appSelector((state) => ({
     ...(state?.settings?.pushNotification || {}),
