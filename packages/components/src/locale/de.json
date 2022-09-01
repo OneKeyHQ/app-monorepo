@@ -791,6 +791,8 @@
   "form__your_request": "Ihre Anfrage",
   "history__queue": "Warteschlange",
   "loading__confirming": "Bestätigung",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "Sorry, Passphrase Wallet wird noch nicht unterstützt",
   "modal__add_wallet": "Geldbörse hinzufügen",
   "modal__add_wallet_desc": "Beginnen Sie Ihre Web3-Reise von hier aus.",

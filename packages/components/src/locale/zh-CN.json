@@ -791,6 +791,8 @@
   "form__your_request": "您的工单",
   "history__queue": "队列",
   "loading__confirming": "验证中",
+  "message__fetching_addresses": "正在获取地址...",
+  "message__fetching_error": "无效的 {0} 地址",
   "message__not_support_passphrase_yet": "抱歉，暂不支持 passphrase 钱包创建，请关闭 passphrase 后重试",
   "modal__add_wallet": "添加钱包",
   "modal__add_wallet_desc": "您的 WEB3 之旅由此开启",

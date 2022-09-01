@@ -791,6 +791,8 @@
   "form__your_request": "आपके अनुरोध",
   "history__queue": "पंक्ति",
   "loading__confirming": "पुष्टि",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "क्षमा करें, पासफ़्रेज़ वॉलेट अभी समर्थित नहीं है",
   "modal__add_wallet": "वॉलेट जोड़ें",
   "modal__add_wallet_desc": "यहां से अपनी वेब3 यात्रा शुरू करें।",

@@ -791,6 +791,8 @@
   "form__your_request": "ご要望",
   "history__queue": "列",
   "loading__confirming": "検証中",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "パスフレーズウォレットの作成にはまだ対応していないため、お手数で申し訳ないが、パスフレーズをオフにしてから再試行ください",
   "modal__add_wallet": "ウォレット追加",
   "modal__add_wallet_desc": "ここからWeb3の旅を始めよう。",

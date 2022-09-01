@@ -791,6 +791,8 @@
   "form__your_request": "Таны хүсэлт",
   "history__queue": "Дараалал",
   "loading__confirming": "Баталгаажуулж байна",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "Уучлаарай, нэвтрэх хэтэвчийг хараахан дэмжээгүй байна",
   "modal__add_wallet": "Wallet нэмэх",
   "modal__add_wallet_desc": "Web3 аялалаа эндээс эхлүүлээрэй.",

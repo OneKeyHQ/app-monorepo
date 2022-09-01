@@ -791,6 +791,8 @@
   "form__your_request": "Ваш запрос",
   "history__queue": "Очередь",
   "loading__confirming": "Подтверждение",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "Извините, кошелек с парольной фразой пока не поддерживается",
   "modal__add_wallet": "Добавить кошелек",
   "modal__add_wallet_desc": "Начните свое путешествие в Web3 отсюда.",

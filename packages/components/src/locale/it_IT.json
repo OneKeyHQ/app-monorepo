@@ -791,6 +791,8 @@
   "form__your_request": "La tua richiesta",
   "history__queue": "Coda",
   "loading__confirming": "Confermando",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "Spiacenti, il portafoglio passphrase non è ancora supportato",
   "modal__add_wallet": "Aggiungi portafoglio",
   "modal__add_wallet_desc": "Inizia il tuo viaggio in Web3 da qui.",

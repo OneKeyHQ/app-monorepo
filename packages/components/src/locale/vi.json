@@ -791,6 +791,8 @@
   "form__your_request": "Yêu cầu của bạn",
   "history__queue": "Xếp hàng",
   "loading__confirming": "Xác nhận",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "Xin lỗi, ví cụm mật khẩu chưa được hỗ trợ",
   "modal__add_wallet": "Thêm ví",
   "modal__add_wallet_desc": "Bắt đầu hành trình Web3 của bạn từ đây.",

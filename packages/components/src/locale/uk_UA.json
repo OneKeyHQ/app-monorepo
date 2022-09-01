@@ -791,6 +791,8 @@
   "form__your_request": "Твоє прохання",
   "history__queue": "Чергу",
   "loading__confirming": "Підтвердження",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "На жаль, гаманець із парольною фразою ще не підтримується",
   "modal__add_wallet": "Додати гаманець",
   "modal__add_wallet_desc": "Почніть свою подорож Web3 звідси.",

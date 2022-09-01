@@ -791,6 +791,8 @@
   "form__your_request": "당신의 요청",
   "history__queue": "대기 줄",
   "loading__confirming": "확인 중",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "죄송합니다. 암호 지갑은 아직 지원되지 않습니다.",
   "modal__add_wallet": "지갑 추가",
   "modal__add_wallet_desc": "여기에서 Web3 여정을 시작하십시오.",

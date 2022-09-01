@@ -791,6 +791,8 @@
   "form__your_request": "তোমার অনুরোধ",
   "history__queue": "কিউ",
   "loading__confirming": "নিশ্চিত করছে",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "দুঃখিত, পাসফ্রেজ ওয়ালেট এখনও সমর্থিত নয়৷",
   "modal__add_wallet": "ওয়ালেট যোগ করুন",
   "modal__add_wallet_desc": "এখান থেকে আপনার Web3 যাত্রা শুরু করুন।",

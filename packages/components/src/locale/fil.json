@@ -791,6 +791,8 @@
   "form__your_request": "Ang iyong Kahilingan",
   "history__queue": "pila",
   "loading__confirming": "Kinukumpirma",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "Paumanhin, hindi pa sinusuportahan ang passphrase wallet",
   "modal__add_wallet": "Magdagdag ng Wallet",
   "modal__add_wallet_desc": "Simulan ang iyong paglalakbay sa Web3 mula dito.",

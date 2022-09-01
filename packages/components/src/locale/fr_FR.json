@@ -791,6 +791,8 @@
   "form__your_request": "Votre demande",
   "history__queue": "File d'attente",
   "loading__confirming": "Confirmation",
+  "message__fetching_addresses": "Fetching addresses...",
+  "message__fetching_error": "Invalid {0} name.",
   "message__not_support_passphrase_yet": "Désolé, le portefeuille de mots de passe n'est pas encore pris en charge",
   "modal__add_wallet": "Ajouter un portefeuille",
   "modal__add_wallet_desc": "Commencez votre voyage Web3 à partir d'ici.",
