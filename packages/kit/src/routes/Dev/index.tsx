@@ -16,7 +16,6 @@ import ContainerGallery from '@onekeyhq/kit/src/views/Components/stories/Contain
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
-import FlashListGallery from '@onekeyhq/kit/src/views/Components/stories/FlashList';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
 import HardwareHomescreen from '@onekeyhq/kit/src/views/Components/stories/HardwareHomescreen';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
@@ -184,7 +183,6 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentCard, component: NftCardGallery },
   { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
-  { name: StackRoutes.ComponentFlashList, component: FlashListGallery },
   { name: StackRoutes.ComponentNFTImage, component: NFTImageGallery },
   { name: StackRoutes.ComponentNFTList, component: NFTListGallery },
   { name: StackRoutes.ComponentToken, component: TokenGallery },

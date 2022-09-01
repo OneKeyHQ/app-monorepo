@@ -10,6 +10,7 @@ import {
   IconButton,
   Typography,
   useIsVerticalLayout,
+  useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -38,6 +39,7 @@ const CollectiblesHeader = ({
   onPress,
 }: CollectiblesHeaderProps) => {
   const intl = useIntl();
+  const { themeVariant } = useTheme();
 
   const subDesc = intl.formatMessage({ id: 'form__last_price' });
   return (
@@ -48,6 +50,8 @@ const CollectiblesHeader = ({
         mb="24px"
         bgColor="surface-default"
         borderRadius="12px"
+        borderColor="border-subdued"
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
         padding="16px"
         justifyContent="space-between"
       >
@@ -79,7 +83,7 @@ const CollectiblesHeader = ({
         pb={3}
       >
         <Typography.Heading>
-          {intl.formatMessage({ id: 'asset__collectibles' })}
+          {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
         <IconButton
           name={expand ? 'PackupOutline' : 'ExpandOutline'}
