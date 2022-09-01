@@ -1,8 +1,11 @@
 import { find, flatten } from 'lodash';
 
+import { ToastManager } from '@onekeyhq/components';
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import {
   generateNetworkIdByChainId,
@@ -628,13 +631,36 @@ class ServiceAccount extends ServiceBase {
     if (walletExistButNoAccount) {
       wallet = walletExistButNoAccount;
     } else {
-      wallet = await engine.createHWWallet({
-        name: walletName,
-        avatar: avatar ?? randomAvatar(),
-        features,
-        connectId,
-        passphraseState,
-      });
+      try {
+        wallet = await engine.createHWWallet({
+          name: walletName,
+          avatar: avatar ?? randomAvatar(),
+          features,
+          connectId,
+          passphraseState,
+        });
+      } catch (e: any) {
+        const { className, data } = e || {};
+        if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
+          const { walletId: existsWalletId, walletName: existsWalletName } =
+            data || {};
+          serviceAccount.initWallets();
+          serviceAccount.autoChangeAccount({
+            walletId: existsWalletId ?? null,
+          });
+
+          ToastManager.show(
+            {
+              title: formatMessage(
+                { id: 'msg__wallet_already_exist_activated_automatically' },
+                { 0: existsWalletName },
+              ),
+            },
+            { type: 'default' },
+          );
+        }
+        throw e;
+      }
     }
 
     [account] = await engine.getAccounts(wallet.accounts, networkId);

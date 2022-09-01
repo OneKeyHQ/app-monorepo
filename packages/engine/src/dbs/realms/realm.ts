@@ -6,9 +6,10 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
-import { filterPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+import {
+  filterPassphraseWallet,
+  handleDisplayPassphraseWallet,
+} from '@onekeyhq/engine/src/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -1076,7 +1077,7 @@ class RealmDB implements DBAPI {
     passphraseState,
   }: CreateHWWalletParams): Promise<Wallet> {
     try {
-      const wallets = await this.getWallets();
+      const wallets = await this.getWallets({ includePassphrase: true });
       const devices = await this.getDevices();
 
       const existDevice = devices.find(
@@ -1091,10 +1092,16 @@ class RealmDB implements DBAPI {
         );
       });
 
-      // exists Passphrase wallet does not report errors
-      if (hasExistWallet && !passphraseState) {
+      if (hasExistWallet) {
+        if (passphraseState) {
+          handleDisplayPassphraseWallet(hasExistWallet.id);
+        }
+
         return await Promise.reject(
-          new OneKeyAlreadyExistWalletError(hasExistWallet.id),
+          new OneKeyAlreadyExistWalletError(
+            hasExistWallet.id,
+            hasExistWallet.name,
+          ),
         );
       }
 
@@ -1132,7 +1139,7 @@ class RealmDB implements DBAPI {
 
       if (typeof wallet !== 'undefined' && !passphraseState) {
         return await Promise.reject(
-          new OneKeyAlreadyExistWalletError(wallet.id),
+          new OneKeyAlreadyExistWalletError(wallet.id, wallet.name),
         );
       }
 
@@ -1154,8 +1161,7 @@ class RealmDB implements DBAPI {
 
       if (passphraseState) {
         if (wallet) {
-          const { dispatch } = backgroundApiProxy;
-          dispatch(addDisplayPassphraseWallet(wallet.id));
+          handleDisplayPassphraseWallet(wallet.id);
         }
       }
 

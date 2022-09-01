@@ -5,9 +5,10 @@ import { Buffer } from 'buffer';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
 
-import { filterPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+import {
+  filterPassphraseWallet,
+  handleDisplayPassphraseWallet,
+} from '@onekeyhq/engine/src/engineUtils';
 
 import {
   AccountAlreadyExists,
@@ -1024,9 +1025,17 @@ class IndexedDBApi implements DBAPI {
                 );
               });
 
-              // exists Passphrase wallet does not report errors
-              if (hasExistWallet && !passphraseState) {
-                reject(new OneKeyAlreadyExistWalletError(hasExistWallet.id));
+              if (hasExistWallet) {
+                if (passphraseState) {
+                  handleDisplayPassphraseWallet(hasExistWallet.id);
+                }
+
+                reject(
+                  new OneKeyAlreadyExistWalletError(
+                    hasExistWallet.id,
+                    hasExistWallet.name,
+                  ),
+                );
                 return;
               }
 
@@ -1063,7 +1072,9 @@ class IndexedDBApi implements DBAPI {
                   const wallet = getWalletRequest?.result as Wallet | undefined;
 
                   if (wallet && !passphraseState) {
-                    reject(new OneKeyAlreadyExistWalletError(wallet.id));
+                    reject(
+                      new OneKeyAlreadyExistWalletError(wallet.id, wallet.name),
+                    );
                     return;
                   }
 
@@ -1090,8 +1101,7 @@ class IndexedDBApi implements DBAPI {
 
                     // update wallet state, display wallet
                     if (ret) {
-                      const { dispatch } = backgroundApiProxy;
-                      dispatch(addDisplayPassphraseWallet(ret.id));
+                      handleDisplayPassphraseWallet(ret.id);
                     }
                   }
                 };

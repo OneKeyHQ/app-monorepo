@@ -3,6 +3,7 @@ import React, { FC, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Icon, Spinner } from '@onekeyhq/components';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
@@ -37,6 +38,11 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
         });
       })
       .catch((e) => {
+        const { className } = e || {};
+        if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
+          return;
+        }
+
         deviceUtils.showErrorToast(e);
       })
       .finally(() => {
@@ -51,9 +57,6 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
       contentProps={{
         icon: <Icon name="ExclamationOutline" size={48} />,
         title: intl.formatMessage({ id: 'model__create_passphrase_wallet' }),
-        content: intl.formatMessage({
-          id: 'model__create_passphrase_wallet_dsc',
-        }),
       }}
       footerMoreView={<Spinner />}
       footerButtonProps={{

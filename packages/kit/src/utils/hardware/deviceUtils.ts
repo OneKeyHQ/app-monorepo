@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/engine/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
@@ -203,29 +204,38 @@ class DeviceUtils {
   }
 
   showErrorToast(error: any, defKey?: LocaleIds): boolean {
-    const { className, key, code } = error || {};
-    if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
-      return false;
-    }
-
-    if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-      const { info } = error;
-
-      const errorMessage = formatMessage({ id: key }, info ?? {});
-
-      if (errorMessage) {
-        ToastManager.show({ title: errorMessage }, { type: 'error' });
-        return true;
+    try {
+      const { className, key, code } = error || {};
+      if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
+        return false;
       }
-    } else {
-      const errorMessage = formatMessage({ id: defKey ?? key });
 
-      if (errorMessage) {
-        ToastManager.show({ title: errorMessage }, { type: 'error' });
-        return true;
+      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+        const { info } = error;
+
+        const errorMessage = formatMessage({ id: key }, info ?? {});
+
+        if (errorMessage) {
+          ToastManager.show({ title: errorMessage }, { type: 'error' });
+          return true;
+        }
+      } else {
+        const errorMessage = formatMessage({ id: defKey ?? key });
+
+        if (errorMessage) {
+          ToastManager.show({ title: errorMessage }, { type: 'error' });
+          return true;
+        }
       }
+    } catch (e: any) {
+      debugLogger.common.info(
+        'record showErrorToast unexpected error:',
+        'unexpected error:',
+        toPlainErrorObject(e),
+        'handle error:',
+        toPlainErrorObject(error),
+      );
     }
-
     return false;
   }
 

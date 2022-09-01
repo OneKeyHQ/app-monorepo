@@ -3539,11 +3539,6 @@
   resolved "https://registry.yarnpkg.com/@onekeyfe/hd-shared/-/hd-shared-0.1.42.tgz#e67d693544e1d579c7da8a7cf7aa03b689f3863b"
   integrity sha512-DBw0FYcTEDsXuFnU5jQAmCWxqI+boxn08fkSMUHCROBmZFkGAOZgEOwnUKiBDQDFmoo3ku2t1uS3CGJoq5TMVA==
 
-"@onekeyfe/hd-shared@^0.1.40":
-  version "0.1.40"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-shared/-/hd-shared-0.1.40.tgz#730fd540a68fcd477d92fc495253cb26261a2877"
-  integrity sha512-S1UGVlyet/7QFxcCTdpStAG+vb1QZpYn2RV4vlsTYOP20BkFh+0uDwVBQDh8G3rU+1FOjvPBC/LZaVO+UPNVWQ==
-
 "@onekeyfe/hd-transport-http@^0.1.42":
   version "0.1.42"
   resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport-http/-/hd-transport-http-0.1.42.tgz#e5347c896760a644d56cba297698d16f85a8eb1f"
@@ -3570,15 +3565,6 @@
   dependencies:
     "@onekeyfe/hd-shared" "^0.1.42"
     "@onekeyfe/hd-transport" "^0.1.42"
-
-"@onekeyfe/hd-transport@^0.1.40":
-  version "0.1.40"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/hd-transport/-/hd-transport-0.1.40.tgz#08f73fb58a31f35b54d5916625315892db25f832"
-  integrity sha512-ayz8owkp6Ue4XAKGwFhk4HIP25aW9GI2aJaABQclUxstLnDQ/1xQC3yF8RZiDp3TxrojsA7x/rwmKYwq1OjYIg==
-  dependencies:
-    bytebuffer "^5.0.1"
-    long "^4.0.0"
-    protobufjs "^6.11.2"
 
 "@onekeyfe/hd-transport@^0.1.42":
   version "0.1.42"
