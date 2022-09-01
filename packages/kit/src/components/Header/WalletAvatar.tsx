@@ -17,7 +17,7 @@ type WalletAvatarProps = {
   circular?: boolean;
   hwWalletType?: IOneKeyDeviceType;
   avatar?: Avatar;
-  status?: 'connected' | 'warning';
+  status?: 'connected' | 'warning' | string | undefined;
   isPassphrase?: boolean;
 } & ComponentProps<typeof Center>;
 
@@ -121,12 +121,12 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
 const WalletStatus: FC<Partial<WalletAvatarProps>> = ({ size, status }) => (
   <Box
     position="absolute"
-    right={-3}
+    right={-2}
     top={-3}
     borderWidth={2}
     borderColor="surface-subdued"
     rounded="full"
-    size={size === 'xl' || size === 'lg' ? '16px' : '12px'}
+    size={size === 'xl' || size === 'lg' ? '14px' : '12px'}
     bgColor={status === 'warning' ? 'icon-warning' : 'interactive-default'}
   />
 );
@@ -139,7 +139,7 @@ const PassphraseStatus: FC<Partial<WalletAvatarProps>> = ({ size }) => (
     borderColor="surface-subdued"
     rounded="full"
     size={size === 'xl' || size === 'lg' ? '16px' : '12px'}
-    bgColor="surface-neutral-subdued"
+    bgColor="background-default"
   >
     <Icon
       name="LockClosedSolid"
