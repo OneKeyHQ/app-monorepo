@@ -383,6 +383,11 @@ const TokenSelector: FC<TokenSelectorProps> = ({
         if (prev.lt(next)) {
           return 1;
         }
+      } else if ((a.balance && a.price) || (b.balance && b.price)) {
+        if (a.balance && a.price) {
+          return -1;
+        }
+        return 1;
       }
       return 0;
     });
