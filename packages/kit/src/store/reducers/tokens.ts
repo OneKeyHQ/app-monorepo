@@ -101,8 +101,9 @@ export const tokensSlice = createSlice({
               ),
           ) || [];
         state.tokens[activeNetworkId] = tokens.concat(autoDetectedTokens);
+      } else {
+        state.tokens[activeNetworkId] = tokens;
       }
-      state.tokens[activeNetworkId] = tokens;
     },
     setCharts(state, action: PayloadAction<ChartPayloadAction>) {
       const { activeNetworkId, charts } = action.payload;
