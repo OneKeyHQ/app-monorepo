@@ -141,7 +141,12 @@ export default class ServiceToken extends ServiceBase {
     wait?: boolean;
   }) {
     const { engine, dispatch } = this.backgroundApi;
-    const tokens = await engine.getTokens(activeNetworkId, activeAccountId);
+    const tokens = await engine.getTokens(
+      activeNetworkId,
+      activeAccountId,
+      true,
+      true,
+    );
     dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
     const nativeToken = tokens.filter((item) => !item.tokenIdOnNetwork)[0];
     if (nativeToken) {

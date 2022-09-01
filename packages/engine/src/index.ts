@@ -728,15 +728,11 @@ class Engine {
         const balancesFromApi =
           (await getBalancesFromApi(networkId, accountAddress)) || [];
         const missedTokenIds: string[] = [];
-        const localTokenData = await simpleDb.token.localTokens.getData();
-        const removedTokens: string[] = [];
-        localTokenData[accountId]?.removed?.forEach((tokenIdWithNetwork) => {
-          // "evm--1--0x4fabb145d64652a948d72533023f6e7a623c7c53"
-          const [impl, chainId, tId] = tokenIdWithNetwork.split('--');
-          if (`${impl}--${chainId}` === networkId) {
-            removedTokens.push(tId);
-          }
-        });
+        const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
+          accountId,
+          networkId,
+        );
+
         for (const { address, balance } of balancesFromApi) {
           if (
             address &&
@@ -1361,6 +1357,7 @@ class Engine {
     networkId: string,
     accountId?: string,
     withMain = true,
+    filterRemoved = false,
   ): Promise<Array<Token>> {
     try {
       await this.updateOnlineTokens(networkId);
@@ -1395,12 +1392,22 @@ class Engine {
         const nativeToken = await this.getNativeTokenInfo(networkId);
         tokens.unshift(nativeToken);
       }
+      if (filterRemoved) {
+        const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
+          accountId,
+          networkId,
+        );
+        return tokens.filter(
+          (t) => !removedTokens.includes(t.tokenIdOnNetwork),
+        );
+      }
       return tokens;
     }
     const existingTokens = new Set(
       tokens.map((token: Token) => token.tokenIdOnNetwork),
     );
     const tokensOnNetwork = await simpleDb.token.getTokens({ networkId });
+
     return tokens.concat(
       tokensOnNetwork.filter(
         (token1: Token) => !existingTokens.has(token1.tokenIdOnNetwork),
