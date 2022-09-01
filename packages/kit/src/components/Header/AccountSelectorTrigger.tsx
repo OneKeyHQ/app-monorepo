@@ -12,6 +12,7 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
@@ -46,12 +47,21 @@ const AccountSelectorTrigger: FC<Props> = ({
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
+<<<<<<< HEAD
   const [hasWalletState, setHasWalletState] = useState(false);
   const [walletState, setWalletState] = useState<string>();
+=======
+  const [hasNotification, setHasNotification] = useState(false);
+  const [notificationColor, setNotificationColor] = useState<string>();
+  const [isPassphrase, setIsPassphrase] = useState<boolean>(false);
+>>>>>>> onekey
 
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
 
   useEffect(() => {
+    if (wallet) {
+      setIsPassphrase(isPassphraseWallet(wallet));
+    }
     if (wallet?.type === 'hw' && deviceUpdates) {
       engine.getHWDeviceByWalletId(wallet.id).then((device) => {
         if (!device) return;
@@ -123,6 +133,7 @@ const AccountSelectorTrigger: FC<Props> = ({
                 getDeviceTypeByDeviceId(wallet.associatedDevice)
               }
               avatar={wallet.avatar}
+              isPassphrase={isPassphrase}
               size="sm"
               mr={3}
               status={hasWalletState ? walletState : undefined}

@@ -1,7 +1,9 @@
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { toLower } from 'lodash';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
+import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import { IMPL_EVM } from './constants';
 import { WalletSchema } from './dbs/realms/schemas';
@@ -59,5 +61,10 @@ export const filterPassphraseWallet = (wallet: Wallet | WalletSchema) => {
     .getState()
     .runtime.displayPassphraseWalletIdList.includes(wallet.id);
 };
+
+export function handleDisplayPassphraseWallet(walletId: string) {
+  const { dispatch } = backgroundApiProxy;
+  dispatch(addDisplayPassphraseWallet(walletId));
+}
 
 export { toBigIntHex };

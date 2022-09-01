@@ -35,7 +35,9 @@ async function fetchData<T>(
   }
 }
 
-const sync = async (): Promise<PartialNotificationType> => {
+const sync = async (
+  type: 'reset' | 'normal' = 'normal',
+): Promise<PartialNotificationType> => {
   const config: PartialNotificationType = appSelector((state) => ({
     ...(state?.settings?.pushNotification || {}),
     instanceId: state?.settings?.instanceId,
@@ -45,6 +47,11 @@ const sync = async (): Promise<PartialNotificationType> => {
         : state.settings.locale,
     currency: state.settings.selectedFiatMoneySymbol,
   }));
+  if (type === 'reset') {
+    Object.assign(config, {
+      pushEnable: false,
+    });
+  }
   if (!config.instanceId || !config.registrationId) {
     return {};
   }

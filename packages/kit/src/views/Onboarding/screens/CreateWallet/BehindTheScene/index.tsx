@@ -51,7 +51,6 @@ import {
   IOnboardingBehindTheSceneParams,
   IOnboardingRoutesParams,
 } from '../../../routes/types';
-import WalletExistsDialog from '../WalletExistsDialog';
 
 import {
   ONBOARDING_PAUSED_INDEX_HARDWARE,
@@ -86,7 +85,6 @@ function BehindTheSceneCreatingWallet({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { onboardingGoBack } = useOnboardingClose();
-  const closeModal = useModalClose();
   const { password, mnemonic, withEnableAuthentication, isHardwareCreating } =
     routeParams;
 
@@ -128,22 +126,16 @@ function BehindTheSceneCreatingWallet({
       return true;
     } catch (e: any) {
       // safeGoBack();
-      const { className, message, data } = e || {};
+      const { className, message } = e || {};
       if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
-        const { walletId } = data || {};
-
-        DialogManager.show({
-          render: (
-            <WalletExistsDialog
-              onDone={() => {
-                backgroundApiProxy.serviceAccount.autoChangeAccount({
-                  walletId: walletId ?? null,
-                });
-                closeModal();
-              }}
-            />
-          ),
-        });
+        if (platformEnv.isNativeIOS) {
+          // Display Toast for iOS, but BehindTheScene will stay briefly
+          setTimeout(() => {
+            onPressOnboardingFinished?.();
+          }, 100);
+        } else {
+          onPressOnboardingFinished?.();
+        }
       } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
         deviceUtils.showErrorToast(e);
       } else {
@@ -162,7 +154,7 @@ function BehindTheSceneCreatingWallet({
     isHardwareCreating?.device,
     isHardwareCreating?.features,
     forceVisibleUnfocused,
-    closeModal,
+    onPressOnboardingFinished,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {

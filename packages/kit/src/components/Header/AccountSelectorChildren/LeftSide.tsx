@@ -22,6 +22,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,
@@ -111,10 +112,15 @@ const HwWalletGroup: FC<HwWalletGroupProps> = ({
     );
   }, [selectedWallet, walletGroup]);
 
-  const passphraseMode = useMemo(
-    () => passphraseOpenedList.find((v) => v === walletGroup.deviceId),
-    [walletGroup, passphraseOpenedList],
-  );
+  const passphraseMode = useMemo(() => {
+    if (passphraseOpenedList.find((v) => v === walletGroup.deviceId)) {
+      return true;
+    }
+    if (walletGroup.wallets.find((w) => isPassphraseWallet(w))) {
+      return true;
+    }
+    return false;
+  }, [walletGroup, passphraseOpenedList]);
 
   const isGroup = useMemo(
     () => walletGroup.wallets.length > 1 || passphraseMode,

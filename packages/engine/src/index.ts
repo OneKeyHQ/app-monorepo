@@ -2431,8 +2431,8 @@ class Engine {
   }
 
   @backgroundMethod()
-  async syncPushNotificationConfig() {
-    return syncPushNotificationConfig();
+  async syncPushNotificationConfig(type: 'reset' | 'normal' = 'normal') {
+    return syncPushNotificationConfig(type);
   }
 }
 

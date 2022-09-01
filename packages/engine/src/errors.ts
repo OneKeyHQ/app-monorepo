@@ -103,18 +103,18 @@ export class OneKeyHardwareAbortError extends OneKeyError {
 export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError<
   {
     walletId: string;
-    accountId: string | undefined;
+    walletName: string | undefined;
   } & OneKeyHardwareErrorData
 > {
   override className = OneKeyErrorClassNames.OneKeyAlreadyExistWalletError;
 
   override key: LocaleIds = 'msg__wallet_already_exist';
 
-  constructor(walletId: string, accountId?: string | undefined) {
+  constructor(walletId: string, walletName: string | undefined) {
     super();
     this.data = {
       walletId,
-      accountId,
+      walletName,
     };
   }
 }
