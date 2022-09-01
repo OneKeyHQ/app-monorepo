@@ -123,12 +123,16 @@ const WalletStatus: FC<Partial<WalletAvatarProps>> = ({ size, status }) => (
     position="absolute"
     right={-2}
     top={-3}
-    borderWidth={2}
-    borderColor="surface-subdued"
     rounded="full"
-    size={size === 'xl' || size === 'lg' ? '14px' : '12px'}
-    bgColor={status === 'warning' ? 'icon-warning' : 'interactive-default'}
-  />
+    p="2px"
+    bgColor="background-default"
+  >
+    <Box
+      rounded="full"
+      bgColor={status === 'warning' ? 'icon-warning' : 'interactive-default'}
+      size={size === 'xl' || size === 'lg' ? '10px' : '8px'}
+    />
+  </Box>
 );
 
 const PassphraseStatus: FC<Partial<WalletAvatarProps>> = ({ size }) => (
@@ -136,7 +140,7 @@ const PassphraseStatus: FC<Partial<WalletAvatarProps>> = ({ size }) => (
     position="absolute"
     right={-3}
     bottom={-3}
-    borderColor="surface-subdued"
+    borderColor="background-default"
     rounded="full"
     size={size === 'xl' || size === 'lg' ? '16px' : '12px'}
     bgColor="background-default"

@@ -49,13 +49,10 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
     <Dialog
       visible
       contentProps={{
-        icon: <Icon name="ExclamationOutline" size={48} />,
+        icon: <Spinner size="lg" />,
         title: intl.formatMessage({ id: 'model__create_passphrase_wallet' }),
-        content: intl.formatMessage({
-          id: 'model__create_passphrase_wallet_dsc',
-        }),
       }}
-      footerMoreView={<Spinner />}
+      // footerMoreView={<Spinner />}
       footerButtonProps={{
         hidePrimaryAction: true,
         hideSecondaryAction: true,

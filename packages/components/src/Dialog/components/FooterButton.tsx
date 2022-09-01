@@ -48,7 +48,7 @@ const FooterButton: FC<FooterButtonProps> = ({
   }, [buttonSize, size]);
 
   return (
-    <Box flexDirection="row" w="full" mt={marginTop ?? 2}>
+    <Box flexDirection="row" w="full" mt={marginTop ?? 6}>
       <HStack space="4" w="full">
         {!hideSecondaryAction && (
           <Button
