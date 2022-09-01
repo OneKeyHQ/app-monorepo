@@ -113,11 +113,23 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async resetApp() {
-    const { engine, dispatch, persistor, serviceNetwork, serviceAccount } =
-      this.backgroundApi;
+    const {
+      engine,
+      dispatch,
+      persistor,
+      serviceNetwork,
+      serviceAccount,
+      appSelector,
+    } = this.backgroundApi;
     this.resetAppAtTime = Date.now();
     // Stop auto-save first
     persistor.pause();
+    const pushEnable = appSelector(
+      (s) => s.settings?.pushNotification?.pushEnable,
+    );
+    if (pushEnable) {
+      await engine.syncPushNotificationConfig('reset');
+    }
     await persistor.purge();
     await engine.resetApp();
     if (platformEnv.isRuntimeBrowser) {
