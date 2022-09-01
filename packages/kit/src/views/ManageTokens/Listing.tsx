@@ -285,7 +285,6 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
           5000,
         );
       } catch (e) {
-        console.log(e);
         toast.show(
           {
             title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
