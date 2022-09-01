@@ -62,8 +62,6 @@ class ServiceAccount extends ServiceBase {
     accountId: string | null;
     walletId: string | null;
   }) {
-    console.log('=====::: changeActiveAccount', accountId, walletId);
-
     const { dispatch, appSelector } = this.backgroundApi;
     const { activeNetworkId, activeWalletId } = appSelector((s) => s.general);
     // await this.initWallets();
