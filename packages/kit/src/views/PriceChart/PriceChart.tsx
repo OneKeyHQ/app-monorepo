@@ -20,7 +20,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
   platform,
   style,
 }) => {
-  const [isFetching, setIsFetching] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const { charts: reduxCachedCharts, prices } = useManageTokens();
   const tokenId = contract || 'main';

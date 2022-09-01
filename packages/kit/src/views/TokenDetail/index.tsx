@@ -64,7 +64,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
           marginBottom: 20,
         }}
         platform={network?.shortCode}
-        contract={token?.tokenIdOnNetwork}
+        contract={tokenId}
       />
     </>
   );

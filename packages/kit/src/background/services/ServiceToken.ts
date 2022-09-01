@@ -6,13 +6,14 @@ import {
 
 import {
   addAccountTokens,
+  addNetworkTokens,
   setAccountTokens,
   setAccountTokensBalances,
   setCharts,
   setEnabledNativeTokens,
   setNativeToken,
+  setNetworkTokens,
   setPrices,
-  setTokens,
 } from '../../store/reducers/tokens';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -54,7 +55,13 @@ export default class ServiceToken extends ServiceBase {
       activeNetworkId,
       50,
     );
-    dispatch(setTokens({ activeNetworkId, tokens: networkTokens }));
+    dispatch(
+      setNetworkTokens({
+        activeNetworkId,
+        tokens: networkTokens,
+        keepAutoDetected: true,
+      }),
+    );
     const tokenIds = networkTokens.map((token) => token.tokenIdOnNetwork);
     if (withBalance) {
       this.fetchTokenBalance({
@@ -209,6 +216,12 @@ export default class ServiceToken extends ServiceBase {
       dispatch(
         addAccountTokens({
           activeAccountId,
+          activeNetworkId,
+          tokens: newTokens,
+        }),
+      );
+      dispatch(
+        addNetworkTokens({
           activeNetworkId,
           tokens: newTokens,
         }),
