@@ -24,8 +24,12 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDbEntit
       added: [],
       removed: [],
     };
-    if (!current.added.find((t) => t.id === token.id) && !token.addToIndex) {
+    const existing = current.added.find((t) => t.id === token.id);
+    if (!existing && !token.addToIndex) {
       current.added.push(token);
+    } else if (existing) {
+      // TODO: may update other properties
+      existing.autoDetected = token.autoDetected;
     }
     current.removed = current.removed.filter((id) => id !== token.id);
     await this.setRawData({

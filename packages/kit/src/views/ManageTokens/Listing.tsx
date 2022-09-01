@@ -266,11 +266,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   const { accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
 
-  const accountTokensMap = useMemo(
-    () => new Set(accountTokens.map((token) => token.tokenIdOnNetwork)),
-    [accountTokens],
+  const isOwned = accountTokens.some(
+    (t) => item.tokenIdOnNetwork === t.id && !t.autoDetected,
   );
-  const isOwned = accountTokensMap.has(item.tokenIdOnNetwork);
 
   const onPress = useCallback(async () => {
     if (accountId && networkId) {
@@ -280,10 +278,13 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
             accountId,
             networkId,
             item.tokenIdOnNetwork,
+            undefined,
+            { autoDetected: false },
           ),
           5000,
         );
       } catch (e) {
+        console.log(e);
         toast.show(
           {
             title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
@@ -395,7 +396,7 @@ export const ListingModal: FC<ListingModalProps> = ({
   const accountTokens = useAccountTokens(networkId, accountId);
   const networkTokens = useNetworkTokens(networkId);
   const headerTokens = useMemo(
-    () => accountTokens.filter((i) => i.tokenIdOnNetwork),
+    () => accountTokens.filter((i) => i.tokenIdOnNetwork && !i.autoDetected),
     [accountTokens],
   );
   const [keyword, setKeyword] = useState<string>('');

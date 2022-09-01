@@ -33,4 +33,5 @@ export type Token = HasName & {
   verified?: boolean;
   security?: boolean;
   addToIndex?: boolean;
+  autoDetected?: boolean;
 };
