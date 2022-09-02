@@ -87,8 +87,6 @@ function PreSendAddress() {
     [networkId],
   );
 
-  const toVal = resolvedAddress ?? getValues('to');
-
   const syncStateAndReTriggerValidate = useCallback(
     (val) => {
       onNameServiceChange(val);
@@ -97,15 +95,19 @@ function PreSendAddress() {
     [trigger, onNameServiceChange],
   );
 
-  const onSubmit = useCallback(() => {
-    if (isLoading || !toVal) {
-      return;
-    }
-    navigation.navigate(SendRoutes.PreSendAmount, {
-      ...transferInfo,
-      to: toVal,
-    });
-  }, [isLoading, toVal, navigation, transferInfo]);
+  const onSubmit = useCallback(
+    (values: FormValues) => {
+      const toVal = resolvedAddress || values.to;
+      if (isLoading || !toVal) {
+        return;
+      }
+      navigation.navigate(SendRoutes.PreSendAmount, {
+        ...transferInfo,
+        to: toVal,
+      });
+    },
+    [resolvedAddress, isLoading, navigation, transferInfo],
+  );
   const doSubmit = handleSubmit(onSubmit);
 
   return (
