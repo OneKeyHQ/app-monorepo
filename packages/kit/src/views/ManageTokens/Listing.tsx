@@ -36,6 +36,7 @@ import {
   useNetworkTokens,
 } from '../../hooks';
 import { timeout } from '../../utils/helper';
+import { showOverlay } from '../../utils/overlayUtils';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -266,11 +267,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   const { accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
 
-  const accountTokensMap = useMemo(
-    () => new Set(accountTokens.map((token) => token.tokenIdOnNetwork)),
-    [accountTokens],
+  const isOwned = accountTokens.some(
+    (t) => item.tokenIdOnNetwork === t.tokenIdOnNetwork && !t.autoDetected,
   );
-  const isOwned = accountTokensMap.has(item.tokenIdOnNetwork);
 
   const onPress = useCallback(async () => {
     if (accountId && networkId) {
@@ -280,6 +279,8 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
             accountId,
             networkId,
             item.tokenIdOnNetwork,
+            undefined,
+            { autoDetected: false },
           ),
           5000,
         );
@@ -395,7 +396,7 @@ export const ListingModal: FC<ListingModalProps> = ({
   const accountTokens = useAccountTokens(networkId, accountId);
   const networkTokens = useNetworkTokens(networkId);
   const headerTokens = useMemo(
-    () => accountTokens.filter((i) => i.tokenIdOnNetwork),
+    () => accountTokens.filter((i) => i.tokenIdOnNetwork && !i.autoDetected),
     [accountTokens],
   );
   const [keyword, setKeyword] = useState<string>('');
@@ -468,35 +469,55 @@ export const ListingModal: FC<ListingModalProps> = ({
 export const Listing: FC = () => {
   const intl = useIntl();
   const { accountId, networkId } = useActiveWalletAccount();
-  const [visible, setVisible] = useState(false);
-  const tokenDeleted = useRef<Token>();
 
-  const onToggleDeleteDialog = useCallback((token?: Token) => {
-    if (token) {
-      tokenDeleted.current = token;
-      setVisible(true);
-    } else {
-      tokenDeleted.current = undefined;
-      setVisible(false);
-    }
-  }, []);
-
-  const onDelete = useCallback(async () => {
-    if (accountId && tokenDeleted.current) {
-      await backgroundApiProxy.engine.removeTokenFromAccount(
-        accountId,
-        tokenDeleted.current.id,
-      );
-    }
-    backgroundApiProxy.serviceToken
-      .fetchAccountTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-      })
-      .finally(() => {
-        onToggleDeleteDialog(undefined);
-      });
-  }, [accountId, tokenDeleted, networkId, onToggleDeleteDialog]);
+  const openDeleteDialog = useCallback(
+    (token?: Token) => {
+      if (!token) {
+        return;
+      }
+      showOverlay((closeOverlay) => (
+        <Dialog
+          visible
+          onClose={closeOverlay}
+          footerButtonProps={{
+            primaryActionTranslationId: 'action__delete',
+            primaryActionProps: {
+              type: 'destructive',
+              onPromise: async () => {
+                if (accountId && token) {
+                  await backgroundApiProxy.engine.removeTokenFromAccount(
+                    accountId,
+                    token.id,
+                  );
+                }
+                backgroundApiProxy.serviceToken
+                  .fetchAccountTokens({
+                    activeAccountId: accountId,
+                    activeNetworkId: networkId,
+                  })
+                  .finally(closeOverlay);
+              },
+            },
+          }}
+          contentProps={{
+            iconType: 'danger',
+            title: intl.formatMessage({
+              id: 'modal__delete_this_token',
+              defaultMessage: 'Delete this token?',
+            }),
+            content: intl.formatMessage(
+              {
+                id: 'modal__delete_this_token_desc',
+                defaultMessage: '{token} will be removed from my tokens',
+              },
+              { token: token.name },
+            ),
+          }}
+        />
+      ));
+    },
+    [accountId, intl, networkId],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -516,33 +537,7 @@ export const Listing: FC = () => {
     }, []),
   );
 
-  return (
-    <>
-      <ListingModal onRemoveAccountToken={onToggleDeleteDialog} />
-      <Dialog
-        visible={visible}
-        onClose={() => onToggleDeleteDialog(undefined)}
-        footerButtonProps={{
-          primaryActionTranslationId: 'action__delete',
-          primaryActionProps: { type: 'destructive', onPromise: onDelete },
-        }}
-        contentProps={{
-          iconType: 'danger',
-          title: intl.formatMessage({
-            id: 'modal__delete_this_token',
-            defaultMessage: 'Delete this token?',
-          }),
-          content: intl.formatMessage(
-            {
-              id: 'modal__delete_this_token_desc',
-              defaultMessage: '{token} will be removed from my tokens',
-            },
-            { token: tokenDeleted.current?.name },
-          ),
-        }}
-      />
-    </>
-  );
+  return <ListingModal onRemoveAccountToken={openDeleteDialog} />;
 };
 
 export default Listing;

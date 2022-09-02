@@ -62,12 +62,48 @@ export const tokensSlice = createSlice({
   name: 'tokens',
   initialState,
   reducers: {
-    setTokens(state, action: PayloadAction<TokenPayloadAction>) {
+    addNetworkTokens(state, action: PayloadAction<TokenPayloadAction>) {
       const { activeNetworkId, tokens } = action.payload;
       if (!activeNetworkId) {
         return;
       }
-      state.tokens[activeNetworkId] = tokens;
+      const mergedTokens = tokens.concat(state.tokens[activeNetworkId] || []);
+      const tokenIds: string[] = [];
+      const dedupedTokens = mergedTokens.filter((token) => {
+        if (tokenIds.includes(token.tokenIdOnNetwork)) {
+          return false;
+        }
+        tokenIds.push(token.tokenIdOnNetwork);
+        return true;
+      });
+      state.tokens[activeNetworkId] = dedupedTokens;
+    },
+    setNetworkTokens(
+      state,
+      action: PayloadAction<
+        TokenPayloadAction & {
+          keepAutoDetected?: boolean;
+        }
+      >,
+    ) {
+      const { activeNetworkId, tokens, keepAutoDetected } = action.payload;
+      if (!activeNetworkId) {
+        return;
+      }
+      if (keepAutoDetected) {
+        const autoDetectedTokens =
+          state.tokens[activeNetworkId]?.filter(
+            (oldToken) =>
+              oldToken.autoDetected &&
+              !tokens.find(
+                (newToken) =>
+                  newToken.tokenIdOnNetwork === oldToken.tokenIdOnNetwork,
+              ),
+          ) || [];
+        state.tokens[activeNetworkId] = tokens.concat(autoDetectedTokens);
+      } else {
+        state.tokens[activeNetworkId] = tokens;
+      }
     },
     setCharts(state, action: PayloadAction<ChartPayloadAction>) {
       const { activeNetworkId, charts } = action.payload;
@@ -158,7 +194,8 @@ export const tokensSlice = createSlice({
 });
 
 export const {
-  setTokens,
+  addNetworkTokens,
+  setNetworkTokens,
   setPrices,
   setCharts,
   setAccountTokens,

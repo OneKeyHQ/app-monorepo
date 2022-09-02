@@ -24,7 +24,8 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDbEntit
       added: [],
       removed: [],
     };
-    if (!current.added.find((t) => t.id === token.id) && !token.addToIndex) {
+    if (!token.addToIndex) {
+      current.added = current.added.filter((t) => t.id !== token.id);
       current.added.push(token);
     }
     current.removed = current.removed.filter((id) => id !== token.id);
@@ -51,7 +52,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDbEntit
       added: [],
       removed: [],
     };
-    current.added.filter((t) => t.id !== tokenId);
+    current.added = current.added.filter((t) => t.id !== tokenId);
     if (!current.removed.includes(tokenId)) {
       current.removed.push(tokenId);
     }
@@ -59,6 +60,19 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDbEntit
       ...data,
       [accountId]: current,
     });
+  }
+
+  async getRemovedTokens(accountId: string, networkId: string) {
+    const localTokenData = await this.getData();
+    const removedTokens: string[] = [];
+    localTokenData[accountId]?.removed?.forEach((tokenIdWithNetwork) => {
+      // "evm--1--0x4fabb145d64652a948d72533023f6e7a623c7c53"
+      const [impl, chainId, tId] = tokenIdWithNetwork.split('--');
+      if (`${impl}--${chainId}` === networkId) {
+        removedTokens.push(tId);
+      }
+    });
+    return removedTokens;
   }
 
   async getData() {
