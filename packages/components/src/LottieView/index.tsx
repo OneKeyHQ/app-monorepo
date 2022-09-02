@@ -2,6 +2,7 @@
 import React, { LegacyRef, useEffect, useRef } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
+import { AppState, AppStateStatus } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -31,6 +32,32 @@ type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
 
 const LottieView = ({ source, autoPlay, loop, ...props }: LottieViewProps) => {
   const animationRef = useRef<AnimatedLottieView | null>();
+
+  const appStateRef = useRef(AppState.currentState);
+  useEffect(() => {
+    if (!platformEnv.isNativeIOS) return;
+    // fix animation is stopped after entered background state on iOS
+    // https://github.com/lottie-react-native/lottie-react-native/issues/412
+    const handleStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appStateRef.current &&
+        /inactive|background/.exec(appStateRef.current) &&
+        nextAppState === 'active'
+      ) {
+        animationRef.current?.play?.();
+      }
+      appStateRef.current = nextAppState;
+    };
+    const subscription = AppState.addEventListener('change', handleStateChange);
+    return () => {
+      if (subscription && typeof subscription === 'function') {
+        // @ts-expect-error
+        subscription();
+      } else {
+        AppState.removeEventListener('change', handleStateChange);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // animation won't work in navigate(), needs delay here
