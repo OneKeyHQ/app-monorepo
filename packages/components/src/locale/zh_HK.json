@@ -1209,6 +1209,7 @@
   "title__slippage": "滑移",
   "title__stake_str": "股份{0}",
   "title__staked_on_str": "押注{0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "統計數據",
   "title__swap": "閃兌",
   "title__swap_history": "閃兌歷史記錄",

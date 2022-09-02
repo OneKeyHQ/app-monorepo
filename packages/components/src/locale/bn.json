@@ -1209,6 +1209,7 @@
   "title__slippage": "স্লিপেজ",
   "title__stake_str": "অংশীদারিত্ব {0}",
   "title__staked_on_str": "স্টেক অন {0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "পরিসংখ্যান",
   "title__swap": "অদলবদল",
   "title__swap_history": "অদলবদল ইতিহাস",

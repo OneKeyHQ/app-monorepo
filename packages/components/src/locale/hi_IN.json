@@ -1209,6 +1209,7 @@
   "title__slippage": "फिसलन",
   "title__stake_str": "हिस्सेदारी {0}",
   "title__staked_on_str": "{0} पर दांव लगाया",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "आँकड़े",
   "title__swap": "विनिमय",
   "title__swap_history": "स्वैप इतिहास",

@@ -1209,6 +1209,7 @@
   "title__slippage": "Trượt",
   "title__stake_str": "Cổ phần {0}",
   "title__staked_on_str": "Đã đặt cọc vào {0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "Số liệu thống kê",
   "title__swap": "Tráo đổi",
   "title__swap_history": "Lịch sử hoán đổi",

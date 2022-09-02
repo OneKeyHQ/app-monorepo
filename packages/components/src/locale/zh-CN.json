@@ -1209,6 +1209,7 @@
   "title__slippage": "滑点",
   "title__stake_str": "质押 {0}",
   "title__staked_on_str": "质押在 {0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "统计数据",
   "title__swap": "闪兑",
   "title__swap_history": "闪兑历史记录",

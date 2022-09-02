@@ -343,7 +343,7 @@ export default function StakingAmount() {
       minAmountNoticeNeeded ? (
         <Typography.Body1Strong color="text-critical">
           {intl.formatMessage(
-            { id: 'form__str_minimum_transfer' },
+            { id: 'form__str_minimum_stake_amount' },
             { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
           )}
         </Typography.Body1Strong>

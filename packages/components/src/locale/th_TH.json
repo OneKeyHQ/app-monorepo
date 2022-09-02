@@ -1209,6 +1209,7 @@
   "title__slippage": "เลื่อนหลุด",
   "title__stake_str": "เดิมพัน {0}",
   "title__staked_on_str": "เดิมพัน {0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "สถิติ",
   "title__swap": "แลกเปลี่ยน",
   "title__swap_history": "ประวัติการสลับ",

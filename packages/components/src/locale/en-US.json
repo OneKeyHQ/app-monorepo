@@ -1209,6 +1209,7 @@
   "title__slippage": "Slippage",
   "title__stake_str": "Stake {0}",
   "title__staked_on_str": "Staked On {0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "Stats",
   "title__swap": "Swap",
   "title__swap_history": "Swap History",

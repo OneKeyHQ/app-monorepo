@@ -174,7 +174,7 @@ const ListHeaderComponent = () => {
 };
 
 const ListEmptyComponent = () => {
-  const intl = useIntl()
+  const intl = useIntl();
   return (
     <Box py="10">
       <Empty
@@ -183,7 +183,7 @@ const ListEmptyComponent = () => {
         subTitle={intl.formatMessage({ id: 'reward__history_empty_desc' })}
       />
     </Box>
-  )
+  );
 };
 
 export default function StakedETHOnKele() {

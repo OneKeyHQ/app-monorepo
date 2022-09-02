@@ -1209,6 +1209,7 @@
   "title__slippage": "Slittamento",
   "title__stake_str": "Puntata {0}",
   "title__staked_on_str": "Puntata su {0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "Statistiche",
   "title__swap": "Scambiare",
   "title__swap_history": "Scambia cronologia",

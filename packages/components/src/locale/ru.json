@@ -1209,6 +1209,7 @@
   "title__slippage": "Проскальзывание",
   "title__stake_str": "Ставка {0}",
   "title__staked_on_str": "Ставка на {0}",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "Статистика",
   "title__swap": "Обменять",
   "title__swap_history": "История обмена",

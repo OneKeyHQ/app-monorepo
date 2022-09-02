@@ -1209,6 +1209,7 @@
   "title__slippage": "Гулсалт",
   "title__stake_str": "Бооцоо {0}",
   "title__staked_on_str": "{0} -д бооцоо тавьсан",
+  "title__staking_in_process": "Staking in progress",
   "title__stats": "Статистик",
   "title__swap": "Солих",
   "title__swap_history": "Түүхийг солих",
