@@ -47,8 +47,8 @@ const AccountSelectorTrigger: FC<Props> = ({
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [hasNotification, setHasNotification] = useState(false);
-  const [notificationColor, setNotificationColor] = useState<string>();
+  const [hasWalletState, setHasWalletState] = useState(false);
+  const [walletState, setWalletState] = useState<string>();
   const [isPassphrase, setIsPassphrase] = useState<boolean>(false);
 
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
@@ -62,16 +62,16 @@ const AccountSelectorTrigger: FC<Props> = ({
         if (!device) return;
         const { ble, firmware } = deviceUpdates[device.mac] || {};
         const hasConnected = connected.includes(device.mac);
-        setHasNotification(!!ble || !!firmware || !!hasConnected);
+        setHasWalletState(!!ble || !!firmware || !!hasConnected);
         if (ble || firmware) {
-          setNotificationColor('icon-warning');
+          setWalletState('warning');
         } else if (hasConnected) {
-          setNotificationColor('icon-success');
+          setWalletState('connected');
         }
       });
     } else {
-      setHasNotification(false);
-      setNotificationColor(undefined);
+      setHasWalletState(false);
+      setWalletState(undefined);
     }
   }, [connected, deviceUpdates, engine, wallet]);
 
@@ -131,6 +131,7 @@ const AccountSelectorTrigger: FC<Props> = ({
               isPassphrase={isPassphrase}
               size="sm"
               mr={3}
+              status={hasWalletState ? walletState : undefined}
             />
             {showExternalImg ? (
               <Box position="absolute" right="4px" bottom="-6px">
@@ -144,19 +145,6 @@ const AccountSelectorTrigger: FC<Props> = ({
                 />
               </Box>
             ) : null}
-
-            {!!hasNotification && (
-              <Box
-                position="absolute"
-                top={0}
-                right={3}
-                size={2}
-                bgColor={notificationColor}
-                borderWidth={1}
-                borderColor="surface-subdued"
-                rounded="full"
-              />
-            )}
           </Box>
           <Typography.Body2Strong
             isTruncated

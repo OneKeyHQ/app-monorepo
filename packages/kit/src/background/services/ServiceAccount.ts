@@ -622,9 +622,9 @@ class ServiceAccount extends ServiceBase {
         ).filter(
           (w) => w.associatedDevice === existDeviceId && w.passphraseState,
         ).length;
-        walletName = `Hidden Wallet#${size + 1}`;
+        walletName = `Hidden Wallet #${size + 1}`;
       } else {
-        walletName = 'Hidden Wallet#1';
+        walletName = 'Hidden Wallet #1';
       }
     }
 

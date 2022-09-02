@@ -2,6 +2,7 @@ import React, { memo, useEffect, useState } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
 
+import { useThemeValue } from '@onekeyhq/components';
 import AccountSelectorMobile from '@onekeyhq/kit/src/components/Header/AccountSelectorMobile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -17,6 +18,7 @@ const DrawerStackNavigator = () => {
   const drawerStyle: Partial<StyleProp<ViewStyle>> = {
     width: '85%',
     maxWidth: 400,
+    backgroundColor: useThemeValue('background-default'),
   };
   if (isWeb) {
     drawerStyle.opacity = 1;

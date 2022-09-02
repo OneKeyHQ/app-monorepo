@@ -81,7 +81,7 @@ const Content: FC<ContentProps> = ({
   contentElement,
   input,
 }) => (
-  <Box flexDirection="column" w="100%" alignItems="center" mb={4}>
+  <Box flexDirection="column" w="100%" alignItems="center">
     {!!(icon || iconType) &&
       (iconType ? getIcon(iconType) : <Box mb={5}>{icon}</Box>)}
     {!!title && (

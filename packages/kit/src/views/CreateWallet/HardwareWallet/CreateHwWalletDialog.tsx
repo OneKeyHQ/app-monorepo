@@ -2,7 +2,7 @@ import React, { FC, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Icon, Spinner } from '@onekeyhq/components';
+import { Dialog, Spinner } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -55,10 +55,10 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
     <Dialog
       visible
       contentProps={{
-        icon: <Icon name="ExclamationOutline" size={48} />,
+        icon: <Spinner size="lg" />,
         title: intl.formatMessage({ id: 'model__create_passphrase_wallet' }),
       }}
-      footerMoreView={<Spinner />}
+      // footerMoreView={<Spinner />}
       footerButtonProps={{
         hidePrimaryAction: true,
         hideSecondaryAction: true,

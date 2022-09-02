@@ -86,7 +86,7 @@ const RightAccountSection: FC<AccountSectionProps> = ({
           <Box
             px={4}
             p={2}
-            bg="surface-subdued"
+            bg="background-default"
             flexDirection="row"
             alignItems="center"
           >

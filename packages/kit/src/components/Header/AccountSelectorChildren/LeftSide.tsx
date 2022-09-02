@@ -149,17 +149,19 @@ const HwWalletGroup: FC<HwWalletGroupProps> = ({
     <Box>
       {isGroup && (
         <Box
-          py={1}
-          pl={1}
-          pr={1.5}
-          w="100%"
-          h="100%"
-          style={{ position: 'absolute', top: 0, left: 0 }}
-        >
-          <Box rounded={12} flex={1} bg="surface-neutral-subdued" />
-        </Box>
+          style={{
+            position: 'absolute',
+            top: -3,
+            left: 5,
+            bottom: -3,
+            right: 5,
+          }}
+          rounded={16}
+          borderWidth={1}
+          borderColor="divider"
+        />
       )}
-      <VStack space={2} pt={isGroup ? 2 : 0} pb={isGroup ? 2 : 0}>
+      <VStack space={2}>
         {walletGroup.wallets.map((wallet, childIndex) => (
           <WalletItem
             key={`${wallet.id}${index}${childIndex}`}
@@ -179,11 +181,14 @@ const HwWalletGroup: FC<HwWalletGroupProps> = ({
           />
         ))}
         {!!passphraseMode && onAddPassphraseWallet && (
-          <Center mr={0.5}>
+          <Center>
             <Pressable
-              size="48px"
               justifyContent="center"
               alignItems="center"
+              p="12px"
+              rounded="12px"
+              _hover={{ bgColor: 'surface-hovered' }}
+              _pressed={{ bgColor: 'surface-pressed' }}
               onPress={() => {
                 onAddPassphraseWallet?.(walletGroup.deviceId);
               }}
@@ -326,7 +331,7 @@ const LeftSide: FC<LeftSideProps> = ({
               />
             ))}
           </VStack>
-          {wallets.some((wallet) => wallet.type === 'hw') && <Box h={4} />}
+          {wallets.some((wallet) => wallet.type === 'hw') && <Box h={6} />}
           {/* imported | watching | external  wallet */}
           <VStack space={2}>
             {singletonWallet.imported ? (
@@ -361,7 +366,7 @@ const LeftSide: FC<LeftSideProps> = ({
           </VStack>
         </VStack>
       </ScrollView>
-      <Box p={2}>
+      <Box py={2} px="7px">
         <IconButton
           testID="WalletAddOutline-Welcome"
           type="primary"
