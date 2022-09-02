@@ -15,6 +15,7 @@
     "@types/redux-logger": "^3.0.9",
     "@types/url-parse": "^1.4.8",
     "date-fns": "^2.27.0",
+    "dotbit": "^0.4.1",
     "expo": "^45.0.5",
     "expo-application": "^4.1.0",
     "expo-av": "^11.2.3",
@@ -29,6 +30,7 @@
     "expo-linking": "^3.1.0",
     "expo-local-authentication": "^12.2.0",
     "expo-localization": "^13.0.0",
+    "expo-notifications": "~0.15.4",
     "expo-secure-store": "^11.2.0",
     "fuse.js": "^6.5.3",
     "lightweight-charts": "^3.8.0",
@@ -46,8 +48,7 @@
     "swr": "^1.1.2",
     "url-parse": "^1.5.10",
     "vision-camera-code-scanner": "^0.2.0",
-    "zbar.wasm": "^2.1.1",
-    "expo-notifications": "~0.15.4"
+    "zbar.wasm": "^2.1.1"
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",

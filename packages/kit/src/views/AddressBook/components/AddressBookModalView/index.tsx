@@ -10,6 +10,9 @@ import React, {
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Form, Modal, useForm } from '@onekeyhq/components';
+import NameServiceResolver, {
+  useNameServiceStatus,
+} from '@onekeyhq/kit/src/components/NameServiceResolver';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../../components/AddressInput';
@@ -63,7 +66,15 @@ const ModalView: FC<ModalViewProps> = ({
   const address = watch('address');
   const networkId = watch('networkId');
 
-  const watchedAddress = useDebounce(address, 300);
+  const {
+    onChange: onNameServiceChange,
+    disableSubmitBtn,
+    address: resolvedAddress,
+  } = useNameServiceStatus();
+
+  const debouncedAddress = useDebounce(address, 300);
+  const watchedAddress = resolvedAddress || debouncedAddress;
+
   useEffect(() => {
     async function validateAddress() {
       if (watchedAddress && networkId) {
@@ -99,13 +110,27 @@ const ModalView: FC<ModalViewProps> = ({
     backgroundApiProxy.dispatch(setHideAddressBookAttention());
   }, []);
 
+  const syncStateAndReTriggerValidate = useCallback(
+    (val) => {
+      onNameServiceChange(val);
+      trigger('address');
+    },
+    [trigger, onNameServiceChange],
+  );
+
   return (
     <Modal
       header={header}
       hideSecondaryAction
       primaryActionProps={{
-        isDisabled: !isValid,
-        onPress: () => handleSubmit(onSubmit)(),
+        isDisabled: !isValid || disableSubmitBtn,
+        onPress: () =>
+          handleSubmit((vals) => {
+            if (!disableSubmitBtn && resolvedAddress) {
+              vals.address = resolvedAddress;
+            }
+            return onSubmit(vals);
+          })(),
       }}
       scrollViewProps={{
         children: (
@@ -136,6 +161,14 @@ const ModalView: FC<ModalViewProps> = ({
                 control={control}
                 name="address"
                 label={intl.formatMessage({ id: 'form__address' })}
+                helpText={(value) => (
+                  <NameServiceResolver
+                    name={value}
+                    onChange={syncStateAndReTriggerValidate}
+                    disableBTC={false}
+                    networkId={networkId}
+                  />
+                )}
                 rules={{
                   required: {
                     value: true,
@@ -144,7 +177,8 @@ const ModalView: FC<ModalViewProps> = ({
                     }),
                   },
                   validate: (value) => {
-                    const text = value?.toLowerCase();
+                    const text =
+                      resolvedAddress?.toLowerCase() ?? value?.toLowerCase();
                     const defaultAddress = defaultValues.address.toLowerCase();
                     if (!text) {
                       return;
@@ -159,7 +193,7 @@ const ModalView: FC<ModalViewProps> = ({
                         id: 'msg__this_address_already_exists',
                       });
                     }
-                    if (validateAddressError.current) {
+                    if (validateAddressError.current && !disableSubmitBtn) {
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });

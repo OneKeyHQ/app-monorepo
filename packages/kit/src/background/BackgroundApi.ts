@@ -11,6 +11,7 @@ import ServiceCronJob from './services/ServiceCronJob';
 import ServiceDapp from './services/ServiceDapp';
 import ServiceHardware from './services/ServiceHardware';
 import ServiceHistory from './services/ServiceHistory';
+import ServiceNameResolver from './services/ServiceNameResolver';
 import ServiceNetwork from './services/ServiceNetwork';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePassword from './services/ServicePassword';
@@ -87,6 +88,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceStaking = new ServiceStaking({
+    backgroundApi: this,
+  });
+
+  serviceNameResolver = new ServiceNameResolver({
     backgroundApi: this,
   });
 }
