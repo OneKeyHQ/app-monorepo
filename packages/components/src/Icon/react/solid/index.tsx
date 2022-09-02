@@ -1,6 +1,8 @@
 export { default as AcademicCap } from './AcademicCap'
 export { default as Adjustments } from './Adjustments'
+export { default as Android } from './Android'
 export { default as Annotation } from './Annotation'
+export { default as AppStore } from './AppStore'
 export { default as Archive } from './Archive'
 export { default as ArrowCircleDown } from './ArrowCircleDown'
 export { default as ArrowCircleLeft } from './ArrowCircleLeft'

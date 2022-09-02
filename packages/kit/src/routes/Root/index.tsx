@@ -19,6 +19,7 @@ import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/se
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import { RouteOnboarding } from '@onekeyhq/kit/src/views/Onboarding/routes/RouteOnboarding';
+import OnLanding from '@onekeyhq/kit/src/views/OnLanding';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ModalStackNavigator from '../Modal';
@@ -113,6 +114,7 @@ const App = () => {
           animation: 'fade',
         }}
       />
+      <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
