@@ -44,6 +44,7 @@ export enum RootRoutes {
   Tab = 'tab',
   Onboarding = 'onboarding',
   Account = 'account',
+  OnLanding = 'onlanding',
 }
 export enum HomeRoutes {
   // InitialTab = 'overview',

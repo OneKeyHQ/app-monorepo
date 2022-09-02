@@ -269,7 +269,9 @@ import ZoomInOutline from "./react/outline/ZoomIn";
 import ZoomOutOutline from "./react/outline/ZoomOut";
 import AcademicCapSolid from "./react/solid/AcademicCap";
 import AdjustmentsSolid from "./react/solid/Adjustments";
+import AndroidSolid from "./react/solid/Android";
 import AnnotationSolid from "./react/solid/Annotation";
+import AppStoreSolid from "./react/solid/AppStore";
 import ArchiveSolid from "./react/solid/Archive";
 import ArrowCircleDownSolid from "./react/solid/ArrowCircleDown";
 import ArrowCircleLeftSolid from "./react/solid/ArrowCircleLeft";
@@ -791,7 +793,9 @@ export type ICON_NAMES =
   | "ZoomOutOutline"
   | "AcademicCapSolid"
   | "AdjustmentsSolid"
+  | "AndroidSolid"
   | "AnnotationSolid"
+  | "AppStoreSolid"
   | "ArchiveSolid"
   | "ArrowCircleDownSolid"
   | "ArrowCircleLeftSolid"
@@ -1313,7 +1317,9 @@ export default {
   ZoomOutOutline: ZoomOutOutline,
   AcademicCapSolid: AcademicCapSolid,
   AdjustmentsSolid: AdjustmentsSolid,
+  AndroidSolid: AndroidSolid,
   AnnotationSolid: AnnotationSolid,
+  AppStoreSolid: AppStoreSolid,
   ArchiveSolid: ArchiveSolid,
   ArrowCircleDownSolid: ArrowCircleDownSolid,
   ArrowCircleLeftSolid: ArrowCircleLeftSolid,
