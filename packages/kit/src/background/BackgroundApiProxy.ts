@@ -18,6 +18,7 @@ import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
+import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
@@ -83,6 +84,10 @@ class BackgroundApiProxy
   ) as ServiceCloudBackup;
 
   serviceStaking = this._createProxyService('serviceStaking') as ServiceStaking;
+
+  serviceNameResolver = this._createProxyService(
+    'serviceNameResolver',
+  ) as ServiceNameResolver;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

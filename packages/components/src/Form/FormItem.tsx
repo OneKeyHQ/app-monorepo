@@ -29,7 +29,7 @@ type FormItemProps = {
   label?: string;
   labelAddon?: ReactElement | InternalActionList[];
   isLabelAddonActions?: boolean;
-  helpText?: string | ((v: any) => string) | ReactElement;
+  helpText?: string | ((v: any) => string | ReactElement) | ReactElement;
   successMessage?: string | undefined;
   warningMessage?: string | undefined;
   onLabelAddonPress?: () => void;

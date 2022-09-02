@@ -4,13 +4,15 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
-
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { makeTimeoutPromise } from '../../background/utils';
-import AddressInput from '../../components/AddressInput';
-import { useActiveWalletAccount } from '../../hooks';
-import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
-import { useTokenInfo } from '../../hooks/useTokenInfo';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { makeTimeoutPromise } from '@onekeyhq/kit/src/background/utils';
+import AddressInput from '@onekeyhq/kit/src/components/AddressInput';
+import NameServiceResolver, {
+  useNameServiceStatus,
+} from '@onekeyhq/kit/src/components/NameServiceResolver';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
+import { useFormOnChangeDebounced } from '@onekeyhq/kit/src/hooks/useFormOnChangeDebounced';
+import { useTokenInfo } from '@onekeyhq/kit/src/hooks/useTokenInfo';
 
 import { BaseSendModal } from './components/BaseSendModal';
 import { SendRoutes, SendRoutesParams } from './types';
@@ -43,15 +45,25 @@ function PreSendAddress() {
     useFormOnChangeDebounced<FormValues>({
       useFormReturn,
     });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { control, watch, trigger, getValues, formState } = useFormReturn;
+
+  const {
+    onChange: onNameServiceChange,
+    disableSubmitBtn,
+    address: resolvedAddress,
+  } = useNameServiceStatus();
+
+  const { control, getValues, formState, trigger } = useFormReturn;
   const navigation = useNavigation<NavigationProps>();
   const tokenInfo = useTokenInfo({
     networkId,
     tokenIdOnNetwork: transferInfo.token,
   });
   const submitDisabled =
-    isLoading || !formValues?.to || !isValid || formState.isValidating;
+    isLoading ||
+    !formValues?.to ||
+    !isValid ||
+    formState.isValidating ||
+    disableSubmitBtn;
 
   const [warningMessage, setWarningMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -65,13 +77,23 @@ function PreSendAddress() {
               networkId,
               address,
             );
-          // await delay(10000);
+
           return isContractAddress;
         },
         timeout: 600,
         timeoutResult: false,
       }),
     [networkId],
+  );
+
+  const toVal = resolvedAddress ?? getValues('to');
+
+  const syncStateAndReTriggerValidate = useCallback(
+    (val) => {
+      onNameServiceChange(val);
+      trigger('to');
+    },
+    [trigger, onNameServiceChange],
   );
 
   return (
@@ -86,7 +108,7 @@ function PreSendAddress() {
       onPrimaryActionPress={() => {
         navigation.navigate(SendRoutes.PreSendAmount, {
           ...transferInfo,
-          to: getValues('to'),
+          to: toVal,
         });
       }}
       scrollViewProps={{
@@ -105,11 +127,19 @@ function PreSendAddress() {
                 successMessage={successMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
+                helpText={(value) => (
+                  <NameServiceResolver
+                    name={value}
+                    onChange={syncStateAndReTriggerValidate}
+                    disableBTC={false}
+                    networkId={networkId}
+                  />
+                )}
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async () => {
-                    const toAddress = formValues?.to || '';
+                    const toAddress = resolvedAddress || formValues?.to || '';
                     setSuccessMessage('');
                     setWarningMessage('');
                     if (!toAddress) {
@@ -124,6 +154,7 @@ function PreSendAddress() {
                         toAddress,
                       );
                     } catch (error0) {
+                      if (disableSubmitBtn) return;
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });

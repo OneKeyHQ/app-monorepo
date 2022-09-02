@@ -119,6 +119,8 @@ function decodeUnsignedTxFeeData(unsignedTx: UnsignedTx) {
 }
 
 export default class Vault extends VaultBase {
+  _ethersProvider: ethers.providers.JsonRpcProvider | undefined;
+
   settings = settings;
 
   keyringMap = {
@@ -136,7 +138,21 @@ export default class Vault extends VaultBase {
     );
   }
 
-  private async getJsonRPCClient(): Promise<Geth> {
+  override async getEthersProvider() {
+    const network = await this.getNetwork();
+    const rpcUrl = network.rpcURL;
+    if (
+      !this._ethersProvider ||
+      this._ethersProvider?.connection?.url !== rpcUrl
+    ) {
+      this._ethersProvider = new ethers.providers.JsonRpcProvider(
+        network.rpcURL,
+      );
+    }
+    return this._ethersProvider;
+  }
+
+  async getJsonRPCClient(): Promise<Geth> {
     return (await this.engine.providerManager.getClient(
       this.networkId,
     )) as Geth;

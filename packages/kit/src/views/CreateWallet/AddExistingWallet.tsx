@@ -17,6 +17,9 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import NameServiceResolver, {
+  useNameServiceStatus,
+} from '@onekeyhq/kit/src/components/NameServiceResolver';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletRoutesParams,
@@ -291,7 +294,11 @@ function AddExistingWalletView(
     showSubmitButton,
     showPasteButton,
   } = props;
-
+  const {
+    onChange: onNameServiceChange,
+    disableSubmitBtn,
+    address,
+  } = useNameServiceStatus();
   const isSmallScreen = useIsVerticalLayout();
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -339,6 +346,13 @@ function AddExistingWalletView(
               });
             },
           }}
+          helpText={(value) => (
+            <NameServiceResolver
+              name={value}
+              onChange={onNameServiceChange}
+              disableBTC
+            />
+          )}
         >
           <Form.Textarea placeholder={placeholder} h="48" />
         </Form.Item>
@@ -354,13 +368,19 @@ function AddExistingWalletView(
             </Button>
           </Center>
         )}
+
         {showSubmitButton ? (
           <Button
-            isDisabled={submitDisabled}
+            isDisabled={submitDisabled || disableSubmitBtn}
             type="primary"
             size={isVerticalLayout ? 'xl' : 'lg'}
             mt={4}
-            onPromise={handleSubmit(onSubmit)}
+            onPromise={handleSubmit((values) => {
+              if (!disableSubmitBtn && address) {
+                values.text = address;
+              }
+              onSubmit(values);
+            })}
           >
             {intl.formatMessage({ id: 'action__confirm' })}
           </Button>

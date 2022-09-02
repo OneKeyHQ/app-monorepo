@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 /* eslint max-classes-per-file: "off" */
 
+import { ethers } from '@onekeyfe/blockchain-libs';
 import {
   BaseClient,
   BaseProvider,
@@ -75,6 +76,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }
 
   abstract createClientFromURL(url: string): BaseClient;
+
+  async getEthersProvider(): Promise<ethers.providers.JsonRpcProvider> {
+    throw new NotImplemented();
+  }
 
   async getClientEndpointStatus(
     url: string,
