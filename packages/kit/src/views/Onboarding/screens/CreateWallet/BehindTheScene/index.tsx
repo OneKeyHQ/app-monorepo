@@ -126,16 +126,25 @@ function BehindTheSceneCreatingWallet({
       return true;
     } catch (e: any) {
       // safeGoBack();
-      const { className, message } = e || {};
+      const { className, message, data } = e || {};
       if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
-        if (platformEnv.isNativeIOS) {
-          // Display Toast for iOS, but BehindTheScene will stay briefly
-          setTimeout(() => {
-            onPressOnboardingFinished?.();
-          }, 100);
-        } else {
-          onPressOnboardingFinished?.();
-        }
+        setTimeout(() => {
+          const { walletName: existsWalletName } = data || {};
+          if (existsWalletName) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage(
+                  { id: 'msg__wallet_already_exist_activated_automatically' },
+                  { 0: existsWalletName },
+                ),
+              },
+              { type: 'default' },
+            );
+          }
+          // await onboarding close and then go to home
+        }, 600 + 500);
+
+        onPressOnboardingFinished?.();
       } else if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
         deviceUtils.showErrorToast(e);
       } else {
@@ -155,6 +164,7 @@ function BehindTheSceneCreatingWallet({
     isHardwareCreating?.features,
     forceVisibleUnfocused,
     onPressOnboardingFinished,
+    intl,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {
