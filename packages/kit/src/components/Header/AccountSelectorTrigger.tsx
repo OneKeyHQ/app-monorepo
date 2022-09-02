@@ -47,14 +47,9 @@ const AccountSelectorTrigger: FC<Props> = ({
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
-<<<<<<< HEAD
   const [hasWalletState, setHasWalletState] = useState(false);
   const [walletState, setWalletState] = useState<string>();
-=======
-  const [hasNotification, setHasNotification] = useState(false);
-  const [notificationColor, setNotificationColor] = useState<string>();
   const [isPassphrase, setIsPassphrase] = useState<boolean>(false);
->>>>>>> onekey
 
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
 

@@ -2,7 +2,7 @@ import React, { FC, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Icon, Spinner } from '@onekeyhq/components';
+import { Dialog, Spinner } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
