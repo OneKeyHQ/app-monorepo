@@ -30,6 +30,10 @@ export default class ServiceAccountSelector extends ServiceBase {
   @backgroundMethod()
   async setSelectedWalletToActive() {
     const { network, wallet } = getActiveWalletAccount();
+    debugLogger.accountSelector.info(
+      'ServiceAccountSelector.setSelectedWalletToActive >>>> ',
+      wallet?.id,
+    );
     await this.updateSelectedNetwork(network?.id);
     await this.updateSelectedWallet(wallet?.id);
   }
@@ -39,6 +43,10 @@ export default class ServiceAccountSelector extends ServiceBase {
   async updateSelectedWallet(walletId?: string) {
     const { dispatch } = this.backgroundApi;
 
+    debugLogger.accountSelector.info(
+      'ServiceAccountSelector.updateSelectedWallet >>>> ',
+      walletId,
+    );
     // TODO ignore update if create new account loading
     dispatch(updateSelectedWalletId(walletId || undefined));
   }

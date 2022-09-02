@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -10,6 +11,7 @@ import {
   HStack,
   Icon,
   Modal,
+  Spinner,
   Token,
   Typography,
   VStack,
@@ -17,6 +19,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import X from '@onekeyhq/kit/assets/connect_x.png';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -25,6 +28,7 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 
 import RugConfirmDialog from './RugConfirmDialog';
+import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
 
 const MockData = {
   permissions: [
@@ -48,15 +52,41 @@ const isRug = (target: string) => {
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
 };
 
+type RouteProps = RouteProp<
+  DappConnectionRoutesParams,
+  DappConnectionModalRoutes.ConnectionModal
+>;
+
 /* Connection Modal are use to accept user with permission to dapp */
+const defaultSourceInfo = Object.freeze({}) as IDappSourceInfo;
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
   const { networkImpl, network, accountAddress, account } =
     useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
-  const { origin, scope, id } = sourceInfo ?? ({} as IDappSourceInfo);
+  const { origin, scope, id } = sourceInfo ?? defaultSourceInfo;
   const computedIsRug = isRug(origin);
+  const route = useRoute<RouteProps>();
+  const walletConnectUri = route?.params?.walletConnectUri;
+  const isWalletConnectPreloading = Boolean(walletConnectUri);
+  const [walletConnectError, setWalletConnectError] = useState<string>('');
+
+  useEffect(() => {
+    if (walletConnectUri) {
+      backgroundApiProxy.walletConnect
+        .connect({
+          uri: walletConnectUri || '',
+        })
+        .catch((error) => {
+          debugLogger.walletConnect.error(error);
+          setWalletConnectError(
+            // timeout or qrcode expired
+            intl.formatMessage({ id: 'msg__hardware_connect_timeout_error' }),
+          );
+        });
+    }
+  }, [intl, walletConnectUri]);
 
   // TODO move to DappService
   const getResolveData = useCallback(() => {
@@ -113,6 +143,12 @@ const Connection = () => {
       />
       {/* Main Modal */}
       <Modal
+        header={
+          isWalletConnectPreloading
+            ? intl.formatMessage({ id: 'content__connecting' })
+            : ''
+        }
+        hidePrimaryAction={isWalletConnectPreloading}
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__cancel"
         onPrimaryActionPress={async ({ close }) => {
@@ -130,7 +166,17 @@ const Connection = () => {
         // TODO onClose may trigger many times
         onModalClose={dappApprove.reject}
         scrollViewProps={{
-          children: (
+          children: isWalletConnectPreloading ? (
+            <Center flex={1} minH="300px">
+              {walletConnectError ? (
+                <Typography.DisplayXLarge my="16px">
+                  {walletConnectError}
+                </Typography.DisplayXLarge>
+              ) : (
+                <Spinner size="lg" />
+              )}
+            </Center>
+          ) : (
             // Add padding to escape the footer
             <VStack flex="1" space={6}>
               <Center flex="1" mt="12px">
@@ -170,7 +216,6 @@ const Connection = () => {
                   {origin?.split('://')[1] ?? 'DApp'}
                 </Typography.Body2>
               </Center>
-
               <VStack space={6} mx="8px" mt="40px">
                 <HStack
                   alignItems="center"

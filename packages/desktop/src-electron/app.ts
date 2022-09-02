@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { EventEmitter } from 'events';
 import os from 'os';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
@@ -13,6 +14,7 @@ import {
   systemPreferences,
 } from 'electron';
 import Config from 'electron-config';
+import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -23,6 +25,7 @@ import initProcess, { restartBridge } from './process/index';
 import type { PrefType } from './preload';
 
 const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
+const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
 const config = new Config() as
@@ -34,6 +37,11 @@ const config = new Config() as
 const configKeys = {
   winBounds: 'winBounds',
 };
+
+// https://github.com/sindresorhus/electron-context-menu
+const disposeContextMenu = contextMenu({
+  showSaveImageAs: true,
+});
 
 const APP_NAME = 'OneKey Wallet';
 let mainWindow: BrowserWindow | null;
@@ -48,19 +56,55 @@ const staticPath = isDev
 const preloadJsUrl = path.join(staticPath, 'preload.js');
 
 const isMac = process.platform === 'darwin';
+const isWin = process.platform === 'win32';
 
-function handleDeepLinkUrl(event: Event | null, url: string, argv?: string[]) {
+export type IDesktopOpenUrlEventData = {
+  url?: string;
+  argv?: string[];
+  isColdStartup?: boolean;
+  platform?: string;
+};
+
+function showMainWindow() {
   if (!mainWindow) {
     return;
   }
+  mainWindow.show();
+  mainWindow.focus();
+}
 
-  // TODO wait delay for kit app initialized ?
-  //      or renderer emit kit ui ready event?
-  setTimeout(() => {
+const emitter = new EventEmitter();
+let isAppReady = false;
+function handleDeepLinkUrl(
+  event: Event | null,
+  url: string,
+  argv?: string[],
+  isColdStartup?: boolean,
+) {
+  const eventData: IDesktopOpenUrlEventData = {
+    url,
+    argv,
+    isColdStartup,
+    platform: process.platform,
+  };
+
+  console.log('handleDeepLinkUrl >>>> ', eventData);
+
+  const sendEventData = () => {
+    isAppReady = true;
     if (mainWindow) {
-      mainWindow.webContents.send('event-open-url', { url, argv });
+      showMainWindow();
+      if (process.env.NODE_ENV !== 'production') {
+        mainWindow.webContents.send('OPEN_URL_DEEP_LINK_MESSAGE', eventData);
+      }
+      mainWindow.webContents.send('event-open-url', eventData);
     }
-  }, 1000);
+  };
+  if (isAppReady && mainWindow) {
+    sendEventData();
+  } else {
+    emitter.once('ready', () => sendEventData());
+  }
 
   if (event) {
     event?.preventDefault();
@@ -74,7 +118,7 @@ function createMainWindow() {
   const savedWinBounds = config?.get(configKeys.winBounds) || {};
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
-    titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
+    titleBarStyle: isWin ? 'default' : 'hidden',
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -85,6 +129,7 @@ function createMainWindow() {
     minWidth: isDev ? undefined : 1024, // OK-8215
     minHeight: isDev ? undefined : 800 / ratio,
     webPreferences: {
+      spellcheck: false,
       webviewTag: true,
       webSecurity: !isDev,
       nativeWindowOpen: true,
@@ -113,24 +158,20 @@ function createMainWindow() {
 
   browserWindow.loadURL(src);
 
+  // Protocol handler for win32
+  if (isWin || isMac) {
+    // Keep only command line / deep linked arguments
+    const deeplinkingUrl = process.argv[1];
+    handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
+  }
+
   browserWindow.webContents.on('did-finish-load', () => {
+    console.log('browserWindow >>>> did-finish-load');
     browserWindow.webContents.send('SET_ONEKEY_DESKTOP_GLOBALS', {
       resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
       preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
     });
-
-    // Protocol handler for win32
-    if (process.platform === 'win32') {
-      // Keep only command line / deep linked arguments
-      const deeplinkingUrl = process.argv[1];
-      handleDeepLinkUrl(null, deeplinkingUrl, process.argv);
-    }
-
-    // TODO app.on('will-finish-launching',
-    // deeplink: Handle the protocol. In this case, we choose to show an Error Box.
-    app.off('open-url', handleDeepLinkUrl);
-    app.on('open-url', handleDeepLinkUrl);
   });
 
   browserWindow.on('resize', () => {
@@ -138,6 +179,8 @@ function createMainWindow() {
   });
   browserWindow.on('closed', () => {
     mainWindow = null;
+    isAppReady = false;
+    console.log('set isAppReady on browserWindow closed', isAppReady);
   });
 
   browserWindow.webContents.on('devtools-opened', () => {
@@ -147,14 +190,26 @@ function createMainWindow() {
     });
   });
 
+  // dom-ready is fired after ipcMain:app/ready
+  browserWindow.webContents.on('dom-ready', () => {
+    isAppReady = true;
+    console.log('set isAppReady on browserWindow dom-ready', isAppReady);
+  });
+
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
+  ipcMain.on('app/ready', () => {
+    isAppReady = true;
+    console.log('set isAppReady on ipcMain app/ready', isAppReady);
+    emitter.emit('ready');
+  });
   ipcMain.on('app/reload', () => {
     app.relaunch();
     app.exit(0);
+    disposeContextMenu();
   });
 
   ipcMain.on('app/openPrefs', (_event, prefType: PrefType) => {
@@ -307,15 +362,14 @@ if (!singleInstance && !process.mas) {
   app.on('second-instance', (e, argv) => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
+      showMainWindow();
 
       // Protocol handler for win32
       // argv: An array of the second instance’s (command line / deep linked) arguments
-      if (process.platform === 'win32') {
+      if (isWin || isMac) {
         // Keep only command line / deep linked arguments
         const deeplinkingUrl = argv[1];
-        handleDeepLinkUrl(null, deeplinkingUrl, argv);
+        handleDeepLinkUrl(null, deeplinkingUrl, argv, true);
       }
     }
   });
@@ -326,7 +380,7 @@ if (!singleInstance && !process.mas) {
       init();
       mainWindow = createMainWindow();
     }
-    mainWindow.show();
+    showMainWindow();
   });
 }
 
@@ -334,7 +388,7 @@ app.on('activate', () => {
   if (!mainWindow) {
     mainWindow = createMainWindow();
   }
-  mainWindow.show();
+  showMainWindow();
 });
 
 app.on('before-quit', () => {
@@ -343,6 +397,7 @@ app.on('before-quit', () => {
     mainWindow?.removeAllListeners('close');
     mainWindow?.close();
   }
+  disposeContextMenu();
 });
 
 // Quit when all windows are closed.
@@ -366,13 +421,29 @@ if (process.defaultApp) {
     app.setAsDefaultProtocolClient(
       ONEKEY_APP_DEEP_LINK_NAME,
       process.execPath,
+      // reassign args to argv[1]  ?
       [path.resolve(process.argv[1])],
     );
   }
 } else {
   app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }
+if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
+  // Define custom protocol handler. Deep linking works on packaged versions of the application!
+  app.setAsDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME);
+}
+// also define `protocols` at packages/desktop/electron-builder.config.js
 if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
   // Define custom protocol handler. Deep linking works on packaged versions of the application!
   app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }
+
+// https://github.com/oikonomopo/electron-deep-linking-mac-win/blob/master/main.js
+app.on('will-finish-launching', () => {
+  // app.off('open-url', handleDeepLinkUrl);
+  // ** Protocol handler for osx
+  // deeplink: Handle the protocol. In this case, we choose to show an Error Box.
+  app.on('open-url', handleDeepLinkUrl);
+});
+
+console.log(' ========= Desktop main app start!!!!!!!!!!!!!  ========== ');

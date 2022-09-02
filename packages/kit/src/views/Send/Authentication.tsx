@@ -29,6 +29,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useWalletConnectSendInfo } from '../../components/WalletConnect/useWalletConnectSendInfo';
 import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
+import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingRequired';
 import { wait } from '../../utils/helper';
 
 import { AuthExternalAccountInfo } from './AuthExternalAccountInfo';
@@ -367,7 +368,6 @@ export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
   const { walletId } = params;
-
   const [titleInfo, setTitleInfo] = useState<
     ISendAuthenticationModalTitleInfo | undefined
   >();
@@ -378,6 +378,9 @@ export const HDAccountAuthentication = () => {
       header={titleInfo?.title}
       headerDescription={titleInfo?.subTitle}
       footer={null}
+      onModalClose={() => {
+        closeExtensionWindowIfOnboardingFinished();
+      }}
     >
       <Box flex={1}>
         <DecodeTxButtonTest encodedTx={params.encodedTx} />

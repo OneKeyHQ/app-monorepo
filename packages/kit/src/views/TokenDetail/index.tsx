@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
@@ -7,6 +7,7 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../hooks';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import PriceChart from '../PriceChart/PriceChart';
@@ -31,10 +32,24 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const { accountId, networkId, tokenId } = route.params;
   const [network, setNetwork] = useState<Network>();
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
+  const { account: activeAccount, network: activeNetwork } =
+    useActiveWalletAccount();
 
   useEffect(() => {
     backgroundApiProxy.engine.getNetwork(networkId).then(setNetwork);
   }, [networkId]);
+
+  const firstUpdate = useRef(true);
+  useLayoutEffect(() => {
+    if (firstUpdate.current) {
+      firstUpdate.current = false;
+      return;
+    }
+    // Go back to Home if account or network changed.
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [activeAccount?.id, activeNetwork?.id, navigation]);
 
   useEffect(() => {
     const title = token?.name || '';

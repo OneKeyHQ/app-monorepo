@@ -1,19 +1,26 @@
 import platformEnv from './platformEnv';
 
 export function toPlainErrorObject(error: {
-  className?: any;
+  // js native Error
   name?: any;
-  code?: any;
-  data?: any;
   message?: any;
   stack?: any;
+  // Web3RpcError
+  code?: any;
+  data?: any;
+  // OneKeyError
+  className?: any;
+  info?: any;
+  key?: any;
 }) {
   return {
-    className: error.className,
     name: error.name,
+    message: error.message,
     code: error.code,
     data: error.data,
-    message: error.message,
+    className: error.className,
+    info: error.info,
+    key: error.key,
     // Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
     stack: platformEnv.isNativeAndroid
       ? 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'

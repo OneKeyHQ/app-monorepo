@@ -364,9 +364,11 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_accounts(request: IJsBridgeMessagePayload) {
-    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
-      origin: request.origin as string,
-    });
+    const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
+      {
+        origin: request.origin as string,
+      },
+    );
     if (!accounts) {
       return Promise.resolve([]);
     }

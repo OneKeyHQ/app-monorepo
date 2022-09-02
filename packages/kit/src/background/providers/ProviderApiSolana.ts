@@ -36,9 +36,10 @@ class ProviderApiSolana extends ProviderApiBase {
   private getConnectedAcccountPublicKey(
     request: IJsBridgeMessagePayload,
   ): Promise<string> {
-    const [account] = this.backgroundApi.serviceDapp?.getConnectedAccounts({
-      origin: request.origin as string,
-    });
+    const [account] =
+      this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
+        origin: request.origin as string,
+      });
 
     return Promise.resolve(account?.address ?? '');
   }
@@ -93,7 +94,7 @@ class ProviderApiSolana extends ProviderApiBase {
       origin,
       networkImpl: IMPL_SOL,
       addresses: this.backgroundApi.serviceDapp
-        .getConnectedAccounts({ origin })
+        .getActiveConnectedAccounts({ origin })
         .map(({ address }) => address),
     });
     debugLogger.providerApi.info('solana disconnect', origin);

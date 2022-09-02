@@ -26,6 +26,7 @@ import {
 import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { deviceUtils } from '../../../utils/hardware';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 
@@ -138,6 +139,9 @@ const DeviceStatusCheckModal: FC = () => {
         flex: '1',
         p: 6,
         px: { base: 4, md: 6 },
+      }}
+      onModalClose={() => {
+        closeExtensionWindowIfOnboardingFinished();
       }}
     >
       {content}

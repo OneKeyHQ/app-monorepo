@@ -9,7 +9,7 @@ import { IDappSourceInfo } from '../background/IBackgroundApi';
 // TODO rename useDappQuery
 function useDappParams() {
   const route = useRoute();
-  const query = (route.params as { query: string })?.query;
+  const query = (route.params as { query: string })?.query ?? '';
   let queryInfo: {
     sourceInfo?: IDappSourceInfo;
     unsignedMessage?: IUnsignedMessageEvm;
@@ -18,7 +18,9 @@ function useDappParams() {
   } = {};
 
   try {
-    queryInfo = JSON.parse(query);
+    if (query) {
+      queryInfo = JSON.parse(query);
+    }
     debugLogger.sendTx.info('useDappParams:', queryInfo);
   } catch (error) {
     debugLogger.sendTx.info('useDappParams:', query);

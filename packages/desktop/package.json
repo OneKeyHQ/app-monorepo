@@ -9,7 +9,7 @@
     "postinstall": "expo-yarn-workspaces postinstall",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "dev": "concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
-    "dev:main": "electron dist/app.js",
+    "dev:main": "electron --inspect=5858 dist/app.js",
     "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 expo start --web --port 19001",
     "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf node_modules && rimraf .expo && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf .expo",
@@ -29,6 +29,7 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
+    "electron-context-menu": "^3.5.0",
     "electron-config": "^2.0.0",
     "electron-is-dev": "^2.0.0",
     "expo": "^45.0.5",

@@ -70,7 +70,7 @@ class ProviderApiNear extends ProviderApiBase {
   }> {
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     const connectedAccounts =
-      this.backgroundApi.serviceDapp?.getConnectedAccounts({
+      this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
         origin: request.origin as string,
       });
     if (!connectedAccounts) {
