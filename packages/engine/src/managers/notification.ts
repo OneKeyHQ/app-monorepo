@@ -14,6 +14,11 @@ type PartialNotificationType = Partial<SettingsState['pushNotification']> & {
   instanceId?: string;
 };
 
+export enum PriceAlertOperator {
+  greater = 'greater',
+  less = 'less',
+}
+
 export type PriceAlertItem = {
   price: string;
   impl: string;
@@ -21,9 +26,12 @@ export type PriceAlertItem = {
   address: string;
   currency: string;
   instanceId: string;
+  operator: PriceAlertOperator;
+  symbol: string;
 };
 
-export type ChangePriceAlertConfig = Omit<PriceAlertItem, 'instanceId'>;
+export type AddPriceAlertConfig = Omit<PriceAlertItem, 'instanceId'>;
+export type RemovePriceAlertConfig = Omit<PriceAlertItem, 'instanceId' | 'operator' | 'symbol'>;
 
 export type AccountDynamicItem = {
   instanceId: string;
@@ -55,6 +63,7 @@ async function fetchData<T>(
   }
   try {
     debugLogger.common.debug(`syncPushNotificationConfig`, {
+      method,
       apiUrl,
       body,
     });
@@ -100,7 +109,7 @@ export const syncPushNotificationConfig = debounce(sync, 10 * 1000, {
   trailing: true,
 });
 
-export const addPriceAlertConfig = async (body: ChangePriceAlertConfig) =>
+export const addPriceAlertConfig = async (body: AddPriceAlertConfig) =>
   fetchData<Record<string, string>>(
     '/notification/price-alert',
     body,
@@ -108,7 +117,7 @@ export const addPriceAlertConfig = async (body: ChangePriceAlertConfig) =>
     'post',
   );
 
-export const removePriceAlertConfig = async (body: ChangePriceAlertConfig) =>
+export const removePriceAlertConfig = async (body: RemovePriceAlertConfig) =>
   fetchData<Record<string, string>>(
     '/notification/price-alert',
     body,

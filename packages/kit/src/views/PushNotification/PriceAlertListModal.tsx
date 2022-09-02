@@ -106,10 +106,9 @@ export const PriceAlertListModal: FC = () => {
       >
         {data.map((item) => (
           <Item
+            alert={item}
             token={token}
-            price={item.price}
             divider={false}
-            currency={item.currency}
             onRemove={() => fetchData(true)}
             {...token}
           />

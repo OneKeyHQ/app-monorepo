@@ -28,6 +28,7 @@ import {
 import { PreSendAmountPreview } from '../Send/PreSendAmount';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
@@ -85,6 +86,10 @@ export const PriceAlertAddModal: FC = () => {
     setLoading(true);
     try {
       await engine.addPriceAlertConfig({
+        symbol: token.symbol,
+        operator: new B(text).isGreaterThanOrEqualTo(price) 
+          ? PriceAlertOperator.greater 
+          : PriceAlertOperator.less,
         price: text,
         currency: selectedFiatMoneySymbol,
         ...pick(token as Required<Token>, 'impl', 'chainId', 'address'),

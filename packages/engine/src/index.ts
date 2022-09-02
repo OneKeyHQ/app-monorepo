@@ -75,7 +75,6 @@ import {
 } from './managers/network';
 import {
   AccountDynamicItem,
-  ChangePriceAlertConfig,
   addAccountDynamic,
   addPriceAlertConfig,
   queryAccountDynamic,
@@ -83,6 +82,8 @@ import {
   removeAccountDynamic,
   removePriceAlertConfig,
   syncPushNotificationConfig,
+  AddPriceAlertConfig,
+  RemovePriceAlertConfig,
 } from './managers/notification';
 import {
   fetchOnlineTokens,
@@ -2433,12 +2434,12 @@ class Engine {
   }
 
   @backgroundMethod()
-  async addPriceAlertConfig(body: ChangePriceAlertConfig) {
+  async addPriceAlertConfig(body: AddPriceAlertConfig) {
     return addPriceAlertConfig(body);
   }
 
   @backgroundMethod()
-  async removePriceAlertConfig(body: ChangePriceAlertConfig) {
+  async removePriceAlertConfig(body: RemovePriceAlertConfig) {
     return removePriceAlertConfig(body);
   }
 

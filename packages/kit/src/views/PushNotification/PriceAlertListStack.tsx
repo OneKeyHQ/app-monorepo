@@ -104,22 +104,20 @@ export function FormatCurrencyNumber({
 }
 
 export const Item: FC<{
-  price: string;
   divider: boolean;
-  currency: string;
   onRemove: (price: string) => void;
+  alert: PriceAlertItem,
   token: TokenType;
-}> = ({ divider, token, price, currency, ...props }) => {
+}> = ({ divider, token, alert, ...props }) => {
+  const {price,currency} = alert;
   const [loading, setLoading] = useState(false);
 
   const onRemove = useCallback(async () => {
     setLoading(true);
     try {
-      await backgroundApiProxy.engine.removePriceAlertConfig({
-        price,
-        currency,
-        ...pick(token as Required<TokenType>, 'impl', 'chainId', 'address'),
-      });
+      await backgroundApiProxy.engine.removePriceAlertConfig(
+        pick(alert, 'impl', 'chainId', 'price', 'currency', 'address')
+      );
     } catch (error) {
       debugLogger.common.error(
         `remove PriceAlert`,
@@ -128,7 +126,7 @@ export const Item: FC<{
     }
     setTimeout(() => {
       setLoading(false);
-      props?.onRemove(price);
+      props?.onRemove(alert.price);
     }, 200);
   }, [price, props, token, currency]);
 
@@ -206,11 +204,10 @@ const Section = ({
       >
         {alerts.map((a, index) => (
           <Item
+            alert={a}
             token={token}
             key={`${a.price}-${a.currency}`}
-            price={a.price}
             divider={index !== length - 1}
-            currency={a.currency || 'usd'}
             onRemove={handleRemove}
           />
         ))}
