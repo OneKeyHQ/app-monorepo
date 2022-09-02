@@ -87,6 +87,7 @@ const StakingButton: FC<StakingButtonProps> = ({ ...rest }) => {
           data: undefined,
         });
       } else {
+        main()
         const timer = setInterval(main, 30 * 1000);
         return () => clearInterval(timer);
       }
