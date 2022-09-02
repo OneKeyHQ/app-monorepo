@@ -2,6 +2,7 @@ import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
 export type CollectibleGalleryProps = {
+  price: number;
   collectibles: Collection[];
   onSelectCollection?: (cols: Collection) => void;
   onSelectAsset?: (asset: NFTAsset) => void;

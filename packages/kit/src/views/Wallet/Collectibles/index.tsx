@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import CollectibleGallery from './CollectibleGallery';
-import { useCollectiblesData } from './useCollectiblesData';
+import { useCollectiblesData, useNFTPrice } from './hooks';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
@@ -28,6 +28,7 @@ export type CollectiblesProps = {
 function CollectibleListView({ address, network }: CollectiblesProps) {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isCollectibleSupported = isCollectibleSupportedChainId(network?.id);
+  const price = useNFTPrice({ network });
 
   const { collectibles, isLoading, fetchData } = useCollectiblesData({
     network,
@@ -73,6 +74,7 @@ function CollectibleListView({ address, network }: CollectiblesProps) {
 
   return (
     <CollectibleGallery
+      price={price}
       collectibles={collectibles}
       onSelectCollection={handleSelectCollectible}
       onSelectAsset={handleSelectAsset}

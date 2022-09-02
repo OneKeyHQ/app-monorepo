@@ -10,6 +10,7 @@ import {
   IconButton,
   Typography,
   useIsVerticalLayout,
+  useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -17,6 +18,7 @@ import { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
 
+import { FormatCurrencyNumber } from '../../../../components/Format';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { CollectibleGalleryProps } from '../types';
 
@@ -26,32 +28,72 @@ import CollectionCard from './CollectionCard';
 const stringAppend = (...args: Array<string | null | undefined>) =>
   args.filter(Boolean).join('');
 type CollectiblesHeaderProps = {
+  priceValue: number;
   expand: boolean;
   onPress: () => void;
 };
 
-const CollectiblesHeader = ({ expand, onPress }: CollectiblesHeaderProps) => {
+const CollectiblesHeader = ({
+  priceValue,
+  expand,
+  onPress,
+}: CollectiblesHeaderProps) => {
   const intl = useIntl();
+  const { themeVariant } = useTheme();
 
+  const subDesc = intl.formatMessage({ id: 'form__last_price' });
   return (
-    <HStack
-      space={4}
-      alignItems="center"
-      justifyContent="space-between"
-      pb={3}
-      paddingRight="16px"
-    >
-      <Typography.Heading>
-        {intl.formatMessage({ id: 'asset__collectibles' })}
-      </Typography.Heading>
-      <IconButton
-        name={expand ? 'PackupOutline' : 'ExpandOutline'}
-        size="sm"
-        circle
-        type="plain"
-        onPress={onPress}
-      />
-    </HStack>
+    <Box flexDirection="column" paddingRight="16px">
+      <Box
+        flexDirection="row"
+        height="84px"
+        mb="24px"
+        bgColor="surface-default"
+        borderRadius="12px"
+        borderColor="border-subdued"
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        padding="16px"
+        justifyContent="space-between"
+      >
+        <Box flexDirection="column">
+          <Typography.DisplayLarge>
+            <FormatCurrencyNumber decimals={2} value={priceValue} />
+          </Typography.DisplayLarge>
+          <Typography.Body2 color="text-subdued">
+            {intl.formatMessage(
+              {
+                id: 'content__total_value_by_str',
+              },
+              { 0: subDesc },
+            )}
+          </Typography.Body2>
+        </Box>
+        {/* <IconButton
+          // onPress={showHomeBalanceSettings}
+          size="sm"
+          name="CogSolid"
+          type="plain"
+          mr={-2}
+        /> */}
+      </Box>
+      <HStack
+        space={4}
+        alignItems="center"
+        justifyContent="space-between"
+        pb={3}
+      >
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'title__assets' })}
+        </Typography.Heading>
+        <IconButton
+          name={expand ? 'PackupOutline' : 'ExpandOutline'}
+          size="sm"
+          circle
+          type="plain"
+          onPress={onPress}
+        />
+      </HStack>
+    </Box>
   );
 };
 
@@ -67,7 +109,7 @@ type FlatListShareProps = Pick<
 
 const ExpandList: FC<
   CollectibleGalleryProps & { flatListProps: FlatListShareProps }
-> = ({ collectibles, onSelectAsset, flatListProps }) => {
+> = ({ price, collectibles, onSelectAsset, flatListProps }) => {
   const allAssets = useMemo(
     () => collectibles.map((collection) => collection.assets).flat(),
     [collectibles],
@@ -77,13 +119,14 @@ const ExpandList: FC<
   >(
     ({ item }) => (
       <CollectibleCard
+        price={price}
         key={stringAppend(item.contractAddress, item.tokenId)}
         marginRight="16px"
         asset={item}
         onSelectAsset={onSelectAsset}
       />
     ),
-    [onSelectAsset],
+    [onSelectAsset, price],
   );
 
   return (
@@ -106,18 +149,19 @@ const ExpandList: FC<
 
 const PackupList: FC<
   CollectibleGalleryProps & { flatListProps: FlatListShareProps }
-> = ({ collectibles, onSelectCollection, flatListProps }) => {
+> = ({ price, collectibles, onSelectCollection, flatListProps }) => {
   const renderCollectionItem = React.useCallback<
     NonNullable<FlatListProps<Collection>['renderItem']>
   >(
     ({ item }) => (
       <CollectionCard
+        price={price}
         collectible={item}
         mr="16px"
         onSelectCollection={onSelectCollection}
       />
     ),
-    [onSelectCollection],
+    [onSelectCollection, price],
   );
   return (
     <Tabs.FlatList<Collection>
@@ -138,6 +182,7 @@ const PackupList: FC<
 };
 
 const CollectibleGallery: FC<CollectibleGalleryProps> = ({
+  price,
   collectibles,
   onSelectAsset,
   onSelectCollection,
@@ -155,7 +200,12 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     ? screenWidth
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
+  let totalPrice = 0;
+  collectibles.forEach((collection) => {
+    totalPrice += collection.totalPrice;
+  });
 
+  totalPrice *= price ?? 0;
   const EmptyView = useMemo(() => {
     if (!isCollectibleSupported) {
       return (
@@ -198,6 +248,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       numColumns,
       ListHeaderComponent: (
         <CollectiblesHeader
+          priceValue={totalPrice}
           expand={expand}
           onPress={() => {
             setExpand((prev) => !prev);
@@ -205,17 +256,19 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         />
       ),
     }),
-    [EmptyView, collectibles, expand, numColumns],
+    [EmptyView, collectibles.length, expand, numColumns, totalPrice],
   );
 
   return expand ? (
     <ExpandList
+      price={price}
       flatListProps={sharedProps}
       collectibles={collectibles}
       onSelectAsset={onSelectAsset}
     />
   ) : (
     <PackupList
+      price={price}
       flatListProps={sharedProps}
       collectibles={collectibles}
       onSelectCollection={onSelectCollection}

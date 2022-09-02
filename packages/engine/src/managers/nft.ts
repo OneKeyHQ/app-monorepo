@@ -5,6 +5,7 @@ import {
   NFTAsset,
   NFTChainMap,
   NFTScanNFTsResp,
+  NFTSymbolMap,
 } from '@onekeyhq/engine/src/types/nft';
 
 import { getFiatEndpoint } from '../endpoint';
@@ -113,5 +114,18 @@ export const syncImage = async (params: {
     .post(apiUrl, params, { timeout: 3 * 60 * 1000 })
     .then(() => true)
     .catch(() => false);
+  return data;
+};
+
+type SymbolPricePayload = Record<string, Record<string, number>>;
+export const getNFTSymbolPrice = async (network: Network) => {
+  const endpoint = getFiatEndpoint();
+  const symbolId = NFTSymbolMap[network.id];
+  const vsCurrencies = 'usd';
+  const apiUrl = `${endpoint}/simple/price?vs_currencies=${vsCurrencies}&ids=${symbolId}`;
+  const data = await axios
+    .get<SymbolPricePayload>(apiUrl)
+    .then((resp) => resp.data[symbolId][vsCurrencies])
+    .catch(() => 0);
   return data;
 };

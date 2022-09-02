@@ -11,16 +11,23 @@ import {
 } from '@onekeyhq/components';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
+import { FormatCurrencyNumber } from '../../../../components/Format';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 
 import CollectibleListImage from './CollectibleListImage';
 
 type Props = ComponentProps<typeof Box> & {
+  price: number;
   asset: NFTAsset;
   onSelectAsset?: (asset: NFTAsset) => void;
 };
 
-const CollectibleCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
+const CollectibleCard: FC<Props> = ({
+  price,
+  onSelectAsset,
+  asset,
+  ...rest
+}) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
 
@@ -35,7 +42,7 @@ const CollectibleCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
     ? Math.floor((pageWidth - MARGIN * 3) / 2)
     : 177;
   const { themeVariant } = useTheme();
-
+  const { latestTradePrice } = asset;
   return (
     <Box mb="16px" {...rest}>
       <Pressable
@@ -68,7 +75,10 @@ const CollectibleCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
           {asset.name ?? asset.collection.contractName ?? ''}
         </Text>
         <Text typography="Body2" height="20px" color="text-subdued">
-          {`Last Sale: ${asset.latestTradePrice ?? 'N/A'}`}
+          <FormatCurrencyNumber
+            decimals={2}
+            value={price * (latestTradePrice ?? 0)}
+          />
         </Text>
       </Pressable>
     </Box>
