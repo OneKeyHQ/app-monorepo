@@ -46,6 +46,7 @@ declare global {
     // Ext internal (ui,background,contentScript)
     extJsBridgeUiToBg: JsBridgeBase;
     extJsBridgeUiToIframe: JsBridgeBase;
+    ONEKEY_DESKTOP_DEEP_LINKS: any[];
   }
 }
 

@@ -26,6 +26,7 @@ export type DesktopAPI = {
   arch: string;
   platform: string;
   reload: () => void;
+  ready: () => void;
   openPrefs: (prefType: PrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: 'active' | 'background') => void) => () => void;
@@ -34,6 +35,14 @@ export type DesktopAPI = {
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
   reloadBridgeProcess: () => void;
+  addIpcEventListener: (
+    event: string,
+    listener: (...args: any[]) => void,
+  ) => void;
+  removeIpcEventListener: (
+    event: string,
+    listener: (...args: any[]) => void,
+  ) => void;
 };
 declare global {
   interface Window {
@@ -57,10 +66,19 @@ ipcRenderer.on(
   },
 );
 
+window.ONEKEY_DESKTOP_DEEP_LINKS = window.ONEKEY_DESKTOP_DEEP_LINKS || [];
+ipcRenderer.on('OPEN_URL_DEEP_LINK_MESSAGE', (event, data) => {
+  if (window.ONEKEY_DESKTOP_DEEP_LINKS) {
+    window.ONEKEY_DESKTOP_DEEP_LINKS.push(data);
+  }
+  window.ONEKEY_DESKTOP_DEEP_LINKS = window.ONEKEY_DESKTOP_DEEP_LINKS.slice(-5);
+});
+
 const desktopApi = {
   hello: 'world',
   arch: process.arch,
   platform: process.platform,
+  ready: () => ipcRenderer.send('app/ready'),
   reload: () => ipcRenderer.send('app/reload'),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
     ipcRenderer.addListener(event, listener);

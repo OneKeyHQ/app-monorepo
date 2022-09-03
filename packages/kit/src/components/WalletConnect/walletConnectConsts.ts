@@ -7,6 +7,8 @@ export const WALLET_CONNECT_STORAGE_KEY_WALLET_SIDE =
 export const WALLET_CONNECT_STORAGE_KEY_DAPP_SIDE =
   'onekey@walletconnect-dapp-side';
 
+export const WALLET_CONNECT_WALLETS_LIST =
+  'https://explorer.walletconnect.com/registry?type=wallet';
 export const WALLET_CONNECT_BRIDGE = 'https://bridge.walletconnect.org';
 export const WALLET_CONNECT_PROTOCOL = 'wc';
 export const WALLET_CONNECT_VERSION = 1;

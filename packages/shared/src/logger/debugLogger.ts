@@ -12,9 +12,11 @@ import {
 // eslint-disable-next-line import/order
 import { stringify } from 'circular-json';
 
+import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import platformEnv from '../platformEnv';
+import { toPlainErrorObject } from '../sharedUtils';
 import appStorage from '../storage/appStorage';
 
 type IConsoleFuncProps = {
@@ -24,6 +26,19 @@ type IConsoleFuncProps = {
   extension?: string | null;
   options?: any;
 };
+
+function stringifyLog(...args: any[]) {
+  const argsNew = args.map((arg) => {
+    if (arg instanceof Error) {
+      const error = toPlainErrorObject(arg as OneKeyError);
+      delete error.stack;
+      return error;
+    }
+    return arg as unknown;
+  });
+  // @ts-ignore
+  return stringify(...argsNew);
+}
 
 function logToConsole(props: IConsoleFuncProps) {
   if (platformEnv.isDev) {
@@ -74,7 +89,7 @@ export const logger = RNLogger.createLogger({
   async: true,
   // eslint-disable-next-line @typescript-eslint/unbound-method
   asyncFunc: InteractionManager.runAfterInteractions,
-  stringifyFunc: stringify,
+  stringifyFunc: stringifyLog,
   dateFormat: 'iso',
   ...(platformEnv.isNative
     ? NATIVE_TRANSPORT_CONFIG
@@ -94,6 +109,7 @@ export enum LoggerNames {
   extInjected = 'extInjected',
   backgroundApi = 'backgroundApi',
   walletConnect = 'walletConnect',
+  deepLink = 'deepLink',
   accountSelector = 'accountSelector',
   engine = 'engine',
   sendTx = 'sendTx',
@@ -122,6 +138,8 @@ const debugLogger: Record<
   LoggerNames,
   ReturnType<typeof Cache.createLogger>
 > = {
+  // @ts-ignore
+  stringifyLog,
   [LoggerNames.hardwareSDK]: Cache.createLogger(LoggerNames.hardwareSDK),
   [LoggerNames.onBoarding]: Cache.createLogger(LoggerNames.onBoarding),
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
@@ -140,6 +158,7 @@ const debugLogger: Record<
   [LoggerNames.extInjected]: Cache.createLogger(LoggerNames.extInjected),
   [LoggerNames.backgroundApi]: Cache.createLogger(LoggerNames.backgroundApi),
   [LoggerNames.walletConnect]: Cache.createLogger(LoggerNames.walletConnect),
+  [LoggerNames.deepLink]: Cache.createLogger(LoggerNames.deepLink),
   [LoggerNames.accountSelector]: Cache.createLogger(
     LoggerNames.accountSelector,
   ),
@@ -174,7 +193,12 @@ if (platformEnv.isNative) {
 
 const DEBUG_LOGGER_STORAGE_KEY = '$$ONEKEY_DEBUG_LOGGER';
 
+const shouldUseLocalStorage = platformEnv.isDesktop || platformEnv.isWeb;
+
 async function getDebugLoggerSettings(): Promise<string | undefined | null> {
+  if (shouldUseLocalStorage) {
+    return window.localStorage.getItem(DEBUG_LOGGER_STORAGE_KEY);
+  }
   return appStorage.getItem(DEBUG_LOGGER_STORAGE_KEY);
 }
 
@@ -201,12 +225,18 @@ async function loadDebugLoggerSettings() {
 async function saveDebugLoggerSettings() {
   const enabledKeys: string[] = (logger._enabledExtensions as any) || [];
   const enabledKeysStr = enabledKeys.join(',');
-  await appStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
+  if (shouldUseLocalStorage) {
+    window.localStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
+  } else {
+    await appStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
+  }
 }
 
 if (platformEnv.isDev) {
   loadDebugLoggerSettings().then(() => saveDebugLoggerSettings());
 }
+
+debugLogger.common.error(new Error('Log Sample Error in debugLogger'));
 
 export {
   saveDebugLoggerSettings,

@@ -18,7 +18,9 @@ export enum DappConnectionModalRoutes {
 }
 
 export type DappConnectionRoutesParams = {
-  [DappConnectionModalRoutes.ConnectionModal]: undefined;
+  [DappConnectionModalRoutes.ConnectionModal]: {
+    walletConnectUri?: string;
+  };
   [DappConnectionModalRoutes.NetworkNotMatchModal]: undefined;
 };
 

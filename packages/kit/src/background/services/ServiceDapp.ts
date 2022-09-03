@@ -34,13 +34,21 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
-  // TODO rename getActiveConnectedAccounts
-  getConnectedAccounts({ origin }: { origin: string }): DappSiteConnection[] {
-    // TODO unlock status check
+  getActiveConnectedAccounts({
+    origin,
+  }: {
+    origin: string;
+  }): DappSiteConnection[] {
+    const { appSelector } = this.backgroundApi;
     const { networkImpl, accountAddress } = getActiveWalletAccount();
-    const connections: DappSiteConnection[] = this.backgroundApi.appSelector(
+    const connections: DappSiteConnection[] = appSelector(
       (s) => s.dapp.connections,
     );
+    const { isUnlock } = appSelector((s) => s.status);
+    if (!isUnlock) {
+      // TODO unlock status check
+      //   return [];
+    }
     const accounts = connections
       .filter(
         (item) =>
@@ -76,9 +84,11 @@ class ServiceDapp extends ServiceBase {
   }
 
   isDappAuthorized(request: IJsBridgeMessagePayload) {
-    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
-      origin: request.origin as string,
-    });
+    const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
+      {
+        origin: request.origin as string,
+      },
+    );
     return Boolean(accounts && accounts.length);
   }
 

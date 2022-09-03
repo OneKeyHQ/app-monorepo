@@ -31,6 +31,7 @@ import {
 import {
   WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL,
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
+  WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
 import walletConnectUtils from './walletConnectUtils';
 
@@ -245,9 +246,7 @@ export function useWalletConnectQrcodeModal() {
               await Linking.openURL(uri);
             } else {
               // url 404 now
-              await Linking.openURL(
-                'https://explorer.walletconnect.com/registry?type=wallet',
-              );
+              await Linking.openURL(WALLET_CONNECT_WALLETS_LIST);
               throw new Error('No wallets found.');
             }
             return;

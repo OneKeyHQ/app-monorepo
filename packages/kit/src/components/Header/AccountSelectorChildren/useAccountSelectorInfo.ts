@@ -147,16 +147,11 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
   }, [isOpenDelay, selectedWalletId, serviceAccountSelector, wallets]);
   useEffect(() => {
     InteractionManager.runAfterInteractions(() => {
-      if (isOpenDelay && !preloadingCreateAccount) {
+      if (isOpenDelayRef.current && !preloadingCreateAccount) {
         serviceAccountSelector.updateSelectedWallet(activeWallet?.id);
       }
     });
-  }, [
-    activeWallet,
-    preloadingCreateAccount,
-    isOpenDelay,
-    serviceAccountSelector,
-  ]);
+  }, [activeWallet, preloadingCreateAccount, serviceAccountSelector]);
 
   const refreshHookDeps = useMemo(
     () => ({

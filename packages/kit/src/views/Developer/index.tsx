@@ -34,6 +34,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
+import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import { SendRoutes } from '../../routes';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import { refreshWebviewGlobalKey } from '../../store/reducers/status';
@@ -168,7 +169,7 @@ export const Debug = () => {
                   console.error(err);
                 }
                 if (uriText) {
-                  await backgroundApiProxy.walletConnect.connect({
+                  walletConnectUtils.openConnectToDappModal({
                     uri: uriText,
                   });
                 } else {

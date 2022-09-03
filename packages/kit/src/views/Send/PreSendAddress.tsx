@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -32,7 +32,7 @@ type FormValues = {
 function PreSendAddress() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const transferInfo = { ...route.params };
+  const transferInfo = useMemo(() => ({ ...route.params }), [route.params]);
   const { networkId } = useActiveWalletAccount();
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
@@ -52,7 +52,8 @@ function PreSendAddress() {
     address: resolvedAddress,
   } = useNameServiceStatus();
 
-  const { control, getValues, formState, trigger } = useFormReturn;
+  const { control, getValues, formState, trigger, handleSubmit } =
+    useFormReturn;
   const navigation = useNavigation<NavigationProps>();
   const tokenInfo = useTokenInfo({
     networkId,
@@ -86,8 +87,6 @@ function PreSendAddress() {
     [networkId],
   );
 
-  const toVal = resolvedAddress ?? getValues('to');
-
   const syncStateAndReTriggerValidate = useCallback(
     (val) => {
       onNameServiceChange(val);
@@ -95,6 +94,21 @@ function PreSendAddress() {
     },
     [trigger, onNameServiceChange],
   );
+
+  const onSubmit = useCallback(
+    (values: FormValues) => {
+      const toVal = resolvedAddress || values.to;
+      if (isLoading || !toVal) {
+        return;
+      }
+      navigation.navigate(SendRoutes.PreSendAmount, {
+        ...transferInfo,
+        to: toVal,
+      });
+    },
+    [resolvedAddress, isLoading, navigation, transferInfo],
+  );
+  const doSubmit = handleSubmit(onSubmit);
 
   return (
     <BaseSendModal
@@ -105,12 +119,7 @@ function PreSendAddress() {
       primaryActionProps={{
         isDisabled: submitDisabled,
       }}
-      onPrimaryActionPress={() => {
-        navigation.navigate(SendRoutes.PreSendAmount, {
-          ...transferInfo,
-          to: toVal,
-        });
-      }}
+      onPrimaryActionPress={() => doSubmit()}
       scrollViewProps={{
         children: (
           <Box>
@@ -138,8 +147,8 @@ function PreSendAddress() {
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
-                  validate: async () => {
-                    const toAddress = resolvedAddress || formValues?.to || '';
+                  validate: async (value: string) => {
+                    const toAddress = resolvedAddress || value || '';
                     setSuccessMessage('');
                     setWarningMessage('');
                     if (!toAddress) {

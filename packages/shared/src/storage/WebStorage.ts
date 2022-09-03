@@ -37,6 +37,8 @@ class WebStorage implements AsyncStorageStatic {
         return true;
       }
       if (typeof window !== 'undefined' && window.localStorage) {
+        await localforage.ready();
+
         console.log(
           'appStorage/webStorage --- migrateFromLocalStorage >>>> ',
           localforage.driver(),
@@ -56,6 +58,10 @@ class WebStorage implements AsyncStorageStatic {
           return true;
         }
         if (await localforage.getItem(REDUX_PERSIST_KEY)) {
+          this.isMigrated = true;
+          return true;
+        }
+        if (localforage.driver() === localforage.LOCALSTORAGE) {
           this.isMigrated = true;
           return true;
         }

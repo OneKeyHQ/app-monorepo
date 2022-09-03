@@ -4,6 +4,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import walletConnectUtils from '../components/WalletConnect/walletConnectUtils';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
 import { scanFromURLAsync } from '../views/ScanQrcode/scanFromURLAsync';
@@ -16,7 +17,7 @@ export const handleScanResult = async (data: string) => {
   } else if (/^wc:.+@.+\?.+/.test(data)) {
     // wc:{topic...}@{version...}?bridge={url...}&key={key...}
     // https://docs.walletconnect.com/tech-spec
-    await backgroundApiProxy.walletConnect.connect({
+    walletConnectUtils.openConnectToDappModal({
       uri: data,
     });
     return;

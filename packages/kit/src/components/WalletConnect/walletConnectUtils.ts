@@ -5,6 +5,12 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { waitForDataLoaded } from '../../background/utils';
+import { getAppNavigation } from '../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import { getTimeDurationMs } from '../../utils/helper';
+import { DappConnectionModalRoutes } from '../../views/DappModals/types';
+
 import { WalletService } from './types';
 import { ONEKEY_APP_DEEP_LINK } from './walletConnectConsts';
 
@@ -215,9 +221,31 @@ async function terminateWcConnection({
   }
 }
 
+async function openConnectToDappModal({ uri }: { uri: string }) {
+  await waitForDataLoaded({
+    data: () => getAppNavigation(),
+    logName: 'openConnectToDappModal wait navigation ready',
+    timeout: getTimeDurationMs({ minute: 1 }),
+  });
+  const navigation = getAppNavigation();
+  if (!navigation) {
+    return;
+  }
+  navigation.navigate(RootRoutes.Modal, {
+    screen: ModalRoutes.DappConnectionModal,
+    params: {
+      screen: DappConnectionModalRoutes.ConnectionModal,
+      params: {
+        walletConnectUri: uri,
+      },
+    },
+  });
+}
+
 export default {
   buildConnectWalletAppUrl,
   buildOpenWalletAppUrl,
   dappOpenWalletApp,
   terminateWcConnection,
+  openConnectToDappModal,
 };

@@ -9,7 +9,7 @@ const id = setInterval(checkPort, 1000);
 
 function checkPort() {
   try {
-    const status = execSync('lsof -i:3001');
+    const status = execSync('lsof -i:3001', {});
     if (!status) return;
   } catch (e) {
     return;
@@ -17,6 +17,7 @@ function checkPort() {
 
   execSync('yarn run dev:main', {
     cwd: projectRoot,
+    stdio: 'inherit',
   });
   clearInterval(id);
 }
