@@ -70,6 +70,14 @@ export function TxActionStake(props: ITxActionCardProps) {
       content: <TxActionElementAddressNormal address={accountAddress} />,
     },
     {
+      title: intl.formatMessage({ id: 'form__activation_time' }),
+      content: (
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'form__str_hours' }, { '0': '24' })}
+        </Typography.Body1Strong>
+      ),
+    },
+    {
       title: intl.formatMessage({ id: 'form__service_fee' }),
       content: (
         <Typography.Body1Strong>

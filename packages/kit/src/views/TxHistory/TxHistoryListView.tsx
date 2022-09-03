@@ -274,6 +274,7 @@ function TxHistoryListViewComponent({
     [fetchHistoryTx],
   );
   const isFocused = useIsFocused();
+
   const shouldDoRefresh = useMemo((): boolean => {
     if (!accountId || !networkId) {
       return false;

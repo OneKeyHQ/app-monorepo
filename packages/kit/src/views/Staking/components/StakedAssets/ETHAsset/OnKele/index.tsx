@@ -9,6 +9,7 @@ import {
   Icon,
   Image,
   Pressable,
+  Spinner,
   Stack,
   Typography,
 } from '@onekeyhq/components';
@@ -28,70 +29,7 @@ type StakingButtonProps = Exclude<ComponentProps<typeof Button>, 'onPress'>;
 const StakingButton: FC<StakingButtonProps> = ({ ...rest }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { networkId, accountId, wallet } = useActiveWalletAccount();
-  const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
-
-  useEffect(() => {
-    async function main() {
-      if (activeStakingActivity) {
-        if (activeStakingActivity.nonce === undefined) {
-          backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-            networkId,
-            accountId,
-            data: undefined,
-          });
-          return;
-        }
-        const status =
-          await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
-            networkId,
-            accountId,
-            nonce: activeStakingActivity.nonce,
-          });
-        if (status === 'pending') {
-          return;
-        }
-        if (status === 'canceled' || status === 'failed') {
-          backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-            networkId,
-            accountId,
-            data: undefined,
-          });
-          return;
-        }
-        const state =
-          await backgroundApiProxy.serviceStaking.fetchStakedStateOnKele({
-            networkId,
-            accountId,
-          });
-        if (state) {
-          if (
-            state.total &&
-            state.total > Number(activeStakingActivity.oldValue ?? 0)
-          ) {
-            backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-              networkId,
-              accountId,
-              data: undefined,
-            });
-          }
-        }
-      }
-    }
-    if (activeStakingActivity) {
-      const createdAt = activeStakingActivity.createdAt ?? 0;
-      if (!createdAt || Date.now() - createdAt > 60 * 60 * 1000) {
-        backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-          networkId,
-          accountId,
-          data: undefined,
-        });
-      } else {
-        const timer = setInterval(main, 30 * 1000);
-        return () => clearInterval(timer);
-      }
-    }
-  }, [activeStakingActivity, networkId, accountId]);
+  const { networkId, wallet } = useActiveWalletAccount();
 
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -108,7 +46,6 @@ const StakingButton: FC<StakingButtonProps> = ({ ...rest }) => {
     <Button
       {...rest}
       onPress={onPress}
-      isLoading={!!activeStakingActivity}
       isDisabled={wallet?.type === 'watching'}
     >
       {intl.formatMessage({ id: 'action__stake' })}
@@ -151,16 +88,83 @@ function NoAssetsOnKele() {
 }
 
 type StakingAssetOnKeleProps = {
-  state: KeleETHStakingState;
+  state?: KeleETHStakingState;
   networkId: string;
+  accountId: string;
 };
 
 const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
   state,
   networkId,
+  accountId,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
+  const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
+
+  useEffect(() => {
+    async function main() {
+      if (activeStakingActivity) {
+        if (activeStakingActivity.nonce === undefined) {
+          backgroundApiProxy.serviceStaking.setAccountStakingActivity({
+            networkId,
+            accountId,
+            data: undefined,
+          });
+          return;
+        }
+        const status =
+          await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
+            networkId,
+            accountId,
+            nonce: activeStakingActivity.nonce,
+          });
+        if (status === 'pending') {
+          return;
+        }
+        if (status === 'canceled' || status === 'failed') {
+          backgroundApiProxy.serviceStaking.setAccountStakingActivity({
+            networkId,
+            accountId,
+            data: undefined,
+          });
+          return;
+        }
+        const stateOnKele =
+          await backgroundApiProxy.serviceStaking.fetchStakedStateOnKele({
+            networkId,
+            accountId,
+          });
+        if (stateOnKele) {
+          if (
+            stateOnKele.total &&
+            stateOnKele.total > Number(activeStakingActivity.oldValue ?? 0)
+          ) {
+            backgroundApiProxy.serviceStaking.setAccountStakingActivity({
+              networkId,
+              accountId,
+              data: undefined,
+            });
+          }
+        }
+      }
+    }
+    if (activeStakingActivity) {
+      const createdAt = activeStakingActivity.createdAt ?? 0;
+      if (!createdAt || Date.now() - createdAt > 60 * 60 * 1000) {
+        backgroundApiProxy.serviceStaking.setAccountStakingActivity({
+          networkId,
+          accountId,
+          data: undefined,
+        });
+      } else {
+        main();
+        const timer = setInterval(main, 30 * 1000);
+        return () => clearInterval(timer);
+      }
+    }
+  }, [activeStakingActivity, networkId, accountId]);
+
   const onDetail = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
@@ -185,17 +189,35 @@ const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
               { '0': 'kelepool' },
             )}
           </Typography.Body1Strong>
-          <Typography.Body2 color="text-subdued">{`${
-            state.total ?? '0'
-          } ETH`}</Typography.Body2>
+          {activeStakingActivity ? (
+            <Box flexDirection="row" alignItems="center">
+              <Spinner size="sm" />
+              <Typography.Body2 ml="2" color="text-subdued">
+                {intl.formatMessage({ id: 'title__staking_in_process' })}
+              </Typography.Body2>
+            </Box>
+          ) : (
+            <Typography.Body2 color="text-subdued">{`${
+              state?.total ?? '0'
+            } ETH`}</Typography.Body2>
+          )}
         </Box>
         <Box justifyContent="space-between" flexDirection="row" mt="4">
-          <Pressable flexDirection="row" alignItems="center" onPress={onDetail}>
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage({ id: 'content__details' })}
-            </Typography.Body2>
-            <Icon name="ChevronRightOutline" size={16} />
-          </Pressable>
+          <Box>
+            {activeStakingActivity ? null : (
+              <Pressable
+                flexDirection="row"
+                alignItems="center"
+                onPress={onDetail}
+              >
+                <Typography.Body2 color="text-subdued">
+                  {intl.formatMessage({ id: 'content__details' })}
+                </Typography.Body2>
+                <Icon name="ChevronRightOutline" size={16} />
+              </Pressable>
+            )}
+          </Box>
+
           <Stack direction="row" space={4}>
             <Button size="sm" isDisabled>
               {intl.formatMessage({ id: 'action__unstake' })}
@@ -215,14 +237,20 @@ type ETHAssetOnKeleProps = {
 
 const ETHAssetOnKele: FC<ETHAssetOnKeleProps> = ({ networkId, accountId }) => {
   const stakingState = useKelePoolStakingState(networkId, accountId);
+  const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
   useEffect(() => {
     backgroundApiProxy.serviceStaking.fetchStakedStateOnKele({
       accountId,
       networkId,
     });
   }, [accountId, networkId]);
-  return stakingState && stakingState.total && stakingState.total > 0 ? (
-    <AssetStakedOnKele state={stakingState} networkId={networkId} />
+  return (stakingState && stakingState.total && stakingState.total > 0) ||
+    activeStakingActivity ? (
+    <AssetStakedOnKele
+      state={stakingState}
+      networkId={networkId}
+      accountId={accountId}
+    />
   ) : (
     <NoAssetsOnKele />
   );

@@ -173,15 +173,18 @@ const ListHeaderComponent = () => {
   );
 };
 
-const ListEmptyComponent = () => (
-  <Box py="10">
-    <Empty
-      imageUrl={EmptyHistoryPNG}
-      title="No Histories"
-      subTitle="Reward history will show here."
-    />
-  </Box>
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Box py="10">
+      <Empty
+        imageUrl={EmptyHistoryPNG}
+        title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
+        subTitle={intl.formatMessage({ id: 'reward__history_empty_desc' })}
+      />
+    </Box>
+  );
+};
 
 export default function StakedETHOnKele() {
   const intl = useIntl();

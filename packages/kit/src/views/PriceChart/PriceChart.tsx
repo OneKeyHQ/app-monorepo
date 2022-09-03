@@ -51,7 +51,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
           days: TIMEOPTIONS_VALUE[newTimeIndex],
           points,
         });
-        if (dayData.length && newData?.length) {
+        if (dayData?.length && newData?.length) {
           latestPriceData = dayData[dayData.length - 1];
           newData = newData.filter((d) => d[0] < latestPriceData[0]);
           newData.push(latestPriceData);
