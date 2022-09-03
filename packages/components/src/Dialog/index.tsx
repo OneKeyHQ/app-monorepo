@@ -11,6 +11,7 @@ import React, {
 import { Modal as NBModal } from 'native-base';
 import { Keyboard, Platform } from 'react-native';
 import Modal from 'react-native-modal';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import Box from '../Box';
 import Pressable from '../Pressable';
@@ -61,7 +62,7 @@ const Outer: FC<OuterContainerProps> = ({
       style={{ marginHorizontal: 0 }}
       {...rest}
     >
-      {children}
+      <RootSiblingParent>{children}</RootSiblingParent>
     </Modal>
   );
 };
