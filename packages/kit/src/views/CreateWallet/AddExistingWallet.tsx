@@ -374,7 +374,6 @@ function AddExistingWalletView(
             isDisabled={submitDisabled || disableSubmitBtn}
             type="primary"
             size={isVerticalLayout ? 'xl' : 'lg'}
-            mt={4}
             onPromise={handleSubmit((values) => {
               if (!disableSubmitBtn && address) {
                 values.text = address;
