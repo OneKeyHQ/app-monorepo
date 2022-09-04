@@ -85,7 +85,9 @@ const Section: FC<
     async (account: Account, checked: boolean) => {
       if (checked) {
         await engine.addAccountDynamic({
+          accountId: account.id,
           address: account.address,
+          name: account.name,
           ...avatar,
         });
       } else {

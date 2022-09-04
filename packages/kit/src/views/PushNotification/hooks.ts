@@ -8,18 +8,13 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { Token } from '@onekeyhq/engine/src/types/token';
 
 export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
 };
 
-export const useEnabledAccountDynamicAccounts = () => {
+export const useWalletsAndAccounts = () => {
   const [wallets, setWallets] = useState<WalletData[]>([]);
-  const [enabledAccounts, setEnabledAccounts] = useState<AccountDynamicItem[]>(
-    [],
-  );
-
   const getWalletsAndAccounts = useCallback(async () => {
     const walletList = await backgroundApiProxy.engine.getWallets();
     const walletsWithAccounts = await Promise.all(
@@ -30,6 +25,22 @@ export const useEnabledAccountDynamicAccounts = () => {
     );
     setWallets(walletsWithAccounts.filter((w) => !!w.accounts?.length));
   }, []);
+
+  useEffect(() => {
+    getWalletsAndAccounts();
+  }, [getWalletsAndAccounts]);
+
+  return {
+    wallets,
+    getWalletsAndAccounts,
+  };
+};
+
+export const useEnabledAccountDynamicAccounts = () => {
+  const { wallets, getWalletsAndAccounts } = useWalletsAndAccounts();
+  const [enabledAccounts, setEnabledAccounts] = useState<AccountDynamicItem[]>(
+    [],
+  );
 
   const fetchEnabledAccounts = useCallback(async () => {
     const accounts = await backgroundApiProxy.engine.queryAccountDynamic();
@@ -69,20 +80,3 @@ export const usePriceAlertlist = () => {
     fetchPriceAlerts,
   };
 };
-
-export const useSingleToken = (networkId: string, address: string) => {
-  const [token, setToken] = useState<Token>();
-
-  useEffect(() => {
-    backgroundApiProxy.engine.findToken({
-      networkId,
-      tokenIdOnNetwork: address,
-    }).then(t => {
-        if(t){
-          setToken(t);
-        }
-      });
-  }, []);
-
-  return token;
-}

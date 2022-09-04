@@ -75,6 +75,8 @@ import {
 } from './managers/network';
 import {
   AccountDynamicItem,
+  AddPriceAlertConfig,
+  RemovePriceAlertConfig,
   addAccountDynamic,
   addPriceAlertConfig,
   queryAccountDynamic,
@@ -82,8 +84,6 @@ import {
   removeAccountDynamic,
   removePriceAlertConfig,
   syncPushNotificationConfig,
-  AddPriceAlertConfig,
-  RemovePriceAlertConfig,
 } from './managers/notification';
 import {
   fetchOnlineTokens,
@@ -628,17 +628,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-                id: a.id,
-                name: a.name,
-                type: a.type,
-                path: a.path,
-                coinType: a.coinType,
-                tokens: [],
-                address: a.address,
-              }
+              id: a.id,
+              name: a.name,
+              type: a.type,
+              path: a.path,
+              coinType: a.coinType,
+              tokens: [],
+              address: a.address,
+            }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-                vault.getOutputAccount(),
-              ),
+              vault.getOutputAccount(),
+            ),
         ),
     );
   }
@@ -1137,8 +1137,8 @@ class Engine {
       }
       let tokenInfo:
         | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-            logoURI?: string;
-          })
+          logoURI?: string;
+        })
         | undefined;
       const { impl, chainId } = parseNetworkId(networkId);
       if (!impl || !chainId) {
@@ -2456,7 +2456,9 @@ class Engine {
   }
 
   @backgroundMethod()
-  async removeAccountDynamic(body: Omit<AccountDynamicItem, 'instanceId'>) {
+  async removeAccountDynamic(
+    body: Omit<AccountDynamicItem, 'instanceId' | 'name' | 'accountId'>,
+  ) {
     return removeAccountDynamic(body);
   }
 

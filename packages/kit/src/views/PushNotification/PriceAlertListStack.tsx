@@ -27,11 +27,13 @@ import { useNavigation } from '@onekeyhq/kit/src/hooks';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useSingleToken } from '../../hooks/useTokens';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 
+import { usePriceAlertlist } from './hooks';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { usePriceAlertlist, useSingleToken } from './hooks';
 
 type ListEmptyComponentProps = {
   isLoading: boolean;
@@ -64,11 +66,11 @@ export const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
       subTitle={
         symbol
           ? intl.formatMessage(
-              {
-                id: 'title__no_alert_desc',
-              },
-              { 0: symbol },
-            )
+            {
+              id: 'title__no_alert_desc',
+            },
+            { 0: symbol },
+          )
           : ''
       }
     />
@@ -106,17 +108,17 @@ export function FormatCurrencyNumber({
 export const Item: FC<{
   divider: boolean;
   onRemove: (price: string) => void;
-  alert: PriceAlertItem,
+  alert: PriceAlertItem;
   token: TokenType;
 }> = ({ divider, token, alert, ...props }) => {
-  const {price,currency} = alert;
+  const { price, currency } = alert;
   const [loading, setLoading] = useState(false);
 
   const onRemove = useCallback(async () => {
     setLoading(true);
     try {
       await backgroundApiProxy.engine.removePriceAlertConfig(
-        pick(alert, 'impl', 'chainId', 'price', 'currency', 'address')
+        pick(alert, 'impl', 'chainId', 'price', 'currency', 'address'),
       );
     } catch (error) {
       debugLogger.common.error(
@@ -128,7 +130,7 @@ export const Item: FC<{
       setLoading(false);
       props?.onRemove(alert.price);
     }, 200);
-  }, [price, props, token, currency]);
+  }, [props, alert]);
 
   return (
     <Box
@@ -219,10 +221,7 @@ const Section = ({
 const NotificationPriceAlert = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const {
-    alerts, 
-    fetchPriceAlerts
-  } = usePriceAlertlist();
+  const { alerts, fetchPriceAlerts } = usePriceAlertlist();
 
   const data = useMemo(() => {
     const groupedData = groupBy(
@@ -230,7 +229,7 @@ const NotificationPriceAlert = () => {
       (item) => `${item.impl}--${item.chainId}--${item.address}`,
     );
     return Object.entries(groupedData);
-  }, [alerts])
+  }, [alerts]);
 
   useLayoutEffect(() => {
     const title = intl.formatMessage({ id: 'title__manage_price_alert' });
@@ -249,10 +248,10 @@ const NotificationPriceAlert = () => {
       mx="auto"
     >
       {data.length > 0 ? (
-        data.map(([tokenId, alerts]) => (
+        data.map(([tokenId, alertList]) => (
           <Section
             key={tokenId}
-            alerts={alerts}
+            alerts={alertList}
             onRemove={fetchPriceAlerts}
           />
         ))

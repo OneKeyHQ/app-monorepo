@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useAppSelector } from './redux';
 
@@ -109,4 +111,23 @@ export const useNFTPrice = ({
   }, [accountId, disPlayPriceType, networkId, nftPrice]);
 
   return symbolPrice * amount;
+};
+
+export const useSingleToken = (networkId: string, address: string) => {
+  const [token, setToken] = useState<Token>();
+
+  useEffect(() => {
+    backgroundApiProxy.engine
+      .findToken({
+        networkId,
+        tokenIdOnNetwork: address,
+      })
+      .then((t) => {
+        if (t) {
+          setToken(t);
+        }
+      });
+  }, [address, networkId]);
+
+  return token;
 };

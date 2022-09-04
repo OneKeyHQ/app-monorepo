@@ -31,13 +31,18 @@ export type PriceAlertItem = {
 };
 
 export type AddPriceAlertConfig = Omit<PriceAlertItem, 'instanceId'>;
-export type RemovePriceAlertConfig = Omit<PriceAlertItem, 'instanceId' | 'operator' | 'symbol'>;
+export type RemovePriceAlertConfig = Omit<
+  PriceAlertItem,
+  'instanceId' | 'operator' | 'symbol'
+>;
 
 export type AccountDynamicItem = {
+  accountId: string;
   instanceId: string;
   address: string;
   bgColor?: string;
   emoji?: string;
+  name: string;
 };
 
 async function fetchData<T>(
@@ -146,7 +151,7 @@ export const addAccountDynamic = async (
   );
 
 export const removeAccountDynamic = async (
-  body: Omit<AccountDynamicItem, 'instanceId'>,
+  body: Omit<AccountDynamicItem, 'instanceId' | 'name' | 'accountId'>,
 ) =>
   fetchData<Record<string, string>>(
     '/notification/account-dynamic',

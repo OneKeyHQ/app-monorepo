@@ -11,13 +11,20 @@ import {
   useActiveWalletAccount,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { setPushNotificationConfig } from '../store/reducers/settings';
+import { setHomeTabName } from '../store/reducers/status';
+import { useWalletsAndAccounts } from '../views/PushNotification/hooks';
+import { WalletHomeTabEnum } from '../views/Wallet/type';
 
 import { navigationRef } from './NavigationProvider';
 
@@ -32,10 +39,12 @@ export type NotificationResult = {
 };
 
 export type SwitchScreenParams = {
-  screen: HomeRoutes.ScreenTokenDetail;
+  screen: HomeRoutes.ScreenTokenDetail | HomeRoutes.InitialTab;
   params: {
+    accountAddress?: string;
     networkId?: string;
     tokenId?: string;
+    initialTabName?: string;
   };
 };
 
@@ -45,25 +54,71 @@ const NotificationProvider: React.FC<{
   const { accountId, networkId } = useActiveWalletAccount();
   const { pushNotification } = useSettings();
 
-  const switchToScreen = useCallback(
-    ({ screen, params }: SwitchScreenParams) => {
-      if (params.networkId) {
-        backgroundApiProxy.serviceNetwork.changeActiveNetwork(params.networkId);
-      }
+  const { wallets } = useWalletsAndAccounts();
 
-      const filter = params.tokenId
-        ? undefined
-        : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+  const switchAccountAndNetwork = useCallback(
+    async (params: SwitchScreenParams['params']) => {
+      if (params.accountAddress) {
+        for (const w of wallets) {
+          for (const account of w.accounts) {
+            if (account.address === params.accountAddress) {
+              await backgroundApiProxy.serviceAccount.changeActiveAccount({
+                accountId: account.id,
+                walletId: w.id,
+              });
+              break;
+            }
+          }
+        }
+      }
+      if (params.networkId) {
+        await backgroundApiProxy.serviceNetwork.changeActiveNetwork(
+          params.networkId,
+        );
+      }
+    },
+    [wallets],
+  );
+
+  const switchToScreen = useCallback(
+    async ({ screen, params }: SwitchScreenParams) => {
       try {
-        navigationRef.current?.navigate(RootRoutes.Root, {
-          screen,
-          params: {
-            accountId,
-            networkId: params.networkId || networkId,
-            tokenId: params.tokenId || '',
-            historyFilter: filter,
-          },
-        });
+        await switchAccountAndNetwork(params);
+        switch (screen) {
+          case HomeRoutes.ScreenTokenDetail:
+            {
+              const filter = params.tokenId
+                ? undefined
+                : (i: EVMDecodedItem) =>
+                    i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+              navigationRef.current?.navigate(RootRoutes.Root, {
+                screen,
+                params: {
+                  accountId,
+                  networkId: params.networkId || networkId,
+                  tokenId: params.tokenId || '',
+                  historyFilter: filter,
+                },
+              });
+            }
+            break;
+          case HomeRoutes.InitialTab:
+            navigationRef.current?.navigate(RootRoutes.Root, {
+              screen: HomeRoutes.InitialTab,
+              params: {
+                screen: RootRoutes.Tab,
+                params: {
+                  screen: TabRoutes.Home,
+                },
+              } as any,
+            });
+            backgroundApiProxy.dispatch(
+              setHomeTabName(WalletHomeTabEnum.History),
+            );
+            break;
+          default:
+            break;
+        }
       } catch (error) {
         debugLogger.common.error(
           'Jpush navigate error',
@@ -71,7 +126,7 @@ const NotificationProvider: React.FC<{
         );
       }
     },
-    [accountId, networkId],
+    [accountId, networkId, switchAccountAndNetwork],
   );
 
   const clearJpushBadge = useCallback(() => {
