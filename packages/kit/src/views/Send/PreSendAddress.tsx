@@ -52,8 +52,7 @@ function PreSendAddress() {
     address: resolvedAddress,
   } = useNameServiceStatus();
 
-  const { control, getValues, formState, trigger, handleSubmit } =
-    useFormReturn;
+  const { control, formState, trigger, handleSubmit } = useFormReturn;
   const navigation = useNavigation<NavigationProps>();
   const tokenInfo = useTokenInfo({
     networkId,
