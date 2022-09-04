@@ -169,9 +169,13 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
               : null}
             {helpText ? (
               <FormControl.HelperText>
-                <Typography.Body2 color="text-subdued">
-                  {typeof helpText === 'function' ? helpText(value) : helpText}
-                </Typography.Body2>
+                {typeof helpText === 'function' ? (
+                  helpText(value)
+                ) : (
+                  <Typography.Body2 color="text-subdued">
+                    {helpText}
+                  </Typography.Body2>
+                )}
               </FormControl.HelperText>
             ) : null}
             {error && error?.message ? (

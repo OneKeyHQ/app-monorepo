@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import React, {
   FC,
@@ -8,9 +9,17 @@ import React, {
   useState,
 } from 'react';
 
+import { IBoxProps } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Select, Spinner, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  Select,
+  Spinner,
+  Typography,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { SelectGroupItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -32,6 +41,22 @@ type NameServiceResolverProps = {
   networkId?: string;
   onChange?: (state: NameServiceState) => void;
 };
+
+const Wrapper: FC<IBoxProps> = ({ children, ...rest }) => (
+  <Box
+    flexDirection="row"
+    alignSelf="stretch"
+    px="12px"
+    py="8px"
+    rounded="12px"
+    bgColor="action-secondary-default"
+    borderWidth={1}
+    borderColor="border-default"
+    {...rest}
+  >
+    {children}
+  </Box>
+);
 
 export const useNameServiceStatus = () => {
   const [state, setState] = useState<NameServiceState>();
@@ -59,6 +84,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
   networkId,
 }) => {
   const name = useDebounce(nameInput, 500);
+  const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
   const { serviceNameResolver } = backgroundApiProxy;
   const [resolverState, handleResolverState] = useState<NameServiceState>({
@@ -168,14 +194,14 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
 
     if (Number(optionCount) <= 1) {
       return (
-        <>
-          <Typography.Body2Strong mr="8px" color="text-subdued">
+        <Wrapper>
+          <Typography.Body2Strong mr="12px" color="text-subdued">
             {defaultTitle ?? '-'}
           </Typography.Body2Strong>
-          <Typography.Body2 wordBreak="break-all" color="text-default" mr="8px">
+          <Typography.Body2 flex={1} wordBreak="break-all" color="text-default">
             {resolverState?.activeAddress ?? '-'}
           </Typography.Body2>
-        </>
+        </Wrapper>
       );
     }
 
@@ -190,7 +216,8 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
           }));
         }}
         title={intl.formatMessage({ id: 'message__choose_address' })}
-        renderTrigger={(activeItem) => {
+        headerShown={!!isVerticalLayout}
+        renderTrigger={(activeItem, isHovered, isPressed, visible) => {
           const optionItem = options.find((option) => {
             const item = option.options.find(
               (subItem) => subItem.value === activeItem.value,
@@ -200,24 +227,37 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
 
           const address = activeItem.value.split('-')[1];
           return (
-            <Box flexDirection="row" justifyContent="space-between">
-              <Box flexDirection="row" flex="1">
-                <Typography.Body2Strong mr="8px" color="text-subdued">
-                  {optionItem?.title ?? '-'}
-                </Typography.Body2Strong>
-                <Typography.Body2
-                  wordBreak="break-all"
-                  color="text-default"
-                  mr="8px"
-                >
-                  {address}
-                </Typography.Body2>
+            <Wrapper
+              bgColor={
+                isHovered
+                  ? 'action-secondary-hovered'
+                  : isPressed
+                  ? 'action-secondary-pressed'
+                  : visible
+                  ? 'surface-selected'
+                  : 'action-secondary-default'
+              }
+            >
+              <Typography.Body2Strong mr="12px" color="text-subdued">
+                {optionItem?.title ?? '-'}
+              </Typography.Body2Strong>
+              <Typography.Body2
+                flex={1}
+                wordBreak="break-all"
+                color="text-default"
+              >
+                {address}
+              </Typography.Body2>
+              <Box ml="12px">
                 <Icon name="ChevronDownSolid" color="icon-default" size={20} />
               </Box>
-            </Box>
+            </Wrapper>
           );
         }}
         dropdownPosition="left"
+        dropdownProps={{
+          height: isVerticalLayout ? '70%' : '240px',
+        }}
         footer={null}
         options={options}
       />
@@ -225,7 +265,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
   }
 
   return (
-    <Box flexDirection="row">
+    <Box py="8px" flexDirection="row">
       <Spinner size="sm" />
       <Typography.Body2 ml="12px" color="text-subdued">
         {intl.formatMessage({ id: 'message__fetching_addresses' })}
