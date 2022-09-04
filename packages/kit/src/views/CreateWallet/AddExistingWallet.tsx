@@ -253,6 +253,9 @@ function useAddExistingWallet({
           ? intl.formatMessage({ id: 'form__address' })
           : ''
       }`,
+      mode === 'watching' || mode === 'all'
+        ? `ENS ${intl.formatMessage({ id: 'content__or_lowercase' })} .bit`
+        : '',
     ];
     return `${intl.formatMessage({
       id: 'content__enter',
