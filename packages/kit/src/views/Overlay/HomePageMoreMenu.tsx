@@ -19,8 +19,10 @@ import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
+import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
 
@@ -29,8 +31,18 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const navigation = useNavigation();
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
-
+  const { engine, dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
+  const { enabledAccounts } = useEnabledAccountDynamicAccounts();
+
+  const enabledNotification = useMemo(
+    () =>
+      enabledAccounts.find(
+        (a) => a.address.toLowerCase() === account?.address?.toLowerCase?.(),
+      ),
+    [enabledAccounts, account],
+  );
+
   // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
   const disableScan = platformEnv.isWeb && !isVerticalLayout;
 
@@ -102,9 +114,36 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         },
         icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
       },
+      !!account && {
+        id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
+        onPress: () => {
+          if (enabledNotification) {
+            engine.removeAccountDynamic({ address: account.address });
+          } else {
+            dispatch(
+              setPushNotificationConfig({
+                pushEnable: true,
+                accountActivityPushEnable: true,
+              }),
+            );
+            engine.syncPushNotificationConfig();
+            engine.addAccountDynamic({
+              accountId: account.id,
+              address: account.address,
+              name: account.name,
+              ...(wallet?.avatar || {}),
+            });
+          }
+        },
+        icon: 'BellOutline',
+      },
       // TODO Share
     ],
     [
+      dispatch,
+      wallet?.avatar,
+      enabledNotification,
+      engine,
       disableScan,
       walletType,
       isVerticalLayout,
