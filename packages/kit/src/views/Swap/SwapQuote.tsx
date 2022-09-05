@@ -11,9 +11,13 @@ import { setRecipient } from '../../store/reducers/swap';
 
 import SwappingVia from './components/SwappingVia';
 import TransactionRate from './components/TransactionRate';
-import { useSwapRecipient, useSwapState } from './hooks/useSwap';
+import {
+  useSwapQuoteCallback,
+  useSwapRecipient,
+  useSwapState,
+} from './hooks/useSwap';
 import { SwapRoutes } from './typings';
-import { isEvmNetworkId, isNoCharge } from './utils';
+import { isNoCharge } from './utils';
 
 const SwapArrivalTime = () => {
   const intl = useIntl();
@@ -47,6 +51,7 @@ const SwapReceiving = () => {
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const recipient = useSwapRecipient();
+  const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -63,11 +68,17 @@ const SwapReceiving = () => {
                 networkImpl: outputTokenNetwork?.impl,
               }),
             );
+            onSwapQuote();
           },
         },
       },
     });
-  }, [navigation, outputTokenNetwork?.id, outputTokenNetwork?.impl]);
+  }, [
+    navigation,
+    outputTokenNetwork?.id,
+    outputTokenNetwork?.impl,
+    onSwapQuote,
+  ]);
 
   let text = '';
   const { address, name } = recipient ?? {};
@@ -124,25 +135,22 @@ const SwapQuote = () => {
 
   return (
     <Box>
-      {outputToken?.networkId === inputToken?.networkId &&
-      isEvmNetworkId(outputToken?.networkId) ? null : (
-        <Box
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          mb="4"
-        >
-          <Typography.Caption color="text-disabled" mr="2">
-            {intl.formatMessage({ id: 'form__receiving_address' })}
-          </Typography.Caption>
-          <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <Box maxW="full">
-              <SwapReceiving />
-            </Box>
+      <Box
+        display="flex"
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        mb="4"
+      >
+        <Typography.Caption color="text-disabled" mr="2">
+          {intl.formatMessage({ id: 'form__receiving_address' })}
+        </Typography.Caption>
+        <Box flex="1" flexDirection="row" justifyContent="flex-end">
+          <Box maxW="full">
+            <SwapReceiving />
           </Box>
         </Box>
-      )}
+      </Box>
       <Box
         display="flex"
         flexDirection="row"
