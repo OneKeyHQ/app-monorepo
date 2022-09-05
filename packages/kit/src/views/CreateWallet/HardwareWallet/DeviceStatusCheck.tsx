@@ -27,7 +27,7 @@ import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/erro
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
-import { setOnBoardingBehindSceneLoading } from '../../../store/reducers/runtime';
+import { setOnBoardingLoadingBehindModal } from '../../../store/reducers/runtime';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
@@ -108,7 +108,7 @@ const DeviceStatusCheckModal: FC = () => {
       }
 
       try {
-        backgroundApiProxy.dispatch(setOnBoardingBehindSceneLoading(true));
+        backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(true));
         await wait(600);
 
         navigation.navigate(RootRoutes.Onboarding, {
@@ -124,7 +124,7 @@ const DeviceStatusCheckModal: FC = () => {
         });
       } finally {
         await wait(600);
-        backgroundApiProxy.dispatch(setOnBoardingBehindSceneLoading(false));
+        backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
       }
     }
 

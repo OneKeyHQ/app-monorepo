@@ -20,8 +20,7 @@ import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../../hooks';
+import { useActiveWalletAccount, useAppSelector } from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import {
   CreateWalletModalRoutes,
@@ -156,11 +155,10 @@ function ConnectOneKeyLiteButton() {
 
 const ConnectWallet = () => {
   const intl = useIntl();
-  const { useAppSelector } = backgroundApiProxy;
-  const { onBoardingBehindSceneLoading } = useAppSelector((s) => s.runtime);
+  const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
   return (
     <>
-      {onBoardingBehindSceneLoading ? (
+      {onBoardingLoadingBehindModal ? (
         <Center flex={1} height="full">
           <Spinner size="lg" />
         </Center>

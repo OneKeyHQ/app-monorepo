@@ -24,13 +24,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { RootRoutes } from '../../../../routes/routesEnum';
+import { setOnBoardingLoadingBehindModal } from '../../../../store/reducers/runtime';
 import Layout from '../../Layout';
 import { EOnboardingRoutes } from '../../routes/enums';
 import { IOnboardingRoutesParams } from '../../routes/types';
 
 import PressableListItem from './PressableListItem';
 import TermsOfService from './TermsOfService';
-import { setOnBoardingBehindSceneLoading } from '../../../../store/reducers/runtime';
 
 type NavigationProps = StackNavigationProp<
   IOnboardingRoutesParams,
@@ -68,16 +68,19 @@ const Welcome = () => {
   });
 
   const onPressCreateWallet = useCallback(() => {
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.SetPassword);
   }, [navigation]);
   const onPressImportWallet = useCallback(() => {
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.ImportWallet);
   }, [navigation]);
   const onPressConnectWallet = useCallback(() => {
-    backgroundApiProxy.dispatch(setOnBoardingBehindSceneLoading(false));
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.ConnectWallet);
   }, [navigation]);
   const onPressRestoreFromCloud = useCallback(() => {
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
   }, [navigation]);
 
