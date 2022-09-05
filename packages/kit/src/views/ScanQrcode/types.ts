@@ -2,9 +2,16 @@ import { ReactNode } from 'react';
 
 import { StyleProp, ViewStyle } from 'react-native';
 
-export type ScanResultType = 'address' | 'url' | 'other';
+import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
+
+export enum ScanSubResultCategory {
+  URL = 'url',
+  TEXT = 'text',
+}
+
+export type ScanResultCategory = UserInputCategory | ScanSubResultCategory;
 export interface ScanResult {
-  type: ScanResultType;
+  type: ScanResultCategory;
   data: string;
   possibleNetworks?: string[];
 }

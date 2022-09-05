@@ -38,7 +38,8 @@ class Validators {
 
   private async validateUserInput(
     input: string,
-    forCategories: Array<UserInputCategory>,
+    forCategories: Array<UserInputCategory> = [],
+    returnEarly = false,
   ): Promise<Array<UserInputCheckResult>> {
     const ret = [];
     const filterCategories =
@@ -82,6 +83,7 @@ class Validators {
         (await vault.validateImportedCredential(input))
       ) {
         ret.push({ category, possibleNetworks });
+        if (returnEarly) return ret;
       }
 
       category = UserInputCategory.WATCHING;
@@ -90,6 +92,7 @@ class Validators {
         (await vault.validateWatchingCredential(input))
       ) {
         ret.push({ category, possibleNetworks });
+        if (returnEarly) return ret;
       }
 
       category = UserInputCategory.ADDRESS;
@@ -110,13 +113,16 @@ class Validators {
   validateCreateInput({
     input,
     onlyFor,
+    returnEarly,
   }: {
     input: string;
     onlyFor?: UserInputCategory;
+    returnEarly?: boolean;
   }) {
     return this.validateUserInput(
       input,
       typeof onlyFor !== 'undefined' ? [onlyFor] : [],
+      returnEarly,
     );
   }
 

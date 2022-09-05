@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useRef, useState } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -295,6 +295,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         );
         return;
       }
+      // TODO: if hidden
       toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
       backgroundApiProxy.serviceToken.fetchAccountTokens({
         activeAccountId: accountId,

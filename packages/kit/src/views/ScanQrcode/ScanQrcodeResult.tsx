@@ -20,13 +20,18 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { TabRoutes } from '../../routes/types';
 import { AddressBookRoutes } from '../AddressBook/routes';
 
-import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
+import {
+  ScanQrcodeRoutes,
+  ScanQrcodeRoutesParams,
+  ScanSubResultCategory,
+} from './types';
 
 const pressableProps = {
   p: '4',
@@ -73,120 +78,133 @@ const ScanQrcodeResult: FC = () => {
   const route = useRoute<ScanQrcodeResultRouteProp>();
   const { type, data, possibleNetworks } = route.params;
   let header = intl.formatMessage({ id: 'title__qr_code_info' });
-  const copyButton = <CopyButton data={data} />;
-  let actions = copyButton;
-  if (type === 'address') {
+  if (type === ScanSubResultCategory.URL) {
+    header = intl.formatMessage({ id: 'title__url' });
+  } else if (
+    type === UserInputCategory.WATCHING ||
+    type === UserInputCategory.ADDRESS
+  ) {
     header = intl.formatMessage({ id: 'form__address' });
-    actions = (
-      <>
-        <Pressable
-          {...pressableProps}
-          borderBottomRadius={0}
-          onPress={() => {
-            (navigation as any as PreviewSendNavProp).navigate(
-              ScanQrcodeRoutes.PreviewSend,
-              {
-                address: data,
-                possibleNetworks,
-              },
-            );
-          }}
-        >
-          <HStack space="4">
-            <Icon name="ArrowUpOutline" />
-            <Typography.Body1>
-              {intl.formatMessage({
-                id: 'form__send_tokens',
-              })}
-            </Typography.Body1>
-          </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
-        </Pressable>
-        <Divider />
-        <Pressable
-          {...pressableProps}
-          borderRadius={0}
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.AddressBook,
-              params: {
-                screen: AddressBookRoutes.NewAddressRoute,
-                params: {
+  }
+  const actions = (
+    <>
+      {type === ScanSubResultCategory.URL && (
+        <>
+          <Pressable
+            {...pressableProps}
+            mb="16px"
+            onPress={() => {
+              navigation
+                .getParent()
+                ?.navigate(TabRoutes.Discover, { incomingUrl: data });
+            }}
+          >
+            <HStack space="4">
+              <Icon name="CompassOutline" />
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'form__view_in_explore',
+                })}
+              </Typography.Body1>
+            </HStack>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+          <Divider />
+        </>
+      )}
+      {(type === UserInputCategory.WATCHING ||
+        type === UserInputCategory.ADDRESS) && (
+        <>
+          <Pressable
+            {...pressableProps}
+            borderBottomRadius={0}
+            onPress={() => {
+              (navigation as any as PreviewSendNavProp).navigate(
+                ScanQrcodeRoutes.PreviewSend,
+                {
                   address: data,
                   possibleNetworks,
                 },
-              },
-            });
-          }}
-        >
-          <HStack space="4">
-            <Icon name="PlusSolid" />
-            <Typography.Body1>
-              {intl.formatMessage({
-                id: 'form__add_to_address_book',
-              })}
-            </Typography.Body1>
-          </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
-        </Pressable>
-        <Divider />
-        <Pressable
-          {...pressableProps}
-          borderTopRadius={0}
-          mb="16px"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.AddExistingWalletModal,
+              );
+            }}
+          >
+            <HStack space="4">
+              <Icon name="ArrowUpOutline" />
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'form__send_tokens',
+                })}
+              </Typography.Body1>
+            </HStack>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+          <Divider />
+          <Pressable
+            {...pressableProps}
+            borderRadius={0}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.AddressBook,
                 params: {
-                  mode: 'watching',
-                  presetText: data,
+                  screen: AddressBookRoutes.NewAddressRoute,
+                  params: {
+                    address: data,
+                    possibleNetworks,
+                  },
                 },
-              },
-            });
-          }}
-        >
-          <HStack space="4">
-            <Icon name="ImportOutline" />
-            <Typography.Body1>
-              {intl.formatMessage({
-                id: 'form__imported_as_a_watch_account',
-              })}
-            </Typography.Body1>
-          </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
-        </Pressable>
-        {copyButton}
-      </>
-    );
-  } else if (type === 'url') {
-    header = intl.formatMessage({ id: 'title__url' });
-    actions = (
-      <>
-        <Pressable
-          {...pressableProps}
-          mb="16px"
-          onPress={() => {
-            navigation
-              .getParent()
-              ?.navigate(TabRoutes.Discover, { incomingUrl: data });
-          }}
-        >
-          <HStack space="4">
-            <Icon name="CompassOutline" />
-            <Typography.Body1>
-              {intl.formatMessage({
-                id: 'form__view_in_explore',
-              })}
-            </Typography.Body1>
-          </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
-        </Pressable>
-        {copyButton}
-      </>
-    );
-  }
+              });
+            }}
+          >
+            <HStack space="4">
+              <Icon name="PlusSolid" />
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'form__add_to_address_book',
+                })}
+              </Typography.Body1>
+            </HStack>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+          <Divider />
+        </>
+      )}
+      {(type === UserInputCategory.WATCHING ||
+        type === UserInputCategory.MNEMONIC ||
+        type === UserInputCategory.IMPORTED) && (
+        <>
+          <Pressable
+            {...pressableProps}
+            borderTopRadius={0}
+            mb="16px"
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateWallet,
+                params: {
+                  screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                  params: {
+                    mode: type,
+                    presetText: data,
+                  },
+                },
+              });
+            }}
+          >
+            <HStack space="4">
+              <Icon name="ImportOutline" />
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'form__imported_as_a_watch_account',
+                })}
+              </Typography.Body1>
+            </HStack>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+          <Divider />
+        </>
+      )}
+      <CopyButton data={data} />
+    </>
+  );
   return (
     <Modal
       hidePrimaryAction

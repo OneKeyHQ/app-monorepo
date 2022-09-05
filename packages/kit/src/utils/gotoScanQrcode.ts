@@ -8,12 +8,16 @@ import walletConnectUtils from '../components/WalletConnect/walletConnectUtils';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
 import { scanFromURLAsync } from '../views/ScanQrcode/scanFromURLAsync';
-import { ScanQrcodeRoutes, ScanResult } from '../views/ScanQrcode/types';
+import {
+  ScanQrcodeRoutes,
+  ScanResult,
+  ScanSubResultCategory,
+} from '../views/ScanQrcode/types';
 
 export const handleScanResult = async (data: string) => {
-  const scanResult: ScanResult = { type: 'other', data };
+  const scanResult: ScanResult = { type: ScanSubResultCategory.TEXT, data };
   if (data.startsWith('https://') || data.startsWith('http://')) {
-    scanResult.type = 'url';
+    scanResult.type = ScanSubResultCategory.URL;
   } else if (/^wc:.+@.+\?.+/.test(data)) {
     // wc:{topic...}@{version...}?bridge={url...}&key={key...}
     // https://docs.walletconnect.com/tech-spec
@@ -23,11 +27,13 @@ export const handleScanResult = async (data: string) => {
     return;
   } else {
     try {
-      const possibleNetworks =
-        await backgroundApiProxy.validator.validateAnyAddress(data);
-      if (possibleNetworks.length > 0) {
-        scanResult.type = 'address';
-        scanResult.possibleNetworks = possibleNetworks;
+      const [result] = await backgroundApiProxy.validator.validateCreateInput({
+        input: data,
+        returnEarly: true,
+      });
+      if (result) {
+        scanResult.type = result.category;
+        scanResult.possibleNetworks = result.possibleNetworks;
       }
     } catch (e) {
       debugLogger.backgroundApi.error(e);
