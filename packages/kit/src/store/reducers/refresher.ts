@@ -2,7 +2,11 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const NAME = 'refresher';
 
-const initialState = {
+type InitialState = {
+  refreshHistoryTs: number;
+  refreshAccountSelectorTs: number;
+};
+const initialState: InitialState = {
   refreshHistoryTs: 0,
   refreshAccountSelectorTs: 0,
 };

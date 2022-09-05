@@ -1,13 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { memo } from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
+import {
+  TransitionPresets,
+  createStackNavigator,
+} from '@react-navigation/stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import AddressBookModal from './AddressBook';
 import BackupWalletModal from './BackupWallet';
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
 import CreateWalletModalStack from './CreateWallet';

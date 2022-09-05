@@ -58,7 +58,6 @@ export const Debug = () => {
   const { network, account, wallet } = useActiveWalletAccount();
   const { serviceAccount } = backgroundApiProxy;
   const toast = useToast();
-
   const pressableProps = {
     p: '4',
     bg: 'surface-default',

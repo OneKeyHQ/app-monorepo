@@ -2,6 +2,9 @@ import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Center, Spinner } from '@onekeyhq/components';
+
+import { useAppSelector } from '../../../../hooks';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
 import Layout from '../../Layout';
 
@@ -12,6 +15,7 @@ const defaultProps = {} as const;
 
 const ImportWallet = () => {
   const intl = useIntl();
+  const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const onPressDrawerTrigger = useCallback(() => {
     setDrawerVisible(true);
@@ -19,15 +23,26 @@ const ImportWallet = () => {
 
   return (
     <>
-      <Layout
-        title={intl.formatMessage({ id: 'action__import_wallet' })}
-        secondaryContent={
-          <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
-        }
-      >
-        <OnboardingAddExistingWallet />
-      </Layout>
-      <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
+      {onBoardingLoadingBehindModal ? (
+        <Center flex={1} height="full">
+          <Spinner size="lg" />
+        </Center>
+      ) : (
+        <>
+          <Layout
+            title={intl.formatMessage({ id: 'action__import_wallet' })}
+            secondaryContent={
+              <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
+            }
+          >
+            <OnboardingAddExistingWallet />
+          </Layout>
+          <Drawer
+            visible={drawerVisible}
+            onClose={() => setDrawerVisible(false)}
+          />
+        </>
+      )}
     </>
   );
 };

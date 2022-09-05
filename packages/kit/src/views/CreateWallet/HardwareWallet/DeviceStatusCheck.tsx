@@ -27,7 +27,9 @@ import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/erro
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
+import { setOnBoardingLoadingBehindModal } from '../../../store/reducers/runtime';
 import { deviceUtils } from '../../../utils/hardware';
+import { wait } from '../../../utils/helper';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
@@ -105,17 +107,25 @@ const DeviceStatusCheckModal: FC = () => {
         return;
       }
 
-      navigation.navigate(RootRoutes.Onboarding, {
-        screen: EOnboardingRoutes.BehindTheScene,
-        params: {
-          password: '',
-          mnemonic: '',
-          isHardwareCreating: {
-            device,
-            features,
+      try {
+        backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(true));
+        await wait(600);
+
+        navigation.navigate(RootRoutes.Onboarding, {
+          screen: EOnboardingRoutes.BehindTheScene,
+          params: {
+            password: '',
+            mnemonic: '',
+            isHardwareCreating: {
+              device,
+              features,
+            },
           },
-        },
-      });
+        });
+      } finally {
+        await wait(600);
+        backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+      }
     }
 
     main();

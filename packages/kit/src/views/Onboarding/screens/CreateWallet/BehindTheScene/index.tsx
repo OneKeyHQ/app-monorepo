@@ -247,7 +247,8 @@ const BehindTheScene = () => {
   const [isNavBackDisabled, setIsNavBackDisabled] = useState(true);
   useDisableNavigationBack({ condition: isNavBackDisabled });
   const typingRef = useRef<IProcessAutoTypingRef | null>(null);
-  const isRenderAsWebview = platformEnv.isNative;
+  // const isRenderAsWebview = platformEnv.isNative;
+  const isRenderAsWebview = platformEnv.isNative && !platformEnv.isDev;
 
   const [shouldStartCreating, setShouldStartCreating] = useState(
     !isRenderAsWebview,

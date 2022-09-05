@@ -2,6 +2,7 @@ import React, { FC } from 'react';
 
 import axios from 'axios';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { RootSiblingParent } from 'react-native-root-siblings';
 import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
 
@@ -31,7 +32,9 @@ const KitProvider: FC = () => (
           <AppLoading>
             <ErrorBoundary>
               <NotificationProvider>
-                <NavigationApp />
+                <RootSiblingParent>
+                  <NavigationApp />
+                </RootSiblingParent>
               </NotificationProvider>
             </ErrorBoundary>
           </AppLoading>

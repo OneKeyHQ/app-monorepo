@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/engine/src/types/wallet';
 
 type InitialState = {
+  onBoardingLoadingBehindModal: boolean;
   wallets: BaseWallet[];
   networks: BaseNetwork[];
   /** accounts will always change by different wallet and different networks */
@@ -20,6 +21,7 @@ type InitialState = {
 };
 
 const initialState: InitialState = {
+  onBoardingLoadingBehindModal: false,
   wallets: [],
   networks: [],
   accounts: [],
@@ -38,6 +40,12 @@ export const walletSlice = createSlice({
   name: 'runtime',
   initialState,
   reducers: {
+    setOnBoardingLoadingBehindModal: (
+      state,
+      action: PayloadAction<InitialState['onBoardingLoadingBehindModal']>,
+    ) => {
+      state.onBoardingLoadingBehindModal = action.payload;
+    },
     updateAccountDetail: (
       state,
       action: PayloadAction<Partial<BaseAccount> & { name: string }>,
@@ -90,6 +98,7 @@ export const walletSlice = createSlice({
 });
 
 export const {
+  setOnBoardingLoadingBehindModal,
   updateWallets,
   updateWallet,
   addWallet,
