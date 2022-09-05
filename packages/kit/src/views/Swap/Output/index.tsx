@@ -7,7 +7,6 @@ import { useAppSelector, useNavigation } from '../../../hooks';
 import ReceivingTokenSelector from '../components/ReceivingTokenSelector';
 import { ReceivingTokenSelectorContext } from '../components/ReceivingTokenSelector/context';
 import { useSwapState } from '../hooks/useSwap';
-import { getChainIdFromNetworkId } from '../utils';
 
 const Output = () => {
   const navigation = useNavigation();
@@ -31,8 +30,10 @@ const Output = () => {
       receivingNetworkId &&
       receivingNetworkId !== inputToken.networkId
     ) {
-      const chainId = getChainIdFromNetworkId(receivingNetworkId);
-      return swftcSupportedTokens[chainId];
+      return swftcSupportedTokens[receivingNetworkId];
+    }
+    if (receivingNetworkId && receivingNetworkId === 'sol--101') {
+      return swftcSupportedTokens[receivingNetworkId];
     }
     return undefined;
   }, [receivingNetworkId, swftcSupportedTokens, inputToken]);

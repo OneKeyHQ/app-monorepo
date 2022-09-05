@@ -29,38 +29,42 @@ import {
   plus,
 } from '../utils';
 
+const networkId2SwftcNetworkName: Record<string, string> = {
+  'btc--0': 'BTC',
+  'evm--1': 'ETH',
+  'evm--56': 'BSC',
+  'evm--128': 'HECO',
+  'evm--137': 'POLYGON',
+  'evm--43114': 'AVAXC',
+  'evm--66': 'OKExChain',
+  'evm--250': 'FTM',
+  'evm--42161': 'ARB',
+  'evm--42220': 'CELO',
+  'evm--10': 'Optimism',
+  'sol--101': 'SOL',
+};
+
+const swftcNetworkName2NetworkId: Record<string, string> = {};
+
 function getSwftcNetworkName(network: Network): string {
-  const records: Record<string, string> = {
-    'btc--0': 'BTC',
-    'evm--1': 'ETH',
-    'evm--56': 'BSC',
-    'evm--128': 'HECO',
-    'evm--137': 'POLYGON',
-    'evm--43114': 'AVAXC',
-    'evm--66': 'OKExChain',
-    'evm--250': 'FTM',
-    'evm--42161': 'ARB',
-    'evm--42220': 'CELO',
-    'evm--10': 'Optimism',
-    'sol--101': 'SOL',
-  };
-  return records[network.id] ?? '';
+  return networkId2SwftcNetworkName[network.id] ?? '';
 }
 
-function getChainIdFromSwftcNetworkName(name: string): string {
-  const records: Record<string, string> = {
-    'ETH': '1',
-    'BSC': '56',
-    'HECO': '128',
-    'Optimism': '10',
-    'POLYGON': '137',
-    'AVAXC': '43114',
-    'OKExChain': '66',
-    'FTM': '250',
-    'ARB': '42161',
-    'CELO': '42220',
-  };
-  return records[name] ?? '';
+function getNetworkIdFromSwftcNetworkName(name: string) {
+  if (swftcNetworkName2NetworkId[name]) {
+    return swftcNetworkName2NetworkId[name];
+  }
+  const networkIds = Object.keys(networkId2SwftcNetworkName);
+  for (let i = 0; i < networkIds.length; i += 1) {
+    const networkId = networkIds[i];
+    const swftcNetworkName = networkId2SwftcNetworkName[networkId];
+    if (swftcNetworkName) {
+      swftcNetworkName2NetworkId[swftcNetworkName] = networkId;
+      if (swftcNetworkName === name) {
+        return networkId;
+      }
+    }
+  }
 }
 
 function calcBuyAmount(
@@ -278,13 +282,13 @@ export class SwftcQuoter implements Quoter {
   private groupCoinsByChainId(coins: Coin[]) {
     const records: Record<string, string[]> = {};
     coins.forEach((coin) => {
-      const chainId = getChainIdFromSwftcNetworkName(coin.mainNetwork);
-      if (chainId) {
-        if (!records[chainId]) {
-          records[chainId] = [];
+      const networkId = getNetworkIdFromSwftcNetworkName(coin.mainNetwork);
+      if (networkId) {
+        if (!records[networkId]) {
+          records[networkId] = [];
         }
         const address = coin.contact || nativeTokenAddress;
-        records[chainId].push(address);
+        records[networkId].push(address);
       }
     });
     return records;
