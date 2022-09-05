@@ -6,7 +6,6 @@ import {
   useNavigation,
 } from '@react-navigation/native';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
 import useDappParams from '../../hooks/useDappParams';
 
 import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
