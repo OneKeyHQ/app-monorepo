@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "固件下载失败",
   "msg__hardware_init_iframe_load_error": "硬件 SDK 初始化失败，请重新启动应用程序后重试。",
   "msg__hardware_invalid_pin_error": "PIN 码错误",
-  "msg__hardware_not_opened_passphrase": "正在使用 Passphrase 钱包，但设备未打开 Passphrase。",
+  "msg__hardware_not_opened_passphrase": "请在设备上打开 Passphrase 以使用隐藏钱包",
   "msg__hardware_not_same": "匹配失败，请连接正确的设备",
   "msg__hardware_open_blind_sign_error": "未知签名格式，请前往 Security/Blind Signing 启用 SOL 高级签名",
   "msg__hardware_opened_passphrase": "请在设备上关闭 Passphrase 以使用标准钱包",

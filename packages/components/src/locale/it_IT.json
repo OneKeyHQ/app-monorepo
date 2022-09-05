@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "Errore nel download del firmware",
   "msg__hardware_init_iframe_load_error": "Inizializzazione dell'SDK hardware non riuscita, riavvia l'applicazione e riprova.",
   "msg__hardware_invalid_pin_error": "il PIN inserito non è valido",
-  "msg__hardware_not_opened_passphrase": "Il portafoglio passphrase è in uso, ma il dispositivo non apre la passphrase.",
+  "msg__hardware_not_opened_passphrase": "Attiva Passphrase sul tuo dispositivo per utilizzare Hidden Wallet",
   "msg__hardware_not_same": "L'hardware non corrisponde, collegare il dispositivo hardware corretto",
   "msg__hardware_open_blind_sign_error": "Formato di firma sconosciuto, andare in Sicurezza > Blind-Signing e attivare Advanced-SOL-Sign.",
   "msg__hardware_opened_passphrase": "Disattiva Passphrase sul tuo dispositivo per utilizzare Standard Wallet",

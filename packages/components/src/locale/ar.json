@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "فشل تنزيل البرنامج الثابت",
   "msg__hardware_init_iframe_load_error": "فشلت تهيئة الأجهزة SDK ، يرجى إعادة تشغيل التطبيق والمحاولة مرة أخرى.",
   "msg__hardware_invalid_pin_error": "رقم التعريف الشخصي الذي تم إدخاله غير صالح",
-  "msg__hardware_not_opened_passphrase": "يتم استخدام محفظة عبارة المرور ، لكن الجهاز لا يفتح عبارة المرور.",
+  "msg__hardware_not_opened_passphrase": "يرجى تشغيل عبارة المرور على جهازك لاستخدام المحفظة المخفية",
   "msg__hardware_not_same": "الجهاز غير متطابق ، يرجى توصيل الجهاز الصحيح",
   "msg__hardware_open_blind_sign_error": "تنسيق توقيع غير معروف، انتقل إلى الأمان > التوقيع الأعمى وقم بتمكين التوقيع SOL-Sign المتقدم",
   "msg__hardware_opened_passphrase": "يرجى إيقاف تشغيل عبارة المرور على جهازك لاستخدام المحفظة القياسية",

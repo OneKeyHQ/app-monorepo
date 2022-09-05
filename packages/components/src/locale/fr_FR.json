@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "Échec du téléchargement du micrologiciel",
   "msg__hardware_init_iframe_load_error": "L'initialisation du SDK matériel a échoué, veuillez redémarrer l'application et réessayer.",
   "msg__hardware_invalid_pin_error": "le code PIN saisi n'est pas valide",
-  "msg__hardware_not_opened_passphrase": "Le portefeuille de phrase secrète est utilisé, mais l'appareil n'ouvre pas la phrase secrète.",
+  "msg__hardware_not_opened_passphrase": "Veuillez activer la phrase secrète sur votre appareil pour utiliser le portefeuille caché",
   "msg__hardware_not_same": "Le matériel ne correspond pas, veuillez connecter le bon périphérique matériel",
   "msg__hardware_open_blind_sign_error": "Format de signature inconnu, allez dans Sécurité > Signature à l'aveugle et activez Advanced-SOL-Sign.",
   "msg__hardware_opened_passphrase": "Veuillez désactiver la phrase secrète sur votre appareil pour utiliser le portefeuille standard",

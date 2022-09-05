@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "Firmware татаж авах бүтэлгүйтэл",
   "msg__hardware_init_iframe_load_error": "Техник хангамжийн SDK эхлүүлж чадсангүй, програмыг дахин эхлүүлээд дахин оролдоно уу.",
   "msg__hardware_invalid_pin_error": "ПИН-д орсон нь хүчингүй",
-  "msg__hardware_not_opened_passphrase": "Нууц үгийн түрийвчийг ашиглаж байгаа боловч төхөөрөмж нэвтрэх үгийг нээхгүй байна.",
+  "msg__hardware_not_opened_passphrase": "Нууц түрийвчийг ашиглахын тулд төхөөрөмж дээрээ Нууц үг хэллэгийг асаана уу",
   "msg__hardware_not_same": "Техник хангамж таарахгүй байна, зөв техник хангамжийн төхөөрөмжийг холбоно уу",
   "msg__hardware_open_blind_sign_error": "Үл мэдэгдэх гарын үсгийн формат, Аюулгүй байдал > Blind-Signing хэсэгт очоод Advanced-SOL-Sign-г идэвхжүүлнэ үү.",
   "msg__hardware_opened_passphrase": "Стандарт түрийвчийг ашиглахын тулд төхөөрөмж дээрх Нууц үг хэллэгийг унтраана уу",
