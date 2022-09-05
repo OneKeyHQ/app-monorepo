@@ -9,7 +9,6 @@ import {
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
 import { useSwapState } from '../hooks/useSwap';
-import { getChainIdFromNetworkId } from '../utils';
 
 import type { Token } from '../../../store/typings';
 
@@ -35,8 +34,10 @@ const Input = () => {
       sendingNetworkId &&
       sendingNetworkId !== outputToken.networkId
     ) {
-      const chainId = getChainIdFromNetworkId(sendingNetworkId);
-      return swftcSupportedTokens[chainId];
+      return swftcSupportedTokens[sendingNetworkId];
+    }
+    if (sendingNetworkId && sendingNetworkId === 'sol--101') {
+      return swftcSupportedTokens[sendingNetworkId];
     }
     return undefined;
   }, [sendingNetworkId, swftcSupportedTokens, outputToken]);
