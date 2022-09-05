@@ -258,11 +258,14 @@ const ConnectHardwareModal: FC = () => {
       const finishConnected = (result?: boolean) => {
         setIsConnectingDeviceId('');
         if (!result) {
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'modal__failed_to_connect',
-            }),
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'modal__failed_to_connect',
+              }),
+            },
+            { type: 'error' },
+          );
           return;
         }
         navigation.navigate(RootRoutes.Modal, {
