@@ -21,9 +21,8 @@ import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenAppro
 import { SendFeedbackReceipt } from '../../views/Send/SendModals/SendFeedbackReceipt';
 import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
 
-import createStackNavigator, {
-  buildModalStackNavigatorOptions,
-} from './createStackNavigator';
+import createStackNavigator from './createStackNavigator';
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 
 const SendNavigator = createStackNavigator<SendRoutesParams>();
 

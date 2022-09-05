@@ -13,7 +13,6 @@ import AddressBookModal from './AddressBook';
 import BackupWalletModal from './BackupWallet';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
-import { buildModalStackNavigatorOptions } from './createStackNavigator';
 import CreateWalletModalStack from './CreateWallet';
 import DappConnectionStack from './DappConnection';
 import DiscoverModal from './Discover';
@@ -38,6 +37,7 @@ import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
 import TransactionDetailModal from './TransactionDetail';
 import UpdateFeatureModal from './UpdateFeature';
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',

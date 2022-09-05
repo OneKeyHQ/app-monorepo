@@ -34,11 +34,10 @@ import type {
 import { WalletConnectQrcodeModal } from '../../components/WalletConnect/WalletConnectQrcodeModal';
 import { CreateWalletModalRoutes } from '../routesEnum';
 
-import createStackNavigator, {
-  buildModalStackNavigatorOptions,
-} from './createStackNavigator';
+import createStackNavigator from './createStackNavigator';
 
 import type { WalletService } from '../../components/WalletConnect/types';
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 
 export { CreateWalletModalRoutes };
 
