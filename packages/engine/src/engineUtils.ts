@@ -2,7 +2,6 @@ import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus
 import { toLower } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import store from '@onekeyhq/kit/src/store';
 import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import { IMPL_EVM } from './constants';
@@ -54,12 +53,15 @@ export function isPassphraseWallet(wallet: Wallet | WalletSchema) {
   return !!wallet.passphraseState;
 }
 
-export const filterPassphraseWallet = (wallet: Wallet | WalletSchema) => {
+export const filterPassphraseWallet = (
+  wallet: Wallet | WalletSchema,
+  includeAllPassphraseWallet?: boolean,
+  displayPassphraseWalletIds?: string[],
+): boolean => {
   if (!isPassphraseWallet(wallet)) return true;
+  if (includeAllPassphraseWallet) return true;
 
-  return store
-    .getState()
-    .runtime.displayPassphraseWalletIdList.includes(wallet.id);
+  return displayPassphraseWalletIds?.includes(wallet.id) ?? false;
 };
 
 export function handleDisplayPassphraseWallet(walletId: string) {

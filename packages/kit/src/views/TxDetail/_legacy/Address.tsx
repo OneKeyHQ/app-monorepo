@@ -28,7 +28,9 @@ const Address: FC<AddressProps> = (addressProps) => {
       return;
     }
     async function getAddressLabel() {
-      const wallets = await backgroundApiProxy.engine.getWallets();
+      const wallets = await backgroundApiProxy.engine.getWallets({
+        includeAllPassphraseWallet: true,
+      });
       const accountids = _.flatten(wallets.map((w) => w.accounts));
       const accounts = await backgroundApiProxy.engine.getAccounts(accountids);
       const name = _.find(
