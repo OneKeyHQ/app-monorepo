@@ -75,14 +75,23 @@ export default class ServiceNameResolver extends ServiceBase {
         shownSymbol: '-',
       };
 
-    const names: ResolverNameList = (await config?.resolver(name)) ?? [];
+    const names: ResolverNameList | null = await config?.resolver(name);
 
-    if (!names.length)
+    if (!names) {
+      return {
+        success: false,
+        message: 'form__address_no_supported_address',
+        shownSymbol: config?.shownSymbol,
+      };
+    }
+
+    if (!names.length) {
       return {
         success: false,
         message: 'message__fetching_error',
         shownSymbol: config?.shownSymbol,
       };
+    }
 
     /** only filter address type from dotbit */
     const addressNames = names.filter((item) => item.type === 'address');
@@ -128,7 +137,7 @@ export default class ServiceNameResolver extends ServiceBase {
     };
   }
 
-  async resolveENS(name: string): Promise<ResolverNameList> {
+  async resolveENS(name: string): Promise<ResolverNameList | null> {
     const { engine } = this.backgroundApi;
 
     // always using ETH mainnet for name resolve
@@ -139,7 +148,7 @@ export default class ServiceNameResolver extends ServiceBase {
       const resolver = await ethersProvider.getResolver(name);
 
       if (!resolver) {
-        return [];
+        return null;
       }
       const btcAddress = await resolver.getAddress(Number(COINTYPE_BTC));
       const ethAddress = await resolver.getAddress(Number(COINTYPE_ETH));
@@ -164,13 +173,13 @@ export default class ServiceNameResolver extends ServiceBase {
     }
   }
 
-  async resolveDotBit(name: string): Promise<ResolverNameList> {
+  async resolveDotBit(name: string): Promise<ResolverNameList | null> {
     const instance = createInstance();
     try {
       const names = await instance.records(name);
       return names;
     } catch (e) {
-      return [];
+      return null;
     }
   }
 }
