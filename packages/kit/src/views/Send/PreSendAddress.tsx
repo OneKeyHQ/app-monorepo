@@ -195,7 +195,6 @@ function PreSendAddress() {
                   // TODO different max length in network
                   maxLength={80}
                   networkId={networkId}
-                  placeholder={intl.formatMessage({ id: 'form__address' })}
                   // numberOfLines={10}
                   h={{ base: 120, md: 120 }}
                   plugins={['contact', 'paste', 'scan']}
