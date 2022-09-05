@@ -10,7 +10,6 @@ import {
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
-import { isEvmNetworkId } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { MdexQuoter } from './mdex';
@@ -36,11 +35,10 @@ export class SwapQuoter {
     });
   }
 
-  async fetchSimpleQuote(
+  async fetchQuote(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
-    const quoters: Quoter[] = [this.mdex, this.simple];
-    for (let i = 0; i < quoters.length; i += 1) {
+    for (let i = 0; i < this.quoters.length; i += 1) {
       const quoter = this.quoters[i];
       if (quoter.isSupported(params.networkOut, params.networkIn)) {
         const result = await quoter.fetchQuote(params);
@@ -49,30 +47,6 @@ export class SwapQuoter {
         }
       }
     }
-  }
-
-  async fetchAdvancedQuote(
-    params: FetchQuoteParams,
-  ): Promise<FetchQuoteResponse | undefined> {
-    let result = await this.socket.fetchQuote(params);
-    const { data } = result ?? {};
-    if (data) {
-      return result;
-    }
-    result = await this.swftc.fetchQuote(params);
-    return result;
-  }
-
-  async fetchQuote(
-    params: FetchQuoteParams,
-  ): Promise<FetchQuoteResponse | undefined> {
-    if (
-      params.networkIn.id === params.networkOut.id &&
-      isEvmNetworkId(params.networkOut.id)
-    ) {
-      return this.fetchSimpleQuote(params);
-    }
-    return this.fetchAdvancedQuote(params);
   }
 
   async buildTransaction(

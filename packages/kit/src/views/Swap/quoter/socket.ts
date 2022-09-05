@@ -10,8 +10,10 @@ import {
   BuildTransactionResponse,
   FetchQuoteParams,
   FetchQuoteResponse,
+  Provider,
   Quoter,
   QuoterType,
+  SerializableTransactionReceipt,
   TransactionData,
   TransactionDetails,
   TransactionProgress,
@@ -34,6 +36,21 @@ interface SocketAsset {
   name: string;
   symbol: string;
 }
+
+interface SocketUserTxs {
+  chainId: number;
+  txType: string;
+  userTxType: string;
+  fromAsset: SocketAsset;
+  toAsset: SocketAsset;
+  fromAmount: string;
+  toAmount: string;
+  protocol: {
+    displayName: string;
+    icon: string;
+    name: string;
+  };
+}
 export interface SocketRoute {
   routeId: string;
   sender: string;
@@ -42,6 +59,9 @@ export interface SocketRoute {
   toAmount: string;
   recipient: string;
   usedBridgeNames: string[];
+  usedDexName?: string;
+  isOnlySwapRoute?: boolean;
+  userTxs?: SocketUserTxs[];
 }
 
 export type SocketRouteStatus =
@@ -187,10 +207,7 @@ export class SocketQuoter implements Quoter {
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
-    const precondition =
-      networkA.impl === 'evm' &&
-      networkB.impl === 'evm' &&
-      networkA.id !== networkB.id;
+    const precondition = networkA.impl === 'evm' && networkB.impl === 'evm';
 
     if (!precondition) {
       return false;
@@ -214,14 +231,103 @@ export class SocketQuoter implements Quoter {
     return data;
   }
 
-  async fetchQuote(
+  async fetchSimpleQuote(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
     const url = `${baseURL}/quote`;
-    if (
-      !this.isSupported(params.networkIn, params.networkOut) ||
-      params.independentField === 'OUTPUT'
-    ) {
+    if (params.networkIn.id !== params.networkOut.id) {
+      return undefined;
+    }
+
+    let res: any;
+    try {
+      res = await this.client.get(url, {
+        params: {
+          fromChainId: getChainIdFromNetworkId(params.networkIn.id),
+          fromTokenAddress: getEvmTokenAddress(params.tokenIn),
+          toChainId: getChainIdFromNetworkId(params.networkOut.id),
+          toTokenAddress: getEvmTokenAddress(params.tokenOut),
+          fromAmount: getTokenAmountString(params.tokenIn, params.typedValue),
+          userAddress: params.activeAccount.address,
+          recipient: params.receivingAddress,
+          sort: 'output',
+          singleTxOnly: true,
+        },
+      });
+    } catch {
+      return undefined;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const data = res?.data?.result as SocketQuoteResponse | undefined;
+    if (data && data.routes.length > 0) {
+      const route = data.routes.find((item) => !!item.isOnlySwapRoute);
+      if (route) {
+        const sellAmount = route.fromAmount;
+        const sellTokenAddress = getEvmTokenAddress(params.tokenIn);
+        const buyAmount = route.toAmount;
+        const buyTokenAddress = getEvmTokenAddress(params.tokenOut);
+        const instantRate = calculateRate(
+          params.tokenIn.decimals,
+          params.tokenOut.decimals,
+          sellAmount,
+          buyAmount,
+        );
+        let allowanceTarget: string | undefined;
+        const transactionData = await this.fetchTransactionData(route);
+
+        if (
+          transactionData &&
+          transactionData.approvalData &&
+          transactionData.approvalData.allowanceTarget
+        ) {
+          allowanceTarget = transactionData.approvalData.allowanceTarget;
+        }
+        let txData: TransactionData | undefined;
+        if (transactionData) {
+          txData = {
+            from: params.activeAccount.address,
+            value: transactionData.value,
+            to: transactionData.txTarget,
+            data: transactionData.txData,
+          };
+        }
+        let providers: Provider[] = [];
+
+        if (route.userTxs) {
+          const protocols = route.userTxs
+            .filter((tx) => tx.protocol)
+            .map((tx) => tx.protocol);
+          providers = protocols.map((p) => ({
+            name: p.displayName,
+            logoUrl: p.icon,
+          }));
+        }
+
+        const result = {
+          type: this.type,
+          sellAmount,
+          sellTokenAddress,
+          buyAmount,
+          buyTokenAddress,
+          instantRate,
+          allowanceTarget,
+          txData,
+          arrivalTime: 30,
+          providers,
+          txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
+        };
+
+        return { data: result };
+      }
+    }
+  }
+
+  async fetchCrosschainQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    const url = `${baseURL}/quote`;
+    if (params.independentField === 'OUTPUT') {
       return undefined;
     }
 
@@ -312,6 +418,18 @@ export class SocketQuoter implements Quoter {
     }
   }
 
+  async fetchQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    if (!this.isSupported(params.networkIn, params.networkOut)) {
+      return undefined;
+    }
+    if (params.networkIn.id === params.networkOut.id) {
+      return this.fetchSimpleQuote(params);
+    }
+    return this.fetchCrosschainQuote(params);
+  }
+
   async buildTransaction(
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
@@ -368,7 +486,7 @@ export class SocketQuoter implements Quoter {
     return undefined;
   }
 
-  async queryTransactionProgress(
+  async queryCrosschainTransactionProgress(
     tx: TransactionDetails,
   ): Promise<TransactionProgress> {
     const { nonce, networkId, accountId, tokens, attachment } = tx;
@@ -410,6 +528,47 @@ export class SocketQuoter implements Quoter {
     }
     if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
       return { status: 'failed' };
+    }
+    return undefined;
+  }
+
+  async querySimpleTransactionProgress(
+    tx: TransactionDetails,
+  ): Promise<TransactionProgress> {
+    const { networkId, accountId, nonce } = tx;
+    if (nonce) {
+      const status =
+        await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
+          networkId,
+          accountId,
+          nonce,
+        });
+      return { status };
+    }
+    const result = (await backgroundApiProxy.serviceNetwork.rpcCall(networkId, {
+      method: 'eth_getTransactionReceipt',
+      params: [tx.hash],
+    })) as SerializableTransactionReceipt | undefined;
+    if (result) {
+      return { status: Number(result.status) === 1 ? 'sucesss' : 'failed' };
+    }
+
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
+      return { status: 'failed' };
+    }
+    return undefined;
+  }
+
+  async queryTransactionProgress(
+    tx: TransactionDetails,
+  ): Promise<TransactionProgress> {
+    const { tokens } = tx;
+    if (tokens) {
+      const { from, to } = tokens;
+      if (from.networkId === to.networkId) {
+        return this.querySimpleTransactionProgress(tx);
+      }
+      return this.queryCrosschainTransactionProgress(tx);
     }
     return undefined;
   }

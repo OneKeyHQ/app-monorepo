@@ -99,8 +99,12 @@ export class MdexQuoter implements Quoter {
       independentField,
       typedValue,
       activeAccount,
+      receivingAddress,
     } = quoteParams;
-    if (!this.isSupported(networkIn, networkOut)) {
+    if (
+      !this.isSupported(networkIn, networkOut) ||
+      receivingAddress !== activeAccount.address
+    ) {
       return;
     }
     const swapSlippagePercent = +slippagePercentage / 100;
@@ -167,8 +171,12 @@ export class MdexQuoter implements Quoter {
       typedValue,
       activeAccount,
       txData,
+      receivingAddress,
     } = quoteParams;
-    if (!this.isSupported(networkIn, networkOut) && !activeAccount) {
+    if (
+      !this.isSupported(networkIn, networkOut) ||
+      receivingAddress !== activeAccount.address
+    ) {
       return;
     }
     if (txData) {

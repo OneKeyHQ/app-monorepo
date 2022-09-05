@@ -44,7 +44,7 @@ import {
   TransactionDetails,
   TransactionStatus,
 } from '../../typings';
-import { formatAmount, isEvmNetworkId, isNoCharge } from '../../utils';
+import { formatAmount, isNoCharge } from '../../utils';
 import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionRate from '../TransactionRate';
@@ -476,10 +476,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
       <InputOutput tx={tx} />
       <VStack space={4}>
         {tx.receivingAddress !== undefined &&
-        tx.receivingAddress !== account.address &&
-        !(
-          from?.networkId === to?.networkId && isEvmNetworkId(from?.networkId)
-        ) ? (
+        tx.receivingAddress !== account.address ? (
           <VStack space={4}>
             <TransactionField
               label={intl.formatMessage({ id: 'form__payment_address' })}
