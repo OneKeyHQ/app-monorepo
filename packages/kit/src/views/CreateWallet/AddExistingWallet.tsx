@@ -55,6 +55,8 @@ type AddExistingWalletValues = { text: string };
 
 const emptyParams = Object.freeze({});
 
+const toastDelay = 600;
+
 function useAddExistingWallet({
   onMultipleResults,
   onAddMnemonicAuth,
@@ -125,9 +127,13 @@ function useAddExistingWallet({
           text,
           checkResults: results,
           onSuccess() {
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__account_imported' }),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              },
+              {},
+              { delay: toastDelay },
+            );
           },
         });
         return;
@@ -139,9 +145,13 @@ function useAddExistingWallet({
         onAddMnemonicAuth({
           mnemonic: text,
           onSuccess() {
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__account_imported' }),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              },
+              {},
+              { delay: toastDelay },
+            );
           },
         });
         return;
@@ -155,6 +165,7 @@ function useAddExistingWallet({
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
           },
           { type: 'error' },
+          { delay: toastDelay },
         );
         return;
       }
@@ -185,9 +196,13 @@ function useAddExistingWallet({
             text,
             accountName,
           );
-          toast.show({
-            title: intl.formatMessage({ id: 'msg__account_imported' }),
-          });
+          toast.show(
+            {
+              title: intl.formatMessage({ id: 'msg__account_imported' }),
+            },
+            {},
+            { delay: toastDelay },
+          );
           onAddWatchingDone();
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
@@ -196,6 +211,7 @@ function useAddExistingWallet({
               title: intl.formatMessage({ id: errorKey }),
             },
             { type: 'error' },
+            { delay: toastDelay },
           );
         }
       } else {
@@ -204,9 +220,13 @@ function useAddExistingWallet({
           name: accountName,
           networkId,
           onSuccess() {
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__account_imported' }),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              },
+              {},
+              { delay: toastDelay },
+            );
           },
         });
       }

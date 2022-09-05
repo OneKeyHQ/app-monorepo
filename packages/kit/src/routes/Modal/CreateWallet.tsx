@@ -34,7 +34,9 @@ import type {
 import { WalletConnectQrcodeModal } from '../../components/WalletConnect/WalletConnectQrcodeModal';
 import { CreateWalletModalRoutes } from '../routesEnum';
 
-import createStackNavigator from './createStackNavigator';
+import createStackNavigator, {
+  buildModalStackNavigatorOptions,
+} from './createStackNavigator';
 
 import type { WalletService } from '../../components/WalletConnect/types';
 
@@ -208,8 +210,7 @@ const CreateWalletModalStack = () => {
   return (
     <CreateWalletNavigator.Navigator
       screenOptions={{
-        headerShown: false,
-        animationEnabled: !!isVerticalLayout,
+        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
       }}
     >
       {modalRoutes.map((route) => (

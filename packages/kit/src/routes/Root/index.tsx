@@ -75,6 +75,7 @@ const RootNavigatorContainer: FC = ({ children }) => {
 
 const App = () => {
   const intl = useIntl();
+  const isVerticalLayout = useIsVerticalLayout();
   useEffect(() => {
     if (Platform.OS === 'ios') {
       KeyboardManager.setEnable(true);
@@ -116,6 +117,10 @@ const App = () => {
       />
       <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen
+        options={{
+          animationEnabled: !!isVerticalLayout,
+          ...TransitionPresets.ModalSlideFromBottomIOS,
+        }}
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
       />

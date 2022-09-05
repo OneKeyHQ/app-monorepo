@@ -6,6 +6,8 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import ManagerAccountModalView from '@onekeyhq/kit/src/views/ManagerAccount/AccountInfo';
 import ExportPrivateViewModal from '@onekeyhq/kit/src/views/ManagerAccount/ExportPrivate';
 
+import { buildModalStackNavigatorOptions } from './createStackNavigator';
+
 export enum ManagerAccountModalRoutes {
   ManagerAccountModal = 'ManagerAccountModal',
   ManagerAccountExportPrivateModal = 'ManagerAccountExportPrivateModal',
@@ -43,8 +45,7 @@ const ManagerAccountModalStack = () => {
   return (
     <ManagerAccountNavigator.Navigator
       screenOptions={{
-        headerShown: false,
-        animationEnabled: !!isVerticalLayout,
+        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
       }}
     >
       {modalRoutes.map((route) => (

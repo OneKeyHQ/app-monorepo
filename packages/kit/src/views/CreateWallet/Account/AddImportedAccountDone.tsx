@@ -66,9 +66,13 @@ const Done: FC<DoneProps> = ({
         }
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
-        toast.show({
-          title: intl.formatMessage({ id: errorKey }),
-        });
+        toast.show(
+          {
+            title: intl.formatMessage({ id: errorKey }),
+          },
+          { type: 'error' },
+          { delay: 600 },
+        );
       }
       closeDrawer();
       openRootHome();

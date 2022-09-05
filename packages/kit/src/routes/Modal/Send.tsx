@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { TransitionPresets } from '@react-navigation/stack';
+
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import SendAuthentication from '@onekeyhq/kit/src/views/Send/Authentication';
 import { PreSendAddress } from '@onekeyhq/kit/src/views/Send/PreSendAddress';
 import { PreSendAmount } from '@onekeyhq/kit/src/views/Send/PreSendAmount';
@@ -19,7 +21,9 @@ import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenAppro
 import { SendFeedbackReceipt } from '../../views/Send/SendModals/SendFeedbackReceipt';
 import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
 
-import createStackNavigator from './createStackNavigator';
+import createStackNavigator, {
+  buildModalStackNavigatorOptions,
+} from './createStackNavigator';
 
 const SendNavigator = createStackNavigator<SendRoutesParams>();
 
@@ -79,8 +83,7 @@ const TransactionStack = () => {
   return (
     <SendNavigator.Navigator
       screenOptions={{
-        headerShown: false,
-        animationEnabled: !!isVerticalLayout,
+        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
       }}
     >
       {modalRoutes.map((route) => (

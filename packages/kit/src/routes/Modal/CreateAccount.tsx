@@ -8,7 +8,9 @@ import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/Recov
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
 import SelectChain from '@onekeyhq/kit/src/views/Account/AddNewAccount/SelectChain';
 
-import createStackNavigator from './createStackNavigator';
+import createStackNavigator, {
+  buildModalStackNavigatorOptions,
+} from './createStackNavigator';
 
 export enum CreateAccountModalRoutes {
   CreateAccountForm = 'CreateAccountForm',
@@ -87,8 +89,7 @@ const CreateAccountModalStack = () => {
   return (
     <CreateAccountNavigator.Navigator
       screenOptions={{
-        headerShown: false,
-        animationEnabled: !!isVerticalLayout,
+        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
       }}
     >
       {modalRoutes.map((route) => (
