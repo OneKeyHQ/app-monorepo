@@ -88,9 +88,9 @@ const CreateAccountModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <CreateAccountNavigator.Navigator
-      screenOptions={{
-        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
-      }}
+      screenOptions={(navInfo) => ({
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <CreateAccountNavigator.Screen

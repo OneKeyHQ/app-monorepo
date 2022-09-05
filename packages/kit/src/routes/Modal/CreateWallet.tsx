@@ -209,9 +209,9 @@ const CreateWalletModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <CreateWalletNavigator.Navigator
-      screenOptions={{
-        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
-      }}
+      screenOptions={(navInfo) => ({
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <CreateWalletNavigator.Screen

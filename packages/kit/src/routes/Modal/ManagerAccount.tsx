@@ -44,9 +44,9 @@ const ManagerAccountModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <ManagerAccountNavigator.Navigator
-      screenOptions={{
-        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
-      }}
+      screenOptions={(navInfo) => ({
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <ManagerAccountNavigator.Screen
