@@ -33,6 +33,7 @@ type NameServiceState = {
   length?: number;
   activeAddress: string;
   shownSymbol?: string;
+  name: string;
 };
 
 type NameServiceResolverProps = {
@@ -72,8 +73,9 @@ export const useNameServiceStatus = () => {
       onChange: setState,
       address: state?.activeAddress,
       disableSubmitBtn: buildDisableStatus,
+      name: state?.name,
     }),
-    [state?.activeAddress, buildDisableStatus],
+    [state?.activeAddress, buildDisableStatus, state?.name],
   );
 };
 
@@ -114,6 +116,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
         ...prev,
         isValidName: status,
         activeAddress: '',
+        name: '',
       }));
       return status;
     },
@@ -143,6 +146,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
           options: names!,
           activeAddress: shownAddress ?? '',
           shownSymbol,
+          name: name.split('.')[0],
         }));
       } else {
         setResolverState((prev) => ({
@@ -150,6 +154,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
           options: [],
           shownSymbol,
           activeAddress: '',
+          name: '',
           errorMessage: message,
         }));
       }
@@ -158,6 +163,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
     } finally {
       setResolverState((prev) => ({
         ...prev,
+        name: '',
         isSearching: false,
       }));
     }

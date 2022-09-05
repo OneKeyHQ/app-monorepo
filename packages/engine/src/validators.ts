@@ -158,7 +158,8 @@ class Validators {
   @backgroundMethod()
   async validateAddress(networkId: string, address: string): Promise<string> {
     const vault = await this.engine.getChainOnlyVault(networkId);
-    return vault.validateAddress(address);
+    const status = await vault.validateAddress(address);
+    return status;
   }
 
   @backgroundMethod()
