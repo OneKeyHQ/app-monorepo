@@ -30,6 +30,7 @@ import { IOnboardingRoutesParams } from '../../routes/types';
 
 import PressableListItem from './PressableListItem';
 import TermsOfService from './TermsOfService';
+import { setOnBoardingBehindSceneLoading } from '../../../../store/reducers/runtime';
 
 type NavigationProps = StackNavigationProp<
   IOnboardingRoutesParams,
@@ -73,6 +74,7 @@ const Welcome = () => {
     navigation.navigate(EOnboardingRoutes.ImportWallet);
   }, [navigation]);
   const onPressConnectWallet = useCallback(() => {
+    backgroundApiProxy.dispatch(setOnBoardingBehindSceneLoading(false));
     navigation.navigate(EOnboardingRoutes.ConnectWallet);
   }, [navigation]);
   const onPressRestoreFromCloud = useCallback(() => {

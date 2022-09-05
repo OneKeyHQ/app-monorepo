@@ -2,7 +2,16 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Box, Icon, Image, Pressable, Text } from '@onekeyhq/components';
+import {
+  Badge,
+  Box,
+  Center,
+  Icon,
+  Image,
+  Pressable,
+  Spinner,
+  Text,
+} from '@onekeyhq/components';
 import DeviceMobile from '@onekeyhq/kit/assets/onboarding/device_classic_touch.png';
 import DeviceAll from '@onekeyhq/kit/assets/onboarding/device_mini_classic_touch.png';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -11,6 +20,7 @@ import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import {
@@ -146,16 +156,25 @@ function ConnectOneKeyLiteButton() {
 
 const ConnectWallet = () => {
   const intl = useIntl();
-
+  const { useAppSelector } = backgroundApiProxy;
+  const { onBoardingBehindSceneLoading } = useAppSelector((s) => s.runtime);
   return (
     <>
-      <Layout
-        title={intl.formatMessage({ id: 'title__connect_with' })}
-        secondaryContent={<SecondaryContent />}
-      >
-        <ConnectHardwareButton />
-        {supportedNFC || platformEnv.isDev ? <ConnectOneKeyLiteButton /> : null}
-      </Layout>
+      {onBoardingBehindSceneLoading ? (
+        <Center flex={1} height="full">
+          <Spinner size="lg" />
+        </Center>
+      ) : (
+        <Layout
+          title={intl.formatMessage({ id: 'title__connect_with' })}
+          secondaryContent={<SecondaryContent />}
+        >
+          <ConnectHardwareButton />
+          {supportedNFC || platformEnv.isDev ? (
+            <ConnectOneKeyLiteButton />
+          ) : null}
+        </Layout>
+      )}
     </>
   );
 };

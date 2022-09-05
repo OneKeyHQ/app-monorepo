@@ -4,6 +4,8 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAppSelector } from '../hooks';
+
 import { INTERNAL_METHOD_PREFIX } from './decorators';
 import ProviderApiBase from './providers/ProviderApiBase';
 import {
@@ -22,7 +24,11 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 export class BackgroundApiProxyBase implements IBackgroundApiBridge {
-  appSelector = {} as IAppSelector;
+  appSelector = (() => {
+    throw new Error('please use `backgroundApiProxy.useAppSelector` instead.');
+  }) as IAppSelector;
+
+  useAppSelector = useAppSelector;
 
   persistor = {} as IPersistor;
 

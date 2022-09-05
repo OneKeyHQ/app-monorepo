@@ -12,6 +12,8 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { WebViewWebEmbed } from '../../../../../components/WebView/WebViewWebEmbed';
 
 import { ONBOARDING_WEBVIEW_METHODS } from './consts';
@@ -72,7 +74,11 @@ function ProcessAutoTypingWebView(props: IProcessAutoTypingWebViewProps) {
       // *** use web-embed local html file
       routePath={routePath}
       // *** use remote url
-      // src={`http://192.168.31.215:3008/#${routePath}`}
+      src={
+        platformEnv.isDev
+          ? `http://192.168.31.96:3008/#${routePath}`
+          : undefined
+      }
     />
   );
 }

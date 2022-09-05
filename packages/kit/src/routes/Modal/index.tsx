@@ -11,6 +11,7 @@ import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import AddressBookModal from './AddressBook';
 import BackupWalletModal from './BackupWallet';
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
 import CreateWalletModalStack from './CreateWallet';
@@ -37,7 +38,6 @@ import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
 import TransactionDetailModal from './TransactionDetail';
 import UpdateFeatureModal from './UpdateFeature';
-import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',

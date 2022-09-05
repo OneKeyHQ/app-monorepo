@@ -8,8 +8,8 @@ import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/Recov
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
 import SelectChain from '@onekeyhq/kit/src/views/Account/AddNewAccount/SelectChain';
 
-import createStackNavigator from './createStackNavigator';
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
+import createStackNavigator from './createStackNavigator';
 
 export enum CreateAccountModalRoutes {
   CreateAccountForm = 'CreateAccountForm',

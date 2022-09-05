@@ -18,6 +18,7 @@ export function buildModalStackNavigatorOptions({
 } = {}) {
   const options: StackNavigationOptions = {
     headerShown: false,
+    // not working for Android
     ...TransitionPresets.SlideFromRightIOS,
   };
   if (!isNil(isVerticalLayout)) {
