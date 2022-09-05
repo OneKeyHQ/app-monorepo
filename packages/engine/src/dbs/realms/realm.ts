@@ -691,7 +691,10 @@ class RealmDB implements DBAPI {
    * retrieve all accounts
    * @returns {Promise<Wallet[]>}
    */
-  getWallets(option?: { includePassphrase?: boolean }): Promise<Wallet[]> {
+  getWallets(option?: {
+    includeAllPassphraseWallet?: boolean;
+    displayPassphraseWalletIds?: string[];
+  }): Promise<Wallet[]> {
     try {
       const ret = [];
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
@@ -721,10 +724,16 @@ class RealmDB implements DBAPI {
           ret.push(wallet.internalObj);
         }
       }
-      const isPassphraseWallet = (w: Wallet) =>
-        option?.includePassphrase || filterPassphraseWallet(w);
 
-      return Promise.resolve(ret.filter(isPassphraseWallet));
+      return Promise.resolve(
+        ret.filter((w) =>
+          filterPassphraseWallet(
+            w,
+            option?.includeAllPassphraseWallet,
+            option?.displayPassphraseWalletIds,
+          ),
+        ),
+      );
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -1077,7 +1086,9 @@ class RealmDB implements DBAPI {
     passphraseState,
   }: CreateHWWalletParams): Promise<Wallet> {
     try {
-      const wallets = await this.getWallets({ includePassphrase: true });
+      const wallets = await this.getWallets({
+        includeAllPassphraseWallet: true,
+      });
       const devices = await this.getDevices();
 
       const existDevice = devices.find(

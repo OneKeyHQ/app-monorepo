@@ -77,8 +77,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async initWallets() {
-    const { engine, dispatch } = this.backgroundApi;
-    const wallets = await engine.getWallets();
+    const { engine, dispatch, appSelector } = this.backgroundApi;
+    const displayPassphraseWalletIdList = appSelector(
+      (s) => s.runtime.displayPassphraseWalletIdList,
+    );
+    const wallets = await engine.getWallets({
+      displayPassphraseWalletIds: displayPassphraseWalletIdList,
+    });
     dispatch(updateWallets(wallets));
     return wallets;
   }
@@ -616,7 +621,9 @@ class ServiceAccount extends ServiceBase {
     if (passphraseState) {
       if (existDeviceId) {
         const size = (
-          await engine.getWallets({ includePassphrase: true })
+          await engine.getWallets({
+            includeAllPassphraseWallet: true,
+          })
         ).filter(
           (w) => w.associatedDevice === existDeviceId && w.passphraseState,
         ).length;
@@ -759,7 +766,9 @@ class ServiceAccount extends ServiceBase {
         address,
       });
     }
-    const wallets = await this.backgroundApi.engine.getWallets();
+    const wallets = await this.backgroundApi.engine.getWallets({
+      includeAllPassphraseWallet: true,
+    });
     const accountids = flatten(wallets.map((w) => w.accounts));
     const accounts = await this.backgroundApi.engine.getAccounts(accountids);
     const name = find(
@@ -778,8 +787,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getAccountByAddress({ address }: { address: string }) {
-    const { engine } = this.backgroundApi;
-    const wallets = await engine.getWallets();
+    const { engine, appSelector } = this.backgroundApi;
+    const displayPassphraseWalletIdList = appSelector(
+      (s) => s.runtime.displayPassphraseWalletIdList,
+    );
+    const wallets = await engine.getWallets({
+      displayPassphraseWalletIds: displayPassphraseWalletIdList,
+    });
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       const accounts = await engine.getAccounts(wallet.accounts);
