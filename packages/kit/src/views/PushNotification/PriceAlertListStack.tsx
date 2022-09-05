@@ -66,11 +66,11 @@ export const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
       subTitle={
         symbol
           ? intl.formatMessage(
-            {
-              id: 'title__no_alert_desc',
-            },
-            { 0: symbol },
-          )
+              {
+                id: 'title__no_alert_desc',
+              },
+              { 0: symbol },
+            )
           : ''
       }
     />
@@ -145,7 +145,7 @@ export const Item: FC<{
       borderBottomRadius={divider ? undefined : '12px'}
     >
       <Box flex="1" flexDirection="row" alignItems="center">
-        <Token src={token.logoURI} size={8} />
+        <Token src={token.logoURI} size={8} networkId={token.networkId} />
         <Text typography="Body1Strong" numberOfLines={1} ml={3}>
           {`1 ${token.symbol} = `}
           <FormatCurrencyNumber value={+(price || 0)} currency={currency} />
