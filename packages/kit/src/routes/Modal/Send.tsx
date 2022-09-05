@@ -82,8 +82,16 @@ const TransactionStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <SendNavigator.Navigator
-      screenOptions={{
-        ...buildModalStackNavigatorOptions({ isVerticalLayout }),
+      screenOptions={(info) => {
+        const options = {
+          ...buildModalStackNavigatorOptions({ isVerticalLayout }),
+        };
+        // disable modal first screen navigation.replace() animation
+        // @ts-ignore
+        if (info?.route?.params?._disabledAnimationOfNavigate) {
+          options.animationEnabled = false;
+        }
+        return options;
       }}
     >
       {modalRoutes.map((route) => (

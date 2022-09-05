@@ -259,6 +259,8 @@ function SendConfirm() {
         onSuccess,
         onFail,
       };
+      // @ts-ignore
+      delete nextRouteParams._disabledAnimationOfNavigate;
       let nextRouteAction: 'replace' | 'navigate' = 'navigate';
       if (routeParams.autoConfirmAfterFeeSaved) {
         // add delay to avoid white screen when navigation replace

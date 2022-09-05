@@ -28,7 +28,11 @@ import {
 } from './confirmViews/SignMessageConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
 import { ITxConfirmViewPropsHandleConfirm } from './SendConfirmViews/SendConfirmModal';
-import { SendRoutes, SendRoutesParams } from './types';
+import {
+  SendAuthenticationParams,
+  SendRoutes,
+  SendRoutesParams,
+} from './types';
 
 type NavigationProps = NavigationProp<
   SendRoutesParams,
@@ -66,7 +70,7 @@ const SignMessageConfirm = () => {
       const { close } = options;
       const msg = options.unsignedMessage;
 
-      return navigation.navigate(SendRoutes.SendAuthentication, {
+      const nextRouteParams: SendAuthenticationParams = {
         ...route.params,
         unsignedMessage: msg,
         accountId,
@@ -83,7 +87,15 @@ const SignMessageConfirm = () => {
           });
           setTimeout(() => close(), 0);
         },
-      });
+      };
+
+      // @ts-ignore
+      delete nextRouteParams._disabledAnimationOfNavigate;
+
+      return navigation.navigate(
+        SendRoutes.SendAuthentication,
+        nextRouteParams,
+      );
     },
     [
       navigation,
