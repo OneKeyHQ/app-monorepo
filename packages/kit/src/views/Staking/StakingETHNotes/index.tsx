@@ -104,7 +104,7 @@ export default function StakingETHNotes() {
           <Box>
             <Center p="6">
               <Image w="24" h="24" source={ETHLogoPNG} />
-              <Typography.DisplayLarge>
+              <Typography.DisplayLarge my="6">
                 {intl.formatMessage({ id: 'title__eth_2_0_staking' })}
               </Typography.DisplayLarge>
             </Center>
@@ -117,7 +117,9 @@ export default function StakingETHNotes() {
                   bg="decorative-surface-one"
                   mr="4"
                 >
-                  <Typography.Body2Strong>1</Typography.Body2Strong>
+                  <Typography.Body2Strong color="decorative-icon-one">
+                    1
+                  </Typography.Body2Strong>
                 </Center>
                 <Box flex="1">
                   <Typography.Body1Strong>
@@ -140,7 +142,9 @@ export default function StakingETHNotes() {
                   bg="decorative-surface-one"
                   mr="4"
                 >
-                  <Typography.Body2Strong>2</Typography.Body2Strong>
+                  <Typography.Body2Strong color="decorative-icon-one">
+                    2
+                  </Typography.Body2Strong>
                 </Center>
                 <Box flex="1">
                   <Typography.Body1Strong>
