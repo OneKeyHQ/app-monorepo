@@ -55,7 +55,7 @@ const linkMap: PrefLink = {
     desktop: null,
   },
   notification: {
-    iOS: 'App-prefs:root=NOTIFICATIONS_ID',
+    iOS: 'app-settings:root=NOTIFICATIONS_ID',
     android: undefined,
     desktop: null,
   },

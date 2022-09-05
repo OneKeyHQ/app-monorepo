@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
@@ -13,6 +13,7 @@ import {
   Modal,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,7 +29,6 @@ import {
 import { PreSendAmountPreview } from '../Send/PreSendAmount';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
@@ -47,6 +47,7 @@ export const PriceAlertAddModal: FC = () => {
   const { token } = route.params;
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
+  const { pushNotification } = useSettings();
   const navigation = useNavigation<NavigationProps>();
   const { getTokenPrice } = useManageTokens();
   const map = useAppSelector((s) => s.fiatMoney.map);
@@ -87,8 +88,8 @@ export const PriceAlertAddModal: FC = () => {
     try {
       await engine.addPriceAlertConfig({
         symbol: token.symbol,
-        operator: new B(text).isGreaterThanOrEqualTo(price) 
-          ? PriceAlertOperator.greater 
+        operator: new B(text).isGreaterThanOrEqualTo(price)
+          ? PriceAlertOperator.greater
           : PriceAlertOperator.less,
         price: text,
         currency: selectedFiatMoneySymbol,
@@ -104,11 +105,17 @@ export const PriceAlertAddModal: FC = () => {
       setLoading(false);
       if (navigation.canGoBack?.()) navigation.goBack();
     }, 100);
-  }, [navigation, selectedFiatMoneySymbol, text, token, engine]);
+  }, [navigation, selectedFiatMoneySymbol, text, token, engine, price]);
 
   const onTextChange = (value: string) => {
     setText(value);
   };
+
+  useEffect(() => {
+    if (!pushNotification?.pushEnable && navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [pushNotification?.pushEnable, navigation]);
 
   return (
     <Modal

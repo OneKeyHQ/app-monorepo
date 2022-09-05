@@ -1,8 +1,10 @@
 import React, { memo, useCallback, useEffect, useMemo } from 'react';
 
+import { requestPermissionsAsync } from 'expo-notifications';
 import JPush from 'jpush-react-native';
 import { AppState } from 'react-native';
 
+import { DialogManager } from '@onekeyhq/components';
 import {
   EVMDecodedItem,
   EVMDecodedTxType,
@@ -17,10 +19,15 @@ import {
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { initJpush } from '@onekeyhq/shared/src/notification';
+import {
+  checkPushNotificationPermission,
+  hasPermission,
+  initJpush,
+} from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
 import { setPushNotificationConfig } from '../store/reducers/settings';
 import { setHomeTabName } from '../store/reducers/status';
 import { useWalletsAndAccounts } from '../views/PushNotification/hooks';
@@ -56,13 +63,16 @@ const NotificationProvider: React.FC<{
 
   const { wallets } = useWalletsAndAccounts();
 
+  const { engine, dispatch, serviceAccount, serviceNetwork } =
+    backgroundApiProxy;
+
   const switchAccountAndNetwork = useCallback(
     async (params: SwitchScreenParams['params']) => {
       if (params.accountAddress) {
         for (const w of wallets) {
           for (const account of w.accounts) {
             if (account.address === params.accountAddress) {
-              await backgroundApiProxy.serviceAccount.changeActiveAccount({
+              await serviceAccount.changeActiveAccount({
                 accountId: account.id,
                 walletId: w.id,
               });
@@ -72,12 +82,10 @@ const NotificationProvider: React.FC<{
         }
       }
       if (params.networkId) {
-        await backgroundApiProxy.serviceNetwork.changeActiveNetwork(
-          params.networkId,
-        );
+        await serviceNetwork.changeActiveNetwork(params.networkId);
       }
     },
-    [wallets],
+    [wallets, serviceNetwork, serviceAccount],
   );
 
   const switchToScreen = useCallback(
@@ -112,9 +120,7 @@ const NotificationProvider: React.FC<{
                 },
               } as any,
             });
-            backgroundApiProxy.dispatch(
-              setHomeTabName(WalletHomeTabEnum.History),
-            );
+            dispatch(setHomeTabName(WalletHomeTabEnum.History));
             break;
           default:
             break;
@@ -126,7 +132,7 @@ const NotificationProvider: React.FC<{
         );
       }
     },
-    [accountId, networkId, switchAccountAndNetwork],
+    [accountId, networkId, switchAccountAndNetwork, dispatch],
   );
 
   const clearJpushBadge = useCallback(() => {
@@ -188,14 +194,14 @@ const NotificationProvider: React.FC<{
   const handleRegistrationIdCallback = useCallback(
     (res: { registerID: string }) => {
       debugLogger.common.debug('JPUSH.getRegistrationID', res);
-      backgroundApiProxy.dispatch(
+      dispatch(
         setPushNotificationConfig({
           registrationId: res.registerID,
         }),
       );
-      backgroundApiProxy.engine.syncPushNotificationConfig();
+      engine.syncPushNotificationConfig();
     },
-    [],
+    [dispatch, engine],
   );
 
   const handleConnectStateChangeCallback = useCallback(
@@ -216,6 +222,50 @@ const NotificationProvider: React.FC<{
     return true;
   }, [pushNotification?.pushEnable]);
 
+  const checkPermission = useCallback(async () => {
+    const alreadyHasPermission = await checkPushNotificationPermission();
+    if (alreadyHasPermission) {
+      return true;
+    }
+    dispatch(
+      setPushNotificationConfig({
+        pushEnable: false,
+      }),
+    );
+    DialogManager.show({
+      render: <PermissionDialog type="notification" />,
+    });
+    return false;
+  }, [dispatch]);
+
+  const handlePushEnableChange = useCallback(async () => {
+    const permission = await requestPermissionsAsync();
+    if (!hasPermission(permission)) {
+      return checkPermission();
+    }
+    return true;
+  }, [checkPermission]);
+
+  const checkPermissionAndInit = useCallback(async () => {
+    const enabled = await handlePushEnableChange();
+    engine.syncPushNotificationConfig();
+    if (!enabled) {
+      return;
+    }
+    initJpush();
+    JPush.getRegistrationID(handleRegistrationIdCallback);
+    JPush.addConnectEventListener(handleConnectStateChangeCallback);
+    JPush.addNotificationListener(handleNotificaitonCallback);
+    JPush.addLocalNotificationListener(handleLocalNotificationCallback);
+  }, [
+    engine,
+    handlePushEnableChange,
+    handleNotificaitonCallback,
+    handleRegistrationIdCallback,
+    handleLocalNotificationCallback,
+    handleConnectStateChangeCallback,
+  ]);
+
   useEffect(() => {
     if (!platformEnv.isNative) {
       return;
@@ -224,6 +274,7 @@ const NotificationProvider: React.FC<{
     const listener = AppState.addEventListener('change', (state) => {
       if (!['background', 'inactive'].includes(state)) {
         clearJpushBadge();
+        checkPermission();
       }
     });
     const clear = () => {
@@ -235,15 +286,13 @@ const NotificationProvider: React.FC<{
     if (!shouldInitJpushListener) {
       return clear();
     }
-    initJpush();
-    backgroundApiProxy.engine.syncPushNotificationConfig();
-    JPush.getRegistrationID(handleRegistrationIdCallback);
-    JPush.addConnectEventListener(handleConnectStateChangeCallback);
-    JPush.addNotificationListener(handleNotificaitonCallback);
-    JPush.addLocalNotificationListener(handleLocalNotificationCallback);
+    checkPermissionAndInit();
     return clear;
   }, [
+    engine,
+    checkPermission,
     clearJpushBadge,
+    checkPermissionAndInit,
     shouldInitJpushListener,
     handleNotificaitonCallback,
     handleRegistrationIdCallback,

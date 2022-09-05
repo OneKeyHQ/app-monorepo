@@ -7,13 +7,10 @@ import React, {
 } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
-import { requestPermissionsAsync } from 'expo-notifications';
 import { useIntl } from 'react-intl';
-import { AppState } from 'react-native';
 
 import {
   Box,
-  DialogManager,
   Icon,
   Pressable,
   ScrollView,
@@ -26,7 +23,6 @@ import {
 import { PressableItemProps } from '@onekeyhq/components/src/Pressable/Pressable';
 import { SelectItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
 import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -34,10 +30,6 @@ import {
   defaultPushNotification,
   setPushNotificationConfig,
 } from '@onekeyhq/kit/src/store/reducers/settings';
-import {
-  checkPushNotificationPermission,
-  hasPermission,
-} from '@onekeyhq/shared/src/notification';
 
 import { HomeRoutes } from '../../routes/routesEnum';
 import { HomeRoutesParams } from '../../routes/types';
@@ -231,44 +223,6 @@ const PushNotification = () => {
     [engine],
   );
 
-  const checkPermission = useCallback(async () => {
-    const alreadyHasPermission = await checkPushNotificationPermission();
-    if (alreadyHasPermission) {
-      return;
-    }
-    onChangePushNotification('pushEnable')(false);
-    DialogManager.show({
-      render: <PermissionDialog type="notification" />,
-    });
-  }, [onChangePushNotification]);
-
-  const handlePushEnableChange = useCallback(
-    async (value: boolean) => {
-      if (value) {
-        const permission = await requestPermissionsAsync();
-        if (!hasPermission(permission)) {
-          return checkPermission();
-        }
-      }
-      onChangePushNotification('pushEnable')(value);
-    },
-    [onChangePushNotification, checkPermission],
-  );
-
-  useEffect(() => {
-    if (pushNotification.pushEnable) {
-      checkPermission();
-    }
-    const listener = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && pushNotification.pushEnable) {
-        checkPermission();
-      }
-    });
-    return () => {
-      listener.remove();
-    };
-  }, [checkPermission, pushNotification.pushEnable]);
-
   useEffect(() => {
     if (isFocused) {
       refresh();
@@ -416,7 +370,7 @@ const PushNotification = () => {
               id: 'form__notification',
             }),
             value: pushNotification.pushEnable,
-            onChange: handlePushEnableChange,
+            onChange: onChangePushNotification('pushEnable'),
           },
         ]}
       />

@@ -7,6 +7,7 @@ import { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
 import { Token } from '@onekeyhq/kit/src/store/typings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getFiatEndpoint } from '../endpoint';
 
@@ -65,6 +66,9 @@ async function fetchData<T>(
   });
   if (method === 'get') {
     apiUrl = `${apiUrl}?${qs.stringify(body)}`;
+  }
+  if (!platformEnv.isNative) {
+    return fallback;
   }
   try {
     debugLogger.common.debug(`syncPushNotificationConfig`, {
