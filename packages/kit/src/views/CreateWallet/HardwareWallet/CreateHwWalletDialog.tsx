@@ -2,7 +2,7 @@ import React, { FC, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Spinner } from '@onekeyhq/components';
+import { Dialog, Spinner, ToastManager } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -38,8 +38,20 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
         });
       })
       .catch((e) => {
-        const { className } = e || {};
+        const { className, data } = e || {};
         if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
+          const { walletName: existsWalletName } = data || {};
+          if (existsWalletName) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage(
+                  { id: 'msg__wallet_already_exist_activated_automatically' },
+                  { 0: existsWalletName },
+                ),
+              },
+              { type: 'default' },
+            );
+          }
           return;
         }
 

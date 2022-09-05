@@ -297,7 +297,12 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             buildConfigField("boolean", "ENABLE_DEV_CLI", "false")
             ndk {
-                abiFilters "arm64-v8a"
+                println("> Fun isBundleBuildType: " + isBundleBuildType())
+                if (isBundleBuildType()) {
+                    abiFilters "arm64-v8a", "armeabi-v7a"
+                } else {
+                    abiFilters "arm64-v8a"
+                }
             }
         }
     }
@@ -480,6 +485,18 @@ static def readRootEnvFile(fileName) {
     return props
 }
 
+/**
+ * is aab build
+ * @return
+ */
+boolean isBundleBuildType() {
+    for (String s : gradle.startParameter.taskNames) {
+        if (s.contains("bundle") | s.contains("Bundle")) {
+            return true
+        }
+    }
+    return false
+}
 
 def isCustomConfigured = false
 tasks.whenTaskAdded {

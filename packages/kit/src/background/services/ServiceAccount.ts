@@ -1,7 +1,5 @@
 import { find, flatten } from 'lodash';
 
-import { ToastManager } from '@onekeyhq/components';
-import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
@@ -642,22 +640,11 @@ class ServiceAccount extends ServiceBase {
       } catch (e: any) {
         const { className, data } = e || {};
         if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
-          const { walletId: existsWalletId, walletName: existsWalletName } =
-            data || {};
+          const { walletId: existsWalletId } = data || {};
           serviceAccount.initWallets();
           serviceAccount.autoChangeAccount({
             walletId: existsWalletId ?? null,
           });
-
-          ToastManager.show(
-            {
-              title: formatMessage(
-                { id: 'msg__wallet_already_exist_activated_automatically' },
-                { 0: existsWalletName },
-              ),
-            },
-            { type: 'default' },
-          );
         }
         throw e;
       }
