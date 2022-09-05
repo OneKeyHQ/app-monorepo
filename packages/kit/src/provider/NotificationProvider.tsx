@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useEffect } from 'react';
 
 import { requestPermissionsAsync } from 'expo-notifications';
 import JPush from 'jpush-react-native';
@@ -58,7 +58,6 @@ export type SwitchScreenParams = {
 const NotificationProvider: React.FC<{
   children: React.ReactElement<any, any> | null;
 }> = ({ children }) => {
-  const addListenerFlag = useRef(false);
   const { pushNotification } = useSettings();
   const { getWalletsAndAccounts } = useWalletsAndAccounts();
   const { accountId, networkId } = useActiveWalletAccount();
@@ -222,14 +221,10 @@ const NotificationProvider: React.FC<{
     [handleRegistrationIdCallback],
   );
 
-  const shouldInitJpushListener = useMemo(() => {
+  const checkPermission = useCallback(async () => {
     if (!pushNotification?.pushEnable) {
       return false;
     }
-    return true;
-  }, [pushNotification?.pushEnable]);
-
-  const checkPermission = useCallback(async () => {
     const alreadyHasPermission = await checkPushNotificationPermission();
     if (alreadyHasPermission) {
       return true;
@@ -243,7 +238,7 @@ const NotificationProvider: React.FC<{
       render: <PermissionDialog type="notification" />,
     });
     return false;
-  }, [dispatch]);
+  }, [dispatch, pushNotification?.pushEnable]);
 
   const handlePushEnableChange = useCallback(async () => {
     const permission = await requestPermissionsAsync();
@@ -253,32 +248,34 @@ const NotificationProvider: React.FC<{
     return true;
   }, [checkPermission]);
 
-  const checkPermissionAndInit = useCallback(
-    async (clear: () => void) => {
-      const enabled = await handlePushEnableChange();
-      engine.syncPushNotificationConfig();
-      if (!enabled) {
-        return clear();
-      }
-      initJpush();
-      JPush.getRegistrationID(handleRegistrationIdCallback);
-      if (addListenerFlag.current) {
-        return;
-      }
-      addListenerFlag.current = true;
-      JPush.addConnectEventListener(handleConnectStateChangeCallback);
-      JPush.addNotificationListener(handleNotificaitonCallback);
-      JPush.addLocalNotificationListener(handleLocalNotificationCallback);
-    },
-    [
-      engine,
-      handlePushEnableChange,
-      handleNotificaitonCallback,
-      handleRegistrationIdCallback,
-      handleLocalNotificationCallback,
-      handleConnectStateChangeCallback,
-    ],
-  );
+  const checkPermissionAndInit = useCallback(async () => {
+    const enabled = await handlePushEnableChange();
+    engine.syncPushNotificationConfig();
+    if (!enabled) {
+      return;
+    }
+    initJpush();
+    JPush.getRegistrationID(handleRegistrationIdCallback);
+  }, [engine, handleRegistrationIdCallback, handlePushEnableChange]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    JPush.addConnectEventListener(handleConnectStateChangeCallback);
+    JPush.addNotificationListener(handleNotificaitonCallback);
+    JPush.addLocalNotificationListener(handleLocalNotificationCallback);
+  }, [
+    handleNotificaitonCallback,
+    handleLocalNotificationCallback,
+    handleConnectStateChangeCallback,
+  ]);
+
+  useEffect(() => {
+    if (pushNotification?.pushEnable) {
+      checkPermissionAndInit();
+    }
+  }, [pushNotification?.pushEnable, checkPermissionAndInit]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
@@ -291,25 +288,10 @@ const NotificationProvider: React.FC<{
         checkPermission();
       }
     });
-    const clear = () => {
+    return () => {
       listener.remove();
     };
-    if (!shouldInitJpushListener) {
-      return clear();
-    }
-    checkPermissionAndInit(clear);
-    return clear;
-  }, [
-    engine,
-    checkPermission,
-    clearJpushBadge,
-    checkPermissionAndInit,
-    shouldInitJpushListener,
-    handleNotificaitonCallback,
-    handleRegistrationIdCallback,
-    handleLocalNotificationCallback,
-    handleConnectStateChangeCallback,
-  ]);
+  }, [checkPermission, clearJpushBadge]);
 
   return children;
 };

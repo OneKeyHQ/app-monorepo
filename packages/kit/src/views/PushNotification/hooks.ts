@@ -23,7 +23,9 @@ export const useWalletsAndAccounts = () => {
         accounts: await backgroundApiProxy.engine.getAccounts(w.accounts),
       })),
     );
-    setWallets(walletsWithAccounts.filter((w) => !!w.accounts?.length));
+    const data = walletsWithAccounts.filter((w) => !!w.accounts?.length);
+    setWallets(data);
+    return data;
   }, []);
 
   useEffect(() => {

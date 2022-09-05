@@ -2457,7 +2457,7 @@ class Engine {
 
   @backgroundMethod()
   async removeAccountDynamic(
-    body: Omit<AccountDynamicItem, 'instanceId' | 'name' | 'accountId'>,
+    body: Omit<AccountDynamicItem, 'instanceId' | 'name'>,
   ) {
     return removeAccountDynamic(body);
   }

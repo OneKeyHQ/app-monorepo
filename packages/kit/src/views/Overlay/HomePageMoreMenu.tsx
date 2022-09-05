@@ -63,7 +63,6 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
           }),
         );
         await engine.addAccountDynamic({
-          accountId: account.id,
           address: account.address,
           name: account.name,
         });
