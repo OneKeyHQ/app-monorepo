@@ -280,6 +280,7 @@ function AddExistingWalletView(
     children?: any;
     showSubmitButton?: boolean;
     showPasteButton?: boolean;
+    onNameServiceChange?: ReturnType<typeof useNameServiceStatus>['onChange'];
   },
 ) {
   const {
@@ -296,9 +297,11 @@ function AddExistingWalletView(
     children,
     showSubmitButton,
     showPasteButton,
+    onNameServiceChange,
   } = props;
+
   const {
-    onChange: onNameServiceChange,
+    onChange: onNameServiceStatusChange,
     disableSubmitBtn,
     address,
   } = useNameServiceStatus();
@@ -352,7 +355,7 @@ function AddExistingWalletView(
           helpText={(value) => (
             <NameServiceResolver
               name={value}
-              onChange={onNameServiceChange}
+              onChange={onNameServiceChange || onNameServiceStatusChange}
               disableBTC
             />
           )}
@@ -537,6 +540,12 @@ const AddExistingWallet = () => {
     onAddImportedAuth,
   });
 
+  const {
+    onChange: onNameServiceChange,
+    disableSubmitBtn,
+    address,
+  } = useNameServiceStatus();
+
   const { intl, onSubmit, handleSubmit, submitDisabled, mode } = viewProps;
 
   const liteRecoveryButton = useMemo(
@@ -556,12 +565,22 @@ const AddExistingWallet = () => {
       header={intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
       primaryActionTranslationId="action__import"
       primaryActionProps={{
-        onPromise: handleSubmit(onSubmit),
-        isDisabled: submitDisabled,
+        onPromise: handleSubmit((values) => {
+          if (!disableSubmitBtn && address) {
+            values.text = address;
+          }
+          onSubmit(values);
+        }),
+        isDisabled: submitDisabled || disableSubmitBtn,
       }}
       hideSecondaryAction
     >
-      <AddExistingWalletView {...viewProps} showPasteButton>
+      <AddExistingWalletView
+        {...viewProps}
+        showPasteButton
+        showSubmitButton={false}
+        onNameServiceChange={onNameServiceChange}
+      >
         {liteRecoveryButton}
       </AddExistingWalletView>
     </Modal>

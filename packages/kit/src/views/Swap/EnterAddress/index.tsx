@@ -4,6 +4,9 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
+import NameServiceResolver, {
+  useNameServiceStatus,
+} from '@onekeyhq/kit/src/components/NameServiceResolver';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
@@ -35,10 +38,21 @@ const EnterAddress = () => {
     defaultValues: { address: '' },
     mode: 'onChange',
   });
-  const watchedAddress = useDebounce(watch('address'), 300);
+  const {
+    onChange: onNameServiceStatusChange,
+    disableSubmitBtn,
+    address,
+  } = useNameServiceStatus();
+  const debouncedAddress = useDebounce(watch('address'), 300);
+  const watchedAddress = address || debouncedAddress;
+
   useEffect(() => {
     async function validateAddress() {
       if (watchedAddress && networkId) {
+        if (disableSubmitBtn) {
+          trigger('address');
+          return;
+        }
         try {
           await backgroundApiProxy.validator.validateAddress(
             networkId,
@@ -53,7 +67,7 @@ const EnterAddress = () => {
       }
     }
     validateAddress();
-  }, [watchedAddress, networkId, trigger, setError, intl]);
+  }, [watchedAddress, networkId, trigger, setError, intl, disableSubmitBtn]);
 
   const onPress = useCallback(
     async (values: EnterAddressValues) => {
@@ -81,14 +95,28 @@ const EnterAddress = () => {
     [navigation, onSelected, networkId, toast, intl],
   );
 
+  const syncStateAndReTriggerValidate = useCallback(
+    (val) => {
+      onNameServiceStatusChange(val);
+      // trigger('address');
+    },
+    [onNameServiceStatusChange],
+  );
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__enter_address' })}
       hideSecondaryAction
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
-        isDisabled: !isValid,
-        onPress: () => handleSubmit(onPress)(),
+        isDisabled: !isValid || disableSubmitBtn,
+        onPress: () =>
+          handleSubmit((values) => {
+            if (!disableSubmitBtn && address) {
+              values.address = address;
+            }
+            onPress(values);
+          })(),
       }}
     >
       <Form.Item
@@ -102,6 +130,13 @@ const EnterAddress = () => {
             }),
           },
         }}
+        helpText={(value) => (
+          <NameServiceResolver
+            name={value}
+            onChange={syncStateAndReTriggerValidate}
+            networkId={networkId}
+          />
+        )}
       >
         <AddressInput
           networkId={networkId}

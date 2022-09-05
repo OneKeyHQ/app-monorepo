@@ -96,6 +96,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
     options: [],
     activeAddress: '',
     shownSymbol: '',
+    name: '',
   });
 
   const setResolverState = useCallback(
@@ -146,7 +147,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
           options: names!,
           activeAddress: shownAddress ?? '',
           shownSymbol,
-          name: name.split('.')[0],
+          name: name?.split('.')?.slice(0, -1)?.join('.') ?? '',
         }));
       } else {
         setResolverState((prev) => ({
