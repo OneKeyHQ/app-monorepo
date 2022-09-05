@@ -88,14 +88,13 @@ const Section: FC<
           accountId: account.id,
           address: account.address,
           name: account.name,
-          ...avatar,
         });
       } else {
         await engine.removeAccountDynamic({ address: account.address });
       }
       refreash();
     },
-    [engine, avatar, refreash],
+    [engine, refreash],
   );
 
   const { length } = accounts;

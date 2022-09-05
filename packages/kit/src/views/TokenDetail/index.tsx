@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,7 +10,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks';
-import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import {
   HomeRoutes,
@@ -40,7 +39,6 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const firstUpdate = useRef(true);
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { pushNotification } = useSettings();
   const { accountId, networkId, tokenId } = route.params;
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
@@ -73,7 +71,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     }
   }, [navigation, token, accountId, networkId]);
 
-  useLayoutEffect(() => {
+  const setHeaders = useCallback(() => {
     if (!platformEnv.isNative) {
       return;
     }
@@ -117,7 +115,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         />
       ),
     });
-  }, [navigation, pushNotification, intl, token]);
+  }, [navigation, intl, token]);
 
   const headerView = (
     <>
@@ -132,6 +130,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         }}
         networkId={networkId}
         contract={tokenId}
+        onChartDataLoaded={setHeaders}
       />
     </>
   );

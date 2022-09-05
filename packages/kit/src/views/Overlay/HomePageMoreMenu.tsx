@@ -1,4 +1,4 @@
-import { FC, useMemo } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { MessageDescriptor, useIntl } from 'react-intl';
 
@@ -47,6 +47,38 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
 
   // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
   const disableScan = platformEnv.isWeb && !isVerticalLayout;
+
+  const onChangeAccountSubscribe = useCallback(async () => {
+    if (!account) {
+      return;
+    }
+    try {
+      if (enabledNotification) {
+        await engine.removeAccountDynamic({ address: account.address });
+      } else {
+        dispatch(
+          setPushNotificationConfig({
+            pushEnable: true,
+            accountActivityPushEnable: true,
+          }),
+        );
+        await engine.addAccountDynamic({
+          accountId: account.id,
+          address: account.address,
+          name: account.name,
+        });
+      }
+      toast.show(
+        intl.formatMessage({
+          id: enabledNotification
+            ? 'msg__unsubscription_succeeded'
+            : 'msg__subscription_succeeded',
+        }),
+      );
+    } catch (error) {
+      // pass
+    }
+  }, [account, intl, toast, dispatch, enabledNotification, engine]);
 
   const walletType = wallet?.type;
   const options: (
@@ -119,43 +151,14 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       !!account &&
         platformEnv.isNative && {
           id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
-          onPress: async () => {
-            if (enabledNotification) {
-              await engine.removeAccountDynamic({ address: account.address });
-            } else {
-              dispatch(
-                setPushNotificationConfig({
-                  pushEnable: true,
-                  accountActivityPushEnable: true,
-                }),
-              );
-              await engine.addAccountDynamic({
-                accountId: account.id,
-                address: account.address,
-                name: account.name,
-                ...(wallet?.avatar || {}),
-              });
-            }
-            toast.show(
-              intl.formatMessage({
-                id: enabledNotification
-                  ? 'msg__unsubscription_succeeded'
-                  : 'msg__subscription_succeeded',
-              }),
-            );
-            engine.syncPushNotificationConfig();
-          },
+          onPress: onChangeAccountSubscribe,
           icon: enabledNotification ? 'BellOffOutline' : 'BellOutline',
         },
       // TODO Share
     ],
     [
-      intl,
-      toast,
-      dispatch,
-      wallet?.avatar,
+      onChangeAccountSubscribe,
       enabledNotification,
-      engine,
       disableScan,
       walletType,
       isVerticalLayout,
