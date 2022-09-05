@@ -62,8 +62,7 @@ export default class ServiceNameResolver extends ServiceBase {
     return Promise.resolve(status);
   }
 
-  @backgroundMethod()
-  async resolveName(name: string, options?: ResolverOptions) {
+  async _resolveName(name: string, options?: ResolverOptions) {
     const isValid = await this.checkIsValidName(name);
 
     const config = this.config.find((c) => c.pattern.test(name));
@@ -71,18 +70,37 @@ export default class ServiceNameResolver extends ServiceBase {
     if (!isValid || !config)
       return {
         success: false,
-        message: 'message__fetching_error',
+        message: 'form__address_no_supported_address',
         shownSymbol: '-',
       };
 
-    const names: ResolverNameList = (await config?.resolver(name)) ?? [];
+    const names: ResolverNameList | null | string = await config?.resolver(
+      name,
+    );
 
-    if (!names.length)
+    if (!names) {
       return {
         success: false,
         message: 'message__fetching_error',
         shownSymbol: config?.shownSymbol,
       };
+    }
+
+    if (typeof names === 'string') {
+      return {
+        success: false,
+        message: names,
+        shownSymbol: config?.shownSymbol,
+      };
+    }
+
+    if (!names.length) {
+      return {
+        success: false,
+        message: 'form__address_no_supported_address',
+        shownSymbol: config?.shownSymbol,
+      };
+    }
 
     /** only filter address type from dotbit */
     const addressNames = names.filter((item) => item.type === 'address');
@@ -120,6 +138,14 @@ export default class ServiceNameResolver extends ServiceBase {
       }),
     );
 
+    if (!validNames.length) {
+      return {
+        success: false,
+        message: 'form__address_no_supported_address',
+        shownSymbol: config?.shownSymbol,
+      };
+    }
+
     return {
       success: true,
       names: groupedNames,
@@ -128,19 +154,24 @@ export default class ServiceNameResolver extends ServiceBase {
     };
   }
 
-  async resolveENS(name: string): Promise<ResolverNameList> {
+  @backgroundMethod()
+  async resolveName(name: string, options?: ResolverOptions) {
+    const result = await this._resolveName(name, options);
+    return result;
+  }
+
+  async resolveENS(name: string): Promise<ResolverNameList | null | string> {
     const { engine } = this.backgroundApi;
 
     // always using ETH mainnet for name resolve
     const chainOnlyVault = await engine.getChainOnlyVault(NETWORK_ID_EVM_ETH);
     try {
       const ethersProvider = await chainOnlyVault.getEthersProvider();
-
       const resolver = await ethersProvider.getResolver(name);
-
       if (!resolver) {
-        return [];
+        return null;
       }
+
       const btcAddress = await resolver.getAddress(Number(COINTYPE_BTC));
       const ethAddress = await resolver.getAddress(Number(COINTYPE_ETH));
 
@@ -158,19 +189,25 @@ export default class ServiceNameResolver extends ServiceBase {
           key: 'address.eth',
         },
       ].filter((item) => !!item.value);
+
       return validNames;
     } catch (e) {
-      return [];
+      return 'form__address_unkonwn_error';
     }
   }
 
-  async resolveDotBit(name: string): Promise<ResolverNameList> {
+  async resolveDotBit(name: string): Promise<ResolverNameList | null | string> {
     const instance = createInstance();
     try {
       const names = await instance.records(name);
       return names;
-    } catch (e) {
-      return [];
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (e?.code === 20007) {
+        return null;
+      }
+
+      return 'form__address_unkonwn_error';
     }
   }
 }

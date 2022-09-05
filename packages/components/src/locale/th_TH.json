@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "การดาวน์โหลดเฟิร์มแวร์ล้มเหลว",
   "msg__hardware_init_iframe_load_error": "การเริ่มต้นฮาร์ดแวร์ SDK ล้มเหลว โปรดรีสตาร์ทแอปพลิเคชันแล้วลองอีกครั้ง",
   "msg__hardware_invalid_pin_error": "รหัส PIN ผิดพลาด",
-  "msg__hardware_not_opened_passphrase": "กำลังใช้กระเป๋าสตางค์ข้อความรหัสผ่าน แต่อุปกรณ์ไม่เปิดข้อความรหัสผ่าน",
+  "msg__hardware_not_opened_passphrase": "โปรดเปิดข้อความรหัสผ่านบนอุปกรณ์ของคุณเพื่อใช้กระเป๋าเงินที่ซ่อนอยู่",
   "msg__hardware_not_same": "ฮาร์ดแวร์ไม่ตรงกัน โปรดเชื่อมต่ออุปกรณ์ฮาร์ดแวร์ที่ถูกต้อง",
   "msg__hardware_open_blind_sign_error": "รูปแบบลายเซ็นที่ไม่รู้จัก ไปที่ Security > Blind-Signing และเปิดใช้งาน Advanced-SOL-Sign",
   "msg__hardware_opened_passphrase": "โปรดปิดข้อความรหัสผ่านบนอุปกรณ์ของคุณเพื่อใช้ Standard Wallet",

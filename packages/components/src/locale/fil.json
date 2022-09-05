@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "Nabigo ang pag-download ng firmware",
   "msg__hardware_init_iframe_load_error": "Nabigo ang pagsisimula ng Hardware SDK, mangyaring i-restart ang application at subukang muli.",
   "msg__hardware_invalid_pin_error": "imbalido ang ipinasok na PIN",
-  "msg__hardware_not_opened_passphrase": "Ginagamit ang passphrase wallet, ngunit hindi binubuksan ng device ang passphrase.",
+  "msg__hardware_not_opened_passphrase": "Paki-on ang Passphrase sa iyong device para magamit ang Hidden Wallet",
   "msg__hardware_not_same": "Hindi tugma ang hardware, mangyaring ikonekta ang tamang hardware device",
   "msg__hardware_open_blind_sign_error": "Hindi kilalang format ng lagda, pumunta sa Seguridad > Blind-Signing at paganahin ang Advanced-SOL-Sign",
   "msg__hardware_opened_passphrase": "Paki-off ang Passphrase sa iyong device para magamit ang Standard Wallet",

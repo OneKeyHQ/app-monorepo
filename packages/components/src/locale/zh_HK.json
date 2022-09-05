@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "固件下載失敗",
   "msg__hardware_init_iframe_load_error": "硬體 SDK 初始化失敗，請重新啟動應用程序並重試。",
   "msg__hardware_invalid_pin_error": "輸入的 PIN 無效",
-  "msg__hardware_not_opened_passphrase": "正在使用 Passphrase 錢包，但設備未打開 Passphrase。",
+  "msg__hardware_not_opened_passphrase": "請在設備上打開 Passphrase 以使用隱藏錢包",
   "msg__hardware_not_same": "硬體不匹配，請連接正確的硬體設備",
   "msg__hardware_open_blind_sign_error": "未知簽名格式，請前往 Security/Blind Signing 啟用 SOL 高級簽名",
   "msg__hardware_opened_passphrase": "請在設備上關閉 Passphrase 以使用標準錢包",

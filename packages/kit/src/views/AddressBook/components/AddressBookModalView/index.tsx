@@ -70,6 +70,7 @@ const ModalView: FC<ModalViewProps> = ({
     onChange: onNameServiceChange,
     disableSubmitBtn,
     address: resolvedAddress,
+    name: defaultNameServiceName,
   } = useNameServiceStatus();
 
   const debouncedAddress = useDebounce(address, 300);
@@ -98,7 +99,10 @@ const ModalView: FC<ModalViewProps> = ({
     if (name.length > 24) {
       setValue('name', name.slice(0, 24));
     }
-  }, [name, setValue]);
+    if (defaultNameServiceName && !name) {
+      setValue('name', defaultNameServiceName);
+    }
+  }, [name, setValue, defaultNameServiceName]);
 
   useEffect(() => {
     if (address.length > 96) {
@@ -178,7 +182,7 @@ const ModalView: FC<ModalViewProps> = ({
                   },
                   validate: (value) => {
                     const text =
-                      resolvedAddress?.toLowerCase() ?? value?.toLowerCase();
+                      resolvedAddress?.toLowerCase() || value?.toLowerCase();
                     const defaultAddress = defaultValues.address.toLowerCase();
                     if (!text) {
                       return;
@@ -193,7 +197,7 @@ const ModalView: FC<ModalViewProps> = ({
                         id: 'msg__this_address_already_exists',
                       });
                     }
-                    if (validateAddressError.current && !disableSubmitBtn) {
+                    if (validateAddressError.current) {
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });

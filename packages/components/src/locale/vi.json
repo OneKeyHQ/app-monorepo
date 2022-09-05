@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "Tải xuống chương trình cơ sở không thành công",
   "msg__hardware_init_iframe_load_error": "Khởi tạo SDK phần cứng không thành công, vui lòng khởi động lại ứng dụng và thử lại.",
   "msg__hardware_invalid_pin_error": "Lỗi mã PIN",
-  "msg__hardware_not_opened_passphrase": "Ví cụm mật khẩu đang được sử dụng, nhưng thiết bị không mở cụm mật khẩu.",
+  "msg__hardware_not_opened_passphrase": "Vui lòng bật Cụm mật khẩu trên thiết bị của bạn để sử dụng Ví ẩn",
   "msg__hardware_not_same": "Phần cứng không khớp, vui lòng kết nối đúng thiết bị phần cứng",
   "msg__hardware_open_blind_sign_error": "Định dạng chữ ký không xác định, đi tới Bảo mật > Chữ ký mù và bật Dấu hiệu nâng cao-SOL",
   "msg__hardware_opened_passphrase": "Vui lòng tắt Cụm mật khẩu trên thiết bị của bạn để sử dụng Ví tiêu chuẩn",

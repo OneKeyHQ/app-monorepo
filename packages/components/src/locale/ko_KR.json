@@ -983,7 +983,7 @@
   "msg__hardware_firmware_download_error": "펌웨어 다운로드 실패",
   "msg__hardware_init_iframe_load_error": "하드웨어 SDK 초기화에 실패했습니다. 애플리케이션을 다시 시작하고 다시 시도하십시오.",
   "msg__hardware_invalid_pin_error": "입력한 PIN이 잘못되었습니다.",
-  "msg__hardware_not_opened_passphrase": "암호문 지갑을 사용 중이지만 장치가 암호문을 열지 않습니다.",
+  "msg__hardware_not_opened_passphrase": "Hidden Wallet을 사용하려면 장치에서 암호를 켜십시오.",
   "msg__hardware_not_same": "하드웨어가 일치하지 않습니다. 올바른 하드웨어 장치를 연결하십시오",
   "msg__hardware_open_blind_sign_error": "알 수 없는 서명 형식, 보안 > 블라인드 서명으로 이동하여 고급-SOL-서명을 활성화합니다.",
   "msg__hardware_opened_passphrase": "표준 지갑을 사용하려면 기기에서 암호를 끄세요.",
