@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { requestPermissionsAsync } from 'expo-notifications';
 import JPush from 'jpush-react-native';
@@ -58,10 +58,10 @@ export type SwitchScreenParams = {
 const NotificationProvider: React.FC<{
   children: React.ReactElement<any, any> | null;
 }> = ({ children }) => {
-  const { accountId, networkId } = useActiveWalletAccount();
+  const addListenerFlag = useRef(false);
   const { pushNotification } = useSettings();
-
-  const { wallets } = useWalletsAndAccounts();
+  const { getWalletsAndAccounts } = useWalletsAndAccounts();
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const { engine, dispatch, serviceAccount, serviceNetwork } =
     backgroundApiProxy;
@@ -69,9 +69,13 @@ const NotificationProvider: React.FC<{
   const switchAccountAndNetwork = useCallback(
     async (params: SwitchScreenParams['params']) => {
       if (params.accountAddress) {
+        const wallets = await getWalletsAndAccounts();
         for (const w of wallets) {
           for (const account of w.accounts) {
             if (account.address === params.accountAddress) {
+              debugLogger.notification.info(
+                `switch account, accountId=${account.id}`,
+              );
               await serviceAccount.changeActiveAccount({
                 accountId: account.id,
                 walletId: w.id,
@@ -82,10 +86,13 @@ const NotificationProvider: React.FC<{
         }
       }
       if (params.networkId) {
+        debugLogger.notification.info(
+          `switch network, network=${params.networkId}`,
+        );
         await serviceNetwork.changeActiveNetwork(params.networkId);
       }
     },
-    [wallets, serviceNetwork, serviceAccount],
+    [serviceNetwork, serviceAccount, getWalletsAndAccounts],
   );
 
   const switchToScreen = useCallback(
@@ -126,7 +133,7 @@ const NotificationProvider: React.FC<{
             break;
         }
       } catch (error) {
-        debugLogger.common.error(
+        debugLogger.notification.error(
           'Jpush navigate error',
           error instanceof Error ? error.message : error,
         );
@@ -136,7 +143,7 @@ const NotificationProvider: React.FC<{
   );
 
   const clearJpushBadge = useCallback(() => {
-    debugLogger.common.debug('clearJpushBadge');
+    debugLogger.notification.debug('clearJpushBadge');
     JPush.setBadge({
       badge: 0,
       appBadge: 0,
@@ -145,7 +152,7 @@ const NotificationProvider: React.FC<{
 
   const handleNotificaitonCallback = useCallback(
     (result: NotificationResult) => {
-      debugLogger.common.debug('JPUSH.notificationListener', result);
+      debugLogger.notification.debug('JPUSH.notificationListener', result);
       if (result?.notificationEventType !== 'notificationArrived') {
         clearJpushBadge();
       }
@@ -171,7 +178,7 @@ const NotificationProvider: React.FC<{
           ? extras.params
           : JSON.parse(extras.params);
       } catch (error) {
-        debugLogger.common.error(
+        debugLogger.notification.error(
           `Jpush parse params error`,
           error instanceof Error ? error.message : error,
         );
@@ -193,7 +200,7 @@ const NotificationProvider: React.FC<{
 
   const handleRegistrationIdCallback = useCallback(
     (res: { registerID: string }) => {
-      debugLogger.common.debug('JPUSH.getRegistrationID', res);
+      debugLogger.notification.debug('JPUSH.getRegistrationID', res);
       dispatch(
         setPushNotificationConfig({
           registrationId: res.registerID,
@@ -206,7 +213,7 @@ const NotificationProvider: React.FC<{
 
   const handleConnectStateChangeCallback = useCallback(
     (result: { connectEnable: boolean }) => {
-      debugLogger.common.debug('JPUSH.addConnectEventListener', result);
+      debugLogger.notification.debug('JPUSH.addConnectEventListener', result);
       if (!result.connectEnable) {
         return;
       }
@@ -246,25 +253,32 @@ const NotificationProvider: React.FC<{
     return true;
   }, [checkPermission]);
 
-  const checkPermissionAndInit = useCallback(async () => {
-    const enabled = await handlePushEnableChange();
-    engine.syncPushNotificationConfig();
-    if (!enabled) {
-      return;
-    }
-    initJpush();
-    JPush.getRegistrationID(handleRegistrationIdCallback);
-    JPush.addConnectEventListener(handleConnectStateChangeCallback);
-    JPush.addNotificationListener(handleNotificaitonCallback);
-    JPush.addLocalNotificationListener(handleLocalNotificationCallback);
-  }, [
-    engine,
-    handlePushEnableChange,
-    handleNotificaitonCallback,
-    handleRegistrationIdCallback,
-    handleLocalNotificationCallback,
-    handleConnectStateChangeCallback,
-  ]);
+  const checkPermissionAndInit = useCallback(
+    async (clear: () => void) => {
+      const enabled = await handlePushEnableChange();
+      engine.syncPushNotificationConfig();
+      if (!enabled) {
+        return clear();
+      }
+      initJpush();
+      JPush.getRegistrationID(handleRegistrationIdCallback);
+      if (addListenerFlag.current) {
+        return;
+      }
+      addListenerFlag.current = true;
+      JPush.addConnectEventListener(handleConnectStateChangeCallback);
+      JPush.addNotificationListener(handleNotificaitonCallback);
+      JPush.addLocalNotificationListener(handleLocalNotificationCallback);
+    },
+    [
+      engine,
+      handlePushEnableChange,
+      handleNotificaitonCallback,
+      handleRegistrationIdCallback,
+      handleLocalNotificationCallback,
+      handleConnectStateChangeCallback,
+    ],
+  );
 
   useEffect(() => {
     if (!platformEnv.isNative) {
@@ -279,14 +293,11 @@ const NotificationProvider: React.FC<{
     });
     const clear = () => {
       listener.remove();
-      JPush.removeListener(handleNotificaitonCallback);
-      JPush.removeListener(handleConnectStateChangeCallback);
-      JPush.removeListener(handleLocalNotificationCallback);
     };
     if (!shouldInitJpushListener) {
       return clear();
     }
-    checkPermissionAndInit();
+    checkPermissionAndInit(clear);
     return clear;
   }, [
     engine,

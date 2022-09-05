@@ -315,7 +315,7 @@ const PushNotification = () => {
                 id: 'form__account_dynamic_notification',
               }),
               desc: intl.formatMessage({
-                id: 'account_dynamic_notification_desc',
+                id: 'form__account_dynamic_notification_desc',
               }),
               value: pushNotification.accountActivityPushEnable,
               onChange: onChangePushNotification('accountActivityPushEnable'),

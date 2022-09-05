@@ -56,7 +56,7 @@ async function fetchData<T>(
   let apiUrl = `${endpoint}${path}`;
   const instanceId = appSelector((state) => state?.settings?.instanceId);
   if (!instanceId) {
-    debugLogger.http.warn(
+    debugLogger.notification.warn(
       'syncPushNotificationConfig',
       'can not get instanceId',
     );
@@ -71,7 +71,7 @@ async function fetchData<T>(
     return fallback;
   }
   try {
-    debugLogger.common.debug(`syncPushNotificationConfig`, {
+    debugLogger.notification.debug(`syncPushNotificationConfig`, {
       method,
       apiUrl,
       body,
@@ -83,7 +83,7 @@ async function fetchData<T>(
     });
     return data;
   } catch (error) {
-    debugLogger.common.error(
+    debugLogger.notification.error(
       `${method} ${apiUrl} error`,
       error instanceof Error ? error?.message : error,
     );

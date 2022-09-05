@@ -68,13 +68,13 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
           name: account.name,
         });
       }
-      toast.show(
-        intl.formatMessage({
+      toast.show({
+        title: intl.formatMessage({
           id: enabledNotification
             ? 'msg__unsubscription_succeeded'
             : 'msg__subscription_succeeded',
         }),
-      );
+      });
     } catch (error) {
       // pass
     }
