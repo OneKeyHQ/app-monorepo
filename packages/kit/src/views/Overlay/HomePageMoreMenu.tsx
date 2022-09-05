@@ -8,6 +8,7 @@ import {
   Icon,
   Text,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
@@ -28,6 +29,7 @@ import { OverlayPanel } from './OverlayPanel';
 
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation();
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
@@ -114,32 +116,42 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         },
         icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
       },
-      !!account && {
-        id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
-        onPress: () => {
-          if (enabledNotification) {
-            engine.removeAccountDynamic({ address: account.address });
-          } else {
-            dispatch(
-              setPushNotificationConfig({
-                pushEnable: true,
-                accountActivityPushEnable: true,
+      !!account &&
+        platformEnv.isNative && {
+          id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
+          onPress: async () => {
+            if (enabledNotification) {
+              await engine.removeAccountDynamic({ address: account.address });
+            } else {
+              dispatch(
+                setPushNotificationConfig({
+                  pushEnable: true,
+                  accountActivityPushEnable: true,
+                }),
+              );
+              await engine.addAccountDynamic({
+                accountId: account.id,
+                address: account.address,
+                name: account.name,
+                ...(wallet?.avatar || {}),
+              });
+            }
+            toast.show(
+              intl.formatMessage({
+                id: enabledNotification
+                  ? 'msg__unsubscription_succeeded'
+                  : 'msg__subscription_succeeded',
               }),
             );
             engine.syncPushNotificationConfig();
-            engine.addAccountDynamic({
-              accountId: account.id,
-              address: account.address,
-              name: account.name,
-              ...(wallet?.avatar || {}),
-            });
-          }
+          },
+          icon: enabledNotification ? 'BellOffOutline' : 'BellOutline',
         },
-        icon: 'BellOutline',
-      },
       // TODO Share
     ],
     [
+      intl,
+      toast,
       dispatch,
       wallet?.avatar,
       enabledNotification,
