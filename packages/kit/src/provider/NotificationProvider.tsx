@@ -104,7 +104,7 @@ const NotificationProvider: React.FC<{
               const filter = params.tokenId
                 ? undefined
                 : (i: EVMDecodedItem) =>
-                  i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+                    i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
               navigationRef.current?.navigate(RootRoutes.Root, {
                 screen,
                 params: {
@@ -275,12 +275,6 @@ const NotificationProvider: React.FC<{
   ]);
 
   useEffect(() => {
-    if (pushNotification?.pushEnable) {
-      checkPermissionAndInit();
-    }
-  }, [pushNotification?.pushEnable, checkPermissionAndInit]);
-
-  useEffect(() => {
     if (!platformEnv.isNative) {
       return;
     }
@@ -291,10 +285,18 @@ const NotificationProvider: React.FC<{
         checkPermission();
       }
     });
+    if (pushNotification?.pushEnable) {
+      checkPermissionAndInit();
+    }
     return () => {
       listener.remove();
     };
-  }, [checkPermission, clearJpushBadge]);
+  }, [
+    checkPermission,
+    clearJpushBadge,
+    pushNotification?.pushEnable,
+    checkPermissionAndInit,
+  ]);
 
   return children;
 };

@@ -13,6 +13,7 @@ import {
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
+import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -52,31 +53,31 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
     if (!account) {
       return;
     }
-    try {
-      if (enabledNotification) {
-        await engine.removeAccountDynamic({ address: account.address });
-      } else {
-        dispatch(
-          setPushNotificationConfig({
-            pushEnable: true,
-            accountActivityPushEnable: true,
-          }),
-        );
-        await engine.addAccountDynamic({
-          address: account.address,
-          name: account.name,
-        });
-      }
-      toast.show({
-        title: intl.formatMessage({
-          id: enabledNotification
-            ? 'msg__unsubscription_succeeded'
-            : 'msg__subscription_succeeded',
+    const res: AccountDynamicItem | null = null;
+    if (enabledNotification) {
+      await engine.removeAccountDynamic({ address: account.address });
+    } else {
+      dispatch(
+        setPushNotificationConfig({
+          pushEnable: true,
+          accountActivityPushEnable: true,
         }),
+      );
+      await engine.addAccountDynamic({
+        address: account.address,
+        name: account.name,
       });
-    } catch (error) {
-      // pass
     }
+    if (!res) {
+      return;
+    }
+    toast.show({
+      title: intl.formatMessage({
+        id: enabledNotification
+          ? 'msg__unsubscription_succeeded'
+          : 'msg__subscription_succeeded',
+      }),
+    });
   }, [account, intl, toast, dispatch, enabledNotification, engine]);
 
   const walletType = wallet?.type;

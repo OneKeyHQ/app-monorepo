@@ -144,20 +144,20 @@ export const queryPriceAlertList = async (
 export const addAccountDynamic = async (
   body: Omit<AccountDynamicItem, 'instanceId'>,
 ) =>
-  fetchData<Record<string, string>>(
+  fetchData<AccountDynamicItem | null>(
     '/notification/account-dynamic',
     body,
-    {},
+    null,
     'post',
   );
 
 export const removeAccountDynamic = async (
   body: Omit<AccountDynamicItem, 'instanceId' | 'name'>,
 ) =>
-  fetchData<Record<string, string>>(
+  fetchData<AccountDynamicItem | null>(
     '/notification/account-dynamic',
     body,
-    {},
+    null,
     'delete',
   );
 

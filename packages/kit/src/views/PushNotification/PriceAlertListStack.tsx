@@ -1,70 +1,26 @@
-import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
+import React, { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Center,
-  Empty,
-  ScrollView,
-  Spinner,
-  Text,
-  useTheme,
-} from '@onekeyhq/components';
+import { Box, ScrollView, Text, useTheme } from '@onekeyhq/components';
 import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import imageUrl from '@onekeyhq/kit/assets/alert.png';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
 
 import { useSingleToken } from '../../hooks/useTokens';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 
+import { ListEmptyComponent } from './Empty';
 import { usePriceAlertlist } from './hooks';
 import PriceItem from './PriceItem';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type ListEmptyComponentProps = {
-  isLoading: boolean;
-  symbol?: string;
-};
 
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
   HomeRoutes.SettingsWebviewScreen
 >;
 
-export const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
-  isLoading,
-  symbol,
-}) => {
-  const intl = useIntl();
-  if (isLoading) {
-    return (
-      <Center w="full" h="20">
-        <Spinner size="lg" />
-      </Center>
-    );
-  }
-  return (
-    <Empty
-      imageUrl={imageUrl}
-      title={intl.formatMessage({
-        id: 'title__no_alert',
-      })}
-      subTitle={
-        symbol
-          ? intl.formatMessage(
-              {
-                id: 'title__no_alert_desc',
-              },
-              { 0: symbol },
-            )
-          : ''
-      }
-    />
-  );
-};
 const Section = ({
   alerts,
   onRemove,

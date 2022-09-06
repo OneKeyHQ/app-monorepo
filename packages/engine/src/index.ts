@@ -628,17 +628,17 @@ class Engine {
         .map((a: DBAccount) =>
           typeof networkId === 'undefined'
             ? {
-              id: a.id,
-              name: a.name,
-              type: a.type,
-              path: a.path,
-              coinType: a.coinType,
-              tokens: [],
-              address: a.address,
-            }
+                id: a.id,
+                name: a.name,
+                type: a.type,
+                path: a.path,
+                coinType: a.coinType,
+                tokens: [],
+                address: a.address,
+              }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-              vault.getOutputAccount(),
-            ),
+                vault.getOutputAccount(),
+              ),
         ),
     );
   }
@@ -1137,8 +1137,8 @@ class Engine {
       }
       let tokenInfo:
         | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-          logoURI?: string;
-        })
+            logoURI?: string;
+          })
         | undefined;
       const { impl, chainId } = parseNetworkId(networkId);
       if (!impl || !chainId) {
@@ -1323,7 +1323,6 @@ class Engine {
     if (token) {
       return token;
     }
-
     const network = await this.getNetwork(networkId);
     return {
       id: network.id,
@@ -1342,9 +1341,10 @@ class Engine {
     accountId?: string,
     withMain = true,
     filterRemoved = false,
+    forceReloadTokens = false,
   ): Promise<Array<Token>> {
     try {
-      await this.updateOnlineTokens(networkId);
+      await this.updateOnlineTokens(networkId, forceReloadTokens);
     } catch (error) {
       debugLogger.engine.error(`updateOnlineTokens error`, {
         message: error instanceof Error ? error.message : error,
@@ -1372,8 +1372,11 @@ class Engine {
       }
     }
     if (typeof accountId !== 'undefined') {
-      if (!withMain) {
-        return tokens.filter((t) => !t.isNative);
+      if (withMain) {
+        if (!tokens.find((t) => t.isNative)) {
+          tokens.unshift(await this.getNativeTokenInfo(networkId));
+        }
+        return tokens;
       }
       if (filterRemoved) {
         const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
@@ -1399,9 +1402,12 @@ class Engine {
   }
 
   @backgroundMethod()
-  async updateOnlineTokens(networkId: string): Promise<void> {
+  async updateOnlineTokens(
+    networkId: string,
+    forceReloadTokens = false,
+  ): Promise<void> {
     const fetched = updateTokenCache[networkId];
-    if (fetched) {
+    if (!forceReloadTokens && fetched) {
       return;
     }
     const { impl, chainId } = parseNetworkId(networkId);

@@ -17,7 +17,7 @@ import {
   ManageTokenRoutesParams,
 } from '../ManageTokens/types';
 
-import { ListEmptyComponent } from './PriceAlertListStack';
+import { ListEmptyComponent } from './Empty';
 import PriceItem from './PriceItem';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
