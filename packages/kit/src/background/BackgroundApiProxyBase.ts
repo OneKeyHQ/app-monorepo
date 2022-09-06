@@ -22,7 +22,13 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 export class BackgroundApiProxyBase implements IBackgroundApiBridge {
-  appSelector = {} as IAppSelector;
+  appSelector = (() => {
+    throw new Error('please use `useAppSelector()` instead.');
+  }) as IAppSelector;
+
+  // Dependency cycle
+  // import { useAppSelector } from '../hooks';
+  // useAppSelector = useAppSelector;
 
   persistor = {} as IPersistor;
 

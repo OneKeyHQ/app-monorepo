@@ -132,7 +132,15 @@ interface DBAPI {
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token>;
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void>;
 
-  getWallets(option?: { includePassphrase?: boolean }): Promise<Array<Wallet>>;
+  /**
+   * Get all wallets
+   * @param includeAllPassphraseWallet Whether to load the hidden Passphrase wallet
+   * @param displayPassphraseWalletIds Need to display Passphrase wallet
+   */
+  getWallets(option?: {
+    includeAllPassphraseWallet?: boolean;
+    displayPassphraseWalletIds?: string[];
+  }): Promise<Array<Wallet>>;
   getWallet(walletId: string): Promise<Wallet | undefined>;
   getWalletByDeviceId(deviceId: string): Promise<Array<Wallet>>;
   createHDWallet(params: CreateHDWalletParams): Promise<Wallet>;

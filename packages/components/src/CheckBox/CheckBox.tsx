@@ -95,6 +95,9 @@ const CheckBox: FC<CheckBoxProps> = ({
           borderRadius="md"
           borderColor="border-default"
           bg="surface-default"
+          _icon={{
+            color: isDisabled ? 'icon-default' : 'icon-on-primary',
+          }}
           _text={{
             color: 'text-default',
             fontWeight: 'bold',

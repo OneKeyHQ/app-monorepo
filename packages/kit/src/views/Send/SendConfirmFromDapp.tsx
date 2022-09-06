@@ -14,6 +14,7 @@ type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
+  // const navigation = useAppNavigation();
   const {
     sourceInfo,
     unsignedMessage,
@@ -30,6 +31,8 @@ function SendConfirmFromDapp() {
         feeInfoEditable: true,
         feeInfoUseFeeInTx: false,
         signOnly,
+        // @ts-ignore
+        _disabledAnimationOfNavigate: true,
       };
       // replace router to SendConfirm
       action = StackActions.replace(SendRoutes.SendConfirm, params);
@@ -38,6 +41,7 @@ function SendConfirmFromDapp() {
       action = StackActions.replace(SendRoutes.SignMessageConfirm, {
         sourceInfo,
         unsignedMessage,
+        _disabledAnimationOfNavigate: true,
       });
     }
     if (action) {

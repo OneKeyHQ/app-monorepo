@@ -55,6 +55,8 @@ type AddExistingWalletValues = { text: string };
 
 const emptyParams = Object.freeze({});
 
+const toastDelay = 600;
+
 function useAddExistingWallet({
   onMultipleResults,
   onAddMnemonicAuth,
@@ -125,9 +127,13 @@ function useAddExistingWallet({
           text,
           checkResults: results,
           onSuccess() {
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__account_imported' }),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              },
+              {},
+              { delay: toastDelay },
+            );
           },
         });
         return;
@@ -139,9 +145,13 @@ function useAddExistingWallet({
         onAddMnemonicAuth({
           mnemonic: text,
           onSuccess() {
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__account_imported' }),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              },
+              {},
+              { delay: toastDelay },
+            );
           },
         });
         return;
@@ -155,6 +165,7 @@ function useAddExistingWallet({
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
           },
           { type: 'error' },
+          { delay: toastDelay },
         );
         return;
       }
@@ -185,9 +196,13 @@ function useAddExistingWallet({
             text,
             accountName,
           );
-          toast.show({
-            title: intl.formatMessage({ id: 'msg__account_imported' }),
-          });
+          toast.show(
+            {
+              title: intl.formatMessage({ id: 'msg__account_imported' }),
+            },
+            {},
+            { delay: toastDelay },
+          );
           onAddWatchingDone();
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
@@ -196,6 +211,7 @@ function useAddExistingWallet({
               title: intl.formatMessage({ id: errorKey }),
             },
             { type: 'error' },
+            { delay: toastDelay },
           );
         }
       } else {
@@ -204,9 +220,13 @@ function useAddExistingWallet({
           name: accountName,
           networkId,
           onSuccess() {
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__account_imported' }),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              },
+              {},
+              { delay: toastDelay },
+            );
           },
         });
       }
@@ -280,6 +300,7 @@ function AddExistingWalletView(
     children?: any;
     showSubmitButton?: boolean;
     showPasteButton?: boolean;
+    onNameServiceChange?: ReturnType<typeof useNameServiceStatus>['onChange'];
   },
 ) {
   const {
@@ -296,9 +317,11 @@ function AddExistingWalletView(
     children,
     showSubmitButton,
     showPasteButton,
+    onNameServiceChange,
   } = props;
+
   const {
-    onChange: onNameServiceChange,
+    onChange: onNameServiceStatusChange,
     disableSubmitBtn,
     address,
   } = useNameServiceStatus();
@@ -352,7 +375,7 @@ function AddExistingWalletView(
           helpText={(value) => (
             <NameServiceResolver
               name={value}
-              onChange={onNameServiceChange}
+              onChange={onNameServiceChange || onNameServiceStatusChange}
               disableBTC
             />
           )}
@@ -537,6 +560,12 @@ const AddExistingWallet = () => {
     onAddImportedAuth,
   });
 
+  const {
+    onChange: onNameServiceChange,
+    disableSubmitBtn,
+    address,
+  } = useNameServiceStatus();
+
   const { intl, onSubmit, handleSubmit, submitDisabled, mode } = viewProps;
 
   const liteRecoveryButton = useMemo(
@@ -556,12 +585,22 @@ const AddExistingWallet = () => {
       header={intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
       primaryActionTranslationId="action__import"
       primaryActionProps={{
-        onPromise: handleSubmit(onSubmit),
-        isDisabled: submitDisabled,
+        onPromise: handleSubmit((values) => {
+          if (!disableSubmitBtn && address) {
+            values.text = address;
+          }
+          onSubmit(values);
+        }),
+        isDisabled: submitDisabled || disableSubmitBtn,
       }}
       hideSecondaryAction
     >
-      <AddExistingWalletView {...viewProps} showPasteButton>
+      <AddExistingWalletView
+        {...viewProps}
+        showPasteButton
+        showSubmitButton={false}
+        onNameServiceChange={onNameServiceChange}
+      >
         {liteRecoveryButton}
       </AddExistingWalletView>
     </Modal>

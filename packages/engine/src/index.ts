@@ -307,9 +307,9 @@ class Engine {
 
   @backgroundMethod()
   async getWallets(option?: {
-    includePassphrase?: boolean;
+    includeAllPassphraseWallet?: boolean;
+    displayPassphraseWalletIds?: string[];
   }): Promise<Array<Wallet>> {
-    // Return all wallets, including the special imported wallet and watching wallet.
     const wallets = await this.dbApi.getWallets(option);
     return wallets.sort((a, b) =>
       natsort({ insensitive: true })(a.name, b.name),
@@ -2277,7 +2277,9 @@ class Engine {
       wallets: {},
     };
 
-    const wallets = await this.dbApi.getWallets();
+    const wallets = await this.dbApi.getWallets({
+      includeAllPassphraseWallet: true,
+    });
     for (const wallet of wallets) {
       if (wallet.type !== WALLET_TYPE_HW && wallet.accounts.length > 0) {
         const accounts = await this.dbApi.getAccounts(wallet.accounts);

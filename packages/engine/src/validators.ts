@@ -158,7 +158,8 @@ class Validators {
   @backgroundMethod()
   async validateAddress(networkId: string, address: string): Promise<string> {
     const vault = await this.engine.getChainOnlyVault(networkId);
-    return vault.validateAddress(address);
+    const status = await vault.validateAddress(address);
+    return status;
   }
 
   @backgroundMethod()
@@ -236,6 +237,7 @@ class Validators {
 
   @backgroundMethod()
   async validateHWWalletNumber(): Promise<void> {
+    // ignore passphrase hardware wallet
     const hwWallets = (await this.dbApi.getWallets()).filter((w) =>
       w.id.startsWith(WALLET_TYPE_HW),
     );
@@ -247,7 +249,9 @@ class Validators {
 
   @backgroundMethod()
   async validateAccountAddress(address: string) {
-    const wallets = await this.dbApi.getWallets();
+    const wallets = await this.dbApi.getWallets({
+      includeAllPassphraseWallet: true,
+    });
 
     const accounts = wallets
       .map((wallet) => wallet.accounts)

@@ -769,7 +769,10 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  getWallets(option?: { includePassphrase?: boolean }): Promise<Array<Wallet>> {
+  getWallets(option?: {
+    includeAllPassphraseWallet?: boolean;
+    displayPassphraseWalletIds?: string[];
+  }): Promise<Array<Wallet>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -789,10 +792,15 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
           transaction.oncomplete = (_tevent) => {
-            const passphraseWallet = (w: Wallet) =>
-              option?.includePassphrase || filterPassphraseWallet(w);
-
-            resolve(ret.filter(passphraseWallet));
+            resolve(
+              ret.filter((w) =>
+                filterPassphraseWallet(
+                  w,
+                  option?.includeAllPassphraseWallet,
+                  option?.displayPassphraseWalletIds,
+                ),
+              ),
+            );
           };
 
           const request = transaction.objectStore(WALLET_STORE_NAME).getAll();

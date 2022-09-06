@@ -113,7 +113,7 @@ export const light = {
   'icon-on-critical': '#FFFFFF',
   'interactive-default': '#00B812',
   'interactive-hovered': '#00930E',
-  'interactive-disabled': '#EBF9EC',
+  'interactive-disabled': '#D8F3DA',
   'border-default': '#D4D4DD',
   'border-subdued': '#E8E8ED',
   'border-hovered': '#A0A0B0',

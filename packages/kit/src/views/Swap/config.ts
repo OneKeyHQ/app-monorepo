@@ -25,9 +25,12 @@ export const enabledNetworkIds: string[] = [
   'evm--137',
   'evm--128',
   'evm--10',
+  'evm--100',
   'evm--250',
-  'evm--43114',
+  'evm--42161',
   'evm--42220',
+  'evm--43114',
+  // 'evm--1313161554',
   'sol--101',
   'evm--3',
   'evm--42',
@@ -62,8 +65,6 @@ export const networkRecords: Record<string, string> = {
   },
   [Chains.KOVAN]: 'https://kovan.api.0x.org/swap/v1/quote',
   [Chains.HECO]: `${serverURL}/swap/v1/quote`,
-  [Chains.GNOSIS]: `${serverURL}/swap/v1/xdai/quote`,
-  [Chains.OKEX]: `${serverURL}/swap/v1/okex/quote`,
 };
 
 export const arrivalTimeValues: Record<string, number> = {
