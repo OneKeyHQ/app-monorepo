@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Center, Spinner } from '@onekeyhq/components';
+import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../../hooks';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
@@ -15,6 +15,7 @@ const defaultProps = {} as const;
 
 const ImportWallet = () => {
   const intl = useIntl();
+  const bgColor = useThemeValue('background-default');
   const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const onPressDrawerTrigger = useCallback(() => {
@@ -24,7 +25,7 @@ const ImportWallet = () => {
   return (
     <>
       {onBoardingLoadingBehindModal ? (
-        <Center flex={1} height="full">
+        <Center bgColor={bgColor} flex={1} height="full">
           <Spinner size="lg" />
         </Center>
       ) : (
