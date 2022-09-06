@@ -69,15 +69,10 @@ export default function useChartThrottledPoints({
   originData: MarketApiData[];
   fetchingCharts?: boolean;
 }) {
-  const [throttledPoints, setThrottledPoints] = useState(() =>
-    traverseData(initData, originData),
-  );
+  const [throttledPoints, setThrottledPoints] = useState(initData);
 
   useEffect(() => {
-    if (originData.length > POINT_LIMITS) {
-      // @ts-ignore
-      setThrottledPoints((prev) => traverseData(prev, originData));
-    }
+    setThrottledPoints((prev) => traverseData(prev, originData));
   }, [originData]);
 
   const [throttledData, setThrottledData] = useState({
