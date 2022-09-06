@@ -17,9 +17,11 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
+import { useNFTPrice } from '../../../../hooks/useTokens';
 import { CollectibleGalleryProps } from '../types';
 
 import CollectibleCard from './CollectibleCard';
@@ -28,18 +30,19 @@ import CollectionCard from './CollectionCard';
 const stringAppend = (...args: Array<string | null | undefined>) =>
   args.filter(Boolean).join('');
 type CollectiblesHeaderProps = {
-  priceValue: number;
   expand: boolean;
   onPress: () => void;
 };
 
-const CollectiblesHeader = ({
-  priceValue,
-  expand,
-  onPress,
-}: CollectiblesHeaderProps) => {
+const CollectiblesHeader = ({ expand, onPress }: CollectiblesHeaderProps) => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
+  const { account, network } = useActiveWalletAccount();
+
+  const totalPrice = useNFTPrice({
+    accountId: account?.address,
+    networkId: network?.id,
+  });
 
   const subDesc = intl.formatMessage({ id: 'form__last_price' });
   return (
@@ -57,7 +60,7 @@ const CollectiblesHeader = ({
       >
         <Box flexDirection="column">
           <Typography.DisplayLarge>
-            <FormatCurrencyNumber decimals={2} value={priceValue} />
+            <FormatCurrencyNumber decimals={2} value={totalPrice} />
           </Typography.DisplayLarge>
           <Typography.Body2 color="text-subdued">
             {intl.formatMessage(
@@ -200,12 +203,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     ? screenWidth
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
-  let totalPrice = 0;
-  collectibles.forEach((collection) => {
-    totalPrice += collection.totalPrice;
-  });
 
-  totalPrice *= price ?? 0;
   const EmptyView = useMemo(() => {
     if (!isCollectibleSupported) {
       return (
@@ -248,7 +246,6 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       numColumns,
       ListHeaderComponent: (
         <CollectiblesHeader
-          priceValue={totalPrice}
           expand={expand}
           onPress={() => {
             setExpand((prev) => !prev);
@@ -256,7 +253,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         />
       ),
     }),
-    [EmptyView, collectibles.length, expand, numColumns, totalPrice],
+    [EmptyView, collectibles.length, expand, numColumns],
   );
 
   return expand ? (

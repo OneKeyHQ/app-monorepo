@@ -1,10 +1,10 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -15,26 +15,67 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import CollectibleGallery from './CollectibleGallery';
-import { useCollectiblesData, useNFTPrice } from './hooks';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
-export type CollectiblesProps = {
-  address?: string | null;
-  network?: Network | null;
-};
-
-function CollectibleListView({ address, network }: CollectiblesProps) {
+function CollectibleListView() {
+  const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isCollectibleSupported = isCollectibleSupportedChainId(network?.id);
-  const price = useNFTPrice({ network });
+  const { serviceNFT } = backgroundApiProxy;
 
-  const { collectibles, isLoading, fetchData } = useCollectiblesData({
-    network,
-    address,
-    isCollectibleSupported,
-  });
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [price, updatePrice] = useState<number>(0);
+  const [collectibles, updateListData] = useState<Collection[]>([]);
+
+  const [refresh, setRefresh] = useState(0);
+
+  const fetchData = () => {
+    setRefresh((prev) => prev + 1);
+  };
+
+  useEffect(() => {
+    let isCancel = false;
+    (async () => {
+      if (account && network?.id) {
+        setIsLoading(true);
+        const localData = await serviceNFT.getLocalNFTs({
+          networkId: network.id,
+          accountId: account.address,
+        });
+        updateListData(localData);
+        const result = await serviceNFT.fetchNFT({
+          accountId: account.address,
+          networkId: network?.id,
+        });
+        if (!isCancel) {
+          updateListData(result);
+          setIsLoading(false);
+        }
+      }
+    })();
+    return () => {
+      isCancel = true;
+    };
+  }, [account, network, serviceNFT, refresh]);
+
+  useEffect(() => {
+    let isCancel = false;
+    (async () => {
+      if (network?.id) {
+        const data = await serviceNFT.fetchSymbolPrice(network.id);
+        if (!isCancel) {
+          updatePrice(data);
+        }
+      }
+    })();
+    return () => {
+      isCancel = true;
+    };
+  }, [network, serviceNFT]);
 
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
@@ -56,7 +97,7 @@ function CollectibleListView({ address, network }: CollectiblesProps) {
   // Open Collection modal
   const handleSelectCollectible = useCallback(
     (collectible: Collection) => {
-      if (!address || !network) return;
+      if (!account || !network) return;
 
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
@@ -69,7 +110,7 @@ function CollectibleListView({ address, network }: CollectiblesProps) {
         },
       });
     },
-    [address, navigation, network],
+    [account, navigation, network],
   );
 
   return (
