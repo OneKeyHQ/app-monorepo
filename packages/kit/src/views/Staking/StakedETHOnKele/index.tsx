@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { format as dateFormat } from 'date-fns';
+import { format as dateFormat, parseISO } from 'date-fns';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
@@ -226,7 +226,8 @@ export default function StakedETHOnKele() {
         </Box>
         <Box justifyContent="space-between" flexDirection="row">
           <Typography.Body2 color="text-subdued">
-            {dateFormat(new Date(item.date), 'LLL dd yyyy')}
+            {/* new Date('2022-08-08 00:00:00') return NaN, make app crashed */}
+            {dateFormat(parseISO(item.date), 'LLL dd yyyy')}
           </Typography.Body2>
           <FormatCurrency
             numbers={[prices.main ?? 0, item.reward ?? 0]}
