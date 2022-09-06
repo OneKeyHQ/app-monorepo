@@ -192,7 +192,7 @@ export default class ServiceNameResolver extends ServiceBase {
 
       return validNames;
     } catch (e) {
-      return 'form__address_unkonwn_error';
+      return 'msg__network_request_failed';
     }
   }
 
@@ -207,7 +207,7 @@ export default class ServiceNameResolver extends ServiceBase {
         return null;
       }
 
-      return 'form__address_unkonwn_error';
+      return 'msg__network_request_failed';
     }
   }
 }
