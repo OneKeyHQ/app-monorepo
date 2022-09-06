@@ -12,7 +12,7 @@ export type BadgeProps = {
   title: string;
   size: SizeType;
   color?: ComponentProps<typeof Typography.CaptionStrong>['color'];
-};
+} & ComponentProps<typeof NBBadge>;
 
 type BadgeTypeProps = {
   fontSize: string;
@@ -61,6 +61,7 @@ const Badge: FC<BadgeProps> = ({
   type = 'default',
   size,
   color = 'text-default',
+  ...rest
 }) => {
   const bgColor: string = colorWithType(type);
   const badgeTypeProps = propsWithSize(size);
@@ -74,6 +75,7 @@ const Badge: FC<BadgeProps> = ({
       bgColor={bgColor}
       minW={5}
       borderWidth={0}
+      {...rest}
     >
       <Typography.CaptionStrong
         marginX={badgeTypeProps.marginX}
