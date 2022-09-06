@@ -104,7 +104,7 @@ const sync = async (
       pushEnable: false,
     });
   }
-  if (!config.instanceId || !config.registrationId) {
+  if (!config.registrationId) {
     return {};
   }
   return fetchData('/notification/config', config, {}, 'put');

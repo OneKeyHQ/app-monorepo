@@ -1316,6 +1316,7 @@ class Engine {
     ];
   }
 
+  @backgroundMethod()
   async getNativeTokenInfo(networkId: string) {
     const tokens = await this.getTokens(networkId);
     const token = tokens.find((t) => t.isNative);

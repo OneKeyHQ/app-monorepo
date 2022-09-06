@@ -4,7 +4,6 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useNetwork } from './useNetwork';
 import { useNetworkTokens } from './useTokens';
 
 function useTokenInfo({
@@ -14,22 +13,10 @@ function useTokenInfo({
   networkId: string;
   tokenIdOnNetwork?: string;
 }) {
-  const { network } = useNetwork({ networkId });
-  const nativeTokenInfo = network
-    ? {
-        id: network.id,
-        name: network.name,
-        networkId,
-        tokenIdOnNetwork: '',
-        symbol: network.symbol,
-        decimals: network.decimals,
-        logoURI: network.logoURI,
-      }
-    : undefined;
   const networkTokens = useNetworkTokens(networkId);
   const tokenInfoInRedux = tokenIdOnNetwork
     ? networkTokens.find((item) => item.tokenIdOnNetwork === tokenIdOnNetwork)
-    : nativeTokenInfo;
+    : undefined;
 
   const [tokenInfo, setTokenInfo] = useState<Token | undefined>(
     tokenInfoInRedux,
@@ -39,14 +26,17 @@ function useTokenInfo({
       if (tokenInfoInRedux) {
         return;
       }
-      const token = await backgroundApiProxy.engine.ensureTokenInDB(
-        networkId,
-        tokenIdOnNetwork ?? '',
-      );
+      const token = tokenIdOnNetwork
+        ? await backgroundApiProxy.engine.ensureTokenInDB(
+            networkId,
+            tokenIdOnNetwork,
+          )
+        : await backgroundApiProxy.engine.getNativeTokenInfo(networkId);
+
       setTokenInfo(token);
     })();
   }, [networkId, tokenIdOnNetwork, tokenInfoInRedux]);
-  return tokenInfoInRedux ?? tokenInfo;
+  return tokenInfo;
 }
 
 export { useTokenInfo };

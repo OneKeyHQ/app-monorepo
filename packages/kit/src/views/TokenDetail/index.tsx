@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -8,8 +14,7 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks';
+import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import {
   HomeRoutes,
@@ -40,9 +45,15 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
+  const { charts, prices } = useManageTokens();
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
+
+  const priceReady = useMemo(() => {
+    const id = tokenId || 'main';
+    return charts?.[id] && prices?.[id];
+  }, [charts, prices, tokenId]);
 
   useLayoutEffect(() => {
     if (firstUpdate.current) {
@@ -56,44 +67,42 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   }, [activeAccount?.id, activeNetwork?.id, navigation]);
 
   useEffect(() => {
-    const title = token?.name || '';
-    if (title) {
-      navigation.setOptions({ title });
-    } else {
-      backgroundApiProxy.engine
-        .getAccount(accountId, networkId)
-        .then((account) => {
-          navigation.setOptions({ title: account.name });
-        })
-        .catch(() => {
-          console.error('find account error');
-        });
-    }
-  }, [navigation, token, accountId, networkId]);
+    navigation.setOptions({ title: token?.name || activeAccount?.name || '' });
+  }, [navigation, token, accountId, networkId, activeAccount?.name]);
 
-  const setHeaders = useCallback(() => {
+  const onHeaderRightPress = useCallback(
+    (v) => {
+      if (v === 'priceAlert') {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.ManageToken,
+          params: {
+            screen: ManageTokenRoutes.PriceAlertList,
+            params: {
+              token: token as Token,
+            },
+          },
+        });
+      }
+    },
+    [token, navigation],
+  );
+
+  useLayoutEffect(() => {
     if (!platformEnv.isNative) {
       return;
     }
-    const currentToken = token;
+    if (!priceReady) {
+      return;
+    }
+    if (!token) {
+      return;
+    }
     navigation.setOptions({
       headerRight: () => (
         <Select
           dropdownPosition="right"
           title={intl.formatMessage({ id: 'action__more' })}
-          onChange={(v) => {
-            if (v === 'priceAlert') {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageToken,
-                params: {
-                  screen: ManageTokenRoutes.PriceAlertList,
-                  params: {
-                    token: currentToken as Token,
-                  },
-                },
-              });
-            }
-          }}
+          onChange={onHeaderRightPress}
           footer={null}
           activatable={false}
           triggerProps={{
@@ -115,7 +124,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         />
       ),
     });
-  }, [navigation, intl, token]);
+  }, [navigation, intl, onHeaderRightPress, priceReady, token]);
 
   const headerView = (
     <>
@@ -130,21 +139,24 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         }}
         networkId={networkId}
         contract={tokenId}
-        onChartDataLoaded={setHeaders}
       />
     </>
   );
 
   return (
-    <Box bg="background-default" flex={1}>
-      <Box flex={1} marginX="auto" w="100%" maxW={MAX_PAGE_CONTAINER_WIDTH}>
-        <TxHistoryListView
-          accountId={accountId}
-          networkId={networkId}
-          tokenId={tokenId}
-          headerView={headerView}
-        />
-      </Box>
+    <Box
+      bg="background-default"
+      flex={1}
+      marginX="auto"
+      w="100%"
+      maxW={MAX_PAGE_CONTAINER_WIDTH}
+    >
+      <TxHistoryListView
+        accountId={accountId}
+        networkId={networkId}
+        tokenId={tokenId}
+        headerView={headerView}
+      />
     </Box>
   );
 };

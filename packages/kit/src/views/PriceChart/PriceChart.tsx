@@ -13,21 +13,18 @@ import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
 
 type PriceChartProps = Omit<PriceApiProps, 'days'> & {
   style?: StyleProp<ViewStyle>;
-  onChartDataLoaded: () => void;
 };
 
 const PriceChart: React.FC<PriceChartProps> = ({
   contract,
   networkId,
   style,
-  onChartDataLoaded,
 }) => {
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const { charts: reduxCachedCharts, prices } = useManageTokens();
   const tokenId = contract || 'main';
   const isNoPriceData = prices[tokenId] === null;
-  const isChartDataReady = useRef(false);
   const dayData = reduxCachedCharts[tokenId];
   const dataMap = useRef<MarketApiData[][]>([]);
   let points: string | undefined;
@@ -67,27 +64,6 @@ const PriceChart: React.FC<PriceChartProps> = ({
   useEffect(() => {
     refreshDataOnTimeChange(TIMEOPTIONS[0]);
   }, [refreshDataOnTimeChange]);
-
-  useEffect(() => {
-    if (isChartDataReady.current) {
-      return;
-    }
-    isChartDataReady.current = true;
-    if (
-      !isFetching &&
-      !isNoPriceData &&
-      dataMap.current?.[selectedTimeIndex]?.length
-    ) {
-      onChartDataLoaded();
-    }
-  }, [
-    isFetching,
-    isNoPriceData,
-    dataMap,
-    selectedTimeIndex,
-    onChartDataLoaded,
-    isChartDataReady,
-  ]);
 
   return (
     <Box style={style}>

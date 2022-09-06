@@ -104,7 +104,7 @@ const NotificationProvider: React.FC<{
               const filter = params.tokenId
                 ? undefined
                 : (i: EVMDecodedItem) =>
-                    i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+                  i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
               navigationRef.current?.navigate(RootRoutes.Root, {
                 screen,
                 params: {
@@ -262,6 +262,9 @@ const NotificationProvider: React.FC<{
     if (!platformEnv.isNative) {
       return;
     }
+    JPush.removeListener(handleNotificaitonCallback);
+    JPush.removeListener(handleConnectStateChangeCallback);
+    JPush.removeListener(handleLocalNotificationCallback);
     JPush.addConnectEventListener(handleConnectStateChangeCallback);
     JPush.addNotificationListener(handleNotificaitonCallback);
     JPush.addLocalNotificationListener(handleLocalNotificationCallback);

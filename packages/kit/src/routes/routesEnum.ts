@@ -35,7 +35,6 @@ export enum ModalRoutes {
   UpdateFeature = 'UpdateFeature',
   AddressBook = 'AddressBook',
   ImportBackupPassword = 'ImportBackupPassword',
-  PushNotification = 'PushNotification',
   Staking = 'Staking',
 }
 
