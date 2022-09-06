@@ -301,6 +301,7 @@ function AddExistingWalletView(
     showSubmitButton?: boolean;
     showPasteButton?: boolean;
     onNameServiceChange?: ReturnType<typeof useNameServiceStatus>['onChange'];
+    nameServiceAddress?: ReturnType<typeof useNameServiceStatus>['address'];
   },
 ) {
   const {
@@ -318,6 +319,7 @@ function AddExistingWalletView(
     showSubmitButton,
     showPasteButton,
     onNameServiceChange,
+    nameServiceAddress,
   } = props;
 
   const {
@@ -341,7 +343,8 @@ function AddExistingWalletView(
           control={control}
           name="text"
           rules={{
-            validate: async (text) => {
+            validate: async (t) => {
+              const text = nameServiceAddress || address || t;
               if (!text) {
                 return true;
               }
@@ -599,6 +602,7 @@ const AddExistingWallet = () => {
         {...viewProps}
         showPasteButton
         showSubmitButton={false}
+        nameServiceAddress={address}
         onNameServiceChange={onNameServiceChange}
       >
         {liteRecoveryButton}
