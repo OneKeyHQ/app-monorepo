@@ -3,16 +3,14 @@ import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/res
 import BigNumber from 'bignumber.js';
 import lru from 'tiny-lru';
 
-import { appSelector } from '@onekeyhq/kit/src/store';
 import { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 
 import { getFiatEndpoint } from './endpoint';
 import { getPresetNetworks } from './presets';
-import { Network } from './types/network';
 
 const CGK_BATCH_SIZE = 100;
 export type ChartQueryParams = {
-  platform: string;
+  networkId: string;
   addresses: string[];
   days?: string;
   vs_currency?: string;
@@ -74,7 +72,7 @@ export class PriceController {
   }
 
   async getCgkTokensChart({
-    platform,
+    networkId,
     addresses,
     days = '1',
     vs_currency = 'usd',
@@ -95,7 +93,7 @@ export class PriceController {
             points?: string;
             contract?: string;
           } = {
-            platform,
+            platform: networkId,
             days,
             vs_currency,
             contract: address,
@@ -103,11 +101,7 @@ export class PriceController {
           if (!address || address === 'main') {
             delete params.contract;
           }
-          if (
-            points &&
-            // TODO: remove this condition after new fiat server deployment
-            getFiatEndpoint().includes('test')
-          ) {
+          if (points) {
             params.points = points;
           }
           const marketData = await this.fetchApi<{
@@ -142,14 +136,11 @@ export class PriceController {
     if (typeof cgkChannel === 'undefined') {
       return [prices, charts];
     }
-    const networks: Network[] = appSelector((s) => s.runtime.networks);
-    const activeNetwork = networks.find((network) => network.id === networkId);
-    const platform = activeNetwork?.shortCode || 'eth';
 
     if (withMain && typeof cgkChannel.native !== 'undefined') {
       try {
         const response = await this.getCgkTokensChart({
-          platform,
+          networkId,
           addresses: ['main'],
           points: '2',
         });
@@ -164,7 +155,7 @@ export class PriceController {
       const batchSize = CGK_BATCH_SIZE;
       for (let i = 0; i < tokenIdOnNetwork.length; i += batchSize) {
         const batchCharts = await this.getCgkTokensChart({
-          platform,
+          networkId,
           addresses: tokenIdOnNetwork.slice(i, i + batchSize),
           points: '2',
         });
