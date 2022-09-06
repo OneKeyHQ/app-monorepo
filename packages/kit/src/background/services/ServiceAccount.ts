@@ -676,6 +676,9 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    const walletId = wallet?.id;
+    const accountId = account?.id;
+
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
     if (!status.boardingCompleted) {
       dispatch(setBoardingCompleted());
@@ -686,8 +689,8 @@ class ServiceAccount extends ServiceBase {
     await this.initWallets();
 
     serviceAccount.changeActiveAccount({
-      accountId: account?.id ?? null,
-      walletId: wallet?.id ?? null,
+      accountId: accountId ?? null,
+      walletId: walletId ?? null,
     });
     return wallet;
   }
