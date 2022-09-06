@@ -74,8 +74,9 @@ export const useNameServiceStatus = () => {
       address: state?.activeAddress,
       disableSubmitBtn: buildDisableStatus,
       name: state?.name,
+      isValid: state?.isValidName,
     }),
-    [state?.activeAddress, buildDisableStatus, state?.name],
+    [state?.activeAddress, buildDisableStatus, state?.name, state?.isValidName],
   );
 };
 
