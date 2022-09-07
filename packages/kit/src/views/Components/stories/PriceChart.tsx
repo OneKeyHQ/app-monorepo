@@ -8,7 +8,7 @@ const PriceChartGallery = () => {
   const bg = useThemeValue('background-default');
   return (
     <Box w="full" h="full" bg={bg} p="10">
-      <PriceChart />
+      <PriceChart networkId="evm--1" />
     </Box>
   );
 };

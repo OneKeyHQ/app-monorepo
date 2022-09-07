@@ -1,9 +1,8 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
 import { Box } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -30,14 +29,9 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
-  const [network, setNetwork] = useState<Network>();
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
-
-  useEffect(() => {
-    backgroundApiProxy.engine.getNetwork(networkId).then(setNetwork);
-  }, [networkId]);
 
   const firstUpdate = useRef(true);
   useLayoutEffect(() => {
@@ -78,7 +72,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         style={{
           marginBottom: 20,
         }}
-        platform={network?.shortCode}
+        networkId={networkId}
         contract={tokenId}
       />
     </>

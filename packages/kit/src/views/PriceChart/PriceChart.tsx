@@ -17,7 +17,7 @@ type PriceChartProps = Omit<PriceApiProps, 'days'> & {
 
 const PriceChart: React.FC<PriceChartProps> = ({
   contract,
-  platform,
+  networkId,
   style,
 }) => {
   const [isFetching, setIsFetching] = useState(true);
@@ -41,13 +41,10 @@ const PriceChart: React.FC<PriceChartProps> = ({
       let latestPriceData: MarketApiData;
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
-        if (!platform) {
-          return;
-        }
         setIsFetching(true);
         let newData = await fetchChartData({
           contract,
-          platform,
+          networkId,
           days: TIMEOPTIONS_VALUE[newTimeIndex],
           points,
         });
@@ -61,7 +58,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
       setSelectedTimeIndex(newTimeIndex);
       setIsFetching(false);
     },
-    [platform, contract, points, dayData],
+    [networkId, contract, points, dayData],
   );
 
   useEffect(() => {

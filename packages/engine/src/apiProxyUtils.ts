@@ -3,16 +3,16 @@ import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from './endpoint';
 
+// https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/171442184
 export const balanceSupprtedNetwork: Record<string, string> = {
   // alchemy
-  // arbitrum: 'arb',
-  // eth: 'eth',
-  // optimism: 'opt',
-  // polygon: 'polygon',
   'evm--42161': 'arbitrum',
   'evm--1': 'eth',
   'evm--10': 'optimism',
   'evm--137': 'polygon',
+  'evm--421611': 'tarbitrum',
+  'evm--69': 'toptimism',
+  'evm--80001': 'tpolygon',
 
   // moralis
   // avalanche: 'avalanche',
@@ -22,10 +22,12 @@ export const balanceSupprtedNetwork: Record<string, string> = {
   // fantom: 'fantom',
   // bsc: 'bsc',
   // tbsc: 'bsc testnet',
+
   'evm--43114': 'avalanche',
+  'evm--56': 'bsc',
   'evm--25': 'cronos',
   'evm--250': 'fantom',
-  'evm--56': 'bsc',
+  'evm--3': 'teth',
   'evm--97': 'tbsc',
 } as const;
 
@@ -53,7 +55,7 @@ const getBalances = async (
   }
   const req = new RestfulRequest(getFiatEndpoint());
   const query: TokenBalancesQuery = {
-    network: balanceSupprtedNetwork[networkId],
+    network: networkId,
     address,
   };
   if (tokenAddresses?.length) {
