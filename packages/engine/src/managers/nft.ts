@@ -2,6 +2,7 @@ import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
 import {
+  AvailableNetworks,
   NFTAsset,
   NFTChainMap,
   NFTScanNFTsResp,
@@ -9,7 +10,6 @@ import {
 } from '@onekeyhq/engine/src/types/nft';
 
 import { getFiatEndpoint } from '../endpoint';
-import { Network } from '../types/network';
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
   if (!networkId) return false;
@@ -79,23 +79,18 @@ export function getContentWithAsset(asset: NFTAsset) {
   }
 }
 
-export function getNFTScanChainWithNetWork(network: Network): string {
-  return NFTChainMap[network.id] ?? '';
+export function getNFTScanChainWithNetWork(network: AvailableNetworks): string {
+  return NFTChainMap[network];
 }
 
 export const getUserNFTAssets = async (params: {
-  address?: string | null;
-  network?: Network | null;
+  accountId: string;
+  networkId: AvailableNetworks;
 }): Promise<NFTScanNFTsResp> => {
-  const { address, network } = params;
-  const hasNoParams = !address || !network?.id;
-  if (hasNoParams) {
-    return { success: true, data: [] };
-  }
-  const chain = getNFTScanChainWithNetWork(network);
+  const { accountId, networkId } = params;
+  const chain = getNFTScanChainWithNetWork(networkId);
   const endpoint = getFiatEndpoint();
-
-  const apiUrl = `${endpoint}/NFT/v2/list?address=${address}&chain=${chain}`;
+  const apiUrl = `${endpoint}/NFT/v2/list?address=${accountId}&chain=${chain}`;
   const data = await axios
     .get<NFTScanNFTsResp>(apiUrl)
     .then((resp) => resp.data)
@@ -118,9 +113,9 @@ export const syncImage = async (params: {
 };
 
 type SymbolPricePayload = Record<string, Record<string, number>>;
-export const getNFTSymbolPrice = async (network: Network) => {
+export const getNFTSymbolPrice = async (networkId: AvailableNetworks) => {
   const endpoint = getFiatEndpoint();
-  const symbolId = NFTSymbolMap[network.id];
+  const symbolId = NFTSymbolMap[networkId];
   const vsCurrencies = 'usd';
   const apiUrl = `${endpoint}/simple/price?vs_currencies=${vsCurrencies}&ids=${symbolId}`;
   const data = await axios

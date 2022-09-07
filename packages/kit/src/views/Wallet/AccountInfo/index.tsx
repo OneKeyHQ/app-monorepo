@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
+import { useNFTPrice } from '../../../hooks/useTokens';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
@@ -51,8 +52,11 @@ const AccountAmountInfo: FC = () => {
 
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
-  const { account, wallet } = useActiveWalletAccount();
-
+  const { account, wallet, network } = useActiveWalletAccount();
+  const nftPrice = useNFTPrice({
+    accountId: account?.address,
+    networkId: network?.id,
+  });
   const { accountTokens, prices, balances, charts } = useManageTokens({
     pollingInterval: 15000,
   });
@@ -74,7 +78,10 @@ const AccountAmountInfo: FC = () => {
       ) : (
         <>
           <Typography.Display2XLarge>
-            <FormatCurrencyNumber decimals={2} value={displayValue} />
+            <FormatCurrencyNumber
+              decimals={2}
+              value={displayValue + nftPrice}
+            />
           </Typography.Display2XLarge>
           {/* TODO settings: include NFTs in Totals */}
           {/* <Button
@@ -87,7 +94,7 @@ const AccountAmountInfo: FC = () => {
         </>
       ),
     ];
-  }, [accountTokens, balances, hideSmallBalance, prices]);
+  }, [accountTokens, balances, hideSmallBalance, nftPrice, prices]);
 
   const changedValueComp = useMemo(() => {
     const basePrices: Record<string, number> = {};
