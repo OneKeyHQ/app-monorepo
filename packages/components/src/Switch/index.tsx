@@ -87,7 +87,7 @@ const Switch: FC<SwitchProps> = ({
         {...props}
         isChecked={isChecked}
         isDisabled={isDisabled}
-        onToggle={onToggle}
+        onToggle={onToggle ? () => setTimeout(onToggle) : undefined}
       />
     </Box>
   );

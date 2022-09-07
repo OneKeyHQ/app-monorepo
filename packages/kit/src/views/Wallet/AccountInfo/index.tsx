@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Icon,
   IconButton,
   Pressable,
@@ -39,6 +40,7 @@ import {
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showAccountValueSettings } from '../../Overlay/BottomSheetSettings';
 import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
@@ -50,7 +52,9 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 216;
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
 
-  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const { hideSmallBalance, includeNFTsInTotal = true } = useAppSelector(
+    (s) => s.settings,
+  );
 
   const { account, wallet, network } = useActiveWalletAccount();
   const nftPrice = useNFTPrice({
@@ -80,21 +84,29 @@ const AccountAmountInfo: FC = () => {
           <Typography.Display2XLarge>
             <FormatCurrencyNumber
               decimals={2}
-              value={displayValue + nftPrice}
+              value={
+                includeNFTsInTotal ? displayValue + nftPrice : displayValue
+              }
             />
           </Typography.Display2XLarge>
-          {/* TODO settings: include NFTs in Totals */}
-          {/* <Button
+          <Button
             type="plain"
             alignItems="center"
             justifyContent="center"
-            onPress={showHomeBalanceSettings}
+            onPress={showAccountValueSettings}
             leftIconName="ChevronDownSolid"
-          /> */}
+          />
         </>
       ),
     ];
-  }, [accountTokens, balances, hideSmallBalance, nftPrice, prices]);
+  }, [
+    accountTokens,
+    balances,
+    hideSmallBalance,
+    includeNFTsInTotal,
+    nftPrice,
+    prices,
+  ]);
 
   const changedValueComp = useMemo(() => {
     const basePrices: Record<string, number> = {};
