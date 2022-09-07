@@ -3,16 +3,12 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
-import { PayloadAction } from '@reduxjs/toolkit';
-import { isFunction } from 'lodash';
-import { batch } from 'react-redux';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   DISPATCH_ACTION_BROADCAST_METHOD_NAME,
   IDispatchActionBroadcastParams,
   buildReduxBatchAction,
-  ensureSerializable,
 } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
 
