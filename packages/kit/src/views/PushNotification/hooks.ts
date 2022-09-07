@@ -13,9 +13,8 @@ export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
 };
 
-const { engine, serviceNotification } = backgroundApiProxy;
-
 export const useWalletsAndAccounts = () => {
+  const { engine } = backgroundApiProxy;
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const getWalletsAndAccounts = useCallback(async () => {
     const walletList = await engine.getWallets();
@@ -41,6 +40,7 @@ export const useWalletsAndAccounts = () => {
 };
 
 export const useEnabledAccountDynamicAccounts = () => {
+  const { serviceNotification } = backgroundApiProxy;
   const { wallets, getWalletsAndAccounts } = useWalletsAndAccounts();
   const [enabledAccounts, setEnabledAccounts] = useState<AccountDynamicItem[]>(
     [],
@@ -68,6 +68,7 @@ export const useEnabledAccountDynamicAccounts = () => {
 };
 
 export const usePriceAlertlist = () => {
+  const { serviceNotification } = backgroundApiProxy;
   const [alerts, setAlerts] = useState<PriceAlertItem[]>();
 
   const fetchPriceAlerts = useCallback(async () => {

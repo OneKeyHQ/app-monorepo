@@ -6,7 +6,6 @@ import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
-import ServiceNotification from './services/serviceNotification';
 import ServicePassword from './services/ServicePassword';
 
 import type { IBackgroundApi } from './IBackgroundApi';
@@ -27,6 +26,7 @@ import type ServicePromise from './services/ServicePromise';
 import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
+import type ServiceNotification from './services/serviceNotification';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
