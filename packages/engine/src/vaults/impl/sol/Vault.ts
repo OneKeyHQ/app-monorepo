@@ -547,7 +547,7 @@ export default class Vault extends VaultBase {
     const onChainTxs: Array<{
       blockTime: number;
       transaction: [IEncodedTx];
-      meta: { fee: number };
+      meta: { fee: number; err: any | null };
     }> = await client.rpc.batchCall(
       signaturesResult.map(({ signature }) => [
         'getTransaction',
@@ -569,7 +569,7 @@ export default class Vault extends VaultBase {
         const {
           blockTime,
           transaction: [encodedTx],
-          meta: { fee: feeValue },
+          meta: { fee: feeValue, err },
         } = tx;
         const updatedAt = blockTime * 1000;
         const decodedTx: IDecodedTx = {
@@ -578,7 +578,7 @@ export default class Vault extends VaultBase {
           totalFeeInNative: new BigNumber(feeValue)
             .shiftedBy(-decimals)
             .toFixed(),
-          status: IDecodedTxStatus.Confirmed,
+          status: err ? IDecodedTxStatus.Failed : IDecodedTxStatus.Confirmed,
           updatedAt,
           createdAt: historyTxToMerge?.decodedTx.createdAt ?? updatedAt,
           isFinal: true,
