@@ -406,7 +406,7 @@ class ServiceCloudBackup extends ServiceBase {
       servicePassword,
     } = this.backgroundApi;
     const { isPasswordSet } = appSelector((s) => s.data);
-    const activeWalletId = appSelector((s) => s.general.activeWalletId);
+    const activeAccountId = appSelector((s) => s.general.activeAccountId);
     const { private: privateBackupData } = JSON.parse(
       await this.getDataFromCloud(backupUUID),
     );
@@ -455,7 +455,7 @@ class ServiceCloudBackup extends ServiceBase {
       debugLogger.cloudBackup.error((e as Error).message);
       return RestoreResult.UNKNOWN_ERROR;
     }
-    if (!activeWalletId) {
+    if (!activeAccountId) {
       await serviceAccount.autoChangeWallet();
     } else {
       await serviceAccount.initWallets();
