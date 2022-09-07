@@ -148,6 +148,7 @@ const Connection = () => {
             ? intl.formatMessage({ id: 'content__connecting' })
             : ''
         }
+        headerDescription={isWalletConnectPreloading ? 'WalletConnect' : ''}
         hidePrimaryAction={isWalletConnectPreloading}
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__cancel"
