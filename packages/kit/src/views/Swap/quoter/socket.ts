@@ -1,5 +1,4 @@
 import axios, { Axios } from 'axios';
-import BigNumber from 'bignumber.js';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -21,6 +20,7 @@ import {
 } from '../typings';
 import {
   calculateRange,
+  calculateRate,
   getChainIdFromNetwork,
   getChainIdFromNetworkId,
   getEvmTokenAddress,
@@ -119,19 +119,6 @@ export interface SocketBridgeStatusResponse {
 }
 
 const baseURL = `${getFiatEndpoint()}/socketBridge`;
-
-function calculateRate(
-  inDecimals: number,
-  outDecimals: number,
-  inNum: number | string,
-  outNum: number | string,
-): string {
-  const result = new BigNumber(10 ** inDecimals)
-    .multipliedBy(outNum)
-    .div(10 ** outDecimals)
-    .div(inNum);
-  return result.toFixed();
-}
 
 interface SupportedChain {
   name: string;
@@ -315,7 +302,6 @@ export class SocketQuoter implements Quoter {
           txData,
           arrivalTime: 30,
           providers,
-          txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
         };
 
         return { data: result };
@@ -402,7 +388,7 @@ export class SocketQuoter implements Quoter {
         txData,
         arrivalTime: route.serviceTime,
         providers,
-        txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
+        additionalParams: { socketUsedBridgeNames: route.usedBridgeNames },
       };
       return { data: result };
     }
@@ -433,14 +419,25 @@ export class SocketQuoter implements Quoter {
   async buildTransaction(
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
-    const { txData, txAttachment } = params;
+    const { txData, additionalParams } = params;
     if (txData) {
-      return { data: txData, attachment: txAttachment };
+      return {
+        data: txData,
+        attachment: {
+          socketUsedBridgeNames: additionalParams?.socketUsedBridgeNames,
+        },
+      };
     }
     const data = await this.fetchQuote(params);
     if (data?.data) {
       if (data?.data?.txData) {
-        return { data: data?.data.txData, attachment: data?.data.txAttachment };
+        return {
+          data: data?.data.txData,
+          attachment: {
+            socketUsedBridgeNames:
+              data.data.additionalParams?.socketUsedBridgeNames,
+          },
+        };
       }
     }
 

@@ -593,4 +593,12 @@ export default class Vault extends VaultBase {
 
     return (await Promise.all(promises)).filter(Boolean);
   }
+
+  async refreshRecentBlockBash(transaction: string): Promise<string> {
+    const nativeTx = Transaction.from(Buffer.from(transaction, 'base64'));
+    const client = await this.getClient();
+    [, nativeTx.recentBlockhash] = await client.getFees();
+
+    return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+  }
 }

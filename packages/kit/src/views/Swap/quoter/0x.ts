@@ -217,7 +217,7 @@ export class SimpleQuoter implements Quoter {
     tx: TransactionDetails,
   ): Promise<TransactionProgress> {
     const { networkId, accountId, nonce } = tx;
-    if (nonce) {
+    if (nonce !== undefined) {
       const status =
         await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
           networkId,
