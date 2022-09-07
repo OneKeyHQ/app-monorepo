@@ -27,7 +27,7 @@ export const useWalletsAndAccounts = () => {
     const data = walletsWithAccounts.filter((w) => !!w.accounts?.length);
     setWallets(data);
     return data;
-  }, []);
+  }, [engine]);
 
   useEffect(() => {
     getWalletsAndAccounts();
@@ -49,7 +49,7 @@ export const useEnabledAccountDynamicAccounts = () => {
   const fetchEnabledAccounts = useCallback(async () => {
     const accounts = await serviceNotification.queryAccountDynamic();
     setEnabledAccounts(accounts);
-  }, []);
+  }, [serviceNotification]);
 
   const refresh = useCallback(() => {
     fetchEnabledAccounts();
@@ -74,7 +74,7 @@ export const usePriceAlertlist = () => {
   const fetchPriceAlerts = useCallback(async () => {
     const res = await serviceNotification.queryPriceAlertList();
     setAlerts(res);
-  }, []);
+  }, [serviceNotification]);
 
   useEffect(() => {
     fetchPriceAlerts();
