@@ -756,6 +756,7 @@ class ServiceAccount extends ServiceBase {
 
   addressLabelCache: Record<string, string> = {};
 
+  // getAccountNameByAddress
   @backgroundMethod()
   async getAddressLabel({
     address,
