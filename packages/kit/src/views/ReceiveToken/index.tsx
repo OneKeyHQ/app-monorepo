@@ -27,7 +27,7 @@ import {
   IActiveWalletAccount,
   useActiveWalletAccount,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
@@ -41,7 +41,6 @@ const ReceiveToken = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<NavigationProps>();
-  const { captureHardwareError } = useHardwareError();
 
   const { address, name } = route.params ?? {};
   const routePrams = route.params;
@@ -89,11 +88,11 @@ const ReceiveToken = () => {
       setOnHardwareConfirmed(isSameAddress);
       console.log(res);
     } catch (e: any) {
-      captureHardwareError(e);
+      deviceUtils.showErrorToast(e);
     } finally {
       setIsLoadingForHardware(false);
     }
-  }, [getAddress, intl, address, account, captureHardwareError]);
+  }, [getAddress, intl, address, account]);
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);

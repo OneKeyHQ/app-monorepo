@@ -7,12 +7,12 @@ import showHardwarePopup, {
 } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 export type HardwareUiEventPayload = {
-  type: string;
-  deviceType: IOneKeyDeviceType;
+  type?: string;
+  deviceType?: IOneKeyDeviceType;
   deviceId: string;
   deviceConnectId: string;
-  deviceBootLoaderMode: boolean;
-  passphraseState: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
+  deviceBootLoaderMode?: boolean;
+  passphraseState?: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
 };
 
 export type HardwarePopup = {

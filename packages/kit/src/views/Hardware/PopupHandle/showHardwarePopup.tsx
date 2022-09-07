@@ -7,12 +7,15 @@ import RootSiblingsManager from 'react-native-root-siblings';
 
 import DialogManager from '@onekeyhq/components/src/DialogManager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
+import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
+import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { HardwareUiEventPayload } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import PermissionDialog from '../../../components/PermissionDialog/PermissionDialog';
-import { getAppNavigation } from '../../../hooks/useAppNavigation';
-
+import HandlerClosePassphraseView from './HandlerClosePassphrase';
+import HandlerFirmwareUpgradeView from './HandlerFirmwareUpgrade';
+import HandlerOpenPassphraseView from './HandlerOpenPassphrase';
 import RequestConfirmView from './RequestConfirm';
 import RequestPassphraseOnDeviceView from './RequestPassphraseOnDevice';
 import RequestPinView from './RequestPin';
@@ -20,12 +23,17 @@ import RequestPinView from './RequestPin';
 export type HardwarePopup = {
   uiRequest?: string;
   payload?: HardwareUiEventPayload;
+  content?: string;
 };
 export type PopupType = 'normal' | 'input';
 
 export const CUSTOM_UI_RESPONSE = {
   // monorepo custom
   CUSTOM_CANCEL: 'ui-custom_cancel',
+  CUSTOM_NEED_ONEKEY_BRIDGE: 'ui-custom_need_onekey_bridge',
+  CUSTOM_NEED_UPGRADE_FIRMWARE: 'ui-custom_need_upgrade_firmware',
+  CUSTOM_NEED_OPEN_PASSPHRASE: 'ui-custom_need_open_passphrase',
+  CUSTOM_NEED_CLOSE_PASSPHRASE: 'ui-custom_need_close_passphrase',
 };
 
 export const UI_REQUEST = {
@@ -42,16 +50,6 @@ export const UI_REQUEST = {
   FIRMWARE_PROGRESS: 'ui-firmware-progress',
 } as const;
 
-export type HardwarePopupContentProps = {
-  uiRequest?: string;
-  payload?: HardwareUiEventPayload;
-};
-
-export type HardwarePopupProps = {
-  canceledOnTouchOutside?: boolean;
-  onClose?: () => void;
-};
-
 let hardwarePopupHolder: RootSiblingsManager | null = null;
 export function closeHardwarePopup() {
   if (hardwarePopupHolder) {
@@ -64,6 +62,7 @@ let lastCallTime = 0;
 export default async function showHardwarePopup({
   uiRequest,
   payload,
+  content,
 }: HardwarePopup) {
   if (!uiRequest) {
     return;
@@ -162,6 +161,61 @@ export default async function showHardwarePopup({
         }}
       />
     );
+  }
+
+  if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_UPGRADE_FIRMWARE) {
+    popupView = (
+      <HandlerFirmwareUpgradeView
+        deviceId={payload?.deviceId ?? ''}
+        deviceConnectId={payload?.deviceConnectId ?? ''}
+        content={content ?? ''}
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+        onClose={() => {
+          closeHardwarePopup();
+        }}
+      />
+    );
+  }
+
+  if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_CLOSE_PASSPHRASE) {
+    popupView = (
+      <HandlerClosePassphraseView
+        deviceId={payload?.deviceId ?? ''}
+        deviceConnectId={payload?.deviceConnectId ?? ''}
+        content={content ?? ''}
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+        onClose={() => {
+          closeHardwarePopup();
+        }}
+      />
+    );
+  }
+
+  if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_OPEN_PASSPHRASE) {
+    popupView = (
+      <HandlerOpenPassphraseView
+        deviceId={payload?.deviceId ?? ''}
+        deviceConnectId={payload?.deviceConnectId ?? ''}
+        content={content ?? ''}
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+        onClose={() => {
+          closeHardwarePopup();
+        }}
+      />
+    );
+  }
+
+  if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_ONEKEY_BRIDGE) {
+    DialogManager.show({
+      render: <NeedBridgeDialog />,
+    });
+    return;
   }
 
   if (

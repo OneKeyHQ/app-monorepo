@@ -23,6 +23,11 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
+import showHardwarePopup, {
+  CUSTOM_UI_RESPONSE,
+  HardwarePopup,
+} from '../../views/Hardware/PopupHandle/showHardwarePopup';
+
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
@@ -203,17 +208,76 @@ class DeviceUtils {
     this.checkBonded = false;
   }
 
+  delayShowHardwarePopup(
+    { uiRequest, payload, content }: HardwarePopup,
+    delay = 500,
+  ) {
+    setTimeout(() => {
+      showHardwarePopup({ uiRequest, payload, content });
+    }, delay);
+  }
+
   showErrorToast(error: any, defKey?: LocaleIds): boolean {
     try {
       const { className, key, code } = error || {};
+
       if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
         return false;
       }
 
+      if (code === Error.CustomOneKeyHardwareError.NeedOneKeyBridge) {
+        this.delayShowHardwarePopup({
+          uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_NEED_ONEKEY_BRIDGE,
+        });
+        return true;
+      }
+
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        const { info } = error;
+        const { info, data } = error || {};
 
         const errorMessage = formatMessage({ id: key }, info ?? {});
+
+        const { connectId, deviceId } = data || {};
+        if (connectId && deviceId) {
+          if (
+            code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+            code === HardwareErrorCode.DeviceNotSupportPassphrase
+          ) {
+            this.delayShowHardwarePopup({
+              uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_NEED_UPGRADE_FIRMWARE,
+              payload: {
+                deviceId,
+                deviceConnectId: connectId,
+              },
+              content: errorMessage,
+            });
+            return true;
+          }
+
+          if (code === HardwareErrorCode.DeviceOpenedPassphrase) {
+            this.delayShowHardwarePopup({
+              uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_NEED_CLOSE_PASSPHRASE,
+              payload: {
+                deviceId,
+                deviceConnectId: connectId,
+              },
+              content: errorMessage,
+            });
+            return true;
+          }
+
+          if (code === HardwareErrorCode.DeviceNotOpenedPassphrase) {
+            this.delayShowHardwarePopup({
+              uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_NEED_OPEN_PASSPHRASE,
+              payload: {
+                deviceId,
+                deviceConnectId: connectId,
+              },
+              content: errorMessage,
+            });
+            return true;
+          }
+        }
 
         if (errorMessage) {
           ToastManager.show({ title: errorMessage }, { type: 'error' });
@@ -245,12 +309,10 @@ class DeviceUtils {
       code,
       error,
       message,
-      params: errorParams,
     }: {
       code: number;
       error?: string;
       message?: string;
-      params?: any;
     } = payload || {};
 
     const msg = error ?? message ?? 'Unknown error';
@@ -271,79 +333,79 @@ class DeviceUtils {
 
     switch (code) {
       case HardwareErrorCode.UnknownError:
-        return new Error.UnknownHardwareError({ message: msg });
+        return new Error.UnknownHardwareError(payload);
       case HardwareErrorCode.DeviceFwException:
-        return new Error.FirmwareVersionTooLow(msg);
+        return new Error.FirmwareVersionTooLow(payload);
       case HardwareErrorCode.DeviceUnexpectedMode:
         if (
           typeof msg === 'string' &&
           msg.indexOf('ui-device_bootloader_mode') !== -1
         ) {
-          return new Error.NotInBootLoaderMode();
+          return new Error.NotInBootLoaderMode(payload);
         }
-        return new Error.UnknownHardwareError({ message: msg });
+        return new Error.UnknownHardwareError(payload);
       case HardwareErrorCode.DeviceCheckDeviceIdError:
-        return new Error.DeviceNotSame({ message: msg });
+        return new Error.DeviceNotSame(payload);
       case HardwareErrorCode.DeviceNotFound:
-        return new Error.DeviceNotFind({ message: msg });
+        return new Error.DeviceNotFind(payload);
       case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
-        return new Error.NotInBootLoaderMode({ message: msg });
+        return new Error.NotInBootLoaderMode(payload);
       case HardwareErrorCode.DeviceInterruptedFromOutside:
-        return new Error.UserCancelFromOutside({ message: msg });
+        return new Error.UserCancelFromOutside(payload);
       case HardwareErrorCode.DeviceInterruptedFromUser:
-        return new Error.UserCancelFromOutside({ message: msg });
+        return new Error.UserCancelFromOutside(payload);
       case HardwareErrorCode.DeviceNotSupportPassphrase:
-        return new Error.NotSupportPassphraseError(msg, errorParams);
+        return new Error.NotSupportPassphraseError(payload);
       case HardwareErrorCode.IFrameLoadFail:
-        return new Error.InitIframeLoadFail({ message: msg });
+        return new Error.InitIframeLoadFail(payload);
       case HardwareErrorCode.IframeTimeout:
-        return new Error.InitIframeTimeout({ message: msg });
+        return new Error.InitIframeTimeout(payload);
       case HardwareErrorCode.FirmwareUpdateDownloadFailed:
-        return new Error.FirmwareDownloadFailed({ message: msg });
+        return new Error.FirmwareDownloadFailed(payload);
       case HardwareErrorCode.CallMethodNeedUpgradeFirmware:
-        return new Error.FirmwareVersionTooLow(msg, errorParams);
+        return new Error.FirmwareVersionTooLow(payload);
       case HardwareErrorCode.NetworkError:
-        return new Error.NetworkError({ message: msg });
+        return new Error.NetworkError(payload);
       case HardwareErrorCode.BlePermissionError:
-        return new Error.NeedBluetoothTurnedOn({ message: msg });
+        return new Error.NeedBluetoothTurnedOn(payload);
       case HardwareErrorCode.BleLocationError:
-        return new Error.NeedBluetoothPermissions({ message: msg });
+        return new Error.NeedBluetoothPermissions(payload);
       case HardwareErrorCode.BleDeviceNotBonded:
-        return new Error.DeviceNotBonded({ message: msg });
+        return new Error.DeviceNotBonded(payload);
       case HardwareErrorCode.BleWriteCharacteristicError:
-        return new Error.BleWriteCharacteristicError({ message: msg });
+        return new Error.BleWriteCharacteristicError(payload);
       case HardwareErrorCode.BleScanError:
-        return new Error.BleScanThrottleError({ message: msg });
+        return new Error.BleScanThrottleError(payload);
       case HardwareErrorCode.BleAlreadyConnected:
-        return new Error.BleAlreadyConnectedError({ message: msg });
+        return new Error.BleAlreadyConnectedError(payload);
       case HardwareErrorCode.RuntimeError:
         if (msg.indexOf('EIP712 blind sign is disabled') !== -1) {
-          return new Error.OpenBlindSign({ message: msg });
+          return new Error.OpenBlindSign(payload);
         }
         if (msg.indexOf('Unknown message') !== -1) {
-          return new Error.UnknownMethod({ message: msg });
+          return new Error.UnknownMethod(payload);
         }
         if (msg.indexOf('Failure_UnexpectedMessage') !== -1) {
-          return new Error.UnknownMethod({ message: msg });
+          return new Error.UnknownMethod(payload);
         }
-        return new Error.UnknownHardwareError({ message: msg });
+        return new Error.UnknownHardwareError(payload);
       case HardwareErrorCode.PinInvalid:
-        return new Error.InvalidPIN({ message: msg });
+        return new Error.InvalidPIN(payload);
       case HardwareErrorCode.DeviceCheckPassphraseStateError:
-        return new Error.InvalidPassphrase({ message: msg });
+        return new Error.InvalidPassphrase(payload);
       case HardwareErrorCode.DeviceOpenedPassphrase:
-        return new Error.DeviceOpenedPassphrase({ message: msg });
+        return new Error.DeviceOpenedPassphrase(payload);
       case HardwareErrorCode.DeviceNotOpenedPassphrase:
-        return new Error.DeviceNotOpenedPassphrase({ message: msg });
+        return new Error.DeviceNotOpenedPassphrase(payload);
       case HardwareErrorCode.PinCancelled:
       case HardwareErrorCode.ActionCancelled:
-        return new Error.UserCancel({ message: msg });
+        return new Error.UserCancel(payload);
       case HardwareErrorCode.BridgeNotInstalled:
-        return new Error.NeedOneKeyBridge({ message: msg });
+        return new Error.NeedOneKeyBridge(payload);
       case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
-        return new Error.NeedOneKeyBridge({ message: msg });
+        return new Error.NeedOneKeyBridge(payload);
       case HardwareErrorCode.BridgeNetworkError:
-        return new Error.BridgeNetworkError({ message: msg });
+        return new Error.BridgeNetworkError(payload);
       case HardwareErrorCode.BridgeTimeoutError:
         if (platformEnv.isDesktop) {
           debugLogger.hardwareSDK.debug(
@@ -351,13 +413,13 @@ class DeviceUtils {
           );
           window.desktopApi.reloadBridgeProcess();
         }
-        return new Error.BridgeTimeoutError({ message: msg });
+        return new Error.BridgeTimeoutError(payload);
       case HardwareErrorCode.PollingTimeout:
-        return new Error.ConnectTimeoutError({ message: msg });
+        return new Error.ConnectTimeoutError(payload);
       case HardwareErrorCode.BlindSignDisabled:
-        return new Error.OpenBlindSign({ message: msg });
+        return new Error.OpenBlindSign(payload);
       default:
-        return new Error.UnknownHardwareError({ message: msg });
+        return new Error.UnknownHardwareError(payload);
     }
   }
 
