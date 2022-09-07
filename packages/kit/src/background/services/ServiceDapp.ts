@@ -22,6 +22,10 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import {
+  closeWalletConnectSession,
+  updateWalletConnectSession,
+} from '../../store/reducers/walletConnectSession';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {
@@ -31,6 +35,8 @@ import {
 } from '../utils';
 
 import ServiceBase from './ServiceBase';
+
+import type { IWalletConnectSession } from '@walletconnect/types';
 
 type CommonRequestParams = {
   request: IJsBridgeMessagePayload;
@@ -80,6 +86,42 @@ class ServiceDapp extends ServiceBase {
   @backgroundMethod()
   removeConnectedAccounts(payload: DappSiteConnectionRemovePayload) {
     this.backgroundApi.dispatch(dappRemoveSiteConnections(payload));
+  }
+
+  @backgroundMethod()
+  updateWalletConnectedSession(session: IWalletConnectSession) {
+    this.backgroundApi.dispatch(updateWalletConnectSession(session));
+  }
+
+  @backgroundMethod()
+  closeWalletConnectedSession(session: IWalletConnectSession | null) {
+    this.backgroundApi.dispatch(closeWalletConnectSession(session));
+  }
+
+  @backgroundMethod()
+  async cancellConnectedSite(payload: DappSiteConnection): Promise<void> {
+    // check walletConnect
+    if (
+      this.backgroundApi.walletConnect.connector &&
+      this.backgroundApi.walletConnect.connector.peerMeta?.url ===
+        payload.site.origin
+    ) {
+      this.backgroundApi.walletConnect.disconnect();
+    } else {
+      this.removeConnectedAccounts({
+        origin: payload.site.origin,
+        networkImpl: payload.networkImpl,
+        addresses: [payload.address],
+      });
+    }
+    await this.backgroundApi.serviceAccount.notifyAccountsChanged();
+  }
+
+  @backgroundMethod()
+  manuallyAddInpageCannected(request: CommonRequestParams['request']) {
+    if (request.origin) {
+      this.openConnectionModal(request);
+    }
   }
 
   // TODO to decorator @permissionRequired()

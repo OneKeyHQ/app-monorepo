@@ -11,6 +11,7 @@ export enum ModalRoutes {
   ManagerWallet = 'ManagerWallet',
   ManagerAccount = 'ManagerAccount',
   WalletViewMnemonics = 'WalletViewMnemonics',
+  ManageConnectedSites = 'ManageConnectedSites',
   // Found screens with the same name nested inside one another. Check:
   //    modal > Send, modal > Send > Send
   Send = 'Send',
