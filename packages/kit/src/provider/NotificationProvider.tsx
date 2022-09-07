@@ -18,6 +18,10 @@ import {
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import {
   checkPushNotificationPermission,
@@ -151,6 +155,7 @@ const NotificationProvider: React.FC<{
 
   const handleNotificaitonCallback = useCallback(
     (result: NotificationResult) => {
+      appEventBus.emit(AppEventBusNames.NotificationStatusChanged, result);
       debugLogger.notification.debug('JPUSH.notificationListener', result);
       if (result?.notificationEventType !== 'notificationArrived') {
         clearJpushBadge();
