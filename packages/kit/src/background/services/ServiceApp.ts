@@ -249,8 +249,7 @@ class ServiceApp extends ServiceBase {
     const { engine, dispatch } = this.backgroundApi;
     const isMasterPasswordSet = await engine.isMasterPasswordSet();
     if (isMasterPasswordSet) {
-      dispatch(passwordSet());
-      dispatch(setBoardingCompleted());
+      dispatch(passwordSet(), setBoardingCompleted());
     }
   }
 
@@ -265,17 +264,17 @@ class ServiceApp extends ServiceBase {
     } = this.backgroundApi;
     await engine.updatePassword(oldPassword, newPassword);
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
-    // TODO: Batch update in one action
-    if (!data.isPasswordSet) {
-      dispatch(passwordSet());
-      dispatch(setEnableAppLock(true));
-    }
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
-    if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
+
+    const actions = [];
+    if (!data.isPasswordSet) {
+      actions.push(passwordSet());
+      actions.push(setEnableAppLock(true));
     }
-    dispatch(unlock());
-    dispatch(release());
+    if (!status.boardingCompleted) {
+      actions.push(setBoardingCompleted());
+    }
+    dispatch(...actions, unlock(), release());
     await servicePassword.savePassword(newPassword);
     serviceCloudBackup.requestBackup();
   }
@@ -291,8 +290,7 @@ class ServiceApp extends ServiceBase {
   lock(handOperated = false) {
     const { dispatch, servicePassword } = this.backgroundApi;
     servicePassword.clearData();
-    dispatch(setHandOperatedLock(handOperated));
-    dispatch(lock());
+    dispatch(setHandOperatedLock(handOperated), lock());
   }
 
   @backgroundMethod()
@@ -301,9 +299,7 @@ class ServiceApp extends ServiceBase {
     const isOk = await servicePassword.verifyPassword(password);
     if (isOk) {
       await servicePassword.savePassword(password);
-      dispatch(setHandOperatedLock(false));
-      dispatch(unlock());
-      dispatch(release());
+      dispatch(setHandOperatedLock(false), unlock(), release());
     }
     return isOk;
   }

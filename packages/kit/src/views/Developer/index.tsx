@@ -54,6 +54,7 @@ export const Debug = () => {
   const navigation = useNavigation<NavigationProps>();
   const connections = useAppSelector((s) => s.dapp.connections);
   const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
+  console.log('Developer Debug page render >>>>>>>');
   const { width, height } = useWindowDimensions();
   const { network, account, wallet } = useActiveWalletAccount();
   const { serviceAccount } = backgroundApiProxy;
@@ -108,8 +109,14 @@ export const Debug = () => {
               onPress={async () => {
                 // TODO define service method
                 await backgroundApiProxy.walletConnect.disconnect();
-                backgroundApiProxy.dispatch(dappClearSiteConnection());
-                backgroundApiProxy.dispatch(refreshWebviewGlobalKey());
+                // backgroundApiProxy.dispatch(dappClearSiteConnection());
+                // backgroundApiProxy.dispatch(refreshWebviewGlobalKey());
+
+                // dispatch batch actions
+                backgroundApiProxy.dispatch(
+                  dappClearSiteConnection(),
+                  refreshWebviewGlobalKey(),
+                );
                 backgroundApiProxy.serviceAccount.notifyAccountsChanged();
               }}
             >
@@ -291,7 +298,6 @@ export const Debug = () => {
                     "jsonrpc": "2.0"
                   };
                   await window.ethereum.request(p);
-
                  */
                 const randomValue = `0x${Math.floor(
                   Math.random() * 10 ** 15,

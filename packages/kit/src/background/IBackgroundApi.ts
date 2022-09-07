@@ -37,7 +37,7 @@ export interface IBackgroundApiBridge {
 
   store: IStore;
   persistor: IPersistor;
-  dispatch: (action: any) => void;
+  dispatch: (...actions: any[]) => void;
   getState: () => Promise<{ state: any; bootstrapped: boolean }>;
   appSelector: IAppSelector;
 

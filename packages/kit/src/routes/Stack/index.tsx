@@ -165,8 +165,7 @@ function MainScreen() {
       .checkAppUpdate()
       .then((versionInfo) => {
         if (versionInfo) {
-          dispatch(enable());
-          dispatch(available(versionInfo));
+          dispatch(enable(), available(versionInfo));
         }
       })
       .catch(() => {
