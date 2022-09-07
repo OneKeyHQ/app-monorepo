@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
+import {
+  IInjectedProviderNames,
+  IInjectedProviderNamesStrings,
+} from '@onekeyfe/cross-inpage-provider-types';
 import { PayloadAction } from '@reduxjs/toolkit';
 import {
   isArray,
@@ -293,6 +296,19 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
+
+export const ENABLED_DAPP_SCOPE = [
+  IInjectedProviderNames.ethereum,
+  IInjectedProviderNames.starcoin,
+  IInjectedProviderNames.near,
+  IInjectedProviderNames.solana,
+];
+
+export function getNetworkImplFromDappScope(
+  scope: IInjectedProviderNamesStrings,
+) {
+  return scopeNetwork[scope];
+}
 
 export const isDappScopeMatchNetwork = (
   scope?: IInjectedProviderNamesStrings,

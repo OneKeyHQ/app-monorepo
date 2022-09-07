@@ -24,7 +24,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
-import { ensureSerializable, isDappScopeMatchNetwork } from '../utils';
+import {
+  ensureSerializable,
+  getNetworkImplFromDappScope,
+  isDappScopeMatchNetwork,
+} from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -34,13 +38,16 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
+  // TODO add IInjectedProviderNames or scope
   getActiveConnectedAccounts({
     origin,
+    impl,
   }: {
     origin: string;
+    impl: string;
   }): DappSiteConnection[] {
     const { appSelector } = this.backgroundApi;
-    const { networkImpl, accountAddress } = getActiveWalletAccount();
+    const { accountAddress } = getActiveWalletAccount();
     const connections: DappSiteConnection[] = appSelector(
       (s) => s.dapp.connections,
     );
@@ -51,8 +58,7 @@ class ServiceDapp extends ServiceBase {
     }
     const accounts = connections
       .filter(
-        (item) =>
-          item.site.origin === origin && item.networkImpl === networkImpl,
+        (item) => item.site.origin === origin && item.networkImpl === impl,
         // && item.address === accountAddress, // only match current active account
       )
       .filter((item) => item.address && item.networkImpl);
@@ -84,9 +90,17 @@ class ServiceDapp extends ServiceBase {
   }
 
   isDappAuthorized(request: IJsBridgeMessagePayload) {
+    if (!request.scope) {
+      return false;
+    }
+    const impl = getNetworkImplFromDappScope(request.scope);
+    if (!impl) {
+      return false;
+    }
     const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
       {
         origin: request.origin as string,
+        impl,
       },
     );
     return Boolean(accounts && accounts.length);
