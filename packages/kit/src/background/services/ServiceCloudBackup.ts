@@ -463,8 +463,7 @@ class ServiceCloudBackup extends ServiceBase {
     if (!isPasswordSet) {
       await serviceApp.initPassword();
       // Unlock the app
-      dispatch(unlock());
-      dispatch(release());
+      dispatch(unlock(), release());
       // Save password to servicePassword by default
       await servicePassword.savePassword(localPassword);
       // Save password to use local authentication

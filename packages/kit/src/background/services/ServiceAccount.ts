@@ -244,15 +244,15 @@ class ServiceAccount extends ServiceBase {
     });
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    const actions = [];
     if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
+      actions.push(setBoardingCompleted());
     }
     if (!data.isPasswordSet) {
-      dispatch(passwordSet());
-      dispatch(setEnableAppLock(true));
+      actions.push(passwordSet());
+      actions.push(setEnableAppLock(true));
     }
-    dispatch(unlock());
-    dispatch(release());
+    dispatch(...actions, unlock(), release());
 
     await serviceAccount.initWallets();
     await serviceAccount.autoChangeAccount({ walletId: wallet.id });
@@ -527,14 +527,12 @@ class ServiceAccount extends ServiceBase {
     if (checkPasswordSet) {
       const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
       if (!data.isPasswordSet) {
-        dispatch(passwordSet());
-        dispatch(setEnableAppLock(true));
+        dispatch(passwordSet(), setEnableAppLock(true));
       }
     }
 
     if (checkOnBoarding || checkPasswordSet) {
-      dispatch(unlock());
-      dispatch(release());
+      dispatch(unlock(), release());
     }
 
     const wallets = await serviceAccount.initWallets();
@@ -680,11 +678,11 @@ class ServiceAccount extends ServiceBase {
     const accountId = account?.id;
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    const actions = [];
     if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
+      actions.push(setBoardingCompleted());
     }
-    dispatch(unlock());
-    dispatch(release());
+    dispatch(...actions, unlock(), release());
 
     await this.initWallets();
 
@@ -742,14 +740,15 @@ class ServiceAccount extends ServiceBase {
     await engine.removeAccount(accountId, password ?? '');
     await simpleDb.walletConnect.removeAccount({ accountId });
 
+    const actions = [];
     if (activeAccountId === accountId) {
       await this.autoChangeAccount({ walletId });
     } else {
       const wallet: Wallet | null = await engine.getWallet(walletId);
-      dispatch(updateWallet(wallet));
+      actions.push(updateWallet(wallet));
     }
 
-    dispatch(setRefreshTS());
+    dispatch(...actions, setRefreshTS());
     if (!walletId.startsWith('hw')) {
       serviceCloudBackup.requestBackup();
     }

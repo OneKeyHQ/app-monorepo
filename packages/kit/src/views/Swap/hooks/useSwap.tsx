@@ -209,8 +209,10 @@ export const useSwapQuoteCallback = function (
         }
       }
     } catch (e) {
-      backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
-      backgroundApiProxy.dispatch(setLoading(false));
+      backgroundApiProxy.dispatch(
+        setError(SwapError.QuoteFailed),
+        setLoading(false),
+      );
     } finally {
       refs.current.count -= 1;
       if (refs.current.count === 0) {
