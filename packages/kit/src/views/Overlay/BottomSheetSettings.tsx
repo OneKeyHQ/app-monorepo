@@ -45,6 +45,7 @@ export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
         borderTopRightRadius: 24,
         overflow: 'hidden',
       }}
+      tapGestureEnabled={false}
       handleStyle={{ backgroundColor: handleBg }}
     >
       <Box px="16px" py="24px" bg="surface-subdued">
