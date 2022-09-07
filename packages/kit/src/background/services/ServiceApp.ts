@@ -119,6 +119,7 @@ class ServiceApp extends ServiceBase {
       persistor,
       serviceNetwork,
       serviceAccount,
+      serviceNotification,
       appSelector,
     } = this.backgroundApi;
     this.resetAppAtTime = Date.now();
@@ -128,7 +129,7 @@ class ServiceApp extends ServiceBase {
       (s) => s.settings?.pushNotification?.pushEnable,
     );
     if (pushEnable) {
-      await engine.syncPushNotificationConfig('reset');
+      await serviceNotification.syncPushNotificationConfig('reset');
     }
     await persistor.purge();
     await engine.resetApp();

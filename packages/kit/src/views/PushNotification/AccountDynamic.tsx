@@ -79,21 +79,23 @@ const Section: FC<
   }
 > = ({ name, accounts, avatar, enabledAccounts, refreash }) => {
   const { themeVariant } = useTheme();
-  const { engine } = backgroundApiProxy;
+  const { serviceNotification } = backgroundApiProxy;
 
   const handleChange = useCallback(
     async (account: Account, checked: boolean) => {
       if (checked) {
-        await engine.addAccountDynamic({
+        await serviceNotification.addAccountDynamic({
           address: account.address,
           name: account.name,
         });
       } else {
-        await engine.removeAccountDynamic({ address: account.address });
+        await serviceNotification.removeAccountDynamic({
+          address: account.address,
+        });
       }
       refreash();
     },
-    [engine, refreash],
+    [serviceNotification, refreash],
   );
 
   const { length } = accounts;

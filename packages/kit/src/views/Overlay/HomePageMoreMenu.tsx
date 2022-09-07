@@ -36,7 +36,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const navigation = useNavigation();
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
-  const { engine, dispatch } = backgroundApiProxy;
+  const { serviceNotification, dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
   const { enabledAccounts } = useEnabledAccountDynamicAccounts();
 
@@ -55,9 +55,11 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
     if (!account) {
       return;
     }
-    const res: AccountDynamicItem | null = null;
+    let res: AccountDynamicItem | null = null;
     if (enabledNotification) {
-      await engine.removeAccountDynamic({ address: account.address });
+      res = await serviceNotification.removeAccountDynamic({
+        address: account.address,
+      });
     } else {
       dispatch(
         setPushNotificationConfig({
@@ -65,7 +67,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
           accountActivityPushEnable: true,
         }),
       );
-      await engine.addAccountDynamic({
+      res = await serviceNotification.addAccountDynamic({
         address: account.address,
         name: account.name,
       });
@@ -80,7 +82,14 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
           : 'msg__subscription_succeeded',
       }),
     });
-  }, [account, intl, toast, dispatch, enabledNotification, engine]);
+  }, [
+    account,
+    intl,
+    toast,
+    dispatch,
+    enabledNotification,
+    serviceNotification,
+  ]);
 
   const walletType = wallet?.type;
   const options: (

@@ -15,6 +15,16 @@ type PartialNotificationType = Partial<SettingsState['pushNotification']> & {
   instanceId?: string;
 };
 
+export type NotificationType = {
+  messageID: string;
+  title: string;
+  content: string;
+  extras: Record<string, unknown>;
+  notificationEventType: 'notificationArrived' | 'notificationOpened';
+  badge?: string;
+  ring?: string;
+};
+
 export enum PriceAlertOperator {
   greater = 'greater',
   less = 'less',

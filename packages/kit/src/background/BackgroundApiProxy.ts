@@ -6,6 +6,7 @@ import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
+import ServiceNotification from './services/serviceNotification';
 import ServicePassword from './services/ServicePassword';
 
 import type { IBackgroundApi } from './IBackgroundApi';
@@ -91,6 +92,10 @@ class BackgroundApiProxy
   ) as ServiceNameResolver;
 
   serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
+
+  serviceNotification = this._createProxyService(
+    'serviceNotification',
+  ) as ServiceNotification;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

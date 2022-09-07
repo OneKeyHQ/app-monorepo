@@ -200,7 +200,7 @@ const PushNotification = () => {
   const { alerts, fetchPriceAlerts } = usePriceAlertlist();
   const { enabledAccounts, refresh } = useEnabledAccountDynamicAccounts();
   const { pushNotification = defaultPushNotification, devMode } = useSettings();
-  const { engine } = backgroundApiProxy;
+  const { serviceNotification } = backgroundApiProxy;
 
   useLayoutEffect(() => {
     const title = intl.formatMessage({ id: 'form__notification' });
@@ -218,9 +218,9 @@ const PushNotification = () => {
             [key]: value,
           }),
         );
-        engine.syncPushNotificationConfig();
+        serviceNotification.syncPushNotificationConfig();
       },
-    [engine],
+    [serviceNotification],
   );
 
   useEffect(() => {

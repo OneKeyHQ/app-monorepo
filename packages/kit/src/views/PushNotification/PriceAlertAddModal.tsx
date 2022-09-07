@@ -55,7 +55,7 @@ export const PriceAlertAddModal: FC = () => {
   const fiat = map[selectedFiatMoneySymbol];
   const price = new B(getTokenPrice(token) || 0).multipliedBy(fiat).toNumber();
 
-  const { engine } = backgroundApiProxy;
+  const { serviceNotification } = backgroundApiProxy;
 
   const formatPrice = useCallback(
     (
@@ -86,7 +86,7 @@ export const PriceAlertAddModal: FC = () => {
   const onConfirm = useCallback(async () => {
     setLoading(true);
     try {
-      await engine.addPriceAlertConfig({
+      await serviceNotification.addPriceAlertConfig({
         symbol: token.symbol,
         operator: new B(text).isGreaterThanOrEqualTo(price)
           ? PriceAlertOperator.greater
@@ -105,7 +105,14 @@ export const PriceAlertAddModal: FC = () => {
       setLoading(false);
       if (navigation.canGoBack?.()) navigation.goBack();
     }, 100);
-  }, [navigation, selectedFiatMoneySymbol, text, token, engine, price]);
+  }, [
+    navigation,
+    selectedFiatMoneySymbol,
+    text,
+    token,
+    price,
+    serviceNotification,
+  ]);
 
   const onTextChange = (value: string) => {
     setText(value);

@@ -14,6 +14,7 @@ import ServiceHistory from './services/ServiceHistory';
 import ServiceNameResolver from './services/ServiceNameResolver';
 import ServiceNetwork from './services/ServiceNetwork';
 import ServiceNFT from './services/ServiceNFT';
+import ServiceNotification from './services/serviceNotification';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePassword from './services/ServicePassword';
 import ServicePromise from './services/ServicePromise';
@@ -97,6 +98,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceNFT = new ServiceNFT({
+    backgroundApi: this,
+  });
+
+  serviceNotification = new ServiceNotification({
     backgroundApi: this,
   });
 }

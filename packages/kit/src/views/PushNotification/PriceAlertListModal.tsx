@@ -44,7 +44,7 @@ export const PriceAlertListModal: FC = () => {
   const { token } = route.params;
   const navigation = useNavigation<NavigationProps>();
 
-  const { engine, dispatch } = backgroundApiProxy;
+  const { serviceNotification, dispatch } = backgroundApiProxy;
 
   const disabled = useMemo(() => data.length >= MAX_ALERT, [data.length]);
 
@@ -55,7 +55,7 @@ export const PriceAlertListModal: FC = () => {
           return;
         }
         setLoading(true);
-        const res = await engine.queryPriceAlertList(
+        const res = await serviceNotification.queryPriceAlertList(
           pick(token, 'impl', 'chainId', 'address'),
         );
         setData(res);
@@ -69,7 +69,7 @@ export const PriceAlertListModal: FC = () => {
         setLoading(false);
       }, 100);
     },
-    [token, engine],
+    [token, serviceNotification],
   );
 
   const onPrimaryActionPress = useCallback(() => {

@@ -52,7 +52,7 @@ const PriceItem: FC<{
   const onRemove = useCallback(async () => {
     setLoading(true);
     try {
-      await backgroundApiProxy.engine.removePriceAlertConfig(
+      await backgroundApiProxy.serviceNotification.removePriceAlertConfig(
         pick(alert, 'impl', 'chainId', 'price', 'currency', 'address'),
       );
     } catch (error) {

@@ -13,14 +13,16 @@ export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
 };
 
+const { engine, serviceNotification } = backgroundApiProxy;
+
 export const useWalletsAndAccounts = () => {
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const getWalletsAndAccounts = useCallback(async () => {
-    const walletList = await backgroundApiProxy.engine.getWallets();
+    const walletList = await engine.getWallets();
     const walletsWithAccounts = await Promise.all(
       walletList.map(async (w) => ({
         ...w,
-        accounts: await backgroundApiProxy.engine.getAccounts(w.accounts),
+        accounts: await engine.getAccounts(w.accounts),
       })),
     );
     const data = walletsWithAccounts.filter((w) => !!w.accounts?.length);
@@ -45,7 +47,7 @@ export const useEnabledAccountDynamicAccounts = () => {
   );
 
   const fetchEnabledAccounts = useCallback(async () => {
-    const accounts = await backgroundApiProxy.engine.queryAccountDynamic();
+    const accounts = await serviceNotification.queryAccountDynamic();
     setEnabledAccounts(accounts);
   }, []);
 
@@ -69,7 +71,7 @@ export const usePriceAlertlist = () => {
   const [alerts, setAlerts] = useState<PriceAlertItem[]>();
 
   const fetchPriceAlerts = useCallback(async () => {
-    const res = await backgroundApiProxy.engine.queryPriceAlertList();
+    const res = await serviceNotification.queryPriceAlertList();
     setAlerts(res);
   }, []);
 

@@ -74,18 +74,6 @@ import {
   parseNetworkId,
 } from './managers/network';
 import {
-  AccountDynamicItem,
-  AddPriceAlertConfig,
-  RemovePriceAlertConfig,
-  addAccountDynamic,
-  addPriceAlertConfig,
-  queryAccountDynamic,
-  queryPriceAlertList,
-  removeAccountDynamic,
-  removePriceAlertConfig,
-  syncPushNotificationConfig,
-} from './managers/notification';
-import {
   fetchOnlineTokens,
   fetchTokenDetail,
   formatServerToken,
@@ -1316,13 +1304,7 @@ class Engine {
     ];
   }
 
-  @backgroundMethod()
-  async getNativeTokenInfo(networkId: string) {
-    const tokens = await this.getTokens(networkId);
-    const token = tokens.find((t) => t.isNative);
-    if (token) {
-      return token;
-    }
+  async generateNativeTokenByNetworkId(networkId: string) {
     const network = await this.getNetwork(networkId);
     return {
       id: network.id,
@@ -1333,6 +1315,29 @@ class Engine {
       decimals: network.decimals,
       logoURI: network.logoURI,
     };
+  }
+
+  _getNativeTokenInfo = memoizee(
+    async (networkId: string) => {
+      const tokens = await this.getTokens(networkId);
+      const token = tokens.find((t) => t.isNative);
+      if (token) {
+        return token;
+      }
+      return this.generateNativeTokenByNetworkId(networkId);
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 200,
+      maxAge: 1000 * 60 * 10,
+      normalizer: (args) => JSON.stringify(args),
+    },
+  );
+
+  @backgroundMethod()
+  async getNativeTokenInfo(networkId: string) {
+    return this._getNativeTokenInfo(networkId);
   }
 
   @backgroundMethod()
@@ -1374,7 +1379,7 @@ class Engine {
     if (typeof accountId !== 'undefined') {
       if (withMain) {
         if (!tokens.find((t) => t.isNative)) {
-          tokens.unshift(await this.getNativeTokenInfo(networkId));
+          tokens.unshift(await this.generateNativeTokenByNetworkId(networkId));
         }
         return tokens;
       }
@@ -2433,45 +2438,6 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
-  }
-
-  @backgroundMethod()
-  async syncPushNotificationConfig(type: 'reset' | 'normal' = 'normal') {
-    return syncPushNotificationConfig(type);
-  }
-
-  @backgroundMethod()
-  async addPriceAlertConfig(body: AddPriceAlertConfig) {
-    return addPriceAlertConfig(body);
-  }
-
-  @backgroundMethod()
-  async removePriceAlertConfig(body: RemovePriceAlertConfig) {
-    return removePriceAlertConfig(body);
-  }
-
-  @backgroundMethod()
-  async queryPriceAlertList(
-    query?: Pick<Token, 'impl' | 'chainId' | 'address'>,
-  ) {
-    return queryPriceAlertList(query);
-  }
-
-  @backgroundMethod()
-  async addAccountDynamic(body: Omit<AccountDynamicItem, 'instanceId'>) {
-    return addAccountDynamic(body);
-  }
-
-  @backgroundMethod()
-  async removeAccountDynamic(
-    body: Omit<AccountDynamicItem, 'instanceId' | 'name'>,
-  ) {
-    return removeAccountDynamic(body);
-  }
-
-  @backgroundMethod()
-  async queryAccountDynamic() {
-    return queryAccountDynamic();
   }
 }
 

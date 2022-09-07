@@ -5,6 +5,7 @@ import JPush from 'jpush-react-native';
 import { AppState } from 'react-native';
 
 import { DialogManager } from '@onekeyhq/components';
+import { NotificationType } from '@onekeyhq/engine/src/managers/notification';
 import {
   EVMDecodedItem,
   EVMDecodedTxType,
@@ -18,10 +19,6 @@ import {
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import {
   checkPushNotificationPermission,
@@ -34,20 +31,9 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
 import { setPushNotificationConfig } from '../store/reducers/settings';
 import { setHomeTabName } from '../store/reducers/status';
-import { useWalletsAndAccounts } from '../views/PushNotification/hooks';
 import { WalletHomeTabEnum } from '../views/Wallet/type';
 
 import { navigationRef } from './NavigationProvider';
-
-export type NotificationResult = {
-  messageID: string;
-  title: string;
-  content: string;
-  badge?: string;
-  ring?: string;
-  extras: Record<string, string>;
-  notificationEventType: 'notificationArrived' | 'notificationOpened';
-};
 
 export type SwitchScreenParams = {
   screen: HomeRoutes.ScreenTokenDetail | HomeRoutes.InitialTab;
@@ -63,45 +49,31 @@ const NotificationProvider: React.FC<{
   children: React.ReactElement<any, any> | null;
 }> = ({ children }) => {
   const { pushNotification } = useSettings();
-  const { getWalletsAndAccounts } = useWalletsAndAccounts();
   const { accountId, networkId } = useActiveWalletAccount();
 
-  const { engine, dispatch, serviceAccount, serviceNetwork } =
+  const { dispatch, serviceAccount, serviceNotification, serviceNetwork } =
     backgroundApiProxy;
-
-  const switchAccountAndNetwork = useCallback(
-    async (params: SwitchScreenParams['params']) => {
-      if (params.accountAddress) {
-        const wallets = await getWalletsAndAccounts();
-        for (const w of wallets) {
-          for (const account of w.accounts) {
-            if (account.address === params.accountAddress) {
-              debugLogger.notification.info(
-                `switch account, accountId=${account.id}`,
-              );
-              await serviceAccount.changeActiveAccount({
-                accountId: account.id,
-                walletId: w.id,
-              });
-              break;
-            }
-          }
-        }
-      }
-      if (params.networkId) {
-        debugLogger.notification.info(
-          `switch network, network=${params.networkId}`,
-        );
-        await serviceNetwork.changeActiveNetwork(params.networkId);
-      }
-    },
-    [serviceNetwork, serviceAccount, getWalletsAndAccounts],
-  );
 
   const switchToScreen = useCallback(
     async ({ screen, params }: SwitchScreenParams) => {
       try {
-        await switchAccountAndNetwork(params);
+        if (params.accountAddress) {
+          await serviceAccount.changeActiveAccountByAddress({
+            address: params.accountAddress,
+          });
+        }
+        if (params.networkId) {
+          await serviceNetwork.changeActiveNetwork(params.networkId);
+        }
+        navigationRef.current?.navigate(RootRoutes.Root, {
+          screen: HomeRoutes.InitialTab,
+          params: {
+            screen: RootRoutes.Tab,
+            params: {
+              screen: TabRoutes.Home,
+            },
+          } as any,
+        });
         switch (screen) {
           case HomeRoutes.ScreenTokenDetail:
             {
@@ -121,15 +93,6 @@ const NotificationProvider: React.FC<{
             }
             break;
           case HomeRoutes.InitialTab:
-            navigationRef.current?.navigate(RootRoutes.Root, {
-              screen: HomeRoutes.InitialTab,
-              params: {
-                screen: RootRoutes.Tab,
-                params: {
-                  screen: TabRoutes.Home,
-                },
-              } as any,
-            });
             dispatch(setHomeTabName(WalletHomeTabEnum.History));
             break;
           default:
@@ -142,7 +105,7 @@ const NotificationProvider: React.FC<{
         );
       }
     },
-    [accountId, networkId, switchAccountAndNetwork, dispatch],
+    [accountId, networkId, dispatch, serviceAccount, serviceNetwork],
   );
 
   const clearJpushBadge = useCallback(() => {
@@ -154,9 +117,8 @@ const NotificationProvider: React.FC<{
   }, []);
 
   const handleNotificaitonCallback = useCallback(
-    (result: NotificationResult) => {
-      appEventBus.emit(AppEventBusNames.NotificationStatusChanged, result);
-      debugLogger.notification.debug('JPUSH.notificationListener', result);
+    (result: NotificationType) => {
+      serviceNotification.emitNotificationStatusChange(result);
       if (result?.notificationEventType !== 'notificationArrived') {
         clearJpushBadge();
       }
@@ -192,11 +154,17 @@ const NotificationProvider: React.FC<{
         params,
       });
     },
-    [switchToScreen, clearJpushBadge, accountId, networkId],
+    [
+      switchToScreen,
+      clearJpushBadge,
+      accountId,
+      networkId,
+      serviceNotification,
+    ],
   );
 
   const handleLocalNotificationCallback = useCallback(
-    (result: NotificationResult) => {
+    (result: NotificationType) => {
       handleNotificaitonCallback(result);
     },
     [handleNotificaitonCallback],
@@ -210,9 +178,9 @@ const NotificationProvider: React.FC<{
           registrationId: res.registerID,
         }),
       );
-      engine.syncPushNotificationConfig();
+      serviceNotification.syncPushNotificationConfig();
     },
-    [dispatch, engine],
+    [dispatch, serviceNotification],
   );
 
   const handleConnectStateChangeCallback = useCallback(
@@ -255,24 +223,32 @@ const NotificationProvider: React.FC<{
 
   const checkPermissionAndInit = useCallback(async () => {
     const enabled = await handlePushEnableChange();
-    engine.syncPushNotificationConfig();
+    serviceNotification.syncPushNotificationConfig();
     if (!enabled) {
       return;
     }
     initJpush();
     JPush.getRegistrationID(handleRegistrationIdCallback);
-  }, [engine, handleRegistrationIdCallback, handlePushEnableChange]);
+  }, [
+    serviceNotification,
+    handleRegistrationIdCallback,
+    handlePushEnableChange,
+  ]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
       return;
     }
-    JPush.removeListener(handleNotificaitonCallback);
-    JPush.removeListener(handleConnectStateChangeCallback);
-    JPush.removeListener(handleLocalNotificationCallback);
+    const clear = () => {
+      JPush.removeListener(handleNotificaitonCallback);
+      JPush.removeListener(handleConnectStateChangeCallback);
+      JPush.removeListener(handleLocalNotificationCallback);
+    };
+    clear();
     JPush.addConnectEventListener(handleConnectStateChangeCallback);
     JPush.addNotificationListener(handleNotificaitonCallback);
     JPush.addLocalNotificationListener(handleLocalNotificationCallback);
+    return clear;
   }, [
     handleNotificaitonCallback,
     handleLocalNotificationCallback,
