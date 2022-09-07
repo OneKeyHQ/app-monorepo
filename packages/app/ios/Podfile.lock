@@ -541,7 +541,7 @@ PODS:
     - IQKeyboardManagerSwift (= 6.5.4)
     - React-Core
     - React-RCTText
-  - RealmJS (10.20.0-beta.2):
+  - RealmJS (11.0.0-rc.0):
     - React
   - RNCAsyncStorage (1.17.3):
     - React-Core
@@ -1013,7 +1013,7 @@ SPEC CHECKSUMS:
   React-runtimeexecutor: 8cdd80915ed6dabf2221a689f1f7ddb50ea5e9f3
   ReactCommon: 5b1b43a7d81a1ac4eec85f7c4db3283a14a3b13d
   ReactNativeKeyboardManager: f82a63e0982254fb0f6a17ba327fac575a46f1e9
-  RealmJS: 8ac5e506db083da32923a5e38c86e69c6b9f195d
+  RealmJS: 6ee99e016e85a71233f92c64b8255007810b7478
   RNCAsyncStorage: 005c0e2f09575360f142d0d1f1f15e4ec575b1af
   RNFastImage: 1f2cab428712a4baaf78d6169eaec7f622556dd7
   RNFBAnalytics: 58d1a73d42514ddf3c4f43662db0f3ce9a85457b
