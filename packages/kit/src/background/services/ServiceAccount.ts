@@ -756,31 +756,47 @@ class ServiceAccount extends ServiceBase {
 
   addressLabelCache: Record<string, string> = {};
 
+  // getAccountNameByAddress
   @backgroundMethod()
   async getAddressLabel({
     address,
   }: {
     address: string;
   }): Promise<{ label: string; address: string }> {
-    if (this.addressLabelCache[address]) {
+    const { wallet, walletId } = getActiveWalletAccount();
+    const cacheKey = `${address}@${walletId || ''}`;
+    if (this.addressLabelCache[cacheKey]) {
       return Promise.resolve({
-        label: this.addressLabelCache[address],
+        label: this.addressLabelCache[cacheKey],
         address,
       });
+    }
+    const findNameLabelByAccountIds = async (accountIds: string[]) => {
+      const accounts = await this.backgroundApi.engine.getAccounts(accountIds);
+      const name = find(
+        accounts,
+        (a) => a.address.toLowerCase() === address.toLowerCase(),
+      )?.name;
+      const label = name ?? '';
+      if (label && address) {
+        this.addressLabelCache[cacheKey] = label;
+      }
+      return label;
+    };
+    if (wallet && wallet.accounts && wallet.accounts.length) {
+      const label = await findNameLabelByAccountIds(wallet.accounts);
+      if (label) {
+        return {
+          label,
+          address,
+        };
+      }
     }
     const wallets = await this.backgroundApi.engine.getWallets({
       includeAllPassphraseWallet: true,
     });
-    const accountids = flatten(wallets.map((w) => w.accounts));
-    const accounts = await this.backgroundApi.engine.getAccounts(accountids);
-    const name = find(
-      accounts,
-      (a) => a.address.toLowerCase() === address.toLowerCase(),
-    )?.name;
-    const label = name ?? '';
-    if (label && address) {
-      this.addressLabelCache[address] = label;
-    }
+    const accountIds = flatten(wallets.map((w) => w.accounts));
+    const label = await findNameLabelByAccountIds(accountIds);
     return {
       label,
       address,
