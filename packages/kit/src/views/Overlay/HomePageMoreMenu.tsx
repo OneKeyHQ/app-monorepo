@@ -13,6 +13,8 @@ import {
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -149,7 +151,8 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
       },
       !!account &&
-        platformEnv.isNative && {
+        platformEnv.isNative &&
+        isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM) && {
           id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
           onPress: onChangeAccountSubscribe,
           icon: enabledNotification ? 'BellOffOutline' : 'BellOutline',
