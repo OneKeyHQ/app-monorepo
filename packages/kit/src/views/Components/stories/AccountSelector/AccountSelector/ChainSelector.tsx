@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
 import React, { FC } from 'react';
 

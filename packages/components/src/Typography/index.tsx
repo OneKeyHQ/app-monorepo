@@ -74,7 +74,6 @@ export const SubheadingProps = {
   fontWeight: '700',
   fontSize: 12,
   lineHeight: 16,
-  textTransform: 'uppercase',
 };
 export const Button1Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',

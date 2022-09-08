@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { FC } from 'react';
 
 import { Box, SectionList } from '@onekeyhq/components';
