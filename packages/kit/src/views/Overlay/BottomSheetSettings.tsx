@@ -118,9 +118,7 @@ export const showHomeBalanceSettings = () =>
 
 const AccountValueSettings: FC = () => {
   const intl = useIntl();
-  const { includeNFTsInTotal = true } = useAppSelector(
-    (s) => s.settings,
-  );
+  const { includeNFTsInTotal = true } = useAppSelector((s) => s.settings);
   return (
     <>
       <SettingRow borderBottomRadius={0}>

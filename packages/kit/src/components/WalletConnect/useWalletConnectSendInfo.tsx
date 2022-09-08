@@ -367,7 +367,14 @@ export function useWalletConnectSendInfo({
         return defaultReturn;
       }
       return { connector, client };
-    }, [accountId, connectToWallet, engine, networkId, showMismatchConfirm]);
+    }, [
+      accountId,
+      connectToWallet,
+      engine,
+      networkId,
+      serviceWalletConnect,
+      showMismatchConfirm,
+    ]);
 
   return {
     externalAccountInfo,

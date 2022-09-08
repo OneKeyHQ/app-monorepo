@@ -379,7 +379,7 @@ export function useWalletConnectQrcodeModal() {
         walletService: finalWalletService,
       };
     },
-    [createQrcodeModalApi],
+    [createQrcodeModalApi, serviceWalletConnect],
   );
 
   return {

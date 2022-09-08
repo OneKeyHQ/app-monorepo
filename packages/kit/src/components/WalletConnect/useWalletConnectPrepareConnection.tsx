@@ -34,5 +34,5 @@ export function useWalletConnectPrepareConnection({
         }
       }
     })();
-  }, [accountId, connectToWallet]);
+  }, [accountId, connectToWallet, serviceWalletConnect]);
 }
