@@ -1,9 +1,11 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { get } from 'lodash';
 
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyHardwareError,
+  OneKeyHardwareErrorPayload,
+} from '@onekeyhq/engine/src/errors';
 
 export enum CustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
@@ -137,8 +139,8 @@ export class OpenBlindSign extends OneKeyHardwareError {
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
   override code = HardwareErrorCode.CallMethodNeedUpgradeFirmware;
 
-  constructor(message: string, params?: any) {
-    super({ message, info: { 0: get(params, 'require', '') } });
+  constructor(errorPayload?: OneKeyHardwareErrorPayload) {
+    super(errorPayload, { 0: 'require' });
   }
 
   override key: LocaleIds = 'msg__hardware_version_need_upgrade_error';
@@ -194,8 +196,8 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
 
   override key: LocaleIds = 'msg__not_support_passphrase_need_upgrade';
 
-  constructor(message: string, params?: any) {
-    super({ message, info: { 0: get(params, 'require', '') } });
+  constructor(errorPayload?: OneKeyHardwareErrorPayload) {
+    super(errorPayload, { 0: 'require' });
   }
 }
 

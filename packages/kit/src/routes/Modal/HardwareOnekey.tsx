@@ -30,7 +30,9 @@ export type OnekeyHardwareRoutesParams = {
     walletId: string;
   };
   [OnekeyHardwareModalRoutes.OnekeyHardwareConnectModal]: {
-    walletId: string;
+    deviceId?: string;
+    connectId?: string;
+    onHandler?: () => Promise<any>;
   };
   [OnekeyHardwareModalRoutes.OnekeyHardwarePinCodeModal]: {
     type: string | null | undefined;

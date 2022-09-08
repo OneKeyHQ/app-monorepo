@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,6 +9,7 @@ import {
   Box,
   Markdown,
   Modal,
+  Spinner,
   ToastManager,
   Typography,
   useLocale,
@@ -25,6 +27,8 @@ import type {
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
 
+import { deviceUtils } from '../../../../utils/hardware';
+
 type NavigationProps = ModalScreenProps<HardwareUpdateRoutesParams>;
 type RouteProps = RouteProp<
   HardwareUpdateRoutesParams,
@@ -35,9 +39,12 @@ const UpdateInfoModal: FC = () => {
   const intl = useIntl();
   const local = useLocale();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { walletId, onSuccess } = useRoute<RouteProps>().params;
+  const routeParams = useRoute<RouteProps>().params;
+  const { recheckFirmwareUpdate, onSuccess } = routeParams;
+  const deviceId = get(routeParams, 'deviceId', null);
+  const walletId = get(routeParams, 'walletId', null);
 
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceHardware } = backgroundApiProxy;
   const { deviceUpdates } = useSettings();
 
   const [device, setDevice] = useState<Device>();
@@ -46,16 +53,34 @@ const UpdateInfoModal: FC = () => {
 
   useEffect(() => {
     (async () => {
-      const deviceByWalletId = await engine.getHWDeviceByWalletId(walletId);
+      let findDevice: Device | null = null;
+      if (deviceId) {
+        findDevice = await engine.getHWDeviceByDeviceId(deviceId);
+      } else if (walletId) {
+        findDevice = await engine.getHWDeviceByWalletId(walletId);
+      }
 
-      if (!deviceByWalletId) {
+      if (!findDevice) {
         navigation.goBack();
         return;
       }
 
-      setDevice(deviceByWalletId);
+      setDevice(findDevice);
 
-      const { ble, firmware } = deviceUpdates?.[deviceByWalletId.mac] || {};
+      const connectId = findDevice.mac;
+
+      let { ble, firmware } = deviceUpdates?.[connectId] || {};
+
+      if (recheckFirmwareUpdate) {
+        try {
+          const result = await serviceHardware.checkFirmwareUpdate(connectId);
+          if (result) {
+            firmware = result.release;
+          }
+        } catch (error) {
+          deviceUtils.showErrorToast(error);
+        }
+      }
 
       if (ble) {
         setBleFirmware(ble);
@@ -73,7 +98,16 @@ const UpdateInfoModal: FC = () => {
         navigation.goBack();
       }
     })();
-  }, [deviceUpdates, engine, intl, navigation, walletId]);
+  }, [
+    deviceId,
+    deviceUpdates,
+    engine,
+    intl,
+    navigation,
+    recheckFirmwareUpdate,
+    serviceHardware,
+    walletId,
+  ]);
 
   return (
     <Modal
@@ -106,6 +140,15 @@ const UpdateInfoModal: FC = () => {
                 })}
               />
             </Box>
+
+            {!bleFirmware && !sysFirmware && (
+              <Box mt={6} alignItems="center">
+                <Spinner size="lg" />
+                <Typography.DisplayMedium mt={6}>
+                  {intl.formatMessage({ id: 'modal__device_status_check' })}
+                </Typography.DisplayMedium>
+              </Box>
+            )}
 
             {!!bleFirmware && (
               <>

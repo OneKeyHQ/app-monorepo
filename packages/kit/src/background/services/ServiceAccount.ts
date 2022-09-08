@@ -600,7 +600,10 @@ class ServiceAccount extends ServiceBase {
 
     const passphraseState = await serviceHardware.getPassphraseState(connectId);
     if (!!onlyPassphrase && !passphraseState) {
-      throw new DeviceNotOpenedPassphrase();
+      throw new DeviceNotOpenedPassphrase({
+        connectId,
+        deviceId: features.device_id ?? undefined,
+      });
     }
 
     if (existDeviceId) {

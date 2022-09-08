@@ -8,7 +8,7 @@ import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { useHardwareError } from '@onekeyhq/kit/src/hooks/useHardwareError';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -52,7 +52,6 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
-  const { captureHardwareError } = useHardwareError();
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -116,7 +115,7 @@ const Protected: FC<ProtectedProps> = ({
         }
       } catch (e: any) {
         safeGoBack();
-        captureHardwareError(e);
+        deviceUtils.showErrorToast(e);
         return;
       }
 
@@ -132,15 +131,7 @@ const Protected: FC<ProtectedProps> = ({
       setDeviceFeatures(features);
     }
     loadDevices();
-  }, [
-    isHardware,
-    engine,
-    walletDetail?.id,
-    intl,
-    safeGoBack,
-    serviceHardware,
-    captureHardwareError,
-  ]);
+  }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
 
   if (isExternalWallet) {
     return (

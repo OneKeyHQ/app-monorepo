@@ -1,4 +1,6 @@
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
+import { get } from 'lodash';
+
 /* eslint max-classes-per-file: "off" */
 
 import { LocaleIds } from '@onekeyhq/components/src/locale';
@@ -16,7 +18,18 @@ export enum OneKeyErrorClassNames {
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
 export type OneKeyHardwareErrorData = {
-  reconnect?: boolean;
+  reconnect?: boolean | undefined;
+  connectId?: string;
+  deviceId?: string;
+};
+
+export type OneKeyHardwareErrorPayload = {
+  code?: number;
+  error?: string;
+  message?: string;
+  params?: any;
+  connectId?: string;
+  deviceId?: string;
 };
 
 export class OneKeyError<T = Error> extends Web3RpcError<T> {
@@ -80,17 +93,47 @@ export class OneKeyHardwareError<
 
   override key: LocaleIds = 'msg__hardware_default_error';
 
-  constructor({
-    message,
-    code,
-    info,
-  }: {
-    message?: string;
-    code?: string;
-    info?: IOneKeyErrorInfo;
-  } = {}) {
-    super(message, info || {});
-    this.codeHardware = code;
+  static handleErrorParams(
+    params?: any,
+    errorParams?: Record<string | number, string>,
+  ): IOneKeyErrorInfo {
+    const info: IOneKeyErrorInfo = {};
+    Object.keys(errorParams || {}).forEach((key) => {
+      const valueKey = errorParams?.[key];
+      if (valueKey) {
+        const value = get(params, valueKey, '');
+        info[key] = value;
+      }
+    });
+
+    return info;
+  }
+
+  /**
+   * create OneKeyHardwareError from OneKeyHardware error payload
+   * @param errorPayload Hardware error payload
+   * @param errorParams Hardware Error params, key is i18n placeholder, value is error payload key
+   */
+  constructor(
+    errorPayload?: OneKeyHardwareErrorPayload,
+    errorParams?: Record<string | number, string>,
+    data?: T,
+  ) {
+    super(
+      errorPayload?.error ?? errorPayload?.message ?? 'Unknown hardware error',
+      OneKeyHardwareError.handleErrorParams(
+        errorPayload?.params,
+        errorParams,
+      ) || {},
+    );
+    const { code, deviceId, connectId } = errorPayload || {};
+    this.codeHardware = code?.toString();
+    this.data = {
+      deviceId,
+      connectId,
+      reconnect: this.data?.reconnect,
+      ...data,
+    } as T;
   }
 }
 
@@ -111,11 +154,7 @@ export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError<
   override key: LocaleIds = 'msg__wallet_already_exist';
 
   constructor(walletId: string, walletName: string | undefined) {
-    super();
-    this.data = {
-      walletId,
-      walletName,
-    };
+    super(undefined, undefined, { walletId, walletName });
   }
 }
 

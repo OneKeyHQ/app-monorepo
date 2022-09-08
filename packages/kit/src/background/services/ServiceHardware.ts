@@ -404,8 +404,12 @@ class ServiceHardware extends ServiceBase {
       const payload = await this.getDeviceSupportFeatures(connectId);
 
       if (!payload.inputPinOnSoftware?.support)
-        throw new FirmwareVersionTooLow('', {
-          require: payload.inputPinOnSoftware.require,
+        throw new FirmwareVersionTooLow({
+          connectId,
+          deviceId,
+          params: {
+            require: payload.inputPinOnSoftware?.require,
+          },
         });
     }
 
@@ -493,7 +497,9 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async _checkDeviceSettings(payload: DeviceSendSupportFeatures['payload']) {
+  private async _checkDeviceSettings(
+    payload: DeviceSendSupportFeatures['payload'],
+  ) {
     try {
       const { inputPinOnSoftware, device } = payload;
       const { deviceId } = device || {};
@@ -509,10 +515,38 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async _checkFirmwareUpdate(
-    payload: ReleaseInfoEvent['payload'] & { features: IOneKeyDeviceFeatures },
+  async checkFirmwareUpdate(connectId: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK?.checkFirmwareRelease(connectId).then((response) => {
+      if (!response.success) {
+        return Promise.reject(deviceUtils.convertDeviceError(response.payload));
+      }
+      this._checkFirmwareUpdate({
+        ...(response.payload as unknown as any),
+        connectId,
+      });
+
+      const { status } = response.payload;
+      if (status === 'unknown' || status === 'none' || status === 'valid') {
+        return null;
+      }
+      return response.payload;
+    });
+  }
+
+  @backgroundMethod()
+  private async _checkFirmwareUpdate(
+    payload: ReleaseInfoEvent['payload'] & {
+      features?: IOneKeyDeviceFeatures;
+      connectId?: string;
+    },
   ): Promise<void> {
-    const connectId = await this.getConnectId(payload.features);
+    let connectId: string | null = null;
+    if (payload.connectId) {
+      connectId = payload.connectId;
+    } else if (payload.features) {
+      connectId = await this.getConnectId(payload.features);
+    }
     if (!connectId) return;
 
     const firmware: SYSFirmwareInfo | undefined = payload.release;
@@ -552,7 +586,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async _checkBleFirmwareUpdate(
+  private async _checkBleFirmwareUpdate(
     payload: BleReleaseInfoEvent['payload'] & {
       features: IOneKeyDeviceFeatures;
     },

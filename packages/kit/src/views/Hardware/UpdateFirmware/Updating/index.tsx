@@ -320,7 +320,6 @@ const UpdatingModal: FC = () => {
                 firmwareType === 'ble' &&
                 deviceType === 'classic' &&
                 !response.bootloader_mode &&
-                // @ts-expect-error
                 response.bootloader_version === '1.8.3';
 
               if (isMini || isBoot183ClassicUpBle) {
