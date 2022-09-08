@@ -18737,7 +18737,7 @@ react-native-web@0.18.9:
 
 react-native-webview@11.23.1, react-native-webview@^11.17.2:
   version "11.23.1"
-  resolved "https://registry.npmmirror.com/react-native-webview/-/react-native-webview-11.23.1.tgz#6a4bf2620e491dd4fecf4e6dc079005117fae12c"
+  resolved "https://registry.yarnpkg.com/react-native-webview/-/react-native-webview-11.23.1.tgz#6a4bf2620e491dd4fecf4e6dc079005117fae12c"
   integrity sha512-bmqsdg4RYOUYD37R9XTrQALm7eD62KbLNPRfgvpLGd1SjaurvAjjsLrLN4mt6yOtKOMKeZvlcAl3x6De6cCQsA==
   dependencies:
     escape-string-regexp "2.0.0"
@@ -18945,7 +18945,7 @@ realm-network-transport@^0.7.2:
 
 realm@11.0.0-rc.1:
   version "11.0.0-rc.1"
-  resolved "https://registry.npmmirror.com/realm/-/realm-11.0.0-rc.1.tgz#714dcf317a70a6adf1e8aa620b31c702bc37b4b9"
+  resolved "https://registry.yarnpkg.com/realm/-/realm-11.0.0-rc.1.tgz#714dcf317a70a6adf1e8aa620b31c702bc37b4b9"
   integrity sha512-ZboRZbDNpsPquRKYcRS4qJNzgDOfoPMDplaix5MDN+X2vafrkoNFDLz24iWdX23iPH/qmJdlcQgOQGHcMJqrbQ==
   dependencies:
     "@realm.io/common" "^0.1.4"
