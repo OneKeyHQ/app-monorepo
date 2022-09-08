@@ -124,7 +124,7 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.Collectibles}
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
-          <CollectiblesList address={account?.address} network={network} />
+          <CollectiblesList />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.History}

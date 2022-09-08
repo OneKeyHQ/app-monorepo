@@ -226,8 +226,7 @@ const Explorer: FC = () => {
           });
         }
         if (item) {
-          dispatch(updateFirstRemindDAPP(false));
-          dispatch(updateHistory(item.id));
+          dispatch(updateFirstRemindDAPP(false), updateHistory(item.id));
         }
         return true;
       }

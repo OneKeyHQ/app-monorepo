@@ -74,8 +74,7 @@ export const AboutSection = () => {
             }),
           });
         } else {
-          dispatch(enable());
-          dispatch(available(version));
+          dispatch(enable(), available(version));
         }
       })
       .catch(() => {})

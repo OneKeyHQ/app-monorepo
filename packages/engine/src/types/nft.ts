@@ -1,7 +1,16 @@
-import { NETWORK_ID_EVM_ETH } from '../constants';
+export const NFTSupportNetworks = [
+  'evm--1',
+  'evm--10',
+  'evm--56',
+  'evm--137',
+  'evm--42161',
+  'sol--101',
+];
 
-export const NFTChainMap: Record<string, string> = {
-  [NETWORK_ID_EVM_ETH]: 'eth',
+export type AvailableNetworks = typeof NFTSupportNetworks[number];
+
+export const NFTChainMap: Record<AvailableNetworks, string> = {
+  'evm--1': 'eth',
   'evm--10': 'optimism',
   'evm--56': 'bsc',
   'evm--137': 'polygon',
@@ -9,8 +18,8 @@ export const NFTChainMap: Record<string, string> = {
   'sol--101': 'sol',
 };
 
-export const NFTSymbolMap: Record<string, string> = {
-  [NETWORK_ID_EVM_ETH]: 'ethereum',
+export const NFTSymbolMap: Record<AvailableNetworks, string> = {
+  'evm--1': 'ethereum',
   'evm--10': 'ethereum',
   'evm--56': 'binancecoin',
   'evm--137': 'weth',

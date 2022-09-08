@@ -217,15 +217,16 @@ export default class ServiceToken extends ServiceBase {
       Array.from(new Set(tokenIdsOnNetwork)),
       true,
     );
+    const actions = [];
     if (newTokens?.length) {
-      dispatch(
+      actions.push(
         addAccountTokens({
           activeAccountId,
           activeNetworkId,
           tokens: newTokens,
         }),
       );
-      dispatch(
+      actions.push(
         addNetworkTokens({
           activeNetworkId,
           tokens: newTokens,
@@ -233,6 +234,7 @@ export default class ServiceToken extends ServiceBase {
       );
     }
     dispatch(
+      ...actions,
       setAccountTokensBalances({
         activeAccountId,
         activeNetworkId,
@@ -284,8 +286,8 @@ export default class ServiceToken extends ServiceBase {
         activeNetworkId,
         prices: fullPrices,
       }),
+      setCharts({ activeNetworkId, charts }),
     );
-    dispatch(setCharts({ activeNetworkId, charts }));
     return fullPrices;
   }
 

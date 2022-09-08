@@ -39,6 +39,7 @@ class ProviderApiSolana extends ProviderApiBase {
     const [account] =
       this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
         origin: request.origin as string,
+        impl: IMPL_SOL,
       });
 
     return Promise.resolve(account?.address ?? '');
@@ -94,7 +95,7 @@ class ProviderApiSolana extends ProviderApiBase {
       origin,
       networkImpl: IMPL_SOL,
       addresses: this.backgroundApi.serviceDapp
-        .getActiveConnectedAccounts({ origin })
+        .getActiveConnectedAccounts({ origin, impl: IMPL_SOL })
         .map(({ address }) => address),
     });
     debugLogger.providerApi.info('solana disconnect', origin);

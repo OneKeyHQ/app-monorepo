@@ -21,13 +21,13 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { useNFTSymbolPrice } from '../../../hooks/useTokens';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '../../../routes/Modal/Collectibles';
 
 import CollectibleCard from './CollectibleGallery/CollectibleCard';
-import { useNFTPrice } from './hooks';
 
 const ViewTypes = {
   LOGO: 0,
@@ -105,7 +105,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
     >();
   const { collectible, network } = route.params;
 
-  const price = useNFTPrice({ network });
+  const price = useNFTSymbolPrice({ networkId: network.id });
 
   // Open Asset detail modal
   const handleSelectAsset = React.useCallback(

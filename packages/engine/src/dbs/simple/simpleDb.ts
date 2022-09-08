@@ -1,5 +1,6 @@
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
+import { SimpleDbEntityNFT } from './entity/SimpleDbEntityNFT';
 import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
 import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
 import { SimpleDbEntitySwap } from './entity/SimpleDbEntitySwap';
@@ -17,6 +18,8 @@ class SimpleDb {
   token = new SimpleDbEntityTokens();
 
   walletConnect = new SimpleDbEntityWalletConnect();
+
+  nft = new SimpleDbEntityNFT();
 }
 
 const simpleDb = new SimpleDb();

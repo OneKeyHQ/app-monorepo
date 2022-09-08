@@ -14,6 +14,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { ENABLED_DAPP_SCOPE } from '../../background/utils';
 import { useWalletConnectPrepareConnection } from '../../components/WalletConnect/useWalletConnectPrepareConnection';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
@@ -363,12 +364,7 @@ function SendConfirmProxy() {
     }
     // dapp tx should check scope matched
     // TODO add injectedProviderName to vault settings
-    return ![
-      IInjectedProviderNames.ethereum,
-      IInjectedProviderNames.starcoin,
-      IInjectedProviderNames.near,
-      IInjectedProviderNames.solana,
-    ].includes(sourceInfo.scope as any); // network.settings.injectedProviderName
+    return !ENABLED_DAPP_SCOPE.includes(sourceInfo.scope as any); // network.settings.injectedProviderName
   }, [sourceInfo]);
 
   const [content, setContent] = useState<JSX.Element | null>(null);

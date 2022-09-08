@@ -3,10 +3,15 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
-import { PayloadAction } from '@reduxjs/toolkit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  DISPATCH_ACTION_BROADCAST_METHOD_NAME,
+  IDispatchActionBroadcastParams,
+  buildReduxBatchAction,
+} from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function syncWholeStoreState() {
   backgroundApiProxy
@@ -30,8 +35,15 @@ function init() {
   const jsBridgeReceiveHandler = (payload: IJsBridgeMessagePayload) => {
     console.log('jsBridgeReceiveHandler Ext-UI', payload);
     const { method, params } = payload.data as IJsonRpcRequest;
-    if (method === 'dispatchActionBroadcast') {
-      store.dispatch(params as PayloadAction);
+    if (method === DISPATCH_ACTION_BROADCAST_METHOD_NAME) {
+      const { actions } = params as IDispatchActionBroadcastParams;
+      if (actions && actions.length) {
+        const actionData = buildReduxBatchAction(...actions);
+        if (actionData) {
+          // * update Ext ui store
+          store.dispatch(actionData);
+        }
+      }
     }
   };
   // TODO rename global.$extensionJsBridgeUiToBg

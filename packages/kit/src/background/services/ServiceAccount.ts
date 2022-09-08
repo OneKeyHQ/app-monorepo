@@ -244,15 +244,15 @@ class ServiceAccount extends ServiceBase {
     });
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    const actions = [];
     if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
+      actions.push(setBoardingCompleted());
     }
     if (!data.isPasswordSet) {
-      dispatch(passwordSet());
-      dispatch(setEnableAppLock(true));
+      actions.push(passwordSet());
+      actions.push(setEnableAppLock(true));
     }
-    dispatch(unlock());
-    dispatch(release());
+    dispatch(...actions, unlock(), release());
 
     await serviceAccount.initWallets();
     await serviceAccount.autoChangeAccount({ walletId: wallet.id });
@@ -527,14 +527,12 @@ class ServiceAccount extends ServiceBase {
     if (checkPasswordSet) {
       const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
       if (!data.isPasswordSet) {
-        dispatch(passwordSet());
-        dispatch(setEnableAppLock(true));
+        dispatch(passwordSet(), setEnableAppLock(true));
       }
     }
 
     if (checkOnBoarding || checkPasswordSet) {
-      dispatch(unlock());
-      dispatch(release());
+      dispatch(unlock(), release());
     }
 
     const wallets = await serviceAccount.initWallets();
@@ -676,18 +674,21 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    const walletId = wallet?.id;
+    const accountId = account?.id;
+
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    const actions = [];
     if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
+      actions.push(setBoardingCompleted());
     }
-    dispatch(unlock());
-    dispatch(release());
+    dispatch(...actions, unlock(), release());
 
     await this.initWallets();
 
     serviceAccount.changeActiveAccount({
-      accountId: account?.id ?? null,
-      walletId: wallet?.id ?? null,
+      accountId: accountId ?? null,
+      walletId: walletId ?? null,
     });
     return wallet;
   }
@@ -739,14 +740,15 @@ class ServiceAccount extends ServiceBase {
     await engine.removeAccount(accountId, password ?? '');
     await simpleDb.walletConnect.removeAccount({ accountId });
 
+    const actions = [];
     if (activeAccountId === accountId) {
       await this.autoChangeAccount({ walletId });
     } else {
       const wallet: Wallet | null = await engine.getWallet(walletId);
-      dispatch(updateWallet(wallet));
+      actions.push(updateWallet(wallet));
     }
 
-    dispatch(setRefreshTS());
+    dispatch(...actions, setRefreshTS());
     if (!walletId.startsWith('hw')) {
       serviceCloudBackup.requestBackup();
     }
@@ -754,31 +756,47 @@ class ServiceAccount extends ServiceBase {
 
   addressLabelCache: Record<string, string> = {};
 
+  // getAccountNameByAddress
   @backgroundMethod()
   async getAddressLabel({
     address,
   }: {
     address: string;
   }): Promise<{ label: string; address: string }> {
-    if (this.addressLabelCache[address]) {
+    const { wallet, walletId } = getActiveWalletAccount();
+    const cacheKey = `${address}@${walletId || ''}`;
+    if (this.addressLabelCache[cacheKey]) {
       return Promise.resolve({
-        label: this.addressLabelCache[address],
+        label: this.addressLabelCache[cacheKey],
         address,
       });
+    }
+    const findNameLabelByAccountIds = async (accountIds: string[]) => {
+      const accounts = await this.backgroundApi.engine.getAccounts(accountIds);
+      const name = find(
+        accounts,
+        (a) => a.address.toLowerCase() === address.toLowerCase(),
+      )?.name;
+      const label = name ?? '';
+      if (label && address) {
+        this.addressLabelCache[cacheKey] = label;
+      }
+      return label;
+    };
+    if (wallet && wallet.accounts && wallet.accounts.length) {
+      const label = await findNameLabelByAccountIds(wallet.accounts);
+      if (label) {
+        return {
+          label,
+          address,
+        };
+      }
     }
     const wallets = await this.backgroundApi.engine.getWallets({
       includeAllPassphraseWallet: true,
     });
-    const accountids = flatten(wallets.map((w) => w.accounts));
-    const accounts = await this.backgroundApi.engine.getAccounts(accountids);
-    const name = find(
-      accounts,
-      (a) => a.address.toLowerCase() === address.toLowerCase(),
-    )?.name;
-    const label = name ?? '';
-    if (label && address) {
-      this.addressLabelCache[address] = label;
-    }
+    const accountIds = flatten(wallets.map((w) => w.accounts));
+    const label = await findNameLabelByAccountIds(accountIds);
     return {
       label,
       address,

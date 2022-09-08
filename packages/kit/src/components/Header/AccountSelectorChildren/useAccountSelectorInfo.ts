@@ -24,6 +24,7 @@ import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
   ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
+  ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN,
 } from './accountSelectorConsts';
 import { useDeviceStatusOfHardwareWallet } from './useDeviceStatusOfHardwareWallet';
 
@@ -155,14 +156,12 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
 
   const refreshHookDeps = useMemo(
     () => ({
-      isOpenDelay,
       refreshAccountSelectorTs,
       selectedNetworkId,
       selectedWalletId,
       activeAccount,
     }),
     [
-      isOpenDelay,
       refreshAccountSelectorTs,
       selectedNetworkId,
       selectedWalletId,
@@ -173,6 +172,11 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
   useEffect(() => {
     refreshAccounts();
   }, [refreshHookDeps, refreshAccounts]);
+  useEffect(() => {
+    if (!ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN && isOpenDelay) {
+      refreshAccounts();
+    }
+  }, [isOpenDelay, refreshAccounts]);
 
   useEffect(() => {
     InteractionManager.runAfterInteractions(async () => {

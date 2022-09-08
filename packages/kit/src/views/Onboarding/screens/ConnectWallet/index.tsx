@@ -11,6 +11,7 @@ import {
   Pressable,
   Spinner,
   Text,
+  useThemeValue,
 } from '@onekeyhq/components';
 import DeviceMobile from '@onekeyhq/kit/assets/onboarding/device_classic_touch.png';
 import DeviceAll from '@onekeyhq/kit/assets/onboarding/device_mini_classic_touch.png';
@@ -155,11 +156,12 @@ function ConnectOneKeyLiteButton() {
 
 const ConnectWallet = () => {
   const intl = useIntl();
+  const bgColor = useThemeValue('background-default');
   const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
   return (
     <>
       {onBoardingLoadingBehindModal ? (
-        <Center flex={1} height="full">
+        <Center bgColor={bgColor} flex={1} height="full">
           <Spinner size="lg" />
         </Center>
       ) : (

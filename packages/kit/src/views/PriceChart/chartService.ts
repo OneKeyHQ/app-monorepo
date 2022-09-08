@@ -140,7 +140,7 @@ export function updateChartDom({
 }
 
 export type PriceApiProps = {
-  platform?: string;
+  networkId: string;
   contract?: string;
   'vs_currency'?: string;
   days: string;
@@ -148,7 +148,7 @@ export type PriceApiProps = {
 };
 
 export const fetchChartData = async ({
-  platform = 'ethereum',
+  networkId,
   contract = 'main',
   // eslint-disable-next-line camelcase
   vs_currency = 'usd',
@@ -156,7 +156,7 @@ export const fetchChartData = async ({
   days,
 }: PriceApiProps) => {
   const charts = await backgroundApiProxy.engine.getChart({
-    platform,
+    networkId,
     addresses: [contract],
     days,
     vs_currency,

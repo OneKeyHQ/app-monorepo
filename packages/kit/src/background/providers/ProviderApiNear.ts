@@ -72,6 +72,7 @@ class ProviderApiNear extends ProviderApiBase {
     const connectedAccounts =
       this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
         origin: request.origin as string,
+        impl: IMPL_NEAR,
       });
     if (!connectedAccounts) {
       return { accounts: [] };

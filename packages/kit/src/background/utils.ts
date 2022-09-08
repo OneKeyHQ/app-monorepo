@@ -1,9 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
+import {
+  IInjectedProviderNames,
+  IInjectedProviderNamesStrings,
+} from '@onekeyfe/cross-inpage-provider-types';
+import { PayloadAction } from '@reduxjs/toolkit';
 import {
   isArray,
   isBoolean,
   isEmpty,
+  isFunction,
   isNil,
   isNull,
   isNumber,
@@ -11,6 +16,7 @@ import {
   isString,
   isUndefined,
 } from 'lodash';
+import { batch } from 'react-redux';
 
 import {
   IMPL_CFX,
@@ -20,6 +26,8 @@ import {
   IMPL_STC,
 } from '@onekeyhq/engine/src/constants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { AnyAction } from 'redux';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -289,6 +297,19 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     '$private': undefined,
   };
 
+export const ENABLED_DAPP_SCOPE = [
+  IInjectedProviderNames.ethereum,
+  IInjectedProviderNames.starcoin,
+  IInjectedProviderNames.near,
+  IInjectedProviderNames.solana,
+];
+
+export function getNetworkImplFromDappScope(
+  scope: IInjectedProviderNamesStrings,
+) {
+  return scopeNetwork[scope];
+}
+
 export const isDappScopeMatchNetwork = (
   scope?: IInjectedProviderNamesStrings,
   impl?: string,
@@ -298,3 +319,43 @@ export const isDappScopeMatchNetwork = (
   }
   return true;
 };
+
+export const DISPATCH_ACTION_BROADCAST_METHOD_NAME = 'dispatchActionBroadcast';
+export type IDispatchActionBroadcastParams = {
+  actions?: PayloadAction[];
+  $isDispatchFromBackground: boolean;
+};
+export function buildReduxBatchAction(...actions: AnyAction[]) {
+  if (!actions || !actions.length) {
+    return undefined;
+  }
+  if (actions && actions.length > 1) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const batchAction = (dispatch: (p: any) => void, getState: any) => {
+      // should only result in one combined re-render, not two
+      batch(() => {
+        actions.forEach((action) => {
+          if (isFunction(action)) {
+            throw new Error(
+              'backgroundApi.dispatch ERROR:  async action is NOT allowed.',
+            );
+          }
+          if (action) {
+            action.$isDispatchFromBackground = true;
+          }
+
+          dispatch(action);
+          ensureSerializable(action);
+        });
+      });
+    };
+    return batchAction;
+  }
+
+  const singleAction: AnyAction | undefined = actions?.[0];
+  if (singleAction) {
+    singleAction.$isDispatchFromBackground = true;
+  }
+
+  return singleAction;
+}

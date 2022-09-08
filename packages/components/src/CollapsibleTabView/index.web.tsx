@@ -171,31 +171,29 @@ const Container: FC<ContainerProps> = ({
   ]);
 
   return (
-    <ScrollView>
-      <Box flex="1" style={containerStyle} w="100%">
-        <Box
-          h={headerHeight ? headerHeight + 48 : 'auto'}
-          position="relative"
-          style={[headerContainerStyle as StyleProp<ViewStyle>]}
-        >
-          {renderHeader?.({} as any)}
-          <Box position="absolute" bottom={0} left={0} right={0}>
-            <MaterialTabBar
-              value={value}
-              activeColor={activeLabelColor}
-              inactiveColor={labelColor}
-              labelStyle={{
-                ...Body2StrongProps,
-              }}
-              indicatorStyle={{ backgroundColor: indicatorColor }}
-              handleChange={handleChange}
-              options={options}
-              names={names}
-            />
-          </Box>
+    <ScrollView style={containerStyle}>
+      <Box
+        h={headerHeight ? headerHeight + 48 : 'auto'}
+        position="relative"
+        style={[headerContainerStyle as StyleProp<ViewStyle>]}
+      >
+        {renderHeader?.({} as any)}
+        <Box position="absolute" bottom={0} left={0} right={0}>
+          <MaterialTabBar
+            value={value}
+            activeColor={activeLabelColor}
+            inactiveColor={labelColor}
+            labelStyle={{
+              ...Body2StrongProps,
+            }}
+            indicatorStyle={{ backgroundColor: indicatorColor }}
+            handleChange={handleChange}
+            options={options}
+            names={names}
+          />
         </Box>
-        <Context.Provider value={value}>{children}</Context.Provider>
       </Box>
+      <Context.Provider value={value}>{children}</Context.Provider>
     </ScrollView>
   );
 };

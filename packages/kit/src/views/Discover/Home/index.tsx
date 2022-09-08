@@ -259,8 +259,7 @@ export const Discover: FC<DiscoverProps> = ({
     setLoading(false);
 
     if (syncDataResult && rankDataResult) {
-      dispatch(updateSyncData(syncDataResult));
-      dispatch(updateRankData(rankDataResult));
+      dispatch(updateSyncData(syncDataResult), updateRankData(rankDataResult));
       updateFlatListData(() => generaListData(syncDataResult, rankDataResult));
     } else {
       updateFlatListData(() => []);

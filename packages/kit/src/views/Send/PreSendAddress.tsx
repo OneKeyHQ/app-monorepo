@@ -49,6 +49,7 @@ function PreSendAddress() {
   const {
     onChange: onNameServiceChange,
     disableSubmitBtn,
+    isValid: isValidNameServiceName,
     address: resolvedAddress,
   } = useNameServiceStatus();
 
@@ -162,7 +163,8 @@ function PreSendAddress() {
                         toAddress,
                       );
                     } catch (error0) {
-                      if (disableSubmitBtn) return;
+                      if (isValidNameServiceName && !resolvedAddress)
+                        return undefined;
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });

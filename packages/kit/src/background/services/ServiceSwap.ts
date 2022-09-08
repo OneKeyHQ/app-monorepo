@@ -45,8 +45,7 @@ export default class ServiceSwap extends ServiceBase {
   async selectToken(field: FieldType, network?: Network, token?: Token) {
     const { dispatch } = this.backgroundApi;
     if (field === 'INPUT') {
-      dispatch(setInputToken({ token, network }));
-      dispatch(setApprovalSubmitted(false));
+      dispatch(setInputToken({ token, network }), setApprovalSubmitted(false));
     } else {
       dispatch(setOutputToken({ token, network }));
     }
@@ -97,8 +96,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async switchTokens() {
     const { dispatch } = this.backgroundApi;
-    dispatch(setQuote(undefined));
-    dispatch(switchTokens());
+    dispatch(setQuote(undefined), switchTokens());
   }
 
   @backgroundMethod()
@@ -146,12 +144,13 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setQuote(data?: QuoteData) {
     const { dispatch } = this.backgroundApi;
-    dispatch(setQuote(data));
+    const actions: any[] = [setQuote(data)];
     if (data) {
-      dispatch(setQuoteTime(Date.now()));
+      actions.push(setQuoteTime(Date.now()));
     } else {
-      dispatch(setQuoteTime(undefined));
+      actions.push(setQuoteTime(undefined));
     }
+    dispatch(...actions);
   }
 
   @backgroundMethod()

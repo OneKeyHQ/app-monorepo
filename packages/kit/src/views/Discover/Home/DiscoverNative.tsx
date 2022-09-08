@@ -223,8 +223,7 @@ const DiscoverNative: FC<DiscoverProps> = ({
     ]);
     if (syncDataResult && rankDataResult) {
       setPageStatus('data');
-      dispatch(updateSyncData(syncDataResult));
-      dispatch(updateRankData(rankDataResult));
+      dispatch(updateSyncData(syncDataResult), updateRankData(rankDataResult));
     } else {
       setPageStatus(
         Object.keys(syncData.increment).length > 0 ? 'data' : 'network',

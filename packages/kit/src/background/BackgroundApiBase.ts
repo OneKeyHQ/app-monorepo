@@ -26,6 +26,9 @@ import { IBackgroundApiBridge } from './IBackgroundApi';
 import { createBackgroundProviders } from './providers/backgroundProviders';
 import ProviderApiBase from './providers/ProviderApiBase';
 import {
+  DISPATCH_ACTION_BROADCAST_METHOD_NAME,
+  IDispatchActionBroadcastParams,
+  buildReduxBatchAction,
   ensurePromiseObject,
   ensureSerializable,
   throwMethodNotFound,
@@ -115,29 +118,31 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     );
   }
 
-  // dispatchAction
   @bindThis()
   @backgroundMethod()
-  dispatch(action: any) {
-    if (isFunction(action)) {
-      throw new Error(
-        'backgroundApi.dispatch ERROR:  async action is NOT allowed.',
-      );
+  dispatch(...actions: any[]) {
+    if (!actions || !actions.length) {
+      return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    action.$isDispatchFromBackground = true;
+    // eslint-disable-next-line no-param-reassign
+    actions = actions.filter(Boolean);
+    const actionData = buildReduxBatchAction(...actions);
 
-    // * update background store
-    // TODO init store from constructor
-    this.store.dispatch(action);
-    // * broadcast action
-    ensureSerializable(action);
-    this.bridgeExtBg?.requestToAllUi({
-      // TODO use consts
-      method: 'dispatchActionBroadcast',
-      params: action,
-    } as IJsonRpcRequest);
-    // * TODO auto sync full state to UI when ui mount
+    if (actionData) {
+      // * update background store
+      this.store.dispatch(actionData);
+
+      // * broadcast action to Ext ui
+      //    packages/ext/src/ui/uiJsBridge.ts
+      const params: IDispatchActionBroadcastParams = {
+        actions,
+        $isDispatchFromBackground: true,
+      };
+      this.bridgeExtBg?.requestToAllUi({
+        method: DISPATCH_ACTION_BROADCAST_METHOD_NAME,
+        params,
+      } as IJsonRpcRequest);
+    }
   }
 
   // getStoreState

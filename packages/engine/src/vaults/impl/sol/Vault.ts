@@ -58,6 +58,7 @@ import type {
   IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
+  IHistoryTx,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -522,5 +523,74 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory?: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const { localHistory = [], tokenIdOnNetwork } = options;
+    if (tokenIdOnNetwork) {
+      // No token support now.
+      return Promise.resolve([]);
+    }
+
+    const client = await this.getClient();
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+
+    const signaturesResult: Array<{ signature: string }> =
+      await client.rpc.call('getSignaturesForAddress', [
+        dbAccount.address,
+        { limit: 20 },
+      ]);
+    const onChainTxs: Array<{
+      blockTime: number;
+      transaction: [IEncodedTx];
+      meta: { fee: number; err: any | null };
+    }> = await client.rpc.batchCall(
+      signaturesResult.map(({ signature }) => [
+        'getTransaction',
+        [signature, { encoding: 'base58' }],
+      ]),
+    );
+
+    const promises = onChainTxs.map(async (tx, index) => {
+      const { signature: txid } = signaturesResult[index];
+      const historyTxToMerge = localHistory.find(
+        (item) => item.decodedTx.txid === txid,
+      );
+      if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        // No need to update.
+        return Promise.resolve(null);
+      }
+
+      try {
+        const {
+          blockTime,
+          transaction: [encodedTx],
+          meta: { fee: feeValue, err },
+        } = tx;
+        const updatedAt = blockTime * 1000;
+        const decodedTx: IDecodedTx = {
+          ...(await this.decodeTx(encodedTx)),
+          txid,
+          totalFeeInNative: new BigNumber(feeValue)
+            .shiftedBy(-decimals)
+            .toFixed(),
+          status: err ? IDecodedTxStatus.Failed : IDecodedTxStatus.Confirmed,
+          updatedAt,
+          createdAt: historyTxToMerge?.decodedTx.createdAt ?? updatedAt,
+          isFinal: true,
+        };
+        return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
+      } catch (e) {
+        debugLogger.common.error(e);
+      }
+
+      return Promise.resolve(null);
+    });
+
+    return (await Promise.all(promises)).filter(Boolean);
   }
 }

@@ -38,9 +38,8 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
 
   providers = {} as Record<IInjectedProviderNames, ProviderApiBase>;
 
-  // TODO add custom eslint rule to force method name match
-  dispatch = (action: any) => {
-    this.callBackgroundSync('dispatch', action);
+  dispatch = (...actions: any[]) => {
+    this.callBackgroundSync('dispatch', ...actions);
   };
 
   getState = (): Promise<{ state: any; bootstrapped: boolean }> =>

@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef } from 'react';
+import { FC, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Modalize } from 'react-native-modalize';
@@ -15,7 +15,11 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
-import { setHideSmallBalance } from '../../store/reducers/settings';
+import {
+  setHideBalance,
+  setHideSmallBalance,
+  setIncludeNFTsInTotal,
+} from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
 
 export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
@@ -46,6 +50,7 @@ export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
         overflow: 'hidden',
       }}
       handleStyle={{ backgroundColor: handleBg }}
+      tapGestureEnabled={false}
     >
       <Box px="16px" py="24px" bg="surface-subdued">
         {children}
@@ -58,43 +63,99 @@ export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
       footer={null}
       closeAction={closeOverlay}
     >
-      {children}
+      <Box bg="surface-subdued">{children}</Box>
     </Modal>
+  );
+};
+
+const SettingRow: FC<{
+  borderTopRadius?: number | string;
+  borderBottomRadius?: number | string;
+  borderTopWidth?: number | string;
+}> = ({ children, borderTopRadius, borderBottomRadius, borderTopWidth }) => {
+  const { themeVariant } = useTheme();
+  return (
+    <Box
+      p="16px"
+      borderWidth={themeVariant === 'light' ? 1 : undefined}
+      borderColor="border-subdued"
+      borderRadius="12"
+      borderTopRadius={borderTopRadius}
+      borderBottomRadius={borderBottomRadius}
+      borderTopWidth={borderTopWidth}
+      bg="surface-default"
+      justifyContent="space-between"
+      flexDirection="row"
+    >
+      {children}
+    </Box>
   );
 };
 
 const HomeBalanceSettings: FC = () => {
   const intl = useIntl();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
-  const { themeVariant } = useTheme();
   return (
-    <Box bg="surface-subdued">
-      <Box
-        p="16px"
-        borderWidth={themeVariant === 'light' ? 1 : undefined}
-        borderColor="border-subdued"
-        borderRadius="12"
-        bg="surface-default"
-        justifyContent="space-between"
-        flexDirection="row"
-      >
-        <Typography.Body1Strong>
-          {intl.formatMessage({ id: 'form__hide_small_balance' })}
-        </Typography.Body1Strong>
-        <Switch
-          labelType="false"
-          isChecked={hideSmallBalance}
-          onToggle={() =>
-            backgroundApiProxy.dispatch(setHideSmallBalance(!hideSmallBalance))
-          }
-        />
-      </Box>
-    </Box>
+    <SettingRow>
+      <Typography.Body1Strong>
+        {intl.formatMessage({ id: 'form__hide_small_balance' })}
+      </Typography.Body1Strong>
+      <Switch
+        labelType="false"
+        isChecked={hideSmallBalance}
+        onToggle={() =>
+          backgroundApiProxy.dispatch(setHideSmallBalance(!hideSmallBalance))
+        }
+      />
+    </SettingRow>
   );
 };
 export const showHomeBalanceSettings = () =>
   showOverlay((closeOverlay) => (
     <BottomSheetSettings closeOverlay={closeOverlay}>
       <HomeBalanceSettings />
+    </BottomSheetSettings>
+  ));
+
+const AccountValueSettings: FC = () => {
+  const intl = useIntl();
+  const { includeNFTsInTotal = true, hideBalance } = useAppSelector(
+    (s) => s.settings,
+  );
+  return (
+    <>
+      <SettingRow borderBottomRadius={0}>
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'form__include_nfts_in_totals' })}
+        </Typography.Body1Strong>
+        <Switch
+          labelType="false"
+          isChecked={includeNFTsInTotal}
+          onToggle={() =>
+            backgroundApiProxy.dispatch(
+              setIncludeNFTsInTotal(!includeNFTsInTotal),
+            )
+          }
+        />
+      </SettingRow>
+      {/* <SettingRow borderTopRadius={0} borderTopWidth={0}>
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'form__hide_balance' })}
+        </Typography.Body1Strong>
+        <Switch
+          labelType="false"
+          isChecked={hideBalance !== false}
+          onToggle={() =>
+            backgroundApiProxy.dispatch(setHideBalance(!hideBalance))
+          }
+        />
+      </SettingRow> */}
+    </>
+  );
+};
+export const showAccountValueSettings = () =>
+  showOverlay((closeOverlay) => (
+    <BottomSheetSettings closeOverlay={closeOverlay}>
+      <AccountValueSettings />
     </BottomSheetSettings>
   ));

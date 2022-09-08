@@ -367,6 +367,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
       {
         origin: request.origin as string,
+        impl: IMPL_EVM,
       },
     );
     if (!accounts) {
