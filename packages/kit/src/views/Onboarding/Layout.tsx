@@ -166,6 +166,7 @@ const Layout: FC<LayoutProps> = ({
             justifyContent={fullHeight ? 'space-between' : undefined}
           >
             <Box
+              flex={fullHeight && !secondaryContent ? 1 : undefined}
               flexShrink={fullHeight ? 0 : undefined}
               w={{ sm: secondaryContent ? 400 : 'full' }}
             >
