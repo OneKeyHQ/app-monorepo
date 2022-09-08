@@ -52,6 +52,13 @@ const NewAddress = () => {
           }),
         );
         backgroundApiProxy.serviceCloudBackup.requestBackup();
+        toast.show(
+          {
+            title: intl.formatMessage({ id: 'msg__address_added' }),
+          },
+          {},
+          { delay: 300 },
+        );
         navigation.goBack();
       }
     },
