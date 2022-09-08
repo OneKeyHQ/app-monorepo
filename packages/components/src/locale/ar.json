@@ -175,7 +175,7 @@
   "action__test_update_ble_firmware": "اختبار ترقية بلي البرامج الثابتة",
   "action__test_update_firmware": "اختبار البرامج الثابتة للترقية",
   "action__unlock": "الغاء القفل",
-  "action__unstake": "Unstake",
+  "action__unstake": "نزع",
   "action__unsubscribe": "إلغاء الاشتراك",
   "action__update": "تحديث",
   "action__update_available": "التحديث متاح",
@@ -376,7 +376,7 @@
   "content__not_on_this_device": "ليس على هذا الجهاز",
   "content__not_synced": "غير متزامن",
   "content__or_lowercase": "أو",
-  "content__passphrase": "عبارة المرور",
+  "content__other": "آخر",
   "content__password_required_even_unlocked": "ستكون كلمة المرور مطلوبة في هذه الحالات حتى إذا قمت بالفعل بإلغاء قفل OneKey.",
   "content__password_required_unlock_onekey": "ستكون كلمة المرور مطلوبة في المرة التالية التي تقوم فيها بإلغاء تأمين OneKey.",
   "content__password_security": "يتم تخزين كلمة المرور بشكل آمن على جهازك. لن نتمكن من استعادتها لك ، لذا تأكد من تذكرها!",
@@ -422,7 +422,7 @@
   "content__serial_number": "رقم سري",
   "content__set_a_pin_code": "قم بتعيين رمز PIN",
   "content__set_a_pin_code_desc": "قم بتعيين رمز PIN بنفسك ، والذي يشبه رمز السحب الخاص ببطاقة مصرفية.",
-  "content__set_receiving_address": "Set receiving address",
+  "content__set_receiving_address": "حدد عنوان الاستلام",
   "content__since_str": "منذ {0}",
   "content__spend_limit_amount": "مبلغ حد الإنفاق",
   "content__staked_eth_can_t_be_taken_back_now": "لا يمكن إرجاع ETH المكدس الآن.",
@@ -444,7 +444,7 @@
   "content__the_current_statistical_content_only_includes_the_assets": "يتضمن المحتوى الإحصائي الحالي الأصول الموجودة على شبكة {0} فقط ، وسيتوفر قريبًا المزيد من الشبكات.",
   "content__the_decentralized_web_awaits": "شبكة الإنترنت اللامركزية تنتظر",
   "content__these_information_may_be_found": "يمكن العثور على هذه المعلومات على صفحة حول الجهاز.",
-  "content__third_party_validator": "Third Party Validator",
+  "content__third_party_validator": "مدقق الطرف الثالث",
   "content__to": "ل",
   "content__today": "اليوم",
   "content__token_approve_owner": "صاحب",
@@ -546,6 +546,7 @@
   "form__add_to_address_book": "أضف إلى دفتر العناوين",
   "form__address": "عنوان",
   "form__address_btc_as_wachted_account": "عنوان استيراد BTC كحساب مراقب غير مدعوم حتى الآن.",
+  "form__address_ens_hasnt_bind": "هذا الاسم {0} لم يربط أي عنوان.",
   "form__address_helperText": "يمكنك \"مشاهدة\" أي عنوان عام دون الكشف عن مفتاحك الخاص. يتيح لك هذا عرض الرصيد والمعاملات ، ولكن لا يتيح لك إرسال المعاملات.",
   "form__address_invalid": "عنوان غير صحيح.",
   "form__address_no_supported_address": "لا يوجد عنوان معتمد.",
@@ -637,6 +638,7 @@
   "form__hardware": "المعدات",
   "form__hardware_wallet_manuals": "كتيبات محفظة الأجهزة",
   "form__help_support": "ساعد لدعم",
+  "form__hide_balance": "إخفاء الرصيد",
   "form__hide_small_balance": "إخفاء الرصيد الصغير",
   "form__hint_optional": "اختياري",
   "form__hot_cryptos_uppercase": "التشفير الساخن",
@@ -795,8 +797,8 @@
   "history__queue": "طابور",
   "loading__confirming": "التأكد",
   "message__choose_address": "اختر العنوان",
-  "message__fetching_addresses": "Fetching addresses...",
-  "message__fetching_error": "Invalid {0} name.",
+  "message__fetching_addresses": "إحضار العناوين ...",
+  "message__fetching_error": "اسم {0} غير صالح.",
   "message__not_support_passphrase_yet": "عذرًا ، محفظة عبارة المرور غير مدعومة حتى الآن",
   "modal__add_wallet": "أضف المحفظة",
   "modal__add_wallet_desc": "ابدأ رحلة Web3 من هنا.",
@@ -893,7 +895,7 @@
   "modal__pin_change_failed": "فشل تغيير رقم التعريف الشخصي",
   "modal__pin_change_failed_desc": "ليست هناك حاجة لتغيير رقم التعريف الشخصي على بطاقة OneKey Lite الجديدة هذه",
   "modal__preview": "معاينة",
-  "modal__reset_app_desc": "سيؤدي هذا إلى حذف جميع البيانات التي قمت بإنشائها في OneKey ، أدخل \"{0}\" لإعادة تعيين التطبيق",
+  "modal__reset_app_desc": "سيؤدي هذا إلى حذف جميع البيانات التي قمت بإنشائها على OneKey. بعد التأكد من أن لديك نسخة احتياطية مناسبة ، أدخل \" {0} \" لإعادة تعيين التطبيق",
   "modal__reset_failed": "فشل إعادة التعيين",
   "modal__reset_failed_desc": "هذه بطاقة OneKey Lite جديدة تمامًا ولا تحتاج إلى إعادة تعيين",
   "modal__reset_onekey_lite_desc": "سيتم مسح عبارة الاسترداد التي قمت بتخزينها على هذا الجهاز ، ولن تكون متاحة بعد الآن لاستعادة الحساب ، أدخل \"{0}\" لإعادة تعيين OneKey Lite.",
@@ -1022,20 +1024,21 @@
   "msg__price_alert_reached": "🔔 تنبيه السعر!",
   "msg__price_alert_reached_desc": "وصل {0} إلى القيمة المستهدفة {1}",
   "msg__received": "استقبل",
-  "msg__received_desc": "{0} من {0}",
+  "msg__received_desc": "{0} من {1}",
   "msg__removed": "إزالة!",
   "msg__renamed": "أعيدت تسميته",
   "msg__restored_str": "تمت استعادة \" {0} \"",
   "msg__sent": "💸 تم الإرسال",
-  "msg__sent_desc": "{0} إلى {0}",
+  "msg__sent_desc": "{0} إلى {1}",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
   "msg__str_data_reset": "{0} إعادة تعيين البيانات",
   "msg__str_maximum_amount": "{0} الحد الأقصى للمبلغ",
   "msg__str_minimum_amount": "{0} الحد الأدنى للمبلغ",
   "msg__str_not_exist": "{0} غير موجود",
   "msg__submitted_successfully": "تم الإرسال بنجاح",
+  "msg__subscription_succeeded": "نجح الاشتراك",
   "msg__successful_trade": "💫 التجارة الناجحة",
-  "msg__successful_trade_desc": "{0} لـ {0}",
+  "msg__successful_trade_desc": "{0} لـ {1}",
   "msg__swap_failed": "😵️ فشل المبادلة",
   "msg__swap_successful": "⚖️ المبادلة ناجحة",
   "msg__switch_to_str": "تحول إلى {0}",
@@ -1049,15 +1052,17 @@
   "msg__this_is_an_accelerated_transaction": "هذه معاملة معجلة️.",
   "msg__this_is_an_accelerated_transaction_desc": "سيتم استبدال المعاملة الأصلية.",
   "msg__this_site_is_identified_as_a_scam": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال",
-  "msg__this_token_has_been_added": "This token has already been added.",
+  "msg__this_token_has_been_added": "تمت إضافة هذا الرمز المميز بالفعل.",
   "msg__this_transaction_is_not_supported": "هذه الصفقة غير مدعومة",
   "msg__token_added": "تمت إضافة الرمز",
-  "msg__token_added_desc": "لكنها مخفية حاليًا ، يمكنك إيقاف تشغيل وظيفة \"توازن صغير مخفي\" لرؤيتها.",
   "msg__token_already_existed": "الرمز موجود بالفعل!",
+  "msg__token_has_been_added_but_is_hidden": "تم إضافة الرمز ولكنه مخفي",
+  "msg__token_has_been_added_but_is_hiddendesc_desc": "يمكنك إيقاف تشغيل خيار \"الرصيد الصغير المخفي\" لرؤيته.",
   "msg__transaction_failed": "😵 فشلت المعاملة",
   "msg__transaction_failed_desc": "فشل تنفيذ العقد",
   "msg__transaction_submitted": "تم إرسال المعاملة",
   "msg__unknown_error": "خطأ غير معروف",
+  "msg__unsubscription_succeeded": "نجح إلغاء الاشتراك",
   "msg__update_to_onekey_str_is_available": "يتوفر التحديث إلى OneKey {0}",
   "msg__upgrade_firmware_to_enable": "يرجى ترقية البرامج الثابتة للتمكين",
   "msg__upload_failed": "التحميل فشل",
@@ -1211,7 +1216,7 @@
   "title__slippage": "الانزلاق",
   "title__stake_str": "حصة {0}",
   "title__staked_on_str": "مخزون في {0}",
-  "title__staking_in_process": "Staking in progress",
+  "title__staking_in_process": "قيد التقدم ، قم بتقدير {0} دقيقة",
   "title__stats": "احصائيات",
   "title__swap": "تبديل",
   "title__swap_history": "سجل المبادلة",

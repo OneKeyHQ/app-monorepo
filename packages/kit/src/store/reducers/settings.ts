@@ -64,6 +64,8 @@ export type SettingsState = {
     [ValidationFields.Wallet]?: boolean;
   };
   hideSmallBalance?: boolean;
+  includeNFTsInTotal?: boolean;
+  hideBalance?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -105,6 +107,8 @@ const initialState: SettingsState = {
     [ValidationFields.Wallet]: false,
   },
   hideSmallBalance: false,
+  includeNFTsInTotal: true,
+  hideBalance: false,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -268,6 +272,12 @@ export const settingsSlice = createSlice({
     setHideSmallBalance(state, action: PayloadAction<boolean>) {
       state.hideSmallBalance = action.payload;
     },
+    setHideBalance(state, action: PayloadAction<boolean>) {
+      state.hideBalance = action.payload;
+    },
+    setIncludeNFTsInTotal(state, action: PayloadAction<boolean>) {
+      state.includeNFTsInTotal = action.payload;
+    },
     setPushNotificationConfig(
       state,
       action: PayloadAction<Partial<SettingsState['pushNotification']>>,
@@ -313,6 +323,8 @@ export const {
   setHideSmallBalance,
   setPushNotificationConfig,
   setEnableZeroNotificationThreshold,
+  setIncludeNFTsInTotal,
+  setHideBalance,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
