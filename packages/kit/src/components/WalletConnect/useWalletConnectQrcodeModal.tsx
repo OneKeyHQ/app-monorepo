@@ -11,10 +11,10 @@ import { Linking } from 'react-native';
 
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   CreateWalletModalRoutes,
@@ -34,7 +34,6 @@ import {
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
 import walletConnectUtils from './walletConnectUtils';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;

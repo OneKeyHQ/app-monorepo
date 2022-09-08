@@ -25,7 +25,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { RestoreResult } from '../../../../background/services/ServiceCloudBackup';
+import { RestoreResult } from '../../../../background/services/ServiceCloudBackup.types';
 import { ValidationFields } from '../../../../components/Protected';
 import { useNavigation } from '../../../../hooks';
 import { useData } from '../../../../hooks/redux';
@@ -45,7 +45,7 @@ import BackupIcon from './BackupIcon';
 import BackupSummary from './BackupSummary';
 import Wrapper from './Wrapper';
 
-import type { PublicBackupData } from '../../../../background/services/ServiceCloudBackup';
+import type { PublicBackupData } from '../../../../background/services/ServiceCloudBackup.types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

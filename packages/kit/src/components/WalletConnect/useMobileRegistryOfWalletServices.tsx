@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

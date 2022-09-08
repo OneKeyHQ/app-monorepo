@@ -2,7 +2,8 @@ import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
 import { isExtensionUi } from '../platformEnv';
 
-const appEventBus = new CrossEventEmitter();
+// eslint-disable-next-line import/no-mutable-exports
+let appEventBus: CrossEventEmitter;
 
 enum AppEventBusNames {
   AccountNameChanged = 'AccountNameChanged',
@@ -12,7 +13,22 @@ enum AppEventBusNames {
 }
 
 if (isExtensionUi) {
-  throw new Error('[appEventBus] is NOT allowed in UI process currently.');
+  appEventBus = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(
+          '[appEventBus] is NOT allowed in UI process currently.',
+        );
+      },
+    },
+  ) as CrossEventEmitter;
+} else {
+  appEventBus = new CrossEventEmitter();
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  global.$appEventBus = appEventBus;
 }
 
 export { appEventBus, AppEventBusNames };

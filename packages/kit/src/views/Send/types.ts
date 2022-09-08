@@ -1,11 +1,9 @@
-import { IWalletConnectSession } from '@walletconnect/types';
-
-import { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
-import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import {
+import type { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type {
   IDecodedTx,
   IEncodedTx,
   IFeeInfoSelected,
@@ -15,12 +13,12 @@ import {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappSourceInfo } from '../../background/IBackgroundApi';
-import { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
-import { WalletService } from '../../components/WalletConnect/types';
-import { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
-
+import type { IDappSourceInfo } from '../../background/IBackgroundApi';
+import type { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
+import type { WalletService } from '../../components/WalletConnect/types';
+import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
 import type { SwapQuoteTx } from '../Swap/typings';
+import type { IWalletConnectSession } from '@walletconnect/types';
 
 export enum SendRoutes {
   SendLegacy = 'SendLegacy',

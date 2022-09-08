@@ -1,7 +1,6 @@
 import { IClientMeta } from '@walletconnect/types';
 import { Linking, Platform } from 'react-native';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

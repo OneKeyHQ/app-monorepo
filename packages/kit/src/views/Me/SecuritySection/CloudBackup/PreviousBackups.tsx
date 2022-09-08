@@ -24,7 +24,7 @@ import {
 import BackupSummary from './BackupSummary';
 import Wrapper from './Wrapper';
 
-import type { IBackupItemSummary } from '../../../../background/services/ServiceCloudBackup';
+import type { IBackupItemSummary } from '../../../../background/services/ServiceCloudBackup.types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

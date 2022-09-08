@@ -1,4 +1,4 @@
-import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup';
+import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup.types';
 import { ImportBackupPasswordRoutes } from '@onekeyhq/kit/src/routes/Modal/ImportBackupPassword';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 

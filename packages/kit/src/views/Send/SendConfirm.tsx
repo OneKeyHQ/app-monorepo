@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';

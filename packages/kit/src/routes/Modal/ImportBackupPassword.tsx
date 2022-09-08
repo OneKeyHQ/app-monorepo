@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup';
+import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup.types';
 import ImportBackupPasswordModal from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/ImportBackupPasswordModal';
 
 import createStackNavigator from './createStackNavigator';

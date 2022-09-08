@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isExternalAccount } from '@onekeyhq/engine/src/engineUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

@@ -11,7 +11,6 @@ import {
 } from '@walletconnect/types';
 import { merge } from 'lodash';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { OneKeyWalletConnectModalCloseError } from '@onekeyhq/engine/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
