@@ -168,7 +168,6 @@ type HeaderProps = {
   showTopsLabel: boolean;
   tokens: Token[];
   keyword: string;
-  terms?: string;
   onChange: (keyword: string) => void;
   onDelete?: (token: Token) => void;
 };
@@ -177,7 +176,6 @@ const Header: FC<HeaderProps> = ({
   tokens,
   showTopsLabel,
   keyword,
-  terms,
   onChange,
   onDelete,
 }) => {
@@ -195,7 +193,7 @@ const Header: FC<HeaderProps> = ({
         onClear={() => onChange('')}
         onChangeText={(text) => onChange(text)}
       />
-      {terms ? null : (
+      {keyword ? null : (
         <HeaderTokens
           tokens={tokens}
           onDelete={onDelete}
@@ -401,7 +399,7 @@ export const ListingModal: FC<ListingModalProps> = ({
     [accountTokens],
   );
   const [keyword, setKeyword] = useState<string>('');
-  const terms = useDebounce(keyword, 1000);
+  const terms = useDebounce(keyword, 500);
 
   const { loading, searchedTokens } = useSearchTokens(
     terms,
@@ -411,8 +409,8 @@ export const ListingModal: FC<ListingModalProps> = ({
   );
 
   const listItems = useMemo(
-    () => (terms ? searchedTokens : networkTokens),
-    [terms, searchedTokens, networkTokens],
+    () => (keyword ? searchedTokens : networkTokens),
+    [keyword, searchedTokens, networkTokens],
   );
 
   const renderItem: ListRenderItem<Token> = useCallback(
@@ -456,7 +454,6 @@ export const ListingModal: FC<ListingModalProps> = ({
               showTopsLabel={networkTokens.length > 0}
               tokens={headerTokens}
               keyword={keyword}
-              terms={terms}
               onChange={setKeyword}
               onDelete={onRemoveAccountToken}
             />
