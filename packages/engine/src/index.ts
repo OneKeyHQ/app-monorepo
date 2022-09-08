@@ -73,7 +73,6 @@ import {
   getEVMNetworkToCreate,
   parseNetworkId,
 } from './managers/network';
-import { syncPushNotificationConfig } from './managers/notification';
 import {
   fetchOnlineTokens,
   fetchTokenDetail,
@@ -1094,6 +1093,7 @@ class Engine {
     return !!token;
   }
 
+  @backgroundMethod()
   async findToken(params: { networkId: string; tokenIdOnNetwork: string }) {
     try {
       // needs await to try catch memoizee function
@@ -1176,50 +1176,16 @@ class Engine {
     logoURI?: string,
   ): Promise<Token | undefined> {
     // This method ensures token info is correctly added into DB.
-    if (!tokenIdOnNetwork) {
-      return this.getNativeTokenInfo(networkId);
-    }
-    const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    const presetToken = await simpleDb.token.getPresetToken(
+    const token = await this.findToken({
       networkId,
       tokenIdOnNetwork,
-    );
-    if (presetToken) {
-      return presetToken;
-    }
-    let tokenInfo:
-      | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
-          logoURI?: string;
-        })
-      | undefined;
-    const { impl, chainId } = parseNetworkId(networkId);
-    if (!impl || !chainId) {
-      return;
-    }
-    tokenInfo = await fetchTokenDetail({
-      impl,
-      chainId,
-      address: tokenIdOnNetwork,
     });
-    if (!tokenInfo) {
-      const vault = await this.getChainOnlyVault(networkId);
-      try {
-        [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
-      } catch (e) {
-        debugLogger.engine.error('fetchTokenInfos error', {
-          message: e instanceof Error ? e.message : e,
-        });
-      }
-    }
-    if (typeof tokenInfo === 'undefined') {
+    if (!token) {
       return;
     }
     return simpleDb.token.addToken({
-      networkId,
-      tokenIdOnNetwork,
-      id: tokenId,
-      ...tokenInfo,
-      logoURI: tokenInfo.logoURI || logoURI || '',
+      ...token,
+      logoURI: token.logoURI || logoURI || '',
     } as Token);
   }
 
@@ -1338,9 +1304,8 @@ class Engine {
     ];
   }
 
-  async getNativeTokenInfo(networkId: string) {
+  async generateNativeTokenByNetworkId(networkId: string) {
     const network = await this.getNetwork(networkId);
-
     return {
       id: network.id,
       name: network.symbol,
@@ -1352,15 +1317,39 @@ class Engine {
     };
   }
 
+  _getNativeTokenInfo = memoizee(
+    async (networkId: string) => {
+      const tokens = await this.getTokens(networkId);
+      const token = tokens.find((t) => t.isNative);
+      if (token) {
+        return token;
+      }
+      return this.generateNativeTokenByNetworkId(networkId);
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 200,
+      maxAge: 1000 * 60 * 10,
+      normalizer: (args) => JSON.stringify(args),
+    },
+  );
+
+  @backgroundMethod()
+  async getNativeTokenInfo(networkId: string) {
+    return this._getNativeTokenInfo(networkId);
+  }
+
   @backgroundMethod()
   async getTokens(
     networkId: string,
     accountId?: string,
     withMain = true,
     filterRemoved = false,
+    forceReloadTokens = false,
   ): Promise<Array<Token>> {
     try {
-      await this.updateOnlineTokens(networkId);
+      await this.updateOnlineTokens(networkId, forceReloadTokens);
     } catch (error) {
       debugLogger.engine.error(`updateOnlineTokens error`, {
         message: error instanceof Error ? error.message : error,
@@ -1389,8 +1378,10 @@ class Engine {
     }
     if (typeof accountId !== 'undefined') {
       if (withMain) {
-        const nativeToken = await this.getNativeTokenInfo(networkId);
-        tokens.unshift(nativeToken);
+        if (!tokens.find((t) => t.isNative)) {
+          tokens.unshift(await this.generateNativeTokenByNetworkId(networkId));
+        }
+        return tokens;
       }
       if (filterRemoved) {
         const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
@@ -1416,9 +1407,12 @@ class Engine {
   }
 
   @backgroundMethod()
-  async updateOnlineTokens(networkId: string): Promise<void> {
+  async updateOnlineTokens(
+    networkId: string,
+    forceReloadTokens = false,
+  ): Promise<void> {
     const fetched = updateTokenCache[networkId];
-    if (fetched) {
+    if (!forceReloadTokens && fetched) {
       return;
     }
     const { impl, chainId } = parseNetworkId(networkId);
@@ -2444,11 +2438,6 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
-  }
-
-  @backgroundMethod()
-  async syncPushNotificationConfig(type: 'reset' | 'normal' = 'normal') {
-    return syncPushNotificationConfig(type);
   }
 }
 

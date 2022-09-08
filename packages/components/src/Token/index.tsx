@@ -3,7 +3,7 @@ import React, { FC, useMemo } from 'react';
 import { Box, Center, Column, Image, Row, ZStack } from 'native-base';
 
 import { Token as IToken } from '@onekeyhq/engine/src/types/token';
-import { useNavigation } from '@onekeyhq/kit/src/hooks';
+import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
@@ -24,6 +24,7 @@ export type TokenProps = {
   description?: string;
   address?: string;
   letter?: string;
+  networkId?: string;
 };
 
 const defaultProps = {
@@ -39,16 +40,15 @@ const buildUrl = (src?: string, _chain = '', _address = '') => {
   return `${CDN_PREFIX}assets/${chain}/${address}.png`;
 };
 
-const Token: FC<TokenProps> = ({
+const TokenIcon = ({
   src,
   size,
-  chain,
-  name,
-  description,
-  address,
+  networkId,
   letter,
-}) => {
-  const imageUrl = buildUrl(src, chain, address);
+}: {
+  src: string;
+} & Pick<TokenProps, 'networkId' | 'size' | 'letter'>) => {
+  const network = useNetwork(networkId);
   const fallbackElement = useMemo(
     () =>
       letter ? (
@@ -77,23 +77,69 @@ const Token: FC<TokenProps> = ({
       ),
     [size, letter],
   );
+
+  const networkIcon = useMemo(() => {
+    if (!network?.logoURI) {
+      return null;
+    }
+    if (network.id === 'evm--1') {
+      return null;
+    }
+    return (
+      <Image
+        width="18px"
+        height="18px"
+        src={network.logoURI}
+        alt={network.logoURI}
+        borderRadius="full"
+        borderWidth="2px"
+        borderColor="surface-subdued"
+        position="absolute"
+        top="-4px"
+        right="-4px"
+      />
+    );
+  }, [network]);
+
+  return (
+    <Box width={size} height={size} position="relative">
+      {src ? (
+        <Image
+          width={size}
+          height={size}
+          src={src}
+          key={src}
+          fallbackElement={fallbackElement}
+          alt={src}
+          borderRadius="full"
+        />
+      ) : (
+        fallbackElement
+      )}
+      {networkIcon}
+    </Box>
+  );
+};
+
+const Token: FC<TokenProps> = ({
+  src,
+  size,
+  chain,
+  name,
+  description,
+  address,
+  letter,
+  networkId,
+}) => {
+  const imageUrl = buildUrl(src, chain, address);
   return (
     <Box display="flex" flexDirection="row" alignItems="center">
-      <Box>
-        {imageUrl ? (
-          <Image
-            width={size}
-            height={size}
-            src={imageUrl}
-            key={imageUrl}
-            fallbackElement={fallbackElement}
-            alt={imageUrl}
-            borderRadius="full"
-          />
-        ) : (
-          fallbackElement
-        )}
-      </Box>
+      <TokenIcon
+        src={imageUrl || ''}
+        size={size}
+        letter={letter}
+        networkId={networkId}
+      />
       {!!(name || description) && (
         <Box display="flex" ml="3">
           {!!name && <Typography.Body1Strong>{name}</Typography.Body1Strong>}

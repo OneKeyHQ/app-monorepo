@@ -1,9 +1,13 @@
+import { Token } from '@onekeyhq/engine/src/types/token';
+
 export enum ManageTokenRoutes {
   Listing = 'ListTokensModal',
   AddToken = 'AddToken',
   ViewToken = 'ViewToken',
   CustomToken = 'CustomToken',
   VerifiedToken = 'VerifiedToken',
+  PriceAlertList = 'PriceAlertList',
+  PriceAlertAdd = 'PriceAlertAdd',
 }
 
 export type ManageTokenRoutesParams = {
@@ -34,4 +38,10 @@ export type ManageTokenRoutesParams = {
   [ManageTokenRoutes.CustomToken]:
     | { address?: string; networkId?: string }
     | undefined;
+  [ManageTokenRoutes.PriceAlertList]: {
+    token: Token;
+  };
+  [ManageTokenRoutes.PriceAlertAdd]: {
+    token: Token;
+  };
 };

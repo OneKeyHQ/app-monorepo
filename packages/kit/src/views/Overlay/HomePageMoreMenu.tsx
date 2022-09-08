@@ -1,4 +1,4 @@
-import { FC, useMemo } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { MessageDescriptor, useIntl } from 'react-intl';
 
@@ -8,10 +8,14 @@ import {
   Icon,
   Text,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
+import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -19,20 +23,73 @@ import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
+import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
 
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation();
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
-
+  const { serviceNotification, dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
+  const { enabledAccounts } = useEnabledAccountDynamicAccounts();
+
+  const enabledNotification = useMemo(
+    () =>
+      enabledAccounts.find(
+        (a) => a.address.toLowerCase() === account?.address?.toLowerCase?.(),
+      ),
+    [enabledAccounts, account],
+  );
+
   // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
   const disableScan = platformEnv.isWeb && !isVerticalLayout;
+
+  const onChangeAccountSubscribe = useCallback(async () => {
+    if (!account) {
+      return;
+    }
+    let res: AccountDynamicItem | null = null;
+    if (enabledNotification) {
+      res = await serviceNotification.removeAccountDynamic({
+        address: account.address,
+      });
+    } else {
+      dispatch(
+        setPushNotificationConfig({
+          pushEnable: true,
+          accountActivityPushEnable: true,
+        }),
+      );
+      res = await serviceNotification.addAccountDynamic({
+        address: account.address,
+        name: account.name,
+      });
+    }
+    if (!res) {
+      return;
+    }
+    toast.show({
+      title: intl.formatMessage({
+        id: enabledNotification
+          ? 'msg__unsubscription_succeeded'
+          : 'msg__subscription_succeeded',
+      }),
+    });
+  }, [
+    account,
+    intl,
+    toast,
+    dispatch,
+    enabledNotification,
+    serviceNotification,
+  ]);
 
   const walletType = wallet?.type;
   const options: (
@@ -102,9 +159,18 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         },
         icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
       },
+      !!account &&
+        platformEnv.isNative &&
+        isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM) && {
+          id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
+          onPress: onChangeAccountSubscribe,
+          icon: enabledNotification ? 'BellOffOutline' : 'BellOutline',
+        },
       // TODO Share
     ],
     [
+      onChangeAccountSubscribe,
+      enabledNotification,
       disableScan,
       walletType,
       isVerticalLayout,

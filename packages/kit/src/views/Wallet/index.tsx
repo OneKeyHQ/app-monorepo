@@ -80,6 +80,7 @@ const WalletTabs: FC = () => {
                 withBalance: true,
                 withPrice: true,
                 wait: true,
+                forceReloadTokens: true,
               });
             } catch (e) {
               debugLogger.common.error(e);

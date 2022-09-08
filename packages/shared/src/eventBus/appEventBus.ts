@@ -7,6 +7,7 @@ enum AppEventBusNames {
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
   BackupRequired = 'BackupRequired',
+  NotificationStatusChanged = 'NotificationStatusChanged',
 }
 
 export { appEventBus, AppEventBusNames };

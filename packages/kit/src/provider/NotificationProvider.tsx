@@ -1,8 +1,11 @@
-import React, { memo, useCallback, useEffect, useMemo } from 'react';
+import React, { memo, useCallback, useEffect } from 'react';
 
+import { requestPermissionsAsync } from 'expo-notifications';
 import JPush from 'jpush-react-native';
 import { AppState } from 'react-native';
 
+import { DialogManager } from '@onekeyhq/components';
+import { NotificationType } from '@onekeyhq/engine/src/managers/notification';
 import {
   EVMDecodedItem,
   EVMDecodedTxType,
@@ -11,71 +14,102 @@ import {
   useActiveWalletAccount,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { initJpush } from '@onekeyhq/shared/src/notification';
+import {
+  checkPushNotificationPermission,
+  hasPermission,
+  initJpush,
+} from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
 import { setPushNotificationConfig } from '../store/reducers/settings';
+import { setHomeTabName } from '../store/reducers/status';
+import { WalletHomeTabEnum } from '../views/Wallet/type';
 
 import { navigationRef } from './NavigationProvider';
 
-export type NotificationResult = {
-  messageID: string;
-  title: string;
-  content: string;
-  badge?: string;
-  ring?: string;
-  extras: Record<string, string>;
-  notificationEventType: 'notificationArrived' | 'notificationOpened';
-};
-
 export type SwitchScreenParams = {
-  screen: HomeRoutes.ScreenTokenDetail;
+  screen: HomeRoutes.ScreenTokenDetail | HomeRoutes.InitialTab;
   params: {
+    accountAddress?: string;
     networkId?: string;
     tokenId?: string;
+    initialTabName?: string;
   };
 };
 
 const NotificationProvider: React.FC<{
   children: React.ReactElement<any, any> | null;
 }> = ({ children }) => {
-  const { accountId, networkId } = useActiveWalletAccount();
   const { pushNotification } = useSettings();
+  const { accountId, networkId } = useActiveWalletAccount();
+
+  const { dispatch, serviceAccount, serviceNotification, serviceNetwork } =
+    backgroundApiProxy;
 
   const switchToScreen = useCallback(
-    ({ screen, params }: SwitchScreenParams) => {
-      if (params.networkId) {
-        backgroundApiProxy.serviceNetwork.changeActiveNetwork(params.networkId);
-      }
-
-      const filter = params.tokenId
-        ? undefined
-        : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+    async ({ screen, params }: SwitchScreenParams) => {
       try {
+        if (params.accountAddress) {
+          await serviceAccount.changeActiveAccountByAddress({
+            address: params.accountAddress,
+          });
+        }
+        if (params.networkId) {
+          await serviceNetwork.changeActiveNetwork(params.networkId);
+        }
         navigationRef.current?.navigate(RootRoutes.Root, {
-          screen,
+          screen: HomeRoutes.InitialTab,
           params: {
-            accountId,
-            networkId: params.networkId || networkId,
-            tokenId: params.tokenId || '',
-            historyFilter: filter,
-          },
+            screen: RootRoutes.Tab,
+            params: {
+              screen: TabRoutes.Home,
+            },
+          } as any,
         });
+        switch (screen) {
+          case HomeRoutes.ScreenTokenDetail:
+            {
+              const filter = params.tokenId
+                ? undefined
+                : (i: EVMDecodedItem) =>
+                    i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+              navigationRef.current?.navigate(RootRoutes.Root, {
+                screen,
+                params: {
+                  accountId,
+                  networkId: params.networkId || networkId,
+                  tokenId: params.tokenId || '',
+                  historyFilter: filter,
+                },
+              });
+            }
+            break;
+          case HomeRoutes.InitialTab:
+            dispatch(setHomeTabName(WalletHomeTabEnum.History));
+            break;
+          default:
+            break;
+        }
       } catch (error) {
-        debugLogger.common.error(
+        debugLogger.notification.error(
           'Jpush navigate error',
           error instanceof Error ? error.message : error,
         );
       }
     },
-    [accountId, networkId],
+    [accountId, networkId, dispatch, serviceAccount, serviceNetwork],
   );
 
   const clearJpushBadge = useCallback(() => {
-    debugLogger.common.debug('clearJpushBadge');
+    debugLogger.notification.debug('clearJpushBadge');
     JPush.setBadge({
       badge: 0,
       appBadge: 0,
@@ -83,8 +117,8 @@ const NotificationProvider: React.FC<{
   }, []);
 
   const handleNotificaitonCallback = useCallback(
-    (result: NotificationResult) => {
-      debugLogger.common.debug('JPUSH.notificationListener', result);
+    (result: NotificationType) => {
+      serviceNotification.emitNotificationStatusChange(result);
       if (result?.notificationEventType !== 'notificationArrived') {
         clearJpushBadge();
       }
@@ -110,7 +144,7 @@ const NotificationProvider: React.FC<{
           ? extras.params
           : JSON.parse(extras.params);
       } catch (error) {
-        debugLogger.common.error(
+        debugLogger.notification.error(
           `Jpush parse params error`,
           error instanceof Error ? error.message : error,
         );
@@ -120,11 +154,17 @@ const NotificationProvider: React.FC<{
         params,
       });
     },
-    [switchToScreen, clearJpushBadge, accountId, networkId],
+    [
+      switchToScreen,
+      clearJpushBadge,
+      accountId,
+      networkId,
+      serviceNotification,
+    ],
   );
 
   const handleLocalNotificationCallback = useCallback(
-    (result: NotificationResult) => {
+    (result: NotificationType) => {
       handleNotificaitonCallback(result);
     },
     [handleNotificaitonCallback],
@@ -132,20 +172,20 @@ const NotificationProvider: React.FC<{
 
   const handleRegistrationIdCallback = useCallback(
     (res: { registerID: string }) => {
-      debugLogger.common.debug('JPUSH.getRegistrationID', res);
-      backgroundApiProxy.dispatch(
+      debugLogger.notification.debug('JPUSH.getRegistrationID', res);
+      dispatch(
         setPushNotificationConfig({
           registrationId: res.registerID,
         }),
       );
-      backgroundApiProxy.engine.syncPushNotificationConfig();
+      serviceNotification.syncPushNotificationConfig();
     },
-    [],
+    [dispatch, serviceNotification],
   );
 
   const handleConnectStateChangeCallback = useCallback(
     (result: { connectEnable: boolean }) => {
-      debugLogger.common.debug('JPUSH.addConnectEventListener', result);
+      debugLogger.notification.debug('JPUSH.addConnectEventListener', result);
       if (!result.connectEnable) {
         return;
       }
@@ -154,12 +194,66 @@ const NotificationProvider: React.FC<{
     [handleRegistrationIdCallback],
   );
 
-  const shouldInitJpushListener = useMemo(() => {
+  const checkPermission = useCallback(async () => {
     if (!pushNotification?.pushEnable) {
       return false;
     }
+    const alreadyHasPermission = await checkPushNotificationPermission();
+    if (alreadyHasPermission) {
+      return true;
+    }
+    dispatch(
+      setPushNotificationConfig({
+        pushEnable: false,
+      }),
+    );
+    DialogManager.show({
+      render: <PermissionDialog type="notification" />,
+    });
+    return false;
+  }, [dispatch, pushNotification?.pushEnable]);
+
+  const handlePushEnableChange = useCallback(async () => {
+    const permission = await requestPermissionsAsync();
+    if (!hasPermission(permission)) {
+      return checkPermission();
+    }
     return true;
-  }, [pushNotification?.pushEnable]);
+  }, [checkPermission]);
+
+  const checkPermissionAndInit = useCallback(async () => {
+    const enabled = await handlePushEnableChange();
+    serviceNotification.syncPushNotificationConfig();
+    if (!enabled) {
+      return;
+    }
+    initJpush();
+    JPush.getRegistrationID(handleRegistrationIdCallback);
+  }, [
+    serviceNotification,
+    handleRegistrationIdCallback,
+    handlePushEnableChange,
+  ]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    const clear = () => {
+      JPush.removeListener(handleNotificaitonCallback);
+      JPush.removeListener(handleConnectStateChangeCallback);
+      JPush.removeListener(handleLocalNotificationCallback);
+    };
+    clear();
+    JPush.addConnectEventListener(handleConnectStateChangeCallback);
+    JPush.addNotificationListener(handleNotificaitonCallback);
+    JPush.addLocalNotificationListener(handleLocalNotificationCallback);
+    return clear;
+  }, [
+    handleNotificaitonCallback,
+    handleLocalNotificationCallback,
+    handleConnectStateChangeCallback,
+  ]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
@@ -169,31 +263,20 @@ const NotificationProvider: React.FC<{
     const listener = AppState.addEventListener('change', (state) => {
       if (!['background', 'inactive'].includes(state)) {
         clearJpushBadge();
+        checkPermission();
       }
     });
-    const clear = () => {
-      listener.remove();
-      JPush.removeListener(handleNotificaitonCallback);
-      JPush.removeListener(handleConnectStateChangeCallback);
-      JPush.removeListener(handleLocalNotificationCallback);
-    };
-    if (!shouldInitJpushListener) {
-      return clear();
+    if (pushNotification?.pushEnable) {
+      checkPermissionAndInit();
     }
-    initJpush();
-    backgroundApiProxy.engine.syncPushNotificationConfig();
-    JPush.getRegistrationID(handleRegistrationIdCallback);
-    JPush.addConnectEventListener(handleConnectStateChangeCallback);
-    JPush.addNotificationListener(handleNotificaitonCallback);
-    JPush.addLocalNotificationListener(handleLocalNotificationCallback);
-    return clear;
+    return () => {
+      listener.remove();
+    };
   }, [
+    checkPermission,
     clearJpushBadge,
-    shouldInitJpushListener,
-    handleNotificaitonCallback,
-    handleRegistrationIdCallback,
-    handleLocalNotificationCallback,
-    handleConnectStateChangeCallback,
+    pushNotification?.pushEnable,
+    checkPermissionAndInit,
   ]);
 
   return children;

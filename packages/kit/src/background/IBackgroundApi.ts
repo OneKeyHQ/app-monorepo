@@ -16,6 +16,7 @@ import type ServiceDapp from './services/ServiceDapp';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNetwork from './services/ServiceNetwork';
+import type ServiceNotification from './services/serviceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
@@ -65,6 +66,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHardware: ServiceHardware;
   servicePassword: ServicePassword;
   serviceCloudBackup: ServiceCloudBackup;
+  serviceNotification: ServiceNotification;
 }
 
 export type IDappSourceInfo = {

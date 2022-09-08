@@ -133,12 +133,14 @@ export default class ServiceToken extends ServiceBase {
     withBalance,
     withPrice,
     wait,
+    forceReloadTokens,
   }: {
     activeAccountId: string;
     activeNetworkId: string;
     withBalance?: boolean;
     withPrice?: boolean;
     wait?: boolean;
+    forceReloadTokens?: boolean;
   }) {
     const { engine, dispatch } = this.backgroundApi;
     const tokens = await engine.getTokens(
@@ -146,6 +148,7 @@ export default class ServiceToken extends ServiceBase {
       activeAccountId,
       true,
       true,
+      forceReloadTokens,
     );
     dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
     const nativeToken = tokens.filter((item) => !item.tokenIdOnNetwork)[0];
@@ -329,9 +332,7 @@ export default class ServiceToken extends ServiceBase {
     if (target) {
       return target;
     }
-    const nativeTokenInfo = (await engine.getNativeTokenInfo(
-      networkId,
-    )) as Token;
+    const nativeTokenInfo = await engine.getNativeTokenInfo(networkId);
     dispatch(setNativeToken({ networkId, token: nativeTokenInfo }));
     return nativeTokenInfo;
   }

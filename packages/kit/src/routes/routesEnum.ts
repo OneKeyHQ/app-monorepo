@@ -67,6 +67,8 @@ export enum HomeRoutes {
   CloudBackupPreviousBackups = 'CloudBackupPreviousBackups',
   CloudBackupDetails = 'CloudBackupDetails',
   PushNotification = 'PushNotification',
+  PushNotificationManagePriceAlert = 'PushNotificationManagePriceAlert',
+  PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
 }
 export enum TabRoutes {
   // Overview = 'overview',
