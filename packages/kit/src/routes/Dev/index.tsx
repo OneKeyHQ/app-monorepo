@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useThemeValue } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import AccountGallery from '@onekeyhq/kit/src/views/Components/stories/Account';
+import AccountSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/AccountSelector/index';
 import AddressGallery from '@onekeyhq/kit/src/views/Components/stories/Address';
 import AlertGallery from '@onekeyhq/kit/src/views/Components/stories/Alert';
 import AppUpdateGallery from '@onekeyhq/kit/src/views/Components/stories/AppUpdate';
@@ -51,6 +52,7 @@ import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypeWriter from '@onekeyhq/kit/src/views/Components/stories/TypeWriter';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
+import WalletSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/WalletSelector/index';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
 import PriceChart from '../../views/Components/stories/PriceChart';
@@ -80,6 +82,8 @@ export enum StackRoutes {
   ComponentEmpty = 'component/empty',
   ComponentToast = 'component/toast',
   ComponentAccount = 'component/account',
+  ComponentWalletSelector = 'component/walletSelector',
+  ComponentAccountSelector = 'component/accountSelector',
   ComponentCheckbox = 'component/checkbox',
   ComponentSpinner = 'component/spinner',
   ComponentModal = 'component/modal',
@@ -110,7 +114,6 @@ export enum StackRoutes {
   ComponentPopover = 'component/Popover',
   ComponentPriceChart = 'component/PriceChart',
   ComponentTypeWriter = 'component/TypeWriter',
-  ComponentOnboarding = 'component/Onboarding',
   ComponentHomescreen = 'component/homescreen',
   ComponentFlashList = 'component/flashlist',
 }
@@ -138,6 +141,8 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentEmpty]: undefined;
   [StackRoutes.ComponentToast]: undefined;
   [StackRoutes.ComponentAccount]: undefined;
+  [StackRoutes.ComponentWalletSelector]: undefined;
+  [StackRoutes.ComponentAccountSelector]: undefined;
   [StackRoutes.ComponentCheckbox]: undefined;
   [StackRoutes.ComponentSpinner]: undefined;
   [StackRoutes.ComponentModal]: undefined;
@@ -167,7 +172,6 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentPopover]: undefined;
   [StackRoutes.ComponentPriceChart]: undefined;
   [StackRoutes.ComponentTypeWriter]: undefined;
-  [StackRoutes.ComponentOnboarding]: undefined;
   [StackRoutes.ComponentHomescreen]: undefined;
   [StackRoutes.ComponentNFTImage]: undefined;
   [StackRoutes.ComponentNFTList]: undefined;
@@ -196,6 +200,14 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentEmpty, component: EmptyGallery },
   { name: StackRoutes.ComponentToast, component: ToastGallery },
   { name: StackRoutes.ComponentAccount, component: AccountGallery },
+  {
+    name: StackRoutes.ComponentWalletSelector,
+    component: WalletSelectorGallery,
+  },
+  {
+    name: StackRoutes.ComponentAccountSelector,
+    component: AccountSelectorGallery,
+  },
   { name: StackRoutes.ComponentCheckbox, component: CheckBoxGallery },
   { name: StackRoutes.ComponentSpinner, component: SpinnerGallery },
   { name: StackRoutes.ComponentModal, component: ModalGallery },
