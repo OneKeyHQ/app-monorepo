@@ -8,6 +8,7 @@ import { IAccount } from '@onekeyhq/engine/src/types';
 import ImgImToken from '@onekeyhq/kit/assets/onboarding/logo_imtoken.png';
 import ImgMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { wait } from '../../utils/helper';
 
@@ -38,17 +39,18 @@ function ExternalAccountImg({
   size?: number | string;
   radius?: string;
 }) {
+  const { serviceWalletConnect } = backgroundApiProxy;
   const { result: accountImg } = usePromiseResult(async () => {
     // eslint-disable-next-line no-param-reassign
     accountId = accountId || account?.id || '';
     if (isExternalAccount({ accountId })) {
-      let imgInfo = await simpleDb.walletConnect.getExternalAccountImage({
+      let imgInfo = await serviceWalletConnect.getExternalAccountImage({
         accountId,
       });
       // may be simpleDB not saved yet, try again
       if (!imgInfo) {
         await wait(1000);
-        imgInfo = await simpleDb.walletConnect.getExternalAccountImage({
+        imgInfo = await serviceWalletConnect.getExternalAccountImage({
           accountId,
         });
       }

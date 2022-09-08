@@ -206,7 +206,7 @@ export function useWalletConnectSendInfo({
   accountId: string;
   networkId: string;
 }) {
-  const { engine } = backgroundApiProxy;
+  const { engine,serviceWalletConnect } = backgroundApiProxy;
   const { connectToWallet } = useWalletConnectQrcodeModal();
 
   const isUnmountedRef = useRef<boolean>(false);
@@ -271,7 +271,7 @@ export function useWalletConnectSendInfo({
         session: savedSession,
         walletService,
         accountInfo,
-      } = await simpleDb.walletConnect.getExternalAccountSession({ accountId });
+      } = await serviceWalletConnect.getExternalAccountSession({ accountId });
       const currentNetwork = await engine.getNetwork(networkId);
       const currentAccount = await engine.getAccount(accountId, networkId);
 

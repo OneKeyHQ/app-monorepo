@@ -1,3 +1,5 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
 import { SimpleDbEntityNFT } from './entity/SimpleDbEntityNFT';
@@ -26,4 +28,9 @@ const simpleDb = new SimpleDb();
 if (process.env.NODE_ENV !== 'production') {
   global.$simpleDb = simpleDb;
 }
+
+if (platformEnv.isExtensionUi) {
+  throw new Error('[simpleDb] is NOT allowed in UI process currently.');
+}
+
 export default simpleDb;

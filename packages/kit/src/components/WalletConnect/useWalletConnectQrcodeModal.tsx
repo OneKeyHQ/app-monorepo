@@ -34,6 +34,7 @@ import {
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
 import walletConnectUtils from './walletConnectUtils';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;
@@ -56,6 +57,8 @@ function getOrCreateClient() {
 }
 
 export function useWalletConnectQrcodeModal() {
+  const { serviceWalletConnect } = backgroundApiProxy;
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [state, setState] =
     useState<IWalletConnectQrcodeModalState>(defaultState);
@@ -347,7 +350,7 @@ export function useWalletConnectQrcodeModal() {
 
       if (!client.walletService && finalSession) {
         client.walletService =
-          await simpleDb.walletConnect.findWalletServiceBySession({
+          await serviceWalletConnect.findWalletServiceBySession({
             session: finalSession,
           });
       }
