@@ -85,6 +85,7 @@ const SettingRow: FC<{
       bg="surface-default"
       justifyContent="space-between"
       flexDirection="row"
+      alignItems="center"
     >
       {children}
     </Box>
