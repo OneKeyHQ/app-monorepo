@@ -22,11 +22,8 @@ import {
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
-import { ModalRoutes } from '../../routes/routesEnum';
-import { SendRoutes } from '../../views/Send/types';
 import {
   backgroundClass,
   permissionRequired,

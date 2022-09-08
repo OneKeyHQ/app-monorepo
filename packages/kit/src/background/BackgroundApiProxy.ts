@@ -27,6 +27,7 @@ import type ServicePromise from './services/ServicePromise';
 import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
+import type ServiceWalletConnect from './services/ServiceWalletConnect';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -68,6 +69,10 @@ class BackgroundApiProxy
   ) as ServiceOnboarding;
 
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
+
+  serviceWalletConnect = this._createProxyService(
+    'serviceWalletConnect',
+  ) as ServiceWalletConnect;
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 

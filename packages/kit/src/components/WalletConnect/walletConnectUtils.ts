@@ -1,10 +1,10 @@
 import { IClientMeta } from '@walletconnect/types';
 import { Linking, Platform } from 'react-native';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '../../background/utils';
 import { getAppNavigation } from '../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
@@ -209,9 +209,10 @@ async function terminateWcConnection({
   client?: WalletConnectClientForDapp;
   walletUrl?: string;
 }) {
+  const { serviceWalletConnect } = backgroundApiProxy;
   try {
     client?.offAllEvents();
-    await simpleDb.walletConnect.removeWalletSession(walletUrl);
+    await serviceWalletConnect.removeWalletSession(walletUrl);
     if (client?.connector?.peerId) {
       client?.connector?.killSession();
     }

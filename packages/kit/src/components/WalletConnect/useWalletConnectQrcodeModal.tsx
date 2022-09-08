@@ -11,10 +11,10 @@ import { Linking } from 'react-native';
 
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   CreateWalletModalRoutes,
@@ -56,6 +56,8 @@ function getOrCreateClient() {
 }
 
 export function useWalletConnectQrcodeModal() {
+  const { serviceWalletConnect } = backgroundApiProxy;
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [state, setState] =
     useState<IWalletConnectQrcodeModalState>(defaultState);
@@ -347,7 +349,7 @@ export function useWalletConnectQrcodeModal() {
 
       if (!client.walletService && finalSession) {
         client.walletService =
-          await simpleDb.walletConnect.findWalletServiceBySession({
+          await serviceWalletConnect.findWalletServiceBySession({
             session: finalSession,
           });
       }
@@ -377,7 +379,7 @@ export function useWalletConnectQrcodeModal() {
         walletService: finalWalletService,
       };
     },
-    [createQrcodeModalApi],
+    [createQrcodeModalApi, serviceWalletConnect],
   );
 
   return {

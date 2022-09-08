@@ -1,6 +1,6 @@
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
-type Coin = {
+export type ISwftcCoin = {
   coinAllCode: string;
   coinCode: string;
   coinImageUrl: string;
@@ -12,18 +12,18 @@ type Coin = {
 };
 
 export type ISimpleDbEntitySwapData = {
-  swftcCoins: Coin[];
+  swftcCoins: ISwftcCoin[];
 };
 
 export class SimpleDbEntitySwap extends SimpleDbEntityBase<ISimpleDbEntitySwapData> {
   entityName = 'swap';
 
-  async setSwftcCoins(coins: Coin[]): Promise<void> {
+  async setSwftcCoins(coins: ISwftcCoin[]): Promise<void> {
     const rawData = await this.getRawData();
     this.setRawData({ ...rawData, swftcCoins: coins });
   }
 
-  async getSwftcCoins(): Promise<Coin[] | undefined> {
+  async getSwftcCoins(): Promise<ISwftcCoin[] | undefined> {
     const rawData = await this.getRawData();
     return rawData?.swftcCoins;
   }

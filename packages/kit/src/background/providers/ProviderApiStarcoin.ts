@@ -13,17 +13,13 @@ import { IMPL_STC } from '@onekeyhq/engine/src/constants';
 import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
-import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
-import { ModalRoutes } from '../../routes/routesEnum';
-import { SendRoutes } from '../../views/Send/types';
 import {
   backgroundClass,
   permissionRequired,

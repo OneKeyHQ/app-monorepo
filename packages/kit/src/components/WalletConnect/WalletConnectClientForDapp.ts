@@ -11,10 +11,10 @@ import {
 } from '@walletconnect/types';
 import { merge } from 'lodash';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { OneKeyWalletConnectModalCloseError } from '@onekeyhq/engine/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { wait } from '../../utils/helper';
 
 import { WalletService } from './types';
@@ -231,9 +231,10 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
     accountId: string;
     session: IWalletConnectSession;
   }) => {
+    const { serviceWalletConnect } = backgroundApiProxy;
     if (!this.walletService) {
       this.walletService =
-        await simpleDb.walletConnect.findWalletServiceBySession({ session });
+        await serviceWalletConnect.findWalletServiceBySession({ session });
     }
     debugLogger.walletConnect.info(
       'saveExternalAccountSession',
@@ -241,7 +242,7 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
       session.peerMeta,
       this.walletService?.homepage,
     );
-    await simpleDb.walletConnect.saveExternalAccountSession({
+    await serviceWalletConnect.saveExternalAccountSession({
       accountId,
       session,
       walletService: this.walletService,

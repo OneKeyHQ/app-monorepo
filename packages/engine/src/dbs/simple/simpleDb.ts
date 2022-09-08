@@ -1,3 +1,5 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
 import { SimpleDbEntityNFT } from './entity/SimpleDbEntityNFT';
@@ -22,8 +24,24 @@ class SimpleDb {
   nft = new SimpleDbEntityNFT();
 }
 
-const simpleDb = new SimpleDb();
+// eslint-disable-next-line import/no-mutable-exports
+let simpleDb: SimpleDb;
+
+if (platformEnv.isExtensionUi) {
+  simpleDb = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error('[simpleDb] is NOT allowed in UI process currently.');
+      },
+    },
+  ) as SimpleDb;
+} else {
+  simpleDb = new SimpleDb();
+}
+
 if (process.env.NODE_ENV !== 'production') {
   global.$simpleDb = simpleDb;
 }
+
 export default simpleDb;

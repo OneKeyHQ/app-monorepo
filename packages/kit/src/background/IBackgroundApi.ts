@@ -21,6 +21,7 @@ import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
 import type ServiceToken from './services/ServiceToken';
+import type ServiceWalletConnect from './services/ServiceWalletConnect';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -62,6 +63,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceCronJob: ServiceCronJob;
   serviceOnboarding: ServiceOnboarding;
   serviceToken: ServiceToken;
+  serviceWalletConnect: ServiceWalletConnect;
   serviceHistory: ServiceHistory;
   serviceHardware: ServiceHardware;
   servicePassword: ServicePassword;

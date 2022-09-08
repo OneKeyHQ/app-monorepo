@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isExternalAccount } from '@onekeyhq/engine/src/engineUtils';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';
 
@@ -13,13 +14,14 @@ export function useWalletConnectPrepareConnection({
   accountId: string;
   networkId: string;
 }) {
+  const { serviceWalletConnect } = backgroundApiProxy;
   const { connectToWallet } = useWalletConnectQrcodeModal();
 
   useEffect(() => {
     (async function () {
       if (isExternalAccount({ accountId })) {
         const { session, walletService } =
-          await simpleDb.walletConnect.getExternalAccountSession({
+          await serviceWalletConnect.getExternalAccountSession({
             accountId,
           });
         if (session?.connected) {
@@ -32,5 +34,5 @@ export function useWalletConnectPrepareConnection({
         }
       }
     })();
-  }, [accountId, connectToWallet]);
+  }, [accountId, connectToWallet, serviceWalletConnect]);
 }

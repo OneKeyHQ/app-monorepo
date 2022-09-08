@@ -21,6 +21,7 @@ import ServicePromise from './services/ServicePromise';
 import ServiceStaking from './services/ServiceStaking';
 import ServiceSwap from './services/ServiceSwap';
 import ServiceToken from './services/ServiceToken';
+import ServiceWalletConnect from './services/ServiceWalletConnect';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   engine = new Engine();
@@ -66,6 +67,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceToken = new ServiceToken({
+    backgroundApi: this,
+  });
+
+  serviceWalletConnect = new ServiceWalletConnect({
     backgroundApi: this,
   });
 

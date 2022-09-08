@@ -17,6 +17,7 @@ declare global {
   // var onekey: WindowOneKey;
 
   var $simpleDb: any;
+  var $appEventBus: any;
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;
   var $backgroundApi: any;

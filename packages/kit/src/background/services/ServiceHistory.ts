@@ -11,13 +11,14 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { refreshHistory } from '../../store/reducers/refresher';
-import {
-  SendConfirmOnSuccessData,
-  SendConfirmResendActionInfo,
-} from '../../views/Send/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
+
+import type {
+  SendConfirmOnSuccessData,
+  SendConfirmResendActionInfo,
+} from '../../views/Send/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {

@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef } from 'react';
+import { FC, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Modalize } from 'react-native-modalize';
@@ -16,7 +16,6 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import {
-  setHideBalance,
   setHideSmallBalance,
   setIncludeNFTsInTotal,
 } from '../../store/reducers/settings';
@@ -119,9 +118,7 @@ export const showHomeBalanceSettings = () =>
 
 const AccountValueSettings: FC = () => {
   const intl = useIntl();
-  const { includeNFTsInTotal = true, hideBalance } = useAppSelector(
-    (s) => s.settings,
-  );
+  const { includeNFTsInTotal = true } = useAppSelector((s) => s.settings);
   return (
     <>
       <SettingRow borderBottomRadius={0}>

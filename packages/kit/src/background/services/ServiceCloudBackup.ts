@@ -28,7 +28,6 @@ import { create } from '../../store/reducers/contacts';
 import { release } from '../../store/reducers/data';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 import { unlock } from '../../store/reducers/status';
-import { Avatar } from '../../utils/emojiUtils';
 import {
   hasHardwareSupported,
   savePassword,
@@ -36,39 +35,14 @@ import {
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import {
+  BackupedContacts,
+  IBackupItemSummary,
+  PublicBackupData,
+  RestoreResult,
+} from './ServiceCloudBackup.types';
 
 import type { Contact } from '../../store/reducers/contacts';
-
-export type PublicBackupData = {
-  contacts: Record<string, { name: string; address: string }>;
-  importedAccounts: Record<string, { name: string; address: string }>;
-  watchingAccounts: Record<string, { name: string; address: string }>;
-  HDWallets: Record<
-    string,
-    { name: string; avatar?: Avatar; accountUUIDs: Array<string> }
-  >;
-};
-
-export enum RestoreResult {
-  SUCCESS = 'success',
-  WRONG_PASSWORD = 'wrong_password',
-  UNKNOWN_ERROR = 'unknown_error',
-}
-
-export type IBackupItemSummary = {
-  backupUUID: string;
-  backupTime: number;
-  deviceInfo: { osName: string; deviceName: string };
-  numOfHDWallets: number;
-  numOfImportedAccounts: number;
-  numOfWatchingAccounts: number;
-  numOfContacts: number;
-};
-
-type BackupedContacts = Record<
-  string,
-  { name: string; address: string; networkId: string }
->;
 
 // uuid.v5('onekey', '00000000-0000-0000-0000-000000000000')
 // const ONEKEY_NAMESPACE = '30303338-6435-5664-a334-323538396638';

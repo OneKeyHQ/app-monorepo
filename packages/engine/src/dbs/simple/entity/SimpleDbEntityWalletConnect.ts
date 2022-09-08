@@ -245,7 +245,7 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
     return [];
   }
 
-  async saveWalletServicesList(list: readonly WalletService[]) {
+  async saveWalletServicesList(list: WalletService[]) {
     const data = await this.getRawDataWithDefault();
     if (list && list.length) {
       const walletServicesMap: Partial<{

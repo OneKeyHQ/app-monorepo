@@ -20,7 +20,6 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -206,7 +205,7 @@ export function useWalletConnectSendInfo({
   accountId: string;
   networkId: string;
 }) {
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceWalletConnect } = backgroundApiProxy;
   const { connectToWallet } = useWalletConnectQrcodeModal();
 
   const isUnmountedRef = useRef<boolean>(false);
@@ -271,7 +270,7 @@ export function useWalletConnectSendInfo({
         session: savedSession,
         walletService,
         accountInfo,
-      } = await simpleDb.walletConnect.getExternalAccountSession({ accountId });
+      } = await serviceWalletConnect.getExternalAccountSession({ accountId });
       const currentNetwork = await engine.getNetwork(networkId);
       const currentAccount = await engine.getAccount(accountId, networkId);
 
@@ -368,7 +367,14 @@ export function useWalletConnectSendInfo({
         return defaultReturn;
       }
       return { connector, client };
-    }, [accountId, connectToWallet, engine, networkId, showMismatchConfirm]);
+    }, [
+      accountId,
+      connectToWallet,
+      engine,
+      networkId,
+      serviceWalletConnect,
+      showMismatchConfirm,
+    ]);
 
   return {
     externalAccountInfo,

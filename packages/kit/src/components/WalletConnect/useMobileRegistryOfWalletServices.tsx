@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { WalletService } from './types';
@@ -67,17 +67,18 @@ export default function useMobileRegistry() {
 }
 
 export function useMobileRegistryOfWalletServices() {
+  const { serviceWalletConnect } = backgroundApiProxy;
   // https://registry.walletconnect.org/data/wallets.json
   const { error, data: walletServicesRemote } = useMobileRegistry();
   const { result: walletServicesLocal } = usePromiseResult(() =>
-    simpleDb.walletConnect.getWalletServicesList(),
+    serviceWalletConnect.getWalletServicesList(),
   );
   const isVerticalLayout = useIsVerticalLayout();
   useEffect(() => {
     if (walletServicesRemote && walletServicesRemote.length) {
-      simpleDb.walletConnect.saveWalletServicesList(walletServicesRemote);
+      serviceWalletConnect.saveWalletServicesList(walletServicesRemote);
     }
-  }, [walletServicesRemote]);
+  }, [serviceWalletConnect, walletServicesRemote]);
 
   const walletServices = useMemo(
     () =>
