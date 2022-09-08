@@ -62,7 +62,7 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
             <Box>
               <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
             </Box>
-            <Text ml={3} typography="Body2" color="text-default">
+            <Text flex={1} ml={3} typography="Body2" color="text-default">
               {intl.formatMessage({
                 id: 'msg__use_passphrase_enter_hint_hide_wallet',
               })}
@@ -72,7 +72,7 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
             <Box>
               <Icon name="ExclamationOutline" size={20} color="icon-warning" />
             </Box>
-            <Text typography="Body2" ml={3} color="text-default">
+            <Text flex={1} typography="Body2" ml={3} color="text-default">
               {intl.formatMessage({
                 id: 'msg__use_passphrase_enter_hint_not_forget',
               })}
