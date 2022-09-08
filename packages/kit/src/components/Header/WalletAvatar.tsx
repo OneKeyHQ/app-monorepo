@@ -11,7 +11,7 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 import { Avatar, defaultAvatar } from '../../utils/emojiUtils';
 
 type WalletAvatarProps = {
-  size?: 'xl' | 'lg' | 'sm' | string;
+  size?: 'xl' | 'lg' | 'sm' | 'xs' | string;
   avatarBgColor?: string;
   walletImage?: string | 'hw' | 'imported' | 'watching' | 'hd' | 'external';
   circular?: boolean;
@@ -47,6 +47,8 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
             ? '20px'
             : size === 'sm'
             ? '14px'
+            : size === 'xs'
+            ? '12px'
             : undefined
         }
         height={
@@ -56,6 +58,8 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
             ? '30px'
             : size === 'sm'
             ? '21px'
+            : size === 'xs'
+            ? '18px'
             : undefined
         }
         source={
@@ -94,6 +98,8 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
             ? 'DisplayLarge'
             : size === 'sm'
             ? 'DisplayMedium'
+            : size === 'xs'
+            ? 'Body1'
             : undefined
         }
       >
@@ -110,6 +116,8 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
           ? 'DisplayLarge'
           : size === 'sm'
           ? 'DisplayMedium'
+          : size === 'xs'
+          ? 'Body1'
           : undefined
       }
     >
@@ -170,7 +178,7 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
     (walletImage === 'hd' ? hdAvatar.bgColor : 'surface-neutral-default');
   return (
     <Center
-      rounded={circular ? 'full' : 12}
+      rounded={circular ? 'full' : size === 'xs' ? '6px' : '12px'}
       size={
         size === 'xl'
           ? '56px'
@@ -178,6 +186,8 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
           ? 12
           : size === 'sm'
           ? 8
+          : size === 'xs'
+          ? 6
           : undefined
       }
       bgColor={bgColor}

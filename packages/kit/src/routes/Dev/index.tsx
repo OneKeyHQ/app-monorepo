@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useThemeValue } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import AccountGallery from '@onekeyhq/kit/src/views/Components/stories/Account';
+import AccountSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/AccountSelector/index';
 import AddressGallery from '@onekeyhq/kit/src/views/Components/stories/Address';
 import AlertGallery from '@onekeyhq/kit/src/views/Components/stories/Alert';
 import AppUpdateGallery from '@onekeyhq/kit/src/views/Components/stories/AppUpdate';
@@ -82,6 +83,7 @@ export enum StackRoutes {
   ComponentToast = 'component/toast',
   ComponentAccount = 'component/account',
   ComponentWalletSelector = 'component/walletSelector',
+  ComponentAccountSelector = 'component/accountSelector',
   ComponentCheckbox = 'component/checkbox',
   ComponentSpinner = 'component/spinner',
   ComponentModal = 'component/modal',
@@ -140,6 +142,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentToast]: undefined;
   [StackRoutes.ComponentAccount]: undefined;
   [StackRoutes.ComponentWalletSelector]: undefined;
+  [StackRoutes.ComponentAccountSelector]: undefined;
   [StackRoutes.ComponentCheckbox]: undefined;
   [StackRoutes.ComponentSpinner]: undefined;
   [StackRoutes.ComponentModal]: undefined;
@@ -200,6 +203,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentWalletSelector,
     component: WalletSelectorGallery,
+  },
+  {
+    name: StackRoutes.ComponentAccountSelector,
+    component: AccountSelectorGallery,
   },
   { name: StackRoutes.ComponentCheckbox, component: CheckBoxGallery },
   { name: StackRoutes.ComponentSpinner, component: SpinnerGallery },
