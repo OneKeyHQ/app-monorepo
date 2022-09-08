@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
+import { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -33,6 +35,16 @@ export default class ServiceSwap extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     const networks = appSelector((s) => s.runtime.networks);
     return networks.find((network) => network.id === networkId);
+  }
+
+  @backgroundMethod()
+  async getSwftcCoins() {
+    return simpleDb.swap.getSwftcCoins();
+  }
+
+  @backgroundMethod()
+  async setSwftcCoins(coins: ISwftcCoin[]) {
+    return simpleDb.swap.setSwftcCoins(coins);
   }
 
   @backgroundMethod()

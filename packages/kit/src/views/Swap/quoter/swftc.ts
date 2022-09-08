@@ -1,7 +1,6 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -199,17 +198,20 @@ export class SwftcQuoter implements Quoter {
   }
 
   async getLocalCoins() {
+    const { serviceSwap } = backgroundApiProxy;
     let coins: Coin[] | undefined;
     if (this.coins) {
       coins = this.coins;
     } else {
-      coins = await simpleDb.swap.getSwftcCoins();
+      coins = await serviceSwap.getSwftcCoins();
     }
     return coins;
   }
 
   async saveLocalCoins(coins: Coin[]) {
-    await simpleDb.swap.setSwftcCoins(coins);
+    const { serviceSwap } = backgroundApiProxy;
+
+    await serviceSwap.setSwftcCoins(coins);
     this.coins = coins;
     this.coinsLastUpdate = Date.now();
   }
