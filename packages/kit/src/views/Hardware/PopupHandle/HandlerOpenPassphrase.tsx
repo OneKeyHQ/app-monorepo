@@ -1,36 +1,49 @@
 import { FC } from 'react';
 
-import DialogCommon from '@onekeyhq/components/src/Dialog/components';
+import { useIntl } from 'react-intl';
+
+import { Dialog, IconShape } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import HardwareLoadingDialog from '../Onekey/OnekeyHardwareConnectDialog';
 
-import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
-
 type HandlerOpenPassphraseViewProps = {
-  deviceId: string;
   deviceConnectId: string;
-  content: string;
-} & Omit<BaseRequestViewProps, 'children'>;
+  onClose: () => void;
+};
 
 const HandlerOpenPassphraseView: FC<HandlerOpenPassphraseViewProps> = ({
-  deviceId,
   deviceConnectId,
-  content,
   onClose,
-  ...props
 }) => {
+  const intl = useIntl();
   const { serviceHardware } = backgroundApiProxy;
 
   return (
-    <BaseRequestView {...props} closeWay="now">
-      <DialogCommon.Content iconType="info" title={content} />
-
-      <DialogCommon.FooterButton
-        onSecondaryActionPress={() => onClose?.()}
-        onPrimaryActionPress={() => {
+    <Dialog
+      visible
+      onClose={onClose}
+      contentProps={{
+        title: intl.formatMessage({
+          id: 'dialog__device_has_disabled_passphrase',
+        }),
+        content: intl.formatMessage({
+          id: 'dialog__device_has_disabled_passphrase_desc',
+        }),
+        icon: (
+          <IconShape
+            name="LockClosedOutline"
+            color="decorative-icon-one"
+            bgColor="decorative-surface-one"
+          />
+        ),
+      }}
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__enable',
+        onSecondaryActionPress: () => onClose?.(),
+        onPrimaryActionPress: () => {
           onClose?.();
 
           showOverlay((onCloseOverlay) => (
@@ -47,9 +60,9 @@ const HandlerOpenPassphraseView: FC<HandlerOpenPassphraseViewProps> = ({
               }
             />
           ));
-        }}
-      />
-    </BaseRequestView>
+        },
+      }}
+    />
   );
 };
 
