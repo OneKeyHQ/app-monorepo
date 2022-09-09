@@ -99,14 +99,19 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
               }}
               as={Typography.DisplayXLarge}
               render={(ele) => (
-                <Typography.DisplayXLarge
-                  width="100%"
+                <Box
+                  flexDirection="row"
+                  alignItems="center"
                   flex={1}
-                  textAlign={isVertical ? 'center' : 'left'}
+                  justifyContent="center"
                 >
-                  {ele}
+                  <Typography.DisplayXLarge
+                    textAlign={isVertical ? 'center' : 'left'}
+                  >
+                    {ele}
+                  </Typography.DisplayXLarge>
                   <TokenVerifiedIcon token={token || {}} />
-                </Typography.DisplayXLarge>
+                </Box>
               )}
             />
           </Box>

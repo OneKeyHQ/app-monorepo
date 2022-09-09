@@ -92,6 +92,10 @@ const NotificationPriceAlert = () => {
     });
   }, [navigation, intl]);
 
+  if (!data.length) {
+    return <ListEmptyComponent isLoading={false} symbol="token" />;
+  }
+
   return (
     <ScrollView
       w="full"
@@ -101,17 +105,9 @@ const NotificationPriceAlert = () => {
       maxW={768}
       mx="auto"
     >
-      {data.length > 0 ? (
-        data.map(([tokenId, alertList]) => (
-          <Section
-            key={tokenId}
-            alerts={alertList}
-            onRemove={fetchPriceAlerts}
-          />
-        ))
-      ) : (
-        <ListEmptyComponent isLoading={false} symbol="token" />
-      )}
+      {data.map(([tokenId, alertList]) => (
+        <Section key={tokenId} alerts={alertList} onRemove={fetchPriceAlerts} />
+      ))}
     </ScrollView>
   );
 };

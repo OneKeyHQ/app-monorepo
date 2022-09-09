@@ -49,6 +49,7 @@ export type RemovePriceAlertConfig = Omit<
 
 export type AccountDynamicItem = {
   instanceId: string;
+  accountId: string;
   address: string;
   name: string;
 };
@@ -71,7 +72,8 @@ async function fetchData<T>(
   Object.assign(body, {
     instanceId,
   });
-  if (method === 'get') {
+  const isQuery = ['get', 'delete'].includes(method);
+  if (isQuery) {
     apiUrl = `${apiUrl}?${qs.stringify(body)}`;
   }
   if (!platformEnv.isNative) {
@@ -85,7 +87,7 @@ async function fetchData<T>(
     });
     const { data } = await axios.request<T>({
       url: apiUrl,
-      data: method === 'get' ? undefined : body,
+      data: isQuery ? undefined : body,
       method,
     });
     return data;
@@ -162,7 +164,7 @@ export const addAccountDynamic = async (
   );
 
 export const removeAccountDynamic = async (
-  body: Omit<AccountDynamicItem, 'instanceId' | 'name'>,
+  body: Omit<AccountDynamicItem, 'instanceId' | 'name' | 'accountId'>,
 ) =>
   fetchData<AccountDynamicItem | null>(
     '/notification/account-dynamic',

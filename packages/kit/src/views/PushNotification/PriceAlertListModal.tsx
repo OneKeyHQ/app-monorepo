@@ -6,6 +6,7 @@ import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Modal, useTheme } from '@onekeyhq/components';
+import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -78,8 +79,9 @@ export const PriceAlertListModal: FC = () => {
     }
     navigation.navigate(ManageTokenRoutes.PriceAlertAdd, {
       token,
+      alerts: data,
     });
-  }, [pushNotification?.pushEnable, dispatch, navigation, token]);
+  }, [pushNotification?.pushEnable, dispatch, navigation, token, data]);
 
   useFocusEffect(
     useCallback(() => {
@@ -91,11 +93,8 @@ export const PriceAlertListModal: FC = () => {
     }, [fetchData]),
   );
 
-  const children = useMemo(() => {
-    if (!data.length || loading) {
-      return <ListEmptyComponent isLoading={loading} symbol={token.symbol} />;
-    }
-    return (
+  const children = useMemo(
+    () => (
       <Box
         w="full"
         mt="2"
@@ -105,37 +104,61 @@ export const PriceAlertListModal: FC = () => {
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
-        {data.map((item) => (
+        {data.map((item, index) => (
           <PriceItem
             alert={item}
             token={token}
-            divider={false}
+            divider={index !== data.length - 1}
             onRemove={() => fetchData(true)}
             {...token}
           />
         ))}
       </Box>
-    );
-  }, [data, themeVariant, token, fetchData, loading]);
+    ),
+    [data, themeVariant, token, fetchData],
+  );
 
-  return (
-    <Modal
-      header={intl.formatMessage({
+  const content = useMemo(() => {
+    const props: ModalProps = {
+      header: intl.formatMessage({
         id: 'form__price_alert',
-      })}
-      height="560px"
-      headerDescription={token.symbol}
-      hideSecondaryAction
-      onPrimaryActionPress={onPrimaryActionPress}
-      primaryActionProps={{
+      }),
+      height: '560px',
+      headerDescription: token.symbol,
+      hideSecondaryAction: true,
+      onPrimaryActionPress,
+      primaryActionProps: {
         type: disabled ? 'basic' : 'primary',
         leftIconName: 'PlusOutline',
         disabled,
-      }}
-      primaryActionTranslationId="action__add_alert"
-      scrollViewProps={{
-        children,
-      }}
-    />
-  );
+      },
+      primaryActionTranslationId: 'action__add_alert',
+    };
+    if (!data.length || loading) {
+      return (
+        <Modal {...props}>
+          <ListEmptyComponent isLoading={loading} symbol={token.symbol} />
+        </Modal>
+      );
+    }
+
+    return (
+      <Modal
+        {...props}
+        scrollViewProps={{
+          children,
+        }}
+      />
+    );
+  }, [
+    children,
+    intl,
+    data,
+    disabled,
+    loading,
+    onPrimaryActionPress,
+    token.symbol,
+  ]);
+
+  return content;
 };

@@ -1,3 +1,4 @@
+import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 export enum ManageTokenRoutes {
@@ -43,5 +44,6 @@ export type ManageTokenRoutesParams = {
   };
   [ManageTokenRoutes.PriceAlertAdd]: {
     token: Token;
+    alerts: PriceAlertItem[];
   };
 };
