@@ -122,7 +122,9 @@ const AccountValueSettings: FC = () => {
   const { includeNFTsInTotal = true } = useAppSelector((s) => s.settings);
   return (
     <>
-      <SettingRow borderBottomRadius={0}>
+      <SettingRow
+      // borderBottomRadius={0}
+      >
         <Typography.Body1Strong>
           {intl.formatMessage({ id: 'form__include_nfts_in_totals' })}
         </Typography.Body1Strong>
