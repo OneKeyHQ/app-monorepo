@@ -61,10 +61,9 @@ const ScanQrcode: FC = () => {
         return;
       }
       scanned.current = true;
+      navigation.goBack();
       if (onScanCompleted) {
         onScanCompleted(data);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        navigation.goBack();
         return;
       }
       const scanResult = await handleScanResult(data);
