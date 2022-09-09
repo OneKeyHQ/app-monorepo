@@ -61,14 +61,18 @@ const ScanQrcode: FC = () => {
         return;
       }
       scanned.current = true;
-      navigation.goBack();
       if (onScanCompleted) {
         onScanCompleted(data);
+        navigation.goBack();
         return;
       }
       const scanResult = await handleScanResult(data);
       if (scanResult) {
-        navigation.navigate(ScanQrcodeRoutes.ScanQrcodeResult, scanResult);
+        // @ts-expect-error type missing
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        navigation.replace(ScanQrcodeRoutes.ScanQrcodeResult, scanResult);
+      } else {
+        navigation.goBack();
       }
     },
     [navigation, onScanCompleted],
