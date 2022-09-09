@@ -1,6 +1,8 @@
 import React, { useCallback } from 'react';
 
+import { cloneDeep } from 'lodash';
 import { Image } from 'native-base';
+import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
@@ -26,9 +28,7 @@ import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
 
 const sortConnectionsSite = (connections: DappSiteConnection[]) => {
-  let parseConnections: DappSiteConnection[] = JSON.parse(
-    JSON.stringify(connections),
-  );
+  let parseConnections: DappSiteConnection[] = cloneDeep(connections);
   parseConnections = parseConnections.map<DappSiteConnection>((c) => {
     const { origin } = c.site;
     c.site.hostname = new URL(origin).hostname;
@@ -37,7 +37,7 @@ const sortConnectionsSite = (connections: DappSiteConnection[]) => {
   });
   return parseConnections.sort((c1, c2) =>
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    c1.site.hostname!.localeCompare(c2.site.hostname!),
+    natsort({ insensitive: true })(c1.site.hostname!, c2.site.hostname!),
   );
 };
 
