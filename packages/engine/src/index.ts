@@ -1455,25 +1455,13 @@ class Engine {
       typeof displayAddress !== 'undefined' &&
       typeof normalizedAddress !== 'undefined'
     ) {
-      // valid token address, return the specific token.
-      let token = await simpleDb.token.getPresetToken(
+      const token = await this.findToken({
         networkId,
-        normalizedAddress,
-      );
-      const addressesToTry = new Set([normalizedAddress, displayAddress]);
-      for (const address of addressesToTry) {
-        if (typeof token === 'undefined') {
-          const presetToken = await simpleDb.token.getPresetToken(
-            networkId,
-            address,
-          );
-          if (typeof presetToken !== 'undefined') {
-            token = presetToken;
-            break;
-          }
-        }
+        tokenIdOnNetwork: normalizedAddress,
+      });
+      if (token) {
+        return [token];
       }
-      return typeof token !== 'undefined' ? [token] : [];
     }
     const { impl, chainId } = parseNetworkId(networkId);
     if (!impl || !chainId) {
