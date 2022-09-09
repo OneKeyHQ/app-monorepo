@@ -18735,10 +18735,10 @@ react-native-web@0.18.9:
     postcss-value-parser "^4.2.0"
     styleq "^0.1.2"
 
-react-native-webview@11.23.1, react-native-webview@^11.17.2:
-  version "11.23.1"
-  resolved "https://registry.yarnpkg.com/react-native-webview/-/react-native-webview-11.23.1.tgz#6a4bf2620e491dd4fecf4e6dc079005117fae12c"
-  integrity sha512-bmqsdg4RYOUYD37R9XTrQALm7eD62KbLNPRfgvpLGd1SjaurvAjjsLrLN4mt6yOtKOMKeZvlcAl3x6De6cCQsA==
+react-native-webview@11.18.1, react-native-webview@^11.17.2:
+  version "11.18.1"
+  resolved "https://registry.yarnpkg.com/react-native-webview/-/react-native-webview-11.18.1.tgz#0a1893abd391c8f0e7d4c5874bfa737ca6311225"
+  integrity sha512-1VoVmkbsHJ44WA+frMhNfua64t0u2jq80h25sUWrKJRiYrO0XIsKBnJcqrzuOH1ZAT/zDHTqBB5OU+bxEHLJmQ==
   dependencies:
     escape-string-regexp "2.0.0"
     invariant "2.2.4"
@@ -18943,10 +18943,10 @@ realm-network-transport@^0.7.2:
     abort-controller "^3.0.0"
     node-fetch "^2.6.0"
 
-realm@11.0.0-rc.1:
-  version "11.0.0-rc.1"
-  resolved "https://registry.yarnpkg.com/realm/-/realm-11.0.0-rc.1.tgz#714dcf317a70a6adf1e8aa620b31c702bc37b4b9"
-  integrity sha512-ZboRZbDNpsPquRKYcRS4qJNzgDOfoPMDplaix5MDN+X2vafrkoNFDLz24iWdX23iPH/qmJdlcQgOQGHcMJqrbQ==
+realm@11.0.0-rc.0:
+  version "11.0.0-rc.0"
+  resolved "https://registry.yarnpkg.com/realm/-/realm-11.0.0-rc.0.tgz#ef422b07841ee3038bdf5d0c3ebf88556653a512"
+  integrity sha512-Lnq5oyj0MseFPU0sykz99PPR2STJAlAUzGFjTrHd/rSR3K/MdRN/l7Bw+R1tWLt0Y45cgTdnWUp9u672fJ4LiA==
   dependencies:
     "@realm.io/common" "^0.1.4"
     bindings "^1.5.0"

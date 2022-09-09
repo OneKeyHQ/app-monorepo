@@ -441,7 +441,7 @@ PODS:
     - React-Core
   - react-native-view-shot (3.3.0):
     - React-Core
-  - react-native-webview (11.23.1):
+  - react-native-webview (11.18.1):
     - React-Core
   - React-perflogger (0.68.3)
   - React-RCTActionSheet (0.68.3):
@@ -541,7 +541,7 @@ PODS:
     - IQKeyboardManagerSwift (= 6.5.4)
     - React-Core
     - React-RCTText
-  - RealmJS (11.0.0-rc.1):
+  - RealmJS (11.0.0-rc.0):
     - React
   - RNCAsyncStorage (1.17.3):
     - React-Core
@@ -999,7 +999,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: b456e1c40ec86f5593d58b275bd0e9603169daca
   react-native-segmented-control: 06607462630512ff8eef652ec560e6235a30cc3e
   react-native-view-shot: da768466e1cd371de50a3a5c722d1e95456b5b2c
-  react-native-webview: d33e2db8925d090871ffeb232dfa50cb3a727581
+  react-native-webview: 0b7bd2bffced115aefd393e1841babd9b9a557b1
   React-perflogger: fa15d1d29ff7557ee25ea48f7f59e65896fb3215
   React-RCTActionSheet: e83515333352a3cc19c146e3c7a63a8a9269da8f
   React-RCTAnimation: 8032daa2846e3db7ac28c4c5a207d0bfb5e1e3ad
@@ -1013,7 +1013,7 @@ SPEC CHECKSUMS:
   React-runtimeexecutor: 8cdd80915ed6dabf2221a689f1f7ddb50ea5e9f3
   ReactCommon: 5b1b43a7d81a1ac4eec85f7c4db3283a14a3b13d
   ReactNativeKeyboardManager: f82a63e0982254fb0f6a17ba327fac575a46f1e9
-  RealmJS: 2f39ca82a7e299c0b17f0b18508564be0e67c1d9
+  RealmJS: 6ee99e016e85a71233f92c64b8255007810b7478
   RNCAsyncStorage: 005c0e2f09575360f142d0d1f1f15e4ec575b1af
   RNFastImage: 1f2cab428712a4baaf78d6169eaec7f622556dd7
   RNFBAnalytics: 58d1a73d42514ddf3c4f43662db0f3ce9a85457b
