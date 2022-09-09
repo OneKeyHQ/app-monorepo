@@ -70,6 +70,8 @@ const ScanQrcode: FC = () => {
       const scanResult = await handleScanResult(data);
       if (scanResult) {
         navigation.navigate(ScanQrcodeRoutes.ScanQrcodeResult, scanResult);
+      } else {
+        navigation.goBack();
       }
     },
     [navigation, onScanCompleted],
