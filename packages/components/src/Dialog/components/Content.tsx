@@ -1,13 +1,11 @@
 import React, { FC } from 'react';
 
-import { Icon } from 'native-base';
-
 import Box from '../../Box';
 import Center from '../../Center';
-import { Exclamation, InformationCircle } from '../../Icon/react/outline';
+import Icon, { ICON_NAMES } from '../../Icon';
 import { Text } from '../../Typography';
 
-export type IconType = 'danger' | 'info';
+export type IconType = 'danger' | 'info' | 'success' | 'warning';
 
 export type ContentProps = {
   /**
@@ -18,6 +16,10 @@ export type ContentProps = {
    * 默认类型的 Icon 展示
    */
   iconType?: IconType;
+  /**
+   * Set the custom icon
+   */
+  iconName?: ICON_NAMES;
   /**
    * 标题
    */
@@ -33,41 +35,57 @@ export type ContentProps = {
   input?: JSX.Element;
 };
 
-const getIcon = (iconType: IconType) => {
-  let icon = null;
-  if (iconType === 'danger') {
-    icon = Exclamation;
+const getIconBgColor = (iconType: IconType) => {
+  switch (iconType) {
+    case 'success':
+      return 'decorative-surface-one';
+    case 'warning':
+      return 'surface-warning-default';
+    case 'danger':
+      return 'surface-critical-default';
+    case 'info':
+      return 'surface-neutral-default';
+    default:
+      return undefined;
   }
-  if (iconType === 'info') {
-    icon = InformationCircle;
+};
+
+const getIconColor = (iconType: IconType) => {
+  switch (iconType) {
+    case 'success':
+      return 'decorative-icon-one';
+    case 'warning':
+      return 'icon-warning';
+    case 'danger':
+      return 'icon-critical';
+    case 'info':
+      return 'icon-default';
+    default:
+      return undefined;
   }
+};
+
+const getIcon = (iconType: IconType, iconName?: ICON_NAMES) => {
+  let icon = iconName;
+  if (!icon) {
+    if (iconType === 'success') {
+      icon = 'CheckCircleOutline';
+    }
+    if (iconType === 'danger') {
+      icon = 'ExclamationOutline';
+    }
+    if (iconType === 'warning') {
+      icon = 'ExclamationOutline';
+    }
+    if (iconType === 'info') {
+      icon = 'InformationCircleOutline';
+    }
+  }
+
   return (
     !!icon && (
-      <Center
-        p={3}
-        mb={4}
-        rounded="full"
-        bgColor={
-          // eslint-disable-next-line no-nested-ternary
-          iconType === 'danger'
-            ? 'surface-critical-default'
-            : iconType === 'info'
-            ? 'surface-neutral-default'
-            : undefined
-        }
-      >
-        <Icon
-          as={icon}
-          size={6}
-          color={
-            // eslint-disable-next-line no-nested-ternary
-            iconType === 'danger'
-              ? 'icon-critical'
-              : iconType === 'info'
-              ? 'icon-default'
-              : undefined
-          }
-        />
+      <Center p={3} mb={4} rounded="full" bgColor={getIconBgColor(iconType)}>
+        <Icon name={icon} size={24} color={getIconColor(iconType)} />
       </Center>
     )
   );
@@ -76,14 +94,15 @@ const getIcon = (iconType: IconType) => {
 const Content: FC<ContentProps> = ({
   icon,
   iconType,
+  iconName,
   title,
   content,
   contentElement,
   input,
 }) => (
   <Box flexDirection="column" w="100%" alignItems="center">
-    {!!(icon || iconType) &&
-      (iconType ? getIcon(iconType) : <Box mb={5}>{icon}</Box>)}
+    {!!(icon || iconType || iconName) &&
+      (iconType ? getIcon(iconType, iconName) : <Box mb={5}>{icon}</Box>)}
     {!!title && (
       <Text
         typography={{ sm: 'DisplayMedium', md: 'Heading' }}

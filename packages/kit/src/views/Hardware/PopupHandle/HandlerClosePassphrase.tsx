@@ -2,7 +2,7 @@ import { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, IconShape } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
@@ -32,7 +32,8 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
         content: intl.formatMessage({
           id: 'dialog__device_has_enabled_passphrase_desc',
         }),
-        icon: <IconShape name="LockClosedOutline" />,
+        iconName: 'LockClosedOutline',
+        iconType: 'info',
       }}
       footerButtonProps={{
         primaryActionTranslationId: 'action__close',
