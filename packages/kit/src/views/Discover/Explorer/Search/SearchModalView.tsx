@@ -39,7 +39,7 @@ const SearchModalView: FC = () => {
   const { url, onSelectorItem } = route.params;
 
   const [searchContent, setSearchContent] = useState<string>(url ?? '');
-  const searchContentTerm = useDebounce(searchContent, 200);
+  const searchContentTerm = useDebounce(searchContent, 600);
 
   const { loading, searchedDapps } = useSearchLocalDapp(
     searchContentTerm,
