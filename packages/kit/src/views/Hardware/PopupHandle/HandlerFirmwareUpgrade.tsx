@@ -1,33 +1,35 @@
 import { FC } from 'react';
 
-import DialogCommon from '@onekeyhq/components/src/Dialog/components';
+import { Dialog } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
-import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
-
 type HandlerFirmwareUpgradeViewProps = {
   deviceId: string;
-  deviceConnectId: string;
   content: string;
-} & Omit<BaseRequestViewProps, 'children'>;
+  onClose: () => void;
+};
 
 const HandlerFirmwareUpgradeView: FC<HandlerFirmwareUpgradeViewProps> = ({
   deviceId,
-  deviceConnectId,
   content,
   onClose,
-  ...props
 }) => {
   const navigation = useAppNavigation();
   return (
-    <BaseRequestView {...props}>
-      <DialogCommon.Content iconType="info" title={content} />
-
-      <DialogCommon.FooterButton
-        onSecondaryActionPress={() => onClose?.()}
-        onPrimaryActionPress={() => {
+    <Dialog
+      visible
+      onClose={onClose}
+      contentProps={{
+        title: content,
+        iconName: 'UploadOutline',
+        iconType: 'warning',
+      }}
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__update_now',
+        onSecondaryActionPress: () => onClose?.(),
+        onPrimaryActionPress: () => {
           onClose?.();
 
           navigation.navigate(RootRoutes.Modal, {
@@ -40,9 +42,9 @@ const HandlerFirmwareUpgradeView: FC<HandlerFirmwareUpgradeViewProps> = ({
               },
             },
           });
-        }}
-      />
-    </BaseRequestView>
+        },
+      }}
+    />
   );
 };
 

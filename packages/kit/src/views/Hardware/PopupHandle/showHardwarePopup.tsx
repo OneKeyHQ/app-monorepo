@@ -164,51 +164,46 @@ export default async function showHardwarePopup({
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_UPGRADE_FIRMWARE) {
-    popupView = (
-      <HandlerFirmwareUpgradeView
-        deviceId={payload?.deviceId ?? ''}
-        deviceConnectId={payload?.deviceConnectId ?? ''}
-        content={content ?? ''}
-        onCancel={() => {
-          handleCancelPopup();
-        }}
-        onClose={() => {
-          closeHardwarePopup();
-        }}
-      />
-    );
+    DialogManager.show({
+      render: (
+        <HandlerFirmwareUpgradeView
+          deviceId={payload?.deviceId ?? ''}
+          content={content ?? ''}
+          onClose={() => {
+            closeHardwarePopup();
+          }}
+        />
+      ),
+    });
+    return;
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_CLOSE_PASSPHRASE) {
-    popupView = (
-      <HandlerClosePassphraseView
-        deviceId={payload?.deviceId ?? ''}
-        deviceConnectId={payload?.deviceConnectId ?? ''}
-        content={content ?? ''}
-        onCancel={() => {
-          handleCancelPopup();
-        }}
-        onClose={() => {
-          closeHardwarePopup();
-        }}
-      />
-    );
+    DialogManager.show({
+      render: (
+        <HandlerClosePassphraseView
+          deviceConnectId={payload?.deviceConnectId ?? ''}
+          onClose={() => {
+            closeHardwarePopup();
+          }}
+        />
+      ),
+    });
+    return;
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_OPEN_PASSPHRASE) {
-    popupView = (
-      <HandlerOpenPassphraseView
-        deviceId={payload?.deviceId ?? ''}
-        deviceConnectId={payload?.deviceConnectId ?? ''}
-        content={content ?? ''}
-        onCancel={() => {
-          handleCancelPopup();
-        }}
-        onClose={() => {
-          closeHardwarePopup();
-        }}
-      />
-    );
+    DialogManager.show({
+      render: (
+        <HandlerOpenPassphraseView
+          deviceConnectId={payload?.deviceConnectId ?? ''}
+          onClose={() => {
+            closeHardwarePopup();
+          }}
+        />
+      ),
+    });
+    return;
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_ONEKEY_BRIDGE) {

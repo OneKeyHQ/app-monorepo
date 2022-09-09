@@ -14,11 +14,9 @@ import { SectionListData, SectionListRenderItem } from 'react-native';
 
 import {
   Box,
-  Center,
   Dialog,
   Divider,
   Empty,
-  Icon,
   IconButton,
   SectionList,
   Typography,
@@ -143,16 +141,8 @@ const TrashButton = () => {
       <Dialog
         visible={visible}
         contentProps={{
-          icon: (
-            <Center
-              p={3}
-              mb={4}
-              rounded="full"
-              bgColor="surface-critical-default"
-            >
-              <Icon name="TrashSolid" size={24} color="icon-critical" />
-            </Center>
-          ),
+          iconName: 'TrashSolid',
+          iconType: 'danger',
           title: intl.formatMessage({ id: 'action__clear_swap_history' }),
           content: intl.formatMessage({
             id: 'action__clear_swap_history_desc',

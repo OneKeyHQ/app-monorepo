@@ -1,36 +1,44 @@
 import { FC } from 'react';
 
-import DialogCommon from '@onekeyhq/components/src/Dialog/components';
+import { useIntl } from 'react-intl';
+
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import HardwareLoadingDialog from '../Onekey/OnekeyHardwareConnectDialog';
 
-import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
-
 type HandlerClosePassphraseViewProps = {
-  deviceId: string;
   deviceConnectId: string;
-  content: string;
-} & Omit<BaseRequestViewProps, 'children'>;
+  onClose: () => void;
+};
 
 const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
-  deviceId,
   deviceConnectId,
-  content,
   onClose,
-  ...props
 }) => {
+  const intl = useIntl();
   const { serviceHardware } = backgroundApiProxy;
 
   return (
-    <BaseRequestView {...props} closeWay="now" onClose={onClose}>
-      <DialogCommon.Content iconType="info" title={content} />
-
-      <DialogCommon.FooterButton
-        onSecondaryActionPress={() => onClose?.()}
-        onPrimaryActionPress={() => {
+    <Dialog
+      visible
+      onClose={onClose}
+      contentProps={{
+        title: intl.formatMessage({
+          id: 'dialog__device_has_enabled_passphrase',
+        }),
+        content: intl.formatMessage({
+          id: 'dialog__device_has_enabled_passphrase_desc',
+        }),
+        iconName: 'LockClosedOutline',
+        iconType: 'info',
+      }}
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__close',
+        onSecondaryActionPress: () => onClose?.(),
+        onPrimaryActionPress: () => {
           onClose?.();
 
           showOverlay((onCloseOverlay) => (
@@ -47,9 +55,9 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
               }
             />
           ));
-        }}
-      />
-    </BaseRequestView>
+        },
+      }}
+    />
   );
 };
 
