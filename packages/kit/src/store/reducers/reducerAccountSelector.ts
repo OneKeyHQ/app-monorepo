@@ -3,6 +3,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import type { AccountGroup } from '../../components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
 
 type InitialState = {
+  isDesktopSelectorVisible: boolean;
   isOpenDelay: boolean; // isOpenDelay 600ms
   isLoading: boolean;
   isRefreshDisabled: boolean;
@@ -17,6 +18,7 @@ type InitialState = {
 };
 
 const initialState: InitialState = {
+  isDesktopSelectorVisible: false,
   // check packages/kit/src/components/Header/AccountSelector.tsx
   //      const visible = isSmallLayout ? isDrawerOpen : innerVisible;
   isOpenDelay: false,
@@ -32,6 +34,12 @@ export const reducerSlice = createSlice({
   name: 'accountSelector',
   initialState,
   reducers: {
+    updateDesktopSelectorVisible(
+      state,
+      action: PayloadAction<InitialState['isDesktopSelectorVisible']>,
+    ) {
+      state.isDesktopSelectorVisible = action.payload;
+    },
     updateSelectedWalletId(
       state,
       action: PayloadAction<InitialState['walletId']>,
