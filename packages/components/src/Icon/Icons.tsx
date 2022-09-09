@@ -14,6 +14,7 @@ import StarBadgeIllus from './react/illus/StarBadge';
 import TxStatusFailureCircleIllus from './react/illus/TxStatusFailureCircle';
 import TxStatusSuccessCircleIllus from './react/illus/TxStatusSuccessCircle';
 import TxStatusWarningCircleIllus from './react/illus/TxStatusWarningCircle';
+import WalletconnectLogoIllus from './react/illus/WalletconnectLogo';
 import AcademicCapOutline from './react/outline/AcademicCap';
 import ActivityOutline from './react/outline/Activity';
 import AdjustmentsOutline from './react/outline/Adjustments';
@@ -542,6 +543,7 @@ export type ICON_NAMES =
   | 'TxStatusFailureCircleIllus'
   | 'TxStatusSuccessCircleIllus'
   | 'TxStatusWarningCircleIllus'
+  | 'WalletconnectLogoIllus'
   | 'AcademicCapOutline'
   | 'ActivityOutline'
   | 'AdjustmentsOutline'
@@ -1069,6 +1071,7 @@ export default {
   TxStatusFailureCircleIllus,
   TxStatusSuccessCircleIllus,
   TxStatusWarningCircleIllus,
+  WalletconnectLogoIllus,
   AcademicCapOutline,
   ActivityOutline,
   AdjustmentsOutline,

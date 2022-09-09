@@ -23,9 +23,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import {
-  closeWalletConnectSession,
-  updateWalletConnectSession,
-} from '../../store/reducers/walletConnectSession';
+  dappCloseWalletConnectSession,
+  dappSaveWalletConnectSession,
+  dappUpdateWalletConnectSession,
+} from '../../store/reducers/dapp';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {
@@ -90,12 +91,17 @@ class ServiceDapp extends ServiceBase {
 
   @backgroundMethod()
   updateWalletConnectedSession(session: IWalletConnectSession) {
-    this.backgroundApi.dispatch(updateWalletConnectSession(session));
+    this.backgroundApi.dispatch(dappUpdateWalletConnectSession(session));
   }
 
   @backgroundMethod()
-  closeWalletConnectedSession(session: IWalletConnectSession | null) {
-    this.backgroundApi.dispatch(closeWalletConnectSession(session));
+  saveWalletConnectedSession(session: IWalletConnectSession) {
+    this.backgroundApi.dispatch(dappSaveWalletConnectSession(session));
+  }
+
+  @backgroundMethod()
+  closeWalletConnectedSession(session: IWalletConnectSession) {
+    this.backgroundApi.dispatch(dappCloseWalletConnectSession(session));
   }
 
   @backgroundMethod()

@@ -121,16 +121,9 @@ export class OneKeyWalletConnector extends Connector {
     }
   }
 
-  override async createSession(
-    opts?: ICreateSessionOptions | undefined,
-  ): Promise<void> {
-    await super.createSession(opts);
-    backgroundApiProxy.serviceDapp.updateWalletConnectedSession(this.session);
-  }
-
   override approveSession(sessionStatus: ISessionStatus): void {
     super.approveSession(sessionStatus);
-    backgroundApiProxy.serviceDapp.updateWalletConnectedSession(this.session);
+    backgroundApiProxy.serviceDapp.saveWalletConnectedSession(this.session);
   }
 
   override updateSession(sessionStatus: ISessionStatus): void {

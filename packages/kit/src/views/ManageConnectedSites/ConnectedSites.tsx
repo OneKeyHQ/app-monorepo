@@ -25,12 +25,21 @@ import { showOverlay } from '../../utils/overlayUtils';
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
 
+import type { IWalletConnectSession } from '@walletconnect/types';
+
 const sortConnectionsSite = (connections: DappSiteConnection[]) => {
-  const parseConnections: DappSiteConnection[] = [...connections];
+  let parseConnections: DappSiteConnection[] = JSON.parse(
+    JSON.stringify(connections),
+  );
+  parseConnections = parseConnections.map<DappSiteConnection>((c) => {
+    const { origin } = c.site;
+    c.site.hostname = new URL(origin).hostname;
+    if (!c.site.icon) c.site.icon = `${origin}/favicon.ico`;
+    return c;
+  });
   return parseConnections.sort((c1, c2) =>
-    c1.site.origin
-      .replace(/(^\w+:|^)\/\//, '')
-      .localeCompare(c2.site.origin.replace(/(^\w+:|^)\/\//, '')),
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    c1.site.hostname!.localeCompare(c2.site.hostname!),
   );
 };
 
@@ -39,9 +48,11 @@ export default function ConnectedSites() {
   const connections: DappSiteConnection[] = sortConnectionsSite(
     useAppSelector((s) => s.dapp.connections),
   );
-  const walletConnectSession = useAppSelector(
-    (s) => s.walletConnectSession.session,
+
+  const walletConnectSessions = useAppSelector(
+    (s) => s.dapp.walletConnectSessions,
   );
+
   const openDeleteDialog = useCallback(
     (dappName: string, disconnect: () => Promise<any>) => {
       showOverlay((closeOverlay) => (
@@ -96,67 +107,62 @@ export default function ConnectedSites() {
   }, []);
 
   const renderItem: ListRenderItem<DappSiteConnection> = useCallback(
-    ({ item, index }) => {
-      const { address } = item || {};
-      const { origin } = item?.site || {};
-      const favicon = `${origin}/favicon.ico`;
-      return (
-        <Pressable>
-          <Box
-            padding="16px"
-            height="76px"
-            width="100%"
-            bgColor="surface-default"
-            borderTopRadius={index === 0 ? '12px' : '0px'}
-            borderRadius={index === connections?.length - 1 ? '12px' : '0px'}
-            borderWidth={1}
-            borderTopWidth={index === 0 ? 1 : 0}
-            borderBottomWidth={index === connections?.length - 1 ? 1 : 0}
-            borderColor="border-subdued"
-          >
-            <Box flexDirection="row" flex={1} alignItems="center">
-              {!!favicon && (
-                <Box size="32px" overflow="hidden" rounded="full">
-                  <Image
-                    w="full"
-                    h="full"
-                    src={favicon}
-                    key={favicon}
-                    alt={favicon}
-                    fallbackElement={<Icon name="ConnectOutline" size={32} />}
-                  />
-                </Box>
-              )}
-              <Box
-                flexDirection="column"
-                ml="12px"
-                justifyContent="center"
-                flex={1}
-              >
-                <Typography.Body1Strong>
-                  {origin.replace(/(^\w+:|^)\/\//, '')}
-                </Typography.Body1Strong>
-                <Typography.Body2 color="text-subdued" numberOfLines={1}>
-                  {shortenAddress(address)}
-                </Typography.Body2>
+    ({ item, index }) => (
+      <Pressable>
+        <Box
+          padding="16px"
+          height="76px"
+          width="100%"
+          bgColor="surface-default"
+          borderTopRadius={index === 0 ? '12px' : '0px'}
+          borderRadius={index === connections?.length - 1 ? '12px' : '0px'}
+          borderWidth={1}
+          borderTopWidth={index === 0 ? 1 : 0}
+          borderBottomWidth={index === connections?.length - 1 ? 1 : 0}
+          borderColor="border-subdued"
+        >
+          <Box flexDirection="row" flex={1} alignItems="center">
+            {!!item.site.icon && (
+              <Box size="32px" overflow="hidden" rounded="full">
+                <Image
+                  w="full"
+                  h="full"
+                  src={item.site.icon}
+                  key={item.site.icon}
+                  alt={item.site.icon}
+                  fallbackElement={<Icon name="ConnectOutline" size={32} />}
+                />
               </Box>
-              <IconButton
-                name="CloseCircleSolid"
-                type="plain"
-                circle
-                onPress={() => {
-                  openDeleteDialog(item.site.origin, async () => {
-                    await backgroundApiProxy.serviceDapp.cancellConnectedSite(
-                      item,
-                    );
-                  });
-                }}
-              />
+            )}
+            <Box
+              flexDirection="column"
+              ml="12px"
+              justifyContent="center"
+              flex={1}
+            >
+              <Typography.Body1Strong>
+                {item.site.hostname}
+              </Typography.Body1Strong>
+              <Typography.Body2 color="text-subdued" numberOfLines={1}>
+                {shortenAddress(item.address)}
+              </Typography.Body2>
             </Box>
+            <IconButton
+              name="CloseCircleSolid"
+              type="plain"
+              circle
+              onPress={() => {
+                openDeleteDialog(item.site.origin, async () => {
+                  await backgroundApiProxy.serviceDapp.cancellConnectedSite(
+                    item,
+                  );
+                });
+              }}
+            />
           </Box>
-        </Pressable>
-      );
-    },
+        </Box>
+      </Pressable>
+    ),
     [connections.length, openDeleteDialog],
   );
   return (
@@ -170,7 +176,7 @@ export default function ConnectedSites() {
         ListHeaderComponent:
           connections.length > 0 ? (
             <ConnectedSitesHeader
-              walletConnectSession={walletConnectSession}
+              walletConnectSessions={walletConnectSessions}
               onDisConnectWalletConnected={openDeleteDialog}
               onAddConnectSite={openAddDialog}
             />

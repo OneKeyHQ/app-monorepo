@@ -14,7 +14,7 @@ export type ConnectedSitesHeaderProps = {
     disconnect: () => Promise<any>,
   ) => void;
   onAddConnectSite: () => void;
-  walletConnectSession: IWalletConnectSession | null;
+  walletConnectSessions: IWalletConnectSession[];
 };
 
 export type AddConnectionSideDialogProps = {
