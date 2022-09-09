@@ -89,28 +89,25 @@ const ScanQrcodeResult: FC = () => {
   const actions = (
     <>
       {type === ScanSubResultCategory.URL && (
-        <>
-          <Pressable
-            {...pressableProps}
-            mb="16px"
-            onPress={() => {
-              navigation
-                .getParent()
-                ?.navigate(TabRoutes.Discover, { incomingUrl: data });
-            }}
-          >
-            <HStack space="4">
-              <Icon name="CompassOutline" />
-              <Typography.Body1>
-                {intl.formatMessage({
-                  id: 'form__view_in_explore',
-                })}
-              </Typography.Body1>
-            </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
-          </Pressable>
-          <Divider />
-        </>
+        <Pressable
+          {...pressableProps}
+          mb="16px"
+          onPress={() => {
+            navigation
+              .getParent()
+              ?.navigate(TabRoutes.Discover, { incomingUrl: data });
+          }}
+        >
+          <HStack space="4">
+            <Icon name="CompassOutline" />
+            <Typography.Body1>
+              {intl.formatMessage({
+                id: 'form__view_in_explore',
+              })}
+            </Typography.Body1>
+          </HStack>
+          <Icon name="ChevronRightSolid" size={20} />
+        </Pressable>
       )}
       {(type === UserInputCategory.WATCHING ||
         type === UserInputCategory.ADDRESS) && (
@@ -165,42 +162,38 @@ const ScanQrcodeResult: FC = () => {
             </HStack>
             <Icon name="ChevronRightSolid" size={20} />
           </Pressable>
-          <Divider />
         </>
       )}
       {(type === UserInputCategory.WATCHING ||
         type === UserInputCategory.MNEMONIC ||
         type === UserInputCategory.IMPORTED) && (
-        <>
-          <Pressable
-            {...pressableProps}
-            borderTopRadius={0}
-            mb="16px"
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
+        <Pressable
+          {...pressableProps}
+          borderTopRadius={0}
+          mb="16px"
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.CreateWallet,
+              params: {
+                screen: CreateWalletModalRoutes.AddExistingWalletModal,
                 params: {
-                  screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                  params: {
-                    mode: type,
-                    presetText: data,
-                  },
+                  mode: type,
+                  presetText: data,
                 },
-              });
-            }}
-          >
-            <HStack space="4">
-              <Icon name="ImportOutline" />
-              <Typography.Body1>
-                {intl.formatMessage({
-                  id: 'form__imported_as_a_watch_account',
-                })}
-              </Typography.Body1>
-            </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
-          </Pressable>
-          <Divider />
-        </>
+              },
+            });
+          }}
+        >
+          <HStack space="4">
+            <Icon name="ImportOutline" />
+            <Typography.Body1>
+              {intl.formatMessage({
+                id: 'form__imported_as_a_watch_account',
+              })}
+            </Typography.Body1>
+          </HStack>
+          <Icon name="ChevronRightSolid" size={20} />
+        </Pressable>
       )}
       <CopyButton data={data} />
     </>
