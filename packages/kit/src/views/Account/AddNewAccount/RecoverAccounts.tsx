@@ -14,6 +14,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Center,
   CheckBox,
   DataProvider,
@@ -138,7 +139,8 @@ const RecoverAccounts: FC = () => {
 
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
 
-  const [isLoading, setLoading] = useState(true);
+  const [isInitLoading, setInitLoading] = useState(true);
+  const [isLoading, setLoading] = useState(false);
   const [isValid, setIsValid] = useState(false);
   const isFetchingData = useRef(false);
   const activeAccounts = useRef<Account[]>([]);
@@ -167,12 +169,14 @@ const RecoverAccounts: FC = () => {
       isFetchingData.current = true;
       const limit = pageSize;
       const start = page * limit;
+      setLoading(true);
       backgroundApiProxy.engine
         .searchHDAccounts(walletId, network, password, start, limit, purpose)
         .then((accounts) => {
           if (currentPage === 0) {
-            setLoading(false);
+            setInitLoading(false);
           }
+          setLoading(false);
           // For BIP-44 compliance, if number of accounts is less than that we
           // required, stop searching for more accounts.
           setSearchEnded(accounts.length < limit);
@@ -285,6 +289,14 @@ const RecoverAccounts: FC = () => {
     }
   }
 
+  const onLoadMore = () => {
+    /**
+     * Prevent duplicate loading to cause hardware error
+     */
+    if (isFetchingData.current) return;
+    setCurrentPage((p) => p + 1);
+  };
+
   useEffect(
     () => () => hardwareCancel(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -322,7 +334,7 @@ const RecoverAccounts: FC = () => {
         },
       }}
     >
-      {isLoading ? (
+      {isInitLoading ? (
         <Center flex={1}>
           <Spinner size="lg" />
         </Center>
@@ -346,22 +358,20 @@ const RecoverAccounts: FC = () => {
           layoutProvider={layoutProvider}
           rowRenderer={rowRenderer}
           disableRecycling
-          renderFooter={
-            searchEnded || currentPage === 0
-              ? undefined
-              : () => (
-                  <Box my="24px">
-                    <Spinner size="sm" />
-                  </Box>
-                )
+          renderFooter={() =>
+            searchEnded ? null : (
+              <Button
+                m={2}
+                type="basic"
+                size="base"
+                isLoading={isLoading}
+                onPress={onLoadMore}
+              >
+                {intl.formatMessage({ id: 'action__load_more' })}
+              </Button>
+            )
           }
-          onEndReached={() => {
-            /**
-             * Prevent duplicate loading to cause hardware error
-             */
-            if (isFetchingData.current) return;
-            setCurrentPage((p) => p + 1);
-          }}
+          onEndReached={onLoadMore}
         />
       )}
     </Modal>
