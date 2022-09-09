@@ -4,6 +4,8 @@ import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 import { NFTAsset } from '../types/nft';
 import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
 
+import { IEncodedTxAptos } from './impl/apt/types';
+
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
 import type { Token } from '../types/token';
@@ -96,7 +98,8 @@ export type IEncodedTx =
   | IEncodedTxBtc
   | IEncodedTxSTC
   | IEncodedTxSol
-  | IEncodedTxTron;
+  | IEncodedTxTron
+  | IEncodedTxAptos;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear

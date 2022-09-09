@@ -686,6 +686,7 @@ class Engine {
       '101010': OnekeyNetwork.stc,
       '501': OnekeyNetwork.sol,
       '195': OnekeyNetwork.trx,
+      '637': OnekeyNetwork.apt,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');

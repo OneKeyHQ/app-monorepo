@@ -61,7 +61,7 @@ import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
 
 // IMPL naming aren't necessarily the same.
-const IMPL_MAPPINGS: Record<
+export const IMPL_MAPPINGS: Record<
   string,
   { implName?: string; defaultClient: string }
 > = {

@@ -206,6 +206,14 @@ export class InvalidAddress extends OneKeyError {
   }
 }
 
+export class InvalidAccount extends OneKeyError {
+  override key = 'msg__engine__incorrect_address';
+
+  constructor(message?: string, info?: IOneKeyErrorInfo) {
+    super(message || 'InvalidAddress.', info);
+  }
+}
+
 export class InvalidTokenAddress extends OneKeyError {
   override key = 'msg__engine__incorrect_token_address';
 }
