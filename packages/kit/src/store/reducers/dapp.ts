@@ -1,7 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import type { IWalletConnectSession } from '@walletconnect/types';
-
 export type DappSiteInfo = {
   origin: string;
   hostname?: string;
@@ -28,12 +26,10 @@ export type DappSiteConnection = DappSiteConnectionSavePayload & {
 
 export type DappInitialState = {
   connections: DappSiteConnection[];
-  walletConnectSessions: IWalletConnectSession[];
 };
 
 const initialState: DappInitialState = {
   connections: [],
-  walletConnectSessions: [],
 };
 
 export const dappSlicer = createSlice({
@@ -83,59 +79,6 @@ export const dappSlicer = createSlice({
       info.lastTime = Date.now();
       state.connections = connections;
     },
-    dappUpdateWalletConnectSession(
-      state,
-      action: PayloadAction<IWalletConnectSession>,
-    ) {
-      const { payload } = action;
-      let sessions = [...state.walletConnectSessions];
-      sessions = sessions.map((session) => {
-        if (session.peerMeta?.url === payload.peerMeta?.url) {
-          Object.assign(session, payload);
-        }
-        return session;
-      });
-      sessions = sessions.filter((session) => session.connected);
-      state.walletConnectSessions = sessions;
-    },
-    dappSaveWalletConnectSession(
-      state,
-      action: PayloadAction<IWalletConnectSession>,
-    ) {
-      const { payload } = action;
-      const sessions = [...state.walletConnectSessions];
-      // save only connected session
-      if (payload.connected) {
-        if (
-          sessions.find(
-            (session) => session.peerMeta?.url === payload.peerMeta?.url,
-          )
-        ) {
-          this.dappUpdateWalletConnectSession(state, action);
-        } else {
-          sessions.push(payload);
-        }
-      }
-      state.walletConnectSessions = sessions;
-    },
-    dappCloseWalletConnectSession(
-      state,
-      action: PayloadAction<IWalletConnectSession>,
-    ) {
-      const { payload } = action;
-      if (!payload) {
-        this.dappClearWalletConnectSession(state);
-      } else {
-        let sessions = [...state.walletConnectSessions];
-        sessions = sessions.filter(
-          (session) => session.peerMeta?.url !== payload.peerMeta?.url,
-        );
-        state.walletConnectSessions = sessions;
-      }
-    },
-    dappClearWalletConnectSession(state) {
-      state.walletConnectSessions = [];
-    },
   },
 });
 
@@ -143,10 +86,6 @@ export const {
   dappSaveSiteConnection,
   dappClearSiteConnection,
   dappRemoveSiteConnections,
-  dappUpdateWalletConnectSession,
-  dappSaveWalletConnectSession,
-  dappCloseWalletConnectSession,
-  dappClearWalletConnectSession,
 } = dappSlicer.actions;
 
 export default dappSlicer.reducer;

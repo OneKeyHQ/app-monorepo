@@ -1,4 +1,4 @@
-import type { IWalletConnectSession } from '@walletconnect/types';
+import { DappSiteConnection } from '../../store/reducers/dapp';
 
 export enum ManageConnectedSitesRoutes {
   ManageConnectedSitesModel = 'ManageConnectedSitesModal',
@@ -14,7 +14,7 @@ export type ConnectedSitesHeaderProps = {
     disconnect: () => Promise<any>,
   ) => void;
   onAddConnectSite: () => void;
-  walletConnectSessions: IWalletConnectSession[];
+  connections: DappSiteConnection[];
 };
 
 export type AddConnectionSideDialogProps = {

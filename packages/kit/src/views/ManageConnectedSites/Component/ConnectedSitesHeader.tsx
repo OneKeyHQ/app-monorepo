@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -22,11 +22,19 @@ import { ConnectedSitesHeaderProps } from '../types';
 import type { IWalletConnectSession } from '@walletconnect/types';
 
 const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
-  walletConnectSessions = [],
+  connections,
   onAddConnectSite,
   onDisConnectWalletConnected,
 }) => {
   const intl = useIntl();
+  const [walletConnectSessions, setSessions] = useState<
+    IWalletConnectSession[]
+  >(() => []);
+  useEffect(() => {
+    backgroundApiProxy.serviceDapp.updateWalletConnectSession().then((s) => {
+      setSessions(() => (s ? [s] : []));
+    });
+  }, [connections]);
 
   const renderItem: ListRenderItem<IWalletConnectSession> = useCallback(
     ({ item, index }) => {

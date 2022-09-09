@@ -22,11 +22,6 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-import {
-  dappCloseWalletConnectSession,
-  dappSaveWalletConnectSession,
-  dappUpdateWalletConnectSession,
-} from '../../store/reducers/dapp';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {
@@ -90,21 +85,6 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  updateWalletConnectedSession(session: IWalletConnectSession) {
-    this.backgroundApi.dispatch(dappUpdateWalletConnectSession(session));
-  }
-
-  @backgroundMethod()
-  saveWalletConnectedSession(session: IWalletConnectSession) {
-    this.backgroundApi.dispatch(dappSaveWalletConnectSession(session));
-  }
-
-  @backgroundMethod()
-  closeWalletConnectedSession(session: IWalletConnectSession) {
-    this.backgroundApi.dispatch(dappCloseWalletConnectSession(session));
-  }
-
-  @backgroundMethod()
   async cancellConnectedSite(payload: DappSiteConnection): Promise<void> {
     // check walletConnect
     if (
@@ -113,20 +93,22 @@ class ServiceDapp extends ServiceBase {
         payload.site.origin
     ) {
       this.backgroundApi.walletConnect.disconnect();
-    } else {
-      this.removeConnectedAccounts({
-        origin: payload.site.origin,
-        networkImpl: payload.networkImpl,
-        addresses: [payload.address],
-      });
     }
+    this.removeConnectedAccounts({
+      origin: payload.site.origin,
+      networkImpl: payload.networkImpl,
+      addresses: [payload.address],
+    });
     await this.backgroundApi.serviceAccount.notifyAccountsChanged();
   }
 
   @backgroundMethod()
-  manuallyAddInpageCannected(request: CommonRequestParams['request']) {
-    if (request.origin) {
-      this.openConnectionModal(request);
+  async updateWalletConnectSession() {
+    if (this.backgroundApi.walletConnect.connector) {
+      const { session } = this.backgroundApi.walletConnect.connector;
+      return Promise.resolve(
+        this.backgroundApi.walletConnect.connector.connected ? session : null,
+      );
     }
   }
 
@@ -154,6 +136,7 @@ class ServiceDapp extends ServiceBase {
     return Boolean(accounts && accounts.length);
   }
 
+  @backgroundMethod()
   openConnectionModal(request: CommonRequestParams['request']) {
     return this.openModal({
       request,

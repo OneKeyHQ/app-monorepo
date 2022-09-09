@@ -5,6 +5,8 @@ import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { backgroundMethod } from '../../background/decorators';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { getActiveWalletAccount } from '../../hooks/redux';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import {
@@ -97,6 +99,16 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     } catch (error) {
       debugLogger.walletConnect.info('walletConnect.connect reject', error);
       connector.rejectSession(error as any);
+    } finally {
+      //  walletConnect session update to update connecttions
+      const { accountAddress, networkImpl } = getActiveWalletAccount();
+      backgroundApiProxy.serviceDapp.saveConnectedAccounts({
+        site: {
+          origin,
+        },
+        networkImpl,
+        address: accountAddress,
+      });
     }
   }
 }

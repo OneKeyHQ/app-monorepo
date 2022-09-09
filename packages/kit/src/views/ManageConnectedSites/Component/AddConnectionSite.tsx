@@ -36,9 +36,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
             ) {
               origin = `https://${origin}`;
             }
-            backgroundApiProxy.serviceDapp.manuallyAddInpageCannected({
-              origin,
-            });
+            backgroundApiProxy.serviceDapp.openConnectionModal({ origin });
           }
           closeOverlay();
         },

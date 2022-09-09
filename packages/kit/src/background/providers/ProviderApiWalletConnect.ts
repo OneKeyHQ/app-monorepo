@@ -36,10 +36,6 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       ({ connector }: IWalletConnectClientEventDestroy) => {
         if (connector) {
           this.removeConnectedAccounts(connector);
-          // passively disconnects the walletConnect, does not perform connector.killsession() in _destroyConnector,so here close session
-          this.backgroundApi.serviceDapp.closeWalletConnectedSession(
-            connector.session,
-          );
         }
       },
     );

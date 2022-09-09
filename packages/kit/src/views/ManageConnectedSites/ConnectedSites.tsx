@@ -25,8 +25,6 @@ import { showOverlay } from '../../utils/overlayUtils';
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
 
-import type { IWalletConnectSession } from '@walletconnect/types';
-
 const sortConnectionsSite = (connections: DappSiteConnection[]) => {
   let parseConnections: DappSiteConnection[] = JSON.parse(
     JSON.stringify(connections),
@@ -45,13 +43,13 @@ const sortConnectionsSite = (connections: DappSiteConnection[]) => {
 
 export default function ConnectedSites() {
   const intl = useIntl();
-  const connections: DappSiteConnection[] = sortConnectionsSite(
-    useAppSelector((s) => s.dapp.connections),
+  const connections: DappSiteConnection[] = useAppSelector(
+    (s) => s.dapp.connections,
   );
-
-  const walletConnectSessions = useAppSelector(
-    (s) => s.dapp.walletConnectSessions,
-  );
+  const sortConnections = sortConnectionsSite(connections);
+  // const walletConnectSessions = useAppSelector(
+  //   (s) => s.dapp.walletConnectSessions,
+  // );
 
   const openDeleteDialog = useCallback(
     (dappName: string, disconnect: () => Promise<any>) => {
@@ -176,12 +174,12 @@ export default function ConnectedSites() {
         ListHeaderComponent:
           connections.length > 0 ? (
             <ConnectedSitesHeader
-              walletConnectSessions={walletConnectSessions}
+              connections={connections}
               onDisConnectWalletConnected={openDeleteDialog}
               onAddConnectSite={openAddDialog}
             />
           ) : null,
-        data: connections,
+        data: sortConnections,
         // @ts-ignore
         renderItem,
         ListEmptyComponent: (

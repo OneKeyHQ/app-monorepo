@@ -7,12 +7,6 @@ import * as cryptoLib from '@walletconnect/iso-crypto';
 import SocketTransport from '@walletconnect/socket-transport';
 import { toLower } from 'lodash';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  closeWalletConnectSession,
-  updateWalletConnectSession,
-} from '../../store/reducers/walletConnectSession';
-
 import {
   WALLET_CONNECT_BRIDGE,
   WALLET_CONNECT_PROTOCOL,
@@ -119,23 +113,6 @@ export class OneKeyWalletConnector extends Connector {
       // @ts-ignore
       this.bridge = transport?._url || this.bridge;
     }
-  }
-
-  override approveSession(sessionStatus: ISessionStatus): void {
-    super.approveSession(sessionStatus);
-    backgroundApiProxy.serviceDapp.saveWalletConnectedSession(this.session);
-  }
-
-  override updateSession(sessionStatus: ISessionStatus): void {
-    super.updateSession(sessionStatus);
-    backgroundApiProxy.serviceDapp.updateWalletConnectedSession(this.session);
-  }
-
-  override async killSession(
-    sessionError?: ISessionError | undefined,
-  ): Promise<void> {
-    await super.killSession(sessionError);
-    backgroundApiProxy.serviceDapp.closeWalletConnectedSession(this.session);
   }
 
   once(event: string, listener: (...args: any[]) => void) {
