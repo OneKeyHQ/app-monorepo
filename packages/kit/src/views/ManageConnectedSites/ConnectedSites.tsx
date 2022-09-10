@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { Image } from 'native-base';
@@ -46,10 +46,10 @@ export default function ConnectedSites() {
   const connections: DappSiteConnection[] = useAppSelector(
     (s) => s.dapp.connections,
   );
-  const sortConnections = sortConnectionsSite(connections);
-  // const walletConnectSessions = useAppSelector(
-  //   (s) => s.dapp.walletConnectSessions,
-  // );
+  const sortConnections = useMemo(
+    () => sortConnectionsSite(connections),
+    [connections],
+  );
 
   const openDeleteDialog = useCallback(
     (dappName: string, disconnect: () => Promise<any>) => {

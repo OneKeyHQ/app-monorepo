@@ -103,7 +103,7 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateWalletConnectSession() {
+  async getWalletConnectSession() {
     if (this.backgroundApi.walletConnect.connector) {
       const { session } = this.backgroundApi.walletConnect.connector;
       return Promise.resolve(

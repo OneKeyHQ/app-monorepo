@@ -31,7 +31,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
     IWalletConnectSession[]
   >(() => []);
   useEffect(() => {
-    backgroundApiProxy.serviceDapp.updateWalletConnectSession().then((s) => {
+    backgroundApiProxy.serviceDapp.getWalletConnectSession().then((s) => {
       setSessions(() => (s ? [s] : []));
     });
   }, [connections]);
