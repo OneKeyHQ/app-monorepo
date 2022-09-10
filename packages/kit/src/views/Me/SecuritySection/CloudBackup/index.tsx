@@ -96,11 +96,8 @@ const EnabledContent = ({
           },
         }}
         contentProps={{
-          icon: (
-            <Center rounded="full" size="12" bgColor="surface-success-default">
-              <Icon name="CloudOutline" size={24} color="icon-success" />
-            </Center>
-          ),
+          iconName: 'CloudOutline',
+          iconType: 'success',
           title: intl.formatMessage({
             id: 'dialog__your_wallets_are_backed_up',
           }),

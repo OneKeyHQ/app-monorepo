@@ -3,14 +3,18 @@ import React, { FC } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Empty } from '@onekeyhq/components';
+import { Box, Button, Empty, useIsVerticalLayout } from '@onekeyhq/components';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../hooks';
+import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
 import { useCreateAccountInWallet } from '../Header/AccountSelectorChildren/RightAccountCreateButton';
+
+const { updateDesktopSelectorVisible } = reducerAccountSelector.actions;
 
 const IdentityAssertion: FC = ({ children }) => {
   const intl = useIntl();
@@ -23,6 +27,8 @@ const IdentityAssertion: FC = ({ children }) => {
     networkId,
   });
   const { openDrawer } = useNavigationActions();
+  const isVertical = useIsVerticalLayout();
+  const { dispatch } = backgroundApiProxy;
 
   if (!walletId) {
     return (
@@ -76,7 +82,11 @@ const IdentityAssertion: FC = ({ children }) => {
               // createAccount();
               //
               // ** show account selector
-              openDrawer();
+              if (isVertical) {
+                openDrawer();
+              } else {
+                dispatch(updateDesktopSelectorVisible(true));
+              }
             }}
             size="lg"
           >

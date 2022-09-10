@@ -23,7 +23,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../hooks';
+import { useAppSelector, useDebounce } from '../../hooks';
 import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
 
 import {
@@ -43,14 +43,16 @@ type AccountSelectorProps = {
   }) => ReactNode;
 };
 
-const { updateIsOpenDelay } = reducerAccountSelector.actions;
+const { updateIsOpenDelay, updateDesktopSelectorVisible } =
+  reducerAccountSelector.actions;
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
-  const isSmallLayout = useIsVerticalLayout();
+  const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
 
   const triggerRef = useRef<HTMLElement>(null);
   const { serviceAccountSelector, dispatch } = backgroundApiProxy;
+  const { isDesktopSelectorVisible } = useAppSelector((s) => s.accountSelector);
 
   useEffect(() => {
     debugLogger.accountSelector.info('HeaderAccountSelector mount');
@@ -59,14 +61,13 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     };
   }, []);
 
-  const [innerVisible, setVisible] = useState(false);
   const isDrawerOpen = useDrawerStatus() === 'open';
-  const visible = isSmallLayout ? isDrawerOpen : innerVisible;
+  const visible = isVertical ? isDrawerOpen : isDesktopSelectorVisible;
 
   // delay wait drawer closed animation done
   const isOpenDelay = useDebounce(
     visible,
-    isSmallLayout ? ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY : 150,
+    isVertical ? ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY : 150,
   );
   useEffect(() => {
     dispatch(updateIsOpenDelay(Boolean(isOpenDelay)));
@@ -78,14 +79,22 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       await serviceAccountSelector.refreshAccountsGroup();
     }
     InteractionManager.runAfterInteractions(() => {
-      if (isSmallLayout) {
+      if (isVertical) {
         // @ts-expect-error
         navigation?.toggleDrawer?.();
       } else {
-        setVisible((v) => !v);
+        const nextVisible = !isDesktopSelectorVisible;
+        dispatch(updateDesktopSelectorVisible(nextVisible));
       }
     });
-  }, [visible, serviceAccountSelector, isSmallLayout, navigation]);
+  }, [
+    visible,
+    serviceAccountSelector,
+    isVertical,
+    navigation,
+    isDesktopSelectorVisible,
+    dispatch,
+  ]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);
   const setRef = React.useCallback((ref: DesktopRef | null) => {
@@ -101,7 +110,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   }, []);
 
   const child = useMemo(() => {
-    if (isSmallLayout) {
+    if (isVertical) {
       return null;
     }
     return (
@@ -111,7 +120,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
         toggleVisible={handleToggleVisible}
       />
     );
-  }, [isSmallLayout, visible, handleToggleVisible, setRef]);
+  }, [isVertical, visible, handleToggleVisible, setRef]);
 
   const handleToggleVisibleDefault = useCallback(() => {
     if (!visible) {

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-import React, { FC, useCallback, useEffect, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -55,6 +56,14 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
       });
     }
   });
+
+  const onSubmitThrottle = useMemo(
+    () =>
+      throttle(onSubmit, 1000, {
+        trailing: false,
+      }),
+    [onSubmit],
+  );
 
   const onLocalAuthenticationOk = useCallback(
     (text: string) => {
@@ -125,7 +134,7 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
           isDisabled={!formValues?.password}
           type="primary"
           size="xl"
-          onPress={onSubmit}
+          onPress={onSubmitThrottle}
         >
           {intl.formatMessage({
             id: 'action__continue',

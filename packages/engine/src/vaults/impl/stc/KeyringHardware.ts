@@ -69,7 +69,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { signature } = response.payload;
       return buildSignedTx(
         senderPublicKey,
-        Buffer.from(signature as string, 'hex'),
+        Buffer.from(signature, 'hex'),
         rawTxn,
       );
     }
@@ -119,12 +119,12 @@ export class KeyringHardware extends KeyringHardwareBase {
             await utils.signedMessage.generateSignedMessage(
               signingMessage,
               parseInt(chainId),
-              public_key as string,
-              signature as string,
+              public_key,
+              signature,
             );
           return signedMessageHex;
         }
-        return signature as string;
+        return signature;
       }),
     );
   }

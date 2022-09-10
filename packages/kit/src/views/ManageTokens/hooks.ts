@@ -15,6 +15,7 @@ export const useSearchTokens = (
   const [searchedTokens, setTokens] = useState<Token[]>([]);
   useEffect(() => {
     if (terms !== keyword) {
+      setTokens([]);
       setLoading(true);
     }
   }, [terms, keyword]);

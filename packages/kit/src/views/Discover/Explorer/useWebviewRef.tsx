@@ -84,8 +84,6 @@ export const useWebviewRef = (
           setLoading(false);
         };
         const handleNewWindowMessage = (e: Event) => {
-          console.log('====: handleNewWindowMessage new-window:', e);
-
           // @ts-expect-error
           const { url } = e;
           if (url) {

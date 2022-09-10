@@ -600,7 +600,10 @@ class ServiceAccount extends ServiceBase {
 
     const passphraseState = await serviceHardware.getPassphraseState(connectId);
     if (!!onlyPassphrase && !passphraseState) {
-      throw new DeviceNotOpenedPassphrase();
+      throw new DeviceNotOpenedPassphrase({
+        connectId,
+        deviceId: features.device_id ?? undefined,
+      });
     }
 
     if (existDeviceId) {
@@ -711,8 +714,20 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async removeWallet(walletId: string, password: string | undefined) {
-    const { appSelector, engine, dispatch, serviceCloudBackup } =
-      this.backgroundApi;
+    const {
+      appSelector,
+      serviceNotification,
+      engine,
+      dispatch,
+      serviceCloudBackup,
+    } = this.backgroundApi;
+    const wallet = await engine.getWallet(walletId);
+    const accounts = await engine.getAccounts(wallet.accounts);
+    for (const account of accounts) {
+      await serviceNotification.removeAccountDynamic({
+        address: account.address,
+      });
+    }
     const activeWalletId = appSelector((s) => s.general.activeWalletId);
     await engine.removeWallet(walletId, password ?? '');
 
@@ -734,8 +749,22 @@ class ServiceAccount extends ServiceBase {
     accountId: string,
     password: string | undefined,
   ) {
-    const { appSelector, engine, dispatch, serviceCloudBackup } =
-      this.backgroundApi;
+    const {
+      appSelector,
+      engine,
+      dispatch,
+      serviceCloudBackup,
+      serviceNotification,
+    } = this.backgroundApi;
+    const account = await this.getAccount({
+      walletId,
+      accountId,
+    });
+    if (account) {
+      await serviceNotification.removeAccountDynamic({
+        address: account.address,
+      });
+    }
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
     await engine.removeAccount(accountId, password ?? '');
     await simpleDb.walletConnect.removeAccount({ accountId });
@@ -820,6 +849,20 @@ class ServiceAccount extends ServiceBase {
         return target;
       }
     }
+  }
+
+  @backgroundMethod()
+  async getAccount({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+    const wallet = await engine.getWallet(walletId);
+    const accounts = await engine.getAccounts(wallet.accounts);
+    return accounts.find((item) => item.id === accountId);
   }
 }
 
