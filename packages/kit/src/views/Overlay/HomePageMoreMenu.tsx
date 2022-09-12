@@ -38,7 +38,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
-  const { enabledAccounts } = useEnabledAccountDynamicAccounts();
+  const { enabledAccounts, loading } = useEnabledAccountDynamicAccounts();
 
   const enabledNotification = useMemo(
     () =>
@@ -68,6 +68,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         }),
       );
       res = await serviceNotification.addAccountDynamic({
+        accountId: account.id,
         address: account.address,
         name: account.name,
       });
@@ -161,6 +162,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       },
       !!account &&
         platformEnv.isNative &&
+        !loading &&
         isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM) && {
           id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
           onPress: onChangeAccountSubscribe,
@@ -169,6 +171,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       // TODO Share
     ],
     [
+      loading,
       onChangeAccountSubscribe,
       enabledNotification,
       disableScan,

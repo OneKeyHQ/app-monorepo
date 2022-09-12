@@ -864,6 +864,20 @@ class ServiceAccount extends ServiceBase {
     const accounts = await engine.getAccounts(wallet.accounts);
     return accounts.find((item) => item.id === accountId);
   }
+
+  @backgroundMethod()
+  async changeActiveAccountByAccountId(accountId: string) {
+    const { appSelector } = this.backgroundApi;
+    const { wallets } = appSelector((s) => s.runtime);
+    const wallet = wallets.find((item) => item.accounts.includes(accountId));
+    if (!wallet) {
+      return;
+    }
+    return this.changeActiveAccount({
+      accountId,
+      walletId: wallet.id,
+    });
+  }
 }
 
 export default ServiceAccount;

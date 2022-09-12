@@ -5,9 +5,24 @@ import {
   PriceAlertItem,
 } from '@onekeyhq/engine/src/managers/notification';
 import { Account } from '@onekeyhq/engine/src/types/account';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+  Wallet,
+} from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
+const sorts = {
+  [WALLET_TYPE_HD]: 0,
+  [WALLET_TYPE_HW]: 1,
+  [WALLET_TYPE_IMPORTED]: 2,
+  [WALLET_TYPE_WATCHING]: 3,
+  [WALLET_TYPE_EXTERNAL]: 4,
+};
 
 export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
@@ -25,7 +40,7 @@ export const useWalletsAndAccounts = () => {
       })),
     );
     const data = walletsWithAccounts.filter((w) => !!w.accounts?.length);
-    setWallets(data);
+    setWallets(data.sort((a, b) => sorts[a.type] - sorts[b.type]));
     return data;
   }, [engine]);
 
@@ -40,6 +55,7 @@ export const useWalletsAndAccounts = () => {
 };
 
 export const useEnabledAccountDynamicAccounts = () => {
+  const [loading, setLoading] = useState(false);
   const { serviceNotification } = backgroundApiProxy;
   const { wallets, getWalletsAndAccounts } = useWalletsAndAccounts();
   const [enabledAccounts, setEnabledAccounts] = useState<AccountDynamicItem[]>(
@@ -51,9 +67,14 @@ export const useEnabledAccountDynamicAccounts = () => {
     setEnabledAccounts(accounts);
   }, [serviceNotification]);
 
-  const refresh = useCallback(() => {
-    fetchEnabledAccounts();
-    getWalletsAndAccounts();
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      await fetchEnabledAccounts();
+      await getWalletsAndAccounts();
+    } finally {
+      setLoading(false);
+    }
   }, [fetchEnabledAccounts, getWalletsAndAccounts]);
 
   useEffect(() => {
@@ -61,6 +82,7 @@ export const useEnabledAccountDynamicAccounts = () => {
   }, [refresh]);
 
   return {
+    loading,
     wallets,
     enabledAccounts,
     refresh,
@@ -69,11 +91,11 @@ export const useEnabledAccountDynamicAccounts = () => {
 
 export const usePriceAlertlist = () => {
   const { serviceNotification } = backgroundApiProxy;
-  const [alerts, setAlerts] = useState<PriceAlertItem[]>();
+  const [alerts, setAlerts] = useState<PriceAlertItem[]>([]);
 
   const fetchPriceAlerts = useCallback(async () => {
     const res = await serviceNotification.queryPriceAlertList();
-    setAlerts(res);
+    setAlerts(res || []);
   }, [serviceNotification]);
 
   useEffect(() => {

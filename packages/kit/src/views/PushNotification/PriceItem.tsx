@@ -9,32 +9,26 @@ import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { getSuggestedDecimals } from '../../utils/priceUtils';
 
 export function FormatCurrencyNumber({
-  decimals,
   value,
   onlyNumber,
   currency,
 }: {
   value: number;
-  decimals?: number;
   onlyNumber?: boolean;
   currency: string;
 }) {
   if (typeof value !== 'number') {
     return null;
   }
-  const maxDecimals = decimals ?? getSuggestedDecimals(value);
-
   return (
     <FormattedNumber
       value={value}
       currencyDisplay="narrowSymbol"
-      // eslint-disable-next-line react/style-prop-object
       style={onlyNumber ? 'decimal' : 'currency'}
       minimumFractionDigits={2}
-      maximumFractionDigits={maxDecimals}
+      maximumFractionDigits={10}
       currency={currency}
     />
   );
@@ -81,22 +75,22 @@ const PriceItem: FC<{
     >
       <Box flex="1" flexDirection="row" alignItems="center">
         <Token src={token.logoURI} size={8} networkId={token.networkId} />
-        <Text typography="Body1Strong" numberOfLines={1} ml={3}>
+        <Text typography="Body1Strong" numberOfLines={1} ml={3} flex="1">
           {`1 ${token.symbol} = `}
           <FormatCurrencyNumber value={+(price || 0)} currency={currency} />
         </Text>
-      </Box>
-      <Box w="8" h="8" alignItems="center" justifyContent="center">
-        {loading ? (
-          <Spinner size="sm" />
-        ) : (
-          <IconButton
-            name="TrashSolid"
-            type="plain"
-            circle
-            onPress={onRemove}
-          />
-        )}
+        <Box w="8" h="8" alignItems="center" justifyContent="center">
+          {loading ? (
+            <Spinner size="sm" />
+          ) : (
+            <IconButton
+              name="TrashSolid"
+              type="plain"
+              circle
+              onPress={onRemove}
+            />
+          )}
+        </Box>
       </Box>
     </Box>
   );

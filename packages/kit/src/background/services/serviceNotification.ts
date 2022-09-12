@@ -52,7 +52,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async removeAccountDynamic(
-    body: Omit<AccountDynamicItem, 'instanceId' | 'name'>,
+    body: Omit<AccountDynamicItem, 'instanceId' | 'name' | 'accountId'>,
   ) {
     return removeAccountDynamic(body);
   }

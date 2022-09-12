@@ -12,6 +12,7 @@ import {
   Keyboard,
   Modal,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
 import { Token } from '@onekeyhq/engine/src/types/token';
@@ -42,9 +43,10 @@ type RouteProps = RouteProp<
 
 export const PriceAlertAddModal: FC = () => {
   const intl = useIntl();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const route = useRoute<RouteProps>();
-  const { token } = route.params;
+  const { token, alerts } = route.params;
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
   const { pushNotification } = useSettings();
@@ -53,9 +55,15 @@ export const PriceAlertAddModal: FC = () => {
   const map = useAppSelector((s) => s.fiatMoney.map);
   const { selectedFiatMoneySymbol } = useSettings();
   const fiat = map[selectedFiatMoneySymbol];
-  const price = new B(getTokenPrice(token) || 0).multipliedBy(fiat).toNumber();
+  const originalPrice = getTokenPrice(token) || 0;
+  const price = new B(originalPrice).multipliedBy(fiat).toNumber();
 
   const { serviceNotification } = backgroundApiProxy;
+
+  const maxDecimals = useMemo(
+    () => getSuggestedDecimals(+originalPrice),
+    [originalPrice],
+  );
 
   const formatPrice = useCallback(
     (
@@ -67,15 +75,10 @@ export const PriceAlertAddModal: FC = () => {
         style: options?.style || 'currency',
         currency: selectedFiatMoneySymbol,
         minimumFractionDigits: 2,
-        maximumFractionDigits: getSuggestedDecimals(+p),
+        maximumFractionDigits: maxDecimals,
         useGrouping: options?.useGrouping || false,
       }),
-    [intl, selectedFiatMoneySymbol],
-  );
-
-  const suggestedDecimals = useMemo(
-    () => getSuggestedDecimals(+price),
-    [price],
+    [intl, selectedFiatMoneySymbol, maxDecimals],
   );
 
   const [text, setText] = useState(
@@ -84,6 +87,18 @@ export const PriceAlertAddModal: FC = () => {
   const shortScreen = height < 768;
 
   const onConfirm = useCallback(async () => {
+    const newPrice = formatPrice(new B(text).toFixed(maxDecimals), {
+      style: 'decimal',
+      useGrouping: false,
+    });
+    const currency = selectedFiatMoneySymbol;
+    if (alerts.find((a) => a.price === newPrice && a.currency === currency)) {
+      if (navigation.canGoBack?.()) navigation.goBack();
+      toast.show({
+        title: intl.formatMessage({ id: 'msg__alert_already_exists' }),
+      });
+      return;
+    }
     setLoading(true);
     try {
       await serviceNotification.addPriceAlertConfig({
@@ -91,7 +106,7 @@ export const PriceAlertAddModal: FC = () => {
         operator: new B(text).isGreaterThanOrEqualTo(price)
           ? PriceAlertOperator.greater
           : PriceAlertOperator.less,
-        price: text,
+        price: newPrice,
         currency: selectedFiatMoneySymbol,
         ...pick(token as Required<Token>, 'impl', 'chainId', 'address'),
       });
@@ -106,12 +121,17 @@ export const PriceAlertAddModal: FC = () => {
       if (navigation.canGoBack?.()) navigation.goBack();
     }, 100);
   }, [
+    intl,
+    toast,
+    alerts,
+    maxDecimals,
     navigation,
     selectedFiatMoneySymbol,
     text,
     token,
     price,
     serviceNotification,
+    formatPrice,
   ]);
 
   const onTextChange = (value: string) => {
@@ -174,11 +194,7 @@ export const PriceAlertAddModal: FC = () => {
             <Box mt={6}>
               <Keyboard
                 itemHeight={shortScreen ? '44px' : undefined}
-                pattern={
-                  new RegExp(
-                    `^(0|([1-9][0-9]*))?.?([0-9]{1,${suggestedDecimals}})?$`,
-                  )
-                }
+                pattern={new RegExp(`^(0|([1-9][0-9]*))?.?([0-9]+)?$`)}
                 text={text}
                 onTextChange={onTextChange}
               />

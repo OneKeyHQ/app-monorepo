@@ -38,7 +38,7 @@ import { navigationRef } from './NavigationProvider';
 export type SwitchScreenParams = {
   screen: HomeRoutes.ScreenTokenDetail | HomeRoutes.InitialTab;
   params: {
-    accountAddress?: string;
+    accountId?: string;
     networkId?: string;
     tokenId?: string;
     initialTabName?: string;
@@ -57,10 +57,8 @@ const NotificationProvider: React.FC<{
   const switchToScreen = useCallback(
     async ({ screen, params }: SwitchScreenParams) => {
       try {
-        if (params.accountAddress) {
-          await serviceAccount.changeActiveAccountByAddress({
-            address: params.accountAddress,
-          });
+        if (params.accountId) {
+          await serviceAccount.changeActiveAccountByAccountId(params.accountId);
         }
         if (params.networkId) {
           await serviceNetwork.changeActiveNetwork(params.networkId);
@@ -118,6 +116,7 @@ const NotificationProvider: React.FC<{
 
   const handleNotificaitonCallback = useCallback(
     (result: NotificationType) => {
+      debugLogger.notification.info('notification', result);
       serviceNotification.emitNotificationStatusChange(result);
       if (result?.notificationEventType !== 'notificationArrived') {
         clearJpushBadge();
