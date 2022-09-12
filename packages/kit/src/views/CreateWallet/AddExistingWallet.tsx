@@ -55,8 +55,6 @@ type AddExistingWalletValues = { text: string };
 
 const emptyParams = Object.freeze({});
 
-const toastDelay = 600;
-
 function useAddExistingWallet({
   onMultipleResults,
   onAddMnemonicAuth,
