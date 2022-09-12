@@ -57,7 +57,6 @@ const NewAddress = () => {
             title: intl.formatMessage({ id: 'msg__address_added' }),
           },
           {},
-          { delay: 300 },
         );
         navigation.goBack();
       }

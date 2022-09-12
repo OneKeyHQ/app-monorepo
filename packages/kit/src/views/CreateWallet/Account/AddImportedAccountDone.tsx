@@ -74,7 +74,6 @@ const Done: FC<DoneProps> = ({
             title: intl.formatMessage({ id: errorKey }),
           },
           { type: 'error' },
-          { delay: navigateDelay + 600 },
         );
       }
       backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(true));

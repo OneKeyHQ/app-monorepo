@@ -1,15 +1,7 @@
-import RootSiblingsManager from 'react-native-root-siblings';
 import ToastBase, { ToastShowParams } from 'react-native-toast-message';
 
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import CustomToast from './Custom';
-
-let toastHolder: RootSiblingsManager | null = null;
-type IToastOptions = {
-  delay?: number;
-};
 /*
  toast.show(
         {
@@ -20,24 +12,7 @@ type IToastOptions = {
         },
  )
  */
-const toastShow = async (
-  props: any,
-  toastShowParams?: ToastShowParams,
-  options?: IToastOptions,
-) => {
-  // delay should > 600 after navigation changed
-  await wait(options?.delay ?? 0);
-
-  if (toastHolder) {
-    toastHolder.destroy();
-    toastHolder = null;
-  }
-
-  setTimeout(() => {
-    // auto mount toast container to nearest <RootSiblingParent />
-    toastHolder = new RootSiblingsManager(<CustomToast bottomOffset={60} />);
-  });
-
+const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   /**
    * Show Toast at next process, avoid toast in modal dismiss issue.
    *
