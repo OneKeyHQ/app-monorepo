@@ -15,6 +15,7 @@ import {
   Spinner,
   Switch,
   Text,
+  Typography,
   useTheme,
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
@@ -101,6 +102,7 @@ const Section: FC<
     enabledAccounts: AccountDynamicItem[];
   }
 > = ({ name, type, accounts, avatar, enabledAccounts, refreash }) => {
+  const intl = useIntl();
   const { themeVariant } = useTheme();
   const { serviceNotification } = backgroundApiProxy;
 
@@ -155,9 +157,23 @@ const Section: FC<
     );
   }, [type, avatar]);
 
+  const walletName = useMemo(() => {
+    switch (type) {
+      case WALLET_TYPE_IMPORTED:
+        return intl.formatMessage({ id: 'wallet__imported_accounts' });
+      case WALLET_TYPE_WATCHING:
+        return intl.formatMessage({ id: 'wallet__watched_accounts' });
+      case WALLET_TYPE_EXTERNAL:
+        return intl.formatMessage({ id: 'content__external_account' });
+      default:
+        break;
+    }
+    return name;
+  }, [type, name, intl]);
+
   return (
     <>
-      <Text color="text-subdued">{name}</Text>
+      <Typography.Subheading>{walletName}</Typography.Subheading>
       <Box
         w="full"
         mt="2"
@@ -167,22 +183,18 @@ const Section: FC<
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
-        {accounts
-          .filter((a) => isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM))
-          .map((a, index) => (
-            <Item
-              key={a.id}
-              icon={icon}
-              account={a}
-              checked={
-                !!enabledAccounts.find(
-                  (account) => account.address === a.address,
-                )
-              }
-              onChange={(checked: boolean) => handleChange(a, checked)}
-              divider={index !== length - 1}
-            />
-          ))}
+        {accounts.map((a, index) => (
+          <Item
+            key={a.id}
+            icon={icon}
+            account={a}
+            checked={
+              !!enabledAccounts.find((account) => account.address === a.address)
+            }
+            onChange={(checked: boolean) => handleChange(a, checked)}
+            divider={index !== length - 1}
+          />
+        ))}
       </Box>
     </>
   );
@@ -221,14 +233,22 @@ const NotificationAccountDynamic = () => {
       maxW={768}
       mx="auto"
     >
-      {wallets.map((wallet) => (
-        <Section
-          key={wallet.id}
-          {...wallet}
-          refreash={refresh}
-          enabledAccounts={enabledAccounts}
-        />
-      ))}
+      {wallets
+        .map((w) => ({
+          ...w,
+          accounts: w.accounts.filter((a) =>
+            isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM),
+          ),
+        }))
+        .filter((w) => !!w.accounts.length)
+        .map((wallet) => (
+          <Section
+            key={wallet.id}
+            {...wallet}
+            refreash={refresh}
+            enabledAccounts={enabledAccounts}
+          />
+        ))}
     </ScrollView>
   );
 };

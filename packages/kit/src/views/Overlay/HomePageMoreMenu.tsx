@@ -30,6 +30,13 @@ import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
 
+const enabledAccountDynamicNetworkIds = [
+  'evm--1',
+  'evm--137',
+  'evm--42161',
+  'evm--10',
+];
+
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();
   const toast = useToast();
@@ -47,6 +54,20 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       ),
     [enabledAccounts, account],
   );
+
+  const showSubscriptionIcon =
+    !!account &&
+    platformEnv.isNative &&
+    !loading &&
+    enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
+    isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
+
+  const accountSubscriptionIcon = useMemo(() => {
+    if (isVerticalLayout) {
+      return enabledNotification ? 'BellOffOutline' : 'BellOutline';
+    }
+    return enabledNotification ? 'BellOffSolid' : 'BellSolid';
+  }, [isVerticalLayout, enabledNotification]);
 
   // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
   const disableScan = platformEnv.isWeb && !isVerticalLayout;
@@ -160,18 +181,16 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         },
         icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
       },
-      !!account &&
-        platformEnv.isNative &&
-        !loading &&
-        isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM) && {
-          id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
-          onPress: onChangeAccountSubscribe,
-          icon: enabledNotification ? 'BellOffOutline' : 'BellOutline',
-        },
+      showSubscriptionIcon && {
+        id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
+        onPress: onChangeAccountSubscribe,
+        icon: accountSubscriptionIcon,
+      },
       // TODO Share
     ],
     [
-      loading,
+      showSubscriptionIcon,
+      accountSubscriptionIcon,
       onChangeAccountSubscribe,
       enabledNotification,
       disableScan,

@@ -75,7 +75,7 @@ const Section = ({
 const NotificationPriceAlert = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { alerts, fetchPriceAlerts } = usePriceAlertlist();
+  const { alerts, loading, fetchPriceAlerts } = usePriceAlertlist();
 
   const data = useMemo(() => {
     const groupedData = groupBy(
@@ -93,7 +93,7 @@ const NotificationPriceAlert = () => {
   }, [navigation, intl]);
 
   if (!data.length) {
-    return <ListEmptyComponent isLoading={false} symbol="token" />;
+    return <ListEmptyComponent isLoading={loading} symbol="token" />;
   }
 
   return (

@@ -17,6 +17,8 @@ import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/Cloud
 import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
 import Protected from '@onekeyhq/kit/src/views/Protected';
 import PushNotification from '@onekeyhq/kit/src/views/PushNotification';
+import PushNotificationManageAccountDynamic from '@onekeyhq/kit/src/views/PushNotification/AccountDynamic';
+import PushNotificationManagePriceAlert from '@onekeyhq/kit/src/views/PushNotification/PriceAlertListStack';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
@@ -125,6 +127,14 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.PushNotification,
         component: PushNotification,
+      },
+      {
+        name: HomeRoutes.PushNotificationManagePriceAlert,
+        component: PushNotificationManagePriceAlert,
+      },
+      {
+        name: HomeRoutes.PushNotificationManageAccountDynamic,
+        component: PushNotificationManageAccountDynamic,
       },
     ],
   },
