@@ -17,9 +17,9 @@ import { Collection } from '@onekeyhq/engine/src/types/nft';
 import { FormatCurrencyNumber } from '../../../../components/Format';
 
 import CollectibleListImage from './CollectibleListImage';
+import { useNFTListContent } from './NFTListContent';
 
 type Props = ComponentProps<typeof Box> & {
-  price: number;
   collectible: Collection;
   onSelectCollection?: (cols: Collection) => void;
 };
@@ -87,7 +87,6 @@ const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
 };
 
 const CollectionCard: FC<Props> = ({
-  price,
   onSelectCollection,
   collectible,
   ...rest
@@ -101,7 +100,8 @@ const CollectionCard: FC<Props> = ({
     : 177;
   const { themeVariant } = useTheme();
   const contentSize = width - 2 * padding;
-
+  const nftContent = useNFTListContent();
+  const price = nftContent?.context.price ?? 0;
   return (
     <Box mb="16px" {...rest}>
       <Pressable

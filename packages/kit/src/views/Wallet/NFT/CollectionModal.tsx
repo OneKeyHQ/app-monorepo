@@ -21,13 +21,12 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import { useNFTSymbolPrice } from '../../../hooks/useTokens';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '../../../routes/Modal/Collectibles';
 
-import CollectibleCard from './CollectibleGallery/CollectibleCard';
+import NFTListAssetCard from './NFTList/NFTListAssetCard';
 
 const ViewTypes = {
   LOGO: 0,
@@ -104,8 +103,6 @@ const CollectionModal: FC<CollectionModalProps> = () => {
       >
     >();
   const { collectible, network } = route.params;
-
-  const price = useNFTSymbolPrice({ networkId: network.id });
 
   // Open Asset detail modal
   const handleSelectAsset = React.useCallback(
@@ -202,8 +199,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
           );
         case ViewTypes.NFTCard:
           return (
-            <CollectibleCard
-              price={price}
+            <NFTListAssetCard
               asset={data as NFTAsset}
               key={index}
               onSelectAsset={handleSelectAsset}
@@ -213,7 +209,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
           return <Box flex={1} />;
       }
     },
-    [handleSelectAsset, price],
+    [handleSelectAsset],
   );
 
   return (

@@ -3,8 +3,8 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import CollectibleDetail from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectibleDetailModal';
-import CollectionModalView from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectionModal';
+import CollectibleDetail from '@onekeyhq/kit/src/views/Wallet/NFT/CollectibleDetailModal';
+import CollectionModalView from '@onekeyhq/kit/src/views/Wallet/NFT/CollectionModal';
 
 import createStackNavigator from './createStackNavigator';
 

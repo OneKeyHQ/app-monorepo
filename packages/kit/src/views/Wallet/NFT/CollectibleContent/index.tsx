@@ -15,7 +15,7 @@ import NFTAudio from '../../../../components/NFTAudio';
 import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
 import NFTSVG from '../../../../components/NFTSVG';
 import NFTVideo from '../../../../components/NFTVideo';
-import CollectibleListImage from '../CollectibleGallery/CollectibleListImage';
+import CollectibleListImage from '../NFTList/CollectibleListImage';
 
 import useUniqueToken, { ComponentType } from './useUniqueToken';
 

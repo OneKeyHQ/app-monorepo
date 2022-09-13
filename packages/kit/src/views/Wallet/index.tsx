@@ -28,7 +28,7 @@ import AccountInfo, {
 } from './AccountInfo';
 import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
-import CollectiblesList from './Collectibles';
+import NFTList from './NFT/NFTList';
 import { WalletHomeTabEnum } from './type';
 
 const WalletTabs: FC = () => {
@@ -125,7 +125,7 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.Collectibles}
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
-          <CollectiblesList />
+          <NFTList />
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.History}
