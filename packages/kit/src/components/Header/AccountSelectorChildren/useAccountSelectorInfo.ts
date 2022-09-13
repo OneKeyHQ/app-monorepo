@@ -197,9 +197,6 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
     }
   }, [existsHardwareWallet, isOpen]);
 
-  // InteractionManager.runAfterInteractions(() => {
-  // });
-
   const isAccountsGroupEmpty = useMemo(() => {
     if (!accountsGroup?.length) {
       return true;

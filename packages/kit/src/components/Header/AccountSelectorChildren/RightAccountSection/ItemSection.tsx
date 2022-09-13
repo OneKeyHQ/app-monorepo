@@ -169,10 +169,10 @@ const AccountSectionItem: FC<Props> = ({
         px={2}
         onPress={() => {
           navigation.dispatch(DrawerActions.closeDrawer());
+          dispatch(updateIsRefreshDisabled(true));
+
           InteractionManager.runAfterInteractions(async () => {
             try {
-              dispatch(updateIsRefreshDisabled(true));
-
               if (isVertical) {
                 await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
               }
