@@ -50,6 +50,7 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Wallet } from '../../../../../engine/src/types/wallet';
 import {
+  BleLocationServiceError,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedBluetoothPermissions,
@@ -188,7 +189,8 @@ const ConnectHardwareModal: FC = () => {
           if (platformEnv.isNative) {
             if (
               !(error instanceof NeedBluetoothTurnedOn) &&
-              !(error instanceof NeedBluetoothPermissions)
+              !(error instanceof NeedBluetoothPermissions) &&
+              !(error instanceof BleLocationServiceError)
             ) {
               ToastManager.show(
                 {

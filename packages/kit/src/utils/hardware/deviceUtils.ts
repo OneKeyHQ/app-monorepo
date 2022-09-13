@@ -308,12 +308,14 @@ class DeviceUtils {
         return new Error.NeedBluetoothTurnedOn({ message: msg });
       case HardwareErrorCode.BleLocationError:
         return new Error.NeedBluetoothPermissions({ message: msg });
+      case HardwareErrorCode.BleLocationServicesDisabled:
+        return new Error.BleLocationServiceError({ message: msg });
       case HardwareErrorCode.BleDeviceNotBonded:
         return new Error.DeviceNotBonded({ message: msg });
       case HardwareErrorCode.BleWriteCharacteristicError:
         return new Error.BleWriteCharacteristicError({ message: msg });
       case HardwareErrorCode.BleScanError:
-        return new Error.BleScanThrottleError({ message: msg });
+        return new Error.BleScanError({ message: msg });
       case HardwareErrorCode.BleAlreadyConnected:
         return new Error.BleAlreadyConnectedError({ message: msg });
       case HardwareErrorCode.RuntimeError:
