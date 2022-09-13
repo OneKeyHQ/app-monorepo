@@ -369,13 +369,15 @@ class DeviceUtils {
       case HardwareErrorCode.BlePermissionError:
         return new Error.NeedBluetoothTurnedOn(payload);
       case HardwareErrorCode.BleLocationError:
-        return new Error.NeedBluetoothPermissions(payload);
+        return new Error.NeedBluetoothPermissions({ message: msg });
+      case HardwareErrorCode.BleLocationServicesDisabled:
+        return new Error.BleLocationServiceError({ message: msg });
       case HardwareErrorCode.BleDeviceNotBonded:
         return new Error.DeviceNotBonded(payload);
       case HardwareErrorCode.BleWriteCharacteristicError:
         return new Error.BleWriteCharacteristicError(payload);
       case HardwareErrorCode.BleScanError:
-        return new Error.BleScanThrottleError(payload);
+        return new Error.BleScanError({ message: msg });
       case HardwareErrorCode.BleAlreadyConnected:
         return new Error.BleAlreadyConnectedError(payload);
       case HardwareErrorCode.RuntimeError:

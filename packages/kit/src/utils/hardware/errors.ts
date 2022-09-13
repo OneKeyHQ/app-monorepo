@@ -112,16 +112,22 @@ export class NeedBluetoothPermissions extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_bluetooth_requires_permission_error';
 }
 
+export class BleLocationServiceError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BleLocationServicesDisabled;
+
+  override key: LocaleIds = 'msg__hardware_device_ble_location_disabled';
+}
+
 export class BleWriteCharacteristicError extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleWriteCharacteristicError;
 
   override key: LocaleIds = 'msg__hardware_device_need_restart';
 }
 
-export class BleScanThrottleError extends OneKeyHardwareError {
+export class BleScanError extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleScanError;
 
-  override key: LocaleIds = 'msg__hardware_device_ble_scan_throttle';
+  override key: LocaleIds = 'msg__hardware_device_ble_scan_error';
 }
 
 export class BleAlreadyConnectedError extends OneKeyHardwareError {

@@ -46,6 +46,7 @@ export const UI_REQUEST = {
 
   BLUETOOTH_PERMISSION: 'ui-bluetooth_permission',
   LOCATION_PERMISSION: 'ui-location_permission',
+  LOCATION_SERVICE_PERMISSION: 'ui-location_service_permission',
 
   FIRMWARE_PROGRESS: 'ui-firmware-progress',
 } as const;
@@ -259,6 +260,20 @@ export default async function showHardwarePopup({
       closeHardwarePopup();
     }
     return;
+  }
+
+  if (uiRequest === UI_REQUEST.LOCATION_SERVICE_PERMISSION) {
+    DialogManager.show({
+      render: (
+        <PermissionDialog
+          type="locationService"
+          onClose={() => {
+            getAppNavigation()?.goBack();
+            closeHardwarePopup();
+          }}
+        />
+      ),
+    });
   }
 
   if (!popupView) {
