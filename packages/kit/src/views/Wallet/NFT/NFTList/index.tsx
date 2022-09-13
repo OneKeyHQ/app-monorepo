@@ -1,11 +1,4 @@
-import React, {
-  ComponentProps,
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -13,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Empty,
-  FlatList,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -32,6 +24,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
@@ -134,7 +127,10 @@ const NFTList: FC<NFTListProps> = ({
     ),
     [onSelectAsset],
   );
-
+  const flatListKey =
+    platformEnv.isNative && !platformEnv.isNativeIOSPad
+      ? undefined
+      : `NFTList${numColumns}`;
   const sharedProps = React.useMemo(
     () => ({
       contentContainerStyle: {
@@ -142,6 +138,7 @@ const NFTList: FC<NFTListProps> = ({
         paddingBottom: collectibles.length ? 16 : 0,
         marginTop: 24,
       },
+      key: flatListKey,
       data: expand ? allAssets : collectibles,
       renderItem: expand ? renderAssetItem : renderCollectionItem,
       ListFooterComponent: <Box h="24px" w="full" />,
@@ -183,6 +180,7 @@ const NFTList: FC<NFTListProps> = ({
             return `Collection ${index}`;
           },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       collectibles,
       expand,
