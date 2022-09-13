@@ -1,6 +1,12 @@
 name: release-web
 
-on: workflow_dispatch
+on:
+  workflow_run:
+    workflows:
+      - daily-build
+    types:
+      - completed
+  workflow_dispatch:
 
 jobs:
   test-web:
@@ -17,6 +23,43 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
           node-version: '16.x'
+
+      - name: Dotenv Action
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.7
+        with:
+          path: .env.version
+
+      - name: Setup ENV
+        run: |
+          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+          github_ref="${github_ref////-}"
+          github_ref="${github_ref/refs-heads-/}"
+          github_ref="${github_ref/refs-tags-/}"
+          echo '$github_ref='$github_ref
+          echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+          # echo "::set-env name=GITHUB_TAG::$github_ref"
+
+          eval "$(node -e 'const v=require("./packages/web/package.json").version; console.log("pkg_version="+v)')"
+          echo '$pkg_version='$pkg_version
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
+        env:
+          github_ref: ${{ github.ref }}
+          workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
       - name: Setup keys secret
         run: |
