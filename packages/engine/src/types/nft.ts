@@ -68,6 +68,7 @@ export type NFTAsset = {
   collection: {
     contractName?: string;
     logoUrl?: string;
+    floorPrice?: number;
   };
   image: {
     source: string;

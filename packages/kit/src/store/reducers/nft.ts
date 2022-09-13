@@ -29,9 +29,6 @@ export const networkSlice = createSlice({
   name: 'nft',
   initialState,
   reducers: {
-    setDisPlayPriceType(state, action: PayloadAction<NFTPrice>) {
-      state.disPlayPriceType = action.payload;
-    },
     setNFTPrice(state, action: PayloadAction<NFTPricePayloadAction>) {
       const { accountId, networkId, price } = action.payload;
       if (!networkId || !accountId) {
@@ -42,6 +39,12 @@ export const networkSlice = createSlice({
       if (nftPrice !== price) {
         accountInfo[networkId] = price;
         state.nftPrice[accountId] = accountInfo;
+      }
+    },
+    setNFTPriceType(state, action: PayloadAction<NFTPrice>) {
+      const oldValue = state.disPlayPriceType;
+      if (oldValue !== action.payload) {
+        state.disPlayPriceType = action.payload;
       }
     },
     setNFTSymbolPrice(
@@ -60,7 +63,7 @@ export const networkSlice = createSlice({
   },
 });
 
-export const { setNFTPrice, setDisPlayPriceType, setNFTSymbolPrice } =
+export const { setNFTPrice, setNFTPriceType, setNFTSymbolPrice } =
   networkSlice.actions;
 
 export default networkSlice.reducer;

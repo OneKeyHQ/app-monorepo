@@ -15,21 +15,18 @@ import { FormatCurrencyNumber } from '../../../../components/Format';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 
 import CollectibleListImage from './CollectibleListImage';
+import { useNFTListContent } from './NFTListContent';
 
 type Props = ComponentProps<typeof Box> & {
-  price: number;
   asset: NFTAsset;
   onSelectAsset?: (asset: NFTAsset) => void;
 };
 
-const CollectibleCard: FC<Props> = ({
-  price,
-  onSelectAsset,
-  asset,
-  ...rest
-}) => {
+const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
+  const nftContent = useNFTListContent();
+  const price = nftContent?.context.price ?? 0;
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -74,15 +71,19 @@ const CollectibleCard: FC<Props> = ({
         >
           {asset.name ?? asset.collection.contractName ?? ''}
         </Text>
-        <Text typography="Body2" height="20px" color="text-subdued">
-          <FormatCurrencyNumber
-            decimals={2}
-            value={price * (latestTradePrice ?? 0)}
-          />
-        </Text>
+        {latestTradePrice ? (
+          <Text typography="Body2" height="20px" color="text-subdued">
+            <FormatCurrencyNumber
+              decimals={2}
+              value={price * latestTradePrice}
+            />
+          </Text>
+        ) : (
+          <Box height="20px" />
+        )}
       </Pressable>
     </Box>
   );
 };
 
-export default memo(CollectibleCard);
+export default memo(NFTListAssetCard);

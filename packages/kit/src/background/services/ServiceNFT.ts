@@ -5,7 +5,11 @@ import {
 } from '@onekeyhq/engine/src/managers/nft';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 
-import { setNFTPrice, setNFTSymbolPrice } from '../../store/reducers/nft';
+import {
+  setNFTPrice,
+  setNFTPriceType,
+  setNFTSymbolPrice,
+} from '../../store/reducers/nft';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -64,8 +68,10 @@ class ServiceNFT extends ServiceBase {
     let lastSalePrice = 0;
     const items = data.map((collection) => {
       let totalPrice = 0;
-      collection.assets.forEach((asset) => {
+      collection.assets = collection.assets.map((asset) => {
+        asset.collection.floorPrice = collection.floorPrice;
         totalPrice += asset.latestTradePrice ?? 0;
+        return asset;
       });
       collection.totalPrice = totalPrice;
       lastSalePrice += totalPrice;
@@ -94,6 +100,12 @@ class ServiceNFT extends ServiceBase {
       }),
     );
     return price;
+  }
+
+  @backgroundMethod()
+  updatePriceType(priceType: 'floorPrice' | 'lastSalePrice') {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setNFTPriceType(priceType));
   }
 }
 
