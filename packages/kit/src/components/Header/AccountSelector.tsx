@@ -10,8 +10,7 @@ import React, {
 } from 'react';
 
 import { useDrawerStatus } from '@react-navigation/drawer';
-import { useNavigation } from '@react-navigation/native';
-import { InteractionManager } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -20,6 +19,7 @@ import {
   removeOldRef,
 } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../hooks';
@@ -59,6 +59,22 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       debugLogger.accountSelector.info('HeaderAccountSelector unmounted');
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (platformEnv.isRuntimeBrowser) {
+        const closeOnEsc = (e: KeyboardEvent) => {
+          if (e.code === 'Escape' && isDesktopSelectorVisible) {
+            dispatch(updateDesktopSelectorVisible(false));
+          }
+        };
+        document.addEventListener('keydown', closeOnEsc);
+        return () => {
+          document.removeEventListener('keydown', closeOnEsc);
+        };
+      }
+    }, [dispatch, isDesktopSelectorVisible]),
+  );
 
   const isDrawerOpen = useDrawerStatus() === 'open';
   const visible = isVertical ? isDrawerOpen : isDesktopSelectorVisible;
