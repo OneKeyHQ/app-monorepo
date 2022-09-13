@@ -91,11 +91,18 @@ export const useEnabledAccountDynamicAccounts = () => {
 
 export const usePriceAlertlist = () => {
   const { serviceNotification } = backgroundApiProxy;
+  const [loading, setLoading] = useState(false);
   const [alerts, setAlerts] = useState<PriceAlertItem[]>([]);
 
   const fetchPriceAlerts = useCallback(async () => {
-    const res = await serviceNotification.queryPriceAlertList();
-    setAlerts(res || []);
+    setLoading(true);
+    try {
+      const res = await serviceNotification.queryPriceAlertList();
+      setAlerts(res || []);
+    } catch (e) {
+      // pass
+    }
+    setLoading(false);
   }, [serviceNotification]);
 
   useEffect(() => {
@@ -104,6 +111,7 @@ export const usePriceAlertlist = () => {
 
   return {
     alerts,
+    loading,
     fetchPriceAlerts,
   };
 };

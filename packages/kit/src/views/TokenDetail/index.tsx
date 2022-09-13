@@ -15,6 +15,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
+import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import {
   HomeRoutes,
@@ -46,14 +47,24 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
   const { charts, prices } = useManageTokens();
+  const { pushNotification } = useSettings();
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
 
   const priceReady = useMemo(() => {
     const id = tokenId || 'main';
-    return charts?.[id] && prices?.[id];
-  }, [charts, prices, tokenId]);
+    if (!token) {
+      return false;
+    }
+    if (!platformEnv.isNative) {
+      return false;
+    }
+    if (!pushNotification?.pushEnable || !pushNotification?.priceAlertEnable) {
+      return false;
+    }
+    return !!(charts?.[id] && prices?.[id]);
+  }, [charts, prices, tokenId, token, pushNotification]);
 
   useLayoutEffect(() => {
     if (firstUpdate.current) {
@@ -88,13 +99,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   );
 
   useLayoutEffect(() => {
-    if (!platformEnv.isNative) {
-      return;
-    }
     if (!priceReady) {
-      return;
-    }
-    if (!token) {
       return;
     }
     navigation.setOptions({
@@ -128,7 +133,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
 
   const headerView = (
     <>
-      <TokenInfo token={token} />
+      <TokenInfo token={token} priceReady={priceReady} />
       <StakedAssets
         networkId={token?.networkId}
         tokenIdOnNetwork={token?.tokenIdOnNetwork}

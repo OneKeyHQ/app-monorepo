@@ -85,6 +85,7 @@ export const PriceAlertAddModal: FC = () => {
     formatPrice(price, { style: 'decimal', useGrouping: false }),
   );
   const shortScreen = height < 768;
+  const disabled = loading || !text;
 
   const onConfirm = useCallback(async () => {
     const newPrice = formatPrice(new B(text).toFixed(maxDecimals), {
@@ -154,9 +155,10 @@ export const PriceAlertAddModal: FC = () => {
       hideSecondaryAction
       onPrimaryActionPress={onConfirm}
       primaryActionProps={{
-        type: 'primary',
+        type: disabled ? 'basic' : 'primary',
         leftIconName: 'PlusOutline',
         isLoading: loading,
+        disabled,
       }}
       primaryActionTranslationId="action__add_alert"
     >

@@ -34,14 +34,16 @@ import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import { getTokenValues } from '../../../utils/priceUtils';
+import { ManageTokenRoutes } from '../../ManageTokens/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
   token: TokenDO | null | undefined;
+  priceReady?: boolean;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
+const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const { wallet, network } = useActiveWalletAccount();
@@ -67,6 +69,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
   );
 
   const sellEnable = cryptoCurrency && moonpayCurrency?.isSellSupported;
+
   const renderAccountAmountInfo = useMemo(
     () => (
       <Box
@@ -263,10 +266,39 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
               </Typography.CaptionStrong>
             </Box>
           )}
+          {priceReady && !isVertical && (
+            <Box flex={1} mx={3} minW="56px" alignItems="center">
+              <IconButton
+                circle
+                size={isVertical ? 'xl' : 'lg'}
+                name="BellOutline"
+                type="basic"
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManageToken,
+                    params: {
+                      screen: ManageTokenRoutes.PriceAlertList,
+                      params: {
+                        token: token as TokenDO,
+                      },
+                    },
+                  });
+                }}
+              />
+              <Typography.CaptionStrong
+                textAlign="center"
+                mt="8px"
+                color="text-default"
+              >
+                {intl.formatMessage({ id: 'form__price_alert' })}
+              </Typography.CaptionStrong>
+            </Box>
+          )}
         </Box>
       </Box>
     ),
     [
+      priceReady,
       isVertical,
       wallet?.type,
       intl,
