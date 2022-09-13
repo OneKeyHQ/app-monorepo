@@ -61,7 +61,7 @@ const linkMap: PrefLink = {
     android: undefined,
     desktop: null,
   },
-  // Only Android systems require location service access permission
+  // Only Android system require location service access permission
   locationService: {
     android: IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS,
   },
