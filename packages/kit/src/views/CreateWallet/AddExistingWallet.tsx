@@ -55,8 +55,6 @@ type AddExistingWalletValues = { text: string };
 
 const emptyParams = Object.freeze({});
 
-const toastDelay = 600;
-
 function useAddExistingWallet({
   onMultipleResults,
   onAddMnemonicAuth,
@@ -132,7 +130,6 @@ function useAddExistingWallet({
                 title: intl.formatMessage({ id: 'msg__account_imported' }),
               },
               {},
-              { delay: toastDelay },
             );
           },
         });
@@ -150,7 +147,6 @@ function useAddExistingWallet({
                 title: intl.formatMessage({ id: 'msg__account_imported' }),
               },
               {},
-              { delay: toastDelay },
             );
           },
         });
@@ -165,7 +161,6 @@ function useAddExistingWallet({
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
           },
           { type: 'error' },
-          { delay: toastDelay },
         );
         return;
       }
@@ -201,7 +196,6 @@ function useAddExistingWallet({
               title: intl.formatMessage({ id: 'msg__account_imported' }),
             },
             {},
-            { delay: toastDelay },
           );
           onAddWatchingDone();
         } catch (e) {
@@ -211,7 +205,6 @@ function useAddExistingWallet({
               title: intl.formatMessage({ id: errorKey }),
             },
             { type: 'error' },
-            { delay: toastDelay },
           );
         }
       } else {
@@ -225,7 +218,6 @@ function useAddExistingWallet({
                 title: intl.formatMessage({ id: 'msg__account_imported' }),
               },
               {},
-              { delay: toastDelay },
             );
           },
         });

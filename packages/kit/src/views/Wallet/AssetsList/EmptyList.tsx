@@ -22,6 +22,7 @@ const EmptyList: FC = () => {
         bg="surface-default"
         flex={1}
         mr="16px"
+        alignItems="flex-start"
         onPress={() => {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.FiatPay,
@@ -34,7 +35,7 @@ const EmptyList: FC = () => {
           });
         }}
       >
-        <Box py="32px" flexDirection="column" alignItems="center">
+        <Box py="24px" flexDirection="column" alignItems="center">
           <Box
             w="48px"
             h="48px"
@@ -70,6 +71,7 @@ const EmptyList: FC = () => {
         borderWidth={0}
         bg="surface-default"
         flex={1}
+        alignItems="flex-start"
         onPress={() => {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.ManageToken,
@@ -77,7 +79,7 @@ const EmptyList: FC = () => {
           });
         }}
       >
-        <Box py="32px" flexDirection="column" alignItems="center">
+        <Box py="24px" flexDirection="column" alignItems="center">
           <Center
             w="48px"
             h="48px"

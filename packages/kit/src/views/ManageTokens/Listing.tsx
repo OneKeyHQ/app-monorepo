@@ -32,11 +32,13 @@ import {
   useAccountTokens,
   useAccountTokensBalance,
   useActiveWalletAccount,
+  useAppSelector,
   useDebounce,
   useNetworkTokens,
 } from '../../hooks';
 import { timeout } from '../../utils/helper';
 import { showOverlay } from '../../utils/overlayUtils';
+import { getTokenValues } from '../../utils/priceUtils';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -264,6 +266,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   const navigation = useNavigation<NavigationProps>();
   const { accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
   const isOwned = accountTokens.some(
     (t) => item.tokenIdOnNetwork === t.tokenIdOnNetwork && !t.autoDetected,
@@ -293,14 +296,40 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         );
         return;
       }
-      // TODO: if hidden
       toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
       backgroundApiProxy.serviceToken.fetchAccountTokens({
         activeAccountId: accountId,
         activeNetworkId: networkId,
       });
+      if (hideSmallBalance) {
+        const [balances, prices] = await Promise.all([
+          backgroundApiProxy.serviceToken.fetchTokenBalance({
+            activeAccountId: accountId,
+            activeNetworkId: networkId,
+            tokenIds: [item.tokenIdOnNetwork],
+          }),
+          backgroundApiProxy.serviceToken.fetchPrices({
+            activeAccountId: accountId,
+            activeNetworkId: networkId,
+            tokenIds: [item.tokenIdOnNetwork],
+          }),
+        ]);
+        const [value] = getTokenValues({
+          balances,
+          prices,
+          tokens: [item],
+        });
+        if (value.isLessThan(1)) {
+          // TODO native toast
+          toast.show({
+            title: intl.formatMessage({
+              id: 'msg__token_has_been_added_but_is_hidden',
+            }),
+          });
+        }
+      }
     }
-  }, [intl, accountId, networkId, toast, item.tokenIdOnNetwork]);
+  }, [accountId, networkId, toast, intl, hideSmallBalance, item]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned
