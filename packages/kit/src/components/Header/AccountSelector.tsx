@@ -78,7 +78,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       await serviceAccountSelector.setSelectedWalletToActive();
       await serviceAccountSelector.refreshAccountsGroup();
     }
-    InteractionManager.runAfterInteractions(() => {
+    setTimeout(() => {
       if (isVertical) {
         // @ts-expect-error
         navigation?.toggleDrawer?.();

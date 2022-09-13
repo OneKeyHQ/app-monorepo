@@ -156,7 +156,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
           !decodedTx ||
           confirmDisabled,
       }}
-      secondaryActionTranslationId="action__reject"
+      secondaryActionTranslationId="action__cancel"
       header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       headerDescription={network?.name || network?.shortName || undefined}
       onSecondaryActionPress={({ close }) => close()}
