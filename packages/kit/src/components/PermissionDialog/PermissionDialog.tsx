@@ -34,6 +34,7 @@ const titleIds: PrefContent = {
   bluetooth: 'modal__bluetooth_access_not_granted',
   location: 'modal__location_access_not_granted',
   notification: 'modal__notification_has_been_disabled',
+  locationService: 'modal__location_access_not_granted',
 };
 
 const contentIds: PrefContent = {
@@ -41,6 +42,7 @@ const contentIds: PrefContent = {
   bluetooth: 'modal__bluetooth_access_not_granted_desc',
   location: 'modal__location_access_not_granted_use_bluetooth_desc',
   notification: 'modal__notification_has_been_disabled_desc',
+  locationService: 'modal__location_access_not_granted_use_bluetooth_desc',
 };
 
 const linkMap: PrefLink = {
@@ -58,6 +60,10 @@ const linkMap: PrefLink = {
     iOS: 'app-settings:root=NOTIFICATIONS_ID',
     android: undefined,
     desktop: null,
+  },
+  // Only Android system require location service access permission
+  locationService: {
+    android: IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS,
   },
 };
 

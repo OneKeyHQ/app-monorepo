@@ -20,7 +20,12 @@ try {
   console.error(error);
 }
 
-export type PrefType = 'camera' | 'bluetooth' | 'location' | 'notification';
+export type PrefType =
+  | 'camera'
+  | 'bluetooth'
+  | 'location'
+  | 'notification'
+  | 'locationService';
 export type DesktopAPI = {
   hello: string;
   arch: string;
