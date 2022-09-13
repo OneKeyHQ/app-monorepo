@@ -180,6 +180,7 @@ const NFTList: FC<NFTListProps> = ({
             return `Collection ${index}`;
           },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       collectibles,
       expand,
