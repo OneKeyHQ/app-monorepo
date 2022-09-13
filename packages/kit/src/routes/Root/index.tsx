@@ -117,10 +117,14 @@ const App = () => {
       />
       <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen
-        options={{
-          animationEnabled: !!isVerticalLayout,
-          ...TransitionPresets.ModalSlideFromBottomIOS,
-        }}
+        options={
+          isVerticalLayout
+            ? {
+                animationEnabled: true,
+                ...TransitionPresets.ModalSlideFromBottomIOS,
+              }
+            : undefined
+        }
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
       />
