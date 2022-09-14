@@ -32,6 +32,8 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { IWalletConnectSession } from '@walletconnect/types';
+
 type CommonRequestParams = {
   request: IJsBridgeMessagePayload;
 };
@@ -82,6 +84,34 @@ class ServiceDapp extends ServiceBase {
     this.backgroundApi.dispatch(dappRemoveSiteConnections(payload));
   }
 
+  @backgroundMethod()
+  async cancellConnectedSite(payload: DappSiteConnection): Promise<void> {
+    // check walletConnect
+    if (
+      this.backgroundApi.walletConnect.connector &&
+      this.backgroundApi.walletConnect.connector.peerMeta?.url ===
+        payload.site.origin
+    ) {
+      this.backgroundApi.walletConnect.disconnect();
+    }
+    this.removeConnectedAccounts({
+      origin: payload.site.origin,
+      networkImpl: payload.networkImpl,
+      addresses: [payload.address],
+    });
+    await this.backgroundApi.serviceAccount.notifyAccountsChanged();
+  }
+
+  @backgroundMethod()
+  async getWalletConnectSession() {
+    if (this.backgroundApi.walletConnect.connector) {
+      const { session } = this.backgroundApi.walletConnect.connector;
+      return Promise.resolve(
+        this.backgroundApi.walletConnect.connector.connected ? session : null,
+      );
+    }
+  }
+
   // TODO to decorator @permissionRequired()
   authorizedRequired(request: IJsBridgeMessagePayload) {
     if (!this.isDappAuthorized(request)) {
@@ -106,6 +136,7 @@ class ServiceDapp extends ServiceBase {
     return Boolean(accounts && accounts.length);
   }
 
+  @backgroundMethod()
   openConnectionModal(request: CommonRequestParams['request']) {
     return this.openModal({
       request,

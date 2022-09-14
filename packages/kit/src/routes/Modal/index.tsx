@@ -21,6 +21,7 @@ import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
 import HardwareUpdateModal from './HardwareUpdate';
 import HistoryRequestModal from './HistoryRequest';
 import ImportBackupPassword from './ImportBackupPassword';
+import ManageConnectedSitesModal from './ManageConnectSites';
 import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
@@ -152,6 +153,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Staking,
     component: StakingModal,
+  },
+  {
+    name: ModalRoutes.ManageConnectedSites,
+    component: ManageConnectedSitesModal,
   },
 ];
 
