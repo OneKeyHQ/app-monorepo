@@ -49,6 +49,7 @@ class Validators {
             UserInputCategory.MNEMONIC,
             UserInputCategory.IMPORTED,
             UserInputCategory.WATCHING,
+            UserInputCategory.ADDRESS,
           ];
 
     if (filterCategories.includes(UserInputCategory.MNEMONIC)) {
