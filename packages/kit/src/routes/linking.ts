@@ -52,6 +52,10 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/${RootRoutes.Account}`,
   },
   {
+    screen: `${RootRoutes.OnLanding}`,
+    path: `/${RootRoutes.OnLanding}`,
+  },
+  {
     screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
     path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },

@@ -32,7 +32,7 @@ export default function OnLanding() {
     }
   }, [openLinkUrl]);
   return (
-    <Center w="full" h="full">
+    <Center w="full" h="full" bg="background-default">
       <Center maxW="375px" w="full" p="6">
         <Icon name="BrandLogoIllus" size={90} />
         <Typography.DisplayLarge mt="8">
