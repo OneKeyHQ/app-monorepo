@@ -904,11 +904,9 @@ export default class Vault extends VaultBase {
 
     const pendings = await Promise.all(decodedPendings);
 
-    const updatedStatuses =
-      await this.engine.providerManager.getTransactionStatuses(
-        this.networkId,
-        pendings.map(({ decodedItem }) => decodedItem.txHash),
-      );
+    const updatedStatuses = await this.getTransactionStatuses(
+      pendings.map(({ decodedItem }) => decodedItem.txHash),
+    );
 
     // TODO: handle different addresses.
     const {

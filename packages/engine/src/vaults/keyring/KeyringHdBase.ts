@@ -23,12 +23,12 @@ export abstract class KeyringHdBase extends KeyringSoftwareBase {
       throw new OneKeyInternalError('Unable to get credential.');
     }
 
-    const provider = await this.engine.providerManager.getProvider(
+    const { curve } = await this.engine.providerManager.getChainInfoByNetworkId(
       this.networkId,
     );
 
     const keys = batchGetPrivateKeys(
-      provider.chainInfo.curve,
+      curve,
       seed,
       password,
       basePath,

@@ -120,17 +120,6 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
-      try {
-        await serviceNetwork.preAddNetwork(data.rpcURL || '');
-      } catch (error) {
-        toast.show(
-          { title: intl.formatMessage({ id: 'form__rpc_fetched_failed' }) },
-          {
-            type: 'error',
-          },
-        );
-        return;
-      }
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       refData.current.preventRemove = true;
