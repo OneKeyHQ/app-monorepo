@@ -16,6 +16,7 @@ import StarBadgeIllus from "./react/illus/StarBadge";
 import TxStatusFailureCircleIllus from "./react/illus/TxStatusFailureCircle";
 import TxStatusSuccessCircleIllus from "./react/illus/TxStatusSuccessCircle";
 import TxStatusWarningCircleIllus from "./react/illus/TxStatusWarningCircle";
+import WalletconnectLogoIllus from "./react/illus/WalletconnectLogo";
 import AcademicCapOutline from "./react/outline/AcademicCap";
 import ActivityOutline from "./react/outline/Activity";
 import AdjustmentsOutline from "./react/outline/Adjustments";
@@ -88,6 +89,7 @@ import CollectionOutline from "./react/outline/Collection";
 import ColorSwatchOutline from "./react/outline/ColorSwatch";
 import CompassOutline from "./react/outline/Compass";
 import ConnectOutline from "./react/outline/Connect";
+import ConnectOffOutline from "./react/outline/ConnectOff";
 import CreditCardOutline from "./react/outline/CreditCard";
 import CubeOutline from "./react/outline/Cube";
 import CubeTransparentOutline from "./react/outline/CubeTransparent";
@@ -542,6 +544,7 @@ export type ICON_NAMES =
   | "TxStatusFailureCircleIllus"
   | "TxStatusSuccessCircleIllus"
   | "TxStatusWarningCircleIllus"
+  | "WalletconnectLogoIllus"
   | "AcademicCapOutline"
   | "ActivityOutline"
   | "AdjustmentsOutline"
@@ -614,6 +617,7 @@ export type ICON_NAMES =
   | "ColorSwatchOutline"
   | "CompassOutline"
   | "ConnectOutline"
+  | "ConnectOffOutline"
   | "CreditCardOutline"
   | "CubeOutline"
   | "CubeTransparentOutline"
@@ -1068,6 +1072,7 @@ export default {
   TxStatusFailureCircleIllus: TxStatusFailureCircleIllus,
   TxStatusSuccessCircleIllus: TxStatusSuccessCircleIllus,
   TxStatusWarningCircleIllus: TxStatusWarningCircleIllus,
+  WalletconnectLogoIllus: WalletconnectLogoIllus,
   AcademicCapOutline: AcademicCapOutline,
   ActivityOutline: ActivityOutline,
   AdjustmentsOutline: AdjustmentsOutline,
@@ -1140,6 +1145,7 @@ export default {
   ColorSwatchOutline: ColorSwatchOutline,
   CompassOutline: CompassOutline,
   ConnectOutline: ConnectOutline,
+  ConnectOffOutline: ConnectOffOutline,
   CreditCardOutline: CreditCardOutline,
   CubeOutline: CubeOutline,
   CubeTransparentOutline: CubeTransparentOutline,
