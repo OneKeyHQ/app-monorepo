@@ -169,15 +169,16 @@ function usePreSendAmountInfo({
     [getInputText, isFiatMode],
   );
   const onTextChange = (text0: string) => {
+    const normalizedText = text0.replace(/。/g, '.');
     // delete action
-    if (text0.length < text.length) {
-      setText(text0);
+    if (normalizedText.length < text.length) {
+      setText(normalizedText);
       return;
     }
-    if (validTextRegex.test(text0)) {
-      setText(text0);
+    if (validTextRegex.test(normalizedText)) {
+      setText(normalizedText);
     } else {
-      const textBN = new BigNumber(text0);
+      const textBN = new BigNumber(normalizedText);
       if (!textBN.isNaN()) {
         const textFixed = textBN.toFixed(
           textInputDecimals,
