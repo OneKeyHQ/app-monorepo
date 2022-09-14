@@ -102,6 +102,7 @@ const CollectionCard: FC<Props> = ({
   const contentSize = width - 2 * padding;
   const nftContent = useNFTListContent();
   const price = nftContent?.context.price ?? 0;
+  const value = price * (collectible.totalPrice ?? 0);
   return (
     <Box mb="16px" {...rest}>
       <Pressable
@@ -130,10 +131,7 @@ const CollectionCard: FC<Props> = ({
           {collectible.contractName}
         </Text>
         <Text typography="Body2" height="20px" color="text-subdued">
-          <FormatCurrencyNumber
-            decimals={2}
-            value={price * (collectible.totalPrice ?? 0)}
-          />
+          <FormatCurrencyNumber decimals={2} value={value > 0 ? value : ''} />
         </Text>
       </Pressable>
     </Box>
