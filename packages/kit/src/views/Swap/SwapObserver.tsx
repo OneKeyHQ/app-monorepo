@@ -13,6 +13,7 @@ import {
 import { useEnabledSwappableNetworks } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import { refs } from './refs';
+import { isNetworkEnabled } from './utils';
 
 const AccountObserver = () => {
   const { account } = useActiveWalletAccount();
@@ -39,8 +40,8 @@ const NetworkObserver = () => {
       }
       backgroundApiProxy.dispatch(setSendingNetworkId(baseNetwork.id));
     }
-    function main() {
-      if (network) {
+    async function main() {
+      if (network && isNetworkEnabled(network)) {
         if (prevNetowrk === undefined) {
           // initial, select default native token
           resetNativeToken(network);
@@ -51,7 +52,11 @@ const NetworkObserver = () => {
           backgroundApiProxy.serviceSwap.resetState();
           resetNativeToken(network);
         } else if (network.impl === 'evm' && prevNetowrk?.impl === 'evm') {
-          // Empty block
+          const inputToken =
+            await backgroundApiProxy.serviceSwap.getSwapInputToken();
+          if (!inputToken) {
+            resetNativeToken(network);
+          }
         } else {
           backgroundApiProxy.serviceSwap.resetState();
           resetNativeToken(network);

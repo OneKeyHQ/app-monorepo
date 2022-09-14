@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import { enabledNetworkIds } from './config';
 import { QuoterType } from './typings';
 
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
@@ -144,6 +145,10 @@ export function isEvmNetworkId(networdId?: string) {
     return;
   }
   return networdId.split('--')[0] === 'evm';
+}
+
+export function isNetworkEnabled(network?: Network) {
+  return network && enabledNetworkIds.includes(network.id);
 }
 
 export function getEvmTokenAddress(token: Token) {

@@ -172,9 +172,10 @@ export class JupiterQuoter implements Quoter {
   }
 
   private async refreshRecentBlockBash(accountId: string, transaction: string) {
-    return backgroundApiProxy.engine.refreshRecentBlockBash({
+    return backgroundApiProxy.engine.solanaRefreshRecentBlockBash({
       transaction,
       accountId,
+      networkId: 'sol--101',
     });
   }
 

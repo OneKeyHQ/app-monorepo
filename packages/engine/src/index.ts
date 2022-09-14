@@ -2430,16 +2430,18 @@ class Engine {
   }
 
   @backgroundMethod()
-  async refreshRecentBlockBash({
+  async solanaRefreshRecentBlockBash({
     accountId,
+    networkId,
     transaction,
   }: {
     accountId: string;
+    networkId: string;
     transaction: string;
   }): Promise<string> {
     const vault = (await this.getVault({
       accountId,
-      networkId: 'sol--101',
+      networkId,
     })) as VaultSol;
     return vault.refreshRecentBlockBash(transaction);
   }
