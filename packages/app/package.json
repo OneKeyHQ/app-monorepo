@@ -37,7 +37,7 @@
     "@react-navigation/native": "^6.0.6",
     "@react-navigation/native-stack": "^6.2.5",
     "@react-navigation/stack": "^6.0.11",
-    "buffer": "^5.7.1",
+    "buffer": "^6.0.3",
     "expo": "^45.0.5",
     "expo-clipboard": "^3.0.1",
     "expo-device": "^4.3.0",
