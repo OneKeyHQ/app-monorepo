@@ -8,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import {
   Box,
   Center,
+  Empty,
   HStack,
   Icon,
   Modal,
@@ -83,7 +84,7 @@ const Connection = () => {
           setWalletConnectError(
             // TODO general connection failed error
             // timeout or qrcode expired
-            intl.formatMessage({ id: 'msg__hardware_connect_timeout_error' }),
+            intl.formatMessage({ id: 'modal__failed_to_connect' }),
           );
         });
     }
@@ -168,12 +169,20 @@ const Connection = () => {
         // TODO onClose may trigger many times
         onModalClose={dappApprove.reject}
         scrollViewProps={{
+          contentContainerStyle: { flex: 1 },
           children: isWalletConnectPreloading ? (
             <Center flex={1} minH="300px">
               {walletConnectError ? (
-                <Typography.DisplayXLarge my="16px">
-                  {walletConnectError}
-                </Typography.DisplayXLarge>
+                // <Typography.DisplayXLarge my="16px">
+                //   {walletConnectError}
+                // </Typography.DisplayXLarge>
+                <Empty
+                  emoji="😵"
+                  title={walletConnectError}
+                  subTitle={intl.formatMessage({
+                    id: 'empty__connection_failed_desc',
+                  })}
+                />
               ) : (
                 <Spinner size="lg" />
               )}
@@ -181,7 +190,7 @@ const Connection = () => {
           ) : (
             // Add padding to escape the footer
             <VStack flex="1" space={6}>
-              <Center flex="1" mt="12px">
+              <Center mt="12px">
                 <HStack alignItems="center">
                   <Box
                     size="44px"
