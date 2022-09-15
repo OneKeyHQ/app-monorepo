@@ -76,7 +76,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
                   alt={favicon}
                 />
               </Box>
-              <Box ml="2" flex={1}>
+              <Box ml="3" flex={1}>
                 <Typography.Body2Strong>{dappName}</Typography.Body2Strong>
                 <Typography.Body2 color="text-subdued">
                   {shortenAddress(item.accounts[0] ?? '')}
@@ -124,7 +124,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
             mb="1"
             mt="6"
           >
-            <Typography.Subheading>
+            <Typography.Subheading color="text-subdued">
               {intl.formatMessage({
                 id: 'title__connect_sites',
               })}
@@ -169,7 +169,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
               >
                 <Icon name="ScanSolid" size={20} />
               </Box>
-              <Typography.Body2Strong ml="2">
+              <Typography.Body2Strong ml="3">
                 {intl.formatMessage({
                   id: 'action__scan_to_connect',
                 })}
