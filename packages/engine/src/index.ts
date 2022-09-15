@@ -1426,7 +1426,7 @@ class Engine {
       chainId,
     });
     if (tokens.length) {
-      await simpleDb.token.updateTokens(impl, +chainId, tokens);
+      await simpleDb.token.updateTokens(impl, chainId, tokens);
     }
     updateTokenCache[networkId] = true;
   }
