@@ -134,6 +134,7 @@ import { VaultFactory } from './vaults/VaultFactory';
 
 import type { BackupObject, ImportableHDWallet } from './types/backup';
 import type VaultEvm from './vaults/impl/evm/Vault';
+import type VaultSol from './vaults/impl/sol/Vault';
 import type { ITransferInfo } from './vaults/types';
 
 const updateTokenCache: {
@@ -2429,6 +2430,23 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async solanaRefreshRecentBlockBash({
+    accountId,
+    networkId,
+    transaction,
+  }: {
+    accountId: string;
+    networkId: string;
+    transaction: string;
+  }): Promise<string> {
+    const vault = (await this.getVault({
+      accountId,
+      networkId,
+    })) as VaultSol;
+    return vault.refreshRecentBlockBash(transaction);
   }
 }
 

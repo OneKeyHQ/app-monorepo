@@ -166,6 +166,13 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSwapInputToken() {
+    const { appSelector } = this.backgroundApi;
+    const inputToken = appSelector((s) => s.swap.inputToken);
+    return inputToken;
+  }
+
+  @backgroundMethod()
   async setRecipient(network: Network): Promise<Recipient | undefined> {
     const { dispatch, appSelector, engine } = this.backgroundApi;
     const recipient = appSelector((s) => s.swap.recipient);

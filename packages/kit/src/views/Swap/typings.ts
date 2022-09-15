@@ -68,6 +68,7 @@ export enum QuoterType {
   socket = 'socket',
   mdex = 'mdex',
   zeroX = '0x',
+  jupiter = 'jupiter',
 }
 
 export type FieldType = 'INPUT' | 'OUTPUT';
@@ -117,10 +118,14 @@ export type QuoteData = {
   buyTokenAddress: string;
   allowanceTarget?: string;
   providers?: Provider[];
-  txData?: TransactionData;
-  txAttachment?: TransactionAttachment;
   arrivalTime?: number;
+  txData?: TransactionData;
+  additionalParams?: BuildTransactionAdditionalParameters;
 };
+
+export interface BuildTransactionAdditionalParameters {
+  socketUsedBridgeNames?: string[];
+}
 
 export interface TransactionAttachment {
   swftcOrderId?: string;
@@ -129,7 +134,7 @@ export interface TransactionAttachment {
 
 export type BuildTransactionParams = FetchQuoteParams & {
   txData?: TransactionData;
-  txAttachment?: TransactionAttachment;
+  additionalParams?: BuildTransactionAdditionalParameters;
 };
 
 type BuildTransactionError = {
