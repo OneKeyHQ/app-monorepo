@@ -50,7 +50,10 @@ const KitProvider: FC = () => (
                 <RootSiblingParent>
                   <NavigationApp />
                   <ToastOverlay style={StyleSheet.absoluteFill}>
-                    <View pointerEvents="box-none" style={flexStyle}>
+                    <View
+                      pointerEvents="box-none"
+                      style={StyleSheet.absoluteFill}
+                    >
                       <CustomToast bottomOffset={60} />
                     </View>
                   </ToastOverlay>

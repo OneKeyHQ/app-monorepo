@@ -40,21 +40,24 @@ const HandlerOpenPassphraseView: FC<HandlerOpenPassphraseViewProps> = ({
         onSecondaryActionPress: () => onClose?.(),
         onPrimaryActionPress: () => {
           onClose?.();
-
-          showOverlay((onCloseOverlay) => (
-            <HardwareLoadingDialog
-              onClose={onCloseOverlay}
-              onHandler={() =>
-                serviceHardware
-                  .applySettings(deviceConnectId, {
-                    usePassphrase: true,
-                  })
-                  .catch((e) => {
-                    deviceUtils.showErrorToast(e);
-                  })
-              }
-            />
-          ));
+          setTimeout(
+            () =>
+              showOverlay((onCloseOverlay) => (
+                <HardwareLoadingDialog
+                  onClose={onCloseOverlay}
+                  onHandler={() =>
+                    serviceHardware
+                      .applySettings(deviceConnectId, {
+                        usePassphrase: true,
+                      })
+                      .catch((e) => {
+                        deviceUtils.showErrorToast(e);
+                      })
+                  }
+                />
+              )),
+            100,
+          );
         },
       }}
     />
