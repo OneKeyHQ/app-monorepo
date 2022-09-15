@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
 

@@ -1,4 +1,4 @@
-import React, { ComponentProps, useEffect, useRef } from 'react';
+import React, { ComponentProps } from 'react';
 
 import { Image } from '@onekeyhq/components';
 import { isExternalAccount } from '@onekeyhq/engine/src/engineUtils';

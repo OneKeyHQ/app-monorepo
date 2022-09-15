@@ -1,10 +1,9 @@
-import React, { ComponentProps, FC, useCallback, useState } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import { Image as NBImage } from 'native-base';
 import { Platform } from 'react-native';
 
 import { ImageViewer, Pressable } from '@onekeyhq/components';
-import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useStateMountedOnly } from '@onekeyhq/kit/src/hooks/useStateMountedOnly';
 
 type ImageProps = { preview?: boolean } & ComponentProps<typeof NBImage>;
