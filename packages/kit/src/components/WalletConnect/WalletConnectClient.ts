@@ -15,7 +15,10 @@ import { waitForDataLoaded } from '../../background/utils';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { WalletService } from './types';
-import { WALLET_CONNECT_BRIDGE, WALLET_CONNECT_CONNECTION_TIMEOUT } from './walletConnectConsts';
+import {
+  WALLET_CONNECT_BRIDGE,
+  WALLET_CONNECT_CONNECTION_TIMEOUT,
+} from './walletConnectConsts';
 
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
