@@ -238,7 +238,7 @@ if (platformEnv.isDev) {
   loadDebugLoggerSettings().then(() => saveDebugLoggerSettings());
 }
 
-debugLogger.common.error(new Error('Log Sample Error in debugLogger'));
+// debugLogger.common.error(new Error('Log Sample Error in debugLogger'));
 
 export {
   saveDebugLoggerSettings,

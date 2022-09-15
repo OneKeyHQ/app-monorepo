@@ -15,6 +15,7 @@ import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
+import { LazyDisplayView } from '../../components/LazyDisplayView';
 import { TabRoutes, TabRoutesParams } from '../types';
 
 import { getStackTabScreen, tabRoutes } from './routes';
@@ -143,16 +144,18 @@ const TabNavigator = () => {
 
   return useMemo(
     () => (
-      <Tab.Navigator
-        screenOptions={{
-          lazy: true,
-          header: renderHeader,
-          // @ts-expect-error
-          foldableList,
-        }}
-      >
-        {tabRoutesList}
-      </Tab.Navigator>
+      <LazyDisplayView delay={100} hideOnUnmount={false}>
+        <Tab.Navigator
+          screenOptions={{
+            lazy: true,
+            header: renderHeader,
+            // @ts-expect-error
+            foldableList,
+          }}
+        >
+          {tabRoutesList}
+        </Tab.Navigator>
+      </LazyDisplayView>
     ),
     [foldableList, renderHeader, tabRoutesList],
   );
