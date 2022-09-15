@@ -19,6 +19,7 @@ type EmptyProps = {
   icon?: ICON_NAMES | NonString<ReactNode>;
   actionTitle?: string;
   imageUrl?: number;
+  emoji?: string;
   actionProps?: ComponentProps<typeof Button>;
   handleAction?: () => void;
   isLoading?: boolean;
@@ -48,6 +49,7 @@ const Empty: FC<EmptyProps> = ({
   icon,
   actionTitle,
   imageUrl,
+  emoji,
   handleAction,
   actionProps,
   isLoading,
@@ -69,6 +71,11 @@ const Empty: FC<EmptyProps> = ({
           <Box mb={3}>
             <Image size="100px" source={imageUrl} />
           </Box>
+        )}
+        {!!emoji && (
+          <Text fontSize={48} mb={3}>
+            {emoji}
+          </Text>
         )}
         <Text
           typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}

@@ -165,13 +165,14 @@ const Modal = ({
         <ScrollView
           testID="Modal-ScrollView-Container"
           keyboardShouldPersistTaps="handled"
+          px={{ base: 4, md: 6 }}
+          {...scrollViewProps}
           contentContainerStyle={{
             paddingBottom: 24,
             // eslint-disable-next-line no-nested-ternary
             paddingTop: headerShown ? (header ? 24 : 0) : 24,
+            ...(scrollViewProps.contentContainerStyle as any),
           }}
-          px={{ base: 4, md: 6 }}
-          {...scrollViewProps}
         />
       );
     } else if (sortableListProps) {

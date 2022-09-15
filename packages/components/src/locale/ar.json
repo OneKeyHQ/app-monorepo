@@ -12,6 +12,7 @@
   "account__recover_select_accounts": "حدد الحسابات",
   "account__recover_select_paths": "حدد المسارات",
   "account__restore_a_previously_used_account": "استعادة حساب سبق استخدامه؟ محاولة",
+  "account_activity_desc": "احصل على تحديث في جميع أنشطة حسابك",
   "action__accept": "قبول",
   "action__add": "يضيف",
   "action__add_account": "إنشاء حساب",
@@ -478,6 +479,7 @@
   "content__wont_backup": "لن يقوم OneKey بعمل نسخة احتياطية من محافظ أجهزتك ؛ يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
   "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
+  "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
   "content__your_biological_data_is_encrypted": "يتم تشفير بياناتك البيولوجية.",
   "content__your_biological_data_is_encrypted_desc": "يتم تخزين معلومات السيرة الذاتية محليًا ولا يمكن لـ OneKey الوصول إلى هذه البيانات أو تخزينها.",
@@ -528,6 +530,7 @@
   "emoji_type_smileys_people": "الوجوه الضاحكة والأشخاص",
   "emoji_type_symbols": "حرف او رمز",
   "emoji_type_travel_places": "السفر والأماكن",
+  "empty__connection_failed_desc": "يُرجى تحديث رمز الاستجابة السريعة أو التحقق من اتصال الشبكة والمحاولة مرة أخرى.",
   "empty__no_account_desc": "لا يوجد حساب للشبكة المختارة.",
   "empty__no_account_title": "لا حساب",
   "empty__no_connected_sites": "لا توجد مواقع متصلة",
@@ -547,6 +550,7 @@
   "form__about_uppercase": "حول",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
   "form__account": "الحساب",
+  "form__account_activity": "نشاط الحساب",
   "form__account_dynamic_notification": "إشعار ديناميكي للحساب",
   "form__account_dynamic_notification_desc": "ديناميات معاملات الحسابات",
   "form__account_name": "إسم الحساب",
@@ -699,6 +703,7 @@
   "form__order_no": "رقم الطلب",
   "form__overwrite_metamask": "الكتابة فوق MetaMask",
   "form__owners": "أصحاب",
+  "form__passphrase_placeholder": "أدخل عبارة المرور",
   "form__password": "كلمه السر",
   "form__password_free_payment": "الدفع بدون كلمة مرور",
   "form__password_free_payment_desc": "ادفع باستخدام Face ID بدلاً من كلمة المرور (محفظة البرنامج فقط)",
@@ -710,6 +715,8 @@
   "form__price_alert": "تنبيه السعر",
   "form__price_alert_desc": "عندما يصل الرمز المميز إلى السعر المحدد",
   "form__price_impact_desc": "تغيرات الأسعار التي قد تكون ناجمة عن معاملتك.",
+  "form__price_volatility": "تقلب الأسعار",
+  "form__price_volatility_desc": "تلقي إخطار تقلب أسعار الرموز الخاصة بك",
   "form__privacy_policy": "سياسة الخصوصية",
   "form__private_key": "مفتاح سري",
   "form__private_key_helperText": "عادة 64 حرفًا أبجديًا رقميًا.",
@@ -1195,6 +1202,7 @@
   "title__no_history_desc": "سيظهر سجل المتصفح هنا.",
   "title__no_request_history": "لا يوجد تاريخ طلب",
   "title__no_request_history_desc": "أنت لم تقدم أي طلبات.",
+  "title__notifications": "إشعارات",
   "title__official_website": "الموقع الرسمي",
   "title__onekey_lite_pin": "OneKey Lite PIN",
   "title__order_id": "رقم التعريف الخاص بالطلب",
