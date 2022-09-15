@@ -90,7 +90,7 @@ jobs:
           cd packages/web && yarn build && cd ../..
 
       - name: Deploy to CDN
-        uses: OneKeyHQ/onekey-github-actions/s3-upload@main
+        uses: OneKeyHQ/actions/s3-upload@main
         with:
           aws_key_id: ${{ secrets.AWS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

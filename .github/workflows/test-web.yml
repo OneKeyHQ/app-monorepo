@@ -50,7 +50,7 @@ jobs:
         run: |
           cd packages/web && yarn build && cd ../..
       - name: Deploy Github Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: OneKeyHQ/actions/gh-pages@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./packages/web/web-build

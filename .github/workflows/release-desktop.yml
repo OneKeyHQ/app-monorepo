@@ -23,7 +23,7 @@ jobs:
 
       - name: Dotenv Action
         id: dotenv
-        uses: falti/dotenv-action@v0.2.7
+        uses: OneKeyHQ/actions/dotenv-action@main
         with:
           path: .env.version
 
@@ -148,7 +148,7 @@ jobs:
             ./packages/desktop/build-electron/*.AppImage
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/onekey-github-actions/notice-slack-app-update@main
+        uses: onekeyhq/actions/notice-slack-app-update@main
         with:
           web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
           artifact-type: Desktop
