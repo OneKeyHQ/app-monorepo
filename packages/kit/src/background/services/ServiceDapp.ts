@@ -32,8 +32,6 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IWalletConnectSession } from '@walletconnect/types';
-
 type CommonRequestParams = {
   request: IJsBridgeMessagePayload;
 };

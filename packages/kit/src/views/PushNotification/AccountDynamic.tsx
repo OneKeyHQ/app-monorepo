@@ -14,7 +14,6 @@ import {
   ScrollView,
   Spinner,
   Switch,
-  Text,
   Typography,
   useTheme,
 } from '@onekeyhq/components';
