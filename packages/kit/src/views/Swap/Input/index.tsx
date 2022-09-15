@@ -36,9 +36,6 @@ const Input = () => {
     ) {
       return swftcSupportedTokens[sendingNetworkId];
     }
-    if (sendingNetworkId && sendingNetworkId === 'sol--101') {
-      return swftcSupportedTokens[sendingNetworkId];
-    }
     return undefined;
   }, [sendingNetworkId, swftcSupportedTokens, outputToken]);
 

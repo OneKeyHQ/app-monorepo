@@ -73,10 +73,10 @@ const FailedTxs = () => {
       <Alert
         title={intl.formatMessage(
           {
-            id: 'content__str_transactions_succeeded',
+            id: 'content__str_transactions_failed',
           },
           {
-            'content__str_transactions_succeeded': confirmedTxs.length,
+            '0': confirmedTxs.length,
           },
         )}
         alertType="error"

@@ -206,7 +206,7 @@ const ExchangeButton = () => {
       activeAccount: account,
       receivingAddress: recipient?.address,
       txData: quote.txData,
-      txAttachment: quote.txAttachment,
+      additionalParams: quote.additionalParams,
     });
 
     if (res?.data) {

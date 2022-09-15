@@ -404,6 +404,31 @@ class ServiceHistory extends ServiceBase {
     }
     return 'canceled';
   }
+
+  @backgroundMethod()
+  async queryTransactionByTxid({
+    networkId,
+    accountId,
+    txid,
+  }: {
+    networkId: string;
+    accountId: string;
+    txid: string;
+  }): Promise<'pending' | 'failed' | 'sucesss' | 'canceled'> {
+    await this.refreshPendingHistory({ networkId, accountId });
+    const historyTxs = await this.getLocalHistory({ networkId, accountId });
+    const tx = historyTxs.find((item) => item.decodedTx.txid === txid);
+    if (!tx) {
+      return 'failed';
+    }
+    if (tx.decodedTx.status === IDecodedTxStatus.Pending) {
+      return 'pending';
+    }
+    if (tx.decodedTx.status === IDecodedTxStatus.Confirmed) {
+      return 'sucesss';
+    }
+    return 'failed';
+  }
 }
 
 export default ServiceHistory;

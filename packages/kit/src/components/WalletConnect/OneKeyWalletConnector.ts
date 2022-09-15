@@ -15,10 +15,7 @@ import {
 
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type {
-  ICreateSessionOptions,
   IPushServerOptions,
-  ISessionError,
-  ISessionStatus,
   IWalletConnectOptions,
 } from '@walletconnect/types';
 

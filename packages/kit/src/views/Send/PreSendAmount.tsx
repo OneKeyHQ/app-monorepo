@@ -438,6 +438,8 @@ function PreSendAmount() {
                 { 0: tokenInfo?.symbol ?? '' },
               ),
             });
+          } else if (typeof e === 'string') {
+            toast.show({ title: e });
           }
         } finally {
           setIsLoading(false);
