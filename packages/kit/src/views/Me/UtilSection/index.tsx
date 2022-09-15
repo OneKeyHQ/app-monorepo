@@ -33,6 +33,7 @@ export const UtilSection = () => {
   const intl = useIntl();
   const small = useIsVerticalLayout();
   const { themeVariant } = useTheme();
+  const { connections } = useAppSelector((s) => s.dapp);
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const onLock = useCallback(() => {
@@ -161,11 +162,12 @@ export const UtilSection = () => {
               numberOfLines={1}
               mx={3}
             >
-              {/* {intl.formatMessage({
-                id: 'title__connect_sites',
-                defaultMessage:'Connected Sites'
-              })} */}
-              Connected Sites
+              {intl.formatMessage({
+                id: 'action__connected_sites',
+                defaultMessage: 'Connected Sites',
+              })}
+
+              {connections.length > 0 ? ` (${connections.length})` : ''}
             </Text>
             <Box>
               <Icon name="ChevronRightSolid" size={20} />

@@ -17,6 +17,8 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
 
+import { useActiveWalletAccount } from '../../../hooks';
+import { wait } from '../../../utils/helper';
 import { ConnectedSitesHeaderProps } from '../types';
 
 import type { IWalletConnectSession } from '@walletconnect/types';
@@ -27,14 +29,20 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
   onDisConnectWalletConnected,
 }) => {
   const intl = useIntl();
+  const { accountId, networkId, walletId } = useActiveWalletAccount();
   const [walletConnectSessions, setSessions] = useState<
     IWalletConnectSession[]
   >(() => []);
   useEffect(() => {
-    backgroundApiProxy.serviceDapp.getWalletConnectSession().then((s) => {
-      setSessions(() => (s ? [s] : []));
-    });
-  }, [connections]);
+    const main = async (delay = 0) => {
+      await wait(delay);
+      const session =
+        await backgroundApiProxy.serviceDapp.getWalletConnectSession();
+      setSessions(() => (session ? [session] : []));
+    };
+    main();
+    main(600);
+  }, [connections, accountId, networkId, walletId]);
 
   const renderItem: ListRenderItem<IWalletConnectSession> = useCallback(
     ({ item, index }) => {

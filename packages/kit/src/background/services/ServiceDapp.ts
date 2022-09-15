@@ -40,6 +40,18 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  @backgroundMethod()
+  async getActiveConnectedAccountsAsync({
+    origin,
+    impl,
+  }: {
+    origin: string;
+    impl: string;
+  }) {
+    return this.getActiveConnectedAccounts({ origin, impl });
+  }
+
   // TODO add IInjectedProviderNames or scope
   getActiveConnectedAccounts({
     origin,

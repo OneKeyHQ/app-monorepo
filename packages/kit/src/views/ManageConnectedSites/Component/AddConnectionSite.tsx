@@ -25,7 +25,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
         primaryActionProps: { type: 'primary' },
         onPrimaryActionPress: () => {
           let origin = inputDappUrl.trim();
-          if (/^wc:.+@.+\?.+/.test(inputDappUrl)) {
+          if (/^wc:.+@.+\?.+/.test(origin)) {
             walletConnectUtils.openConnectToDappModal({
               uri: origin,
             });
@@ -36,7 +36,14 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
             ) {
               origin = `https://${origin}`;
             }
-            backgroundApiProxy.serviceDapp.openConnectionModal({ origin });
+            try {
+              const testUrl = new URL(origin);
+              if (testUrl.hostname.includes('.')) {
+                backgroundApiProxy.serviceDapp.openConnectionModal({ origin });
+              }
+            } catch {
+              //
+            }
           }
           closeOverlay();
         },
@@ -49,7 +56,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
               autoFocus
               width="full"
               type="text"
-              placeholder="example:Dapp"
+              placeholder="https://example.com"
               onChangeText={handleInputChange}
             />
           </Box>

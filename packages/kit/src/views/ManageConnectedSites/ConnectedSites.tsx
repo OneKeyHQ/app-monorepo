@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { Image } from 'native-base';
@@ -21,7 +21,8 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { DappSiteConnection } from '@onekeyhq/kit/src/store/reducers/dapp';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../hooks/redux';
+import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
+import { wait } from '../../utils/helper';
 import { showOverlay } from '../../utils/overlayUtils';
 
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
@@ -40,6 +41,36 @@ const sortConnectionsSite = (connections: DappSiteConnection[]) => {
     natsort({ insensitive: true })(c1.site.hostname!, c2.site.hostname!),
   );
 };
+
+function ConnectedSiteItemAddress({ item }: { item: DappSiteConnection }) {
+  const { serviceDapp } = backgroundApiProxy;
+  const { accountId, networkId, walletId } = useActiveWalletAccount();
+  const [address, setAddress] = useState(item.address);
+  useEffect(() => {
+    (async () => {
+      await wait(0);
+      const accounts = await serviceDapp.getActiveConnectedAccountsAsync({
+        origin: item.site.origin,
+        impl: item.networkImpl,
+      });
+      const addr = accounts?.[0]?.address;
+      setAddress(addr);
+    })();
+  }, [
+    item.networkImpl,
+    item.site.origin,
+    serviceDapp,
+    accountId,
+    networkId,
+    walletId,
+  ]);
+
+  return (
+    <Typography.Body2 color="text-subdued" numberOfLines={1}>
+      {shortenAddress(address)}
+    </Typography.Body2>
+  );
+}
 
 export default function ConnectedSites() {
   const intl = useIntl();
@@ -141,9 +172,7 @@ export default function ConnectedSites() {
               <Typography.Body1Strong>
                 {item.site.hostname}
               </Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued" numberOfLines={1}>
-                {shortenAddress(item.address)}
-              </Typography.Body2>
+              <ConnectedSiteItemAddress item={item} />
             </Box>
             <IconButton
               name="CloseCircleSolid"
@@ -171,14 +200,13 @@ export default function ConnectedSites() {
       })}
       footer={null}
       flatListProps={{
-        ListHeaderComponent:
-          connections.length > 0 ? (
-            <ConnectedSitesHeader
-              connections={connections}
-              onDisConnectWalletConnected={openDeleteDialog}
-              onAddConnectSite={openAddDialog}
-            />
-          ) : null,
+        ListHeaderComponent: (
+          <ConnectedSitesHeader
+            connections={connections}
+            onDisConnectWalletConnected={openDeleteDialog}
+            onAddConnectSite={openAddDialog}
+          />
+        ),
         data: sortConnections,
         // @ts-ignore
         renderItem,
@@ -187,8 +215,7 @@ export default function ConnectedSites() {
             flexDirection="column"
             alignItems="center"
             justifyContent="center"
-            height="503px"
-            flex={1}
+            height="350px"
           >
             <Empty
               icon={<Icon name="InboxOutline" size={48} />}
