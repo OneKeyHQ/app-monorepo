@@ -132,6 +132,16 @@ const NFTList: FC<NFTListProps> = ({
     platformEnv.isNative && !platformEnv.isNativeIOSPad
       ? undefined
       : `NFTList${numColumns}`;
+  const emptyView = React.useMemo(
+    () => (
+      <MemoEmpty
+        fetchData={fetchData}
+        isNFTSupport={isNFTSupport}
+        isLoading={isLoading}
+      />
+    ),
+    [fetchData, isLoading, isNFTSupport],
+  );
   const sharedProps = React.useMemo(
     () => ({
       contentContainerStyle: {
@@ -144,13 +154,7 @@ const NFTList: FC<NFTListProps> = ({
       renderItem: expand ? renderAssetItem : renderCollectionItem,
       ListFooterComponent: <Box h="24px" w="full" />,
       showsVerticalScrollIndicator: false,
-      ListEmptyComponent: (
-        <MemoEmpty
-          fetchData={fetchData}
-          isNFTSupport={isNFTSupport}
-          isLoading={isLoading}
-        />
-      ),
+      ListEmptyComponent: emptyView,
       numColumns,
       ListHeaderComponent: (
         <NFTListHeader
