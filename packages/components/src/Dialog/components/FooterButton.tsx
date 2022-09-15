@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
 import Button, { ButtonSize } from '../../Button';
-import HStack from '../../HStack';
 import { LocaleIds } from '../../locale';
 import { useUserDevice } from '../../Provider/hooks';
 
@@ -21,6 +20,7 @@ export type FooterButtonProps = {
   primaryActionProps?: ComponentProps<typeof Button>;
   secondaryActionProps?: ComponentProps<typeof Button>;
   marginTop?: number;
+  wrap?: boolean;
 };
 
 const FooterButton: FC<FooterButtonProps> = ({
@@ -34,6 +34,7 @@ const FooterButton: FC<FooterButtonProps> = ({
   primaryActionProps,
   secondaryActionProps,
   marginTop,
+  wrap,
 }) => {
   const intl = useIntl();
   const { size } = useUserDevice();
@@ -49,15 +50,16 @@ const FooterButton: FC<FooterButtonProps> = ({
 
   return (
     <Box flexDirection="row" w="full" mt={marginTop ?? 6}>
-      <HStack space="4" w="full">
+      <Box w="full" flexDirection={wrap ? 'column-reverse' : 'row'}>
         {!hideSecondaryAction && (
           <Button
-            flex="1"
+            flex={wrap ? 'initial' : 1}
             onPress={() => {
               onSecondaryActionPress?.();
             }}
             size={secondaryActionProps?.size ?? defButtonSize}
             {...secondaryActionProps}
+            type={wrap ? 'plain' : 'basic'}
           >
             {secondaryActionProps?.children ??
               intl.formatMessage({
@@ -65,9 +67,10 @@ const FooterButton: FC<FooterButtonProps> = ({
               })}
           </Button>
         )}
+        <Box size={wrap ? 2 : 4} />
         {!hidePrimaryAction && (
           <Button
-            flex={1}
+            flex={wrap ? 'initial' : 1}
             type="primary"
             size={primaryActionProps?.size ?? defButtonSize}
             {...primaryActionProps}
@@ -79,7 +82,7 @@ const FooterButton: FC<FooterButtonProps> = ({
               })}
           </Button>
         )}
-      </HStack>
+      </Box>
     </Box>
   );
 };
