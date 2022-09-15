@@ -127,20 +127,11 @@ export default function ConnectedSites() {
                 closeOverlay();
               },
             },
+            wrap: true,
           }}
           contentProps={{
-            icon: (
-              <Box
-                alignItems="center"
-                justifyContent="center"
-                size="48px"
-                overflow="hidden"
-                rounded="full"
-                backgroundColor="surface-critical-default"
-              >
-                <Icon name="ConnectOffOutline" size={24} />
-              </Box>
-            ),
+            iconType: 'danger',
+            iconName: 'ConnectOffOutline',
             title: intl.formatMessage({
               id: 'dialog__disconnect_from_this_site',
             }),
