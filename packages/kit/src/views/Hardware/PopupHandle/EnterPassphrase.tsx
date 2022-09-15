@@ -14,11 +14,16 @@ import {
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
-type EnterPassphraseViewProps = Omit<BaseRequestViewProps, 'children'>;
+type EnterPassphraseViewProps = {
+  onConfirm: (passphrase: string) => void;
+} & Omit<BaseRequestViewProps, 'children'>;
 
 type FieldValues = { value: string };
 
-const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({ ...props }) => {
+const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
+  onConfirm,
+  ...props
+}) => {
   const intl = useIntl();
 
   const { control, handleSubmit } = useForm<FieldValues>({
@@ -28,6 +33,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({ ...props }) => {
 
   const onSubmit = handleSubmit(({ value }: FieldValues) => {
     console.log('todo: submit passphrase value -> ', value);
+    onConfirm(value);
   });
 
   return (
@@ -49,6 +55,8 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({ ...props }) => {
                 onSubmit();
               }
             }}
+            onSubmitEditing={() => onSubmit()}
+            returnKeyType="done"
           />
         </Form.Item>
       </Form>

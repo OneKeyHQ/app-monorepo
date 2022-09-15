@@ -13,6 +13,7 @@ import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { HardwareUiEventPayload } from '@onekeyhq/kit/src/store/reducers/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import EnterPassphraseView from './EnterPassphrase';
 import HandlerClosePassphraseView from './HandlerClosePassphrase';
 import HandlerFirmwareUpgradeView from './HandlerFirmwareUpgrade';
 import HandlerOpenPassphraseView from './HandlerOpenPassphrase';
@@ -40,6 +41,7 @@ export const UI_REQUEST = {
   REQUEST_PIN: 'ui-request_pin',
   INVALID_PIN: 'ui-invalid_pin',
   REQUEST_BUTTON: 'ui-button',
+  REQUEST_PASSPHRASE: 'ui-request_passphrase',
   REQUEST_PASSPHRASE_ON_DEVICE: 'ui-request_passphrase_on_device',
 
   CLOSE_UI_WINDOW: 'ui-close_window',
@@ -157,6 +159,29 @@ export default async function showHardwarePopup({
       <RequestPassphraseOnDeviceView
         deviceType={deviceType}
         passphraseState={payload?.passphraseState}
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+      />
+    );
+  }
+
+  if (uiRequest === UI_REQUEST.REQUEST_PASSPHRASE) {
+    popupView = (
+      <EnterPassphraseView
+        onConfirm={(passphrase) => {
+          serviceHardware?.sendUiResponse({
+            // @ts-expect-error
+            type: 'ui-receive_passphrase',
+            // @ts-expect-error
+            payload: {
+              value: passphrase,
+              passphraseOnDevice: false,
+              save: false,
+            },
+          });
+          closeHardwarePopup();
+        }}
         onCancel={() => {
           handleCancelPopup();
         }}
