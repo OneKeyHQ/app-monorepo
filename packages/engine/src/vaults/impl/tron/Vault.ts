@@ -11,6 +11,7 @@ import TronWeb from 'tronweb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
+  InsufficientBalance,
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
@@ -398,13 +399,19 @@ export default class Vault extends VaultBase {
     }
 
     // TODO: handle insufficient balance case
-    const ret = await tronWeb.transactionBuilder.sendTrx(
-      to,
-      parseInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
-      from,
-    );
-
-    return ret;
+    try {
+      return await tronWeb.transactionBuilder.sendTrx(
+        to,
+        parseInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
+        from,
+      );
+    } catch (e) {
+      if (typeof e === 'string' && e.endsWith('balance is not sufficient.')) {
+        throw new InsufficientBalance();
+      } else {
+        throw e;
+      }
+    }
   }
 
   override buildEncodedTxFromApprove(
