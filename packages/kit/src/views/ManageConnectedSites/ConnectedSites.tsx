@@ -33,7 +33,6 @@ const sortConnectionsSite = (connections: DappSiteConnection[]) => {
   parseConnections = parseConnections.map<DappSiteConnection>((c) => {
     const { origin } = c.site;
     c.site.hostname = new URL(origin).hostname;
-    if (!c.site.icon) c.site.icon = `${origin}/favicon.ico`;
     return c;
   });
   return parseConnections.sort((c1, c2) =>
@@ -41,6 +40,37 @@ const sortConnectionsSite = (connections: DappSiteConnection[]) => {
     natsort({ insensitive: true })(c1.site.hostname!, c2.site.hostname!),
   );
 };
+
+function ConnectedSiteItemIcon({ item }: { item: DappSiteConnection }) {
+  const [favicon, setFavicon] = useState(item.site.icon);
+  useEffect(() => {
+    if (!item.site.icon) {
+      (async () => {
+        await wait(0);
+        const session =
+          await backgroundApiProxy.serviceDapp.getWalletConnectSession();
+        // check current walletConnect icon
+        setFavicon(() =>
+          session && session.peerMeta?.url === item.site.origin
+            ? session.peerMeta?.icons[0]
+            : `${item.site.origin}/favicon.ico`,
+        );
+      })();
+    }
+  }, [item.site.origin, item.site.icon]);
+  return (
+    <Box size="32px" overflow="hidden" rounded="full">
+      <Image
+        w="full"
+        h="full"
+        src={favicon}
+        key={favicon}
+        alt={favicon}
+        fallbackElement={<Icon name="ConnectOutline" size={32} />}
+      />
+    </Box>
+  );
+}
 
 function ConnectedSiteItemAddress({ item }: { item: DappSiteConnection }) {
   const { serviceDapp } = backgroundApiProxy;
@@ -151,24 +181,8 @@ export default function ConnectedSites() {
           borderColor="border-subdued"
         >
           <Box flexDirection="row" flex={1} alignItems="center">
-            {!!item.site.icon && (
-              <Box size="32px" overflow="hidden" rounded="full">
-                <Image
-                  w="full"
-                  h="full"
-                  src={item.site.icon}
-                  key={item.site.icon}
-                  alt={item.site.icon}
-                  fallbackElement={<Icon name="ConnectOutline" size={32} />}
-                />
-              </Box>
-            )}
-            <Box
-              flexDirection="column"
-              ml="12px"
-              justifyContent="center"
-              flex={1}
-            >
+            <ConnectedSiteItemIcon item={item} />
+            <Box flexDirection="column" ml="3" justifyContent="center" flex={1}>
               <Typography.Body1Strong>
                 {item.site.hostname}
               </Typography.Body1Strong>
