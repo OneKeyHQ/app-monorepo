@@ -1,15 +1,14 @@
-import React, { ComponentProps, FC } from 'react';
+import React, { ComponentProps, FC, useState } from 'react';
 
 import { Image as NBImage } from 'native-base';
 import { Platform } from 'react-native';
 
 import { ImageViewer, Pressable } from '@onekeyhq/components';
-import { useStateMountedOnly } from '@onekeyhq/kit/src/hooks/useStateMountedOnly';
 
 type ImageProps = { preview?: boolean } & ComponentProps<typeof NBImage>;
 
 const Image: FC<ImageProps> = ({ preview = false, ...rest }) => {
-  const [isVisible, setIsVisible] = useStateMountedOnly(false);
+  const [isVisible, setIsVisible] = useState(false);
   const { src } = rest;
   const { source } = rest;
   if (preview) {

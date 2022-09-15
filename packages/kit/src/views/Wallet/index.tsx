@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,7 +18,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
-import { useStateMountedOnly } from '../../hooks/useStateMountedOnly';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -42,10 +41,10 @@ const WalletTabs: FC = () => {
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
-  const [backupMap, updateBackMap] = useStateMountedOnly<
+  const [backupMap, updateBackMap] = useState<
     Record<string, boolean | undefined>
   >({});
-  const [refreshing, setRefreshing] = useStateMountedOnly(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const backupToast = useCallback(() => {
     if (wallet && !wallet?.backuped && backupMap[wallet?.id] === undefined) {

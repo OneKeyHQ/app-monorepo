@@ -12,8 +12,6 @@ import {
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
-import { useStateMountedOnly } from '@onekeyhq/kit/src/hooks/useStateMountedOnly';
-
 import { useIsVerticalLayout, useThemeValue } from '../../../Provider/hooks';
 import NavigationBar from '../../NavigationBar';
 import { getTabBarHeight } from '../../NavigationBar/Mobile';
@@ -55,14 +53,14 @@ export default function BottomTabView(props: Props) {
   } = props;
 
   const focusedRouteKey = state.routes[state.index].key;
-  const [loaded, setLoaded] = useStateMountedOnly([focusedRouteKey]);
+  const [loaded, setLoaded] = React.useState([focusedRouteKey]);
 
   if (!loaded.includes(focusedRouteKey)) {
     setLoaded([...loaded, focusedRouteKey]);
   }
 
   const dimensions = SafeAreaProviderCompat.initialMetrics.frame;
-  const [tabBarHeight, setTabBarHeight] = useStateMountedOnly(() =>
+  const [tabBarHeight, setTabBarHeight] = React.useState(() =>
     getTabBarHeight({
       insets: {
         ...SafeAreaProviderCompat.initialMetrics.insets,

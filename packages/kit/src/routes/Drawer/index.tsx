@@ -1,4 +1,4 @@
-import React, { memo, useEffect } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
 
@@ -6,7 +6,6 @@ import { useThemeValue } from '@onekeyhq/components';
 import AccountSelectorMobile from '@onekeyhq/kit/src/components/Header/AccountSelectorMobile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useStateMountedOnly } from '../../hooks/useStateMountedOnly';
 import Tab from '../Tab';
 import { RootRoutes } from '../types';
 
@@ -24,12 +23,12 @@ const DrawerStackNavigator = () => {
   if (isWeb) {
     drawerStyle.opacity = 1;
   }
-  const [key, setKey] = useStateMountedOnly('');
+  const [key, setKey] = useState('');
   useEffect(() => {
     // recreate drawer navigator to fix OK-8412 on ios
     // no idea why it works
     setTimeout(() => setKey('drawer'), 10);
-  }, [setKey]);
+  }, []);
 
   return (
     <DrawerStack.Navigator

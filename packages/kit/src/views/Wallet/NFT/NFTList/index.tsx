@@ -28,7 +28,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
-import { useIsMounted } from '../../../../hooks/useIsMounted';
 
 import CollectionCard from './CollectionCard';
 import NFTListAssetCard from './NFTListAssetCard';
@@ -132,16 +131,6 @@ const NFTList: FC<NFTListProps> = ({
     platformEnv.isNative && !platformEnv.isNativeIOSPad
       ? undefined
       : `NFTList${numColumns}`;
-  const emptyView = React.useMemo(
-    () => (
-      <MemoEmpty
-        fetchData={fetchData}
-        isNFTSupport={isNFTSupport}
-        isLoading={isLoading}
-      />
-    ),
-    [fetchData, isLoading, isNFTSupport],
-  );
   const sharedProps = React.useMemo(
     () => ({
       contentContainerStyle: {
@@ -154,7 +143,13 @@ const NFTList: FC<NFTListProps> = ({
       renderItem: expand ? renderAssetItem : renderCollectionItem,
       ListFooterComponent: <Box h="24px" w="full" />,
       showsVerticalScrollIndicator: false,
-      ListEmptyComponent: emptyView,
+      ListEmptyComponent: (
+        <MemoEmpty
+          fetchData={fetchData}
+          isNFTSupport={isNFTSupport}
+          isLoading={isLoading}
+        />
+      ),
       numColumns,
       ListHeaderComponent: (
         <NFTListHeader
@@ -209,7 +204,6 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function NFTListContainer() {
   const { account, network } = useActiveWalletAccount();
-  const isMountedRef = useIsMounted();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isNFTSupport = isCollectibleSupportedChainId(network?.id);
   const { serviceNFT } = backgroundApiProxy;
@@ -228,17 +222,17 @@ function NFTListContainer() {
     let isCancel = false;
     (async () => {
       if (account && network?.id) {
-        if (isMountedRef.current) setIsLoading(true);
+        setIsLoading(true);
         const localData = await serviceNFT.getLocalNFTs({
           networkId: network.id,
           accountId: account.address,
         });
-        if (isMountedRef.current) updateListData(localData);
+        updateListData(localData);
         const result = await serviceNFT.fetchNFT({
           accountId: account.address,
           networkId: network?.id,
         });
-        if (!isCancel && isMountedRef.current) {
+        if (!isCancel) {
           updateListData(result);
           setIsLoading(false);
         }
@@ -247,14 +241,14 @@ function NFTListContainer() {
     return () => {
       isCancel = true;
     };
-  }, [account, network, serviceNFT, refresh, isMountedRef]);
+  }, [account, network, serviceNFT, refresh]);
 
   useEffect(() => {
     let isCancel = false;
     (async () => {
       if (network?.id) {
         const data = await serviceNFT.fetchSymbolPrice(network.id);
-        if (!isCancel && isMountedRef.current) {
+        if (!isCancel) {
           updatePrice(data);
         }
       }
@@ -262,7 +256,7 @@ function NFTListContainer() {
     return () => {
       isCancel = true;
     };
-  }, [isMountedRef, network, serviceNFT]);
+  }, [network, serviceNFT]);
 
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {

@@ -8,7 +8,6 @@ import ImgImToken from '@onekeyhq/kit/assets/onboarding/logo_imtoken.png';
 import ImgMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useIsMounted } from '../../hooks/useIsMounted';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { wait } from '../../utils/helper';
 
@@ -40,7 +39,6 @@ function ExternalAccountImg({
   radius?: string;
 }) {
   const { serviceWalletConnect } = backgroundApiProxy;
-  const isMountedRef = useIsMounted();
   const { result: accountImg } = usePromiseResult(async () => {
     // eslint-disable-next-line no-param-reassign
     accountId = accountId || account?.id || '';
@@ -60,7 +58,7 @@ function ExternalAccountImg({
     return '';
   }, [accountId, account]);
 
-  if (accountImg && isMountedRef.current) {
+  if (accountImg) {
     // return null;
     // const source = ImgMetaMask;
     const source = { uri: accountImg };
