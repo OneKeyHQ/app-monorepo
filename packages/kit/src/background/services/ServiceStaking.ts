@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-member-access */
 import axios, { Axios } from 'axios';
 
-import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import {
   setAccountStakingActivity,
@@ -28,20 +28,20 @@ export default class ServiceStaking extends ServiceBase {
   }
 
   getKeleBaseUrl(networkId: string) {
-    if (networkId === NETWORK_ID_EVM_ETH) {
+    if (networkId === OnekeyNetwork.eth) {
       return `${getFiatEndpoint()}/keleMainnet`;
     }
-    if (networkId === 'evm--3') {
+    if (networkId === OnekeyNetwork.teth) {
       return `${getFiatEndpoint()}/keleTestnet`;
     }
     throw new Error('Not supported network');
   }
 
   getKeleContractAddress(networkId: string): string {
-    if (networkId === NETWORK_ID_EVM_ETH) {
+    if (networkId === OnekeyNetwork.eth) {
       return MainnetContractAddress;
     }
-    if (networkId === 'evm--3') {
+    if (networkId === OnekeyNetwork.teth) {
       return TestnetContractAddress;
     }
     throw new Error('Not supported network');

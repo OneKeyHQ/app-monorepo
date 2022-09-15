@@ -9,6 +9,7 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
+import { OnekeyNetwork } from '../presets/networkIds';
 import { DBAccount } from '../types/account';
 import { PrivateKeyCredential } from '../types/credential';
 import { Device, DevicePayload } from '../types/device';
@@ -83,9 +84,10 @@ const DEFAULT_VERIFY_STRING = 'OneKey';
 const MAIN_CONTEXT = 'mainContext';
 
 export const DEFAULT_RPC_ENDPOINT_TO_CLEAR: Record<string, string> = {
-  'evm--1': 'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-  'evm--56': 'https://bsc-dataseed1.binance.org',
-  'evm--137': 'https://polygon-rpc.com',
+  [OnekeyNetwork.eth]:
+    'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+  [OnekeyNetwork.bsc]: 'https://bsc-dataseed1.binance.org',
+  [OnekeyNetwork.polygon]: 'https://polygon-rpc.com',
 };
 
 function checkPassword(context: OneKeyContext, password: string): boolean {

@@ -11,8 +11,8 @@ import React, {
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
-import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import { isExternalWallet } from '@onekeyhq/engine/src/engineUtils';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { IAccount } from '@onekeyhq/engine/src/types';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -156,7 +156,7 @@ export function useCreateAccountInWallet({
         // refresh accounts in drawer list
         await serviceAccountSelector.preloadingCreateAccount({
           walletId: activeWallet.id,
-          networkId: network?.id || NETWORK_ID_EVM_ETH,
+          networkId: network?.id || OnekeyNetwork.eth,
         });
 
         addedAccount = await addExternalAccount(result);
@@ -170,7 +170,7 @@ export function useCreateAccountInWallet({
 
           await serviceAccountSelector.preloadingCreateAccountDone({
             walletId: activeWallet.id,
-            networkId: network?.id || NETWORK_ID_EVM_ETH,
+            networkId: network?.id || OnekeyNetwork.eth,
             accountId: addedAccount?.id,
           });
         }

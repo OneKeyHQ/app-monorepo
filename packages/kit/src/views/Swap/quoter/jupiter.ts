@@ -2,6 +2,7 @@ import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -175,7 +176,7 @@ export class JupiterQuoter implements Quoter {
     return backgroundApiProxy.engine.solanaRefreshRecentBlockBash({
       transaction,
       accountId,
-      networkId: 'sol--101',
+      networkId: OnekeyNetwork.sol,
     });
   }
 

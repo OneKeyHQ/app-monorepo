@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NameServiceResolver, {
@@ -353,7 +354,7 @@ function AddExistingWalletView(
               // Special treatment for BTC address.
               try {
                 await backgroundApiProxy.validator.validateAddress(
-                  'btc--0',
+                  OnekeyNetwork.btc,
                   text,
                 );
                 return intl.formatMessage({

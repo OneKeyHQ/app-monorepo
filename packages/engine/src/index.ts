@@ -38,7 +38,6 @@ import {
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
-  NETWORK_ID_EVM_ETH,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
@@ -82,6 +81,7 @@ import {
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { syncLatestNetworkList } from './presets/network';
+import { OnekeyNetwork } from './presets/networkIds';
 import { ChartQueryParams, PriceController } from './priceController';
 import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
 import {
@@ -458,8 +458,8 @@ class Engine {
     // Add BTC & ETH accounts by default.
     try {
       if (wallet.accounts.length === 0) {
-        await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
-        await this.addHdOrHwAccounts('', wallet.id, NETWORK_ID_EVM_ETH);
+        await this.addHdOrHwAccounts('', wallet.id, OnekeyNetwork.btc);
+        await this.addHdOrHwAccounts('', wallet.id, OnekeyNetwork.eth);
       }
     } catch (e) {
       await this.removeWallet(wallet.id, '');
@@ -679,13 +679,13 @@ class Engine {
     const { coinType } = await this.dbApi.getAccount(accountId);
     // TODO: need a method to get default network from coinType.
     const networkId = {
-      '60': NETWORK_ID_EVM_ETH,
-      '503': 'cfx--1029',
-      '397': 'near--0',
-      '0': 'btc--0',
-      '101010': 'stc--1',
-      '501': 'sol--101',
-      '195': 'tron--0x2b6653dc',
+      '60': OnekeyNetwork.eth,
+      '503': OnekeyNetwork.cfx,
+      '397': OnekeyNetwork.near,
+      '0': OnekeyNetwork.btc,
+      '101010': OnekeyNetwork.stc,
+      '501': OnekeyNetwork.sol,
+      '195': OnekeyNetwork.trx,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -720,7 +720,7 @@ class Engine {
 
     const ret: Record<string, string | undefined> = {};
     let newTokens: Token[] | undefined;
-    if (balanceSupprtedNetwork[networkId]) {
+    if (balanceSupprtedNetwork.includes(networkId)) {
       try {
         const { address: accountAddress } = await this.getAccount(
           accountId,
