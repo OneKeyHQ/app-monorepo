@@ -5,6 +5,7 @@ import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { backgroundMethod } from '../../background/decorators';
+import { wait } from '../../utils/helper';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import {
@@ -46,12 +47,20 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     connector?: OneKeyWalletConnector;
   }): Promise<ISessionStatus>;
 
+  previousUri: string | undefined;
+
   // TODO connecting check, thread lock
   // connectToDapp
   @backgroundMethod()
   async connect({ uri }: { uri: string }) {
     // uri network param defaults to evm
     const network = new URL(uri).searchParams.get('network') || IMPL_EVM;
+
+    if (this.previousUri && this.previousUri === uri) {
+      await wait(1500);
+      throw new Error('WalletConnect ERROR: uri is expired');
+    }
+    this.previousUri = uri;
 
     const connector = await this.createConnector(
       {

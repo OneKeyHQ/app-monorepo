@@ -79,8 +79,9 @@ const Connection = () => {
           uri: walletConnectUri || '',
         })
         .catch((error) => {
-          debugLogger.walletConnect.error(error);
+          debugLogger.common.error(error);
           setWalletConnectError(
+            // TODO general connection failed error
             // timeout or qrcode expired
             intl.formatMessage({ id: 'msg__hardware_connect_timeout_error' }),
           );

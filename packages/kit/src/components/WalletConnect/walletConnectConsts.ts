@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getTimeDurationMs } from '../../utils/helper';
+
 export const WALLET_CONNECT_STORAGE_KEY_WALLET_SIDE =
   'onekey@walletconnect-wallet-side';
 export const WALLET_CONNECT_STORAGE_KEY_DAPP_SIDE =
@@ -13,12 +15,20 @@ export const WALLET_CONNECT_BRIDGE = 'https://bridge.walletconnect.org';
 export const WALLET_CONNECT_PROTOCOL = 'wc';
 export const WALLET_CONNECT_VERSION = 1;
 
+//  timeout 20s
+export const WALLET_CONNECT_CONNECTION_TIMEOUT = getTimeDurationMs({
+  seconds: 20,
+});
+
 // add some delay to make sure sendTransaction message has been sent by websocket
 export const WALLET_CONNECT_OPEN_WALLET_APP_DELAY = 3000;
-export const WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING = 6 * 1000;
+export const WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING = 6000;
 export const WALLET_CONNECT_SEND_SHOW_MISMATCH_CONFIRM_DELAY = 3000;
 export const WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY = 2000;
-export const WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY = 10 * 1000;
+export const WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY =
+  getTimeDurationMs({
+    seconds: 10,
+  });
 
 export const WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL = platformEnv.isNative;
 // export const WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL = true;
