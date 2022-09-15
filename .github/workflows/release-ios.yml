@@ -37,7 +37,7 @@ jobs:
           echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > packages/app/ios/certs/profile.mobileprovision
 
       - name: Setup Expo
-        uses: expo/expo-github-action@v7
+        uses: OneKeyHQ/actions/expo-server@main
         with:
           expo-version: 5.x
           eas-version: 0.53.x
@@ -69,12 +69,12 @@ jobs:
 
       - name: Dotenv Action
         id: dotenv
-        uses: falti/dotenv-action@v0.2.7
+        uses: OneKeyHQ/actions/dotenv-action@main
         with:
           path: .env.version
 
       - name: Modify info.plist
-        uses: OneKeyHQ/onekey-github-actions/build-plist-edit@main
+        uses: OneKeyHQ/actions/build-plist-edit@main
         with:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ steps.dotenv.outputs.version }}
