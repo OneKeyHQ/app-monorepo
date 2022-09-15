@@ -5,6 +5,8 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { cloneDeep, debounce } from 'lodash';
 
+import { SEPERATOR } from '@onekeyhq/engine/src/constants';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
 import {
@@ -59,7 +61,7 @@ class ServiceDapp extends ServiceBase {
     impl: string;
   }): DappSiteConnection[] {
     const { appSelector } = this.backgroundApi;
-    const { accountAddress } = getActiveWalletAccount();
+    const { accountAddress, accountId } = getActiveWalletAccount();
     const connections: DappSiteConnection[] = appSelector(
       (s) => s.dapp.connections,
     );
@@ -78,7 +80,16 @@ class ServiceDapp extends ServiceBase {
     if (accounts.length) {
       const list = cloneDeep(accounts);
       // support all accounts for dapp connection, do NOT need approval again
-      list.forEach((item) => (item.address = accountAddress));
+      list.forEach((item) => {
+        if (
+          isAccountCompatibleWithNetwork(
+            accountId,
+            `${item.networkImpl}${SEPERATOR}1`,
+          )
+        ) {
+          item.address = accountAddress;
+        }
+      });
       return list;
     }
     return accounts;
