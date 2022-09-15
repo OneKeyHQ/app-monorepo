@@ -2,6 +2,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 export type DappSiteInfo = {
   origin: string;
+  hostname?: string;
   icon?: string;
   name?: string;
 };

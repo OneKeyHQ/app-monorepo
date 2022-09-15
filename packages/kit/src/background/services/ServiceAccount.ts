@@ -142,6 +142,7 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async notifyAccountsChanged(): Promise<void> {
+    await this.backgroundApi.walletConnect.notifySessionChanged();
     await wait(600);
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
@@ -150,7 +151,6 @@ class ServiceAccount extends ServiceBase {
         });
       },
     );
-    await this.backgroundApi.walletConnect.notifySessionChanged();
     // emit at next tick
     await wait(100);
     appEventBus.emit(AppEventBusNames.AccountChanged);
