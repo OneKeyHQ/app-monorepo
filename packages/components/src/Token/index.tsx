@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from 'react';
 
-import { Box, Center, Column, Image, Row, ZStack } from 'native-base';
+import { Box, Center, Column, Row, ZStack } from 'native-base';
 
 import { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
@@ -8,6 +8,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
 import Icon from '../Icon';
+import Image from '../Image';
 import Pressable from '../Pressable';
 import { useThemeValue } from '../Provider/hooks';
 import Typography from '../Typography';

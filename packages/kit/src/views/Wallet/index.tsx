@@ -18,6 +18,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
+import { useStateMountedOnly } from '../../hooks/useStateMountedOnly';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -41,10 +42,10 @@ const WalletTabs: FC = () => {
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
-  const [backupMap, updateBackMap] = useState<
+  const [backupMap, updateBackMap] = useStateMountedOnly<
     Record<string, boolean | undefined>
   >({});
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useStateMountedOnly(false);
 
   const backupToast = useCallback(() => {
     if (wallet && !wallet?.backuped && backupMap[wallet?.id] === undefined) {

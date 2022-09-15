@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
+import { useIsMounted } from '../../../../hooks/useIsMounted';
 
 import CollectionCard from './CollectionCard';
 import NFTListAssetCard from './NFTListAssetCard';
@@ -204,6 +205,7 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function NFTListContainer() {
   const { account, network } = useActiveWalletAccount();
+  const isMountedRef = useIsMounted();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isNFTSupport = isCollectibleSupportedChainId(network?.id);
   const { serviceNFT } = backgroundApiProxy;
@@ -222,17 +224,17 @@ function NFTListContainer() {
     let isCancel = false;
     (async () => {
       if (account && network?.id) {
-        setIsLoading(true);
+        if (isMountedRef.current) setIsLoading(true);
         const localData = await serviceNFT.getLocalNFTs({
           networkId: network.id,
           accountId: account.address,
         });
-        updateListData(localData);
+        if (isMountedRef.current) updateListData(localData);
         const result = await serviceNFT.fetchNFT({
           accountId: account.address,
           networkId: network?.id,
         });
-        if (!isCancel) {
+        if (!isCancel && isMountedRef.current) {
           updateListData(result);
           setIsLoading(false);
         }
@@ -241,14 +243,14 @@ function NFTListContainer() {
     return () => {
       isCancel = true;
     };
-  }, [account, network, serviceNFT, refresh]);
+  }, [account, network, serviceNFT, refresh, isMountedRef]);
 
   useEffect(() => {
     let isCancel = false;
     (async () => {
       if (network?.id) {
         const data = await serviceNFT.fetchSymbolPrice(network.id);
-        if (!isCancel) {
+        if (!isCancel && isMountedRef.current) {
           updatePrice(data);
         }
       }
@@ -256,7 +258,7 @@ function NFTListContainer() {
     return () => {
       isCancel = true;
     };
-  }, [network, serviceNFT]);
+  }, [isMountedRef, network, serviceNFT]);
 
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {

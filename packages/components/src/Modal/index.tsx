@@ -228,12 +228,15 @@ const Modal = ({
             borderTopRadius={
               platformEnv.isExtensionUiStandaloneWindow ||
               platformEnv.isNativeAndroid ||
-              ((platformEnv.isWeb || platformEnv.isExtension) &&
+              ((platformEnv.isWeb ||
+                platformEnv.isExtension ||
+                platformEnv.isDesktop) &&
                 isVerticalLayout)
                 ? 0
                 : '24px'
             }
             overflow="hidden"
+            testID="ModalContentContainerMobile"
           >
             <Mobile
               onClose={onModalClose}
