@@ -1,7 +1,7 @@
 import React, { FC, Fragment } from 'react';
 
 import axios from 'axios';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay } from 'react-native-screens';
@@ -50,7 +50,9 @@ const KitProvider: FC = () => (
                 <RootSiblingParent>
                   <NavigationApp />
                   <ToastOverlay style={StyleSheet.absoluteFill}>
-                    <CustomToast bottomOffset={60} />
+                    <View pointerEvents="box-none" style={flexStyle}>
+                      <CustomToast bottomOffset={60} />
+                    </View>
                   </ToastOverlay>
                 </RootSiblingParent>
               </NotificationProvider>
