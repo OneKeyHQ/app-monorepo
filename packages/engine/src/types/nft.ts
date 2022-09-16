@@ -10,12 +10,12 @@ export const NFTChainMap: Record<string, string> = {
 };
 
 export const NFTSymbolMap: Record<string, string> = {
-  [OnekeyNetwork.eth]: 'ethereum',
-  [OnekeyNetwork.optimism]: 'ethereum',
-  [OnekeyNetwork.bsc]: 'binancecoin',
-  [OnekeyNetwork.polygon]: 'weth',
-  [OnekeyNetwork.arbitrum]: 'ethereum',
-  [OnekeyNetwork.sol]: 'solana',
+  [OnekeyNetwork.eth]: 'main',
+  [OnekeyNetwork.optimism]: 'main',
+  [OnekeyNetwork.bsc]: 'main',
+  [OnekeyNetwork.polygon]: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619', // weth
+  [OnekeyNetwork.arbitrum]: 'main',
+  [OnekeyNetwork.sol]: 'main',
 };
 
 export type ERCType = 'erc721' | 'erc1155';
