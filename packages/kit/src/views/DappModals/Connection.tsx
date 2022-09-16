@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 
-import { useUpdateEffect } from '@react-aria/utils';
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -26,7 +25,6 @@ import {
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import X from '@onekeyhq/kit/assets/connect_x.png';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,10 +34,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
-import {
-  closeDappConnectionPreloading,
-  resetDappConnectionPreloading,
-} from '../../store/reducers/refresher';
+import { useEffectUpdateOnly } from '../../hooks/useEffectUpdateOnly';
 
 import RugConfirmDialog from './RugConfirmDialog';
 import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
@@ -99,30 +94,19 @@ const Connection = () => {
   const closeModal = useModalClose();
 
   const isClosedDone = useRef(false);
-  useEffect(() => {
+  useEffectUpdateOnly(() => {
     if (isClosedDone.current) {
       return;
     }
-    // close preloading modal on ext
+    // **** close preloading Modal on Extension
     if (platformEnv.isExtensionUi) {
       if (isWalletConnectPreloading) {
-        if (
-          closeDappConnectionPreloadingTs &&
-          closeDappConnectionPreloadingTs > 0
-        ) {
+        if (closeDappConnectionPreloadingTs) {
           isClosedDone.current = true;
-          dispatch(resetDappConnectionPreloading());
           closeModal();
         }
-      } else {
-        isClosedDone.current = true;
-        dispatch(closeDappConnectionPreloading());
       }
     }
-
-    return () => {
-      dispatch(resetDappConnectionPreloading());
-    };
   }, [
     closeDappConnectionPreloadingTs,
     closeModal,
