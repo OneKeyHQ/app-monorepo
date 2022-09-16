@@ -1106,6 +1106,7 @@ class RealmDB implements DBAPI {
       if (hasExistWallet) {
         if (passphraseState) {
           handleDisplayPassphraseWallet(hasExistWallet.id);
+          return await Promise.resolve(hasExistWallet);
         }
 
         return await Promise.reject(
