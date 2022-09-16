@@ -17,6 +17,7 @@
     "lint": "yarn workspaces run lint",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
+    "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "m1:ios": "arch -x86_64 yarn ios",
     "m1:ios:device": "arch -x86_64 yarn ios:device",
