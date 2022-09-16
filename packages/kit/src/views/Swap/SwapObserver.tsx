@@ -15,14 +15,6 @@ import { SwapQuoter } from './quoter';
 import { refs } from './refs';
 import { isNetworkEnabled } from './utils';
 
-const AccountObserver = () => {
-  const { account } = useActiveWalletAccount();
-  useEffect(() => {
-    backgroundApiProxy.serviceSwap.setApprovalSubmitted(false);
-  }, [account]);
-  return <></>;
-};
-
 const NetworkObserver = () => {
   const { network } = useActiveWalletAccount();
   const prevNetowrk = usePrevious(network);
@@ -71,7 +63,7 @@ const NetworkObserver = () => {
   return null;
 };
 
-const PreparatoryWork = () => {
+const PreWorker = () => {
   const { accountId } = useActiveWalletAccount();
   const enabledNetworks = useEnabledSwappableNetworks();
   useEffect(() => {
@@ -107,9 +99,8 @@ const PreparatoryWork = () => {
 
 const SwapListener = () => (
   <>
-    <AccountObserver />
     <NetworkObserver />
-    <PreparatoryWork />
+    <PreWorker />
   </>
 );
 
