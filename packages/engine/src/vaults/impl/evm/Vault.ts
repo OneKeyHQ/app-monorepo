@@ -23,6 +23,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { HISTORY_CONSTS } from '../../../constants';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
+import { OnekeyNetwork } from '../../../presets/networkIds';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
 import {
@@ -76,7 +77,10 @@ import { IRpcTxEvm } from './types';
 
 import type { Account, DBAccount } from '../../../types/account';
 
-const OPTIMISM_NETWORKS = ['evm--10', 'evm--69'];
+const OPTIMISM_NETWORKS: string[] = [
+  OnekeyNetwork.optimism,
+  OnekeyNetwork.toptimism,
+];
 
 export type IUnsignedMessageEvm = ETHMessage & {
   payload?: any;

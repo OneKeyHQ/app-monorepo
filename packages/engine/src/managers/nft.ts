@@ -2,7 +2,6 @@ import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
 import {
-  AvailableNetworks,
   NFTAsset,
   NFTChainMap,
   NFTScanNFTsResp,
@@ -79,16 +78,13 @@ export function getContentWithAsset(asset: NFTAsset) {
   }
 }
 
-export function getNFTScanChainWithNetWork(network: AvailableNetworks): string {
-  return NFTChainMap[network];
-}
-
 export const getUserNFTAssets = async (params: {
   accountId: string;
-  networkId: AvailableNetworks;
+  networkId: string;
 }): Promise<NFTScanNFTsResp> => {
   const { accountId, networkId } = params;
-  const chain = getNFTScanChainWithNetWork(networkId);
+  // @ts-ignore
+  const chain = NFTChainMap[networkId];
   const endpoint = getFiatEndpoint();
   const apiUrl = `${endpoint}/NFT/v2/list?address=${accountId}&chain=${chain}`;
   const data = await axios
@@ -113,14 +109,15 @@ export const syncImage = async (params: {
 };
 
 type SymbolPricePayload = Record<string, Record<string, number>>;
-export const getNFTSymbolPrice = async (networkId: AvailableNetworks) => {
+export const getNFTSymbolPrice = async (networkId: string) => {
   const endpoint = getFiatEndpoint();
   const symbolId = NFTSymbolMap[networkId];
   const vsCurrencies = 'usd';
+  // TODO use redux prices
   const apiUrl = `${endpoint}/simple/price?vs_currencies=${vsCurrencies}&ids=${symbolId}`;
   const data = await axios
     .get<SymbolPricePayload>(apiUrl)
-    .then((resp) => resp.data[symbolId][vsCurrencies])
+    .then((resp) => resp.data[symbolId]?.[vsCurrencies])
     .catch(() => 0);
   return data;
 };

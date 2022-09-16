@@ -5,6 +5,8 @@ import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { OnekeyNetwork } from '../../../presets/networkIds';
+
 import { ISTCExplorerTransaction } from './types';
 
 import type { Token } from '../../../types/token';
@@ -35,8 +37,9 @@ type IDecodedPayload =
   | { type: 'other'; payload: IDecodedOtherTxPayload };
 
 const historyAPIURLs: Record<string, string> = {
-  'stc--1': 'https://api.stcscan.io/v2/transaction/main/byAddress',
-  'stc--251': 'https://api.stcscan.io/v2/transaction/barnard/byAddress',
+  [OnekeyNetwork.stc]: 'https://api.stcscan.io/v2/transaction/main/byAddress',
+  [OnekeyNetwork.tstc]:
+    'https://api.stcscan.io/v2/transaction/barnard/byAddress',
 };
 
 export async function getAddressHistoryFromExplorer(

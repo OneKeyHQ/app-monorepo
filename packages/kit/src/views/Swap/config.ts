@@ -1,4 +1,5 @@
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 export const swftcCustomerSupportUrl =
   'https://www.bangwo8.com/osp2016/im/pc/index.php?vendorID=782460&uid=&customSource=onekey';
@@ -19,20 +20,20 @@ export enum Chains {
 }
 
 export const enabledNetworkIds: string[] = [
-  'btc--0',
-  'evm--1',
-  'evm--56',
-  'evm--137',
-  'evm--128',
-  'evm--10',
-  'evm--100',
-  'evm--250',
-  'evm--42161',
-  'evm--42220',
-  'evm--43114',
-  'evm--1313161554',
-  'sol--101',
-  'evm--3',
+  OnekeyNetwork.btc,
+  OnekeyNetwork.eth,
+  OnekeyNetwork.bsc,
+  OnekeyNetwork.polygon,
+  OnekeyNetwork.heco,
+  OnekeyNetwork.optimism,
+  OnekeyNetwork.xdai,
+  OnekeyNetwork.fantom,
+  OnekeyNetwork.arbitrum,
+  OnekeyNetwork.celo,
+  OnekeyNetwork.avalanche,
+  OnekeyNetwork.aurora,
+  OnekeyNetwork.sol,
+  OnekeyNetwork.teth,
   'evm--42',
 ];
 

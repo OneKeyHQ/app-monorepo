@@ -2,6 +2,7 @@ import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -29,18 +30,18 @@ import {
 } from '../utils';
 
 const networkId2SwftcNetworkName: Record<string, string> = {
-  'btc--0': 'BTC',
-  'evm--1': 'ETH',
-  'evm--56': 'BSC',
-  'evm--128': 'HECO',
-  'evm--137': 'POLYGON',
-  'evm--43114': 'AVAXC',
-  'evm--66': 'OKExChain',
-  'evm--250': 'FTM',
-  'evm--42161': 'ARB',
-  'evm--42220': 'CELO',
-  'evm--10': 'Optimism',
-  'sol--101': 'SOL',
+  [OnekeyNetwork.btc]: 'BTC',
+  [OnekeyNetwork.eth]: 'ETH',
+  [OnekeyNetwork.bsc]: 'BSC',
+  [OnekeyNetwork.heco]: 'HECO',
+  [OnekeyNetwork.polygon]: 'POLYGON',
+  [OnekeyNetwork.avalanche]: 'AVAXC',
+  [OnekeyNetwork.okt]: 'OKExChain',
+  [OnekeyNetwork.fantom]: 'FTM',
+  [OnekeyNetwork.arbitrum]: 'ARB',
+  [OnekeyNetwork.celo]: 'CELO',
+  [OnekeyNetwork.optimism]: 'Optimism',
+  [OnekeyNetwork.sol]: 'SOL',
 };
 
 const swftcNetworkName2NetworkId: Record<string, string> = {};

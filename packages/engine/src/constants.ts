@@ -24,8 +24,6 @@ const COINTYPE_BTC = '0';
 const IMPL_TRON = 'tron';
 const COINTYPE_TRON = '195';
 
-export const NETWORK_ID_EVM_ETH = 'evm--1';
-
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,

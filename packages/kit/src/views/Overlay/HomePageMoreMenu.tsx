@@ -16,6 +16,7 @@ import { SelectProps } from '@onekeyhq/components/src/Select';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -30,11 +31,11 @@ import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
 
-const enabledAccountDynamicNetworkIds = [
-  'evm--1',
-  'evm--137',
-  'evm--42161',
-  'evm--10',
+const enabledAccountDynamicNetworkIds: string[] = [
+  OnekeyNetwork.eth,
+  OnekeyNetwork.polygon,
+  OnekeyNetwork.arbitrum,
+  OnekeyNetwork.optimism,
 ];
 
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
