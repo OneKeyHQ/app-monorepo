@@ -117,7 +117,10 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
         return loadingSkeletonRef.current;
       }
       return (
-        <LazyDisplayView delay={ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY}>
+        <LazyDisplayView
+          hideOnUnmount
+          delay={ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY}
+        >
           <RightAccountEmptyPanel
             activeWallet={selectedWalletDeBounced}
             // activeWallet={selectedWallet}
