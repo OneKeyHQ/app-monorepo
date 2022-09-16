@@ -215,7 +215,8 @@ async function loadDebugLoggerSettings() {
 
   Object.keys(LoggerNames).forEach((key) => {
     if (platformEnv.isDev && !enabledKeys.includes(key)) {
-      // should enabled() first to create _enabledExtensions array
+      // should enabled() first to create _enabledExtensions array,
+      //    otherwise logger.enable() logger.disable() won't working.
       logger.enable(key);
       logger.disable(key);
     } else {

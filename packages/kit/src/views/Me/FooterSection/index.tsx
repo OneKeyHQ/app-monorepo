@@ -48,6 +48,7 @@ export const FooterAction = () => {
 
   const shareLogFile = useCallback(async () => {
     const logFilePath = `${FileSystem.cacheDirectory ?? ''}log.txt`;
+    console.log('logFilePath >>>>', logFilePath);
     const shareFileName = getLogName();
     const Share = await getShareModule();
     if (!Share) return;
