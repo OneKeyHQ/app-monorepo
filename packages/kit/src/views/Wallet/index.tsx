@@ -16,6 +16,7 @@ import {
   useActiveWalletAccount,
   useAppSelector,
   useSettings,
+  useStatus,
 } from '@onekeyhq/kit/src/hooks/redux';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,8 +24,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
-import { setPushNotificationConfig } from '../../store/reducers/settings';
-import { setHomeTabName } from '../../store/reducers/status';
+import {
+  setGuideToPushFistTime,
+  setHomeTabName,
+} from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { PushNotificationRoutes } from '../PushNotification/types';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -46,6 +49,7 @@ const WalletTabs: FC = () => {
     'background-default',
     'border-subdued',
   ]);
+  const { guideToPushFirstTime } = useStatus();
   const { pushNotification } = useSettings();
   const { dispatch } = backgroundApiProxy;
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
@@ -80,7 +84,7 @@ const WalletTabs: FC = () => {
     if (!account?.id) {
       return;
     }
-    const { pushEnable, guideToPushFirstTime } = pushNotification || {};
+    const { pushEnable } = pushNotification || {};
     if (pushEnable) {
       return;
     }
@@ -91,11 +95,7 @@ const WalletTabs: FC = () => {
       return;
     }
     if (!guideToPushFirstTime) {
-      dispatch(
-        setPushNotificationConfig({
-          guideToPushFirstTime: true,
-        }),
-      );
+      dispatch(setGuideToPushFistTime(true));
     }
     setTimeout(() => {
       navigation.navigate(RootRoutes.Modal, {
@@ -105,7 +105,14 @@ const WalletTabs: FC = () => {
         },
       });
     }, 3000);
-  }, [pushNotification, account, network, dispatch, navigation]);
+  }, [
+    pushNotification,
+    account,
+    network,
+    dispatch,
+    navigation,
+    guideToPushFirstTime,
+  ]);
 
   return (
     <>

@@ -17,9 +17,9 @@ import {
   IMPL_EVM,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/engine/src/constants';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -89,6 +89,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         accountId: account.id,
         address: account.address,
         name: account.name,
+        passphrase: !!wallet && isPassphraseWallet(wallet),
       });
     }
     if (!res) {
@@ -102,6 +103,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       }),
     });
   }, [
+    wallet,
     account,
     intl,
     toast,

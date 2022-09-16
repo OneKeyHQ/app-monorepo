@@ -12,6 +12,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import imageUrl from '@onekeyhq/kit/assets/alert.png';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
@@ -20,7 +21,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 
-import { useWalletsAndAccounts } from './hooks';
+import { useEnabledAccountDynamicAccounts } from './hooks';
 
 const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
@@ -28,17 +29,24 @@ const GuideToPushFirstTime: FC = () => {
 
   const navigation = useNavigation();
   const { dispatch, serviceNotification } = backgroundApiProxy;
-  const { wallets } = useWalletsAndAccounts();
+  const { wallets } = useEnabledAccountDynamicAccounts();
 
   const addAccountDynamics = useCallback(async () => {
+    let count = 0;
     for (const w of wallets) {
       for (const a of w.accounts) {
+        if (count >= 50) {
+          return;
+        }
         if (isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM)) {
           await serviceNotification.addAccountDynamic({
+            // @ts-ignore
+            passphrase: isPassphraseWallet(w),
             accountId: a.id,
             address: a.address,
             name: a.name,
           });
+          count += 1;
         }
       }
     }
@@ -47,15 +55,18 @@ const GuideToPushFirstTime: FC = () => {
   const onPrimaryActionPress = useCallback(() => {
     dispatch(
       setPushNotificationConfig({
+        pushEnable: true,
         priceAlertEnable: true,
         btcAndEthPriceAlertEnable: true,
         favoriteTokensPriceAlertEnable: true,
         accountActivityPushEnable: true,
       }),
     );
-    addAccountDynamics();
+    serviceNotification
+      .syncPushNotificationConfig()
+      .finally(addAccountDynamics);
     navigation.navigate(RootRoutes.Root);
-  }, [dispatch, addAccountDynamics, navigation]);
+  }, [dispatch, addAccountDynamics, navigation, serviceNotification]);
 
   const configs = useMemo(
     () => [

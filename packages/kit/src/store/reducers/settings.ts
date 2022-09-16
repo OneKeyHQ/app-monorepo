@@ -57,7 +57,6 @@ export type SettingsState = {
     favoriteTokensPriceAlertEnable: boolean;
     priceAlertEnable: boolean;
     accountActivityPushEnable: boolean;
-    guideToPushFirstTime?: boolean;
   };
   validationSetting: {
     [ValidationFields.Account]?: boolean;
@@ -77,7 +76,6 @@ export const defaultPushNotification = {
   btcAndEthPriceAlertEnable: false,
   favoriteTokensPriceAlertEnable: false,
   accountActivityPushEnable: false,
-  guideToPushFirstTime: false,
 };
 
 const initialState: SettingsState = {

@@ -1,3 +1,5 @@
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+
 const SEPERATOR = '--';
 
 const IMPL_EVM = 'evm';
@@ -53,11 +55,11 @@ export const HISTORY_CONSTS = {
   PENDING_QUEUE_MAX_LENGTH: 10,
 };
 
-export const enabledAccountDynamicNetworkIds = [
-  'evm--1',
-  'evm--137',
-  'evm--42161',
-  'evm--10',
+export const enabledAccountDynamicNetworkIds: string[] = [
+  OnekeyNetwork.eth,
+  OnekeyNetwork.polygon,
+  OnekeyNetwork.arbitrum,
+  OnekeyNetwork.optimism,
 ];
 
 function getSupportedImpls() {

@@ -100,7 +100,15 @@ const Section: FC<
     refreash: () => Promise<void>;
     enabledAccounts: AccountDynamicItem[];
   }
-> = ({ name, type, accounts, avatar, enabledAccounts, refreash }) => {
+> = ({
+  name,
+  type,
+  accounts,
+  avatar,
+  enabledAccounts,
+  refreash,
+  passphraseState,
+}) => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const { serviceNotification } = backgroundApiProxy;
@@ -112,6 +120,7 @@ const Section: FC<
           accountId: account.id,
           address: account.address,
           name: account.name,
+          passphrase: !!passphraseState,
         });
       } else {
         await serviceNotification.removeAccountDynamic({
@@ -120,7 +129,7 @@ const Section: FC<
       }
       await refreash();
     },
-    [serviceNotification, refreash],
+    [serviceNotification, refreash, passphraseState],
   );
 
   const { length } = accounts;

@@ -1,5 +1,4 @@
 import {
-  AccountDynamicItem,
   AddPriceAlertConfig,
   NotificationType,
   RemovePriceAlertConfig,
@@ -9,20 +8,32 @@ import {
   queryPriceAlertList,
   removeAccountDynamic,
   removePriceAlertConfig,
+  syncLocalEnabledAccounts,
   syncPushNotificationConfig,
 } from '@onekeyhq/engine/src/managers/notification';
-import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
 
-import ServiceBase from './ServiceBase';
+import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceNotification extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    if (!platformEnv.isNative) {
+      return;
+    }
+    this.syncLocalEnabledAccounts();
+    setInterval(() => {
+      this.syncLocalEnabledAccounts();
+    }, 5 * 60 * 1000);
+  }
+
   @backgroundMethod()
   async syncPushNotificationConfig(type: 'reset' | 'normal' = 'normal') {
     return syncPushNotificationConfig(type);
@@ -39,27 +50,41 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  async queryPriceAlertList(
-    query?: Pick<Token, 'impl' | 'chainId' | 'address'>,
-  ) {
-    return queryPriceAlertList(query);
+  async queryPriceAlertList(...args: Parameters<typeof queryPriceAlertList>) {
+    return queryPriceAlertList(...args);
   }
 
   @backgroundMethod()
-  async addAccountDynamic(body: Omit<AccountDynamicItem, 'instanceId'>) {
-    return addAccountDynamic(body);
+  async addAccountDynamic(...args: Parameters<typeof addAccountDynamic>) {
+    return addAccountDynamic(...args);
   }
 
   @backgroundMethod()
-  async removeAccountDynamic(
-    body: Omit<AccountDynamicItem, 'instanceId' | 'name' | 'accountId'>,
-  ) {
-    return removeAccountDynamic(body);
+  async removeAccountDynamic(...args: Parameters<typeof removeAccountDynamic>) {
+    return removeAccountDynamic(...args);
   }
 
   @backgroundMethod()
   async queryAccountDynamic() {
     return queryAccountDynamic();
+  }
+
+  @backgroundMethod()
+  async syncLocalEnabledAccounts() {
+    const { serviceAccount } = this.backgroundApi;
+    const wallets = await serviceAccount.initWallets();
+    const enabledAccounts = await this.queryAccountDynamic();
+
+    const localEnabledAccounts = enabledAccounts
+      .filter((a) =>
+        wallets
+          .map((w) => w.accounts)
+          .flat()
+          .find((account) => account === a.accountId),
+      )
+      .map((a) => a.address);
+
+    await syncLocalEnabledAccounts(localEnabledAccounts);
   }
 
   @backgroundMethod()

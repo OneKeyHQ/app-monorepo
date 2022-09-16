@@ -8,6 +8,7 @@ type StatusState = {
   hideAddressBookAttention?: boolean;
   homeTabName?: string | number;
   swapPopoverShown?: boolean;
+  guideToPushFirstTime?: boolean;
 };
 
 const initialState: StatusState = {
@@ -17,6 +18,7 @@ const initialState: StatusState = {
   hideAddressBookAttention: false,
   homeTabName: undefined,
   swapPopoverShown: false,
+  guideToPushFirstTime: false,
 };
 
 export const slice = createSlice({
@@ -50,6 +52,9 @@ export const slice = createSlice({
     setSwapPopoverShown: (state) => {
       state.swapPopoverShown = true;
     },
+    setGuideToPushFistTime: (state, action: PayloadAction<boolean>) => {
+      state.guideToPushFirstTime = action.payload;
+    },
   },
 });
 
@@ -62,6 +67,7 @@ export const {
   setHideAddressBookAttention,
   setHomeTabName,
   setSwapPopoverShown,
+  setGuideToPushFistTime,
 } = slice.actions;
 
 export default slice.reducer;

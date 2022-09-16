@@ -5,24 +5,10 @@ import {
   PriceAlertItem,
 } from '@onekeyhq/engine/src/managers/notification';
 import { Account } from '@onekeyhq/engine/src/types/account';
-import {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-  Wallet,
-} from '@onekeyhq/engine/src/types/wallet';
+import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-
-const sorts = {
-  [WALLET_TYPE_HD]: 0,
-  [WALLET_TYPE_HW]: 1,
-  [WALLET_TYPE_IMPORTED]: 2,
-  [WALLET_TYPE_WATCHING]: 3,
-  [WALLET_TYPE_EXTERNAL]: 4,
-};
+import { useRuntime } from '../../hooks/redux';
 
 export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
@@ -31,18 +17,18 @@ export type WalletData = Omit<Wallet, 'accounts'> & {
 export const useWalletsAndAccounts = () => {
   const { engine } = backgroundApiProxy;
   const [wallets, setWallets] = useState<WalletData[]>([]);
+  const { wallets: walletsWithoutAccount } = useRuntime();
+
   const getWalletsAndAccounts = useCallback(async () => {
-    const walletList = await engine.getWallets();
-    const walletsWithAccounts = await Promise.all(
-      walletList.map(async (w) => ({
+    const data = await Promise.all(
+      walletsWithoutAccount.map(async (w) => ({
         ...w,
         accounts: await engine.getAccounts(w.accounts),
       })),
     );
-    const data = walletsWithAccounts.filter((w) => !!w.accounts?.length);
-    setWallets(data.sort((a, b) => sorts[a.type] - sorts[b.type]));
+    setWallets(data);
     return data;
-  }, [engine]);
+  }, [engine, walletsWithoutAccount]);
 
   useEffect(() => {
     getWalletsAndAccounts();
