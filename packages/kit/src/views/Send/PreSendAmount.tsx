@@ -432,14 +432,17 @@ function PreSendAmount() {
           console.error(e);
           const { key: errorKey = '' } = e;
           if (errorKey === 'form__amount_invalid') {
-            toast.show({
-              title: intl.formatMessage(
-                { id: 'form__amount_invalid' },
-                { 0: tokenInfo?.symbol ?? '' },
-              ),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage(
+                  { id: 'form__amount_invalid' },
+                  { 0: tokenInfo?.symbol ?? '' },
+                ),
+              },
+              { type: 'error' },
+            );
           } else if (typeof e === 'string') {
-            toast.show({ title: e });
+            toast.show({ title: e }, { type: 'error' });
           }
         } finally {
           setIsLoading(false);
