@@ -224,7 +224,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   onSelect,
 }) => {
   const { token, balance, price } = item;
-  const { selectedToken, networkId } = useContext(TokenSelectorContext);
+  const { selectedToken } = useContext(TokenSelectorContext);
 
   const tokenNetwork = useNetwork(token.networkId);
 
@@ -236,10 +236,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     token.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork;
 
   let description: string = token.name;
-  if (!networkId && tokenNetwork) {
-    description = tokenNetwork?.shortName;
-  } else if (token.tokenIdOnNetwork) {
+  if (token.tokenIdOnNetwork) {
     description = shortenAddress(token.tokenIdOnNetwork);
+  } else if (tokenNetwork) {
+    description = tokenNetwork?.name;
   }
   return (
     <Pressable

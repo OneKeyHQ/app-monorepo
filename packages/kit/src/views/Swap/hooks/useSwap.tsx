@@ -396,7 +396,7 @@ export function useSwappableNativeTokens() {
       return [];
     }
     return enabledNativeTokens.filter((item) =>
-      enabledNetworkIds.includes(item.id),
+      enabledNetworkIds.includes(item.networkId),
     );
   }, [enabledNativeTokens]);
 }

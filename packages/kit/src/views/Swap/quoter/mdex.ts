@@ -1,15 +1,15 @@
 import axios, { Axios } from 'axios';
 
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { Chains, networkRecords } from '../config';
+import { networkProviderInfos, quoterServerEndpoints } from '../config';
 import {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
   FetchQuoteResponse,
-  Provider,
   QuoteData,
   Quoter,
   QuoterType,
@@ -22,7 +22,6 @@ import {
   affiliateAddress,
   div,
   feeRecipient,
-  getChainIdFromNetwork,
   nativeTokenAddress,
 } from '../utils';
 
@@ -46,44 +45,22 @@ type QuoteResponse = {
   allowanceTarget: string;
 };
 
-const ProviderInfos: Record<string, Provider[]> = {
-  [Chains.OKEX]: [
-    {
-      name: 'CherrySwap',
-      logoUrl: 'https://common.onekey-asset.com/logo/CherrySwap.png',
-    },
-  ],
-  [Chains.HECO]: [
-    {
-      name: 'MDex',
-      logoUrl: 'https://common.onekey-asset.com/logo/MdexSwap.png',
-    },
-  ],
-  [Chains.GNOSIS]: [
-    {
-      name: 'HoneySwap',
-      logoUrl: 'https://common.onekey-asset.com/logo/HoneySwap.png',
-    },
-  ],
-};
-
 export class MdexQuoter implements Quoter {
   type: QuoterType = QuoterType.mdex;
 
   private client: Axios;
 
-  supportedChainIds: string[] = [Chains.HECO, Chains.GNOSIS, Chains.OKEX];
+  supportedNetworkIds: string[] = [OnekeyNetwork.heco];
 
   constructor() {
     this.client = axios.create({ timeout: 10 * 1000 });
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
-    const chainId = getChainIdFromNetwork(networkA);
     return (
       networkA.id === networkB.id &&
-      !!networkRecords[chainId] &&
-      this.supportedChainIds.includes(chainId)
+      !!quoterServerEndpoints[networkA.id] &&
+      this.supportedNetworkIds.includes(networkA.id)
     );
   }
 
@@ -122,8 +99,8 @@ export class MdexQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const chainId = getChainIdFromNetwork(networkOut);
-    const baseURL = networkRecords[chainId];
+
+    const baseURL = quoterServerEndpoints[tokenIn.networkId];
     if (!baseURL) {
       return;
     }
@@ -139,7 +116,9 @@ export class MdexQuoter implements Quoter {
       buyTokenAddress: data.buyTokenAddress,
       sellAmount: data.sellAmount,
       sellTokenAddress: data.sellTokenAddress,
-      providers: ProviderInfos[chainId] ?? [{ name: 'OneKey Swap' }],
+      providers: networkProviderInfos[tokenIn.networkId] ?? [
+        { name: 'OneKey Swap' },
+      ],
       arrivalTime: 15,
     };
     if (data.data) {
@@ -198,7 +177,7 @@ export class MdexQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const baseURL = networkRecords[getChainIdFromNetwork(networkOut)];
+    const baseURL = quoterServerEndpoints[tokenIn.networkId];
     if (!baseURL) {
       return undefined;
     }

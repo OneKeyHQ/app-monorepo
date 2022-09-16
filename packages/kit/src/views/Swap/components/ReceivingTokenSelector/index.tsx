@@ -195,11 +195,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   isLast,
   onSelect,
 }) => {
-  const { selectedToken, networkId } = useContext(
-    ReceivingTokenSelectorContext,
-  );
+  const { selectedToken } = useContext(ReceivingTokenSelectorContext);
 
-  const tokenNetwork = useNetwork(networkId);
+  const tokenNetwork = useNetwork(token.networkId);
 
   const onPress = useCallback(() => {
     onSelect?.(token);
@@ -209,10 +207,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     token.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork;
 
   let description: string = token.name;
-  if (!networkId && tokenNetwork) {
-    description = tokenNetwork?.shortName;
-  } else if (token.tokenIdOnNetwork) {
+  if (token.tokenIdOnNetwork) {
     description = shortenAddress(token.tokenIdOnNetwork);
+  } else if (tokenNetwork) {
+    description = tokenNetwork?.name;
   }
   return (
     <Pressable

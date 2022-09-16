@@ -3,7 +3,7 @@ import axios, { Axios } from 'axios';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { arrivalTimeValues, networkRecords } from '../config';
+import { estimatedTime, zeroXServerEndpoints } from '../config';
 import {
   BuildTransactionParams,
   BuildTransactionResponse,
@@ -21,7 +21,6 @@ import {
   affiliateAddress,
   div,
   feeRecipient,
-  getChainIdFromNetwork,
   nativeTokenAddress,
 } from '../utils';
 
@@ -66,10 +65,7 @@ export class SimpleQuoter implements Quoter {
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
-    return (
-      networkA.id === networkB.id &&
-      !!networkRecords[getChainIdFromNetwork(networkA)]
-    );
+    return networkA.id === networkB.id && !!zeroXServerEndpoints[networkA.id];
   }
 
   getProviderLogo(name: string): string {
@@ -128,8 +124,8 @@ export class SimpleQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const chainId = getChainIdFromNetwork(networkOut);
-    const baseURL = networkRecords[chainId];
+
+    const baseURL = zeroXServerEndpoints[tokenIn.networkId];
     if (!baseURL) {
       return;
     }
@@ -144,7 +140,7 @@ export class SimpleQuoter implements Quoter {
       buyTokenAddress: data.buyTokenAddress,
       sellAmount: data.sellAmount,
       sellTokenAddress: data.sellTokenAddress,
-      arrivalTime: arrivalTimeValues[chainId] ?? 30,
+      arrivalTime: estimatedTime[networkIn.id] ?? 30,
       providers,
     };
 
@@ -204,7 +200,7 @@ export class SimpleQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const baseURL = networkRecords[getChainIdFromNetwork(networkOut)];
+    const baseURL = zeroXServerEndpoints[tokenIn.networkId];
     if (!baseURL) {
       return undefined;
     }
