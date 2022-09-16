@@ -13,7 +13,10 @@ import {
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import {
+  IMPL_EVM,
+  enabledAccountDynamicNetworkIds,
+} from '@onekeyhq/engine/src/constants';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
@@ -30,13 +33,6 @@ import { showOverlay } from '../../utils/overlayUtils';
 import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
-
-const enabledAccountDynamicNetworkIds: string[] = [
-  OnekeyNetwork.eth,
-  OnekeyNetwork.polygon,
-  OnekeyNetwork.arbitrum,
-  OnekeyNetwork.optimism,
-];
 
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();

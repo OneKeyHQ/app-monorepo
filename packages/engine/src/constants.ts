@@ -53,6 +53,13 @@ export const HISTORY_CONSTS = {
   PENDING_QUEUE_MAX_LENGTH: 10,
 };
 
+export const enabledAccountDynamicNetworkIds = [
+  'evm--1',
+  'evm--137',
+  'evm--42161',
+  'evm--10',
+];
+
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {
     return PRODUCTION_IMPLS;

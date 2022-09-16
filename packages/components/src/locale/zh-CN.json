@@ -530,7 +530,7 @@
   "emoji_type_smileys_people": "笑脸和人像",
   "emoji_type_symbols": "符号",
   "emoji_type_travel_places": "旅行和地点",
-  "empty__connection_failed_desc": "请刷新二维码或检查您的网络连接再重试。",
+  "empty__connection_failed_desc": "请刷新二维码或检查您的网络连接再重试",
   "empty__no_account_desc": "当前网络没有账户。",
   "empty__no_account_title": "暂无账户",
   "empty__no_connected_sites": "暂无连接网站",
