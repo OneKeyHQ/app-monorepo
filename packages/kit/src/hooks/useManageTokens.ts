@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { merge } from 'lodash';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useActiveWalletAccount } from './redux';
+import { useActiveWalletAccount, useAppSelector } from './redux';
 import {
   useAccountTokenLoading,
   useAccountTokens,
@@ -34,6 +35,7 @@ export const useManageTokens = ({
   const prices = useNetworkTokensPrice(networkId);
   const charts = useNetworkTokensChart(networkId);
   const nativeToken = useNativeToken(networkId, accountId);
+  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
 
   const accountTokensMap = useMemo(() => {
     const map = new Map<string, Token>();
@@ -113,21 +115,25 @@ export const useManageTokens = ({
       token?: Token | null;
       defaultValue?: string;
       tokenIdOnNetwork?: string;
+      fiatSymbol?: string;
     }) => {
-      const { token, defaultValue, tokenIdOnNetwork } = merge(
+      const { token, defaultValue, tokenIdOnNetwork, fiatSymbol } = merge(
         {
           token: null,
           defaultValue: '',
           tokenIdOnNetwork: '',
+          fiatSymbol: 'usd',
         },
         options ?? {},
       );
       const tokenInfo = token as Token | null;
       const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
-      const priceValue = prices?.[key] ?? defaultValue;
+      const fiatPrice = fiatMap[fiatSymbol] ?? '1';
+      let priceValue = prices?.[key] ?? defaultValue;
+      priceValue = new BigNumber(fiatPrice).times(priceValue).toFixed();
       return priceValue;
     },
-    [prices],
+    [fiatMap, prices],
   );
 
   return {
