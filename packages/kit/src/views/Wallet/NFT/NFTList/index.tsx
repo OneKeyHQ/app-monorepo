@@ -248,7 +248,7 @@ function NFTListContainer() {
     (async () => {
       if (network?.id) {
         const data = await serviceNFT.fetchSymbolPrice(network.id);
-        if (!isCancel) {
+        if (!isCancel && data) {
           updatePrice(data);
         }
       }
