@@ -1,7 +1,7 @@
 import React, { FC, Fragment } from 'react';
 
 import axios from 'axios';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay } from 'react-native-screens';
@@ -39,7 +39,11 @@ const flexStyle = { flex: 1 };
 
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => {
-  const toastElement = <CustomToast bottomOffset={60} />;
+  const toastElement = (
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      <CustomToast bottomOffset={60} />
+    </View>
+  );
   return (
     <SWRConfig value={swrConfig}>
       <ReduxProvider store={store}>
