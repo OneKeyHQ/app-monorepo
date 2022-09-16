@@ -229,7 +229,7 @@ export default class ServiceSwap extends ServiceBase {
         encodedTx,
       });
 
-      if (Number(feeInfo.limit) <= 0) {
+      if (Number.isNaN(Number(feeInfo.limit)) || Number(feeInfo.limit) <= 0) {
         throw Error('bad limit');
       }
 
@@ -282,9 +282,9 @@ export default class ServiceSwap extends ServiceBase {
     await serviceHistory.saveSendConfirmHistory({
       networkId,
       accountId,
-      data: { signedTx, decodedTx, encodedTx },
+      data: { signedTx, decodedTx, encodedTx: signedTx.encodedTx },
     });
 
-    return { result: signedTx, decodedTx, encodedTx };
+    return { result: signedTx, decodedTx, encodedTx: signedTx.encodedTx };
   }
 }
