@@ -23,6 +23,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { HISTORY_CONSTS } from '../../../constants';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
+import {
+  createOutputActionFromNFTTransaction,
+  getNFTTransactionHistory,
+} from '../../../managers/nft';
 import { OnekeyNetwork } from '../../../presets/networkIds';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
@@ -33,12 +37,14 @@ import {
 } from '../../../types/history';
 import { ETHMessage, ETHMessageTypes } from '../../../types/message';
 import { EIP1559Fee } from '../../../types/network';
+import { NFTTransaction } from '../../../types/nft';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,
+  IDecodedTxDirection,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IDecodedTxStatus,
@@ -954,6 +960,7 @@ export default class Vault extends VaultBase {
     // extra tx
     covalentTx,
     rpcReceiptTx,
+    nftTxs,
     isCovalentApiAvailable,
   }: {
     decodedTx: IDecodedTx;
@@ -962,6 +969,7 @@ export default class Vault extends VaultBase {
     rawTx?: IRawTx;
     covalentTx?: ICovalentHistoryListItem;
     rpcReceiptTx?: any;
+    nftTxs?: NFTTransaction[];
     isCovalentApiAvailable?: boolean;
   }): Promise<IDecodedTx> {
     const network = await this.getNetwork();
@@ -1030,7 +1038,50 @@ export default class Vault extends VaultBase {
         }
       }
     }
+    const address = await this.getAccountAddress();
+    decodedTx = this.mergeNFTTx({ address, decodedTx, nftTxs });
     return Promise.resolve(decodedTx);
+  }
+
+  mergeNFTTx({
+    address,
+    decodedTx,
+    nftTxs,
+  }: {
+    address: string;
+    decodedTx: IDecodedTx;
+    nftTxs?: NFTTransaction[];
+  }): IDecodedTx {
+    if (nftTxs) {
+      const nftActions = nftTxs
+        .map((tx) =>
+          createOutputActionFromNFTTransaction({
+            transaction: tx,
+            address,
+          }),
+        )
+        .filter(Boolean);
+      const outputActions = decodedTx.outputActions ?? [];
+      const decodeTxActions = outputActions?.filter((a) => {
+        const { tokenTransfer, tokenApprove } = a;
+        if (tokenTransfer || tokenApprove) {
+          const tokenInfo = tokenTransfer?.tokenInfo ?? tokenApprove?.tokenInfo;
+          if (tokenInfo) {
+            const { tokenIdOnNetwork, id } = tokenInfo;
+            const findNFTTx = nftTxs.find(
+              (tx) =>
+                tx.contractAddress === tokenIdOnNetwork && tx.tokenId === id,
+            );
+            if (findNFTTx) {
+              return false;
+            }
+          }
+        }
+        return true;
+      });
+      decodedTx.outputActions = [...decodeTxActions, ...nftActions];
+    }
+    return decodedTx;
   }
 
   // TODO add limit here
@@ -1105,6 +1156,19 @@ export default class Vault extends VaultBase {
       }
     }
 
+    const nftTxList = await getNFTTransactionHistory(address, this.networkId);
+
+    const nftMap = new Map<string, NFTTransaction[]>();
+    nftTxList.forEach((tx) => {
+      const { hash } = tx;
+      let nftList = nftMap.get(hash);
+      if (!nftList) {
+        nftList = [];
+      }
+      nftList.push(tx);
+      nftMap.set(hash, nftList);
+    });
+
     const historyTxList = await Promise.all(
       hashes.map(async (hash, index) => {
         // pending tx rpc return null
@@ -1157,12 +1221,13 @@ export default class Vault extends VaultBase {
         if (!decodedTx) {
           return null;
         }
-
+        const nftTxs = nftMap.get(hash);
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
           encodedTx,
           historyTx,
           covalentTx,
+          nftTxs,
           isCovalentApiAvailable,
         });
 

@@ -1,6 +1,11 @@
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
 import {
+  TxActionNFTTransfer,
+  TxActionNFTTransferT0,
+  getTxActionNFTTransferInfo,
+} from '../TxAction/TxActionNFTTransfer';
+import {
   TxActionStake,
   TxActionStakeT0,
   getTxActionStakeInfo,
@@ -100,6 +105,20 @@ export function getTxActionMeta(
       T0: TxActionStakeT0,
       T1: TxActionStake,
       T2: TxActionStake,
+    };
+  }
+  if (
+    action.type === IDecodedTxActionType.NFT_TRANSFER ||
+    action.type === IDecodedTxActionType.NFT_MINT ||
+    action.type === IDecodedTxActionType.NFT_SALE
+  ) {
+    const info = getTxActionNFTTransferInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionNFTTransferT0,
+      T1: TxActionNFTTransfer,
+      T2: TxActionNFTTransfer,
     };
   }
   return {
