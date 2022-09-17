@@ -231,7 +231,8 @@ const Modal = ({
               platformEnv.isNativeAndroid ||
               ((platformEnv.isWeb ||
                 platformEnv.isExtension ||
-                platformEnv.isDesktop) &&
+                platformEnv.isDesktop ||
+                platformEnv.isRuntimeBrowser) &&
                 isVerticalLayout)
                 ? 0
                 : '24px'

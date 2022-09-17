@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { Image } from 'native-base';
@@ -18,15 +24,17 @@ import {
   VStack,
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import X from '@onekeyhq/kit/assets/connect_x.png';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks';
+import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
+import { useEffectUpdateOnly } from '../../hooks/useEffectUpdateOnly';
 
 import RugConfirmDialog from './RugConfirmDialog';
 import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
@@ -61,17 +69,50 @@ type RouteProps = RouteProp<
 /* Connection Modal are use to accept user with permission to dapp */
 const defaultSourceInfo = Object.freeze({}) as IDappSourceInfo;
 const Connection = () => {
+  const { dispatch } = backgroundApiProxy;
+  const { closeDappConnectionPreloadingTs } = useAppSelector(
+    (s) => s.refresher,
+  );
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
   const { networkImpl, network, accountAddress, account } =
     useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? defaultSourceInfo;
-  const computedIsRug = isRug(origin);
+  const computedIsRug = useMemo(() => isRug(origin), [origin]);
+  const hostname = useMemo(() => {
+    try {
+      return new URL(origin).hostname;
+    } catch {
+      return origin?.split('://')?.[1] || origin;
+    }
+  }, [origin]);
   const route = useRoute<RouteProps>();
   const walletConnectUri = route?.params?.walletConnectUri;
   const isWalletConnectPreloading = Boolean(walletConnectUri);
   const [walletConnectError, setWalletConnectError] = useState<string>('');
+  const closeModal = useModalClose();
+
+  const isClosedDone = useRef(false);
+  useEffectUpdateOnly(() => {
+    if (isClosedDone.current) {
+      return;
+    }
+    // **** close preloading Modal on Extension
+    if (platformEnv.isExtensionUi) {
+      if (isWalletConnectPreloading) {
+        if (closeDappConnectionPreloadingTs) {
+          isClosedDone.current = true;
+          closeModal();
+        }
+      }
+    }
+  }, [
+    closeDappConnectionPreloadingTs,
+    closeModal,
+    dispatch,
+    isWalletConnectPreloading,
+  ]);
 
   useEffect(() => {
     if (walletConnectUri) {
@@ -224,7 +265,7 @@ const Connection = () => {
                   })}
                 </Typography.DisplayXLarge>
                 <Typography.Body2 textAlign="right" color="text-subdued" mt={1}>
-                  {origin?.split('://')[1] ?? 'DApp'}
+                  {hostname ?? 'DApp'}
                 </Typography.Body2>
               </Center>
               <VStack space={6} mx="8px" mt="40px">

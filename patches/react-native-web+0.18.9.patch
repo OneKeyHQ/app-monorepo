@@ -5,8 +5,8 @@ index 93c5f22..0e87063 100644
 @@ -179,6 +179,14 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
      }
    }
- 
-+  const isMountedRef = React.useRef(true);
+
++  var isMountedRef = React.useRef(true);
 +  React.useEffect(() => {
 +    isMountedRef.current = true;
 +    return () => {
@@ -16,7 +16,7 @@ index 93c5f22..0e87063 100644
 +
    var _React$useState = React.useState(() => {
      var uri = resolveAssetUri(source);
- 
+
 @@ -247,7 +255,7 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
      if (resizeMode === 'center' || resizeMode === 'repeat' || onLayout) {
        var _layout = e.nativeEvent.layout;
@@ -25,22 +25,22 @@ index 93c5f22..0e87063 100644
 +      isMountedRef.current && updateLayout(_layout);
      }
    } // Image loading
- 
+
 @@ -257,14 +265,14 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
      abortPendingRequest();
- 
+
      if (uri != null) {
 -      updateState(LOADING);
 +      isMountedRef.current && updateState(LOADING);
- 
+
        if (onLoadStart) {
          onLoadStart();
        }
- 
+
        requestRef.current = ImageLoader.load(uri, function load(e) {
 -        updateState(LOADED);
 +        isMountedRef.current && updateState(LOADED);
- 
+
          if (onLoad) {
            onLoad(e);
 @@ -274,7 +282,7 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
@@ -49,6 +49,6 @@ index 93c5f22..0e87063 100644
        }, function error() {
 -        updateState(ERRORED);
 +        isMountedRef.current && updateState(ERRORED);
- 
+
          if (onError) {
            onError({

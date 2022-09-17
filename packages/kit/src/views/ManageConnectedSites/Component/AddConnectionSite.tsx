@@ -2,10 +2,11 @@ import React, { FC, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Dialog, Input } from '@onekeyhq/components';
+import { Box, Dialog, Input, useToast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import walletConnectUtils from '../../../components/WalletConnect/walletConnectUtils';
+import { useActiveWalletAccount } from '../../../hooks';
 import { AddConnectionSideDialogProps } from '../types';
 
 const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
@@ -16,6 +17,8 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
   const handleInputChange = (value: string) => {
     setInputDappUrl(value);
   };
+  const { networkImpl } = useActiveWalletAccount();
+  const toast = useToast();
   return (
     <Dialog
       visible
@@ -23,23 +26,40 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
       footerButtonProps={{
         primaryActionTranslationId: 'action__add',
         primaryActionProps: { type: 'primary' },
-        onPrimaryActionPress: () => {
-          let origin = inputDappUrl.trim();
-          if (/^wc:.+@.+\?.+/.test(origin)) {
+        onPrimaryActionPress: async () => {
+          let inputText = inputDappUrl.trim();
+          if (/^wc:.+@.+\?.+/.test(inputText)) {
             walletConnectUtils.openConnectToDappModal({
-              uri: origin,
+              uri: inputText,
             });
-          } else if (origin.length > 0) {
+          } else if (inputText.length > 0) {
             if (
-              !origin.startsWith('http://') &&
-              !origin.startsWith('https://')
+              !inputText.startsWith('http://') &&
+              !inputText.startsWith('https://')
             ) {
-              origin = `https://${origin}`;
+              inputText = `https://${inputText}`;
             }
             try {
-              const testUrl = new URL(origin);
-              if (testUrl.hostname.includes('.')) {
-                backgroundApiProxy.serviceDapp.openConnectionModal({ origin });
+              const { hostname, origin } = new URL(inputText);
+              if (hostname.includes('.')) {
+                const existsAccounts =
+                  await backgroundApiProxy.serviceDapp.getActiveConnectedAccountsAsync(
+                    {
+                      origin,
+                      impl: networkImpl,
+                    },
+                  );
+                if (!existsAccounts?.length) {
+                  backgroundApiProxy.serviceDapp.openConnectionModal({
+                    origin,
+                  });
+                } else {
+                  toast.show({
+                    title: intl.formatMessage({
+                      id: 'msg__this_address_already_exists',
+                    }),
+                  });
+                }
               }
             } catch {
               //

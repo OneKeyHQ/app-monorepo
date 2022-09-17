@@ -15,6 +15,7 @@ import {
   IWalletConnectClientEventRpc,
 } from '../../components/WalletConnect/WalletConnectClient';
 import { WalletConnectClientForWallet } from '../../components/WalletConnect/WalletConnectClientForWallet';
+import { closeDappConnectionPreloading } from '../../store/reducers/refresher';
 import { wait } from '../../utils/helper';
 import { backgroundClass } from '../decorators';
 
@@ -101,6 +102,8 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         'getSessionStatusToApprove Error: connector not initialized',
       );
     }
+    const { dispatch } = this.backgroundApi;
+    dispatch(closeDappConnectionPreloading());
     const result = await this.ethereumRequest<string[]>(connector, {
       method: 'eth_requestAccounts',
     });

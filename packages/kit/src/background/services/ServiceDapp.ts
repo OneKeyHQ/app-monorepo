@@ -72,7 +72,17 @@ class ServiceDapp extends ServiceBase {
     }
     const accounts = connections
       .filter(
-        (item) => item.site.origin === origin && item.networkImpl === impl,
+        (item) => {
+          try {
+            return (
+              // only match hostname
+              new URL(item.site.origin).hostname === new URL(origin).hostname &&
+              item.networkImpl === impl
+            );
+          } catch {
+            return false;
+          }
+        },
         // && item.address === accountAddress, // only match current active account
       )
       .filter((item) => item.address && item.networkImpl);
