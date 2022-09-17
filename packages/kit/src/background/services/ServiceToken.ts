@@ -248,13 +248,34 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getPrices({
+    networkId,
+    tokenIds,
+  }: {
+    networkId: string;
+    tokenIds: string[];
+  }) {
+    const { appSelector } = this.backgroundApi;
+    const prices = appSelector((s) => s.tokens.tokensPrice)[networkId];
+    for (const tokenId of tokenIds) {
+      if (!prices[tokenId]) {
+        return this.fetchPrices({
+          activeNetworkId: networkId,
+          tokenIds,
+        });
+      }
+    }
+    return prices;
+  }
+
+  @backgroundMethod()
   async fetchPrices({
     activeNetworkId,
     activeAccountId,
     tokenIds,
   }: {
     activeNetworkId: string;
-    activeAccountId: string;
+    activeAccountId?: string;
     tokenIds?: string[];
   }) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
@@ -264,7 +285,9 @@ export default class ServiceToken extends ServiceBase {
       tokenIdsOnNetwork = tokenIds;
     } else {
       const ids1 = tokens[activeNetworkId] || [];
-      const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
+      const ids2 = activeAccountId
+        ? accountTokens[activeNetworkId]?.[activeAccountId] ?? []
+        : [];
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
       tokenIdsOnNetwork = Array.from(new Set(tokenIdsOnNetwork));
     }

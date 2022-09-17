@@ -1,4 +1,4 @@
-import React, { FC, Fragment } from 'react';
+import { FC } from 'react';
 
 import axios from 'axios';
 import { StyleSheet, View } from 'react-native';
@@ -18,13 +18,6 @@ import NavigationApp from './NavigationProvider';
 import NotificationProvider from './NotificationProvider';
 import ThemeApp from './ThemeProvider';
 
-// FullWindowOverlay can render above native views
-// but can not work with modal
-// https://github.com/software-mansion/react-native-screens/issues/1149
-// so now only used for toast
-const ToastOverlayIOS = FullWindowOverlay;
-const ToastOverlayNormal = Fragment;
-
 const swrConfig = {
   refreshInterval: 0,
   // @ts-ignore
@@ -38,38 +31,40 @@ const swrConfig = {
 const flexStyle = { flex: 1 };
 
 // TODO: detect network change & APP in background mode
-const KitProvider: FC = () => {
-  const toastElement = (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      <CustomToast bottomOffset={60} />
-    </View>
-  );
-  return (
-    <SWRConfig value={swrConfig}>
-      <ReduxProvider store={store}>
-        <GestureHandlerRootView style={flexStyle}>
-          <ThemeApp>
-            <AppLoading>
-              <ErrorBoundary>
-                <NotificationProvider>
-                  <RootSiblingParent>
-                    <NavigationApp />
-                    {platformEnv.isNativeIOS ? (
-                      <ToastOverlayIOS style={StyleSheet.absoluteFill}>
-                        {toastElement}
-                      </ToastOverlayIOS>
-                    ) : (
-                      <ToastOverlayNormal>{toastElement}</ToastOverlayNormal>
-                    )}
-                  </RootSiblingParent>
-                </NotificationProvider>
-              </ErrorBoundary>
-            </AppLoading>
-          </ThemeApp>
-        </GestureHandlerRootView>
-      </ReduxProvider>
-    </SWRConfig>
-  );
-};
+const KitProvider: FC = () => (
+  <SWRConfig value={swrConfig}>
+    <ReduxProvider store={store}>
+      <GestureHandlerRootView style={flexStyle}>
+        <ThemeApp>
+          <AppLoading>
+            <ErrorBoundary>
+              <NotificationProvider>
+                <RootSiblingParent>
+                  <NavigationApp />
+                  {platformEnv.isNativeIOS ? (
+                    // FullWindowOverlay can render above native views
+                    // but can not work with modal
+                    // https://github.com/software-mansion/react-native-screens/issues/1149
+                    // so now only used for toast
+                    <FullWindowOverlay style={StyleSheet.absoluteFill}>
+                      <View
+                        pointerEvents="box-none"
+                        style={StyleSheet.absoluteFill}
+                      >
+                        <CustomToast bottomOffset={60} />
+                      </View>
+                    </FullWindowOverlay>
+                  ) : (
+                    <CustomToast bottomOffset={60} />
+                  )}
+                </RootSiblingParent>
+              </NotificationProvider>
+            </ErrorBoundary>
+          </AppLoading>
+        </ThemeApp>
+      </GestureHandlerRootView>
+    </ReduxProvider>
+  </SWRConfig>
+);
 
 export default KitProvider;
