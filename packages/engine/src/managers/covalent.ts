@@ -614,6 +614,11 @@ async function createOutputActionFromCovalentLogEvent({
         const to = (
           params.find((p) => p.name === 'to')?.value || ''
         ).toLowerCase();
+        const tokenId = (
+          params.find((p) => p.name === 'tokenId')?.value || ''
+        ).toLowerCase();
+        tokenInfo.id = tokenId;
+
         action = {
           type: IDecodedTxActionType.TOKEN_TRANSFER,
           hidden: !(from === address || to === address),
@@ -638,6 +643,11 @@ async function createOutputActionFromCovalentLogEvent({
         const owner = (
           params.find((p) => p.name === 'owner')?.value || ''
         ).toLowerCase();
+        const tokenId = (
+          params.find((p) => p.name === 'tokenId')?.value || ''
+        ).toLowerCase();
+        tokenInfo.id = tokenId;
+
         const amount = convertTokenOnChainValueToAmount({ tokenInfo, value });
         action = {
           type: IDecodedTxActionType.TOKEN_APPROVE,

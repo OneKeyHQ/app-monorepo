@@ -1,6 +1,7 @@
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
+import { NFTAsset } from '../types/nft';
 import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
 
 import type { Engine } from '../index';
@@ -250,7 +251,9 @@ export enum IDecodedTxActionType {
   TOKEN_APPROVE = 'TOKEN_APPROVE',
 
   // NFT
-  // NFT_TRANSFER = 'NFT_TRANSFER',
+  NFT_TRANSFER = 'NFT_TRANSFER',
+  NFT_MINT = 'NFT_MINT',
+  NFT_SALE = 'NFT_SALE',
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',
@@ -313,6 +316,15 @@ export type IDecodedTxActionEvmInfo = {
   value: string;
   data?: string;
 };
+export type IDecodedTxActionNFTTransfer = IDecodedTxActionBase & {
+  asset: NFTAsset;
+  send: string;
+  receive: string;
+  amount: string;
+  value?: string;
+  exchangeName?: string; // Only for Sale
+};
+
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
 export type IDecodedTxActionInternalStake = IDecodedTxActionBase & IStakeInfo;
 // other Unknown Action
@@ -330,6 +342,7 @@ export type IDecodedTxAction = {
   // other Unknown Action
   unknownAction?: IDecodedTxActionUnknown;
   evmInfo?: IDecodedTxActionEvmInfo;
+  nftTransfer?: IDecodedTxActionNFTTransfer;
 };
 export type IDecodedTx = {
   txid: string; // blockHash
