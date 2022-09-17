@@ -29,7 +29,11 @@ import {
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../components/Format';
-import { useActiveWalletAccount, useManageTokens } from '../../hooks';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useManageTokens,
+} from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { wait } from '../../utils/helper';
@@ -144,9 +148,10 @@ function usePreSendAmountInfo({
       new BigNumber(
         getTokenPrice({
           token: tokenInfo,
+          fiatSymbol: selectedFiatMoneySymbol,
         }),
       ),
-    [getTokenPrice, tokenInfo],
+    [getTokenPrice, selectedFiatMoneySymbol, tokenInfo],
   );
   const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
   const getInputText = useCallback(
@@ -253,6 +258,7 @@ function usePreSendAmountInfo({
     );
   }, [amount, amountDisplayDecimals, desc, isFiatMode, tokenInfo]);
   useEffect(() => {
+    // isFiatMode calculate fiat value
     if (isFiatMode) {
       if (!text) {
         return onAmountChange('');
@@ -432,14 +438,17 @@ function PreSendAmount() {
           console.error(e);
           const { key: errorKey = '' } = e;
           if (errorKey === 'form__amount_invalid') {
-            toast.show({
-              title: intl.formatMessage(
-                { id: 'form__amount_invalid' },
-                { 0: tokenInfo?.symbol ?? '' },
-              ),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage(
+                  { id: 'form__amount_invalid' },
+                  { 0: tokenInfo?.symbol ?? '' },
+                ),
+              },
+              { type: 'error' },
+            );
           } else if (typeof e === 'string') {
-            toast.show({ title: e });
+            toast.show({ title: e }, { type: 'error' });
           }
         } finally {
           setIsLoading(false);

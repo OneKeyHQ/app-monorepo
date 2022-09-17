@@ -224,13 +224,15 @@ function SendConfirm() {
           await dappApprove.resolve({
             result: tx.txid,
           });
-          await serviceHistory.saveSendConfirmHistory({
-            networkId,
-            accountId,
-            data,
-            resendActionInfo,
-            feeInfo: feeInfoValue,
-          });
+          if (!routeParams.skipSaveHistory) {
+            await serviceHistory.saveSendConfirmHistory({
+              networkId,
+              accountId,
+              data,
+              resendActionInfo,
+              feeInfo: feeInfoValue,
+            });
+          }
         }
 
         navigation.navigate(SendRoutes.SendFeedbackReceipt, {

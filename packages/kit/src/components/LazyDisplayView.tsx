@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 export function LazyDisplayView({
   delay = 0,
-  hideOnUnmount = true,
+  hideOnUnmount = false,
   children,
 }: {
   delay?: number;

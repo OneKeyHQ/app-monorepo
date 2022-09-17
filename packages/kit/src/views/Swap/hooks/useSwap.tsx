@@ -20,11 +20,10 @@ import {
 import { Token } from '../../../store/typings';
 import { enabledNetworkIds } from '../config';
 import { SwapQuoter } from '../quoter';
-import { ApprovalState, FetchQuoteParams, SwapError } from '../typings';
+import { FetchQuoteParams, SwapError } from '../typings';
 import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
 
 import { useCachedBalances } from './useSwapTokenUtils';
-import { useHasPendingApproval } from './useTransactions';
 
 class TokenAmount {
   amount: BigNumber;
@@ -258,33 +257,6 @@ export function useTokenAllowance(token?: Token, spender?: string) {
   );
 }
 
-export function useApproveState(
-  token?: Token,
-  spender?: string,
-  target?: string,
-) {
-  const { networkId, accountId } = useActiveWalletAccount();
-  const allowance = useTokenAllowance(token, spender);
-  const pendingApproval = useHasPendingApproval(
-    accountId,
-    networkId,
-    token?.tokenIdOnNetwork,
-    spender,
-  );
-  return useMemo(() => {
-    if (!allowance || !target) {
-      return ApprovalState.UNKNOWN;
-    }
-    if (allowance.gte(target)) {
-      return ApprovalState.APPROVED;
-    }
-    if (pendingApproval) {
-      return ApprovalState.PENDING;
-    }
-    return ApprovalState.NOT_APPROVED;
-  }, [allowance, target, pendingApproval]);
-}
-
 export function useDerivedSwapState() {
   const {
     independentField,
@@ -315,11 +287,6 @@ export function useDerivedSwapState() {
     outputToken,
     greaterThanZeroOrUndefined(swapQuote?.buyAmount),
   );
-  const approveState = useApproveState(
-    inputToken,
-    swapQuote?.allowanceTarget,
-    swapQuote?.sellAmount,
-  );
 
   const formattedAmounts = useMemo(() => {
     const dependentField = independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
@@ -345,7 +312,6 @@ export function useDerivedSwapState() {
     inputBalance,
     outputBalance,
     formattedAmounts,
-    approveState,
   };
 }
 
