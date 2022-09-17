@@ -42,7 +42,7 @@ export type ICovalentHistoryListItemLogEvent = {
     params: Array<{
       decoded: boolean;
       indexed: boolean;
-      name: 'from' | 'to' | 'value' | 'owner' | 'spender'; // "from" "to" "value"
+      name: 'from' | 'to' | 'value' | 'owner' | 'spender' | 'tokenId'; // "from" "to" "value"
       type: string; // "address"   "uint256"
       value: string; // "0xa9b4d559a98ff47c83b74522b7986146538cd4df" "1200"
     }>;

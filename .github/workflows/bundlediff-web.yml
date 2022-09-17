@@ -37,7 +37,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn global add expo-cli && yarn
+          yarn global add expo-cli sharp-cli && yarn
 
       - name: Generate stats.json
         env:
@@ -48,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: head-stats
-          path: ./stats.json
+          path: ./packages/web/web-build/stats.json
 
   # Build base for comparison and upload stats.json
   # You may replace this with your own build method. All that
@@ -79,7 +79,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn global add expo-cli && yarn
+          yarn global add expo-cli sharp-cli && yarn
 
       - name: Generate stats.json
         env:
@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: base-stats
-          path: ./stats.json
+          path: ./packages/web/web-build/stats.json
 
   # run the action against the stats.json files
   compare:

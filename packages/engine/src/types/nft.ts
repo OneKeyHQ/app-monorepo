@@ -71,3 +71,31 @@ export type NFTScanNFTsResp = {
   success?: boolean;
   data: Collection[];
 };
+
+export type NFTTransaction = {
+  hash: string;
+  from: string;
+  to: string;
+  blockNumber?: string;
+  blockHash?: string;
+  gasPrice?: string;
+  timestamp?: string;
+  contractAddress?: string;
+  contractName?: string;
+  tokenId?: string;
+  ercType?: string;
+  send: string;
+  receive: string;
+  amount?: string;
+  tradeValue?: string;
+  tradePrice?: string;
+  tradeSymbol?: string;
+  eventType?: string;
+  exchangeName?: string;
+  asset?: NFTAsset;
+};
+
+export type TransactionsResp = {
+  success?: boolean;
+  data: NFTTransaction[];
+};

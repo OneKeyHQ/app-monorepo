@@ -38,6 +38,29 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
+  async batchLocalCollection({
+    networkId,
+    accountId,
+    contractAddressList,
+  }: {
+    networkId: string;
+    accountId: string;
+    contractAddressList: string[];
+  }) {
+    const collections = await this.getLocalNFTs({ networkId, accountId });
+    const collectionMap: Record<string, Collection> = {};
+    contractAddressList.forEach((address) => {
+      const collection = collections.find(
+        (item) => item.contractAddress && item.contractAddress === address,
+      );
+      if (collection) {
+        collectionMap[address] = collection;
+      }
+    });
+    return collectionMap;
+  }
+
+  @backgroundMethod()
   async getLocalNFTs({
     networkId,
     accountId,
