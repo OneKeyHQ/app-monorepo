@@ -345,6 +345,10 @@ export const networkSupportedTokens: Record<string, string[]> = {
     '0xf868939ee81f04f463010bc52eab91c0839ef08c',
     '0x23e8b6a3f6891254988b84da3738d2bfe5e703b9',
     '0xaaa5b9e6c589642f98a1cda99b9d024b8407285a',
+    //
+    '0x8f3cf7ad23cd3cadbd9735aff958023239c6a063',
+    '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619',
+    '0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6',
   ],
   [OnekeyNetwork.fantom]: [
     '0x5C4FDfc5233f935f20D2aDbA572F770c2E377Ab0',
@@ -359,8 +363,22 @@ export const networkSupportedTokens: Record<string, string[]> = {
   [OnekeyNetwork.arbitrum]: [
     '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',
     '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',
+    '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    //
+    '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',
+    '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+    '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f',
   ],
-  [OnekeyNetwork.optimism]: ['0x4200000000000000000000000000000000000042'],
+  [OnekeyNetwork.optimism]: [
+    '0x4200000000000000000000000000000000000042',
+    //
+    '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    '0x4200000000000000000000000000000000000006',
+    '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',
+    '0x94b008aa00579c1307b0ef2c499ad98a8ce58e58',
+    '0x68f180fcce6836688e9084f035309e29bf0a2095',
+    '0x7f5c764cbc14f9669b88837ca1490cca17c31607',
+  ],
   [OnekeyNetwork.sol]: [
     '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
     'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -377,7 +395,13 @@ export const networkSupportedTokens: Record<string, string[]> = {
     '0x6e84a6216ea6dacc71ee8e6b0a5b7322eebc0fdd',
     '0x83a283641C6B4DF383BCDDf807193284C84c5342',
   ],
-  [OnekeyNetwork.celo]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
+  [OnekeyNetwork.celo]: [
+    '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    //
+    '0xef4229c8c3250C675F21BCefa42f58EfbfF6002a',
+    '0x765DE816845861e75A25fCA122bb6898B8B1282a',
+    '0x471EcE3750Da237f93B8E339c536989b8978a438',
+  ],
   [OnekeyNetwork.trx]: [
     'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
     '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
