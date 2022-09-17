@@ -43,7 +43,7 @@
     "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi",
     "prepare": "husky install",
     "stats:web": "yarn workspace @onekeyhq/web stats",
-    "web-bundle-analyzer": "yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json"
+    "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.0.1",

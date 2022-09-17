@@ -40,6 +40,7 @@ module.exports = async function (env, argv) {
           ids: false,
           children: false,
           chunks: false,
+          modules: process.env.ANALYSE_MODULE === 'module',
         },
       }),
     );
