@@ -321,11 +321,14 @@ export class SocketQuoter implements Quoter {
     return data;
   }
 
-  async fetchSimpleQuote(
+  async fetchSimpleQuoteFromInput(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
     const url = `${baseURL}/quote`;
-    if (params.networkIn.id !== params.networkOut.id) {
+    if (
+      params.networkIn.id !== params.networkOut.id ||
+      params.independentField === 'OUTPUT'
+    ) {
       return undefined;
     }
 
@@ -409,6 +412,47 @@ export class SocketQuoter implements Quoter {
 
         return { data: result };
       }
+    }
+  }
+
+  async fetchSimpleQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    const { independentField } = params;
+    if (independentField === 'INPUT') {
+      return this.fetchSimpleQuoteFromInput(params);
+    }
+    const { tokenIn, tokenOut, typedValue } = params;
+    const instantRate = await this.fetchInstantTokenRateFromChain(
+      tokenIn,
+      tokenOut,
+      params.activeAccount.address,
+    );
+    if (!instantRate) {
+      return;
+    }
+
+    const newTypedValue = div(typedValue, instantRate);
+    const newParams = { ...params };
+    newParams.independentField = 'INPUT';
+    newParams.typedValue = newTypedValue;
+
+    const result = await this.fetchSimpleQuoteFromInput(newParams);
+    if (!result?.data) {
+      return result;
+    }
+
+    const buyAmountBN = new BigNumber(result.data.buyAmount);
+    const expectedbuyAmount = new BigNumber(
+      getTokenAmountString(tokenOut, typedValue),
+    );
+    const isExpected = buyAmountBN.isGreaterThan(
+      expectedbuyAmount.multipliedBy(0.95),
+    );
+    if (isExpected) {
+      const { data } = result;
+      data.buyAmount = getTokenAmountString(tokenOut, typedValue);
+      return { data };
     }
   }
 
@@ -519,7 +563,6 @@ export class SocketQuoter implements Quoter {
       tokenOut,
       params.activeAccount.address,
     );
-    console.log('instantRate', instantRate);
     if (!instantRate) {
       return;
     }
