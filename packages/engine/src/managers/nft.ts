@@ -7,6 +7,7 @@ import {
   NFTScanNFTsResp,
   NFTSymbolMap,
 } from '@onekeyhq/engine/src/types/nft';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { getFiatEndpoint } from '../endpoint';
 
@@ -108,16 +109,12 @@ export const syncImage = async (params: {
   return data;
 };
 
-type SymbolPricePayload = Record<string, Record<string, number>>;
 export const getNFTSymbolPrice = async (networkId: string) => {
-  const endpoint = getFiatEndpoint();
-  const symbolId = NFTSymbolMap[networkId];
-  const vsCurrencies = 'usd';
-  // TODO use redux prices
-  const apiUrl = `${endpoint}/simple/price?vs_currencies=${vsCurrencies}&ids=${symbolId}`;
-  const data = await axios
-    .get<SymbolPricePayload>(apiUrl)
-    .then((resp) => resp.data[symbolId]?.[vsCurrencies])
-    .catch(() => 0);
-  return data;
+  const tokenId = NFTSymbolMap[networkId];
+
+  const prices = await backgroundApiProxy.serviceToken.getPrices({
+    networkId,
+    tokenIds: [tokenId],
+  });
+  return prices[tokenId];
 };
