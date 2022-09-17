@@ -64,3 +64,6 @@ web-build/
 # Ignore yalc
 .yalc/
 yalc.lock
+
+stats.json
+stats.html

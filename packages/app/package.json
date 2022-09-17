@@ -13,7 +13,8 @@
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules && rimraf .expo && rimraf __generated__",
     "eas-build-post-install": "expo-yarn-workspaces postinstall",
-    "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh"
+    "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh",
+    "bundle-analyzer": "yarn react-native-bundle-visualizer --entry-file __generated__/AppEntry.js"
   },
   "dependencies": {
     "@ethersproject/shims": "^5.7.0",

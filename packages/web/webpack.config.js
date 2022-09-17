@@ -12,6 +12,7 @@ module.exports = async function (env, argv) {
     {
       ...env,
       babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
+      mode: process.NODE_ENV === 'production' ? 'production' : 'development',
     },
     argv,
   );

@@ -17,6 +17,8 @@
     "lint": "yarn workspaces run lint",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
+    "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
+    "stats:ios": "yarn ios-bundle-analyzer --format json",
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "m1:ios": "arch -x86_64 yarn ios",
     "m1:ios:device": "arch -x86_64 yarn ios:device",
@@ -39,7 +41,9 @@
     "test": "yarn test:unit",
     "test:unit": "yarn jest ./test/unit/",
     "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "stats:web": "yarn workspace @onekeyhq/web stats",
+    "web-bundle-analyzer": "yarn stats && npx webpack-bundle-analyzer stats.json"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.0.1",
@@ -105,6 +109,7 @@
     "patch-package": "^6.4.7",
     "prettier": "^2.3.2",
     "raw-loader": "^4.0.2",
+    "react-native-bundle-visualizer": "^3.1.1",
     "remove-files-webpack-plugin": "^1.4.5",
     "rimraf": "^3.0.2",
     "sharedworker-loader": "^2.1.1",
@@ -114,6 +119,7 @@
     "ts-loader": "^9.2.6",
     "typescript": "4.4.4",
     "webpack": "4.43.0",
+    "webpack-cli": "^4.10.0",
     "webpack-dev-server": "^4.9.2",
     "worker-loader": "^3.0.7"
   },

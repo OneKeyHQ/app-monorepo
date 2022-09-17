@@ -1,0 +1,97 @@
+on:
+  pull_request:
+    branches: [onekey]
+  push:
+    branches:
+      - onekey
+
+jobs:
+  # Build current and upload stats.json
+  # You may replace this with your own build method. All that
+  # is required is that the stats.json be an artifact
+  build-ios-head:
+    name: 'Build ios head'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{github.event.pull_request.head.ref}}
+      
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - uses: actions/cache@v2
+        id: yarn-cache
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          yarn global add expo-cli && yarn
+
+      - name: Generate stats.json
+        run: yarn stats:ios
+
+      - name: Upload stats.json
+        uses: actions/upload-artifact@v1
+        with:
+          name: head-stats
+          path: packages/app/stats.json
+
+  # Build base for comparison and upload stats.json
+  # You may replace this with your own build method. All that
+  # is required is that the stats.json be an artifact
+  build-ios-base:
+    name: 'Build ios base'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.base_ref }}
+      
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - uses: actions/cache@v2
+        id: yarn-cache
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          yarn global add expo-cli && yarn
+
+      - name: Generate stats.json
+        run: yarn stats:ios
+        
+      - name: Upload stats.json
+        uses: actions/upload-artifact@v1
+        with:
+          name: head-stats
+          path: packages/app/stats.json
+
+  # run the action against the stats.json files
+  compare:
+    name: 'Compare base & head bundle sizes'
+    uses: github/webpack-bundlesize-compare-action # you should probably lock to a sha of a version to avoid potentially breaking changes
+    with: 
+      title: 'ios bundle diff'
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      current-stats-json-path: ./head-stats/stats.json
+      base-stats-json-path: ./base-stats/stats.json

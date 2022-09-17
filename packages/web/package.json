@@ -7,8 +7,9 @@
     "postinstall": "expo-yarn-workspaces postinstall",
     "dev": "expo start",
     "start": "WEB_PORT=3000 expo start --web",
-    "build": "rm -rf ./web-build && npx expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
-    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
+    "build": "rm -rf ./web-build && NODE_ENV=production expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "stats": "NODE_ENV=production yarn webpack --stats=detailed --json=stats.json"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
