@@ -1,5 +1,6 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,17 +10,26 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { enabledAccountDynamicNetworkIds } from '@onekeyhq/engine/src/constants';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import {
   useActiveWalletAccount,
   useAppSelector,
+  useSettings,
+  useStatus,
 } from '@onekeyhq/kit/src/hooks/redux';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
-import { setHomeTabName } from '../../store/reducers/status';
+import { ModalRoutes, RootRoutes } from '../../routes/types';
+import {
+  setGuideToPushFistTime,
+  setHomeTabName,
+} from '../../store/reducers/status';
 import OfflineView from '../Offline';
+import { PushNotificationRoutes } from '../PushNotification/types';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AccountInfo, {
@@ -33,11 +43,15 @@ import { WalletHomeTabEnum } from './type';
 
 const WalletTabs: FC = () => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const { screenWidth } = useUserDevice();
   const [tabbarBgColor, borderDefault] = useThemeValue([
     'background-default',
     'border-subdued',
   ]);
+  const { guideToPushFirstTime } = useStatus();
+  const { pushNotification } = useSettings();
+  const { dispatch } = backgroundApiProxy;
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
@@ -62,6 +76,43 @@ const WalletTabs: FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet?.id, wallet?.backuped]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    if (!account?.id) {
+      return;
+    }
+    const { pushEnable } = pushNotification || {};
+    if (pushEnable) {
+      return;
+    }
+    if (guideToPushFirstTime) {
+      return;
+    }
+    if (!enabledAccountDynamicNetworkIds.includes(network?.id || '')) {
+      return;
+    }
+    if (!guideToPushFirstTime) {
+      dispatch(setGuideToPushFistTime(true));
+    }
+    setTimeout(() => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.PushNotification,
+        params: {
+          screen: PushNotificationRoutes.GuideToPushFirstTime,
+        },
+      });
+    }, 3000);
+  }, [
+    pushNotification,
+    account,
+    network,
+    dispatch,
+    navigation,
+    guideToPushFirstTime,
+  ]);
 
   return (
     <>

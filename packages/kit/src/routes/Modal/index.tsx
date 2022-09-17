@@ -27,6 +27,7 @@ import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccoun
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
 import ManageTokenModal from './ManageToken';
 import PasswordModal from './Password';
+import PushNotification from './PushNotification';
 import ReceiveToken from './ReceiveToken';
 import ScanQrcode from './ScanQrcode';
 import Send from './Send';
@@ -157,6 +158,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.ManageConnectedSites,
     component: ManageConnectedSitesModal,
+  },
+  {
+    name: ModalRoutes.PushNotification,
+    component: PushNotification,
   },
 ];
 

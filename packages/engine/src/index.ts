@@ -1150,7 +1150,7 @@ class Engine {
           });
         }
       }
-      if (typeof tokenInfo === 'undefined') {
+      if (!tokenInfo) {
         throw new Error('findToken ERROR: token not found.');
       }
       return {
