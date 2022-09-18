@@ -83,7 +83,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn global add expo-cli sharp-cli && yarn
+          yarn global add expo-cli sharp-cli@^1.10.0 && yarn
 
       - name: Inject Environment Variables
         env:
