@@ -9,23 +9,24 @@
  * Module:{ code: Bytes }
  */
 
-import BigNumber from 'bignumber.js';
-
 // TODO: add more types
 export type PayloadType = 'entry_function_payload';
 
-export type IEncodedTxAptos = {
-  sender?: string;
-  sequence_number?: number;
-  max_gas_amount?: string;
-  gas_unit_price?: string;
-  expiration_timestamp_secs?: BigNumber | string;
-  chain_id?: number;
-
-  //  payload
+export type TxPayload = {
   type: PayloadType;
   function?: string;
   arguments?: string[];
   type_arguments?: any[];
   code?: any[];
 };
+
+export type IEncodedTxAptos = {
+  sender?: string;
+  sequence_number?: string;
+  max_gas_amount?: string;
+  gas_unit_price?: string;
+  expiration_timestamp_secs?: string;
+  chain_id?: number;
+
+  //  payload
+} & TxPayload;

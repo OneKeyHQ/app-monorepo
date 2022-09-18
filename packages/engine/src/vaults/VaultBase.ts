@@ -290,6 +290,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
+  async activateToken(
+    tokenAddress: string,
+    password: string,
+  ): Promise<boolean> {
+    throw new NotImplemented();
+  }
+
   async getTokenAllowance(
     tokenAddress: string,
     spenderAddress: string,

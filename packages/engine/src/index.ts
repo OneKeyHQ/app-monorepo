@@ -1263,6 +1263,29 @@ class Engine {
   }
 
   @backgroundMethod()
+  async activateToken(
+    password: string,
+    accountId: string,
+    networkId: string,
+    tokenIdOnNetwork: string,
+  ): Promise<boolean> {
+    const vaultSettings = await this.getVaultSettings(networkId);
+    if (!vaultSettings.activateToken) return true;
+
+    const normalizedAddress = await this.validator.validateTokenAddress(
+      networkId,
+      tokenIdOnNetwork,
+    );
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+      throw new OneKeyInternalError(
+        `account ${accountId} and network ${networkId} isn't compatible.`,
+      );
+    }
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.activateToken(normalizedAddress, password);
+  }
+
+  @backgroundMethod()
   async preAddToken(
     accountId: string,
     networkId: string,

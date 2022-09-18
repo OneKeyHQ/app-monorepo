@@ -57,10 +57,12 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { IEncodedTxAptos } from './types';
 import {
-  APTOS_COINSTORE,
   APTOS_NATIVE_COIN,
   APTOS_TRANSFER_FUNC,
   DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
+  generateRegisterToken,
+  getAccountCoinResource,
+  getTokenInfo,
   getTransactionType,
   waitPendingTransaction,
 } from './utils';
@@ -152,14 +154,11 @@ export default class Vault extends VaultBase {
     return Promise.all(
       requests.map(async ({ address, tokenAddress }) => {
         try {
-          // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
-          const typeTag = `${APTOS_COINSTORE}<${
-            tokenAddress ?? APTOS_NATIVE_COIN
-          }>`;
-          const resources = await client.getAccountResources(
-            stripHexPrefix(address),
+          const accountResource = await getAccountCoinResource(
+            client,
+            address,
+            tokenAddress,
           );
-          const accountResource = resources.find((r) => r.type === typeTag);
           const balance = get(accountResource, 'data.coin.value', 0);
           return new BigNumber(balance);
         } catch (error: any) {
@@ -181,22 +180,46 @@ export default class Vault extends VaultBase {
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          const [address] = tokenAddress.split('::');
-          const module = await client.getAccountResource(
-            address,
-            `0x1::coin::CoinInfo<${tokenAddress ?? APTOS_NATIVE_COIN}>`,
-          );
-
-          return await Promise.resolve({
-            name: get(module, 'data.name', ''),
-            symbol: get(module, 'data.symbol', ''),
-            decimals: get(module, 'data.decimals', 6),
-          });
+          return await getTokenInfo(client, tokenAddress);
         } catch (e) {
           // pass
         }
       }),
     );
+  }
+
+  override async activateToken(
+    tokenAddress: string,
+    password: string,
+  ): Promise<boolean> {
+    const { address } = (await this.getDbAccount()) as DBSimpleAccount;
+
+    const resource = await getAccountCoinResource(
+      await this.getClient(),
+      address,
+      tokenAddress,
+    );
+
+    if (resource) return Promise.resolve(true);
+
+    const encodedTx: IEncodedTxAptos = generateRegisterToken(tokenAddress);
+    encodedTx.sender = address;
+
+    const unsignedTx = await this.buildUnsignedTxFromEncodedTx(encodedTx);
+    unsignedTx.payload = {
+      ...unsignedTx.payload,
+      encodedTx,
+    };
+
+    const tx = await this.signAndSendTransaction(
+      unsignedTx,
+      {
+        password,
+      },
+      false,
+    );
+
+    return !!tx.txid;
   }
 
   override async validateTokenAddress(tokenAddress: string): Promise<string> {
@@ -304,7 +327,6 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxAptos> {
     const { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
-    const client = await this.getClient();
 
     let amountValue;
     let argumentsType: any[];
@@ -364,7 +386,6 @@ export default class Vault extends VaultBase {
       options.type === 'transfer' &&
       encodedTx.function === APTOS_TRANSFER_FUNC
     ) {
-      const client = await this.getClient();
       const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
       const { amount } = payload as IEncodedTxUpdatePayloadTransfer;
 
@@ -573,6 +594,34 @@ export default class Vault extends VaultBase {
                 .shiftedBy(-token.decimals)
                 .toFixed(),
               amountValue,
+              extraInfo: null,
+            },
+          };
+        } else if (actionType === IDecodedTxActionType.TOKEN_ACTIVATE) {
+          const token = await this.engine.ensureTokenInDB(
+            this.networkId,
+            coinType,
+          );
+          let tokenInfo = {
+            name: token?.name ?? '',
+            symbol: token?.symbol ?? '',
+            decimals: token?.decimals ?? 6,
+            logoURI: token?.logoURI ?? '',
+          };
+
+          if (typeof token === 'undefined') {
+            tokenInfo = {
+              ...(await getTokenInfo(client, coinType)),
+              logoURI: '',
+            };
+          }
+
+          action = {
+            type: actionType,
+            tokenActivate: {
+              ...tokenInfo,
+              tokenAddress: coinType,
+
               extraInfo: null,
             },
           };

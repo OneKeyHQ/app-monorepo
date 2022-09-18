@@ -12,6 +12,8 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
+  activateAccount: true,
+  activateToken: true,
 };
 
 export default settings;

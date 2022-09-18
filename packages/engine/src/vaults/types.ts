@@ -42,6 +42,8 @@ export type IVaultSettings = {
   minTransferAmount?: string;
 
   isUTXOModel: boolean;
+  activateAccount?: boolean;
+  activateToken?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -252,6 +254,7 @@ export enum IDecodedTxActionType {
   // TOKEN
   TOKEN_TRANSFER = 'TOKEN_TRANSFER',
   TOKEN_APPROVE = 'TOKEN_APPROVE',
+  TOKEN_ACTIVATE = 'TOKEN_ACTIVATE',
 
   // NFT
   NFT_TRANSFER = 'NFT_TRANSFER',
@@ -313,6 +316,13 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amountValue: string;
   isMax: boolean;
 };
+export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
+  tokenAddress: string;
+  logoURI: string;
+  decimals: number;
+  name: string;
+  symbol: string;
+};
 export type IDecodedTxActionEvmInfo = {
   from: string;
   to: string;
@@ -339,6 +349,7 @@ export type IDecodedTxAction = {
   nativeTransfer?: IDecodedTxActionNativeTransfer;
   tokenTransfer?: IDecodedTxActionTokenTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
+  tokenActivate?: IDecodedTxActionTokenActivate;
   internalSwap?: IDecodedTxActionInternalSwap;
   internalStake?: IDecodedTxActionInternalStake;
   functionCall?: IDecodedTxActionFunctionCall;
