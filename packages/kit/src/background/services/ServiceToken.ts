@@ -256,7 +256,7 @@ export default class ServiceToken extends ServiceBase {
     tokenIds: string[];
   }) {
     const { appSelector } = this.backgroundApi;
-    const prices = appSelector((s) => s.tokens.tokensPrice)[networkId];
+    const prices = appSelector((s) => s.tokens.tokensPrice)[networkId] || {};
     for (const tokenId of tokenIds) {
       if (!prices[tokenId]) {
         return this.fetchPrices({
