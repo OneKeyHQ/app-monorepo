@@ -185,12 +185,12 @@ const ExchangeButton = () => {
       );
       backgroundApiProxy.serviceSwap.clearState();
       backgroundApiProxy.serviceToken.addAccountToken(
-        targetNetwork.id,
+        inputAmount.token.networkId,
         account.id,
         inputAmount.token.tokenIdOnNetwork,
       );
       backgroundApiProxy.serviceToken.addAccountToken(
-        targetNetwork.id,
+        outputAmount.token.networkId,
         account.id,
         outputAmount.token.tokenIdOnNetwork,
       );

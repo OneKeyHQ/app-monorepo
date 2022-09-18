@@ -24,7 +24,6 @@ export const enabledNetworkIds: string[] = [
   OnekeyNetwork.near,
   OnekeyNetwork.etc,
   OnekeyNetwork.teth,
-  OnekeyNetwork.kovan,
 ];
 
 export const zeroXServerEndpoints: Record<string, string> = {
