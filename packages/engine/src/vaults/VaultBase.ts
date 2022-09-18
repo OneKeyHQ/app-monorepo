@@ -290,6 +290,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
+  // TODO: is currently a mint
+  async activateAccount() {
+    throw new NotImplemented();
+  }
+
   async activateToken(
     tokenAddress: string,
     password: string,

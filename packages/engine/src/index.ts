@@ -1262,6 +1262,19 @@ class Engine {
     }
   }
 
+  /**
+   * Currently used in Mint
+   */
+  @backgroundMethod()
+  async activateAccount(accountId: string, networkId: string): Promise<void> {
+    // Activate an account.
+    const vaultSettings = await this.getVaultSettings(networkId);
+    if (!vaultSettings.activateAccount) return Promise.resolve();
+
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.activateAccount();
+  }
+
   @backgroundMethod()
   async activateToken(
     password: string,

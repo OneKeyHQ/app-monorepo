@@ -8,7 +8,7 @@ import {
   PartialTokenInfo,
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient, hexToBytes } from 'aptos';
+import { AptosClient, FaucetClient, hexToBytes } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { get, isNil } from 'lodash';
 import memoizee from 'memoizee';
@@ -186,6 +186,18 @@ export default class Vault extends VaultBase {
         }
       }),
     );
+  }
+
+  override async activateAccount() {
+    // TODO other network
+    // TODO check account is activated
+    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const client = new FaucetClient(
+      rpcURL,
+      'https://faucet.testnet.aptoslabs.com',
+    );
+    const { address } = (await this.getDbAccount()) as DBSimpleAccount;
+    await client.fundAccount(address, 1000000);
   }
 
   override async activateToken(
