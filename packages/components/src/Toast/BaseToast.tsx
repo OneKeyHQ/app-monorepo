@@ -24,7 +24,7 @@ const BaseToast: FC<BaseToastProps & RNBaseToastProps> = ({
   textColorToken,
   ...props
 }) => {
-  const [bgColor, borderColor, shaodwColor, textColor] = useThemeValue([
+  const [bgColor, borderColor, shadowColor, textColor] = useThemeValue([
     bgColorToken || 'surface-neutral-default',
     borderColorToken || bgColorToken || 'border-default',
     shadowColorToken || shadowColorToken || 'text-default',
@@ -45,7 +45,7 @@ const BaseToast: FC<BaseToastProps & RNBaseToastProps> = ({
         borderLeftWidth: StyleSheet.hairlineWidth,
         borderColor,
         borderLeftColor: borderColor,
-        shadowColor: shaodwColor,
+        shadowColor,
         shadowOffset: {
           width: 0,
           height: 4,
