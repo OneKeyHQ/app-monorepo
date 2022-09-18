@@ -1,5 +1,4 @@
-/* eslint-disable object-shorthand */
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { BaseToastProps as RNBaseToastProps } from 'react-native-toast-message';
 

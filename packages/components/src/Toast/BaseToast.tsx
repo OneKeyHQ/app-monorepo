@@ -1,5 +1,4 @@
-/* eslint-disable object-shorthand */
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { StyleSheet, TextStyle } from 'react-native';
 import {
@@ -44,7 +43,7 @@ const BaseToast: FC<BaseToastProps & RNBaseToastProps> = ({
         borderRadius: 9999,
         borderWidth: StyleSheet.hairlineWidth,
         borderLeftWidth: StyleSheet.hairlineWidth,
-        borderColor: borderColor,
+        borderColor,
         borderLeftColor: borderColor,
         shadowColor: shaodwColor,
         shadowOffset: {
