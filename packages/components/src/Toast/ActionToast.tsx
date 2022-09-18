@@ -12,32 +12,25 @@ import { Text } from '../Typography';
 type ActionToastProps = {
   bgColorToken?: ThemeToken;
   borderColorToken?: ThemeToken;
-  shadowColorToken?: ThemeToken;
   textColorToken?: ThemeToken;
-  buttonText?: string;
-  buttonTextColorToken?: ThemeToken;
   onPress?: () => void;
 };
 
 const ActionToast: FC<ActionToastProps & RNBaseToastProps> = ({
   bgColorToken,
   borderColorToken,
-  shadowColorToken,
   textColorToken,
-  buttonText,
-  buttonTextColorToken,
+  text2,
   onPress,
   text1,
   ...props
 }) => {
-  const [bgColor, borderColor, shadowColor, textColor, buttonTextColor] =
-    useThemeValue([
-      bgColorToken || 'surface-default',
-      borderColorToken || bgColorToken || 'border-default',
-      shadowColorToken || shadowColorToken || 'text-default',
-      textColorToken || 'text-default',
-      buttonTextColorToken || 'interactive-default',
-    ]);
+  const [bgColor, borderColor, textColor, buttonTextColor] = useThemeValue([
+    bgColorToken || 'surface-default',
+    borderColorToken || bgColorToken || 'border-default',
+    textColorToken || 'text-default',
+    'interactive-default',
+  ]);
 
   return (
     <Box
@@ -46,38 +39,23 @@ const ActionToast: FC<ActionToastProps & RNBaseToastProps> = ({
       borderRadius="12px"
       bg={bgColor}
       borderColor={borderColor}
-      style={{
-        shadowColor,
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 20.0,
-        elevation: 8,
-      }}
       py="8px"
       px="12px"
-      // contentContainerProps={{
-      //   style: {
-      //     paddingVertical: 8,
-      //     paddingHorizontal: 16,
-      //     marginLeft: 0,
-      //     alignSelf: 'center',
-      //     maxWidth: 340,
-      //   },
-      // }}
+      flexDirection="column"
     >
-      <Text
-        textAlign="center"
-        typography="Body1"
-        color={textColor}
-        numberOfLines={3}
-      >
+      <Text typography="Body1" color={textColor} numberOfLines={3}>
         {text1}
       </Text>
-      <Button type="plain" onPress={onPress}>
-        {buttonText}
+      <Button
+        mb="4px"
+        mt="4px"
+        alignSelf="flex-end"
+        type="plain"
+        onPress={onPress}
+      >
+        <Text typography="Body1" color={buttonTextColor} numberOfLines={1}>
+          {text2}
+        </Text>
       </Button>
     </Box>
   );

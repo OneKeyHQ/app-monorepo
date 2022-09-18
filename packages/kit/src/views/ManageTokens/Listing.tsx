@@ -39,6 +39,7 @@ import {
 import { timeout } from '../../utils/helper';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
+import { showHomeBalanceSettings } from '../Overlay/BottomSheetSettings';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -296,7 +297,6 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         );
         return;
       }
-      toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
       backgroundApiProxy.serviceToken.fetchAccountTokens({
         activeAccountId: accountId,
         activeNetworkId: networkId,
@@ -321,12 +321,23 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         });
         if (value.isLessThan(1)) {
           // TODO native toast
-          toast.show({
-            title: intl.formatMessage({
-              id: 'msg__token_has_been_added_but_is_hidden',
-            }),
-          });
+          toast.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__token_has_been_added_but_is_hidden',
+              }),
+            },
+            {
+              type: 'action',
+              text2: intl.formatMessage({
+                id: 'action__go_to_setting',
+              }),
+              onPress: showHomeBalanceSettings,
+            },
+          );
         }
+      } else {
+        toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
       }
     }
   }, [accountId, networkId, toast, intl, hideSmallBalance, item]);
