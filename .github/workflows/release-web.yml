@@ -70,7 +70,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn global add expo-cli && yarn
+          yarn global add expo-cli sharp-cli@^1.10.0 && yarn
 
       - name: Inject Environment Variables
         env:
@@ -85,7 +85,7 @@ jobs:
       - name: Build Target
         env:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
           cd packages/web && yarn build && cd ../..
 

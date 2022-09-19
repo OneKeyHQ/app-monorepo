@@ -87,7 +87,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn global add expo-cli && yarn
+          yarn global add expo-cli sharp-cli@^1.10.0 && yarn
 
       - name: Inject Environment Variables
         env:
@@ -106,7 +106,7 @@ jobs:
       - name: Publish and Sign Static Linux / Macos / Windows Installer
         if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
@@ -117,7 +117,7 @@ jobs:
 
       - name: Build and Sign Static Linux / Macos / Windows Installer
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}

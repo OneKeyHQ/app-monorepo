@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 const webpack = require('webpack');
 const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
 const webpackTools = require('../../development/webpackTools');
@@ -12,7 +13,8 @@ module.exports = async function (env, argv) {
     {
       ...env,
       babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
-      mode: process.NODE_ENV === 'production' ? 'production' : 'development',
+      mode:
+        process.env.NODE_ENV === 'production' ? 'production' : 'development',
     },
     argv,
   );
@@ -21,5 +23,27 @@ module.exports = async function (env, argv) {
     config,
     env,
   });
+  if (process.env.ENABLE_ANALYZER) {
+    const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+    config.plugins.push(
+      new BundleAnalyzerPlugin({
+        analyzerMode: 'disabled',
+        generateStatsFile: true,
+        statsOptions: {
+          reasons: false,
+          warnings: false,
+          errors: false,
+          optimizationBailout: false,
+          usedExports: false,
+          providedExports: false,
+          source: false,
+          ids: false,
+          children: false,
+          chunks: false,
+          modules: process.env.ANALYSE_MODULE === 'module',
+        },
+      }),
+    );
+  }
   return config;
 };

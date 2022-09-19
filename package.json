@@ -18,7 +18,7 @@
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
     "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
-    "stats:ios": "yarn ios-bundle-analyzer --format json",
+    "stats:ios": "yarn ios-bundle-analyzer --format json && node development/build-ios-stats.js",
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "m1:ios": "arch -x86_64 yarn ios",
     "m1:ios:device": "arch -x86_64 yarn ios:device",
@@ -43,7 +43,7 @@
     "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi",
     "prepare": "husky install",
     "stats:web": "yarn workspace @onekeyhq/web stats",
-    "web-bundle-analyzer": "yarn stats && npx webpack-bundle-analyzer stats.json"
+    "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.0.1",
@@ -119,6 +119,7 @@
     "ts-loader": "^9.2.6",
     "typescript": "4.4.4",
     "webpack": "4.43.0",
+    "webpack-bundle-analyzer": "^4.6.1",
     "webpack-cli": "^4.10.0",
     "webpack-dev-server": "^4.9.2",
     "worker-loader": "^3.0.7"
