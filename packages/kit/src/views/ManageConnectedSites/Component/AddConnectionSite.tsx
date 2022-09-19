@@ -76,7 +76,9 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
               autoFocus
               width="full"
               type="text"
-              placeholder="https://example.com"
+              placeholder={intl.formatMessage({
+                id: 'form__start_with_wc_or_https_placeholder',
+              })}
               onChangeText={handleInputChange}
             />
           </Box>
