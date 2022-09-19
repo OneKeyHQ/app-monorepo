@@ -111,10 +111,12 @@ function useAddExistingWallet({
       if (!text) {
         return;
       }
-      const results = await backgroundApiProxy.validator.validateCreateInput({
-        input: text,
-        onlyFor: inputCategory,
-      });
+      const results = (
+        await backgroundApiProxy.validator.validateCreateInput({
+          input: text,
+          onlyFor: inputCategory,
+        })
+      ).filter(({ category }) => category !== UserInputCategory.ADDRESS);
 
       if (results.length === 0) {
         // Check failed. Shouldn't happen.
@@ -347,6 +349,8 @@ function AddExistingWalletView(
                     input: text,
                     onlyFor: inputCategory,
                   })
+                ).filter(
+                  ({ category }) => category !== UserInputCategory.ADDRESS,
                 ).length > 0
               ) {
                 return true;
