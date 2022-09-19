@@ -37,7 +37,7 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   async updateTokens(impl: string, chainId: string, tokens: ServerToken[]) {
     const networkId = `${impl}--${chainId}`;
-    const normalizedTokens = tokens.map((t) => formatServerToken(networkId, t));
+    const normalizedTokens = tokens.map((t) => formatServerToken(t));
     await this.saveTokens(networkId, normalizedTokens);
   }
 
