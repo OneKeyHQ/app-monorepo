@@ -112,6 +112,9 @@ export const syncImage = async (params: {
 
 export const getNFTSymbolPrice = async (networkId: string) => {
   const tokenId = NFTSymbolMap[networkId];
+  if (typeof tokenId === 'undefined') {
+    return null;
+  }
 
   const prices = await backgroundApiProxy.serviceToken.getPrices({
     networkId,
