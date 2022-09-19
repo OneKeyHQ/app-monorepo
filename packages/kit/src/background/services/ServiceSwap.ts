@@ -212,14 +212,24 @@ export default class ServiceSwap extends ServiceBase {
     encodedTx: IEncodedTx;
     payload?: SendConfirmParams['payloadInfo'];
   }) {
+    const { accountId, networkId, encodedTx } = params;
     const { engine, servicePassword, serviceHistory } = this.backgroundApi;
 
-    const password = await servicePassword.getPassword();
-    if (!password) {
-      throw new Error('Internal Error');
+    const wallets = await engine.getWallets();
+    const activeWallet = wallets.find((wallet) =>
+      wallet.accounts.includes(accountId),
+    );
+
+    let password: string | undefined;
+    if (activeWallet?.type === 'hw') {
+      password = '';
+    } else {
+      password = await servicePassword.getPassword();
     }
 
-    const { accountId, networkId, encodedTx } = params;
+    if (password === undefined) {
+      throw new Error('Internal Error');
+    }
 
     let feeInfoUnit: IFeeInfoUnit | undefined;
 
