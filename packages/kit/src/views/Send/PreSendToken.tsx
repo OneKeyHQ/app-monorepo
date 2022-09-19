@@ -49,8 +49,8 @@ function PreSendToken() {
             showRoundTop
             singleton
             hidePriceInfo
-            ListHeaderComponent={<Box h={8} />}
-            ListFooterComponent={<Box h={8} />}
+            ListHeaderComponent={<Box h={0} />}
+            ListFooterComponent={<Box h={0} />}
             contentContainerStyle={{
               paddingHorizontal: 0,
               marginTop: 0,
