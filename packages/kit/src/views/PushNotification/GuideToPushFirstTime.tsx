@@ -131,6 +131,7 @@ const GuideToPushFirstTime: FC = () => {
               <Typography.Body2
                 flex={isVertical ? undefined : 1}
                 numberOfLines={2}
+                color="text-subdued"
               >
                 {c.desc}
               </Typography.Body2>
