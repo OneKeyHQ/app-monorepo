@@ -127,6 +127,7 @@ export default function ConnectedSites() {
                 closeOverlay();
               },
             },
+            wrap: true,
           }}
           contentProps={{
             iconType: 'danger',
