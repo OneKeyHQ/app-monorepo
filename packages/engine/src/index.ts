@@ -1424,6 +1424,7 @@ class Engine {
     const tokens = await fetchOnlineTokens({
       impl,
       chainId,
+      includeNativeToken: 1,
     });
     if (tokens.length) {
       await simpleDb.token.updateTokens(impl, chainId, tokens);
@@ -1442,13 +1443,18 @@ class Engine {
 
   @backgroundMethod()
   async searchTokens(
-    networkId: string,
+    networkId: string | undefined,
     searchTerm: string,
   ): Promise<Array<Token>> {
     if (searchTerm.length === 0) {
       return [];
     }
-
+    if (!networkId) {
+      const result = await fetchOnlineTokens({
+        query: searchTerm,
+      });
+      return result.map((t) => formatServerToken(t));
+    }
     let tokenAddress = '';
     try {
       const vault = await this.getChainOnlyVault(networkId);
@@ -1478,7 +1484,7 @@ class Engine {
         chainId,
         query: searchTerm,
       });
-      onlineTokens = result.map((t) => formatServerToken(networkId, t));
+      onlineTokens = result.map((t) => formatServerToken(t));
     } catch (error) {
       debugLogger.engine.error('search online tokens error', {
         error: error instanceof Error ? error.message : error,

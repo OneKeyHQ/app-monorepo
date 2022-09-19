@@ -8,12 +8,14 @@ import { IMPL_SOL, IMPL_STC, IMPL_TRON, SEPERATOR } from '../constants';
 import { getFiatEndpoint } from '../endpoint';
 import { OneKeyInternalError } from '../errors';
 
-import { parseNetworkId } from './network';
-
 export type TokenQuery = {
-  impl: string;
-  chainId: string;
+  // for all chain search
+  impl?: string;
+  chainId?: string;
+
   query?: string;
+  // v3.12+
+  includeNativeToken?: 0 | 1;
 };
 
 export type TokenSource = {
@@ -42,15 +44,16 @@ function getNetworkIdFromTokenId(tokenId: string): string {
   throw new OneKeyInternalError(`Invalid tokenId ${tokenId}.`);
 }
 
-export const formatServerToken = (networkId: string, token: ServerToken) => {
+export const formatServerToken = (token: ServerToken) => {
   const { address = '', logoURI } = token;
-  const { impl = '' } = parseNetworkId(networkId);
+  const { impl, chainId } = token;
   let tokenAddress = address;
   if (impl) {
     tokenAddress = caseSensitiveImpls.has(impl)
       ? address
       : address.toLowerCase();
   }
+  const networkId = `${impl}--${chainId}`;
   return {
     ...token,
     id: `${networkId}--${tokenAddress}`,
@@ -101,10 +104,11 @@ export const checkTokenUpdate = async (timestamp: number): Promise<boolean> =>
 export const fetchOnlineTokens = async (
   params: TokenQuery,
 ): Promise<ServerToken[]> => {
-  const { chainId, impl, query } = params;
+  const { chainId, impl, query, includeNativeToken = 1 } = params;
   const search = {
-    chainId: String(chainId),
     impl,
+    chainId,
+    includeNativeToken,
   };
   if (query) {
     Object.assign(search, { query });
