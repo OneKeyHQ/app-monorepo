@@ -14,26 +14,28 @@ export const useTokenSearch = (
   const [result, setResult] = useState<Token[]>([]);
   useEffect(() => {
     async function main() {
-      if (keyword.length === 0 || !networkId || !accountId) {
+      if (keyword.length === 0 || !accountId) {
         return;
       }
       setLoading(true);
       setResult([]);
-      let tokens = [];
+      let tokens: Token[] = [];
       try {
-        tokens = await backgroundApiProxy.engine.searchTokens(
-          networkId,
+        tokens = await backgroundApiProxy.serviceSwap.searchTokens({
+          networkId: networkId ?? undefined,
           keyword,
-        );
+        });
         setResult(tokens);
       } finally {
         setLoading(false);
       }
-      backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        tokenIds: tokens.map((i) => i.tokenIdOnNetwork),
-      });
+      if (networkId) {
+        backgroundApiProxy.serviceToken.fetchTokenBalance({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          tokenIds: tokens.map((i) => i.tokenIdOnNetwork),
+        });
+      }
     }
     main();
   }, [keyword, networkId, accountId]);

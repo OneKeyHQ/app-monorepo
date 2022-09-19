@@ -235,14 +235,14 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
           <Box mr="4">
             <TokenIcon src={tx.tokens?.from.token.logoURI} size="8" />
           </Box>
-          <Box flexDirection="row" alignItems="center">
-            <Typography.Body1Strong>
+          <Box flexDirection="row" alignItems="center" flex="1" flexWrap="wrap">
+            <Typography.Body1Strong mr="2">
               {formatTokenAmount({
                 token: tx.tokens?.from.token,
                 amount: tx.tokens?.from.amount,
               })}
             </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued" ml="2">
+            <Typography.Body2 color="text-subdued">
               ({fromNetwork?.shortName})
             </Typography.Body2>
           </Box>
@@ -254,14 +254,14 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
           <Box mr="4">
             <TokenIcon src={tx.tokens?.to.token.logoURI} size="8" />
           </Box>
-          <Box flexDirection="row" alignItems="center">
-            <Typography.Body1Strong>
+          <Box flexDirection="row" alignItems="center" flex="1" flexWrap="wrap">
+            <Typography.Body1Strong mr="2">
               {formatTokenAmount({
                 token: tx.tokens?.to.token,
                 amount: tx.tokens?.to.amount,
               })}
             </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued" ml="2">
+            <Typography.Body2 color="text-subdued">
               ({toNetwork?.shortName})
             </Typography.Body2>
           </Box>

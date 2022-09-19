@@ -6,14 +6,12 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAppSelector, useNavigation } from '../../../hooks';
 import ReceivingTokenSelector from '../components/ReceivingTokenSelector';
 import { ReceivingTokenSelectorContext } from '../components/ReceivingTokenSelector/context';
+import { networkSupportedTokens, swftOnlyNetwork } from '../config';
 import { useSwapState } from '../hooks/useSwap';
 
 const Output = () => {
   const navigation = useNavigation();
   const { inputToken } = useSwapState();
-  const swftcSupportedTokens = useAppSelector(
-    (s) => s.swap.swftcSupportedTokens,
-  );
   const receivingNetworkId = useAppSelector((s) => s.swap.receivingNetworkId);
 
   const onSelect = useCallback(
@@ -30,10 +28,13 @@ const Output = () => {
       receivingNetworkId &&
       receivingNetworkId !== inputToken.networkId
     ) {
-      return swftcSupportedTokens[receivingNetworkId];
+      return networkSupportedTokens[receivingNetworkId];
+    }
+    if (receivingNetworkId && swftOnlyNetwork.includes(receivingNetworkId)) {
+      return networkSupportedTokens[receivingNetworkId];
     }
     return undefined;
-  }, [receivingNetworkId, swftcSupportedTokens, inputToken]);
+  }, [receivingNetworkId, inputToken]);
 
   const onSelectNetworkId = useCallback((networkid?: string) => {
     backgroundApiProxy.serviceSwap.setReceivingNetworkId(networkid);

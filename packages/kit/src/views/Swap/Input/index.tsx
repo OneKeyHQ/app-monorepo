@@ -8,6 +8,7 @@ import {
 } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
+import { networkSupportedTokens, swftOnlyNetwork } from '../config';
 import { useSwapState } from '../hooks/useSwap';
 
 import type { Token } from '../../../store/typings';
@@ -16,9 +17,7 @@ const Input = () => {
   const navigation = useNavigation();
   const { network } = useActiveWalletAccount();
   const { outputToken } = useSwapState();
-  const swftcSupportedTokens = useAppSelector(
-    (s) => s.swap.swftcSupportedTokens,
-  );
+
   const sendingNetworkId = useAppSelector((s) => s.swap.sendingNetworkId);
   const onSelect = useCallback(
     (token: Token) => {
@@ -34,10 +33,13 @@ const Input = () => {
       sendingNetworkId &&
       sendingNetworkId !== outputToken.networkId
     ) {
-      return swftcSupportedTokens[sendingNetworkId];
+      return networkSupportedTokens[sendingNetworkId];
+    }
+    if (sendingNetworkId && swftOnlyNetwork.includes(sendingNetworkId)) {
+      return networkSupportedTokens[sendingNetworkId];
     }
     return undefined;
-  }, [sendingNetworkId, swftcSupportedTokens, outputToken]);
+  }, [sendingNetworkId, outputToken]);
 
   const onSelectNetworkId = useCallback((networkid?: string) => {
     backgroundApiProxy.serviceSwap.setSendingNetworkId(networkid);

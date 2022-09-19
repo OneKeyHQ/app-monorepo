@@ -383,9 +383,7 @@ export default class Vault extends VaultBase {
           { type: 'address', value: to },
           {
             type: 'uint256',
-            value: parseInt(
-              new BigNumber(amount).shiftedBy(token.decimals).toFixed(),
-            ),
+            value: new BigNumber(amount).shiftedBy(token.decimals).toFixed(0),
           },
         ],
         from,

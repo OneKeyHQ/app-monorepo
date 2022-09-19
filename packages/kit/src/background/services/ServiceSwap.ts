@@ -22,6 +22,7 @@ import {
 } from '../../store/reducers/swap';
 import { clearAccountTransactions } from '../../store/reducers/swapTransactions';
 import { SendConfirmParams } from '../../views/Send/types';
+import { enabledNetworkIds } from '../../views/Swap/config';
 import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -229,7 +230,7 @@ export default class ServiceSwap extends ServiceBase {
         encodedTx,
       });
 
-      if (Number(feeInfo.limit) <= 0) {
+      if (Number.isNaN(Number(feeInfo.limit)) || Number(feeInfo.limit) <= 0) {
         throw Error('bad limit');
       }
 
@@ -282,9 +283,78 @@ export default class ServiceSwap extends ServiceBase {
     await serviceHistory.saveSendConfirmHistory({
       networkId,
       accountId,
-      data: { signedTx, decodedTx, encodedTx },
+      data: { signedTx, decodedTx, encodedTx: signedTx.encodedTx },
     });
 
-    return { result: signedTx, decodedTx, encodedTx };
+    return { result: signedTx, decodedTx, encodedTx: signedTx.encodedTx };
+  }
+
+  @backgroundMethod()
+  async searchTokens({
+    networkId,
+    keyword,
+  }: {
+    networkId?: string;
+    keyword?: string;
+  }) {
+    const { appSelector, engine } = this.backgroundApi;
+    if (!keyword || !keyword.trim()) {
+      return [];
+    }
+    const term = keyword.trim();
+    if (!networkId) {
+      const networkTokens = appSelector((s) => s.tokens.tokens);
+      const possibleNetworkIds = await engine.validator.validateAnyAddress(
+        term,
+      );
+      if (possibleNetworkIds.length > 0) {
+        const possibleTokens = Object.entries(networkTokens)
+          .filter(
+            ([tokenNetworkId]) =>
+              possibleNetworkIds.includes(tokenNetworkId) &&
+              enabledNetworkIds.includes(tokenNetworkId),
+          )
+          .reduce((result, item) => result.concat(item[1]), [] as Token[]);
+        return possibleTokens.filter((item) => item.tokenIdOnNetwork === term);
+      }
+      const possibleTokens = Object.values(networkTokens).reduce(
+        (result, item) => result.concat(item),
+        [],
+      );
+      const filterTokens = (items: Token[], search: string): Token[] => {
+        if (search.length === 0) return items;
+
+        const lowerSearchParts = search
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((s) => s.length > 0);
+
+        if (lowerSearchParts.length === 0) {
+          return items;
+        }
+
+        const matchesSearch = (s: string): boolean => {
+          const sParts = s
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((o) => o.length > 0);
+
+          return lowerSearchParts.every(
+            (p) =>
+              p.length === 0 ||
+              sParts.some((sp) => sp.startsWith(p) || sp.endsWith(p)),
+          );
+        };
+
+        return items.filter((token) => {
+          const { symbol, name } = token;
+          return (
+            (symbol && matchesSearch(symbol)) || (name && matchesSearch(name))
+          );
+        });
+      };
+      return filterTokens(possibleTokens, term);
+    }
+    return engine.searchTokens(networkId, term);
   }
 }

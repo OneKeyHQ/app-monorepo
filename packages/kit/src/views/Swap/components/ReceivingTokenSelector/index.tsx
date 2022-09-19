@@ -199,7 +199,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     ReceivingTokenSelectorContext,
   );
 
-  const tokenNetwork = useNetwork(networkId);
+  const tokenNetwork = useNetwork(token.networkId);
 
   const onPress = useCallback(() => {
     onSelect?.(token);
@@ -209,10 +209,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     token.tokenIdOnNetwork === selectedToken?.tokenIdOnNetwork;
 
   let description: string = token.name;
-  if (!networkId && tokenNetwork) {
-    description = tokenNetwork?.shortName;
-  } else if (token.tokenIdOnNetwork) {
+  if (token.tokenIdOnNetwork) {
     description = shortenAddress(token.tokenIdOnNetwork);
+  } else if (tokenNetwork) {
+    description = tokenNetwork?.name;
   }
   return (
     <Pressable
@@ -231,22 +231,39 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       opacity={isSelected ? 60 : 1000}
     >
       <Box display="flex" alignItems="center" flexDirection="row">
-        <Image
-          source={{ uri: token.logoURI }}
-          alt="logoURI"
-          size="8"
-          borderRadius="full"
-          fallbackElement={
-            <Center
-              w={8}
-              h={8}
-              rounded="full"
-              bgColor="surface-neutral-default"
+        <Box position="relative">
+          <Image
+            source={{ uri: token.logoURI }}
+            alt="logoURI"
+            size="8"
+            borderRadius="full"
+            fallbackElement={
+              <Center
+                w={8}
+                h={8}
+                rounded="full"
+                bgColor="surface-neutral-default"
+              >
+                <Icon size={20} name="QuestionMarkOutline" />
+              </Center>
+            }
+          />
+          {networkId === undefined && tokenNetwork && token.tokenIdOnNetwork ? (
+            <Box
+              position="absolute"
+              top="-2"
+              right="-2"
+              w="18px"
+              h="18px"
+              bg="surface-default"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius="full"
             >
-              <Icon size={20} name="QuestionMarkOutline" />
-            </Center>
-          }
-        />
+              <Image w="4" h="4" source={{ uri: tokenNetwork.logoURI }} />
+            </Box>
+          ) : null}
+        </Box>
         <Box ml="3">
           <Box alignItems="center" flexDirection="row">
             <Text

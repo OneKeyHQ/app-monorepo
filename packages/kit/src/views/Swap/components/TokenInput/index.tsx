@@ -20,8 +20,8 @@ import {
   useActiveWalletAccount,
 } from '../../../../hooks';
 import { Token as TokenType } from '../../../../store/typings';
-import { Chains } from '../../config';
-import { formatAmount, getChainIdFromNetworkId } from '../../utils';
+import { tokenReservedValues } from '../../config';
+import { formatAmount } from '../../utils';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -58,14 +58,8 @@ const TokenInput: FC<TokenInputProps> = ({
     if (token.tokenIdOnNetwork || tokenNetwork?.impl !== 'evm') {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
-      const chainId = getChainIdFromNetworkId(token.networkId);
-      let minuend = 0.1;
-      if (chainId === Chains.MAINNET || chainId === Chains.BSC) {
-        minuend = 0.01;
-      } else if (chainId === Chains.POLYGON) {
-        minuend = 0.03;
-      }
-      const v = Math.max(0, Number(value) - minuend);
+      const reserved = tokenReservedValues[token.networkId] ?? 0.1;
+      const v = Math.max(0, Number(value) - reserved);
       if (v > 0) {
         backgroundApiProxy.serviceSwap.userInput(type, String(v));
       } else if (Number(value) > 0) {

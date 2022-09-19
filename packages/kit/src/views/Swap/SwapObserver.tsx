@@ -5,13 +5,9 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
-import {
-  setSendingNetworkId,
-  setSwftcSupportedTokens,
-} from '../../store/reducers/swap';
+import { setSendingNetworkId } from '../../store/reducers/swap';
 
 import { useEnabledSwappableNetworks } from './hooks/useSwap';
-import { SwapQuoter } from './quoter';
 import { refs } from './refs';
 import { isNetworkEnabled } from './utils';
 
@@ -66,13 +62,6 @@ const NetworkObserver = () => {
 const PreWorker = () => {
   const { accountId } = useActiveWalletAccount();
   const enabledNetworks = useEnabledSwappableNetworks();
-  useEffect(() => {
-    async function main() {
-      const supportedTokens = await SwapQuoter.client.getSupportedTokens();
-      backgroundApiProxy.dispatch(setSwftcSupportedTokens(supportedTokens));
-    }
-    main();
-  }, []);
   useEffect(() => {
     backgroundApiProxy.serviceToken.getEnabledNativeTokens({
       forceUpdate: true,
