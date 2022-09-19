@@ -1,5 +1,6 @@
-import React, {
+import {
   FC,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -83,7 +84,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
             }}
           >
             <NetImage
-              width={isSmallScreen ? 270 : cardWidth}
+              width={isSmallScreen ? 270 : cardWidth - 24}
               height={isSmallScreen ? 134 : 177}
               src={url}
               borderRadius="12px"
@@ -307,4 +308,4 @@ export const Discover: FC<DiscoverProps> = ({
 const Home: FC<DiscoverProps> = ({ ...rest }) =>
   platformEnv.isNative ? <DiscoverNative {...rest} /> : <Discover {...rest} />;
 
-export default React.memo(Home);
+export default memo(Home);
