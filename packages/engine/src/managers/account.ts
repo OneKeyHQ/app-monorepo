@@ -45,6 +45,9 @@ function getWalletIdFromAccountId(accountId: string): string {
 }
 
 function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
+  if (!networkId || !accountId) {
+    return false;
+  }
   const coinType = getCoinTypeFromAccountId(accountId);
   const { impl } = parseNetworkId(networkId);
   if (!impl) {

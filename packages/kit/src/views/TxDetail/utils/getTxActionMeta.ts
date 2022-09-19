@@ -40,6 +40,12 @@ import {
 // ClipboardListSolid, ClipboardListOutline, ActivityOutline
 export const UNKNOWN_ACTION_ICON_NAME = 'ClipboardListOutline';
 
+/*
+T0: UI component in ListView
+T1: UI component in DetailView
+T2: currently unused
+ */
+
 export type IGetTxActionMetaReturn = {
   meta: ITxActionMeta;
   props: ITxActionCardProps;

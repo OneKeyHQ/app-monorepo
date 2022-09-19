@@ -21,6 +21,7 @@ import {
 import { ValidationFields } from '../../../components/Protected';
 import { useActiveWalletAccount } from '../../../hooks';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
+import { useWalletName } from '../../../hooks/useWalletName';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import AccountModifyNameDialog from '../ModifyAccount';
 import useRemoveAccountDialog from '../RemoveAccount';
@@ -74,12 +75,12 @@ const ManagerAccountModal: FC = () => {
   }, []);
 
   const canExportPrivateKey = !!network?.settings?.privateKeyExportEnabled;
-
+  const name = useWalletName({ wallet });
   return (
     <>
       <Modal
         header={account?.name}
-        headerDescription={wallet?.name}
+        headerDescription={name}
         footer={null}
         scrollViewProps={{
           children: (

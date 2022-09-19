@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { UserInputCheckResult } from '@onekeyhq/engine/src/types/credential';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -49,6 +50,7 @@ export type IAddExistingWalletMode =
 export type IAddExistingWalletModalParams = {
   mode: IAddExistingWalletMode;
   presetText?: string;
+  wallet?: IWallet;
 };
 export type IAddImportedOrWatchingAccountModalParams = {
   text: string;

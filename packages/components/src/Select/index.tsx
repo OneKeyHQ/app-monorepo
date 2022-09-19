@@ -87,6 +87,7 @@ export type SelectProps<T = string> = {
     isFocused: boolean,
     isPressed: boolean,
     visible: boolean,
+    onPress?: () => void,
   ) => ReactNode;
   renderItem?: (
     item: SelectItem<T>,
@@ -301,6 +302,7 @@ function Select<T = string>({
             isFocused,
             isPressed,
             visible,
+            toggleVisible,
           ) ?? (
             <Box
               display="flex"

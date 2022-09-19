@@ -113,6 +113,9 @@ class ServiceDapp extends ServiceBase {
   @backgroundMethod()
   removeConnectedAccounts(payload: DappSiteConnectionRemovePayload) {
     this.backgroundApi.dispatch(dappRemoveSiteConnections(payload));
+    setTimeout(() => {
+      this.backgroundApi.serviceAccount.notifyAccountsChanged();
+    }, 1500);
   }
 
   @backgroundMethod()

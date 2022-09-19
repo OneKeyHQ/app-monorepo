@@ -116,6 +116,7 @@ const HwWalletGroup: FC<HwWalletGroupProps> = ({
     if (passphraseOpenedList.find((v) => v === walletGroup.deviceId)) {
       return true;
     }
+    // walletGroup.wallets=[ normalWallet, ...hiddenWallets ]
     if (walletGroup.wallets.find((w) => isPassphraseWallet(w))) {
       return true;
     }

@@ -7,12 +7,22 @@ import {
   TabActions,
 } from '@react-navigation/native';
 
-import { RootRoutes, TabRoutes } from '../routes/types';
+import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/types';
+import { ManageNetworkRoutes } from '../views/ManageNetworks/types';
 
 import { getAppNavigation } from './useAppNavigation';
 
 export function useNavigationActions() {
   const navigation = useNavigation();
+
+  const openAccountSelector = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageNetwork,
+      params: {
+        screen: ManageNetworkRoutes.NetworkAccountSelector,
+      },
+    });
+  }, [navigation]);
 
   const closeDrawer = useCallback(() => {
     navigation.dispatch(DrawerActions.closeDrawer());
@@ -66,7 +76,15 @@ export function useNavigationActions() {
       resetToRoot,
       resetToWelcome,
       openRootHome,
+      openAccountSelector,
     }),
-    [closeDrawer, openDrawer, resetToRoot, resetToWelcome, openRootHome],
+    [
+      openAccountSelector,
+      closeDrawer,
+      openDrawer,
+      resetToRoot,
+      resetToWelcome,
+      openRootHome,
+    ],
   );
 }

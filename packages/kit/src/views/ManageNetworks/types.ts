@@ -1,4 +1,5 @@
 export enum ManageNetworkRoutes {
+  NetworkAccountSelector = 'NetworkAccountSelector',
   Listing = 'Listing',
   AddNetwork = 'AddNetwork',
   CustomNetwork = 'CustomNetwork',
@@ -8,6 +9,7 @@ export enum ManageNetworkRoutes {
 }
 
 export type ManageNetworkRoutesParams = {
+  [ManageNetworkRoutes.NetworkAccountSelector]: undefined;
   [ManageNetworkRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkRoutes.AddNetwork]: undefined;
   [ManageNetworkRoutes.CustomNetwork]: {

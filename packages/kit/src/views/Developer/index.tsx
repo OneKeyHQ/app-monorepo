@@ -220,6 +220,32 @@ export const Debug = () => {
                   wallet,
                   network,
                 });
+                const {
+                  href,
+                  protocol,
+                  host,
+                  hostname,
+                  port,
+                  pathname,
+                  origin,
+                  search,
+                  searchParams,
+                  hash,
+                } = new URL(
+                  'https://github.com:80/OneKeyHQ/app-monorepo/pulls?q=is%3Apr+is%3Aclosed#link',
+                );
+                console.log({
+                  href,
+                  protocol,
+                  host,
+                  hostname,
+                  port,
+                  pathname,
+                  origin,
+                  search,
+                  searchParams,
+                  hash,
+                });
               }}
             >
               <Typography.Body1>Log current wallet</Typography.Body1>

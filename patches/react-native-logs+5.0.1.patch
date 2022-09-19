@@ -11,3 +11,16 @@ index c27ec18..e0a5ae4 100644
      }
      else {
          console.log(msg.trim());
+diff --git a/node_modules/react-native-logs/dist/transports/fileAsyncTransport.js b/node_modules/react-native-logs/dist/transports/fileAsyncTransport.js
+index a623bf8..dc65852 100644
+--- a/node_modules/react-native-logs/dist/transports/fileAsyncTransport.js
++++ b/node_modules/react-native-logs/dist/transports/fileAsyncTransport.js
+@@ -92,6 +92,8 @@ const fileAsyncTransport = (props) => {
+     if ((_c = props === null || props === void 0 ? void 0 : props.options) === null || _c === void 0 ? void 0 : _c.filePath)
+         filePath = props.options.filePath;
+     let output = `${props === null || props === void 0 ? void 0 : props.msg}\n`;
++
++    filePath = filePath.replace(/\/$/,'');
+     var path = filePath + "/" + fileName;
+     WRITE(props.options.FS, path, output);
+ };
