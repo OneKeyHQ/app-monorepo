@@ -14,7 +14,6 @@ const ChartView: React.FC<ChartViewProps> = ({
   const lineColor = useThemeValue('interactive-default');
   const topColor = useThemeValue('action-primary-focus');
   const bottomColor = '#00FF1900';
-
   return (
     <ChartViewAdapter
       isFetching={isFetching}
