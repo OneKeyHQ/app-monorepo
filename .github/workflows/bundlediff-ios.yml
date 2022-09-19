@@ -3,9 +3,6 @@ name: bundlediff-ios
 on:
   pull_request:
     branches: [onekey]
-  push:
-    branches:
-      - onekey
 
 jobs:
   # Build current and upload stats.json
