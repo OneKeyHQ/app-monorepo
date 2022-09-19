@@ -1424,6 +1424,7 @@ class Engine {
     const tokens = await fetchOnlineTokens({
       impl,
       chainId,
+      includeNativeToken: 1,
     });
     if (tokens.length) {
       await simpleDb.token.updateTokens(impl, chainId, tokens);
@@ -1477,6 +1478,7 @@ class Engine {
         impl,
         chainId,
         query: searchTerm,
+        includeNativeToken: 0,
       });
       onlineTokens = result.map((t) => formatServerToken(networkId, t));
     } catch (error) {

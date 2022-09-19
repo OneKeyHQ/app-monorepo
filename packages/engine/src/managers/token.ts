@@ -11,9 +11,13 @@ import { OneKeyInternalError } from '../errors';
 import { parseNetworkId } from './network';
 
 export type TokenQuery = {
-  impl: string;
-  chainId: string;
+  // for all chain search
+  impl?: string;
+  chainId?: string;
+
   query?: string;
+  // v3.12+
+  includeNativeToken?: 0 | 1;
 };
 
 export type TokenSource = {
@@ -101,10 +105,11 @@ export const checkTokenUpdate = async (timestamp: number): Promise<boolean> =>
 export const fetchOnlineTokens = async (
   params: TokenQuery,
 ): Promise<ServerToken[]> => {
-  const { chainId, impl, query } = params;
+  const { chainId, impl, query, includeNativeToken = 0 } = params;
   const search = {
     chainId: String(chainId),
     impl,
+    includeNativeToken,
   };
   if (query) {
     Object.assign(search, { query });
