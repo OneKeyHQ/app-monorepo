@@ -26,7 +26,7 @@ const COINTYPE_BTC = '0';
 const IMPL_TRON = 'tron';
 const COINTYPE_TRON = '195';
 
-const IMPL_APTOS = 'apt';
+const IMPL_APTOS = 'aptos';
 const COINTYPE_APTOS = '637';
 
 const SUPPORTED_IMPLS = new Set([
