@@ -99,12 +99,7 @@ jobs:
     needs: [build-ios-base, build-ios-head]
     steps:
       - uses: actions/download-artifact@v3
-        id: download
 
-      - name: 'Echo download path'
-        run: echo ${{steps.download.outputs.download-path}}
-
-      - name: Compare base & head
       - uses: github/webpack-bundlesize-compare-action@v1.5.0
         with:
           title: 'ios bundle diff'

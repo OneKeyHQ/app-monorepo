@@ -5,7 +5,7 @@ const { files } = iosstatsjson.results[0];
 
 const assets = Object.keys(files).map((fn) => {
   const { size } = files[fn];
-  return { name: fn, size };
+  return { name: fn.split('app-monorepo').at(-1), size };
 });
 
 fs.writeFileSync(
