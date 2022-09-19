@@ -35,6 +35,7 @@ import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { useEffectUpdateOnly } from '../../hooks/useEffectUpdateOnly';
+import { refreshConnectedSites } from '../../store/reducers/refresher';
 
 import RugConfirmDialog from './RugConfirmDialog';
 import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
@@ -119,6 +120,11 @@ const Connection = () => {
       backgroundApiProxy.walletConnect
         .connect({
           uri: walletConnectUri || '',
+        })
+        .then(() => {
+          isClosedDone.current = true;
+          closeModal();
+          dispatch(refreshConnectedSites());
         })
         .catch((error) => {
           debugLogger.common.error(error);

@@ -17,7 +17,7 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
 
-import { useActiveWalletAccount } from '../../../hooks';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
 import { wait } from '../../../utils/helper';
 import { ConnectedSitesHeaderProps } from '../types';
 
@@ -33,6 +33,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
   const [walletConnectSessions, setSessions] = useState<
     IWalletConnectSession[]
   >(() => []);
+  const { refreshConnectedSitesTs } = useAppSelector((s) => s.refresher);
   useEffect(() => {
     const main = async (delay = 0) => {
       await wait(delay);
@@ -42,7 +43,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
     };
     main();
     main(600);
-  }, [connections, accountId, networkId, walletId]);
+  }, [connections, refreshConnectedSitesTs, accountId, networkId, walletId]);
 
   const renderItem: ListRenderItem<IWalletConnectSession> = useCallback(
     ({ item, index }) => {
