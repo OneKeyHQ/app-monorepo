@@ -255,13 +255,14 @@ export default class ServiceToken extends ServiceBase {
     networkId: string;
     tokenIds: string[];
   }) {
+    const ids = tokenIds.filter((id) => id !== undefined);
     const { appSelector } = this.backgroundApi;
     const prices = appSelector((s) => s.tokens.tokensPrice)[networkId] || {};
-    for (const tokenId of tokenIds) {
+    for (const tokenId of ids) {
       if (!prices[tokenId]) {
         return this.fetchPrices({
           activeNetworkId: networkId,
-          tokenIds,
+          tokenIds: ids,
         });
       }
     }
