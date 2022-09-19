@@ -127,7 +127,6 @@ export default function ConnectedSites() {
                 closeOverlay();
               },
             },
-            wrap: true,
           }}
           contentProps={{
             iconType: 'danger',
@@ -205,6 +204,7 @@ export default function ConnectedSites() {
       })}
       footer={null}
       flatListProps={{
+        maxHeight: '560px',
         ListHeaderComponent: (
           <ConnectedSitesHeader
             connections={connections}
