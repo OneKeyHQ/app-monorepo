@@ -11,6 +11,7 @@ import {
   Image,
   KeyboardDismissView,
   Modal,
+  Token,
   TokenVerifiedIcon,
   Typography,
   useToast,
@@ -138,23 +139,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                 mb="8"
                 mt="6"
               >
-                <Image
-                  src={logoURI}
-                  alt="logoURI"
-                  size="56px"
-                  borderRadius="full"
-                  fallbackElement={
-                    <Center
-                      w="56px"
-                      h="56px"
-                      rounded="full"
-                      bgColor="surface-neutral-default"
-                    >
-                      <Icon size={32} name="QuestionMarkOutline" />
-                    </Center>
-                  }
-                />
-
+                <Token src={logoURI} size="56px" name={token.name} />
                 <Box
                   alignItems="center"
                   flexDirection="row"

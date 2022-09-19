@@ -190,7 +190,7 @@ const TokenInput: FC<TokenInputProps> = ({
             {token && tokenNetwork ? (
               <Box flexDirection="row" alignItems="center">
                 <Box mr="2">
-                  <TokenImage size={8} src={token.logoURI} />
+                  <TokenImage size={8} src={token.logoURI} name={token.name} />
                 </Box>
                 <Box>
                   <Typography.DisplayMedium fontWeight={600}>

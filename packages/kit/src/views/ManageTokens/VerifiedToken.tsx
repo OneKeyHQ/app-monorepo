@@ -68,7 +68,7 @@ const VerifiedTokens: React.FC = () => {
           borderTopRadius={index === 0 ? 12 : 0}
           borderBottomRadius={index === sourceList.length - 1 ? 12 : 0}
         >
-          <TokenImage src={item.logo} size={8} />
+          <TokenImage src={item.logo} size={8} name={item.name} />
           <Box flex="1" ml={3}>
             <Text
               maxW={56}

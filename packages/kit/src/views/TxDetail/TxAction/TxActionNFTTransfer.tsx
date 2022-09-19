@@ -174,6 +174,7 @@ export function TxActionNFTTransferT0(props: ITxActionCardProps) {
   );
   return (
     <TxListActionBox
+      symbol={symbol}
       footer={statusBar}
       iconInfo={meta?.iconInfo}
       titleInfo={meta?.titleInfo}

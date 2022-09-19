@@ -101,7 +101,7 @@ const RecoverSelectChainModal: FC = () => {
           onSelectChain(item);
         }}
       >
-        <Token size="32px" src={item.logoURI} />
+        <Token size="32px" src={item.logoURI} name={item.shortName} />
         <Typography.Body1Strong ml="16px" mr="12px">
           {item.shortName}
         </Typography.Body1Strong>

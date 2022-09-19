@@ -1,4 +1,10 @@
-import React, { FC, useMemo } from 'react';
+import React, {
+  ComponentProps,
+  FC,
+  createElement,
+  isValidElement,
+  useMemo,
+} from 'react';
 
 import { Box, Center, Column, Row, ZStack } from 'native-base';
 
@@ -12,7 +18,7 @@ import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
 import { useThemeValue } from '../Provider/hooks';
-import Typography from '../Typography';
+import Typography, { Body2, Text } from '../Typography';
 import { CDN_PREFIX } from '../utils';
 
 import type { ResponsiveValue } from 'native-base/lib/typescript/components/types';
@@ -20,13 +26,18 @@ import type { ResponsiveValue } from 'native-base/lib/typescript/components/type
 export type TokenProps = {
   src?: string;
   size?: ResponsiveValue<string | number>;
-  className?: string | null;
   chain?: string;
   name?: string;
-  description?: string;
+  description?: string | JSX.Element | null;
   address?: string;
   letter?: string;
   networkId?: string;
+
+  nameProps?: ComponentProps<typeof Text>;
+  descProps?: ComponentProps<typeof Body2>;
+  addressProps?: ComponentProps<typeof Body2>;
+
+  withDetail?: boolean;
 };
 
 const defaultProps = {
@@ -54,19 +65,17 @@ const TokenIcon = ({
   const fallbackElement = useMemo(
     () =>
       letter ? (
-        <Box
+        <Center
+          width={size}
+          height={size}
           borderRadius="full"
-          w={{ base: '8', md: '6' }}
-          h={{ base: '8', md: '6' }}
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          bg="decorative-surface-one"
+          bg="background-selected"
+          overflow="hidden"
         >
-          <Typography.DisplaySmall numberOfLines={1}>
-            {letter.trim()[0].toUpperCase()}
-          </Typography.DisplaySmall>
-        </Box>
+          <Text fontSize="9px" color="text-default" numberOfLines={1}>
+            {letter.toUpperCase()}
+          </Text>
+        </Center>
       ) : (
         <Center
           width={size}
@@ -123,6 +132,20 @@ const TokenIcon = ({
   );
 };
 
+const renderEle = (
+  content: string | JSX.Element | undefined | null,
+  ele: any,
+  props: any,
+) => {
+  if (!content) {
+    return null;
+  }
+  if (isValidElement(ele)) {
+    return ele;
+  }
+  return createElement(ele, props, content);
+};
+
 const Token: FC<TokenProps> = ({
   src,
   size,
@@ -132,6 +155,11 @@ const Token: FC<TokenProps> = ({
   address,
   letter,
   networkId,
+
+  nameProps,
+  descProps,
+  addressProps,
+  withDetail,
 }) => {
   const imageUrl = buildUrl(src, chain, address);
   return (
@@ -139,17 +167,30 @@ const Token: FC<TokenProps> = ({
       <TokenIcon
         src={imageUrl || ''}
         size={size}
-        letter={letter}
+        letter={(letter || name || '')?.slice(0, 4).trim()}
         networkId={networkId}
       />
-      {!!(name || description) && (
+      {withDetail && (
         <Box display="flex" ml="3">
-          {!!name && <Typography.Body1Strong>{name}</Typography.Body1Strong>}
-          {!!description && (
-            <Typography.Body2 color="text-subdued">
-              {description}
-            </Typography.Body2>
-          )}
+          {renderEle(name, Text, {
+            typography: { sm: 'Body1Strong', md: 'Body2Strong' },
+            isTruncated: true,
+            maxW: 56,
+            numberOfLines: 1,
+            ...nameProps,
+          })}
+          {renderEle(description, Body2, {
+            color: 'text-subdued',
+            maxW: 56,
+            numberOfLines: 1,
+            ...descProps,
+          })}
+          {renderEle(address, Body2, {
+            color: 'text-subdued',
+            maxW: 56,
+            numberOfLines: 1,
+            ...addressProps,
+          })}
         </Box>
       )}
     </Box>
@@ -272,7 +313,11 @@ const TokensView = ({ groupTokens, size, cornerToken }: TokensViewProps) => {
             padding={0}
             key={`tokenGroup-${index}`}
           >
-            <Token chain={token.chain} size={`${groupProps.groupSize}px`} />
+            <Token
+              chain={token.chain}
+              size={`${groupProps.groupSize}px`}
+              name={token.name}
+            />
           </Box>
         );
       });
@@ -301,6 +346,7 @@ const TokensView = ({ groupTokens, size, cornerToken }: TokensViewProps) => {
       <Token
         chain={cornerToken.chain}
         size={`${groupProps.cornerTokenSize}px`}
+        name={cornerToken.name}
       />
     </Box>
   ) : null;

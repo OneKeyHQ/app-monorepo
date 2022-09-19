@@ -119,30 +119,19 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   flexDirection="row"
                   flex={1}
                 >
-                  <TokenImage size={8} src={item.logoURI} />
-                  <Box ml="3" flex={1}>
-                    <Box flexDirection="row" alignItems="center">
-                      <Text
-                        maxW={56}
-                        numberOfLines={1}
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      >
-                        {item.name}
-                      </Text>
-                      <TokenVerifiedIcon token={item} />
-                    </Box>
-                    <Typography.Body2
-                      maxW="56"
-                      numberOfLines={1}
-                      color="text-subdued"
-                    >
+                  <TokenImage
+                    size={8}
+                    withDetail
+                    src={item.logoURI}
+                    name={item.name}
+                    description={
                       <FormatBalance
                         balance={balances[item.tokenIdOnNetwork] ?? '0'}
                         suffix={item.symbol}
                         formatOptions={{ fixed: 6 }}
                       />
-                    </Typography.Body2>
-                  </Box>
+                    }
+                  />
                 </Box>
                 <IconButton
                   name="TrashSolid"
@@ -399,34 +388,25 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       _pressed={{ bgColor: 'surface-pressed' }}
     >
       <Box display="flex" alignItems="center" flexDirection="row" flex={1}>
-        <TokenImage size={8} src={item.logoURI} />
-        <Box ml="3" flex={1}>
-          <Box alignItems="center" flexDirection="row">
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              maxW="56"
-              numberOfLines={1}
-              color={isOwned ? 'text-disabled' : 'text-default'}
-            >
-              {item.name}
-            </Text>
-            <TokenVerifiedIcon token={item} />
-          </Box>
-          <Typography.Body2
-            numberOfLines={1}
-            color={isOwned ? 'text-disabled' : 'text-subdued'}
-          >
-            {item.symbol}
-          </Typography.Body2>
-          {item.tokenIdOnNetwork ? (
-            <Typography.Body2
-              numberOfLines={1}
-              color={isOwned ? 'text-disabled' : 'text-subdued'}
-            >
-              {utils.shortenAddress(item.tokenIdOnNetwork)}
-            </Typography.Body2>
-          ) : null}
-        </Box>
+        <TokenImage
+          size={8}
+          withDetail
+          src={item.logoURI}
+          name={item.name}
+          description={item.symbol}
+          address={utils.shortenAddress(item.tokenIdOnNetwork)}
+          nameProps={{
+            color: isOwned ? 'text-disabled' : 'text-default',
+          }}
+          descProps={{
+            // @ts-ignore
+            color: isOwned ? 'text-disabled' : 'text-subdued',
+          }}
+          addressProps={{
+            // @ts-ignore
+            color: isOwned ? 'text-disabled' : 'text-subdued',
+          }}
+        />
       </Box>
       <Box>
         {isOwned ? (

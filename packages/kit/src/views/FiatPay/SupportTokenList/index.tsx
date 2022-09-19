@@ -141,7 +141,7 @@ export const SupportTokenList: FC = () => {
         }}
       >
         <Box flexDirection="row" alignItems="center">
-          <TokenImage size={8} src={item.logoURI} />
+          <TokenImage size={8} src={item.logoURI} name={item.tokenName} />
           <Text typography="Body1Strong" ml="12px">
             {item.symbol}
           </Text>

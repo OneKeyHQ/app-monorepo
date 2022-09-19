@@ -110,6 +110,7 @@ export function TxActionStakeT0(props: ITxActionCardProps) {
   );
   return (
     <TxListActionBox
+      symbol={stakeInfo.tokenInfo.symbol}
       footer={statusBar}
       iconInfo={meta?.iconInfo}
       titleInfo={meta?.titleInfo}

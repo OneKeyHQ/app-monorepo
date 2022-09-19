@@ -77,7 +77,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
         flexDirection={isVertical ? 'column' : 'row'}
         alignItems="center"
       >
-        <Token size={12} src={token?.logoURI ?? network?.logoURI} />
+        <Token
+          size={12}
+          src={token?.logoURI ?? network?.logoURI}
+          name={token?.name}
+        />
         <Box
           width="100%"
           flex={1}
