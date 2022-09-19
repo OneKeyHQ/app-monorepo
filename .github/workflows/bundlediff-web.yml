@@ -96,10 +96,6 @@ jobs:
     needs: [build-web-base, build-web-head]
     steps:
       - uses: actions/download-artifact@v3
-        id: download
-
-      - name: 'Echo download path'
-        run: echo ${{steps.download.outputs.download-path}}
 
       - uses: github/webpack-bundlesize-compare-action@v1.5.0
         with:
