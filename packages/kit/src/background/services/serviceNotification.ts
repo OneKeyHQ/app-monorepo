@@ -28,7 +28,6 @@ export default class ServiceNotification extends ServiceBase {
     if (!platformEnv.isNative) {
       return;
     }
-    this.syncLocalEnabledAccounts();
     setInterval(() => {
       this.syncLocalEnabledAccounts();
     }, 5 * 60 * 1000);
