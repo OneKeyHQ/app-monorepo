@@ -178,7 +178,7 @@ const AddImportedOrWatchingAccount = () => {
         {possibleAddTypes.length === 1 ? undefined : (
           <Form.Item
             name="importAs"
-            label="Import as" // TODO: missing i18n
+            label={intl.formatMessage({ id: 'form__import_as' })}
             control={control}
           >
             <SegmentedControl
