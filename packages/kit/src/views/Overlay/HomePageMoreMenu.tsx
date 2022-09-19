@@ -142,7 +142,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         icon: 'ScanSolid',
       },
       !!needActivateAccount && {
-        id: 'msg__minted',
+        id: 'action__get_faucet',
         onPress: () => {
           if (!account) return;
           if (!network) return;
@@ -150,7 +150,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
             .activateAccount(account.id, network.id)
             .catch(() => {});
         },
-        icon: isVerticalLayout ? 'CursorClickOutline' : 'CursorClickSolid',
+        icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbSolid',
       },
       // TODO Connected Sites
       walletType !== 'watching' && {

@@ -207,10 +207,10 @@ export class InvalidAddress extends OneKeyError {
 }
 
 export class InvalidAccount extends OneKeyError {
-  override key = 'msg__engine__incorrect_address';
+  override key = 'msg__engine__account_not_activated';
 
   constructor(message?: string, info?: IOneKeyErrorInfo) {
-    super(message || 'InvalidAddress.', info);
+    super(message || 'InvalidAccount.', info);
   }
 }
 
