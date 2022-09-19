@@ -135,7 +135,7 @@ const Connection = () => {
           );
         });
     }
-  }, [intl, walletConnectUri]);
+  }, [closeModal, dispatch, intl, walletConnectUri]);
 
   // TODO move to DappService
   const getResolveData = useCallback(() => {
