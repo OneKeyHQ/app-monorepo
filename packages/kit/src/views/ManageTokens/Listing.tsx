@@ -320,7 +320,6 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
           tokens: [item],
         });
         if (value.isLessThan(1)) {
-          // TODO native toast
           toast.show(
             {
               title: intl.formatMessage({
@@ -335,10 +334,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
               onPress: showHomeBalanceSettings,
             },
           );
+          return;
         }
-      } else {
-        toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
       }
+      toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
     }
   }, [accountId, networkId, toast, intl, hideSmallBalance, item]);
 

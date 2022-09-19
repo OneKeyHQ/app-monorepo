@@ -45,7 +45,7 @@ jobs:
         run: yarn stats:ios
 
       - name: Upload stats.json
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: head-stats
           path: ./packages/app/stats.json
@@ -87,7 +87,7 @@ jobs:
         run: yarn stats:ios
 
       - name: Upload stats.json
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: base-stats
           path: ./packages/app/stats.json
@@ -98,6 +98,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-ios-base, build-ios-head]
     steps:
+      - uses: actions/download-artifact@v3
+
       - uses: github/webpack-bundlesize-compare-action@v1.5.0
         with:
           title: 'ios bundle diff'
