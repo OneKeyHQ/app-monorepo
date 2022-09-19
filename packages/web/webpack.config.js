@@ -44,6 +44,7 @@ module.exports = async function (env, argv) {
         },
       }),
     );
+    config.devtool = false;
   }
   return config;
 };
