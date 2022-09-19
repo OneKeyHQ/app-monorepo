@@ -3,7 +3,7 @@ import React, { memo, useEffect, useState } from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 
 import { useThemeValue } from '@onekeyhq/components';
-import AccountSelectorMobile from '@onekeyhq/kit/src/components/Header/AccountSelectorMobile';
+import { WalletSelectorMobile } from '@onekeyhq/kit/src/components/WalletSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Tab from '../Tab';
@@ -43,7 +43,8 @@ const DrawerStackNavigator = () => {
         swipeEdgeWidth: 390,
         drawerStyle,
       }}
-      drawerContent={(props) => <AccountSelectorMobile {...props} />}
+      // drawerContent={(props) => <AccountSelectorMobile {...props} />}
+      drawerContent={(props) => <WalletSelectorMobile {...props} />}
     >
       <DrawerStack.Screen name={RootRoutes.Tab} component={Tab} />
     </DrawerStack.Navigator>

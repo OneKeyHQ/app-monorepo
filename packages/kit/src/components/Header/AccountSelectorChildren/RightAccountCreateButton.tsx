@@ -46,6 +46,7 @@ type Props = {
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
   'content__str_chain_is_unsupprted';
 
+// TODO move to standalone file
 export function useCreateAccountInWallet({
   networkId,
   walletId,
@@ -186,7 +187,7 @@ export function useCreateAccountInWallet({
         screen: ModalRoutes.CreateWallet,
         params: {
           screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'imported' },
+          params: { mode: 'imported', wallet: activeWallet },
         },
       });
     }
@@ -199,7 +200,7 @@ export function useCreateAccountInWallet({
         screen: ModalRoutes.CreateWallet,
         params: {
           screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'watching' },
+          params: { mode: 'watching', wallet: activeWallet },
         },
       });
     }

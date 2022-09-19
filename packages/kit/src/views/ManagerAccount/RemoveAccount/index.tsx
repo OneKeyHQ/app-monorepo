@@ -17,8 +17,8 @@ export default function useRemoveAccountDialog() {
   const [password, setPassword] = React.useState<string | undefined>();
 
   const onSubmit = useCallback(() => {
-    if (!accountId) return;
-    serviceAccount
+    if (!accountId) return Promise.resolve();
+    return serviceAccount
       .removeAccount(walletId, accountId, password ?? '')
       .then(() => {
         toast.show({ title: intl.formatMessage({ id: 'msg__removed' }) });
@@ -59,11 +59,10 @@ export default function useRemoveAccountDialog() {
           footerButtonProps={{
             primaryActionProps: {
               type: 'destructive',
+              onPromise: () => onSubmit(),
             },
             primaryActionTranslationId: 'action__remove',
-            onPrimaryActionPress: () => {
-              onSubmit();
-            },
+
             onSecondaryActionPress: () => setVisible(false),
           }}
         />

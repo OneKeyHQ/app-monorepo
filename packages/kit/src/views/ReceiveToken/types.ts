@@ -1,10 +1,10 @@
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
-export enum ReceiveTokenRoutes {
-  ReceiveToken = 'ReceiveToken',
-}
+import { ReceiveTokenRoutes } from '../../routes/routesEnum';
+
+export { ReceiveTokenRoutes };
 
 export type ReceiveTokenRoutesParams = {
   [ReceiveTokenRoutes.ReceiveToken]: {

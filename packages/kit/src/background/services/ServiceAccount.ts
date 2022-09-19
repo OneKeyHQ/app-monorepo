@@ -121,6 +121,9 @@ class ServiceAccount extends ServiceBase {
   async autoChangeAccount({ walletId }: { walletId: string }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
+    if (!walletId) {
+      return;
+    }
     const wallet: Wallet | null = await engine.getWallet(walletId);
     dispatch(updateWallet(wallet));
 
@@ -134,7 +137,7 @@ class ServiceAccount extends ServiceBase {
       );
       accountId = account?.[0]?.id ?? null;
     }
-    serviceAccount.changeActiveAccount({
+    await serviceAccount.changeActiveAccount({
       accountId,
       walletId,
     });

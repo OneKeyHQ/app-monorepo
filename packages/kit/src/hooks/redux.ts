@@ -15,6 +15,7 @@ import { appDispatch, appSelector } from '../store';
 
 import type { IAppState } from '../store';
 
+// TODO remove
 export const useAppDispatch = () => {
   console.error(
     '`useAppDispatch()` is deprecated. use `const { dispatch } = backgroundApiProxy;` instead.',

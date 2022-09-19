@@ -64,15 +64,19 @@ export const BridgeHeart = {
   start: (callback: () => void) => {
     const checkBridge = async () => {
       try {
-        const resp = await fetchWithTimeout('http://127.0.0.1:21320/', {
+        const localBridgeUrl = 'http://127.0.0.1:21320/';
+        const resp = await fetchWithTimeout(localBridgeUrl, {
           method: 'POST',
           headers: {
             Origin: 'https://electron.onekey.so',
           },
           timeout: 3000,
         });
-        logger.debug(`Heart Checking (${resp.status})`);
+
         if (resp.status !== 200) {
+          logger.debug(
+            `Bridge Heart Checking ${localBridgeUrl} (${resp.status})`,
+          );
           // check bridge failed, restart it
           callback?.();
         }

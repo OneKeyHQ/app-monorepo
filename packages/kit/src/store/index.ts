@@ -19,6 +19,7 @@ import {
   persistStore,
 } from 'redux-persist';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
   mockStorage,
@@ -136,12 +137,24 @@ export type IAppThunk<ReturnType = void> = ThunkAction<
 
 let backgroundDispatch: IAppDispatch | ((action: any) => void) | null = null;
 
+let bgApi: IBackgroundApi | undefined;
+// TODO remove
 export async function appDispatch(
   action: PayloadAction<any> | ((dispatch: Dispatch) => Promise<unknown>),
 ) {
-  const bgApi: IBackgroundApi = global.$backgroundApiProxy;
+  bgApi = bgApi || global.$backgroundApiProxy;
   if (!bgApi) {
     throw new Error('Please init backgroundApiProxy first');
+  }
+
+  // remove global.$backgroundApiProxy in production
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      // @ts-ignore
+      delete global.$backgroundApiProxy;
+    } catch (error) {
+      debugLogger.common.error(error);
+    }
   }
 
   if (!backgroundDispatch) {

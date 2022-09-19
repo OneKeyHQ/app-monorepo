@@ -16,7 +16,6 @@ import {
 } from '../../components/WalletConnect/WalletConnectClient';
 import { WalletConnectClientForWallet } from '../../components/WalletConnect/WalletConnectClientForWallet';
 import { closeDappConnectionPreloading } from '../../store/reducers/refresher';
-import { wait } from '../../utils/helper';
 import { backgroundClass } from '../decorators';
 
 import type { IBackgroundApi } from '../IBackgroundApi';
@@ -58,6 +57,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async removeConnectedAccounts(connector: OneKeyWalletConnector) {
     const { accounts } = connector;
     const origin = this.getConnectorOrigin(connector);
@@ -67,8 +67,6 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         networkImpl: IMPL_EVM,
         addresses: accounts,
       });
-      await wait(1500);
-      this.backgroundApi.serviceAccount.notifyAccountsChanged();
     }
   }
 
