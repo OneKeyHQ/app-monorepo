@@ -15,10 +15,10 @@ import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import imageUrl from '@onekeyhq/kit/assets/alert.png';
-import { useNavigation } from '@onekeyhq/kit/src/hooks';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { RootRoutes } from '../../routes/routesEnum';
+import useAppNavigation from '../../hooks/useAppNavigation';
+import { HomeRoutes, RootRoutes, TabRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
@@ -27,7 +27,7 @@ const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
 
-  const navigation = useNavigation();
+  const navigation = useAppNavigation();
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
 
@@ -65,7 +65,16 @@ const GuideToPushFirstTime: FC = () => {
     serviceNotification
       .syncPushNotificationConfig()
       .finally(addAccountDynamics);
-    navigation.navigate(RootRoutes.Root);
+
+    navigation?.navigate(RootRoutes.Root, {
+      screen: HomeRoutes.InitialTab,
+      params: {
+        screen: RootRoutes.Tab,
+        params: {
+          screen: TabRoutes.Home,
+        },
+      } as any,
+    });
   }, [dispatch, addAccountDynamics, navigation, serviceNotification]);
 
   const configs = useMemo(
