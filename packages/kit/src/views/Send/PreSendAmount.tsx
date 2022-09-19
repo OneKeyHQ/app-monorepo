@@ -29,11 +29,7 @@ import {
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../components/Format';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useManageTokens,
-} from '../../hooks';
+import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import { wait } from '../../utils/helper';

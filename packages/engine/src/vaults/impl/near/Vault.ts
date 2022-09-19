@@ -379,6 +379,7 @@ export default class Vault extends VaultBase {
           tokenAddress: transferInfo.token,
         });
         if (!hasStorageBalance) {
+          // action: storage_deposit
           actions.push(
             await this._buildStorageDepositAction({
               // amount: new BN(FT_MINIMUM_STORAGE_BALANCE ?? '0'), // TODO small storage deposit
@@ -387,7 +388,7 @@ export default class Vault extends VaultBase {
             }),
           );
         }
-        // token transfer
+        // action: token transfer
         actions.push(
           await this._buildTokenTransferAction({
             transferInfo,
@@ -396,7 +397,7 @@ export default class Vault extends VaultBase {
         );
       }
     } else {
-      // native token transfer
+      // action: native token transfer
       actions.push(
         await this._buildNativeTokenTransferAction({
           amount: transferInfo.amount,
