@@ -17,8 +17,7 @@ import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl
 import imageUrl from '@onekeyhq/kit/assets/alert.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { HomeRoutes, RootRoutes, TabRoutes } from '../../routes/routesEnum';
+import { useNavigationGoHomeForceReload } from '../../hooks/useAppNavigation';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
@@ -27,7 +26,7 @@ const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
 
-  const navigation = useAppNavigation();
+  const reload = useNavigationGoHomeForceReload();
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
 
@@ -66,16 +65,8 @@ const GuideToPushFirstTime: FC = () => {
       .syncPushNotificationConfig()
       .finally(addAccountDynamics);
 
-    navigation?.navigate(RootRoutes.Root, {
-      screen: HomeRoutes.InitialTab,
-      params: {
-        screen: RootRoutes.Tab,
-        params: {
-          screen: TabRoutes.Home,
-        },
-      } as any,
-    });
-  }, [dispatch, addAccountDynamics, navigation, serviceNotification]);
+    reload();
+  }, [reload, dispatch, addAccountDynamics, serviceNotification]);
 
   const configs = useMemo(
     () => [
