@@ -20,5 +20,8 @@ module.exports = async function (env, argv) {
     config,
     env,
   });
+  if (process.env.NODE_ENV === 'production') {
+    config.devtool = false;
+  }
   return config;
 };

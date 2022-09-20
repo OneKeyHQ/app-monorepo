@@ -8,8 +8,6 @@ import android.util.Log;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import android.database.CursorWindow;
-import androidx.lifecycle.ViewModelStore;
-import androidx.lifecycle.ViewModelStoreOwner;
 
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
@@ -35,8 +33,7 @@ import android.webkit.WebView;
 import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
 import cn.jiguang.plugins.push.JPushModule;
 
-public class MainApplication extends Application implements ReactApplication , ViewModelStoreOwner {
-  private final ViewModelStore mViewModelStore = new ViewModelStore();
+public class MainApplication extends Application implements ReactApplication {
   private final ReactNativeHost mNewArchitectureNativeHost =
           new ReactNativeHostWrapper(this, new MainApplicationReactNativeHost(this));
   private final ReactNativeHost mReactNativeHost = new ReactNativeHostWrapper(
@@ -161,9 +158,4 @@ public class MainApplication extends Application implements ReactApplication , V
     }
   }
 
-    @NonNull
-    @Override
-    public ViewModelStore getViewModelStore() {
-        return mViewModelStore;
-    }
 }
