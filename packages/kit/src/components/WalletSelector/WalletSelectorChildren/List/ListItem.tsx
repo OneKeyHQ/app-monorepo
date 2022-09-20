@@ -3,7 +3,6 @@ import React from 'react';
 import { DrawerActions } from '@react-navigation/native';
 
 import {
-  Badge,
   Box,
   Pressable,
   Text,
@@ -11,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
 import { WalletAvatarPro } from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../../hooks';
@@ -32,7 +32,7 @@ const SelectedIndicator = () => (
     position="absolute"
     left="-8px"
     top="8px"
-    h="48px"
+    bottom="8px"
     w="3px"
     bgColor="interactive-default"
     roundedRight="full"
@@ -42,24 +42,16 @@ const SelectedIndicator = () => (
 function RightContent({
   wallet,
   isSingleton,
-  numberOfAccounts,
   isSelected,
   deviceStatus,
 }: IWalletDataBase & {
   isSelected: boolean;
-  numberOfAccounts: number;
   deviceStatus: IHardwareDeviceStatusMap | undefined;
 }) {
-  const numberBadge = (
-    <Badge title={String(numberOfAccounts || 0)} size="sm" mr={2} />
-  );
   return (
     <>
-      {isSingleton ? (
-        numberBadge
-      ) : (
+      {isSingleton ? null : (
         <>
-          {numberBadge}
           {wallet ? (
             <WalletItemSelectDropdown
               wallet={wallet}
@@ -139,20 +131,24 @@ function ListItem({
       }}
     >
       <WalletAvatarPro
-        size="lg"
+        size={platformEnv.isNative ? 'lg' : 'sm'}
         circular={circular}
         wallet={wallet}
         deviceStatus={deviceStatus}
       />
 
-      <Text flex={1} mx={3} typography="Body1Strong" isTruncated>
+      <Text
+        flex={1}
+        mx={3}
+        typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
+        isTruncated
+      >
         {name}
       </Text>
       <RightContent
         wallet={wallet}
         isSingleton={isSingleton}
         isSelected={isSelected}
-        numberOfAccounts={numberOfAccounts}
         deviceStatus={deviceStatus}
       />
       {isSelected ? <SelectedIndicator /> : undefined}

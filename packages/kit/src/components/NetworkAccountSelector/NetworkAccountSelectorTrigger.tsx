@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   HStack,
+  Hidden,
   Icon,
   Pressable,
   Token,
@@ -78,7 +79,9 @@ function NetworkAccountSelectorTrigger() {
                 {activeOption.label}
               </Typography.Body2Strong>
             </HStack>
-            <Icon size={20} name="ChevronDownSolid" />
+            <Hidden from="base" till="md">
+              <Icon size={20} name="ChevronDownSolid" />
+            </Hidden>
           </HStack>
         );
       }}

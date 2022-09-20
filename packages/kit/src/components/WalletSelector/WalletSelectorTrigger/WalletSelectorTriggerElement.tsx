@@ -163,7 +163,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
                   {name}
                 </Typography.Body2Strong>
                 <Box ml={!isVerticalLayout ? 'auto' : undefined}>
-                  <Icon size={20} name="ChevronDownSolid" />
+                  <Icon size={20} name="SelectorSolid" />
                 </Box>
               </>
             </Hidden>

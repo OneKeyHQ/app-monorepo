@@ -4,7 +4,12 @@ import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import { orderBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Box, SectionList, Text } from '@onekeyhq/components';
+import {
+  Box,
+  SectionList,
+  Text,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -123,9 +128,11 @@ function SectionHeader({ type }: { type: EWalletDataSectionType }) {
     return intl.formatMessage({ id: 'content__other' });
   }, [intl, type]);
   return (
-    <Text typography="Subheading" color="text-subdued" px={2} mb={1}>
-      {label}
-    </Text>
+    <Box bgColor="background-default" pt={2} mt={-2}>
+      <Text typography="Subheading" color="text-subdued" px={2} mb={1}>
+        {label}
+      </Text>
+    </Box>
   );
 }
 
