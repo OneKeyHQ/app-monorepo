@@ -18,6 +18,15 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import {
+  IMPL_ALGO,
+  IMPL_CFX,
+  IMPL_EVM,
+  IMPL_NEAR,
+  IMPL_SOL,
+  IMPL_STC,
+  IMPL_TRON,
+} from '@onekeyhq/engine/src/constants';
 import { DappSiteConnection } from '@onekeyhq/kit/src/store/reducers/dapp';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -39,6 +48,22 @@ const sortConnectionsSite = (connections: DappSiteConnection[]) => {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     natsort({ insensitive: true })(c1.site.hostname!, c2.site.hostname!),
   );
+};
+
+const showNetworkLabel = (networkImpl: string) => {
+  switch (networkImpl) {
+    case IMPL_SOL:
+      return 'Solana';
+    case IMPL_EVM:
+    case IMPL_NEAR:
+    case IMPL_ALGO:
+    case IMPL_CFX:
+    case IMPL_STC:
+    case IMPL_TRON:
+      return networkImpl.toUpperCase();
+    default:
+      return '';
+  }
 };
 
 function ConnectedSiteItemIcon({ item }: { item: DappSiteConnection }) {
@@ -97,7 +122,7 @@ function ConnectedSiteItemAddress({ item }: { item: DappSiteConnection }) {
 
   return (
     <Typography.Body2 color="text-subdued" numberOfLines={1}>
-      {shortenAddress(address)}
+      {`${shortenAddress(address)}· ${showNetworkLabel(item.networkImpl)}`}
     </Typography.Body2>
   );
 }
@@ -200,12 +225,12 @@ export default function ConnectedSites() {
   return (
     <Modal
       hidePrimaryAction
+      maxHeight="560px"
       header={intl.formatMessage({
         id: 'title__connect_sites',
       })}
       footer={null}
       flatListProps={{
-        maxHeight: '560px',
         ListHeaderComponent: (
           <ConnectedSitesHeader
             connections={connections}
