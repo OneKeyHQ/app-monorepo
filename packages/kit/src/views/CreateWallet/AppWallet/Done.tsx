@@ -40,7 +40,7 @@ const Done: FC<DoneProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { closeDrawer, openRootHome } = useNavigationActions();
+  const { closeWalletSelector, openRootHome } = useNavigationActions();
   useEffect(() => {
     async function main() {
       try {
@@ -62,7 +62,7 @@ const Done: FC<DoneProps> = ({
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({ title: intl.formatMessage({ id: errorKey }) });
       }
-      closeDrawer();
+      closeWalletSelector();
       openRootHome();
       closeExtensionWindowIfOnboardingFinished();
     }

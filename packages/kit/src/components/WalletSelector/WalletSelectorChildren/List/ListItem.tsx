@@ -13,7 +13,10 @@ import { IWallet } from '@onekeyhq/engine/src/types';
 import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../../hooks';
+import {
+  useActiveWalletAccount,
+  useNavigationActions,
+} from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useWalletName } from '../../../../hooks/useWalletName';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
@@ -93,7 +96,7 @@ function ListItem({
   const navigation = useAppNavigation();
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const isVertical = useIsVerticalLayout();
-
+  const { closeWalletSelector } = useNavigationActions();
   const name = useWalletName({ wallet });
 
   const numberOfAccounts = wallet.accounts.length;
@@ -110,11 +113,8 @@ function ListItem({
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
       onPress={() => {
-        if (isVertical) {
-          navigation.dispatch(DrawerActions.closeDrawer());
-        } else {
-          dispatch(updateDesktopWalletSelectorVisible(false));
-        }
+        closeWalletSelector();
+
         setTimeout(async () => {
           try {
             dispatch(updateIsRefreshDisabled(true), updateIsLoading(true));

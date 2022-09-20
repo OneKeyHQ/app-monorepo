@@ -21,7 +21,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../hooks';
+import { useAppSelector, useNavigationActions } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { useWalletSelectorStatus } from '../useWalletSelectorStatus';
 import WalletSelectorDesktop from '../WalletSelectorDesktop';
@@ -49,6 +49,7 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const { isDesktopWalletSelectorVisible } = useAppSelector(
     (s) => s.accountSelector,
   );
+  const { toggleWalletSelector } = useNavigationActions();
   const { visible } = useWalletSelectorStatus();
 
   useEffect(() => {
@@ -75,17 +76,8 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   );
 
   const handleToggleVisible = useCallback(() => {
-    setTimeout(() => {
-      // TODO move to useNavigationActions
-      if (isVertical) {
-        // @ts-expect-error
-        navigation?.toggleDrawer?.();
-      } else {
-        const nextVisible = !isDesktopWalletSelectorVisible;
-        dispatch(updateDesktopWalletSelectorVisible(nextVisible));
-      }
-    });
-  }, [isVertical, navigation, isDesktopWalletSelectorVisible, dispatch]);
+    toggleWalletSelector();
+  }, [toggleWalletSelector]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);
   const setRef = React.useCallback((ref: DesktopRef | null) => {

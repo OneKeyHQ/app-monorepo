@@ -16,7 +16,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
-import { useNavigation } from '@onekeyhq/kit/src/hooks';
+import { useNavigation, useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -62,6 +62,7 @@ const AccountSectionItem: FC<Props> = ({
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
+  const { closeWalletSelector } = useNavigationActions();
 
   const { copyAddress } = useCopyAddress({
     wallet: activeWallet,
@@ -168,7 +169,7 @@ const AccountSectionItem: FC<Props> = ({
       <Pressable
         px={2}
         onPress={() => {
-          navigation.dispatch(DrawerActions.closeDrawer());
+          closeWalletSelector();
           dispatch(updateIsRefreshDisabled(true));
 
           InteractionManager.runAfterInteractions(async () => {

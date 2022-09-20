@@ -14,7 +14,7 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../../hooks';
+import { useActiveWalletAccount, useNavigationActions } from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
@@ -51,6 +51,7 @@ const ListItem: FC<ListItemProps> = ({
   const isVertical = useIsVerticalLayout();
   const navigation = useAppNavigation();
   const closeModal = useModalClose();
+  const { closeWalletSelector } = useNavigationActions();
   const {
     walletId: activeWalletId,
     accountId: activeAccountId,
@@ -75,7 +76,7 @@ const ListItem: FC<ListItemProps> = ({
     <Pressable
       onPress={() => {
         closeModal();
-        navigation.dispatch(DrawerActions.closeDrawer());
+        closeWalletSelector();
         dispatch(updateIsRefreshDisabled(true));
 
         InteractionManager.runAfterInteractions(async () => {
