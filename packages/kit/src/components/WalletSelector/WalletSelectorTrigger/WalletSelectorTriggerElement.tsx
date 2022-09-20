@@ -2,12 +2,15 @@ import React, { FC, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { Rect } from 'react-native-svg';
 
 import {
   Box,
   Button,
+  Hidden,
   Icon,
   Pressable,
+  Skeleton,
   Spinner,
   Typography,
   useIsVerticalLayout,
@@ -97,14 +100,13 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
   // const showExternalImg = true;
   return (
     <>
-      <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
+      <Pressable onPress={handleToggleVisible} justifyContent="center">
         {({ isHovered }) => (
           <Box
             flexDirection="row"
             alignItems="center"
-            w="full"
             p={1}
-            pr={2}
+            pr={{ base: 1, md: 2 }}
             borderRadius="12px"
             maxW={`${maxItemWidth}px`}
             bg={
@@ -117,18 +119,25 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
             }
           >
             <Box>
-              <WalletAvatar
-                walletImage={wallet.type}
-                hwWalletType={
-                  (wallet.deviceType as IOneKeyDeviceType) ||
-                  getDeviceTypeByDeviceId(wallet.associatedDevice)
-                }
-                avatar={wallet.avatar}
-                isPassphrase={isPassphrase}
-                size="sm"
-                mr={3}
-                status={hasWalletState ? walletState : undefined}
-              />
+              {isLoading ? (
+                <Box size={8}>
+                  <Skeleton size={32}>
+                    <Rect x="0" y="0" width="32" height="32" rx="12" ry="12" />
+                  </Skeleton>
+                </Box>
+              ) : (
+                <WalletAvatar
+                  walletImage={wallet.type}
+                  hwWalletType={
+                    (wallet.deviceType as IOneKeyDeviceType) ||
+                    getDeviceTypeByDeviceId(wallet.associatedDevice)
+                  }
+                  avatar={wallet.avatar}
+                  isPassphrase={isPassphrase}
+                  size="sm"
+                  status={hasWalletState ? walletState : undefined}
+                />
+              )}
               {showExternalImg && account ? (
                 <Box position="absolute" right="4px" bottom="-6px">
                   <ExternalAccountImg
@@ -142,21 +151,22 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
                 </Box>
               ) : null}
             </Box>
-            <Typography.Body2Strong
-              isTruncated
-              numberOfLines={1}
-              mr={1}
-              maxWidth={isVerticalLayout ? '106px' : '144px'}
-            >
-              {name}
-            </Typography.Body2Strong>
-            <Box ml={!isVerticalLayout ? 'auto' : undefined}>
-              {isLoading ? (
-                <Spinner size="sm" />
-              ) : (
-                <Icon size={20} name="ChevronDownSolid" />
-              )}
-            </Box>
+            <Hidden from="base" till="md">
+              <>
+                <Typography.Body2Strong
+                  isTruncated
+                  numberOfLines={1}
+                  ml={3}
+                  mr={1}
+                  maxWidth={isVerticalLayout ? '106px' : '144px'}
+                >
+                  {name}
+                </Typography.Body2Strong>
+                <Box ml={!isVerticalLayout ? 'auto' : undefined}>
+                  <Icon size={20} name="ChevronDownSolid" />
+                </Box>
+              </>
+            </Hidden>
           </Box>
         )}
       </Pressable>

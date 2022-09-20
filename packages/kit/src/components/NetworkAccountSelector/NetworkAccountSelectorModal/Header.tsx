@@ -36,14 +36,9 @@ function Header({
       pb={2}
       pl={4}
     >
-      <VStack flex={1} mr={3}>
-        <Text typography="Heading" isTruncated>
-          {selectedNetwork?.shortName || '-'}
-        </Text>
-        <Text typography="Caption" color="text-subdued" isTruncated>
-          {selectedNetwork?.name || selectedNetwork?.shortName || '-'}
-        </Text>
-      </VStack>
+      <Text typography="Heading" isTruncated flex={1} mr={3}>
+        {selectedNetwork?.shortName || '-'}
+      </Text>
 
       {isLoading ? (
         <Pressable
