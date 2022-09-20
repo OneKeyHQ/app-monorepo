@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
-import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
+import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
@@ -174,18 +174,7 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
       'text-default',
       'border-subdued',
     ]);
-    const renderHeader = useCallback(
-      () => (
-        <LayoutHeader
-          showOnDesktop
-          // headerLeft={() => <AccountSelector />}
-          headerLeft={() => null}
-          // headerRight={() => <ChainSelector />}
-          headerRight={() => <NetworkAccountSelectorTrigger />}
-        />
-      ),
-      [],
-    );
+    const renderHeader = useCallback(() => <LayoutHeaderDesktop />, []);
     return (
       <Stack.Navigator
         screenOptions={{

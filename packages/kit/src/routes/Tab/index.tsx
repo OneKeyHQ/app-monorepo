@@ -5,9 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/BottomTabs';
-import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
-import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
-import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
+import { LayoutHeaderMobile } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderMobile';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
@@ -30,17 +28,7 @@ const TabNavigator = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const { network: activeNetwork, wallet } = useActiveWalletAccount();
 
-  const renderHeader = useCallback(
-    () => (
-      <LayoutHeader
-        // headerLeft={() => <AccountSelector />}
-        headerLeft={() => <WalletSelectorTrigger />}
-        // headerRight={() => <ChainSelector />}
-        headerRight={() => <NetworkAccountSelectorTrigger />}
-      />
-    ),
-    [],
-  );
+  const renderHeader = useCallback(() => <LayoutHeaderMobile />, []);
 
   const foldableList = useMemo(
     () => [
