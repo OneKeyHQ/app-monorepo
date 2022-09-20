@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -42,7 +42,6 @@ const { updateDesktopWalletSelectorVisible } = reducerAccountSelector.actions;
 
 const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const isVertical = useIsVerticalLayout();
-  const navigation = useNavigation();
 
   const triggerRef = useRef<HTMLElement>(null);
   const { dispatch } = backgroundApiProxy;

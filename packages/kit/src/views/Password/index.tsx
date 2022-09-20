@@ -127,7 +127,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
   const [attention, showAttention] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const {dispatch} = backgroundApiProxy;
+  const { dispatch } = backgroundApiProxy;
   const toast = useToast();
   const ref = useRef({ unmount: false });
   const authenticationType = useAppSelector((s) => s.status.authenticationType);

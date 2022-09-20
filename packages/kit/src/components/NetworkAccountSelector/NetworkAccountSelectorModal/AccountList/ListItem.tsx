@@ -1,7 +1,6 @@
 /* eslint-disable no-nested-ternary */
 import React, { FC, useMemo } from 'react';
 
-import { DrawerActions } from '@react-navigation/native';
 import { InteractionManager } from 'react-native';
 
 import {
@@ -14,8 +13,10 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount, useNavigationActions } from '../../../../hooks';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import {
+  useActiveWalletAccount,
+  useNavigationActions,
+} from '../../../../hooks';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
@@ -49,7 +50,6 @@ const ListItem: FC<ListItemProps> = ({
   const { dispatch, serviceNetwork, serviceAccount, serviceAccountSelector } =
     backgroundApiProxy;
   const isVertical = useIsVerticalLayout();
-  const navigation = useAppNavigation();
   const closeModal = useModalClose();
   const { closeWalletSelector } = useNavigationActions();
   const {

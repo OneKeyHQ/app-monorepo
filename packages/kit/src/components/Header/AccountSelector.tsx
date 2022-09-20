@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 
 import { useDrawerStatus } from '@react-navigation/drawer';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -47,7 +47,6 @@ const { updateIsOpenDelay, updateDesktopWalletSelectorVisible } =
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const isVertical = useIsVerticalLayout();
-  const navigation = useNavigation();
 
   const triggerRef = useRef<HTMLElement>(null);
   const { serviceAccountSelector, dispatch } = backgroundApiProxy;

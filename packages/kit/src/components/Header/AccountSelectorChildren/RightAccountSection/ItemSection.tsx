@@ -1,6 +1,5 @@
 import React, { FC, memo, useCallback } from 'react';
 
-import { DrawerActions } from '@react-navigation/native';
 import { InteractionManager } from 'react-native';
 
 import {

@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { DrawerActions } from '@react-navigation/native';
-
 import {
   Badge,
   Box,
@@ -17,7 +15,6 @@ import {
   useActiveWalletAccount,
   useNavigationActions,
 } from '../../../../hooks';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useWalletName } from '../../../../hooks/useWalletName';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
@@ -76,11 +73,8 @@ function RightContent({
   );
 }
 
-const {
-  updateIsRefreshDisabled,
-  updateDesktopWalletSelectorVisible,
-  updateIsLoading,
-} = reducerAccountSelector.actions;
+const { updateIsRefreshDisabled, updateIsLoading } =
+  reducerAccountSelector.actions;
 
 function ListItem({
   wallet,
@@ -93,7 +87,6 @@ function ListItem({
 }) {
   const { walletId } = useActiveWalletAccount();
   // const deviceId = wallet.associatedDevice || '';
-  const navigation = useAppNavigation();
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const isVertical = useIsVerticalLayout();
   const { closeWalletSelector } = useNavigationActions();

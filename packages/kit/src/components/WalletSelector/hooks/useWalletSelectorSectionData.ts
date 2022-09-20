@@ -1,14 +1,19 @@
-import { useRuntime } from '../../../hooks/redux';
 import { useMemo } from 'react';
+
+import { orderBy } from 'lodash';
+
 import { IWallet } from '@onekeyhq/engine/src/types';
 import {
   WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_HD, WALLET_TYPE_HW,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
-import { orderBy } from 'lodash';
-import { IWalletDataBase } from '../WalletSelectorChildren/List';
+
+import { useRuntime } from '../../../hooks/redux';
+
+import type { IWalletDataBase } from '../WalletSelectorChildren/List';
 
 export enum EWalletDataSectionType {
   hd = 'hd',
