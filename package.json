@@ -43,7 +43,8 @@
     "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi",
     "prepare": "husky install",
     "stats:web": "yarn workspace @onekeyhq/web stats",
-    "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json"
+    "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json",
+    "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.0.1",
