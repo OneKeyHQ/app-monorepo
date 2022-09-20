@@ -26,7 +26,7 @@ import { openUrl, openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabRoutes, TabRoutesParams } from '../../../routes/types';
-import Home from '../Home';
+import DiscoverHome from '../Home/DiscoverHome';
 
 import Desktop from './Content/Desktop';
 import Mobile from './Content/Mobile';
@@ -391,7 +391,7 @@ const Explorer: FC = () => {
     () => (
       <Box flex={1}>
         {displayInitialPage ? (
-          <Home
+          <DiscoverHome
             onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })}
             onItemSelectHistory={(item) => gotoUrl(item)}
           />

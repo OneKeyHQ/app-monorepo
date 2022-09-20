@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -48,7 +48,7 @@ type DiscoverProps = {
   onItemSelect: (item: DAppItemType) => Promise<boolean>;
   onItemSelectHistory: (item: MatchDAppItemType) => void;
 };
-const DiscoverNative: FC<DiscoverProps> = ({
+const DiscoverHomeNative: FC<DiscoverProps> = ({
   onItemSelect,
   onItemSelectHistory,
 }) => {
@@ -290,4 +290,4 @@ const DiscoverNative: FC<DiscoverProps> = ({
   );
 };
 
-export default DiscoverNative;
+export default memo(DiscoverHomeNative);

@@ -39,7 +39,6 @@ import { imageUrl, requestRankings, requestSync } from '../Service';
 import { DAppItemType, RankingsPayload, SyncRequestPayload } from '../type';
 
 import CardView from './CardView';
-import DiscoverNative from './DiscoverNative';
 import ListView from './ListView';
 
 import type { SectionDataType } from './type';
@@ -131,7 +130,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   );
 };
 
-export const Discover: FC<DiscoverProps> = ({
+export const DiscoverHome: FC<DiscoverProps> = ({
   onItemSelect: propOnItemSelect,
   ...rest
 }) => {
@@ -305,7 +304,4 @@ export const Discover: FC<DiscoverProps> = ({
   );
 };
 
-const Home: FC<DiscoverProps> = ({ ...rest }) =>
-  platformEnv.isNative ? <DiscoverNative {...rest} /> : <Discover {...rest} />;
-
-export default memo(Home);
+export default memo(DiscoverHome);
