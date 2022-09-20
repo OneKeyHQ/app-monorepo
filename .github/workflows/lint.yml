@@ -3,9 +3,6 @@ name: lint
 on:
   pull_request:
     branches: [onekey]
-  push:
-    branches:
-      - onekey
 
 jobs:
   lint:
