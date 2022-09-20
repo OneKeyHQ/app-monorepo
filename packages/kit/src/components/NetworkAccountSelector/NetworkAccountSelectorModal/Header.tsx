@@ -8,9 +8,9 @@ import {
   Text,
   VStack,
 } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { useAccountSelectorInfo } from '../../Header/AccountSelectorChildren/useAccountSelectorInfo';
 
@@ -20,9 +20,9 @@ function Header({
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
-  const navigation = useAppNavigation();
   const { selectedNetwork, isLoading } = accountSelectorInfo;
   const { dispatch } = backgroundApiProxy;
+  const close = useModalClose();
   return (
     <Box
       // position="absolute"
@@ -60,9 +60,7 @@ function Header({
           type="plain"
           circle
           onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            }
+            close();
           }}
         />
       )}
