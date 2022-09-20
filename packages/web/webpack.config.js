@@ -44,6 +44,8 @@ module.exports = async function (env, argv) {
         },
       }),
     );
+  }
+  if (process.env.NODE_ENV === 'production') {
     config.devtool = false;
   }
   return config;
