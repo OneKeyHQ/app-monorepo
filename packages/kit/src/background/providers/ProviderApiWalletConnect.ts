@@ -109,6 +109,10 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     });
 
     const chainId = await this.getChainIdInteger(connector);
+    // walletConnect approve empty accounts is not allowed
+    if (!result || !result.length) {
+      throw new Error('WalletConnect Session error: accounts is empty');
+    }
     return { chainId, accounts: result };
   }
 
