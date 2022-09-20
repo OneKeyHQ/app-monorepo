@@ -10,7 +10,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
-import { WalletAvatarPro } from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../../hooks';
@@ -24,7 +24,7 @@ import {
 } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { WalletItemSelectDropdown } from '../WalletItemSelectDropdown';
 
-import type { IHardwareDeviceStatusMap } from '../../../Header/AccountSelectorChildren/useDeviceStatusOfHardwareWallet';
+import type { IHardwareDeviceStatusMap } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import type { IWalletDataBase } from './index';
 
 const SelectedIndicator = () => (
@@ -75,7 +75,7 @@ function RightContent({
 
 const {
   updateIsRefreshDisabled,
-  updateDesktopSelectorVisible,
+  updateDesktopWalletSelectorVisible,
   updateIsLoading,
 } = reducerAccountSelector.actions;
 
@@ -113,7 +113,7 @@ function ListItem({
         if (isVertical) {
           navigation.dispatch(DrawerActions.closeDrawer());
         } else {
-          dispatch(updateDesktopSelectorVisible(false));
+          dispatch(updateDesktopWalletSelectorVisible(false));
         }
         setTimeout(async () => {
           try {

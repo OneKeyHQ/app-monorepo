@@ -38,7 +38,7 @@ type AccountSelectorProps = {
   }) => ReactNode;
 };
 
-const { updateDesktopSelectorVisible } = reducerAccountSelector.actions;
+const { updateDesktopWalletSelectorVisible } = reducerAccountSelector.actions;
 
 const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const isVertical = useIsVerticalLayout();
@@ -46,7 +46,7 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
 
   const triggerRef = useRef<HTMLElement>(null);
   const { dispatch } = backgroundApiProxy;
-  const { isDesktopSelectorVisible } = useAppSelector((s) => s.accountSelector);
+  const { isDesktopWalletSelectorVisible } = useAppSelector((s) => s.accountSelector);
   const { visible } = useWalletSelectorStatus();
 
   useEffect(() => {
@@ -60,8 +60,8 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     useCallback(() => {
       if (platformEnv.isRuntimeBrowser) {
         const closeOnEsc = (e: KeyboardEvent) => {
-          if (e.code === 'Escape' && isDesktopSelectorVisible) {
-            dispatch(updateDesktopSelectorVisible(false));
+          if (e.code === 'Escape' && isDesktopWalletSelectorVisible) {
+            dispatch(updateDesktopWalletSelectorVisible(false));
           }
         };
         document.addEventListener('keydown', closeOnEsc);
@@ -69,7 +69,7 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
           document.removeEventListener('keydown', closeOnEsc);
         };
       }
-    }, [dispatch, isDesktopSelectorVisible]),
+    }, [dispatch, isDesktopWalletSelectorVisible]),
   );
 
   const handleToggleVisible = useCallback(() => {
@@ -79,11 +79,11 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
         // @ts-expect-error
         navigation?.toggleDrawer?.();
       } else {
-        const nextVisible = !isDesktopSelectorVisible;
-        dispatch(updateDesktopSelectorVisible(nextVisible));
+        const nextVisible = !isDesktopWalletSelectorVisible;
+        dispatch(updateDesktopWalletSelectorVisible(nextVisible));
       }
     });
-  }, [isVertical, navigation, isDesktopSelectorVisible, dispatch]);
+  }, [isVertical, navigation, isDesktopWalletSelectorVisible, dispatch]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);
   const setRef = React.useCallback((ref: DesktopRef | null) => {

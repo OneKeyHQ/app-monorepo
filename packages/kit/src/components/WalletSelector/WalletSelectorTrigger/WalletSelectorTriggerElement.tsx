@@ -27,7 +27,7 @@ import { useWalletName } from '../../../hooks/useWalletName';
 import { RootRoutes } from '../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../routes/types';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
-import WalletAvatar from '../../Header/WalletAvatar';
+import WalletAvatar from '../WalletAvatar';
 import ExternalAccountImg from '../../WalletConnect/ExternalAccountImg';
 
 import type { CreateWalletRoutesParams } from '../../../routes';

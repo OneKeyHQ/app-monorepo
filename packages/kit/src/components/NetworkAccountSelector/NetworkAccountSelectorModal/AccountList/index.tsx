@@ -22,7 +22,7 @@ import {
 } from '../../../../hooks/redux';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
-import { useAccountSelectorInfo } from '../../../Header/AccountSelectorChildren/useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 import { CreateAccountButton } from '../CreateAccountButton';
 
 import ListItem from './ListItem';

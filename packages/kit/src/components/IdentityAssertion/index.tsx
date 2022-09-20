@@ -99,7 +99,7 @@ const IdentityAssertion: FC = ({ children }) => {
                 //
                 // ** open WalletSelector
                 // openDrawer();
-                // dispatch(updateDesktopSelectorVisible(true));
+                // dispatch(updateDesktopWalletSelectorVisible(true));
               } else {
                 toast.show({
                   title: intl.formatMessage(

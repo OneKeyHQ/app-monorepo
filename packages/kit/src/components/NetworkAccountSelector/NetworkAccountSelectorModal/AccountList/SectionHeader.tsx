@@ -2,7 +2,7 @@ import React, { FC } from 'react';
 
 import { Box, Text } from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
-import { WalletAvatarPro } from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 import { useWalletName } from '../../../../hooks/useWalletName';
 import { CreateAccountButton } from '../CreateAccountButton';

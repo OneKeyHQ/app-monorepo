@@ -42,7 +42,7 @@ type AccountSelectorProps = {
   }) => ReactNode;
 };
 
-const { updateIsOpenDelay, updateDesktopSelectorVisible } =
+const { updateIsOpenDelay, updateDesktopWalletSelectorVisible } =
   reducerAccountSelector.actions;
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
@@ -51,7 +51,9 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
 
   const triggerRef = useRef<HTMLElement>(null);
   const { serviceAccountSelector, dispatch } = backgroundApiProxy;
-  const { isDesktopSelectorVisible } = useAppSelector((s) => s.accountSelector);
+  const { isDesktopWalletSelectorVisible } = useAppSelector(
+    (s) => s.accountSelector,
+  );
 
   useEffect(() => {
     debugLogger.accountSelector.info('HeaderAccountSelector mount');
@@ -64,8 +66,8 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     useCallback(() => {
       if (platformEnv.isRuntimeBrowser) {
         const closeOnEsc = (e: KeyboardEvent) => {
-          if (e.code === 'Escape' && isDesktopSelectorVisible) {
-            dispatch(updateDesktopSelectorVisible(false));
+          if (e.code === 'Escape' && isDesktopWalletSelectorVisible) {
+            dispatch(updateDesktopWalletSelectorVisible(false));
           }
         };
         document.addEventListener('keydown', closeOnEsc);
@@ -73,11 +75,11 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
           document.removeEventListener('keydown', closeOnEsc);
         };
       }
-    }, [dispatch, isDesktopSelectorVisible]),
+    }, [dispatch, isDesktopWalletSelectorVisible]),
   );
 
   const isDrawerOpen = useDrawerStatus() === 'open';
-  const visible = isVertical ? isDrawerOpen : isDesktopSelectorVisible;
+  const visible = isVertical ? isDrawerOpen : isDesktopWalletSelectorVisible;
 
   // delay wait drawer closed animation done
   const isOpenDelay = useDebounce(
@@ -98,8 +100,8 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
         // @ts-expect-error
         navigation?.toggleDrawer?.();
       } else {
-        const nextVisible = !isDesktopSelectorVisible;
-        dispatch(updateDesktopSelectorVisible(nextVisible));
+        const nextVisible = !isDesktopWalletSelectorVisible;
+        dispatch(updateDesktopWalletSelectorVisible(nextVisible));
       }
     });
   }, [
@@ -107,7 +109,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     serviceAccountSelector,
     isVertical,
     navigation,
-    isDesktopSelectorVisible,
+    isDesktopWalletSelectorVisible,
     dispatch,
   ]);
 

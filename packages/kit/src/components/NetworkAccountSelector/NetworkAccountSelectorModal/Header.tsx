@@ -12,7 +12,7 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { useAccountSelectorInfo } from '../../Header/AccountSelectorChildren/useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 const { updateIsLoading } = reducerAccountSelector.actions;
 function Header({

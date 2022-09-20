@@ -21,13 +21,13 @@ import { useEffectOnUpdate } from '../../../hooks/useEffectOnUpdate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../utils/helper';
-
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
   ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
   ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN,
-} from './accountSelectorConsts';
+} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+
 import { useDeviceStatusOfHardwareWallet } from './useDeviceStatusOfHardwareWallet';
 
 const { updateIsLoading } = reducerAccountSelector.actions;

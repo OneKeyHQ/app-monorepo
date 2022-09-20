@@ -29,7 +29,7 @@ import {
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import WalletAvatar from '../../components/Header/WalletAvatar';
+import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 
 import { ListEmptyComponent } from './Empty';

@@ -12,7 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
-import { useAccountSelectorInfo } from './AccountSelectorChildren/useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../NetworkAccountSelector/hooks/useAccountSelectorInfo';
 
 type ChildDropdownProps = {
   visible: boolean;

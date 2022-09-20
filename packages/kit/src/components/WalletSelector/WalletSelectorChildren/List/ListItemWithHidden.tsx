@@ -11,7 +11,7 @@ import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/
 
 import ListItem from './ListItem';
 
-import type { IHardwareDeviceStatusMap } from '../../../Header/AccountSelectorChildren/useDeviceStatusOfHardwareWallet';
+import type { IHardwareDeviceStatusMap } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import type { IWalletDataBase } from './index';
 
 // TODO move to standalone files

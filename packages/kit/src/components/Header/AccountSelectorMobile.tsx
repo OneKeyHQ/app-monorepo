@@ -11,7 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { LazyDisplayView } from '../LazyDisplayView';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
-import { useAccountSelectorInfo } from './AccountSelectorChildren/useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../NetworkAccountSelector/hooks/useAccountSelectorInfo';
 
 const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
   const status = useDrawerStatus();

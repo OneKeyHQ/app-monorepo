@@ -7,7 +7,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useDebounce } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { useAccountSelectorInfo } from '../../Header/AccountSelectorChildren/useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 import AccountList from './AccountList';
 import ChainSelector from './ChainSelector';

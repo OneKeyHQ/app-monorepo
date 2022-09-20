@@ -6,9 +6,9 @@ import { useAppSelector, usePrevious } from '../../hooks';
 
 function useWalletSelectorStatus() {
   const isVertical = useIsVerticalLayout();
-  const { isDesktopSelectorVisible } = useAppSelector((s) => s.accountSelector);
+  const { isDesktopWalletSelectorVisible } = useAppSelector((s) => s.accountSelector);
   const isDrawerOpen = useDrawerStatus() === 'open';
-  const visible = isVertical ? isDrawerOpen : isDesktopSelectorVisible;
+  const visible = isVertical ? isDrawerOpen : isDesktopWalletSelectorVisible;
   const visiblePrev = usePrevious(visible);
   const isOpenFromClose = !visiblePrev && visible;
   return {

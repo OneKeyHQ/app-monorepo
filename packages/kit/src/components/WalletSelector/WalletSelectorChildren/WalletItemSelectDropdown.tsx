@@ -33,7 +33,7 @@ import {
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
-import { IHardwareDeviceStatusMap } from '../../Header/AccountSelectorChildren/useDeviceStatusOfHardwareWallet';
+import { IHardwareDeviceStatusMap } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import { ValidationFields } from '../../Protected';
 
 enum EWalletSelectorListItemSelectOptions {

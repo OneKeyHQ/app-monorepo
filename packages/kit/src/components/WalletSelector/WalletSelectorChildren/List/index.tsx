@@ -17,7 +17,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useActiveWalletAccount, useRuntime } from '../../../../hooks/redux';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_WALLET } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { useDeviceStatusOfHardwareWallet } from '../../../Header/AccountSelectorChildren/useDeviceStatusOfHardwareWallet';
+import { useDeviceStatusOfHardwareWallet } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import { useWalletSelectorStatus } from '../../useWalletSelectorStatus';
 
 import { ListItemWithHidden } from './ListItemWithHidden';

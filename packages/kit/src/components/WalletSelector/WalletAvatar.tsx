@@ -16,7 +16,7 @@ import { getDeviceTypeByDeviceId } from '../../utils/hardware';
 import {
   DeviceStatusType,
   IHardwareDeviceStatusMap,
-} from './AccountSelectorChildren/useDeviceStatusOfHardwareWallet';
+} from '../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 
 type WalletAvatarProps = {
   size?: 'xl' | 'lg' | 'sm' | 'xs' | string;

@@ -35,7 +35,7 @@ import RightAccountSection, {
 } from './RightAccountSection';
 import RightChainSelector from './RightChainSelector';
 import RightHeader from './RightHeader';
-import { useAccountSelectorInfo } from './useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../../NetworkAccountSelector/hooks/useAccountSelectorInfo';
 
 export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
 export type DeviceStatusType = {
