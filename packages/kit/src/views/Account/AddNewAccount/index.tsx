@@ -56,8 +56,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       defaultValues: { name: '', addressType: 'default' },
     });
   const { activeNetworkId } = useGeneral();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isLoading, setIsLoading] = useState(false);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
@@ -179,7 +177,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     (password: string) => {
       const network: string = getValues('network');
       const name: string = getValues('name');
-      setIsLoading(true);
+      // setIsLoading(true);
       serviceAccountSelector.preloadingCreateAccount({
         walletId: selectedWalletId,
         networkId: network,
@@ -207,7 +205,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               networkId: network,
               accountId: addedAccount?.id,
             });
-            setIsLoading(false);
+            // setIsLoading(false);
             navigation.getParent()?.goBack?.();
           });
       }, 10);

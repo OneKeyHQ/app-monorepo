@@ -3,38 +3,15 @@ import React, { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Text, VStack } from '@onekeyhq/components';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 
-import { useAppSelector } from '../../../../hooks';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
+import { useIsPassphraseMode } from '../../hooks/useIsPassphraseMode';
 
 import ListItem from './ListItem';
 
 import type { IHardwareDeviceStatusMap } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import type { IWalletDataBase } from './index';
-
-// TODO move to standalone files
-function useIsPassphraseMode(item: IWalletDataBase) {
-  const passphraseOpenedList = useAppSelector(
-    (state) => state.hardware.passphraseOpened,
-  );
-  const isPassphraseMode = useMemo(() => {
-    const deviceId = item?.wallet?.associatedDevice || '';
-    if (passphraseOpenedList.find((v) => v && v === deviceId)) {
-      return true;
-    }
-    if (item?.hiddenWallets?.find((w) => isPassphraseWallet(w))) {
-      return true;
-    }
-    return false;
-  }, [
-    passphraseOpenedList,
-    item?.hiddenWallets,
-    item?.wallet?.associatedDevice,
-  ]);
-  return isPassphraseMode;
-}
 
 function ListItemWithHidden({
   deviceStatus,

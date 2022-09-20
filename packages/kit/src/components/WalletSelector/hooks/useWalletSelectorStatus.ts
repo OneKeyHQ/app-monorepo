@@ -2,7 +2,7 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import { useAppSelector, usePrevious } from '../../hooks';
+import { useAppSelector, usePrevious } from '../../../hooks';
 
 function useWalletSelectorStatus() {
   const isVertical = useIsVerticalLayout();

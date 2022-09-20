@@ -23,7 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigationActions } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { useWalletSelectorStatus } from '../useWalletSelectorStatus';
+import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import WalletSelectorDesktop from '../WalletSelectorDesktop';
 
 import { WalletSelectorTriggerElement } from './WalletSelectorTriggerElement';
