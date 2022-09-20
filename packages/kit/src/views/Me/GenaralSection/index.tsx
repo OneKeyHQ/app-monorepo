@@ -116,7 +116,7 @@ export const GenaralSection = () => {
               ]}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
-              renderTrigger={(activeOption) => (
+              renderTrigger={({ activeOption }) => (
                 <SelectTrigger
                   title={intl.formatMessage({
                     id: 'form__theme',
@@ -145,7 +145,7 @@ export const GenaralSection = () => {
               options={localeOptions}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
-              renderTrigger={(activeOption) => (
+              renderTrigger={({ activeOption }) => (
                 <SelectTrigger
                   title={intl.formatMessage({
                     id: 'form__language',
@@ -176,7 +176,7 @@ export const GenaralSection = () => {
               }))}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
-              renderTrigger={(activeOption) => (
+              renderTrigger={({ activeOption }) => (
                 <SelectTrigger
                   title={intl.formatMessage({
                     id: 'form__fiat_currency',

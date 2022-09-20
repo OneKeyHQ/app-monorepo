@@ -82,7 +82,7 @@ const ChainSelector: FC = () => {
             });
           }, 500);
         }}
-        renderTrigger={(activeOption, isHovered, visible, isPressed) => (
+        renderTrigger={({ activeOption, isHovered, visible, isPressed }) => (
           <HStack
             p={2}
             space={1}

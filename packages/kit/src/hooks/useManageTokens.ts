@@ -56,7 +56,6 @@ export const useManageTokens = ({
         activeNetworkId: networkId,
         withBalance: true,
         withPrice: true,
-        muteErrors: true,
       });
       timer = setInterval(() => {
         backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -64,7 +63,6 @@ export const useManageTokens = ({
           activeNetworkId: networkId,
           withBalance: true,
           withPrice: true,
-          muteErrors: true,
         });
       }, pollingInterval);
     }
@@ -83,7 +81,6 @@ export const useManageTokens = ({
         activeNetworkId: networkId,
         withBalance: true,
         withPrice: true,
-        muteErrors: true,
       });
     }
     // eslint-disable-next-line

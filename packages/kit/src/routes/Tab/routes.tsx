@@ -27,7 +27,6 @@ import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';

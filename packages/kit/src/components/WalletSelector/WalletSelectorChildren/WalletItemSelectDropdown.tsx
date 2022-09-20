@@ -273,15 +273,7 @@ function WalletItemSelectDropdown({
         dropdownProps={{
           width: 248,
         }}
-        renderTrigger={(
-          // TODO use plain object params
-          activeItem,
-          isHovered,
-          isFocused,
-          isPressed,
-          isVisible,
-          onPress,
-        ) => (
+        renderTrigger={({ onPress }) => (
           <IconButton
             name="DotsVerticalSolid"
             circle

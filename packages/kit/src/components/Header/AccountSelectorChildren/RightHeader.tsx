@@ -355,7 +355,7 @@ const RightHeader: FC<RightHeaderProps> = ({
           dropdownProps={{
             width: 248,
           }}
-          renderTrigger={(activeOption, isHovered, visible, isPressed) => (
+          renderTrigger={({ isHovered, visible, isPressed }) => (
             <CustomSelectTrigger
               isTriggerHovered={isHovered}
               isSelectVisible={visible}
@@ -435,7 +435,7 @@ const RightHeader: FC<RightHeaderProps> = ({
           dropdownProps={{
             width: 248,
           }}
-          renderTrigger={(activeOption, isHovered, visible) => (
+          renderTrigger={({ isHovered, visible }) => (
             <CustomSelectTrigger
               isTriggerHovered={isHovered}
               isSelectVisible={visible}
