@@ -12,7 +12,7 @@ import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
-} from '../Header/AccountSelectorChildren/RightAccountCreateButton';
+} from '../NetworkAccountSelector/hooks/useCreateAccountInWallet';
 
 const IdentityAssertion: FC = ({ children }) => {
   const intl = useIntl();
