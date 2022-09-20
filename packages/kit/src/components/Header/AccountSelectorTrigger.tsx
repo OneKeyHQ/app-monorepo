@@ -26,7 +26,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import ExternalAccountImg from '../WalletConnect/ExternalAccountImg';
-
 import WalletAvatar from '../WalletSelector/WalletAvatar';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;

@@ -12,7 +12,6 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Avatar, defaultAvatar } from '../../utils/emojiUtils';
 import { getDeviceTypeByDeviceId } from '../../utils/hardware';
-
 import {
   DeviceStatusType,
   IHardwareDeviceStatusMap,

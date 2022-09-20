@@ -46,7 +46,9 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
 
   const triggerRef = useRef<HTMLElement>(null);
   const { dispatch } = backgroundApiProxy;
-  const { isDesktopWalletSelectorVisible } = useAppSelector((s) => s.accountSelector);
+  const { isDesktopWalletSelectorVisible } = useAppSelector(
+    (s) => s.accountSelector,
+  );
   const { visible } = useWalletSelectorStatus();
 
   useEffect(() => {
