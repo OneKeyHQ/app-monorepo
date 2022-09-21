@@ -1,5 +1,6 @@
 import {
   COINTYPE_ALGO,
+  COINTYPE_APTOS,
   COINTYPE_BTC,
   COINTYPE_CFX,
   COINTYPE_ETH,
@@ -8,6 +9,7 @@ import {
   COINTYPE_STC,
   COINTYPE_TRON,
   IMPL_ALGO,
+  IMPL_APTOS,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_EVM,
@@ -34,6 +36,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_CFX]: COINTYPE_CFX,
   [IMPL_BTC]: COINTYPE_BTC,
   [IMPL_TRON]: COINTYPE_TRON,
+  [IMPL_APTOS]: COINTYPE_APTOS,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -49,6 +52,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_CFX]: AccountType.VARIANT,
   [IMPL_BTC]: AccountType.UTXO,
   [IMPL_TRON]: AccountType.SIMPLE,
+  [IMPL_APTOS]: AccountType.SIMPLE,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -64,6 +68,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_CFX]: Curve.SECP256K1,
   [IMPL_BTC]: Curve.SECP256K1,
   [IMPL_TRON]: Curve.SECP256K1,
+  [IMPL_APTOS]: Curve.ED25519,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -111,6 +116,9 @@ const defaultAccountNameInfo: Record<
   },
   [IMPL_TRON]: {
     default: { prefix: 'TRON', category: `44'/${COINTYPE_TRON}'` },
+  },
+  [IMPL_APTOS]: {
+    default: { prefix: 'APT', category: `44'/${COINTYPE_APTOS}'` },
   },
 };
 

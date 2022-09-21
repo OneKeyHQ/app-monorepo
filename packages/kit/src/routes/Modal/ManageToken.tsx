@@ -9,6 +9,7 @@ import {
   VerifiedToken,
   ViewTokenModal,
 } from '../../views/ManageTokens';
+import ActivateTokenAuthModal from '../../views/ManageTokens/ActivateTokenAuthModal';
 import {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
@@ -28,6 +29,10 @@ const modalRoutes = [
   {
     name: ManageTokenRoutes.AddToken,
     component: AddToken,
+  },
+  {
+    name: ManageTokenRoutes.ActivateToken,
+    component: ActivateTokenAuthModal,
   },
   {
     name: ManageTokenRoutes.ViewToken,

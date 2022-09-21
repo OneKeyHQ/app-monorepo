@@ -26,6 +26,9 @@ const COINTYPE_BTC = '0';
 const IMPL_TRON = 'tron';
 const COINTYPE_TRON = '195';
 
+const IMPL_APTOS = 'aptos';
+const COINTYPE_APTOS = '637';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -35,6 +38,7 @@ const SUPPORTED_IMPLS = new Set([
   // IMPL_ALGO,
   IMPL_STC,
   IMPL_TRON,
+  IMPL_APTOS,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -44,6 +48,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_SOL,
   IMPL_STC,
   IMPL_TRON,
+  IMPL_APTOS,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -87,5 +92,7 @@ export {
   COINTYPE_BTC,
   IMPL_TRON,
   COINTYPE_TRON,
+  IMPL_APTOS,
+  COINTYPE_APTOS,
   getSupportedImpls,
 };
