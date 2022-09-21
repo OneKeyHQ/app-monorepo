@@ -543,22 +543,23 @@ export default class Vault extends VaultBase {
           type_arguments: types,
           function: func,
           code,
-          // @ts-ignore
+          // @ts-expect-error
         } = tx?.payload || {};
 
-        // @ts-ignore
+        // @ts-expect-error
         if (!tx?.payload) return await Promise.resolve(null);
 
         const [coinType] = types;
 
-        const [to, amountValue] = args || [];
         const from = get(tx, 'sender', undefined);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        const [moveAddr] = func?.split('::');
 
         const actionType = getTransactionType(tx);
 
         const encodedTx = {
           from,
-          to,
+          to: moveAddr,
           value: '',
         };
 
@@ -570,6 +571,7 @@ export default class Vault extends VaultBase {
           actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
           actionType === IDecodedTxActionType.TOKEN_TRANSFER
         ) {
+          const [to, amountValue] = args || [];
           const isToken = actionType === IDecodedTxActionType.TOKEN_TRANSFER;
 
           let direction = IDecodedTxDirection.IN;
