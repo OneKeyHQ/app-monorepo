@@ -16,6 +16,11 @@ import {
   getTxActionSwapInfo,
 } from '../TxAction/TxActionSwap';
 import {
+  TxActionTokenActivate,
+  TxActionTokenActivateT0,
+  getTxActionTokenActivateInfo,
+} from '../TxAction/TxActionTokenActivate';
+import {
   TxActionTokenApprove,
   TxActionTokenApproveT0,
   getTxActionTokenApproveInfo,
@@ -91,6 +96,16 @@ export function getTxActionMeta(
       T0: TxActionTokenApproveT0,
       T1: TxActionTokenApprove,
       T2: TxActionTokenApprove,
+    };
+  }
+  if (action.type === IDecodedTxActionType.TOKEN_ACTIVATE) {
+    const info = getTxActionTokenActivateInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionTokenActivateT0,
+      T1: TxActionTokenActivate,
+      T2: TxActionTokenActivate,
     };
   }
   if (action.type === IDecodedTxActionType.INTERNAL_SWAP) {

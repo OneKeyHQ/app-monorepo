@@ -4,6 +4,8 @@ import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 import { NFTAsset } from '../types/nft';
 import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
 
+import { IEncodedTxAptos } from './impl/apt/types';
+
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
 import type { Token } from '../types/token';
@@ -40,6 +42,8 @@ export type IVaultSettings = {
   minTransferAmount?: string;
 
   isUTXOModel: boolean;
+  activateAccountRequired?: boolean;
+  activateTokenRequired?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -96,7 +100,8 @@ export type IEncodedTx =
   | IEncodedTxBtc
   | IEncodedTxSTC
   | IEncodedTxSol
-  | IEncodedTxTron;
+  | IEncodedTxTron
+  | IEncodedTxAptos;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear
@@ -249,6 +254,7 @@ export enum IDecodedTxActionType {
   // TOKEN
   TOKEN_TRANSFER = 'TOKEN_TRANSFER',
   TOKEN_APPROVE = 'TOKEN_APPROVE',
+  TOKEN_ACTIVATE = 'TOKEN_ACTIVATE',
 
   // NFT
   NFT_TRANSFER = 'NFT_TRANSFER',
@@ -310,6 +316,13 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amountValue: string;
   isMax: boolean;
 };
+export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
+  tokenAddress: string;
+  logoURI: string;
+  decimals: number;
+  name: string;
+  symbol: string;
+};
 export type IDecodedTxActionEvmInfo = {
   from: string;
   to: string;
@@ -336,6 +349,7 @@ export type IDecodedTxAction = {
   nativeTransfer?: IDecodedTxActionNativeTransfer;
   tokenTransfer?: IDecodedTxActionTokenTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
+  tokenActivate?: IDecodedTxActionTokenActivate;
   internalSwap?: IDecodedTxActionInternalSwap;
   internalStake?: IDecodedTxActionInternalStake;
   functionCall?: IDecodedTxActionFunctionCall;
