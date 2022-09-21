@@ -1,4 +1,4 @@
-import React, { FC, memo, useEffect, useMemo } from 'react';
+import React, { FC, memo, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';

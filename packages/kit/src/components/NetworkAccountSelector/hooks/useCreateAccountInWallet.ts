@@ -13,7 +13,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { ManageNetworkRoutes } from '../../../routes';
 import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
