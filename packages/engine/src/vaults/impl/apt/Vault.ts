@@ -24,7 +24,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { DBSimpleAccount } from '../../../types/account';
+import { DBSimpleAccount, DBVariantAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
@@ -47,7 +47,11 @@ import {
   IUnsignedTxPro,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
-import { isHexString, stripHexPrefix } from '../../utils/hexUtils';
+import {
+  addHexPrefix,
+  isHexString,
+  stripHexPrefix,
+} from '../../utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -64,6 +68,7 @@ import {
   getAccountCoinResource,
   getTokenInfo,
   getTransactionType,
+  getTransactionTypeByPayload,
   waitPendingTransaction,
 } from './utils';
 
@@ -109,6 +114,19 @@ export default class Vault extends VaultBase {
     const { block_height: blockNumber } = await client.getLedgerInfo();
     const latestBlock = parseInt(blockNumber);
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+
+  async _getPublicKey({
+    prefix = true,
+  }: {
+    prefix?: boolean;
+  } = {}): Promise<string> {
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    let publicKey = dbAccount.pub;
+    if (prefix) {
+      publicKey = addHexPrefix(publicKey);
+    }
+    return Promise.resolve(publicKey);
   }
 
   override async validateAddress(address: string) {
@@ -268,24 +286,50 @@ export default class Vault extends VaultBase {
     let token: Token | undefined = await this.engine.getNativeTokenInfo(
       this.networkId,
     );
-    const { type, function: fun } = encodedTx;
+    const { type, function: fun, type_arguments } = encodedTx;
+    if (!encodedTx?.sender) {
+      encodedTx.sender = dbAccount.address;
+    }
     let action: IDecodedTxAction | null = null;
-    if (type === 'entry_function_payload' && fun === '0x1::coin::transfer') {
+    const actionType = getTransactionTypeByPayload({
+      type,
+      function_name: fun,
+      type_arguments,
+    });
+    if (
+      actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
+      actionType === IDecodedTxActionType.TOKEN_TRANSFER
+    ) {
+      const isToken = actionType === IDecodedTxActionType.TOKEN_TRANSFER;
+
       // Native token transfer
       const { sender } = encodedTx;
       const [coinType] = encodedTx.type_arguments || [];
       const [to, amount] = encodedTx.arguments || [];
-
       let actionKey = 'nativeTransfer';
-      let actionType = IDecodedTxActionType.NATIVE_TRANSFER;
 
-      if (coinType !== APTOS_NATIVE_COIN) {
-        token = await this.engine.ensureTokenInDB(this.networkId, coinType);
-        if (typeof token === 'undefined') {
-          throw new OneKeyInternalError('Failed to get token info.');
-        }
+      if (isToken) {
         actionKey = 'tokenTransfer';
-        actionType = IDecodedTxActionType.TOKEN_TRANSFER;
+        token = await this.engine.ensureTokenInDB(this.networkId, coinType);
+        if (!token) {
+          const [remoteToken] = await this.fetchTokenInfos([coinType]);
+          if (remoteToken) {
+            token = {
+              id: '1',
+              isNative: false,
+              networkId: this.networkId,
+              tokenIdOnNetwork: coinType,
+              name: remoteToken.name,
+              symbol: remoteToken.symbol,
+              decimals: remoteToken.decimals,
+              logoURI: '',
+            };
+          }
+
+          if (!token) {
+            throw new Error('Invalid token address');
+          }
+        }
       }
 
       const transferAction: IDecodedTxActionTokenTransfer = {
@@ -298,7 +342,7 @@ export default class Vault extends VaultBase {
       };
 
       action = {
-        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        type: actionType,
         [actionKey]: transferAction,
       };
     } else {
@@ -711,5 +755,10 @@ export default class Vault extends VaultBase {
         }
       }),
     );
+  }
+
+  async getTransactionByHash(txId: string) {
+    const client = await this.getClient();
+    return client.getTransactionByHash(txId);
   }
 }

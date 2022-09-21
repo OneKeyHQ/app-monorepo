@@ -3416,10 +3416,8 @@
   resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-events/-/cross-inpage-provider-events-0.0.17.tgz#9412e8a164d55a157475d8aed19bedeb7c2df959"
   integrity sha512-mRpLJkBAhaDEhVIKY6WI9+Zwdb6LhFJjM8E0HLHgxZlOmswKmNAhY4lgYr3Z8iF2yX2//Z46DqW0C5nWsDdVYA==
 
-"@onekeyfe/cross-inpage-provider-injected@1.0.1":
+"@onekeyfe/cross-inpage-provider-injected@file:.yalc/@onekeyfe/cross-inpage-provider-injected":
   version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-injected/-/cross-inpage-provider-injected-1.0.1.tgz#1866b1c8892a22ab04c7e86519d500742e1f23a6"
-  integrity sha512-u2/Ma+MufvtlEN08fZIVNBmEdND0NXC1ihCG3D6s1gVETEUrzELcZZVWTBg0opVdVNze+r7Lxsw7RFGZ7gJjLA==
   dependencies:
     "@onekeyfe/cross-inpage-provider-core" "1.0.1"
     "@onekeyfe/cross-inpage-provider-types" "1.0.1"
@@ -3438,6 +3436,9 @@
   version "0.0.17"
   resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-types/-/cross-inpage-provider-types-0.0.17.tgz#0c88c1a2febac44ec1600e0e59da732579cbd045"
   integrity sha512-QqjIPXQHb3UG9w79ujjL5L5Qd6oCrymQ/x2J2rYICtr56G6shHTmUvRZxAvne0ZsLv8UBGqZWbepVdnPipehYQ==
+
+"@onekeyfe/cross-inpage-provider-types@file:.yalc/@onekeyfe/cross-inpage-provider-types":
+  version "1.0.1"
 
 "@onekeyfe/desktop-bridge-injected@1.0.1":
   version "1.0.1"
