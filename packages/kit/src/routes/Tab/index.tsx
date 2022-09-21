@@ -3,7 +3,7 @@ import React, { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, HStack, useIsVerticalLayout } from '@onekeyhq/components';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/BottomTabs';
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
@@ -16,6 +16,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import HiddenActions from '../../components/Header/HiddenActions';
 import { LazyDisplayView } from '../../components/LazyDisplayView';
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import WalletSelectorTrigger from '../../components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
@@ -36,7 +37,12 @@ const TabNavigator = () => {
         // headerLeft={() => <AccountSelector />}
         headerLeft={() => <WalletSelectorTrigger />}
         // headerRight={() => <ChainSelector />}
-        headerRight={() => <NetworkAccountSelectorTrigger />}
+        headerRight={() => (
+          <HStack space={2}>
+            <NetworkAccountSelectorTrigger />
+            <HiddenActions />
+          </HStack>
+        )}
       />
     ),
     [],

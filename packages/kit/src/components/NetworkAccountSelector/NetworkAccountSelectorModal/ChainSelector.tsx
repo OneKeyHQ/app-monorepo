@@ -4,7 +4,13 @@ import React, { useLayoutEffect, useMemo, useRef } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Box, IconButton, Pressable, Token } from '@onekeyhq/components';
+import {
+  Box,
+  IconButton,
+  Pressable,
+  Token,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import { INetwork } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -34,6 +40,7 @@ function ChainSelector({
   const { enabledNetworks } = useManageNetworks();
   const { selectedNetworkId } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
+  const insets = useSafeAreaInsets();
 
   const isScrolledRef = useRef(false);
   useLayoutEffect(() => {
@@ -96,7 +103,7 @@ function ChainSelector({
       <Box
         alignSelf="stretch"
         borderRightWidth={StyleSheet.hairlineWidth}
-        borderColor="divider"
+        borderColor="border-subdued"
       >
         <FlatListRef
           // TODO auto scroll to active item
@@ -142,8 +149,9 @@ function ChainSelector({
         />
         <Box
           p={2}
+          mb={insets.bottom}
           borderTopWidth={StyleSheet.hairlineWidth}
-          borderColor="divider"
+          borderColor="border-subdued"
         >
           <IconButton
             name="CogOutline"

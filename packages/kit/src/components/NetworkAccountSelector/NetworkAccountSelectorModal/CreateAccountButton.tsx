@@ -133,8 +133,9 @@ export function CreateAccountButton({
           isLoading={buttonIsLoading}
           onPress={buttonOnPress}
           type="plain"
-          name="PlusCircleSolid"
+          name="PlusSolid"
           circle
+          hitSlop={8}
         />
       )}
     </>

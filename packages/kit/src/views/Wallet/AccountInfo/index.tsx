@@ -326,8 +326,7 @@ const AccountInfo = () => {
       <DesktopDragZoneAbsoluteBar h={8} />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
-        pt="96px"
-        pb="32px"
+        py={8}
         px={{ sm: 8, lg: 4 }}
         flexDirection="row"
         justifyContent="space-between"

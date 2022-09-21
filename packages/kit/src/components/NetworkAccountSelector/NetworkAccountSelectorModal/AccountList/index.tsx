@@ -9,7 +9,7 @@ import React, {
   useState,
 } from 'react';
 
-import { Box, SectionList } from '@onekeyhq/components';
+import { Box, SectionList, useSafeAreaInsets } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IAccount, IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -53,6 +53,7 @@ function AccountList({
     accountId: activeAccountId,
     networkId: activeNetworkId,
   } = useActiveWalletAccount();
+  const insets = useSafeAreaInsets();
 
   // TODO define useScrollToActiveItem hooks
   const isScrolledRef = useRef(false);
@@ -251,7 +252,8 @@ function AccountList({
             </>
           );
         }}
-        style={{ margin: 8 }}
+        ListFooterComponent={<Box h={`${insets.bottom}px`} />}
+        p={2}
       />
     </>
   );

@@ -215,6 +215,7 @@ function AccountItemSelectDropdown({
             type="plain"
             circle
             onPress={onPress}
+            hitSlop={8}
             // TODO custom props
             // isTriggerHovered={isHovered}
             // isSelectVisible={visible}
