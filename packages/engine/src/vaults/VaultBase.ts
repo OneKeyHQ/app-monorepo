@@ -17,7 +17,7 @@ import { isNil } from 'lodash';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HISTORY_CONSTS, IMPL_TRON } from '../constants';
+import { HISTORY_CONSTS, IMPL_APTOS } from '../constants';
 import simpleDb from '../dbs/simple/simpleDb';
 import {
   InvalidAddress,
@@ -25,6 +25,7 @@ import {
   NotImplemented,
   PendingQueueTooLong,
 } from '../errors';
+import { IMPL_MAPPINGS } from '../proxy';
 import { Account, DBAccount } from '../types/account';
 import { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import { WalletType } from '../types/wallet';
@@ -67,10 +68,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   engineProvider!: BaseProvider;
 
   async initProvider() {
-    // TODO
-    if ((await this.getNetwork()).impl === 'tron') {
+    const networkImpl = (await this.getNetwork()).impl;
+    if (isNil(IMPL_MAPPINGS[networkImpl])) {
       return;
     }
+
     this.engineProvider = await this.engine.providerManager.getProvider(
       this.networkId,
     );
@@ -286,6 +288,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       ...signedTx,
       txid,
     };
+  }
+
+  // TODO: is currently a mint
+  async activateAccount() {
+    throw new NotImplemented();
+  }
+
+  async activateToken(
+    tokenAddress: string,
+    password: string,
+  ): Promise<boolean> {
+    throw new NotImplemented();
   }
 
   async getTokenAllowance(

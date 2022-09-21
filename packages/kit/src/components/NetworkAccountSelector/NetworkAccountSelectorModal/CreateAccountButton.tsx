@@ -10,9 +10,9 @@ import { IconButton } from '@onekeyhq/components';
 import { isExternalWallet } from '@onekeyhq/engine/src/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useCreateAccountInWallet } from '../../Header/AccountSelectorChildren/RightAccountCreateButton';
 import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from '../../WalletConnect/walletConnectConsts';
 import { InitWalletServicesData } from '../../WalletConnect/WalletConnectQrcodeModal';
+import { useCreateAccountInWallet } from '../hooks/useCreateAccountInWallet';
 
 export function CreateAccountButton({
   walletId,
@@ -86,6 +86,7 @@ export function CreateAccountButton({
         type="plain"
         name={isCreateAccountSupported ? 'PlusSolid' : 'BanSolid'}
         circle
+        hitSlop={8}
       />
     </>
   );

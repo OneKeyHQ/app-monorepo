@@ -686,6 +686,7 @@ class Engine {
       '101010': OnekeyNetwork.stc,
       '501': OnekeyNetwork.sol,
       '195': OnekeyNetwork.trx,
+      '637': OnekeyNetwork.tapt, // TODO temp
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -1259,6 +1260,42 @@ class Engine {
         message: error instanceof Error ? error.message : error,
       });
     }
+  }
+
+  /**
+   * Currently used in Mint
+   */
+  @backgroundMethod()
+  async activateAccount(accountId: string, networkId: string): Promise<void> {
+    // Activate an account.
+    const vaultSettings = await this.getVaultSettings(networkId);
+    if (!vaultSettings.activateAccountRequired) return Promise.resolve();
+
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.activateAccount();
+  }
+
+  @backgroundMethod()
+  async activateToken(
+    password: string,
+    accountId: string,
+    networkId: string,
+    tokenIdOnNetwork: string,
+  ): Promise<boolean> {
+    const vaultSettings = await this.getVaultSettings(networkId);
+    if (!vaultSettings.activateTokenRequired) return true;
+
+    const normalizedAddress = await this.validator.validateTokenAddress(
+      networkId,
+      tokenIdOnNetwork,
+    );
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+      throw new OneKeyInternalError(
+        `account ${accountId} and network ${networkId} isn't compatible.`,
+      );
+    }
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.activateToken(normalizedAddress, password);
   }
 
   @backgroundMethod()

@@ -123,7 +123,11 @@ const App = () => {
                 animationEnabled: true,
                 ...TransitionPresets.ModalSlideFromBottomIOS,
               }
-            : undefined
+            : {
+                // disable default Navigation animation, use custom <PresenceTransition /> for <DesktopModal />
+                //    packages/components/src/Modal/Container/Desktop.tsx
+                animationEnabled: false,
+              }
         }
         name={RootRoutes.Modal}
         component={ModalStackNavigator}

@@ -45,7 +45,7 @@ function getNetworkIdFromTokenId(tokenId: string): string {
 }
 
 export const formatServerToken = (token: ServerToken) => {
-  const { address = '', logoURI } = token;
+  const { address = '', logoURI, isNative } = token;
   const { impl, chainId } = token;
   let tokenAddress = address;
   if (impl) {
@@ -56,7 +56,7 @@ export const formatServerToken = (token: ServerToken) => {
   const networkId = `${impl}--${chainId}`;
   return {
     ...token,
-    id: `${networkId}--${tokenAddress}`,
+    id: isNative ? networkId : `${networkId}--${tokenAddress}`,
     networkId,
     logoURI: logoURI || '',
     tokenIdOnNetwork: tokenAddress,

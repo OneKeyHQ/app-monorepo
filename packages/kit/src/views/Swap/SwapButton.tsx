@@ -9,7 +9,7 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useCreateAccountInWallet } from '../../components/Header/AccountSelectorChildren/RightAccountCreateButton';
+import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount, useRuntime } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';

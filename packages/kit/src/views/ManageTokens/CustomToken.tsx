@@ -17,6 +17,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../hooks';
 import { useActiveWalletAccount, useNetwork } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -73,32 +74,63 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const watchedAddress = watch('address');
   const debouncedAddress = useDebounce(watchedAddress, 1000);
 
-  const onSubmit = useCallback(
-    async (data: AddCustomTokenValues) => {
-      if (activeNetwork && activeAccount) {
-        const result = await backgroundApiProxy.serviceToken.addAccountToken(
-          activeNetwork.id,
-          activeAccount.id,
-          data.address,
-        );
-        if (result) {
-          toast.show({
-            title: intl.formatMessage({
-              id: 'msg__token_added',
-              defaultMessage: 'Token Added',
-            }),
-          });
-          backgroundApiProxy.serviceToken.fetchTokenBalance({
-            activeAccountId: activeAccount.id,
-            activeNetworkId: activeNetwork.id,
-          });
-          if (navigation?.canGoBack?.()) {
-            navigation.goBack();
-          }
+  const onAddToken = useCallback(
+    async (accountId: string, $networkId: string, $address: string) => {
+      const result = await backgroundApiProxy.serviceToken.addAccountToken(
+        $networkId,
+        accountId,
+        $address,
+      );
+      if (result) {
+        toast.show({
+          title: intl.formatMessage({
+            id: 'msg__token_added',
+            defaultMessage: 'Token Added',
+          }),
+        });
+        backgroundApiProxy.serviceToken.fetchTokenBalance({
+          activeAccountId: accountId,
+          activeNetworkId: $networkId,
+        });
+        if (navigation?.canGoBack?.()) {
+          navigation.goBack();
         }
       }
     },
-    [navigation, activeNetwork, activeAccount, intl, toast],
+    [intl, navigation, toast],
+  );
+
+  const onSubmit = useCallback(
+    async (data: AddCustomTokenValues) => {
+      if (activeNetwork && activeAccount) {
+        const $accountId = activeAccount.id;
+        const $networkId = activeNetwork.id;
+        const tokenId = data.address;
+
+        const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+          activeNetwork.id,
+        );
+        if (vaultSettings?.activateTokenRequired) {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageToken,
+            params: {
+              screen: ManageTokenRoutes.ActivateToken,
+              params: {
+                accountId: $accountId,
+                networkId: $networkId,
+                tokenId,
+                onSuccess() {
+                  onAddToken($accountId, $networkId, tokenId);
+                },
+              },
+            },
+          });
+        } else {
+          onAddToken($accountId, $networkId, tokenId);
+        }
+      }
+    },
+    [activeNetwork, activeAccount, navigation, onAddToken],
   );
 
   const onSearch = useCallback(

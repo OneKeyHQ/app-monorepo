@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -21,9 +21,9 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../hooks';
+import { useAppSelector, useNavigationActions } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { useWalletSelectorStatus } from '../useWalletSelectorStatus';
+import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import WalletSelectorDesktop from '../WalletSelectorDesktop';
 
 import { WalletSelectorTriggerElement } from './WalletSelectorTriggerElement';
@@ -38,15 +38,17 @@ type AccountSelectorProps = {
   }) => ReactNode;
 };
 
-const { updateDesktopSelectorVisible } = reducerAccountSelector.actions;
+const { updateDesktopWalletSelectorVisible } = reducerAccountSelector.actions;
 
 const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const isVertical = useIsVerticalLayout();
-  const navigation = useNavigation();
 
   const triggerRef = useRef<HTMLElement>(null);
   const { dispatch } = backgroundApiProxy;
-  const { isDesktopSelectorVisible } = useAppSelector((s) => s.accountSelector);
+  const { isDesktopWalletSelectorVisible } = useAppSelector(
+    (s) => s.accountSelector,
+  );
+  const { toggleWalletSelector } = useNavigationActions();
   const { visible } = useWalletSelectorStatus();
 
   useEffect(() => {
@@ -60,8 +62,8 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     useCallback(() => {
       if (platformEnv.isRuntimeBrowser) {
         const closeOnEsc = (e: KeyboardEvent) => {
-          if (e.code === 'Escape' && isDesktopSelectorVisible) {
-            dispatch(updateDesktopSelectorVisible(false));
+          if (e.code === 'Escape' && isDesktopWalletSelectorVisible) {
+            dispatch(updateDesktopWalletSelectorVisible(false));
           }
         };
         document.addEventListener('keydown', closeOnEsc);
@@ -69,21 +71,12 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
           document.removeEventListener('keydown', closeOnEsc);
         };
       }
-    }, [dispatch, isDesktopSelectorVisible]),
+    }, [dispatch, isDesktopWalletSelectorVisible]),
   );
 
   const handleToggleVisible = useCallback(() => {
-    setTimeout(() => {
-      // TODO move to useNavigationActions
-      if (isVertical) {
-        // @ts-expect-error
-        navigation?.toggleDrawer?.();
-      } else {
-        const nextVisible = !isDesktopSelectorVisible;
-        dispatch(updateDesktopSelectorVisible(nextVisible));
-      }
-    });
-  }, [isVertical, navigation, isDesktopSelectorVisible, dispatch]);
+    toggleWalletSelector();
+  }, [toggleWalletSelector]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);
   const setRef = React.useCallback((ref: DesktopRef | null) => {

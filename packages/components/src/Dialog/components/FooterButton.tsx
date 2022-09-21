@@ -53,7 +53,7 @@ const FooterButton: FC<FooterButtonProps> = ({
       <Box w="full" flexDirection={wrap ? 'column-reverse' : 'row'}>
         {!hideSecondaryAction && (
           <Button
-            flex={wrap ? 'initial' : 1}
+            flexGrow={wrap ? 0 : 1}
             onPress={() => {
               onSecondaryActionPress?.();
             }}
@@ -70,7 +70,7 @@ const FooterButton: FC<FooterButtonProps> = ({
         <Box size={wrap ? 2 : 4} />
         {!hidePrimaryAction && (
           <Button
-            flex={wrap ? 'initial' : 1}
+            flexGrow={wrap ? 0 : 1}
             type="primary"
             size={primaryActionProps?.size ?? defButtonSize}
             {...primaryActionProps}

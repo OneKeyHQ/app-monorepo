@@ -26,15 +26,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import ExternalAccountImg from '../WalletConnect/ExternalAccountImg';
-
-import WalletAvatar from './WalletAvatar';
+import WalletAvatar from '../WalletSelector/WalletAvatar';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type Props = {
   visible: boolean;
   handleToggleVisible: () => void;
 };
-// const { updateDesktopSelectorVisible } = reducerAccountSelector.actions;
+// const { updateDesktopWalletSelectorVisible } = reducerAccountSelector.actions;
 const AccountSelectorTrigger: FC<Props> = ({
   visible,
   handleToggleVisible,

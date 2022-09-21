@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { MessageDescriptor, useIntl } from 'react-intl';
 
@@ -43,6 +43,8 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const { serviceNotification, dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
   const { enabledAccounts, loading } = useEnabledAccountDynamicAccounts();
+  const [needActivateAccount, setNeedActivateAccount] =
+    useState<boolean>(false);
 
   const enabledNotification = useMemo(
     () =>
@@ -51,6 +53,17 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       ),
     [enabledAccounts, account],
   );
+
+  useEffect(() => {
+    (async () => {
+      if (!network) return false;
+
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+        network.id,
+      );
+      setNeedActivateAccount(!!vaultSettings?.activateAccountRequired);
+    })();
+  }, [network]);
 
   const showSubscriptionIcon =
     !!account &&
@@ -128,6 +141,17 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         onPress: () => gotoScanQrcode(),
         icon: 'ScanSolid',
       },
+      !!needActivateAccount && {
+        id: 'action__get_faucet',
+        onPress: () => {
+          if (!account) return;
+          if (!network) return;
+          backgroundApiProxy.engine
+            .activateAccount(account.id, network.id)
+            .catch(() => {});
+        },
+        icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbSolid',
+      },
       // TODO Connected Sites
       walletType !== 'watching' && {
         id: 'action__buy_crypto',
@@ -188,16 +212,17 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       // TODO Share
     ],
     [
-      showSubscriptionIcon,
-      accountSubscriptionIcon,
-      onChangeAccountSubscribe,
-      enabledNotification,
       disableScan,
-      walletType,
+      needActivateAccount,
       isVerticalLayout,
+      walletType,
+      showSubscriptionIcon,
+      enabledNotification,
+      onChangeAccountSubscribe,
+      accountSubscriptionIcon,
       account,
+      network,
       navigation,
-      network?.id,
       copyAddress,
     ],
   );

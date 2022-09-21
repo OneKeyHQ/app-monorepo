@@ -33,7 +33,7 @@ import {
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
-import { IHardwareDeviceStatusMap } from '../../Header/AccountSelectorChildren/useDeviceStatusOfHardwareWallet';
+import { IHardwareDeviceStatusMap } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import { ValidationFields } from '../../Protected';
 
 enum EWalletSelectorListItemSelectOptions {
@@ -273,15 +273,7 @@ function WalletItemSelectDropdown({
         dropdownProps={{
           width: 248,
         }}
-        renderTrigger={(
-          // TODO use plain object params
-          activeItem,
-          isHovered,
-          isFocused,
-          isPressed,
-          isVisible,
-          onPress,
-        ) => (
+        renderTrigger={({ onPress }) => (
           <IconButton
             name="DotsVerticalSolid"
             circle

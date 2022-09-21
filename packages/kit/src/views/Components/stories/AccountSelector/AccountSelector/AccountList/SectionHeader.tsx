@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
 
 import { Box, IconButton, Text } from '@onekeyhq/components';
-import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 type SectionHeaderProps = {
   walletName?: string;
@@ -14,6 +14,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({
   walletName,
   emptySectionData,
 }) => {
+  // eslint-disable-next-line @typescript-eslint/ban-types
   const AddAccountAction: FC<{}> = () => (
     <>
       <IconButton type="plain" name="PlusCircleSolid" circle />

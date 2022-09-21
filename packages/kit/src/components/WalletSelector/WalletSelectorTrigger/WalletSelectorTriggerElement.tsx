@@ -11,7 +11,6 @@ import {
   Icon,
   Pressable,
   Skeleton,
-  Spinner,
   Typography,
   useIsVerticalLayout,
   useUserDevice,
@@ -30,8 +29,8 @@ import { useWalletName } from '../../../hooks/useWalletName';
 import { RootRoutes } from '../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../routes/types';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
-import WalletAvatar from '../../Header/WalletAvatar';
 import ExternalAccountImg from '../../WalletConnect/ExternalAccountImg';
+import WalletAvatar from '../WalletAvatar';
 
 import type { CreateWalletRoutesParams } from '../../../routes';
 
@@ -139,7 +138,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
                 />
               )}
               {showExternalImg && account ? (
-                <Box position="absolute" right="4px" bottom="-6px">
+                <Box position="absolute" right="-6px" bottom="-6px">
                   <ExternalAccountImg
                     size={4}
                     radius="12px"

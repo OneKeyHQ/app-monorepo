@@ -115,7 +115,7 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
       dropdownProps={{
         width: 248,
       }}
-      renderTrigger={(activeOption, isHovered, visible) => (
+      renderTrigger={({ isHovered, visible }) => (
         <CustomSelectTriggerMemo
           isTriggerHovered={isHovered}
           isSelectVisible={visible}

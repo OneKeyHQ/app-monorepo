@@ -67,6 +67,8 @@ type RouteProps = RouteProp<
   DappConnectionModalRoutes.ConnectionModal
 >;
 
+let lastWalletConnectUri: string | undefined = '';
+
 /* Connection Modal are use to accept user with permission to dapp */
 const defaultSourceInfo = Object.freeze({}) as IDappSourceInfo;
 const Connection = () => {
@@ -90,6 +92,7 @@ const Connection = () => {
   }, [origin]);
   const route = useRoute<RouteProps>();
   const walletConnectUri = route?.params?.walletConnectUri;
+  lastWalletConnectUri = walletConnectUri;
   const isWalletConnectPreloading = Boolean(walletConnectUri);
   const [walletConnectError, setWalletConnectError] = useState<string>('');
   const closeModal = useModalClose();
@@ -115,6 +118,13 @@ const Connection = () => {
     isWalletConnectPreloading,
   ]);
 
+  useEffect(
+    () => () => {
+      isClosedDone.current = true;
+    },
+    [],
+  );
+
   useEffect(() => {
     if (walletConnectUri) {
       backgroundApiProxy.walletConnect
@@ -122,8 +132,10 @@ const Connection = () => {
           uri: walletConnectUri || '',
         })
         .then(() => {
-          isClosedDone.current = true;
-          closeModal();
+          if (!isClosedDone.current && lastWalletConnectUri) {
+            closeModal();
+            isClosedDone.current = true;
+          }
           dispatch(refreshConnectedSites());
         })
         .catch((error) => {

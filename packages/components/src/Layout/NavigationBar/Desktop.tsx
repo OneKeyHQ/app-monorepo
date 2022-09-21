@@ -151,7 +151,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
     >
       <DesktopDragZoneAbsoluteBar h={paddingTopValue} />
       {/* Scrollable area */}
-      <Box zIndex={1} nativeID="Desktop-AccountSelector-Container">
+      <Box zIndex={1} testID="Desktop-WalletSelector-Container">
         {/* <AccountSelector /> */}
         <WalletSelectorTrigger />
       </Box>
@@ -166,8 +166,10 @@ const Sidebar: FC<BottomTabBarProps> = ({
           </VStack>
         </ScrollView>
       </VStack>
-      {/* <ChainSelector /> */}
-      {/* <NetworkAccountSelectorTrigger /> */}
+      <Box testID="Legacy-Desktop-NetworkAccountSelector-Container">
+        {/* <ChainSelector /> */}
+        {/* <NetworkAccountSelectorTrigger /> */}
+      </Box>
     </Box>
   );
 };

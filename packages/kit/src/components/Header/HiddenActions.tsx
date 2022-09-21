@@ -30,13 +30,6 @@ const HiddenActions: FC<HiddenActionsProps> = () => {
           },
           {
             iconProps: {
-              name: isVerticalLayout ? 'LockClosedOutline' : 'LockClosedSolid',
-            },
-            label: intl.formatMessage({ id: 'action__lock_now' }),
-            value: 'lock',
-          },
-          {
-            iconProps: {
               name: isVerticalLayout
                 ? 'ArrowsExpandOutline'
                 : 'ArrowsExpandSolid',
@@ -44,8 +37,15 @@ const HiddenActions: FC<HiddenActionsProps> = () => {
             label: intl.formatMessage({ id: 'form__expand_view' }),
             value: 'expand',
           },
+          {
+            iconProps: {
+              name: isVerticalLayout ? 'LockClosedOutline' : 'LockClosedSolid',
+            },
+            label: intl.formatMessage({ id: 'action__lock_now' }),
+            value: 'lock',
+          },
         ]}
-        renderTrigger={(isHovered, isPressed, isVisible, onPress) => (
+        renderTrigger={({ onPress }) => (
           <IconButton
             name="DotsVerticalSolid"
             onPress={onPress}

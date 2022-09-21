@@ -22,7 +22,7 @@ import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
-import { useAccountSelectorInfo } from '../../Header/AccountSelectorChildren/useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 type IChainSelectorNetworkItem = {
   id: string;

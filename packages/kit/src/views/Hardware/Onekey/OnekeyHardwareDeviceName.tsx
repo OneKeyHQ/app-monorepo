@@ -16,8 +16,8 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
 import Protected from '@onekeyhq/kit/src/components/Protected';
+import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,

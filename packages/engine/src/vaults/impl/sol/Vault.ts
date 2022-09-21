@@ -573,7 +573,9 @@ export default class Vault extends VaultBase {
         } = tx;
         const updatedAt = blockTime * 1000;
         const decodedTx: IDecodedTx = {
-          ...(await this.decodeTx(encodedTx)),
+          // Only decode if this item is not created locally as we are not
+          // able to fully decoded on chain transactions now.
+          ...(historyTxToMerge?.decodedTx ?? (await this.decodeTx(encodedTx))),
           txid,
           totalFeeInNative: new BigNumber(feeValue)
             .shiftedBy(-decimals)

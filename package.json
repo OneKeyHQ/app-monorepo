@@ -14,7 +14,7 @@
     "copy:inject": "bash development/copy-injected.sh",
     "clean": "./clean_workspace.sh && yarn cache clean",
     "lint-staged": "lint-staged",
-    "lint": "yarn workspaces run lint",
+    "lint": "ultra -r lint",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
     "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
@@ -43,7 +43,8 @@
     "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi",
     "prepare": "husky install",
     "stats:web": "yarn workspace @onekeyhq/web stats",
-    "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json"
+    "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json",
+    "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.0.1",
@@ -105,6 +106,7 @@
     "husky": "^7.0.4",
     "jest": "^27.4.3",
     "lint-staged": "^11.2.6",
+    "metro-minify-terser": "^0.72.3",
     "node-notifier": "^10.0.0",
     "patch-package": "^6.4.7",
     "prettier": "^2.3.2",
@@ -118,6 +120,7 @@
     "terser-webpack-plugin": "^4.2.3",
     "ts-loader": "^9.2.6",
     "typescript": "4.4.4",
+    "ultra-runner": "^3.10.5",
     "webpack": "4.43.0",
     "webpack-bundle-analyzer": "^4.6.1",
     "webpack-cli": "^4.10.0",

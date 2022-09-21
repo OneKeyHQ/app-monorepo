@@ -2,8 +2,8 @@ import React, { useCallback } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { HStack, useThemeValue } from '@onekeyhq/components';
-import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
+import { useThemeValue } from '@onekeyhq/components';
+import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
@@ -27,8 +27,6 @@ import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import HiddenActions from '../../components/Header/HiddenActions';
-import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
@@ -175,23 +173,7 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
       'text-default',
       'border-subdued',
     ]);
-    const renderHeader = useCallback(
-      () => (
-        <LayoutHeader
-          showOnDesktop
-          // headerLeft={() => <AccountSelector />}
-          headerLeft={() => null}
-          // headerRight={() => <ChainSelector />}
-          headerRight={() => (
-            <HStack space={2}>
-              <NetworkAccountSelectorTrigger />
-              <HiddenActions />
-            </HStack>
-          )}
-        />
-      ),
-      [],
-    );
+    const renderHeader = useCallback(() => <LayoutHeaderDesktop />, []);
     return (
       <Stack.Navigator
         screenOptions={{

@@ -4,6 +4,7 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 export enum ManageTokenRoutes {
   Listing = 'ListTokensModal',
   AddToken = 'AddToken',
+  ActivateToken = 'ActivateToken',
   ViewToken = 'ViewToken',
   CustomToken = 'CustomToken',
   VerifiedToken = 'VerifiedToken',
@@ -24,6 +25,13 @@ export type ManageTokenRoutesParams = {
         source: string[];
       }
     | { query: string };
+  [ManageTokenRoutes.ActivateToken]: {
+    accountId: string;
+    networkId: string;
+    tokenId: string;
+    onSuccess?: () => void;
+    onFailure?: () => void;
+  };
   [ManageTokenRoutes.ViewToken]: {
     name: string;
     symbol: string;

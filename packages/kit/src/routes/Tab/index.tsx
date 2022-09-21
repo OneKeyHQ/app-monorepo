@@ -3,11 +3,9 @@ import React, { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, useIsVerticalLayout } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/BottomTabs';
-import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
-import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
-import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
+import { LayoutHeaderMobile } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderMobile';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
@@ -16,10 +14,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import HiddenActions from '../../components/Header/HiddenActions';
 import { LazyDisplayView } from '../../components/LazyDisplayView';
-import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
-import WalletSelectorTrigger from '../../components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import { TabRoutes, TabRoutesParams } from '../types';
 
 import { getStackTabScreen, tabRoutes } from './routes';
@@ -31,22 +26,7 @@ const TabNavigator = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const { network: activeNetwork, wallet } = useActiveWalletAccount();
 
-  const renderHeader = useCallback(
-    () => (
-      <LayoutHeader
-        // headerLeft={() => <AccountSelector />}
-        headerLeft={() => <WalletSelectorTrigger />}
-        // headerRight={() => <ChainSelector />}
-        headerRight={() => (
-          <HStack space={2}>
-            <NetworkAccountSelectorTrigger />
-            <HiddenActions />
-          </HStack>
-        )}
-      />
-    ),
-    [],
-  );
+  const renderHeader = useCallback(() => <LayoutHeaderMobile />, []);
 
   const foldableList = useMemo(
     () => [

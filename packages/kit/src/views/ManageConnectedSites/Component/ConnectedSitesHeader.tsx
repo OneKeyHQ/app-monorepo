@@ -80,7 +80,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
               <Box ml="3" flex={1}>
                 <Typography.Body2Strong>{dappName}</Typography.Body2Strong>
                 <Typography.Body2 color="text-subdued">
-                  {shortenAddress(item.accounts[0] ?? '')}
+                  {`${shortenAddress(item.accounts[0] ?? '')}· EVM`}
                 </Typography.Body2>
               </Box>
               <IconButton
@@ -106,20 +106,55 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
         renderItem={renderItem}
         data={walletConnectSessions}
         ListHeaderComponent={
-          <Box flexDirection="row" alignItems="center" mb={1} flex={1}>
-            <Icon name="WalletconnectLogoIllus" />
-            <Typography.Subheading ml="2" color="text-subdued">
-              {intl.formatMessage({
-                id: 'form__walletconnect__uppercase',
-              })}
-            </Typography.Subheading>
+          <Box flexDirection="column">
+            <Box
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-around"
+              flex={1}
+            >
+              <Button
+                type="basic"
+                leftIconName="PlusSolid"
+                iconSize={20}
+                size="lg"
+                flex={1}
+                mr="4"
+                onPress={onAddConnectSite}
+              >
+                {intl.formatMessage({
+                  id: 'action__add',
+                })}
+              </Button>
+              <Button
+                type="basic"
+                size="lg"
+                flex={1}
+                leftIconName="ScanSolid"
+                iconSize={20}
+                onPress={() => {
+                  gotoScanQrcode();
+                }}
+              >
+                {intl.formatMessage({
+                  id: 'action__scan',
+                })}
+              </Button>
+            </Box>
+            <Box flexDirection="row" alignItems="center" mb={1} mt={3} flex={1}>
+              <Icon name="WalletconnectLogoIllus" />
+              <Typography.Subheading ml="2" color="text-subdued">
+                {intl.formatMessage({
+                  id: 'form__walletconnect__uppercase',
+                })}
+              </Typography.Subheading>
+            </Box>
           </Box>
         }
         ListFooterComponent={
           <Box
             display="flex"
             flexDirection="row"
-            justifyContent="space-between"
             alignItems="center"
             flex={1}
             mb="1"
@@ -130,17 +165,6 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
                 id: 'title__connect_sites',
               })}
             </Typography.Subheading>
-            <Button
-              type="plain"
-              size="sm"
-              leftIcon={<Icon name="PlusSolid" size={16} />}
-              onPress={onAddConnectSite}
-            >
-              {intl.formatMessage({
-                id: 'action__add',
-                defaultMessage: 'Add',
-              })}
-            </Button>
           </Box>
         }
         ListEmptyComponent={

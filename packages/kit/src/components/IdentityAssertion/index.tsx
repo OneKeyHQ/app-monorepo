@@ -12,7 +12,7 @@ import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
-} from '../Header/AccountSelectorChildren/RightAccountCreateButton';
+} from '../NetworkAccountSelector/hooks/useCreateAccountInWallet';
 
 const IdentityAssertion: FC = ({ children }) => {
   const intl = useIntl();
@@ -99,7 +99,7 @@ const IdentityAssertion: FC = ({ children }) => {
                 //
                 // ** open WalletSelector
                 // openDrawer();
-                // dispatch(updateDesktopSelectorVisible(true));
+                // dispatch(updateDesktopWalletSelectorVisible(true));
               } else {
                 toast.show({
                   title: intl.formatMessage(

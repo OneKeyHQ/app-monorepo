@@ -225,15 +225,15 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
         }}
         title={intl.formatMessage({ id: 'message__choose_address' })}
         headerShown={!!isVerticalLayout}
-        renderTrigger={(activeItem, isHovered, isPressed, visible) => {
+        renderTrigger={({ activeOption, isHovered, isPressed, visible }) => {
           const optionItem = options.find((option) => {
             const item = option.options.find(
-              (subItem) => subItem.value === activeItem.value,
+              (subItem) => subItem.value === activeOption.value,
             );
             return !!item;
           });
 
-          const address = activeItem.value.split('-')[1];
+          const address = activeOption.value.split('-')[1];
           return (
             <Wrapper
               bgColor={

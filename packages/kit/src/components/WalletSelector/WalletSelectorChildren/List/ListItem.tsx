@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { DrawerActions } from '@react-navigation/native';
-
 import {
   Box,
   Pressable,
@@ -9,12 +7,14 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
-import { WalletAvatarPro } from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../../hooks';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import {
+  useActiveWalletAccount,
+  useNavigationActions,
+} from '../../../../hooks';
 import { useWalletName } from '../../../../hooks/useWalletName';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
@@ -24,7 +24,7 @@ import {
 } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { WalletItemSelectDropdown } from '../WalletItemSelectDropdown';
 
-import type { IHardwareDeviceStatusMap } from '../../../Header/AccountSelectorChildren/useDeviceStatusOfHardwareWallet';
+import type { IHardwareDeviceStatusMap } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import type { IWalletDataBase } from './index';
 
 const SelectedIndicator = () => (
@@ -65,11 +65,8 @@ function RightContent({
   );
 }
 
-const {
-  updateIsRefreshDisabled,
-  updateDesktopSelectorVisible,
-  updateIsLoading,
-} = reducerAccountSelector.actions;
+const { updateIsRefreshDisabled, updateIsLoading } =
+  reducerAccountSelector.actions;
 
 function ListItem({
   wallet,
@@ -82,10 +79,9 @@ function ListItem({
 }) {
   const { walletId } = useActiveWalletAccount();
   // const deviceId = wallet.associatedDevice || '';
-  const navigation = useAppNavigation();
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const isVertical = useIsVerticalLayout();
-
+  const { closeWalletSelector } = useNavigationActions();
   const name = useWalletName({ wallet });
 
   const numberOfAccounts = wallet.accounts.length;
@@ -102,11 +98,8 @@ function ListItem({
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
       onPress={() => {
-        if (isVertical) {
-          navigation.dispatch(DrawerActions.closeDrawer());
-        } else {
-          dispatch(updateDesktopSelectorVisible(false));
-        }
+        closeWalletSelector();
+
         setTimeout(async () => {
           try {
             dispatch(updateIsRefreshDisabled(true), updateIsLoading(true));

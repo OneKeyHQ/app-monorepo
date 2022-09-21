@@ -6,13 +6,12 @@ import {
   Pressable,
   Spinner,
   Text,
-  VStack,
 } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { useAccountSelectorInfo } from '../../Header/AccountSelectorChildren/useAccountSelectorInfo';
+import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 const { updateIsLoading } = reducerAccountSelector.actions;
 function Header({
@@ -20,15 +19,11 @@ function Header({
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
-  const navigation = useAppNavigation();
   const { selectedNetwork, isLoading } = accountSelectorInfo;
   const { dispatch } = backgroundApiProxy;
+  const close = useModalClose();
   return (
     <Box
-      // position="absolute"
-      // top={0}
-      // right={0}
-      // zIndex={9999}
       flexDirection="row"
       alignItems="center"
       pt={3.5}
@@ -36,31 +31,31 @@ function Header({
       pb={2}
       pl={4}
     >
-      <Text typography="Heading" isTruncated flex={1} mr={3}>
-        {selectedNetwork?.shortName || '-'}
-      </Text>
+      <Box flexDirection="row" alignItems="center" flex={1} mr={3}>
+        <Text typography="Heading" isTruncated>
+          {selectedNetwork?.shortName || '-'}
+        </Text>
 
-      {isLoading ? (
-        <Pressable
-          p={2}
-          onPress={() => {
-            dispatch(updateIsLoading(false));
-          }}
-        >
-          <Spinner size="sm" />
-        </Pressable>
-      ) : (
-        <IconButton
-          name="CloseSolid"
-          type="plain"
-          circle
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            }
-          }}
-        />
-      )}
+        {isLoading ? (
+          <Pressable
+            ml={2}
+            onPress={() => {
+              dispatch(updateIsLoading(false));
+            }}
+          >
+            <Spinner size="sm" />
+          </Pressable>
+        ) : null}
+      </Box>
+
+      <IconButton
+        name="CloseSolid"
+        type="plain"
+        circle
+        onPress={() => {
+          close();
+        }}
+      />
     </Box>
   );
 }
