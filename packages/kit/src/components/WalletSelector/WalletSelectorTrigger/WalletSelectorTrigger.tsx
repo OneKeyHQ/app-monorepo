@@ -57,6 +57,11 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       debugLogger.accountSelector.info('HeaderAccountSelector unmounted');
     };
   }, []);
+  useEffect(() => {
+    debugLogger.accountSelector.info(
+      `WalletSelector visible=${visible.toString()}`,
+    );
+  }, [visible]);
 
   useFocusEffect(
     useCallback(() => {

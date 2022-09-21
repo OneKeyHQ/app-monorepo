@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { isValidElement, useCallback, useEffect } from 'react';
+import React, { isValidElement, useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
@@ -69,7 +69,12 @@ const DesktopModal = ({
   const navIndex = useNavigationState((state) => state?.index);
 
   const defaultClose = useModalClose({ onClose });
-  const enableModalAnimation = true;
+  const enableModalAnimation = useMemo(
+    () =>
+      // default Navigation animation: packages/kit/src/routes/Root/index.tsx
+      platformEnv.isRuntimeBrowser,
+    [],
+  );
   const close = closeAction || defaultClose;
 
   useEffect(() => {
@@ -156,6 +161,7 @@ const DesktopModal = ({
           opacity: 1,
           // translateY: 0,
           scale: 1,
+          // TODO show animation when open new Modal in Modal, but not push stack in same Modal
           transition: { duration: enableModalAnimation ? 100 : 0 },
         }}
         testID="DesktopModalContentContainer"

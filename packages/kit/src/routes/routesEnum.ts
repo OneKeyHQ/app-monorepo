@@ -95,6 +95,16 @@ export enum CreateAccountModalRoutes {
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
 }
 
+export enum ManageNetworkRoutes {
+  NetworkAccountSelector = 'NetworkAccountSelector',
+  Listing = 'Listing',
+  AddNetwork = 'AddNetwork',
+  CustomNetwork = 'CustomNetwork',
+  PresetNetwork = 'PresetNetwork',
+  AddNetworkConfirm = 'AddNetworkConfirm',
+  SwitchNetwork = 'SwitchNetwork',
+}
+
 export enum CreateWalletModalRoutes {
   ConnectHardwareModal = 'ConnectHardwareModal',
   AppWalletDoneModal = 'AppWalletDoneModal',

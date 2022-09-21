@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -56,6 +56,15 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
   const { isLoading } = useAppSelector((s) => s.accountSelector);
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
   const walletName = useWalletName({ wallet });
+
+  const hwWalletType = useMemo(() => {
+    let deviceType = wallet?.deviceType as IOneKeyDeviceType;
+    if (!deviceType) {
+      deviceType = getDeviceTypeByDeviceId(wallet?.associatedDevice);
+    }
+    return deviceType;
+  }, [wallet?.associatedDevice, wallet?.deviceType]);
+
   useEffect(() => {
     if (wallet) {
       setIsPassphrase(isPassphraseWallet(wallet));
@@ -119,10 +128,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
             <Box>
               <WalletAvatar
                 walletImage={wallet.type}
-                hwWalletType={
-                  (wallet.deviceType as IOneKeyDeviceType) ||
-                  getDeviceTypeByDeviceId(wallet.associatedDevice)
-                }
+                hwWalletType={hwWalletType}
                 avatar={wallet.avatar}
                 isPassphrase={isPassphrase}
                 size="sm"

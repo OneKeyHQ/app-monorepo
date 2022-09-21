@@ -14,6 +14,7 @@ import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import AddressBookModal from './AddressBook';
 import BackupWalletModal from './BackupWallet';
+import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
 import CreateWalletModalStack from './CreateWallet';
@@ -180,8 +181,7 @@ const ModalStackNavigator = () => {
       <ModalStack.Navigator
         screenOptions={{
           headerShown: false,
-          animationEnabled: Boolean(isVerticalLayout),
-          ...TransitionPresets.ModalSlideFromBottomIOS,
+          ...buildModalOpenAnimationOptions({ isVerticalLayout }),
         }}
       >
         {modalStackScreenList.map((modal) => (

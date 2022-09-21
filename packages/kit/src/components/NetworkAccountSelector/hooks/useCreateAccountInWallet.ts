@@ -30,9 +30,11 @@ export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
 export function useCreateAccountInWallet({
   networkId,
   walletId,
+  isFromAccountSelector,
 }: {
   networkId?: string;
   walletId?: string;
+  isFromAccountSelector?: boolean;
 }) {
   const { engine, serviceAccountSelector } = backgroundApiProxy;
   const navigation = useNavigation();
@@ -185,6 +187,9 @@ export function useCreateAccountInWallet({
       });
     }
 
+    if (isFromAccountSelector) {
+      // TODO add back button in route params
+    }
     return navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.CreateAccount,
       params: {
@@ -199,6 +204,7 @@ export function useCreateAccountInWallet({
     addExternalAccount,
     connectToWallet,
     intl,
+    isFromAccountSelector,
     navigation,
     serviceAccountSelector,
     toast,
