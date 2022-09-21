@@ -33,7 +33,7 @@ type RouteProps = RouteProp<
 
 const Restore: FC = () => {
   const intl = useIntl();
-  const { openRootHome, openDrawer } = useNavigationActions();
+  const { openRootHome, openAccountSelector } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { pinCode } = useRoute<RouteProps>().params;
@@ -64,7 +64,8 @@ const Restore: FC = () => {
 
   const goBackHome = () => {
     openRootHome();
-    openDrawer();
+    openAccountSelector();
+    // openDrawer();
   };
 
   const stateNfcSearch = () => {

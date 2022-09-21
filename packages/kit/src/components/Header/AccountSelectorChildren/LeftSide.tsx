@@ -38,7 +38,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
 import { showOverlay } from '../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
-import WalletAvatar from '../WalletAvatar';
+import WalletAvatar from '../../WalletSelector/WalletAvatar';
 
 import type { AccountType, DeviceStatusType } from './index';
 
@@ -116,6 +116,7 @@ const HwWalletGroup: FC<HwWalletGroupProps> = ({
     if (passphraseOpenedList.find((v) => v === walletGroup.deviceId)) {
       return true;
     }
+    // walletGroup.wallets=[ normalWallet, ...hiddenWallets ]
     if (walletGroup.wallets.find((w) => isPassphraseWallet(w))) {
       return true;
     }

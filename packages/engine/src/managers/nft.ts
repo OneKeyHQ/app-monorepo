@@ -120,7 +120,7 @@ export const getNFTSymbolPrice = async (networkId: string) => {
     networkId,
     tokenIds: [tokenId],
   });
-  return prices[tokenId];
+  return prices?.[tokenId];
 };
 
 export const getNFTTransactionHistory = async (

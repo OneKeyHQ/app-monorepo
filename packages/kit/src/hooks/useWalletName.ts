@@ -1,0 +1,30 @@
+import { useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { IWallet } from '@onekeyhq/engine/src/types';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/engine/src/types/wallet';
+
+function useWalletName({ wallet }: { wallet: IWallet | undefined | null }) {
+  const type = wallet?.type;
+  const intl = useIntl();
+  const name = useMemo(() => {
+    if (type === WALLET_TYPE_IMPORTED) {
+      return intl.formatMessage({ id: 'wallet__imported_accounts' });
+    }
+    if (type === WALLET_TYPE_WATCHING) {
+      return intl.formatMessage({ id: 'wallet__watched_accounts' });
+    }
+    if (type === WALLET_TYPE_EXTERNAL) {
+      return intl.formatMessage({ id: 'content__external_account' });
+    }
+    return wallet?.name;
+  }, [intl, type, wallet?.name]);
+  return name;
+}
+
+export { useWalletName };

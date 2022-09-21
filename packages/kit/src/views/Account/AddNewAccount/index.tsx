@@ -177,7 +177,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     (password: string) => {
       const network: string = getValues('network');
       const name: string = getValues('name');
-
+      // setIsLoading(true);
       serviceAccountSelector.preloadingCreateAccount({
         walletId: selectedWalletId,
         networkId: network,
@@ -205,9 +205,10 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               networkId: network,
               accountId: addedAccount?.id,
             });
+            // setIsLoading(false);
+            navigation.getParent()?.goBack?.();
           });
       }, 10);
-      navigation.getParent()?.goBack?.();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [toast, getValues, selectedWalletId, purpose, dispatch, intl, networks],

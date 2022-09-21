@@ -1,14 +1,21 @@
 /* eslint-disable no-nested-ternary */
-import React, { ComponentProps, FC, memo } from 'react';
+import React, { ComponentProps, FC, memo, useMemo } from 'react';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { IWallet } from '@onekeyhq/engine/src/types';
+import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Avatar, defaultAvatar } from '../../utils/emojiUtils';
+import { getDeviceTypeByDeviceId } from '../../utils/hardware';
+import {
+  DeviceStatusType,
+  IHardwareDeviceStatusMap,
+} from '../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 
 type WalletAvatarProps = {
   size?: 'xl' | 'lg' | 'sm' | 'xs' | string;
@@ -71,11 +78,18 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
         }
       />
     );
+  const iconFontSizeMap = {
+    'xs': 16,
+    'sm': 20,
+    'xl': 24,
+    'lg': 24,
+  };
   if (walletImage === 'imported' || walletImage === 'watching')
     return (
       <Icon
         name={walletImage === 'imported' ? 'SaveOutline' : 'EyeOutline'}
-        size={size === 'sm' ? 20 : 24}
+        // @ts-expect-error
+        size={iconFontSizeMap[size ?? 'lg'] ?? 24}
         color="icon-default"
       />
     );
@@ -83,7 +97,8 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     return (
       <Icon
         name="ConnectOutline" // ConnectOutline LinkOutline
-        size={size === 'sm' ? 20 : 24}
+        // @ts-expect-error
+        size={iconFontSizeMap[size ?? 'lg'] ?? 24}
         color="icon-default"
       />
     );
@@ -208,4 +223,55 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
 
 WalletAvatar.defaultProps = defaultProps;
 
+const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
+  if (!status) return undefined;
+  if (status?.hasUpgrade) return 'warning';
+  if (status?.isConnected) return 'connected';
+  return undefined;
+};
+
+function WalletAvatarPro({
+  wallet,
+  deviceStatus,
+  ...others
+}: {
+  wallet: IWallet;
+  deviceStatus: IHardwareDeviceStatusMap | undefined | null;
+} & WalletAvatarProps) {
+  const { deviceType, avatar, type } = wallet;
+  const walletImage = wallet.type;
+  const avatarBgColor = avatar?.bgColor;
+  const deviceId = wallet.associatedDevice || '';
+
+  const hwInfo = useMemo(() => {
+    let isPassphrase = false;
+    let status: string | undefined;
+    if (type === WALLET_TYPE_HW) {
+      // TODO how to test status?
+      //    packages/kit/src/components/Header/AccountSelectorChildren/LeftSide.tsx #getWalletItemStatus()
+      status = convertDeviceStatus(deviceStatus?.[deviceId]); // hw status
+      isPassphrase = !!wallet.passphraseState; // hw hiddenWallet
+    }
+    const hwWalletType =
+      (deviceType as IOneKeyDeviceType) || getDeviceTypeByDeviceId(deviceId);
+    return {
+      isPassphrase,
+      status,
+      hwWalletType,
+    };
+  }, [deviceId, deviceStatus, deviceType, type, wallet.passphraseState]);
+
+  return (
+    <WalletAvatar
+      walletImage={walletImage}
+      avatarBgColor={avatarBgColor}
+      avatar={avatar}
+      hwWalletType={hwInfo.hwWalletType}
+      status={hwInfo.status}
+      isPassphrase={hwInfo.isPassphrase}
+      {...others}
+    />
+  );
+}
+export { WalletAvatarPro };
 export default memo(WalletAvatar);

@@ -17,12 +17,17 @@ import {
 type HeaderProps = {
   headerLeft: () => ReactNode;
   headerRight: () => ReactNode;
+  showOnDesktop?: boolean;
 };
 
 const DEFAULT_HEADER_VERTICAL = 57;
 const DEFAULT_HEADER_HORIZONTAL = 65;
 
-const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
+const Header: FC<HeaderProps> = ({
+  headerLeft,
+  headerRight,
+  showOnDesktop,
+}) => {
   const insets = useSafeAreaInsets();
   const { size } = useUserDevice();
   const isHorizontal = ['NORMAL', 'LARGE', 'XLARGE'].includes(size);
@@ -39,6 +44,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
   const PrimaryComponent = (
     <DesktopDragZoneBox>
       <HStack
+        testID="AppLayoutGlobalNavigationHeader"
         height={`${headerHeight + insets.top}px`}
         pt={`${insets.top}px`}
         alignItems="center"
@@ -76,7 +82,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     </DesktopDragZoneBox>
   );
 
-  if (isVerticalLayout)
+  if (isVerticalLayout || showOnDesktop)
     return (
       <>
         {Platform.OS === 'web' ? (

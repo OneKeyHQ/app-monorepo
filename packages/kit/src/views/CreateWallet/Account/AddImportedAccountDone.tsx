@@ -46,7 +46,7 @@ const Done: FC<DoneProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { closeDrawer, openRootHome } = useNavigationActions();
+  const { closeWalletSelector, openRootHome } = useNavigationActions();
   useEffect(() => {
     async function main() {
       const navigateDelay = 100;
@@ -79,7 +79,7 @@ const Done: FC<DoneProps> = ({
       backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(true));
       await wait(navigateDelay);
 
-      closeDrawer();
+      closeWalletSelector();
       openRootHome();
       closeExtensionWindowIfOnboardingFinished();
 

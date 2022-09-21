@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { memo } from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
+import {
+  StackNavigationOptions,
+  TransitionPresets,
+  createStackNavigator,
+} from '@react-navigation/stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
+
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
@@ -167,22 +173,27 @@ const modalStackScreenList = [
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
-const ModalStackNavigator = () => (
-  <RootSiblingParent>
-    <ModalStack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {modalStackScreenList.map((modal) => (
-        <ModalStack.Screen
-          key={modal.name}
-          name={modal.name}
-          component={modal.component}
-        />
-      ))}
-    </ModalStack.Navigator>
-  </RootSiblingParent>
-);
+const ModalStackNavigator = () => {
+  const isVerticalLayout = useIsVerticalLayout();
+  return (
+    <RootSiblingParent>
+      <ModalStack.Navigator
+        screenOptions={{
+          headerShown: false,
+          animationEnabled: Boolean(isVerticalLayout),
+          ...TransitionPresets.ModalSlideFromBottomIOS,
+        }}
+      >
+        {modalStackScreenList.map((modal) => (
+          <ModalStack.Screen
+            key={modal.name}
+            name={modal.name}
+            component={modal.component}
+          />
+        ))}
+      </ModalStack.Navigator>
+    </RootSiblingParent>
+  );
+};
 
 export default memo(ModalStackNavigator);

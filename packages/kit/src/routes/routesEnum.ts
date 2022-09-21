@@ -48,6 +48,9 @@ export enum RootRoutes {
   Account = 'account',
   OnLanding = 'onlanding',
 }
+export enum ReceiveTokenRoutes {
+  ReceiveToken = 'ReceiveToken',
+}
 export enum HomeRoutes {
   // InitialTab = 'overview',
   InitialTab = 'initial',
@@ -81,6 +84,15 @@ export enum TabRoutes {
   Developer = 'developer',
   Send = 'send',
   Receive = 'receive',
+}
+
+export enum CreateAccountModalRoutes {
+  CreateAccountForm = 'CreateAccountForm',
+  CreateAccountAuthentication = 'CreateAccountAuthentication',
+  RecoverySelectChainList = 'RecoverySelectChainList',
+  RecoverAccountsList = 'RecoverAccountList',
+  RecoverAccountsConfirm = 'RecoverAccountsConfirm',
+  RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
 }
 
 export enum CreateWalletModalRoutes {

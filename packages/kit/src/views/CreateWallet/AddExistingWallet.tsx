@@ -41,6 +41,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
+import { useWalletName } from '../../hooks/useWalletName';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 
@@ -521,6 +522,9 @@ function OneKeyLiteRecoveryButton() {
 const AddExistingWallet = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const onboardingDone = useOnboardingDone();
+  const route = useRoute();
+  // @ts-expect-error
+  const walletName = useWalletName({ wallet: route?.params?.wallet });
 
   const onMultipleResults = useCallback(
     (p: IAddImportedOrWatchingAccountModalParams) => {
@@ -583,13 +587,14 @@ const AddExistingWallet = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
+      headerDescription={walletName}
       primaryActionTranslationId="action__import"
       primaryActionProps={{
         onPromise: handleSubmit((values) => {
           if (!disableSubmitBtn && address) {
             values.text = address;
           }
-          onSubmit(values);
+          return onSubmit(values);
         }),
         isDisabled: submitDisabled || disableSubmitBtn,
       }}

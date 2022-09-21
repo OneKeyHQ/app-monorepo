@@ -15,7 +15,7 @@ type TokenId = string;
 
 export type TokenInitialState = {
   tokens: Record<NetworkId, Token[]>;
-  tokensPrice: Record<NetworkId, TokenPrices>;
+  tokensPrice: Partial<Record<NetworkId, TokenPrices>>;
   charts: Record<NetworkId, Record<TokenId, TokenChartData>>;
   accountTokens: Record<NetworkId, Record<TokenId, Token[]>>;
   accountTokensBalance: Record<

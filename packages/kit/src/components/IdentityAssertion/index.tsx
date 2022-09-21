@@ -3,36 +3,37 @@ import React, { FC } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Empty, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Button, Empty, useToast } from '@onekeyhq/components';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../hooks';
-import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
-import { useCreateAccountInWallet } from '../Header/AccountSelectorChildren/RightAccountCreateButton';
-
-const { updateDesktopSelectorVisible } = reducerAccountSelector.actions;
+import {
+  NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+  useCreateAccountInWallet,
+} from '../NetworkAccountSelector/hooks/useCreateAccountInWallet';
 
 const IdentityAssertion: FC = ({ children }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { walletId, accountId, networkId, isCompatibleNetwork } =
+  const { walletId, accountId, networkId, isCompatibleNetwork, network } =
     useActiveWalletAccount();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { createAccount } = useCreateAccountInWallet({
+  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     walletId,
     networkId,
   });
-  const { openDrawer } = useNavigationActions();
-  const isVertical = useIsVerticalLayout();
-  const { dispatch } = backgroundApiProxy;
+  const toast = useToast();
 
   if (!walletId) {
     return (
-      <Box flex="1" justifyContent="center" bg="background-default">
+      <Box
+        testID="IdentityAssertion-noWallet"
+        flex="1"
+        justifyContent="center"
+        bg="background-default"
+      >
         <Empty
           imageUrl={IconWallet}
           title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
@@ -61,7 +62,12 @@ const IdentityAssertion: FC = ({ children }) => {
   }
   if (!accountId || !isCompatibleNetwork) {
     return (
-      <Box flex="1" justifyContent="center" bg="background-default">
+      <Box
+        testID="IdentityAssertion-noAccount"
+        flex="1"
+        justifyContent="center"
+        bg="background-default"
+      >
         <Empty
           imageUrl={IconAccount}
           title={intl.formatMessage({ id: 'empty__no_account_title' })}
@@ -75,17 +81,34 @@ const IdentityAssertion: FC = ({ children }) => {
           justifyContent="center"
         >
           <Button
-            leftIconName="PlusOutline"
+            leftIconName={
+              isCreateAccountSupported ? 'PlusOutline' : 'BanOutline'
+            }
             type="primary"
             onPress={() => {
               // ** createAccount for current wallet directly
               // createAccount();
               //
-              // ** show account selector
-              if (isVertical) {
-                openDrawer();
+
+              if (isCreateAccountSupported) {
+                // ** createAccount for current wallet directly
+                createAccount();
+                //
+                // ** Open Account Selector
+                // openAccountSelector();
+                //
+                // ** open WalletSelector
+                // openDrawer();
+                // dispatch(updateDesktopWalletSelectorVisible(true));
               } else {
-                dispatch(updateDesktopSelectorVisible(true));
+                toast.show({
+                  title: intl.formatMessage(
+                    {
+                      id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+                    },
+                    { 0: network?.shortName },
+                  ),
+                });
               }
             }}
             size="lg"

@@ -14,14 +14,16 @@ export type DeviceStatusType = {
   isConnected: boolean;
   hasUpgrade: boolean;
 };
+export type IHardwareDeviceStatusMap = {
+  [deviceId: string]: DeviceStatusType | undefined;
+};
 
 export function useDeviceStatusOfHardwareWallet() {
   const { hardwareWallets } = useRuntimeWallets();
   const { deviceUpdates } = useSettings();
   const { connected } = useAppSelector((s) => s.hardware);
   const { isOpenDelay } = useAppSelector((s) => s.accountSelector);
-  const [deviceStatus, setDeviceStatus] =
-    useState<Record<string, DeviceStatusType | undefined>>();
+  const [deviceStatus, setDeviceStatus] = useState<IHardwareDeviceStatusMap>();
 
   const getStatus = useCallback(
     (connectId: string | undefined): DeviceStatusType | undefined => {
@@ -61,9 +63,10 @@ export function useDeviceStatusOfHardwareWallet() {
             acc[wallet.associatedDevice] = getStatus(device.mac);
           }
           return acc;
-        }, {} as Record<string, DeviceStatusType | undefined>),
+        }, {} as IHardwareDeviceStatusMap),
       );
     })();
+    // TODO watch walletSelector / accountSelector open
   }, [getStatus, hardwareWallets, isOpenDelay]);
 
   // for RightHeader

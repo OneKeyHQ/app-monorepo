@@ -81,13 +81,14 @@ export type SelectProps<T = string> = {
   containerProps?: ComponentProps<typeof Box>;
   triggerProps?: ComponentProps<typeof Pressable>;
   dropdownProps?: IDropdownProps;
-  renderTrigger?: (
-    activeItem: SelectItem<T>,
-    isHovered: boolean,
-    isFocused: boolean,
-    isPressed: boolean,
-    visible: boolean,
-  ) => ReactNode;
+  renderTrigger?: (options: {
+    activeOption: SelectItem<T>;
+    isHovered: boolean;
+    isFocused: boolean;
+    isPressed: boolean;
+    visible: boolean;
+    onPress?: () => void;
+  }) => ReactNode;
   renderItem?: (
     item: SelectItem<T>,
     isActive: boolean,
@@ -295,13 +296,14 @@ function Select<T = string>({
     <Box ref={triggerRef} position="relative" {...containerProps}>
       <Pressable onPress={toggleVisible} {...triggerProps}>
         {({ isHovered, isFocused, isPressed }) =>
-          renderTrigger?.(
+          renderTrigger?.({
             activeOption,
             isHovered,
             isFocused,
             isPressed,
             visible,
-          ) ?? (
+            onPress: toggleVisible,
+          }) ?? (
             <Box
               display="flex"
               flexDirection="row"

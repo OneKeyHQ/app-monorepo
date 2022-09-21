@@ -20,7 +20,7 @@ type Wallet = HasName & {
   backuped: boolean;
   accounts: Array<string>;
   nextAccountIds: Record<string, number>; // purpose + cointype => index
-  associatedDevice?: string;
+  associatedDevice?: string; // alias to `deviceId`
   avatar?: Avatar;
   deviceType?: string;
   hidden?: boolean;

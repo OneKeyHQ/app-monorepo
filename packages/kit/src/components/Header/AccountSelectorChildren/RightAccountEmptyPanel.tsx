@@ -11,11 +11,10 @@ import {
 } from '@onekeyhq/engine/src/types/wallet';
 
 import { useNetwork } from '../../../hooks/useNetwork';
-
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
-} from './RightAccountCreateButton';
+} from '../../NetworkAccountSelector/hooks/useCreateAccountInWallet';
 
 export type IRightAccountEmptyPanelProps = {
   activeWallet: Wallet | null | undefined;

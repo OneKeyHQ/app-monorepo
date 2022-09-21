@@ -8,8 +8,11 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
-import { ReceiveTokenRoutes } from '../routes';
-import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
+import {
+  ModalRoutes,
+  ReceiveTokenRoutes,
+  RootRoutes,
+} from '../routes/routesEnum';
 
 import useNavigation from './useNavigation';
 

@@ -3,8 +3,7 @@ import React, { FC, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
-import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
-import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
+import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
@@ -152,8 +151,9 @@ const Sidebar: FC<BottomTabBarProps> = ({
     >
       <DesktopDragZoneAbsoluteBar h={paddingTopValue} />
       {/* Scrollable area */}
-      <Box zIndex={1} nativeID="Desktop-AccountSelector-Container">
-        <AccountSelector />
+      <Box zIndex={1} testID="Desktop-WalletSelector-Container">
+        {/* <AccountSelector /> */}
+        <WalletSelectorTrigger />
       </Box>
       <VStack flex={1} mt={4} mb={2}>
         <ScrollView
@@ -166,7 +166,10 @@ const Sidebar: FC<BottomTabBarProps> = ({
           </VStack>
         </ScrollView>
       </VStack>
-      <ChainSelector />
+      <Box testID="Legacy-Desktop-NetworkAccountSelector-Container">
+        {/* <ChainSelector /> */}
+        {/* <NetworkAccountSelectorTrigger /> */}
+      </Box>
     </Box>
   );
 };

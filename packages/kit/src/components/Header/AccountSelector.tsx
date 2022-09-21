@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 
 import { useDrawerStatus } from '@react-navigation/drawer';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -22,7 +22,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useDebounce } from '../../hooks';
+import { useAppSelector, useDebounce, useNavigationActions } from '../../hooks';
 import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
 
 import {
@@ -42,16 +42,18 @@ type AccountSelectorProps = {
   }) => ReactNode;
 };
 
-const { updateIsOpenDelay, updateDesktopSelectorVisible } =
+const { updateIsOpenDelay, updateDesktopWalletSelectorVisible } =
   reducerAccountSelector.actions;
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const isVertical = useIsVerticalLayout();
-  const navigation = useNavigation();
 
   const triggerRef = useRef<HTMLElement>(null);
   const { serviceAccountSelector, dispatch } = backgroundApiProxy;
-  const { isDesktopSelectorVisible } = useAppSelector((s) => s.accountSelector);
+  const { isDesktopWalletSelectorVisible } = useAppSelector(
+    (s) => s.accountSelector,
+  );
+  const { toggleWalletSelector } = useNavigationActions();
 
   useEffect(() => {
     debugLogger.accountSelector.info('HeaderAccountSelector mount');
@@ -64,8 +66,8 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     useCallback(() => {
       if (platformEnv.isRuntimeBrowser) {
         const closeOnEsc = (e: KeyboardEvent) => {
-          if (e.code === 'Escape' && isDesktopSelectorVisible) {
-            dispatch(updateDesktopSelectorVisible(false));
+          if (e.code === 'Escape' && isDesktopWalletSelectorVisible) {
+            dispatch(updateDesktopWalletSelectorVisible(false));
           }
         };
         document.addEventListener('keydown', closeOnEsc);
@@ -73,11 +75,11 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
           document.removeEventListener('keydown', closeOnEsc);
         };
       }
-    }, [dispatch, isDesktopSelectorVisible]),
+    }, [dispatch, isDesktopWalletSelectorVisible]),
   );
 
   const isDrawerOpen = useDrawerStatus() === 'open';
-  const visible = isVertical ? isDrawerOpen : isDesktopSelectorVisible;
+  const visible = isVertical ? isDrawerOpen : isDesktopWalletSelectorVisible;
 
   // delay wait drawer closed animation done
   const isOpenDelay = useDebounce(
@@ -93,23 +95,8 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       await serviceAccountSelector.setSelectedWalletToActive();
       await serviceAccountSelector.refreshAccountsGroup();
     }
-    setTimeout(() => {
-      if (isVertical) {
-        // @ts-expect-error
-        navigation?.toggleDrawer?.();
-      } else {
-        const nextVisible = !isDesktopSelectorVisible;
-        dispatch(updateDesktopSelectorVisible(nextVisible));
-      }
-    });
-  }, [
-    visible,
-    serviceAccountSelector,
-    isVertical,
-    navigation,
-    isDesktopSelectorVisible,
-    dispatch,
-  ]);
+    toggleWalletSelector();
+  }, [visible, toggleWalletSelector, serviceAccountSelector]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);
   const setRef = React.useCallback((ref: DesktopRef | null) => {

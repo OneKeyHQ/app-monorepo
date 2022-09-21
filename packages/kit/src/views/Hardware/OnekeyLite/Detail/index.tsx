@@ -19,7 +19,7 @@ import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/Foot
 import { SelectItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {

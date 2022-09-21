@@ -22,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { LazyDisplayView } from '../../LazyDisplayView';
+import { useAccountSelectorInfo } from '../../NetworkAccountSelector/hooks/useAccountSelectorInfo';
 
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SELECTED_WALLET_DEBOUNCED,
@@ -35,7 +36,6 @@ import RightAccountSection, {
 } from './RightAccountSection';
 import RightChainSelector from './RightChainSelector';
 import RightHeader from './RightHeader';
-import { useAccountSelectorInfo } from './useAccountSelectorInfo';
 
 export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
 export type DeviceStatusType = {

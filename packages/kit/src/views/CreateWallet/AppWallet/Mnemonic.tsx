@@ -157,7 +157,7 @@ const MnemonicContainer = () => {
   const { mnemonic, password, withEnableAuthentication } = route.params ?? {};
   const toast = useToast();
   const intl = useIntl();
-  const { closeDrawer, openRootHome } = useNavigationActions();
+  const { closeWalletSelector, openRootHome } = useNavigationActions();
   const onPromise = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceAccount.createHDWallet({
@@ -173,7 +173,7 @@ const MnemonicContainer = () => {
       const errorKey = (e as { key: LocaleIds }).key;
       toast.show({ title: intl.formatMessage({ id: errorKey }) });
     }
-    closeDrawer();
+    closeWalletSelector();
     await wait(600);
     openRootHome();
     await wait(600);
@@ -182,7 +182,7 @@ const MnemonicContainer = () => {
     mnemonic,
     password,
     withEnableAuthentication,
-    closeDrawer,
+    closeWalletSelector,
     intl,
     toast,
     openRootHome,

@@ -9,12 +9,9 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount, useRuntime } from '../../hooks/redux';
-import {
-  CreateAccountModalRoutes,
-  CreateWalletModalRoutes,
-} from '../../routes';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { changeActiveNetwork } from '../../store/reducers/general';
 import { addTransaction } from '../../store/reducers/swapTransactions';
@@ -361,45 +358,23 @@ const SwapStateButton = () => {
 const SwapButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { account, wallet } = useActiveWalletAccount();
+  const { account, wallet, networkId, walletId } = useActiveWalletAccount();
 
   const onCreateWallet = useCallback(() => {
     navigation.navigate(RootRoutes.Onboarding);
   }, [navigation]);
 
+  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
+    networkId,
+    walletId,
+  });
+
   const onCreateAccount = useCallback(() => {
     if (!wallet) {
       return;
     }
-    if (wallet.type === 'imported') {
-      return navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
-        params: {
-          screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'imported' },
-        },
-      });
-    }
-    if (wallet.type === 'watching') {
-      return navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
-        params: {
-          screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'watching' },
-        },
-      });
-    }
-
-    return navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateAccount,
-      params: {
-        screen: CreateAccountModalRoutes.CreateAccountForm,
-        params: {
-          walletId: wallet.id,
-        },
-      },
-    });
-  }, [wallet, navigation]);
+    createAccount();
+  }, [wallet, createAccount]);
 
   if (!wallet) {
     return (
@@ -412,6 +387,7 @@ const SwapButton = () => {
   if (!account) {
     return (
       <Button
+        leftIconName={isCreateAccountSupported ? undefined : 'BanOutline'}
         size="xl"
         type="primary"
         onPress={onCreateAccount}

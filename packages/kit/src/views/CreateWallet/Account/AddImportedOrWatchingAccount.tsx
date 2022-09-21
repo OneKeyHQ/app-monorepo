@@ -46,7 +46,7 @@ const AddImportedOrWatchingAccount = () => {
   const intl = useIntl();
   const toast = useToast();
 
-  const { closeDrawer, openRootHome } = useNavigationActions();
+  const { closeWalletSelector, openRootHome } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { control, handleSubmit, getValues, watch } =
@@ -127,7 +127,7 @@ const AddImportedOrWatchingAccount = () => {
             text,
             name,
           );
-          closeDrawer();
+          closeWalletSelector();
           openRootHome();
           closeExtensionWindowIfOnboardingFinished();
         } catch (e) {
@@ -144,7 +144,7 @@ const AddImportedOrWatchingAccount = () => {
       navigation,
       text,
       onSuccess,
-      closeDrawer,
+      closeWalletSelector,
       openRootHome,
       toast,
       intl,

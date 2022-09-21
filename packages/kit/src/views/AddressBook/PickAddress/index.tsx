@@ -27,7 +27,7 @@ import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import WalletAvatar from '../../../components/Header/WalletAvatar';
+import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
 import { useAppSelector } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
 import { Contact } from '../../../store/reducers/contacts';

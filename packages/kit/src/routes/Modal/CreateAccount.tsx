@@ -8,17 +8,12 @@ import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/Recov
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
 import SelectChain from '@onekeyhq/kit/src/views/Account/AddNewAccount/SelectChain';
 
+import { CreateAccountModalRoutes } from '../routesEnum';
+
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
-export enum CreateAccountModalRoutes {
-  CreateAccountForm = 'CreateAccountForm',
-  CreateAccountAuthentication = 'CreateAccountAuthentication',
-  RecoverySelectChainList = 'RecoverySelectChainList',
-  RecoverAccountsList = 'RecoverAccountList',
-  RecoverAccountsConfirm = 'RecoverAccountsConfirm',
-  RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
-}
+export { CreateAccountModalRoutes };
 
 export type CreateAccountRoutesParams = {
   [CreateAccountModalRoutes.CreateAccountForm]: {

@@ -7,20 +7,62 @@ import {
   TabActions,
 } from '@react-navigation/native';
 
-import { RootRoutes, TabRoutes } from '../routes/types';
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/types';
+import reducerAccountSelector from '../store/reducers/reducerAccountSelector';
+import { ManageNetworkRoutes } from '../views/ManageNetworks/types';
+
+import { useAppSelector } from './redux';
 import { getAppNavigation } from './useAppNavigation';
 
+const { updateDesktopWalletSelectorVisible } = reducerAccountSelector.actions;
 export function useNavigationActions() {
   const navigation = useNavigation();
-
-  const closeDrawer = useCallback(() => {
-    navigation.dispatch(DrawerActions.closeDrawer());
+  const isVertical = useIsVerticalLayout();
+  const { dispatch } = backgroundApiProxy;
+  const { isDesktopWalletSelectorVisible } = useAppSelector(
+    (s) => s.accountSelector,
+  );
+  const openAccountSelector = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageNetwork,
+      params: {
+        screen: ManageNetworkRoutes.NetworkAccountSelector,
+      },
+    });
   }, [navigation]);
 
-  const openDrawer = useCallback(() => {
-    navigation.dispatch(DrawerActions.openDrawer());
-  }, [navigation]);
+  const closeWalletSelector = useCallback(() => {
+    if (isVertical) {
+      navigation.dispatch(DrawerActions.closeDrawer());
+    } else {
+      dispatch(updateDesktopWalletSelectorVisible(false));
+    }
+  }, [dispatch, isVertical, navigation]);
+
+  const openWalletSelector = useCallback(() => {
+    if (isVertical) {
+      navigation.dispatch(DrawerActions.openDrawer());
+    } else {
+      dispatch(updateDesktopWalletSelectorVisible(true));
+    }
+  }, [dispatch, isVertical, navigation]);
+
+  const toggleWalletSelector = useCallback(() => {
+    setTimeout(() => {
+      // TODO move to useNavigationActions
+      if (isVertical) {
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        navigation?.toggleDrawer?.();
+      } else {
+        const nextVisible = !isDesktopWalletSelectorVisible;
+        dispatch(updateDesktopWalletSelectorVisible(nextVisible));
+      }
+    });
+  }, [dispatch, isDesktopWalletSelectorVisible, isVertical, navigation]);
 
   const resetToRoot = useCallback(() => {
     /** next frame */
@@ -61,12 +103,22 @@ export function useNavigationActions() {
   }, [navigation]);
   return useMemo(
     () => ({
-      closeDrawer,
-      openDrawer,
+      closeWalletSelector,
+      openWalletSelector,
+      toggleWalletSelector,
       resetToRoot,
       resetToWelcome,
       openRootHome,
+      openAccountSelector,
     }),
-    [closeDrawer, openDrawer, resetToRoot, resetToWelcome, openRootHome],
+    [
+      openAccountSelector,
+      closeWalletSelector,
+      openWalletSelector,
+      toggleWalletSelector,
+      resetToRoot,
+      resetToWelcome,
+      openRootHome,
+    ],
   );
 }
