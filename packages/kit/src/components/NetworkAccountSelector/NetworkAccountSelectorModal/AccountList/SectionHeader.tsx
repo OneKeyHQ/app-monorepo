@@ -33,14 +33,11 @@ const SectionHeader: FC<SectionHeaderProps> = ({
             {walletName}
           </Text>
         </Box>
-        {!emptySectionData ? (
-          <CreateAccountButton
-            networkId={networkId}
-            walletId={wallet.id}
-            fullBleed={false}
-            isLoading={isCreateLoading}
-          />
-        ) : undefined}
+        <CreateAccountButton
+          networkId={networkId}
+          walletId={wallet.id}
+          isLoading={isCreateLoading}
+        />
       </Box>
       {/* move fullBleed Button to renderSectionFooter */}
       {emptySectionData ? null : undefined}

@@ -9,7 +9,14 @@ import React, {
   useState,
 } from 'react';
 
-import { Box, SectionList, useSafeAreaInsets } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Box,
+  SectionList,
+  Text,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IAccount, IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -23,7 +30,6 @@ import {
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
 import { useAccountSelectorInfo } from '../../../Header/AccountSelectorChildren/useAccountSelectorInfo';
-import { CreateAccountButton } from '../CreateAccountButton';
 
 import ListItem from './ListItem';
 import SectionHeader from './SectionHeader';
@@ -54,6 +60,7 @@ function AccountList({
     networkId: activeNetworkId,
   } = useActiveWalletAccount();
   const insets = useSafeAreaInsets();
+  const intl = useIntl();
 
   // TODO define useScrollToActiveItem hooks
   const isScrolledRef = useRef(false);
@@ -240,12 +247,9 @@ function AccountList({
               ) : null}
 
               {isEmptySectionData && !isPreloadingCreate ? (
-                <CreateAccountButton
-                  networkId={section?.networkId}
-                  walletId={section?.wallet.id}
-                  fullBleed
-                  isLoading={isPreloadingCreate}
-                />
+                <Text typography="Body2" color="text-subdued" px={2}>
+                  {intl.formatMessage({ id: 'empty__no_account_title' })}
+                </Text>
               ) : null}
 
               <Box h={6} />

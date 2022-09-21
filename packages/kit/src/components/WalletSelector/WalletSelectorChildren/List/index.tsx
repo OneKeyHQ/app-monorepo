@@ -142,6 +142,7 @@ function Body() {
   const sectionListRef = useRef<any>(null);
   const { walletId } = useActiveWalletAccount();
   const { visible } = useWalletSelectorStatus();
+  const insets = useSafeAreaInsets();
 
   const isScrolledRef = useRef(false);
   useLayoutEffect(() => {
@@ -222,6 +223,7 @@ function Body() {
             // padding: '8px',
           }
         }
+        ListFooterComponent={<Box h={insets.bottom} />}
       />
     </>
   );
