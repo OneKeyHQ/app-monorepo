@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { isValidElement, useCallback } from 'react';
+import React, { isValidElement, useCallback, useEffect } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
 import IconButton from '../../IconButton';
+import PresenceTransition from '../../PresenceTransition';
 import Pressable from '../../Pressable';
 import Typography from '../../Typography';
 
@@ -36,6 +37,8 @@ function modalSizing(modalSize: string | undefined) {
       return '';
   }
 }
+
+const openedModalStack: boolean[] = [];
 
 const DesktopModal = ({
   children,
@@ -66,8 +69,18 @@ const DesktopModal = ({
   const navIndex = useNavigationState((state) => state?.index);
 
   const defaultClose = useModalClose({ onClose });
-
+  const enableModalAnimation = true;
   const close = closeAction || defaultClose;
+
+  useEffect(() => {
+    // FIX: backdrop flash when open new Modal in another Modal
+    openedModalStack.push(true);
+    return () => {
+      if (openedModalStack.length) {
+        openedModalStack.pop();
+      }
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -87,6 +100,7 @@ const DesktopModal = ({
 
   return (
     <Box
+      testID="DesktopModalWrapper"
       position="absolute"
       top="-1000px"
       left="-1000px"
@@ -94,10 +108,10 @@ const DesktopModal = ({
       bottom="-1000px"
       justifyContent="center"
       alignItems="center"
-      bg="rgba(0, 0, 0, 0.6)"
     >
       {closeOnOverlayClick && (
         <Pressable
+          testID="DesktopModalBackdrop"
           _web={{
             // @ts-ignore
             cursor: 'default',
@@ -108,9 +122,44 @@ const DesktopModal = ({
           right="0"
           bottom="0"
           onPress={close}
-        />
+        >
+          <PresenceTransition
+            as={Box}
+            visible
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+              transition: {
+                duration:
+                  enableModalAnimation && !openedModalStack?.length ? 80 : 0,
+              },
+            }}
+            // @ts-expect-error
+            w="full"
+            h="full"
+            bg="rgba(0, 0, 0, 0.6)"
+          />
+        </Pressable>
       )}
-      <Box
+
+      <PresenceTransition
+        as={Box}
+        visible
+        initial={{
+          opacity: 0,
+          // translateY: 24,
+          scale: 0.95,
+        }}
+        animate={{
+          opacity: 1,
+          // translateY: 0,
+          scale: 1,
+          transition: { duration: enableModalAnimation ? 100 : 0 },
+        }}
+        testID="DesktopModalContentContainer"
+        // @ts-expect-error
         width={modalSizing(size)}
         height={height}
         maxHeight={maxHeight}
@@ -222,7 +271,7 @@ const DesktopModal = ({
             </HStack>
           </Box>
         )}
-      </Box>
+      </PresenceTransition>
     </Box>
   );
 };
