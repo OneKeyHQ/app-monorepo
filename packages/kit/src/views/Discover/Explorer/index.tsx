@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { RouteProp, useRoute } from '@react-navigation/core';
@@ -69,7 +69,7 @@ export type ExplorerViewProps = {
 let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
 
 // 空白页面 URL
-const BrowserPage = 'about:blank';
+const blankPage = 'about:blank';
 
 type DiscoverRouteProp = RouteProp<TabRoutesParams, TabRoutes.Discover>;
 const Explorer: FC = () => {
@@ -95,7 +95,7 @@ const Explorer: FC = () => {
   const [searchContent, setSearchContent] = useState<SearchContentType>();
   const [currentWebSite, setCurrentWebSite] = useState<WebSiteType>();
 
-  const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
+  const showExplorerBar = platformEnv.isNative || platformEnv.isDesktop;
 
   const [refreshKey, setRefreshKey] = useState<string>();
 
@@ -120,14 +120,6 @@ const Explorer: FC = () => {
       }),
     );
   });
-
-  useEffect(() => {
-    if (platformEnv.isNative || platformEnv.isDesktop) {
-      setShowExplorerBar(true);
-    } else {
-      setShowExplorerBar(false);
-    }
-  }, []);
 
   const gotoUrl = async (item: (string | MatchDAppItemType) | undefined) => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
@@ -168,7 +160,7 @@ const Explorer: FC = () => {
           );
         }
       } catch (error) {
-        setCurrentWebSite({ url: BrowserPage });
+        setCurrentWebSite({ url: blankPage });
         setSearchContent({ searchContent: item });
         console.log('not a url', error);
       }
@@ -265,7 +257,7 @@ const Explorer: FC = () => {
       content = currentWebSite?.url ?? '';
     }
 
-    if (content !== BrowserPage) setSearchContent({ searchContent: content });
+    if (content !== blankPage) setSearchContent({ searchContent: content });
 
     if (displayInitialPage === false || webCanGoBack()) {
       setCanGoBack(true);

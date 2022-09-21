@@ -1,8 +1,8 @@
-import React, {
+import {
   ComponentProps,
   FC,
+  forwardRef,
   useCallback,
-  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -21,8 +21,9 @@ import {
 import type { ICON_NAMES } from '@onekeyhq/components';
 
 import SearchView from '../Search/SearchView';
+import TabBarDesktop from '../Tab/TabBarDesktop';
 
-import type { ExplorerViewProps } from '..';
+import type { ExplorerViewProps, SearchContentType } from '..';
 import type { MatchDAppItemType } from '../Search/useSearchHistories';
 
 type BrowserURLInputProps = {
@@ -31,7 +32,7 @@ type BrowserURLInputProps = {
   customLeftIcon?: ICON_NAMES;
 } & Omit<ComponentProps<typeof Input>, 'onChange' | 'onChangeText'>;
 
-const BrowserURLInput = React.forwardRef<TextInput, BrowserURLInputProps>(
+const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
   // eslint-disable-next-line react/prop-types
   ({ value, onClear, onChangeText, customLeftIcon, ...props }, ref) => {
     const [innerValue, setInnerValue] = useState(value);
@@ -68,6 +69,25 @@ BrowserURLInput.displayName = 'BrowserURLInput';
 
 export type KeyEventType = 'ArrowUp' | 'ArrowDown';
 
+function getHttpSafeState(searchContent?: SearchContentType): ICON_NAMES {
+  try {
+    if (!searchContent || !searchContent?.searchContent) {
+      return 'SearchCircleSolid';
+    }
+
+    const url = new URL(searchContent?.searchContent ?? '');
+    if (url.protocol === 'https:') {
+      return 'LockClosedSolid';
+    }
+    if (url.protocol === 'http:') {
+      return 'ExclamationCircleSolid';
+    }
+  } catch (e) {
+    return 'SearchCircleSolid';
+  }
+  return 'SearchCircleSolid';
+}
+
 const Desktop: FC<ExplorerViewProps> = ({
   searchContent,
   onSearchContentChange,
@@ -85,10 +105,8 @@ const Desktop: FC<ExplorerViewProps> = ({
 }) => {
   const intl = useIntl();
 
-  const [historyVisible, setHistoryVisible] = React.useState(false);
-  const [httpSafeState, setHttpSafeState] = useState<ICON_NAMES>(
-    'ExclamationCircleSolid',
-  );
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const httpSafeState = getHttpSafeState(searchContent);
 
   const searchBar = useRef<TextInput>(null);
   // Todo Ref Type
@@ -99,37 +117,18 @@ const Desktop: FC<ExplorerViewProps> = ({
     searchView?.current?.onKeyPress?.(event);
   };
 
-  useEffect(() => {
-    try {
-      if (!searchContent || !searchContent?.searchContent) {
-        setHttpSafeState('SearchCircleSolid');
-        return;
-      }
-
-      const url = new URL(searchContent?.searchContent ?? '');
-      if (url.protocol === 'https:') {
-        setHttpSafeState('LockClosedSolid');
-      } else if (url.protocol === 'http:') {
-        setHttpSafeState('ExclamationCircleSolid');
-      } else {
-        setHttpSafeState('SearchCircleSolid');
-      }
-    } catch (e) {
-      setHttpSafeState('SearchCircleSolid');
-    }
-  }, [searchContent]);
-
   return (
     <Box flex="1" zIndex={3}>
       {!!showExplorerBar && (
         <DesktopDragZoneBox>
           <Box bg="surface-subdued" zIndex={5}>
+            <TabBarDesktop />
             <HStack
+              bg="background-default"
               w="100%"
-              h="64px"
+              h="48px"
               px={8}
               space={3}
-              flexDirection="row"
               alignItems="center"
             >
               <IconButton
@@ -160,7 +159,7 @@ const Desktop: FC<ExplorerViewProps> = ({
                 <BrowserURLInput
                   ref={searchBar}
                   w="100%"
-                  h="38px"
+                  h="32px"
                   placeholder={intl.formatMessage({
                     id: 'content__search_or_enter_dapp_url',
                   })}
