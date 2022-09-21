@@ -110,7 +110,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
           activeNetwork.id,
         );
-        if (vaultSettings?.activateToken) {
+        if (vaultSettings?.activateTokenRequired) {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.ManageToken,
             params: {

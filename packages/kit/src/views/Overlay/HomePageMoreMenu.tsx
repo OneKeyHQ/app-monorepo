@@ -61,7 +61,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         network.id,
       );
-      setNeedActivateAccount(!!vaultSettings?.activateAccount);
+      setNeedActivateAccount(!!vaultSettings?.activateAccountRequired);
     })();
   }, [network]);
 

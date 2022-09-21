@@ -1269,7 +1269,7 @@ class Engine {
   async activateAccount(accountId: string, networkId: string): Promise<void> {
     // Activate an account.
     const vaultSettings = await this.getVaultSettings(networkId);
-    if (!vaultSettings.activateAccount) return Promise.resolve();
+    if (!vaultSettings.activateAccountRequired) return Promise.resolve();
 
     const vault = await this.getVault({ networkId, accountId });
     return vault.activateAccount();
@@ -1283,7 +1283,7 @@ class Engine {
     tokenIdOnNetwork: string,
   ): Promise<boolean> {
     const vaultSettings = await this.getVaultSettings(networkId);
-    if (!vaultSettings.activateToken) return true;
+    if (!vaultSettings.activateTokenRequired) return true;
 
     const normalizedAddress = await this.validator.validateTokenAddress(
       networkId,

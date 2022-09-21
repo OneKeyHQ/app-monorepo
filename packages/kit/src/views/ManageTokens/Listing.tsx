@@ -346,7 +346,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         networkId,
       );
-      if (vaultSettings?.activateToken) {
+      if (vaultSettings?.activateTokenRequired) {
         navigation.navigate(ManageTokenRoutes.ActivateToken, {
           accountId,
           networkId,

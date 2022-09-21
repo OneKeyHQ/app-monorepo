@@ -42,8 +42,8 @@ export type IVaultSettings = {
   minTransferAmount?: string;
 
   isUTXOModel: boolean;
-  activateAccount?: boolean;
-  activateToken?: boolean;
+  activateAccountRequired?: boolean;
+  activateTokenRequired?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
