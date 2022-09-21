@@ -1,9 +1,6 @@
 name: test-web
 
 on:
-  push:
-    branches:
-      - onekey
   pull_request:
     branches:
       - onekey
