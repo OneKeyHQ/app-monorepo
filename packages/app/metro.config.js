@@ -16,6 +16,7 @@ config.resolver.extraNodeModules = {
   crypto: require.resolve('react-native-crypto'),
 };
 
+config.transformer.minifierPath = 'metro-minify-terser';
 config.watchFolders = [...config.watchFolders, '../'];
 
 module.exports = config;

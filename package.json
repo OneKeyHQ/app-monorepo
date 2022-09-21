@@ -106,6 +106,7 @@
     "husky": "^7.0.4",
     "jest": "^27.4.3",
     "lint-staged": "^11.2.6",
+    "metro-minify-terser": "^0.72.3",
     "node-notifier": "^10.0.0",
     "patch-package": "^6.4.7",
     "prettier": "^2.3.2",
