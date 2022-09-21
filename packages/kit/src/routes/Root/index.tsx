@@ -1,4 +1,4 @@
-import React, { FC, memo, useEffect } from 'react';
+import React, { FC, memo, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -23,6 +23,7 @@ import OnLanding from '@onekeyhq/kit/src/views/OnLanding';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ModalStackNavigator from '../Modal';
+import { buildModalOpenAnimationOptions } from '../Modal/buildModalStackNavigatorOptions';
 import {
   UpdateFeatureModalRoutes,
   UpdateFeatureRoutesParams,
@@ -117,18 +118,9 @@ const App = () => {
       />
       <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen
-        options={
-          isVerticalLayout
-            ? {
-                animationEnabled: true,
-                ...TransitionPresets.ModalSlideFromBottomIOS,
-              }
-            : {
-                // disable default Navigation animation, use custom <PresenceTransition /> for <DesktopModal />
-                //    packages/components/src/Modal/Container/Desktop.tsx
-                animationEnabled: !platformEnv.isRuntimeBrowser,
-              }
-        }
+        options={{
+          ...buildModalOpenAnimationOptions({ isVerticalLayout }),
+        }}
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
       />

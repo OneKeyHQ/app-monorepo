@@ -40,6 +40,7 @@ export function CreateAccountButton({
   const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     networkId,
     walletId,
+    isFromAccountSelector: true,
   });
   const isExternal = useMemo(() => {
     if (!walletId) {

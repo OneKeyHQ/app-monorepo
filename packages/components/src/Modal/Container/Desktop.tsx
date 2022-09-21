@@ -161,6 +161,7 @@ const DesktopModal = ({
           opacity: 1,
           // translateY: 0,
           scale: 1,
+          // TODO show animation when open new Modal in Modal, but not push stack in same Modal
           transition: { duration: enableModalAnimation ? 100 : 0 },
         }}
         testID="DesktopModalContentContainer"
