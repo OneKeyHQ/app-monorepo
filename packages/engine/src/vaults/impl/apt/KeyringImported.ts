@@ -1,4 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { AptosClient } from 'aptos';
 import * as SHA3 from 'js-sha3';
 
 import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
@@ -6,9 +12,14 @@ import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import { IPrepareImportedAccountsParams } from '../../types';
+import {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
-// @ts-ignore
+
+import { signTransaction } from './utils';
+
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
@@ -59,5 +70,29 @@ export class KeyringImported extends KeyringImportedBase {
         address,
       },
     ]);
+  }
+
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const aptosClient = new AptosClient(rpcURL);
+
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+
+    const signer = signers[dbAccount.address];
+
+    return signTransaction(aptosClient, unsignedTx, signer);
+  }
+
+  override signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    throw new OneKeyInternalError('Not implemented.');
   }
 }

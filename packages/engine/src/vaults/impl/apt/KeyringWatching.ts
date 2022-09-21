@@ -4,7 +4,6 @@ import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 import { IPrepareWatchingAccountsParams } from '../../types';
 
-// @ts-ignore
 export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
   SignedTx,
@@ -22,7 +23,6 @@ import { signTransaction } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
-// @ts-ignore
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
@@ -110,5 +110,12 @@ export class KeyringHd extends KeyringHdBase {
     const signer = signers[dbAccount.address];
 
     return signTransaction(aptosClient, unsignedTx, signer);
+  }
+
+  override signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    throw new OneKeyInternalError('Not implemented.');
   }
 }
