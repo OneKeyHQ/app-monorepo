@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { isValidElement, useCallback, useEffect } from 'react';
+import React, { isValidElement, useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
@@ -69,7 +69,12 @@ const DesktopModal = ({
   const navIndex = useNavigationState((state) => state?.index);
 
   const defaultClose = useModalClose({ onClose });
-  const enableModalAnimation = true;
+  const enableModalAnimation = useMemo(
+    () =>
+      // default Navigation animation: packages/kit/src/routes/Root/index.tsx
+      platformEnv.isRuntimeBrowser,
+    [],
+  );
   const close = closeAction || defaultClose;
 
   useEffect(() => {

@@ -126,7 +126,7 @@ const App = () => {
             : {
                 // disable default Navigation animation, use custom <PresenceTransition /> for <DesktopModal />
                 //    packages/components/src/Modal/Container/Desktop.tsx
-                animationEnabled: false,
+                animationEnabled: !platformEnv.isRuntimeBrowser,
               }
         }
         name={RootRoutes.Modal}
