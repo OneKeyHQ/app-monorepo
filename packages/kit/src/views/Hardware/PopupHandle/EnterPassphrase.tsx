@@ -16,12 +16,14 @@ import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
 type EnterPassphraseViewProps = {
   onConfirm: (passphrase: string) => void;
+  onDeviceInput: () => void;
 } & Omit<BaseRequestViewProps, 'children'>;
 
 type FieldValues = { value: string };
 
 const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
   onConfirm,
+  onDeviceInput,
   ...props
 }) => {
   const intl = useIntl();
@@ -32,7 +34,6 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
   });
 
   const onSubmit = handleSubmit(({ value }: FieldValues) => {
-    console.log('todo: submit passphrase value -> ', value);
     onConfirm(value);
   });
 
@@ -75,7 +76,13 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           />
         </Form.Item>
       </Form>
-      <Button type="plain" size="base" mt={3} mb={6}>
+      <Button
+        type="plain"
+        size="base"
+        mt={3}
+        mb={6}
+        onPress={() => onDeviceInput()}
+      >
         {intl.formatMessage({ id: 'msg__enter_passphrase_on_device' })}
       </Button>
       <Divider />

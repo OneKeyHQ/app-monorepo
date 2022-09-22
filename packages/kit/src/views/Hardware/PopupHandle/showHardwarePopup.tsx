@@ -167,21 +167,24 @@ export default async function showHardwarePopup({
   }
 
   if (uiRequest === UI_REQUEST.REQUEST_PASSPHRASE) {
+    const onPassphraseAck = (
+      passphraseValue: string,
+      onDeviceInput = false,
+    ) => {
+      serviceHardware?.sendUiResponse({
+        type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+        payload: {
+          value: onDeviceInput ? passphraseValue : '',
+          passphraseOnDevice: onDeviceInput,
+          save: false,
+        },
+      });
+      closeHardwarePopup();
+    };
     popupView = (
       <EnterPassphraseView
-        onConfirm={(passphrase) => {
-          serviceHardware?.sendUiResponse({
-            // @ts-expect-error
-            type: 'ui-receive_passphrase',
-            // @ts-expect-error
-            payload: {
-              value: passphrase,
-              passphraseOnDevice: false,
-              save: false,
-            },
-          });
-          closeHardwarePopup();
-        }}
+        onConfirm={(passphrase) => onPassphraseAck(passphrase)}
+        onDeviceInput={() => onPassphraseAck('', true)}
         onCancel={() => {
           handleCancelPopup();
         }}
