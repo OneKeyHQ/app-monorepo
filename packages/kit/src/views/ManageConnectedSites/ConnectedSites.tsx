@@ -37,17 +37,36 @@ import { showOverlay } from '../../utils/overlayUtils';
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
 
-const sortConnectionsSite = (connections: DappSiteConnection[]) => {
-  let parseConnections: DappSiteConnection[] = cloneDeep(connections);
-  parseConnections = parseConnections.map<DappSiteConnection>((c) => {
+const parseConnectionsSite = (connections: DappSiteConnection[]) => {
+  // remove repeat & sort & add hostname
+  let parsedConnections: DappSiteConnection[] = cloneDeep(connections);
+  parsedConnections = parsedConnections.map<DappSiteConnection>((c) => {
     const { origin } = c.site;
     c.site.hostname = new URL(origin).hostname;
     return c;
   });
-  return parseConnections.sort((c1, c2) =>
+  parsedConnections = removeRepeat(parsedConnections);
+  return parsedConnections.sort((c1, c2) =>
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     natsort({ insensitive: true })(c1.site.hostname!, c2.site.hostname!),
   );
+};
+
+const removeRepeat = (connections: DappSiteConnection[]) => {
+  const resultConnections: DappSiteConnection[] = [];
+  for (const connection of connections) {
+    if (
+      !resultConnections.find(
+        (c) =>
+          c.site.origin === connection.site.origin &&
+          c.address === connection.address &&
+          c.networkImpl === connection.networkImpl,
+      )
+    ) {
+      resultConnections.push(connection);
+    }
+  }
+  return resultConnections;
 };
 
 const showNetworkLabel = (networkImpl: string) => {
@@ -132,8 +151,8 @@ export default function ConnectedSites() {
   const connections: DappSiteConnection[] = useAppSelector(
     (s) => s.dapp.connections,
   );
-  const sortConnections = useMemo(
-    () => sortConnectionsSite(connections),
+  const parsedConnections = useMemo(
+    () => parseConnectionsSite(connections),
     [connections],
   );
 
@@ -190,10 +209,12 @@ export default function ConnectedSites() {
           width="100%"
           bgColor="surface-default"
           borderTopRadius={index === 0 ? '12px' : '0px'}
-          borderRadius={index === connections?.length - 1 ? '12px' : '0px'}
+          borderRadius={
+            index === parsedConnections?.length - 1 ? '12px' : '0px'
+          }
           borderWidth={1}
           borderTopWidth={index === 0 ? 1 : 0}
-          borderBottomWidth={index === connections?.length - 1 ? 1 : 0}
+          borderBottomWidth={index === parsedConnections?.length - 1 ? 1 : 0}
           borderColor="border-subdued"
         >
           <Box flexDirection="row" flex={1} alignItems="center">
@@ -238,7 +259,7 @@ export default function ConnectedSites() {
             onAddConnectSite={openAddDialog}
           />
         ),
-        data: sortConnections,
+        data: parsedConnections,
         // @ts-ignore
         renderItem,
         ListEmptyComponent: (
