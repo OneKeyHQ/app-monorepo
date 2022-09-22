@@ -378,6 +378,7 @@ const Transaction = () => {
                 defaultValue=""
               >
                 <Form.Textarea
+                  trimValue
                   // TODO different max length in network
                   maxLength={80}
                   placeholder={intl.formatMessage({ id: 'form__address' })}
