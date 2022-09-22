@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Icon,
   IconButton,
   Pressable,
@@ -89,12 +88,12 @@ const AccountAmountInfo: FC = () => {
               }
             />
           </Typography.Display2XLarge>
-          <Button
-            type="plain"
-            alignItems="center"
-            justifyContent="center"
+          <IconButton
+            name="ChevronDownSolid"
             onPress={showAccountValueSettings}
-            leftIconName="ChevronDownSolid"
+            type="plain"
+            circle
+            ml={1}
           />
         </>
       ),
