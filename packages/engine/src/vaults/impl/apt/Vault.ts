@@ -2,13 +2,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import { hexToBytes } from '@noble/hashes/utils';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient, FaucetClient, hexToBytes } from 'aptos';
+import { AptosClient, FaucetClient } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { get, isNil } from 'lodash';
 import memoizee from 'memoizee';
@@ -24,7 +25,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { DBSimpleAccount, DBVariantAccount } from '../../../types/account';
+import { DBSimpleAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
@@ -47,11 +48,7 @@ import {
   IUnsignedTxPro,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
-import {
-  addHexPrefix,
-  isHexString,
-  stripHexPrefix,
-} from '../../utils/hexUtils';
+import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -463,9 +460,9 @@ export default class Vault extends VaultBase {
     return Promise.resolve({
       inputs: [
         {
-          address: dbAccount.address,
+          address: stripHexPrefix(dbAccount.address),
           value: new BigNumber(0),
-          publicKey: dbAccount.pub,
+          publicKey: stripHexPrefix(dbAccount.pub),
         },
       ],
       outputs: [],

@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { BCS, TxnBuilderTypes, Types, bytesToHex, hexToBytes } from 'aptos';
+import { BCS, TxnBuilderTypes, Types } from 'aptos';
 
 import { IMPL_APTOS } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -80,6 +81,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async connect(request: IJsBridgeMessagePayload) {
+    debugLogger.providerApi.info('aptos connect', request);
     const account = await this.account();
     if (!account) return null;
     return this.backgroundApi.serviceDapp
@@ -115,6 +117,7 @@ class ProviderApiAptos extends ProviderApiBase {
       }
     | undefined
   > {
+    debugLogger.providerApi.info('aptos account');
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_APTOS) {
       return undefined;
@@ -130,6 +133,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async network(): Promise<string> {
+    debugLogger.providerApi.info('aptos network');
     const { networkId } = getActiveWalletAccount();
     const network = await this.backgroundApi.engine.getNetwork(networkId);
 
@@ -142,6 +146,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IEncodedTxAptos,
   ): Promise<string> {
+    debugLogger.providerApi.info('aptos signAndSubmitTransaction', params);
     const { networkId, accountId } = getActiveWalletAccount();
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
@@ -206,6 +211,10 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: string,
   ): Promise<string> {
+    debugLogger.providerApi.info(
+      'aptos martianSignAndSubmitTransaction',
+      params,
+    );
     const { networkId, accountId } = getActiveWalletAccount();
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
@@ -233,6 +242,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: string,
   ) {
+    debugLogger.providerApi.info('aptos martianSignTransaction', params);
     const { networkId, accountId } = getActiveWalletAccount();
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
@@ -281,6 +291,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: Types.TransactionPayload,
   ) {
+    debugLogger.providerApi.info('aptos signTransaction', params);
     const encodeTx = params;
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
@@ -297,6 +308,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SignMessagePayload,
   ): Promise<SignMessageResponse> {
+    debugLogger.providerApi.info('aptos signMessage', params);
     const account = await this.account();
 
     const { networkId, accountId } = getActiveWalletAccount();
@@ -339,6 +351,8 @@ class ProviderApiAptos extends ProviderApiBase {
       type_args: any[];
     },
   ): Promise<string> {
+    debugLogger.providerApi.info('aptos signGenericTransaction', params);
+
     const encodeTx = {
       type: 'entry_function_payload',
       function: params.func,
@@ -364,6 +378,8 @@ class ProviderApiAptos extends ProviderApiBase {
       maxAmount: string;
     },
   ) {
+    debugLogger.providerApi.info('aptos createCollection', params);
+
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_APTOS) {
       return undefined;
@@ -408,7 +424,7 @@ class ProviderApiAptos extends ProviderApiBase {
       property_types?: Array<string>;
     },
   ) {
-    console.log('createToken', params);
+    debugLogger.providerApi.info('aptos createToken', params);
 
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_APTOS) {

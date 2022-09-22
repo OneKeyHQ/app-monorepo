@@ -7,6 +7,8 @@ import {
 import { AptosClient } from 'aptos';
 import * as SHA3 from 'js-sha3';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
@@ -100,6 +102,7 @@ export class KeyringHd extends KeyringHdBase {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
+    debugLogger.common.info('signTransaction result', unsignedTx);
     const dbAccount = await this.getDbAccount();
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     const aptosClient = new AptosClient(rpcURL);

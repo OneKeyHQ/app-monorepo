@@ -1,3 +1,4 @@
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import {
   SignedTx,
   UnsignedTx,
@@ -8,13 +9,9 @@ import {
   AptosClient,
   BCS,
   MaybeHexString,
-  RemoteABIBuilderConfig,
   TransactionBuilder,
-  TransactionBuilderRemoteABI,
   TxnBuilderTypes,
   Types,
-  bytesToHex,
-  hexToBytes,
 } from 'aptos';
 import { get } from 'lodash';
 
@@ -56,6 +53,7 @@ export function getTransactionTypeByPayload({
   type,
   function_name,
   type_arguments,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   args,
 }: {
   type: string;
@@ -138,28 +136,16 @@ export async function generateSignTransaction(
     const deserializer = new BCS.Deserializer(hexToBytes(bscTxn));
     rawTxn = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
   } else {
-    const config: RemoteABIBuilderConfig = { sender };
-    if (options?.sequence_number) {
-      config.sequenceNumber = options?.sequence_number;
+    if (!payload.function) {
+      throw new OneKeyError('generate transaction error: function is empty');
     }
-    if (options?.gas_unit_price) {
-      config.gasUnitPrice = options?.gas_unit_price;
-    }
-    if (options?.max_gas_amount) {
-      config.maxGasAmount = options?.max_gas_amount;
-    }
-    if (options?.expiration_timestamp_secs) {
-      const timestamp = Number.parseInt(options?.expiration_timestamp_secs, 10);
-      config.expSecFromNow = timestamp - Math.floor(Date.now() / 1000);
-    }
-
-    const builder = new TransactionBuilderRemoteABI(client, config);
-
-    rawTxn = await builder.build(
-      payload.function ?? '',
-      payload.type_arguments ?? [],
-      payload.arguments ?? [],
-    );
+    // @ts-expect-error
+    rawTxn = await client.generateTransaction(sender, payload, {
+      sequence_number: options?.sequence_number,
+      max_gas_amount: options?.max_gas_amount,
+      gas_unit_price: options?.gas_unit_price,
+      expiration_timestamp_secs: options?.expiration_timestamp_secs,
+    });
   }
 
   const signingMessage = TransactionBuilder.getSigningMessage(rawTxn);
@@ -199,7 +185,6 @@ export async function signTransaction(
   // IEncodedTxAptos
   const { encodedTx } = unsignedTx.payload;
   const {
-    sender,
     sequence_number,
     max_gas_amount,
     gas_unit_price,
@@ -216,6 +201,10 @@ export async function signTransaction(
   } = encodedTx;
 
   const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+  let { sender } = encodedTx;
+  if (!sender) {
+    sender = unsignedTx.inputs?.[0]?.address;
+  }
 
   if (!senderPublicKey) {
     throw new OneKeyHardwareError(Error('senderPublicKey is required'));
