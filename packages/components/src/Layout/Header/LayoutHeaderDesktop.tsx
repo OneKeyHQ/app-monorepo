@@ -1,12 +1,13 @@
-import React from 'react';
+import { useRef } from 'react';
 
 import LayoutHeader from './index';
 
-import { HStack } from '@onekeyhq/components';
-import HiddenActions from '@onekeyhq/kit/src/components/Header/HiddenActions';
+import { Box, HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTrigger } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
+import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 
-function LayoutHeaderDesktop() {
+export function LayoutHeaderDesktop() {
+  const moreBtnRef = useRef();
   return (
     <LayoutHeader
       showOnDesktop
@@ -17,11 +18,15 @@ function LayoutHeaderDesktop() {
       headerRight={() => (
         <HStack space={2}>
           <NetworkAccountSelectorTrigger />
-          <HiddenActions />
+          <Box ref={moreBtnRef}>
+            <IconButton
+              name="DotsVerticalSolid"
+              onPress={() => showHomeMoreMenu(moreBtnRef.current)}
+              circle
+            />
+          </Box>
         </HStack>
       )}
     />
   );
 }
-
-export { LayoutHeaderDesktop };

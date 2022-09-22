@@ -40,8 +40,8 @@ import {
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/BottomSheetSettings';
-import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -287,7 +287,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           size={isSmallView ? 'xl' : 'lg'}
           name="DotsVerticalOutline"
           type="basic"
-          onPress={() => showHomePageMoreMenu(moreButtonRef?.current)}
+          onPress={() => showAccountMoreMenu(moreButtonRef.current)}
         />
         <Typography.CaptionStrong
           textAlign="center"

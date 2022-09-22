@@ -1,13 +1,11 @@
-import React from 'react';
-
 import LayoutHeader from './index';
 
-import { HStack } from '@onekeyhq/components';
-import HiddenActions from '@onekeyhq/kit/src/components/Header/HiddenActions';
+import { HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTrigger } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
+import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 
-function LayoutHeaderMobile() {
+export function LayoutHeaderMobile() {
   return (
     <LayoutHeader
       showOnDesktop={false}
@@ -17,11 +15,14 @@ function LayoutHeaderMobile() {
       headerRight={() => (
         <HStack space={2}>
           <NetworkAccountSelectorTrigger />
-          <HiddenActions />
+          <IconButton
+            name="DotsVerticalSolid"
+            onPress={() => showHomeMoreMenu()}
+            circle
+            size="sm"
+          />
         </HStack>
       )}
     />
   );
 }
-
-export { LayoutHeaderMobile };
