@@ -167,7 +167,6 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
     } finally {
       setResolverState((prev) => ({
         ...prev,
-        name: '',
         isSearching: false,
       }));
     }

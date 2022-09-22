@@ -53,6 +53,7 @@ export type IAddExistingWalletModalParams = {
   wallet?: IWallet;
 };
 export type IAddImportedOrWatchingAccountModalParams = {
+  defaultName?: string;
   text: string;
   checkResults: Array<UserInputCheckResult>;
   onSuccess?: (options: { wallet?: Wallet; account?: Account }) => void;
