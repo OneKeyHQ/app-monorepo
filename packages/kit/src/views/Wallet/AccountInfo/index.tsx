@@ -47,7 +47,7 @@ type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
-export const FIXED_HORIZONTAL_HEDER_HEIGHT = 216;
+export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
