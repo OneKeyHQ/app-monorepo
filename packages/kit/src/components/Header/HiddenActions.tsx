@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { IconButton, Select, useIsVerticalLayout } from '@onekeyhq/components';
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 type HiddenActionsProps = {};
 
 const defaultProps = {} as const;
