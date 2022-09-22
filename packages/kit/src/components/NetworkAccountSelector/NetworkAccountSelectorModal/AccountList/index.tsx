@@ -13,6 +13,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Empty,
   SectionList,
   Text,
   useSafeAreaInsets,
@@ -32,7 +33,6 @@ import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorCh
 import { useAccountSelectorInfo } from '../../../Header/AccountSelectorChildren/useAccountSelectorInfo';
 
 import ListItem from './ListItem';
-import SectionHeader from './SectionHeader';
 
 type INetworkAccountSelectorAccountListSectionData = {
   wallet: IWallet;
@@ -171,29 +171,36 @@ function AccountList({
         //       sectionIndex: sectionIndex,
         //       itemIndex: itemIndex
         //     });
+        ListEmptyComponent={
+          <Empty
+            emoji="💳"
+            title={intl.formatMessage({ id: 'empty__no_account_title' })}
+            subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
+          />
+        }
         stickySectionHeadersEnabled
         sections={data}
         keyExtractor={(item: IAccount) => item.id}
-        renderSectionHeader={({
-          section,
-        }: {
-          // eslint-disable-next-line react/no-unused-prop-types
-          section: INetworkAccountSelectorAccountListSectionData;
-        }) => {
-          const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
-            { section },
-          );
-          return (
-            <>
-              <SectionHeader
-                wallet={section?.wallet}
-                networkId={selectedNetworkId}
-                emptySectionData={isEmptySectionData}
-                isCreateLoading={isPreloadingCreate}
-              />
-            </>
-          );
-        }}
+        // renderSectionHeader={({
+        //   section,
+        // }: {
+        //   // eslint-disable-next-line react/no-unused-prop-types
+        //   section: INetworkAccountSelectorAccountListSectionData;
+        // }) => {
+        //   const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
+        //     { section },
+        //   );
+        //   return (
+        //     <>
+        //       <SectionHeader
+        //         wallet={section?.wallet}
+        //         networkId={selectedNetworkId}
+        //         emptySectionData={isEmptySectionData}
+        //         isCreateLoading={isPreloadingCreate}
+        //       />
+        //     </>
+        //   );
+        // }}
         renderItem={({
           item,
           section,
