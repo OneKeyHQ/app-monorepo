@@ -176,6 +176,7 @@ function AccountList({
             emoji="💳"
             title={intl.formatMessage({ id: 'empty__no_account_title' })}
             subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
+            mt={16}
           />
         }
         stickySectionHeadersEnabled

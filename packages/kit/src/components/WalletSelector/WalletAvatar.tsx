@@ -5,7 +5,7 @@ import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
-import { Text } from '@onekeyhq/components/src/Typography';
+import { Text, TypographyStyle } from '@onekeyhq/components/src/Typography';
 import { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
@@ -40,45 +40,53 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
   avatar,
 }) => {
   if (
-    walletImage === 'hw' &&
-    (hwWalletType === 'classic' ||
-      hwWalletType === 'mini' ||
-      hwWalletType === 'touch')
-  )
+    // ['classic', 'mini', 'touch'].includes(hwWalletType || '') &&
+    walletImage === 'hw'
+  ) {
+    const sizeMap: {
+      [size: string]: {
+        width: string;
+        height: string;
+      };
+    } = {
+      'xl': {
+        width: '20px',
+        height: '30px',
+      },
+      'lg': {
+        width: '20px',
+        height: '30px',
+      },
+      'sm': {
+        width: '14px',
+        height: '21px',
+      },
+      'xs': {
+        width: '12px',
+        height: '18px',
+      },
+    };
+    let imgSource = ClassicIcon;
+    if (hwWalletType === 'classic') {
+      imgSource = ClassicIcon;
+    }
+    if (hwWalletType === 'mini') {
+      imgSource = MiniIcon;
+    }
+    if (hwWalletType === 'touch') {
+      imgSource = TouchIcon;
+    }
     return (
       <Image
-        width={
-          size === 'xl'
-            ? '20px'
-            : size === 'lg'
-            ? '20px'
-            : size === 'sm'
-            ? '14px'
-            : size === 'xs'
-            ? '12px'
-            : undefined
-        }
-        height={
-          size === 'xl'
-            ? '30px'
-            : size === 'lg'
-            ? '30px'
-            : size === 'sm'
-            ? '21px'
-            : size === 'xs'
-            ? '18px'
-            : undefined
-        }
-        source={
-          hwWalletType === 'touch'
-            ? TouchIcon
-            : hwWalletType === 'classic'
-            ? ClassicIcon
-            : MiniIcon
-        }
+        key={hwWalletType}
+        width={sizeMap[size as string]?.width}
+        height={sizeMap[size as string]?.height}
+        source={imgSource}
       />
     );
-  const iconFontSizeMap = {
+  }
+
+  const iconFontSizeMap: { [size: string]: number } = {
     'xs': 16,
     'sm': 20,
     'xl': 24,
@@ -88,8 +96,7 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     return (
       <Icon
         name={walletImage === 'imported' ? 'SaveOutline' : 'EyeOutline'}
-        // @ts-expect-error
-        size={iconFontSizeMap[size ?? 'lg'] ?? 24}
+        size={iconFontSizeMap[(size as string) ?? 'lg'] ?? 24}
         color="icon-default"
       />
     );
@@ -97,47 +104,28 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     return (
       <Icon
         name="ConnectOutline" // ConnectOutline LinkOutline
-        // @ts-expect-error
-        size={iconFontSizeMap[size ?? 'lg'] ?? 24}
+        size={iconFontSizeMap[(size as string) ?? 'lg'] ?? 24}
         color="icon-default"
       />
     );
   }
+
+  const textFontSizeMap: { [size: string]: TypographyStyle } = {
+    xl: 'DisplayXLarge',
+    lg: 'DisplayLarge',
+    sm: 'DisplayMedium',
+    xs: 'Body1',
+  };
   if (walletImage === 'hd') {
     return (
-      <Text
-        typography={
-          size === 'xl'
-            ? 'DisplayXLarge'
-            : size === 'lg'
-            ? 'DisplayLarge'
-            : size === 'sm'
-            ? 'DisplayMedium'
-            : size === 'xs'
-            ? 'Body1'
-            : undefined
-        }
-      >
-        {avatar?.emoji}
-      </Text>
+      <Text typography={textFontSizeMap[size as string]}>{avatar?.emoji}</Text>
     );
   }
+
+  // fallback to Text as Icon:
+  //    'hw' | 'imported' | 'watching' | 'hd' | 'external'
   return (
-    <Text
-      typography={
-        size === 'xl'
-          ? 'DisplayXLarge'
-          : size === 'lg'
-          ? 'DisplayLarge'
-          : size === 'sm'
-          ? 'DisplayMedium'
-          : size === 'xs'
-          ? 'Body1'
-          : undefined
-      }
-    >
-      {walletImage}
-    </Text>
+    <Text typography={textFontSizeMap[size as string]}>{walletImage}</Text>
   );
 };
 
