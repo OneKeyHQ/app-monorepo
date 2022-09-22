@@ -309,7 +309,6 @@ function AddExistingWalletView(
     inputCategory,
     placeholder,
     onPaste,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     mode,
     children,
     showSubmitButton,
@@ -376,12 +375,17 @@ function AddExistingWalletView(
           helpText={(value) => (
             <NameServiceResolver
               name={value}
+              disable={mode === 'imported'}
               onChange={onNameServiceChange || onNameServiceStatusChange}
               disableBTC
             />
           )}
         >
-          <Form.Textarea placeholder={placeholder} h="48" />
+          <Form.Textarea
+            placeholder={placeholder}
+            h="48"
+            trimValue={!['all', 'mnemonic'].includes(mode)}
+          />
         </Form.Item>
         {!(platformEnv.isExtension || platformEnv.isWeb) && showPasteButton && (
           <Center>
