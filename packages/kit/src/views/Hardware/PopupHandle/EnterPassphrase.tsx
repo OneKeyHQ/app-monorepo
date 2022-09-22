@@ -40,7 +40,22 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
     <BaseRequestView {...props}>
       {/* TODO: temporary margin-top */}
       <Form mt={6}>
-        <Form.Item control={control} name="value" label="">
+        <Form.Item
+          control={control}
+          name="value"
+          label=""
+          rules={{
+            validate: (value) => {
+              const emojiRegex =
+                /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
+              if (emojiRegex.test(value)) {
+                return intl.formatMessage({
+                  id: 'form__add_exsting_wallet_invalid',
+                });
+              }
+            },
+          }}
+        >
           <Form.Input
             autoFocus
             size="lg"
