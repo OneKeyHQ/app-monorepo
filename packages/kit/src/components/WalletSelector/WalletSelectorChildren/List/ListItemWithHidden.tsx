@@ -61,8 +61,12 @@ function ListItemWithHidden({
               _hover={{ bgColor: 'surface-hovered' }}
               _pressed={{ bgColor: 'surface-pressed' }}
               onPress={() => {
-                if (item?.wallet?.associatedDevice) {
-                  onAddPassphraseWallet(item?.wallet?.associatedDevice);
+                const associatedDevice =
+                  item?.wallet?.associatedDevice ??
+                  item?.hiddenWallets?.[0]?.associatedDevice;
+
+                if (associatedDevice) {
+                  onAddPassphraseWallet(associatedDevice);
                 }
               }}
             >
