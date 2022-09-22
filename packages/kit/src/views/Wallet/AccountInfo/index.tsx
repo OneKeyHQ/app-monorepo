@@ -40,8 +40,8 @@ import {
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/BottomSheetSettings';
-import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -287,7 +287,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           size={isSmallView ? 'xl' : 'lg'}
           name="DotsVerticalOutline"
           type="basic"
-          onPress={() => showHomePageMoreMenu(moreButtonRef?.current)}
+          onPress={() => showAccountMoreMenu(moreButtonRef.current)}
         />
         <Typography.CaptionStrong
           textAlign="center"
@@ -326,8 +326,7 @@ const AccountInfo = () => {
       <DesktopDragZoneAbsoluteBar h={8} />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
-        pt="96px"
-        pb="32px"
+        py={8}
         px={{ sm: 8, lg: 4 }}
         flexDirection="row"
         justifyContent="space-between"

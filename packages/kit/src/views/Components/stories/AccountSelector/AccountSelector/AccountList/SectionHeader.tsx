@@ -1,8 +1,6 @@
 import React, { FC } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Box, Icon, IconButton, Pressable, Text } from '@onekeyhq/components';
+import { Box, IconButton, Text } from '@onekeyhq/components';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 type SectionHeaderProps = {
@@ -16,33 +14,10 @@ const SectionHeader: FC<SectionHeaderProps> = ({
   walletName,
   emptySectionData,
 }) => {
-  const intl = useIntl();
-
-  const AddAccountAction: FC<{ fullBleed: boolean }> = ({ fullBleed }) => (
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  const AddAccountAction: FC<{}> = () => (
     <>
-      {fullBleed ? (
-        <Box p={2} pb={0}>
-          <Pressable
-            rounded="xl"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="center"
-            p={2}
-            borderWidth={1}
-            borderColor="border-default"
-            borderStyle="dashed"
-            _hover={{ bgColor: 'surface-hovered' }}
-            _pressed={{ bgColor: 'surface-pressed' }}
-          >
-            <Icon name="PlusSmSolid" size={20} />
-            <Text ml={2} typography="Body2Strong">
-              {intl.formatMessage({ id: 'action__add_account' })}
-            </Text>
-          </Pressable>
-        </Box>
-      ) : (
-        <IconButton type="plain" name="PlusCircleSolid" circle />
-      )}
+      <IconButton type="plain" name="PlusCircleSolid" circle />
     </>
   );
 
@@ -55,9 +30,9 @@ const SectionHeader: FC<SectionHeaderProps> = ({
             {walletName}
           </Text>
         </Box>
-        {!emptySectionData ? <AddAccountAction fullBleed={false} /> : undefined}
+        <AddAccountAction />
       </Box>
-      {emptySectionData ? <AddAccountAction fullBleed /> : undefined}
+      {emptySectionData ? <Box>No accounts inside</Box> : undefined}
     </Box>
   );
 };
