@@ -6,7 +6,6 @@ export interface WebTab {
   title: string;
   favicon?: string;
   // isPinned: boolean;
-  isHome?: boolean;
   isCurrent: boolean;
   // isBookmarked?: boolean;
   // isMuted: boolean;
@@ -24,7 +23,6 @@ const homeTab: WebTab = {
   id: 'home',
   url: '',
   title: 'OneKey',
-  isHome: true,
   isCurrent: true,
 };
 const initialState: WebTabsInitialState = {

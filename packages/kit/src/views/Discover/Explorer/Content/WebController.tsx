@@ -68,11 +68,10 @@ export type ExplorerViewProps = {
 
 let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
 
-// 空白页面 URL
 const blankPage = 'about:blank';
 
 type DiscoverRouteProp = RouteProp<TabRoutesParams, TabRoutes.Discover>;
-const Explorer: FC = () => {
+const WebContent: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<DiscoverRouteProp>();
@@ -403,61 +402,7 @@ const Explorer: FC = () => {
     [currentWebSiteMemo, displayInitialPage],
   );
 
-  const moreViewContent = useMemo(
-    () => (
-      <MoreMenuView
-        visible={visibleMore}
-        onVisibleChange={setVisibleMore}
-        onRefresh={onRefresh}
-        onShare={onShare}
-        onOpenBrowser={onOpenBrowser}
-        onCopyUrlToClipboard={onCopyUrlToClipboard}
-        onGoHomePage={onGoHomePage}
-      />
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleMore],
-  );
-
-  return (
-    <Box flex={1} bg="background-default">
-      {isVerticalLayout ? (
-        <Mobile
-          key={refreshKey}
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
-          onSearchSubmitEditing={onSearchSubmitEditing}
-          explorerContent={explorerContent}
-          canGoBack={canGoBack}
-          onGoBack={onGoBack}
-          onNext={onNext}
-          onRefresh={onRefresh}
-          onMore={onMore}
-          moreView={moreViewContent}
-          showExplorerBar={showExplorerBar}
-        />
-      ) : (
-        <Desktop
-          key={refreshKey}
-          displayInitialPage={displayInitialPage}
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
-          onSearchSubmitEditing={onSearchSubmitEditing}
-          explorerContent={explorerContent}
-          canGoBack={canGoBack}
-          canGoForward={canGoForward}
-          loading={webLoading}
-          onGoBack={onGoBack}
-          onNext={onNext}
-          onRefresh={onRefresh}
-          onStopLoading={onStopLoading}
-          onMore={onMore}
-          moreView={moreViewContent}
-          showExplorerBar={showExplorerBar}
-        />
-      )}
-    </Box>
-  );
+  return explorerContent;
 };
 
-export default Explorer;
+export default WebContent;
