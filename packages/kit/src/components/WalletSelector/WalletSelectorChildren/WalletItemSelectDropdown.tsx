@@ -15,6 +15,7 @@ import type {
   SelectGroupItem,
   SelectItem,
 } from '@onekeyhq/components/src/Select';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -91,6 +92,9 @@ function WalletItemSelectDropdown({
   const isVerticalLayout = useIsVerticalLayout();
 
   const isHardwareWallet = wallet?.type === WALLET_TYPE_HW;
+  const isPassphraseHardwareWallet = wallet
+    ? isPassphraseWallet(wallet)
+    : false;
   const hasAvailableUpdate = useMemo(
     () => Boolean(isHardwareWallet && deviceStatus?.hasUpgrade) ?? false,
     [deviceStatus?.hasUpgrade, isHardwareWallet],
@@ -241,11 +245,13 @@ function WalletItemSelectDropdown({
     // hw wallet options
     if (isHardwareWallet) {
       const options = [
-        allOptions.rename, // TODO !selectedWallet?.passphraseState
         allOptions.details,
         // allOptions.restore,
         allOptions.remove,
       ];
+      if (!isPassphraseHardwareWallet) {
+        options.unshift(allOptions.rename);
+      }
       if (hasAvailableUpdate) {
         options.push(allOptions.update);
       }
@@ -258,7 +264,13 @@ function WalletItemSelectDropdown({
       // allOptions.restore,
       allOptions.remove,
     ];
-  }, [hasAvailableUpdate, intl, isHardwareWallet, isVerticalLayout]);
+  }, [
+    hasAvailableUpdate,
+    intl,
+    isHardwareWallet,
+    isPassphraseHardwareWallet,
+    isVerticalLayout,
+  ]);
 
   const selectView = useMemo(
     () => (
