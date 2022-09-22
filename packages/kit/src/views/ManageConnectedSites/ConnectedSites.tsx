@@ -37,33 +37,20 @@ import { showOverlay } from '../../utils/overlayUtils';
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
 
-const removeRepeat = (connections: DappSiteConnection[]) => {
-  const resultConnections: DappSiteConnection[] = [];
-  for (const connection of connections) {
-    if (
-      !resultConnections.find(
-        (c) =>
-          c.site.origin === connection.site.origin &&
-          c.address === connection.address &&
-          c.networkImpl === connection.networkImpl,
-      )
-    ) {
-      resultConnections.push(connection);
-    }
-  }
-  return resultConnections;
-};
-
 const parseConnectionsSite = (connections: DappSiteConnection[]) => {
   // remove repeat & sort & add hostname
-  let parsedConnections: DappSiteConnection[] = cloneDeep(connections);
-  parsedConnections = removeRepeat(parsedConnections);
-  parsedConnections = parsedConnections.map<DappSiteConnection>((c) => {
-    const { origin } = c.site;
-    c.site.hostname = new URL(origin).hostname;
-    return c;
-  });
-  return parsedConnections.sort((c1, c2) =>
+  const parsedConnections: DappSiteConnection[] = cloneDeep(connections);
+  const resultConnections: DappSiteConnection[] = [];
+  const exitMap = new Map();
+  for (const c of parsedConnections) {
+    const connectionStr = c.site.origin + c.address + c.networkImpl;
+    if (!exitMap.has(connectionStr)) {
+      c.site.hostname = new URL(c.site.origin).hostname;
+      resultConnections.push(c);
+      exitMap.set(connectionStr, 1);
+    }
+  }
+  return resultConnections.sort((c1, c2) =>
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     natsort({ insensitive: true })(c1.site.hostname!, c2.site.hostname!),
   );
