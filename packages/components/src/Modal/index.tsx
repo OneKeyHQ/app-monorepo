@@ -4,11 +4,13 @@ import React, {
   ReactElement,
   ReactNode,
   cloneElement,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
 } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -116,9 +118,11 @@ const Modal = ({
   const { size } = useUserDevice();
   const modalRef = useRef(null);
 
-  useEffect(() => {
-    ModalRefStore.ref = modalRef;
-  }, [modalRef]);
+  useFocusEffect(
+    useCallback(() => {
+      ModalRefStore.ref = modalRef;
+    }, []),
+  );
 
   const isVerticalLayout = useIsVerticalLayout();
 
