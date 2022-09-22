@@ -17,6 +17,7 @@ import {
   IconButton,
   Input,
   Pressable,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components';
 
@@ -105,6 +106,8 @@ const Desktop: FC<ExplorerViewProps> = ({
 }) => {
   const intl = useIntl();
 
+  const { top } = useSafeAreaInsets();
+
   const [historyVisible, setHistoryVisible] = useState(false);
   const httpSafeState = getHttpSafeState(searchContent);
 
@@ -116,12 +119,11 @@ const Desktop: FC<ExplorerViewProps> = ({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     searchView?.current?.onKeyPress?.(event);
   };
-
   return (
     <Box flex="1" zIndex={3}>
       {!!showExplorerBar && (
         <DesktopDragZoneBox>
-          <Box bg="surface-subdued" zIndex={5}>
+          <Box mt={`${top}px`} bg="surface-subdued" zIndex={5}>
             <TabBarDesktop />
             <HStack
               bg="background-default"
