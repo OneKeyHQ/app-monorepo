@@ -138,6 +138,7 @@ export default class Vault extends VaultBase {
       if (!exists) return await Promise.reject(new InvalidAccount());
       return await Promise.resolve(address);
     } catch (e: any) {
+      if (e instanceof InvalidAccount) return Promise.reject(e);
       return Promise.reject(new InvalidAddress());
     }
   }
@@ -156,8 +157,8 @@ export default class Vault extends VaultBase {
       const authKey = get(accountData, 'authentication_key', null);
       return !isNil(authKey);
     } catch (error) {
-      const errorCode = get(error, 'error_code', null);
-      if (errorCode === 'account_not_found') {
+      const errorCode = get(error, 'errorCode', null);
+      if (errorCode === 'resource_not_found') {
         return false;
       }
       throw error;
@@ -181,7 +182,7 @@ export default class Vault extends VaultBase {
           return new BigNumber(balance);
         } catch (error: any) {
           const { errorCode } = error || {};
-          if (errorCode === 'account_not_found') {
+          if (errorCode === 'resource_not_found') {
             return Promise.resolve(new BigNumber(0));
           }
           // pass
