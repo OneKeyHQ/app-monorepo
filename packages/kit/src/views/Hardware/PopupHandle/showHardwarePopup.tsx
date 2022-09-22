@@ -174,7 +174,7 @@ export default async function showHardwarePopup({
       serviceHardware?.sendUiResponse({
         type: UI_RESPONSE.RECEIVE_PASSPHRASE,
         payload: {
-          value: onDeviceInput ? passphraseValue : '',
+          value: onDeviceInput ? '' : passphraseValue,
           passphraseOnDevice: onDeviceInput,
           save: false,
         },
