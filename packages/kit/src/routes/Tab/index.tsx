@@ -15,8 +15,6 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from '../../components/LazyDisplayView';
-import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
-import WalletSelectorTrigger from '../../components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import { TabRoutes, TabRoutesParams } from '../types';
 
 import { getStackTabScreen, tabRoutes } from './routes';

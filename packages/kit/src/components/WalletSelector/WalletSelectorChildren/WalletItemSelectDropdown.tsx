@@ -279,6 +279,7 @@ function WalletItemSelectDropdown({
             circle
             type="plain"
             onPress={onPress}
+            hitSlop={16}
             // TODO custom props
             // isTriggerHovered={isHovered}
             // isSelectVisible={visible}

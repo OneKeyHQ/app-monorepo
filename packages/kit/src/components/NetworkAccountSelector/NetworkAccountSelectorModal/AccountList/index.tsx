@@ -9,7 +9,15 @@ import React, {
   useState,
 } from 'react';
 
-import { Box, SectionList } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Box,
+  Empty,
+  SectionList,
+  Text,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IAccount, IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -23,10 +31,8 @@ import {
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
 import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
-import { CreateAccountButton } from '../CreateAccountButton';
 
 import ListItem from './ListItem';
-import SectionHeader from './SectionHeader';
 
 type INetworkAccountSelectorAccountListSectionData = {
   wallet: IWallet;
@@ -53,6 +59,8 @@ function AccountList({
     accountId: activeAccountId,
     networkId: activeNetworkId,
   } = useActiveWalletAccount();
+  const insets = useSafeAreaInsets();
+  const intl = useIntl();
 
   // TODO define useScrollToActiveItem hooks
   const isScrolledRef = useRef(false);
@@ -163,29 +171,37 @@ function AccountList({
         //       sectionIndex: sectionIndex,
         //       itemIndex: itemIndex
         //     });
+        ListEmptyComponent={
+          <Empty
+            emoji="💳"
+            title={intl.formatMessage({ id: 'empty__no_account_title' })}
+            subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
+            mt={16}
+          />
+        }
         stickySectionHeadersEnabled
         sections={data}
         keyExtractor={(item: IAccount) => item.id}
-        renderSectionHeader={({
-          section,
-        }: {
-          // eslint-disable-next-line react/no-unused-prop-types
-          section: INetworkAccountSelectorAccountListSectionData;
-        }) => {
-          const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
-            { section },
-          );
-          return (
-            <>
-              <SectionHeader
-                wallet={section?.wallet}
-                networkId={selectedNetworkId}
-                emptySectionData={isEmptySectionData}
-                isCreateLoading={isPreloadingCreate}
-              />
-            </>
-          );
-        }}
+        // renderSectionHeader={({
+        //   section,
+        // }: {
+        //   // eslint-disable-next-line react/no-unused-prop-types
+        //   section: INetworkAccountSelectorAccountListSectionData;
+        // }) => {
+        //   const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
+        //     { section },
+        //   );
+        //   return (
+        //     <>
+        //       <SectionHeader
+        //         wallet={section?.wallet}
+        //         networkId={selectedNetworkId}
+        //         emptySectionData={isEmptySectionData}
+        //         isCreateLoading={isPreloadingCreate}
+        //       />
+        //     </>
+        //   );
+        // }}
         renderItem={({
           item,
           section,
@@ -239,19 +255,17 @@ function AccountList({
               ) : null}
 
               {isEmptySectionData && !isPreloadingCreate ? (
-                <CreateAccountButton
-                  networkId={section?.networkId}
-                  walletId={section?.wallet.id}
-                  fullBleed
-                  isLoading={isPreloadingCreate}
-                />
+                <Text typography="Body2" color="text-subdued" px={2}>
+                  {intl.formatMessage({ id: 'empty__no_account_title' })}
+                </Text>
               ) : null}
 
               <Box h={6} />
             </>
           );
         }}
-        style={{ margin: 8 }}
+        ListFooterComponent={<Box h={`${insets.bottom}px`} />}
+        p={2}
       />
     </>
   );

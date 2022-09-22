@@ -25,22 +25,19 @@ const SectionHeader: FC<SectionHeaderProps> = ({
   const walletName = useWalletName({ wallet });
 
   return (
-    <Box bg="surface-subdued">
-      <Box flexDirection="row" alignItems="center" mb={2} pl={2} pr={1.5}>
+    <Box mt={-2} pt={2} bg="surface-subdued">
+      <Box flexDirection="row" alignItems="center" mb={2} pr={1.5} pl={2}>
         <Box flex={1} flexDirection="row" alignItems="center" mr={3}>
           <WalletAvatarPro size="xs" wallet={wallet} deviceStatus={null} />
           <Text ml={2} typography="Subheading" color="text-subdued" isTruncated>
             {walletName}
           </Text>
         </Box>
-        {!emptySectionData ? (
-          <CreateAccountButton
-            networkId={networkId}
-            walletId={wallet.id}
-            fullBleed={false}
-            isLoading={isCreateLoading}
-          />
-        ) : undefined}
+        <CreateAccountButton
+          networkId={networkId}
+          walletId={wallet.id}
+          isLoading={isCreateLoading}
+        />
       </Box>
       {/* move fullBleed Button to renderSectionFooter */}
       {emptySectionData ? null : undefined}
