@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   SectionList,
-  Text,
+  Typography,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
@@ -40,9 +40,9 @@ function SectionHeader({ type }: { type: EWalletDataSectionType }) {
   }, [intl, type]);
   return (
     <Box bgColor="background-default" pt={2} mt={-2}>
-      <Text typography="Subheading" color="text-subdued" px={2} mb={1}>
+      <Typography.Subheading color="text-subdued" px={2} mb={1}>
         {label}
-      </Text>
+      </Typography.Subheading>
     </Box>
   );
 }
