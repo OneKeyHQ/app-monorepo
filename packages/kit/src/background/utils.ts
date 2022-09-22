@@ -19,6 +19,7 @@ import {
 import { batch } from 'react-redux';
 
 import {
+  IMPL_APTOS,
   IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
@@ -293,6 +294,8 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'solana': IMPL_SOL,
     'sollet': IMPL_SOL,
     'starcoin': IMPL_STC,
+    'aptos': IMPL_APTOS,
+    'martian': IMPL_APTOS,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
@@ -302,6 +305,7 @@ export const ENABLED_DAPP_SCOPE = [
   IInjectedProviderNames.starcoin,
   IInjectedProviderNames.near,
   IInjectedProviderNames.solana,
+  IInjectedProviderNames.aptos,
 ];
 
 export function getNetworkImplFromDappScope(

@@ -7,6 +7,8 @@ import {
 import { AptosClient } from 'aptos';
 import * as SHA3 from 'js-sha3';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
@@ -18,6 +20,7 @@ import {
   ISignCredentialOptions,
 } from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
+import { IUnsignedMessageEvm } from '../evm/Vault';
 
 import { signTransaction } from './utils';
 
@@ -99,6 +102,7 @@ export class KeyringHd extends KeyringHdBase {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
+    debugLogger.common.info('signTransaction result', unsignedTx);
     const dbAccount = await this.getDbAccount();
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     const aptosClient = new AptosClient(rpcURL);
@@ -112,10 +116,21 @@ export class KeyringHd extends KeyringHdBase {
     return signTransaction(aptosClient, unsignedTx, signer);
   }
 
-  override signMessage(
-    messages: any[],
+  override async signMessage(
+    messages: IUnsignedMessageEvm[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    throw new OneKeyInternalError('Not implemented.');
+    const dbAccount = await this.getDbAccount();
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+
+    return Promise.all(
+      messages.map(async (message) => {
+        const [signature] = await signer.sign(Buffer.from(message.message));
+        return addHexPrefix(signature.toString('hex'));
+      }),
+    );
   }
 }

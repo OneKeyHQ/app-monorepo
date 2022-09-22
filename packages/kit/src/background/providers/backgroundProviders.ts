@@ -2,6 +2,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
 
+import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
@@ -28,6 +29,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.near]: new ProviderApiNear({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.aptos]: new ProviderApiAptos({
       backgroundApi,
     }),
     // near

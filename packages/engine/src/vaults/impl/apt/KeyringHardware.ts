@@ -4,16 +4,21 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-import { DBAccount } from '../../../types/account';
+import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
+import { DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
   IHardwareGetAddressParams,
-  IPrepareAccountsParams,
+  IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
 
+const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
+
 export class KeyringHardware extends KeyringHardwareBase {
-  prepareAccounts(params: IPrepareAccountsParams): Promise<DBAccount[]> {
+  prepareAccounts(
+    params: IPrepareHardwareAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
     throw new Error('Method not implemented.');
   }
 
