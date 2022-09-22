@@ -23,7 +23,12 @@ import { IDecodedTxActionType } from '../../types';
 import { hexlify, stripHexPrefix } from '../../utils/hexUtils';
 
 import { TypeTagParser } from './builder_utils';
-import { ArgumentABI, TxPayload } from './types';
+import {
+  ArgumentABI,
+  SignMessagePayload,
+  SignMessageResponse,
+  TxPayload,
+} from './types';
 
 import type { Signer } from '../../../proxy';
 
@@ -480,6 +485,41 @@ export async function transactionPayloadToTxPayload(
   }
   // TODO: TxnBuilderTypes.TransactionPayloadScript、TransactionPayloadModuleBundle
   throw new OneKeyHardwareError(Error('not support'));
+}
+
+export function formatSignMessage(
+  message: SignMessagePayload,
+  address: string,
+  application: string,
+  chainId: number,
+): SignMessageResponse {
+  const response: SignMessageResponse = {
+    message: message.message,
+    nonce: message.nonce,
+    prefix: 'APTOS',
+    signature: '',
+    fullMessage: '',
+  };
+
+  let fullMessage = `${response.prefix}\n`;
+  if (message.address) {
+    fullMessage += `address: ${address}\n`;
+    response.address = address;
+  }
+  if (message.chainId) {
+    fullMessage += `chain_id: ${chainId}\n`;
+    response.chainId = chainId;
+  }
+  if (message.application) {
+    fullMessage += `application: ${application}\n`;
+    response.application = application;
+  }
+  fullMessage += `message: ${message.message}\n`;
+  fullMessage += `nonce: ${message.nonce}`;
+
+  response.fullMessage = fullMessage;
+
+  return response;
 }
 
 export function generateRegisterToken(tokenAddress: string): TxPayload {

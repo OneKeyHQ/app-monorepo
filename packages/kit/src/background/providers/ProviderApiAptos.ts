@@ -5,11 +5,17 @@ import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { BCS, TxnBuilderTypes, bytesToHex } from 'aptos';
+import { BCS, TxnBuilderTypes, Types, bytesToHex, hexToBytes } from 'aptos';
 
 import { IMPL_APTOS } from '@onekeyhq/engine/src/constants';
-import { IEncodedTxAptos } from '@onekeyhq/engine/src/vaults/impl/apt/types';
+import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import {
+  IEncodedTxAptos,
+  SignMessagePayload,
+  SignMessageResponse,
+} from '@onekeyhq/engine/src/vaults/impl/apt/types';
+import {
+  formatSignMessage,
   generateTransferCreateCollection,
   generateTransferCreateNft,
   transactionPayloadToTxPayload,
@@ -17,7 +23,10 @@ import {
 import VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { hexlify } from '../../../../engine/src/vaults/utils/hexUtils';
+import {
+  hexlify,
+  stripHexPrefix,
+} from '../../../../engine/src/vaults/utils/hexUtils';
 import { getActiveWalletAccount } from '../../hooks/redux';
 import {
   backgroundClass,
@@ -75,7 +84,11 @@ class ProviderApiAptos extends ProviderApiBase {
     if (!account) return null;
     return this.backgroundApi.serviceDapp
       .openConnectionModal(request)
-      .then(() => account);
+      .then(() => ({
+        ...account,
+        'method': 'connected',
+        'status': 200,
+      }));
   }
 
   @providerApiMethod()
@@ -142,11 +155,49 @@ class ProviderApiAptos extends ProviderApiBase {
       { encodedTx: encodeTx },
     )) as string;
 
-    console.log('===== signAndSubmitTransaction result', result);
-
     const tx = await vault.getTransactionByHash(result);
 
     return Promise.resolve(JSON.stringify(tx));
+  }
+
+  private _decodeTnxToRawTransaction(txn: string) {
+    const bcsTxn = new Uint8Array(
+      txn.split(',').map((item) => parseInt(item, 10)),
+    );
+
+    const deserializer = new BCS.Deserializer(bcsTxn);
+    const rawTxn = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+
+    return {
+      rawTxn,
+      hexBcsTxn: bytesToHex(bcsTxn),
+    };
+  }
+
+  private async _convertRawTransactionToEncodeTx(
+    transaction: TxnBuilderTypes.RawTransaction,
+    hexBcsTxn: string,
+    vault: VaultAptos,
+  ) {
+    const payload = await transactionPayloadToTxPayload(
+      await vault.getClient(),
+      // @ts-expect-error
+      transaction.payload.value,
+    );
+
+    return {
+      sender: hexlify(transaction?.sender?.address),
+      sequence_number: transaction?.sequence_number,
+      max_gas_amount: transaction?.max_gas_amount,
+      gas_unit_price: transaction?.gas_unit_price,
+      expiration_timestamp_secs: transaction?.expiration_timestamp_secs,
+      chain_id: transaction?.chain_id,
+
+      bscTxn: hexBcsTxn,
+
+      ...payload,
+      // todo: codes
+    };
   }
 
   @permissionRequired()
@@ -161,34 +212,12 @@ class ProviderApiAptos extends ProviderApiBase {
       accountId,
     })) as VaultAptos;
 
-    const bcsTxn = new Uint8Array(
-      params.split(',').map((item) => parseInt(item, 10)),
+    const { rawTxn, hexBcsTxn } = this._decodeTnxToRawTransaction(params);
+    const encodeTx = await this._convertRawTransactionToEncodeTx(
+      rawTxn,
+      hexBcsTxn,
+      vault,
     );
-
-    const hexBcsTxn = bytesToHex(bcsTxn);
-
-    const deserializer = new BCS.Deserializer(bcsTxn);
-    const rawTxn = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
-
-    const payload = await transactionPayloadToTxPayload(
-      await vault.getClient(),
-      // @ts-expect-error
-      rawTxn.payload.value,
-    );
-
-    const encodeTx = {
-      sender: hexlify(rawTxn?.sender?.address),
-      sequence_number: rawTxn?.sequence_number,
-      max_gas_amount: rawTxn?.max_gas_amount,
-      gas_unit_price: rawTxn?.gas_unit_price,
-      expiration_timestamp_secs: rawTxn?.expiration_timestamp_secs,
-      chain_id: rawTxn?.chain_id,
-
-      bscTxn: hexBcsTxn,
-
-      ...payload,
-      // todo: codes
-    };
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
@@ -200,20 +229,105 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @permissionRequired()
   @providerApiMethod()
-  public martianSignTransaction() {
-    throw web3Errors.rpc.methodNotFound();
+  public async martianSignTransaction(
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ) {
+    const { networkId, accountId } = getActiveWalletAccount();
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultAptos;
+
+    const { rawTxn, hexBcsTxn } = this._decodeTnxToRawTransaction(params);
+    const encodeTx = await this._convertRawTransactionToEncodeTx(
+      rawTxn,
+      hexBcsTxn,
+      vault,
+    );
+
+    const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
+      request,
+      { encodedTx: encodeTx, signOnly: true },
+    )) as string;
+
+    const txSignature = new TxnBuilderTypes.Ed25519Signature(
+      hexToBytes(result),
+    );
+
+    const publicKey = await vault._getPublicKey();
+
+    const authenticator = new TxnBuilderTypes.TransactionAuthenticatorEd25519(
+      new TxnBuilderTypes.Ed25519PublicKey(
+        hexToBytes(stripHexPrefix(publicKey)),
+      ),
+      txSignature,
+    );
+
+    const signedTn = new TxnBuilderTypes.SignedTransaction(
+      rawTxn,
+      authenticator,
+    );
+
+    const serialize = new BCS.Serializer();
+    signedTn.serialize(serialize);
+
+    return Promise.resolve(serialize.getBytes().toString());
   }
 
   @permissionRequired()
   @providerApiMethod()
-  public signTransaction() {
-    throw web3Errors.rpc.methodNotFound();
+  public async signTransaction(
+    request: IJsBridgeMessagePayload,
+    params: Types.TransactionPayload,
+  ) {
+    const encodeTx = params;
+
+    const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
+      request,
+      { encodedTx: encodeTx, signOnly: true },
+    )) as string;
+
+    return Promise.resolve(result);
   }
 
   @permissionRequired()
   @providerApiMethod()
-  public signMessage() {
-    throw web3Errors.rpc.methodNotFound();
+  public async signMessage(
+    request: IJsBridgeMessagePayload,
+    params: SignMessagePayload,
+  ): Promise<SignMessageResponse> {
+    const account = await this.account();
+
+    const { networkId, accountId } = getActiveWalletAccount();
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultAptos;
+
+    const chainId = await (await vault.getClient()).getChainId();
+
+    const format = formatSignMessage(
+      params,
+      account?.address ?? '',
+      request.origin ?? '',
+      chainId,
+    );
+
+    const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
+      request,
+      {
+        unsignedMessage: {
+          // Use PERSONAL_SIGN to sign plain message
+          type: ETHMessageTypes.PERSONAL_SIGN,
+          message: format.fullMessage,
+        },
+      },
+    )) as string;
+
+    format.signature = result;
+
+    return Promise.resolve(format);
   }
 
   @providerApiMethod()
@@ -294,6 +408,8 @@ class ProviderApiAptos extends ProviderApiBase {
       property_types?: Array<string>;
     },
   ) {
+    console.log('createToken', params);
+
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_APTOS) {
       return undefined;
