@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
 
 import { Pressable } from 'native-base';
 
@@ -15,6 +15,9 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   onPress,
   onErrorWithTask,
   skeleton = false,
+  width,
+  height,
+  borderRadius,
   ...rest
 }) => {
   const [imageState, updateImageState] = useState<ImageState>(
@@ -22,7 +25,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   );
   const { preview } = rest;
   const [src, updateSrc] = useState(rest.src);
-  const [retryCount, updateRetryCount] = useState(0);
+  const retryCount = useRef(0);
 
   const onImagePress = useCallback(() => {
     if (onPress && rest.src && preview) {
@@ -31,45 +34,41 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   }, [onPress, preview, rest.src]);
 
   const onImageError = useCallback(() => {
-    if (onErrorWithTask && retryCount === 0) {
+    if (onErrorWithTask && retryCount.current === 0) {
       onErrorWithTask().then((success) => {
         if (success) {
           updateSrc(`${rest.src as string}?t=${Date.now()}`);
-          updateRetryCount((prevCounter) => prevCounter + 1);
+          retryCount.current += 1;
         } else {
           updateImageState('fail');
         }
       });
-    } else if (retryCount < retry) {
+    } else if (retryCount.current < retry) {
       setTimeout(() => {
         updateSrc(`${rest.src as string}?t=${Date.now()}`);
-        updateRetryCount((prevCounter) => prevCounter + 1);
+        retryCount.current += 1;
       }, retryDuring);
     } else {
       updateImageState('fail');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onErrorWithTask, retry, retryCount, retryDuring]);
+  }, [onErrorWithTask, rest.src, retry, retryDuring]);
 
   const renderImage = useMemo(
     () => (
-      <Pressable
-        key={`retry count key${retryCount}}`}
-        onPress={onImagePress}
-        disabled={!preview}
-      >
+      <Pressable onPress={onImagePress} disabled={!preview}>
         <PlatformImage
           onLoad={() => {
             updateImageState('success');
           }}
           onError={onImageError}
-          {...rest}
+          width={width}
+          height={height}
+          borderRadius={borderRadius}
           src={src}
         />
       </Pressable>
     ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [retryCount, src],
+    [height, onImageError, onImagePress, preview, src, width, borderRadius],
   );
   return (
     <Box {...rest}>
