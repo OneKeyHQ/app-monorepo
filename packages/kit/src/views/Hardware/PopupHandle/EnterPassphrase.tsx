@@ -47,9 +47,12 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           label=""
           rules={{
             validate: (value) => {
-              const emojiRegex =
-                /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
-              if (emojiRegex.test(value)) {
+              if (!value.length) return true;
+              const passphraseReg = new RegExp(
+                '^[a-zA-Z0-9-><_.:@\\|*!()+%&-\\[\\]?{},\'`;"~$\\^=]+$',
+                'i',
+              );
+              if (!passphraseReg.test(value)) {
                 return intl.formatMessage({
                   id: 'form__add_exsting_wallet_invalid',
                 });
