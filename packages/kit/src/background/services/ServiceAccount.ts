@@ -1,6 +1,5 @@
 import { find, flatten } from 'lodash';
 
-import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -9,6 +8,7 @@ import {
   generateNetworkIdByChainId,
   getCoinTypeFromNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
 import { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
@@ -121,6 +121,9 @@ class ServiceAccount extends ServiceBase {
   async autoChangeAccount({ walletId }: { walletId: string }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
+    if (!walletId) {
+      return;
+    }
     const wallet: Wallet | null = await engine.getWallet(walletId);
     dispatch(updateWallet(wallet));
 
@@ -134,7 +137,7 @@ class ServiceAccount extends ServiceBase {
       );
       accountId = account?.[0]?.id ?? null;
     }
-    serviceAccount.changeActiveAccount({
+    await serviceAccount.changeActiveAccount({
       accountId,
       walletId,
     });
@@ -142,6 +145,7 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async notifyAccountsChanged(): Promise<void> {
+    await this.backgroundApi.walletConnect.notifySessionChanged();
     await wait(600);
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
@@ -150,7 +154,6 @@ class ServiceAccount extends ServiceBase {
         });
       },
     );
-    await this.backgroundApi.walletConnect.notifySessionChanged();
     // emit at next tick
     await wait(100);
     appEventBus.emit(AppEventBusNames.AccountChanged);
@@ -397,7 +400,7 @@ class ServiceAccount extends ServiceBase {
     const { watchingWallet } = getActiveWalletAccount();
     const id = watchingWallet?.nextAccountIds?.global;
     const name = id ? `Account #${id}` : '';
-    const networkId = NETWORK_ID_EVM_ETH;
+    const networkId = OnekeyNetwork.eth;
     // TODO remove prev temp account
     // TODO set new account is temp
     const account = await engine.addWatchingOrExternalAccount({
@@ -462,7 +465,7 @@ class ServiceAccount extends ServiceBase {
     );
     // fallback to ETH if network not enabled or exists
     if (!isNetworkEnabled) {
-      networkId = NETWORK_ID_EVM_ETH;
+      networkId = OnekeyNetwork.eth;
     }
 
     const { engine } = this.backgroundApi;

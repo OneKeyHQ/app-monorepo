@@ -91,8 +91,7 @@ class ServiceHistory extends ServiceBase {
     const vault = await engine.getVault({ networkId, accountId });
 
     const nonce = await vault.getAccountNonce();
-    const statusList = await engine.providerManager.getTransactionStatuses(
-      networkId,
+    const statusList = await vault.getTransactionStatuses(
       items.map((item) => item.decodedTx.txid),
     );
     const itemsToUpdate: IHistoryTx[] = [];
@@ -404,6 +403,31 @@ class ServiceHistory extends ServiceBase {
       return 'pending';
     }
     return 'canceled';
+  }
+
+  @backgroundMethod()
+  async queryTransactionByTxid({
+    networkId,
+    accountId,
+    txid,
+  }: {
+    networkId: string;
+    accountId: string;
+    txid: string;
+  }): Promise<'pending' | 'failed' | 'sucesss' | 'canceled'> {
+    await this.refreshPendingHistory({ networkId, accountId });
+    const historyTxs = await this.getLocalHistory({ networkId, accountId });
+    const tx = historyTxs.find((item) => item.decodedTx.txid === txid);
+    if (!tx) {
+      return 'failed';
+    }
+    if (tx.decodedTx.status === IDecodedTxStatus.Pending) {
+      return 'pending';
+    }
+    if (tx.decodedTx.status === IDecodedTxStatus.Confirmed) {
+      return 'sucesss';
+    }
+    return 'failed';
   }
 }
 

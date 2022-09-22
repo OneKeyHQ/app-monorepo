@@ -1,13 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { memo } from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
+import {
+  StackNavigationOptions,
+  TransitionPresets,
+  createStackNavigator,
+} from '@react-navigation/stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
+
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import AddressBookModal from './AddressBook';
 import BackupWalletModal from './BackupWallet';
+import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
 import CreateWalletModalStack from './CreateWallet';
@@ -21,11 +28,13 @@ import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
 import HardwareUpdateModal from './HardwareUpdate';
 import HistoryRequestModal from './HistoryRequest';
 import ImportBackupPassword from './ImportBackupPassword';
+import ManageConnectedSitesModal from './ManageConnectSites';
 import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
 import ManageTokenModal from './ManageToken';
 import PasswordModal from './Password';
+import PushNotification from './PushNotification';
 import ReceiveToken from './ReceiveToken';
 import ScanQrcode from './ScanQrcode';
 import Send from './Send';
@@ -153,26 +162,38 @@ const modalStackScreenList = [
     name: ModalRoutes.Staking,
     component: StakingModal,
   },
+  {
+    name: ModalRoutes.ManageConnectedSites,
+    component: ManageConnectedSitesModal,
+  },
+  {
+    name: ModalRoutes.PushNotification,
+    component: PushNotification,
+  },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
-const ModalStackNavigator = () => (
-  <RootSiblingParent>
-    <ModalStack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {modalStackScreenList.map((modal) => (
-        <ModalStack.Screen
-          key={modal.name}
-          name={modal.name}
-          component={modal.component}
-        />
-      ))}
-    </ModalStack.Navigator>
-  </RootSiblingParent>
-);
+const ModalStackNavigator = () => {
+  const isVerticalLayout = useIsVerticalLayout();
+  return (
+    <RootSiblingParent>
+      <ModalStack.Navigator
+        screenOptions={{
+          headerShown: false,
+          ...buildModalOpenAnimationOptions({ isVerticalLayout }),
+        }}
+      >
+        {modalStackScreenList.map((modal) => (
+          <ModalStack.Screen
+            key={modal.name}
+            name={modal.name}
+            component={modal.component}
+          />
+        ))}
+      </ModalStack.Navigator>
+    </RootSiblingParent>
+  );
+};
 
 export default memo(ModalStackNavigator);

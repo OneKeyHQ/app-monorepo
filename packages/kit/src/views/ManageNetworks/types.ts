@@ -1,13 +1,9 @@
-export enum ManageNetworkRoutes {
-  Listing = 'Listing',
-  AddNetwork = 'AddNetwork',
-  CustomNetwork = 'CustomNetwork',
-  PresetNetwork = 'PresetNetwork',
-  AddNetworkConfirm = 'AddNetworkConfirm',
-  SwitchNetwork = 'SwitchNetwork',
-}
+import { ManageNetworkRoutes } from '../../routes/routesEnum';
+
+export { ManageNetworkRoutes };
 
 export type ManageNetworkRoutesParams = {
+  [ManageNetworkRoutes.NetworkAccountSelector]: undefined;
   [ManageNetworkRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkRoutes.AddNetwork]: undefined;
   [ManageNetworkRoutes.CustomNetwork]: {

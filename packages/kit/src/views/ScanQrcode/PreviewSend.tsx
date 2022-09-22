@@ -19,7 +19,7 @@ import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import FormChainSelector from '../../components/Form/ChainSelector';
-import WalletAvatar from '../../components/Header/WalletAvatar';
+import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
 import { ModalRoutes, ModalScreenProps, RootRoutes } from '../../routes/types';
 import { SendRoutes, SendRoutesParams } from '../Send/types';
 

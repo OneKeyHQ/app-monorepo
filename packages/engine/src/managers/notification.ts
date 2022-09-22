@@ -52,6 +52,7 @@ export type AccountDynamicItem = {
   accountId: string;
   address: string;
   name: string;
+  passphrase: boolean;
 };
 
 async function fetchData<T>(
@@ -164,7 +165,10 @@ export const addAccountDynamic = async (
   );
 
 export const removeAccountDynamic = async (
-  body: Omit<AccountDynamicItem, 'instanceId' | 'name' | 'accountId'>,
+  body: Omit<
+    AccountDynamicItem,
+    'instanceId' | 'name' | 'accountId' | 'passphrase'
+  >,
 ) =>
   fetchData<AccountDynamicItem | null>(
     '/notification/account-dynamic',
@@ -179,4 +183,14 @@ export const queryAccountDynamic = async () =>
     {},
     [],
     'get',
+  );
+
+export const syncLocalEnabledAccounts = async (addresses: string[]) =>
+  fetchData<string[]>(
+    '/notification/account-dynamic/sync',
+    {
+      addresses,
+    },
+    [],
+    'put',
   );

@@ -5,22 +5,11 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
-import {
-  setSendingNetworkId,
-  setSwftcSupportedTokens,
-} from '../../store/reducers/swap';
+import { setSendingNetworkId } from '../../store/reducers/swap';
 
 import { useEnabledSwappableNetworks } from './hooks/useSwap';
-import { SwapQuoter } from './quoter';
 import { refs } from './refs';
-
-const AccountObserver = () => {
-  const { account } = useActiveWalletAccount();
-  useEffect(() => {
-    backgroundApiProxy.serviceSwap.setApprovalSubmitted(false);
-  }, [account]);
-  return <></>;
-};
+import { isNetworkEnabled } from './utils';
 
 const NetworkObserver = () => {
   const { network } = useActiveWalletAccount();
@@ -39,8 +28,8 @@ const NetworkObserver = () => {
       }
       backgroundApiProxy.dispatch(setSendingNetworkId(baseNetwork.id));
     }
-    function main() {
-      if (network) {
+    async function main() {
+      if (network && isNetworkEnabled(network)) {
         if (prevNetowrk === undefined) {
           // initial, select default native token
           resetNativeToken(network);
@@ -51,7 +40,11 @@ const NetworkObserver = () => {
           backgroundApiProxy.serviceSwap.resetState();
           resetNativeToken(network);
         } else if (network.impl === 'evm' && prevNetowrk?.impl === 'evm') {
-          // Empty block
+          const inputToken =
+            await backgroundApiProxy.serviceSwap.getSwapInputToken();
+          if (!inputToken) {
+            resetNativeToken(network);
+          }
         } else {
           backgroundApiProxy.serviceSwap.resetState();
           resetNativeToken(network);
@@ -66,16 +59,9 @@ const NetworkObserver = () => {
   return null;
 };
 
-const PreparatoryWork = () => {
+const PreWorker = () => {
   const { accountId } = useActiveWalletAccount();
   const enabledNetworks = useEnabledSwappableNetworks();
-  useEffect(() => {
-    async function main() {
-      const supportedTokens = await SwapQuoter.client.getSupportedTokens();
-      backgroundApiProxy.dispatch(setSwftcSupportedTokens(supportedTokens));
-    }
-    main();
-  }, []);
   useEffect(() => {
     backgroundApiProxy.serviceToken.getEnabledNativeTokens({
       forceUpdate: true,
@@ -102,9 +88,8 @@ const PreparatoryWork = () => {
 
 const SwapListener = () => (
   <>
-    <AccountObserver />
     <NetworkObserver />
-    <PreparatoryWork />
+    <PreWorker />
   </>
 );
 

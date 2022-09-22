@@ -1,3 +1,5 @@
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+
 const SEPERATOR = '--';
 
 const IMPL_EVM = 'evm';
@@ -21,7 +23,11 @@ const COINTYPE_CFX = '503';
 const IMPL_BTC = 'btc';
 const COINTYPE_BTC = '0';
 
-export const NETWORK_ID_EVM_ETH = 'evm--1';
+const IMPL_TRON = 'tron';
+const COINTYPE_TRON = '195';
+
+const IMPL_APTOS = 'aptos';
+const COINTYPE_APTOS = '637';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
@@ -31,6 +37,8 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_SOL,
   // IMPL_ALGO,
   IMPL_STC,
+  IMPL_TRON,
+  IMPL_APTOS,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -39,6 +47,8 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_BTC,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TRON,
+  IMPL_APTOS,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -49,6 +59,13 @@ export const HISTORY_CONSTS = {
   SET_IS_FINAL_EXPIRED_IN: 24 * 60 * 60 * 1000,
   PENDING_QUEUE_MAX_LENGTH: 10,
 };
+
+export const enabledAccountDynamicNetworkIds: string[] = [
+  OnekeyNetwork.eth,
+  OnekeyNetwork.polygon,
+  OnekeyNetwork.arbitrum,
+  OnekeyNetwork.optimism,
+];
 
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {
@@ -73,5 +90,9 @@ export {
   COINTYPE_CFX,
   IMPL_BTC,
   COINTYPE_BTC,
+  IMPL_TRON,
+  COINTYPE_TRON,
+  IMPL_APTOS,
+  COINTYPE_APTOS,
   getSupportedImpls,
 };

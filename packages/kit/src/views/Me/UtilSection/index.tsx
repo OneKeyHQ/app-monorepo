@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,16 +12,29 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
+import {
+  ManageConnectedSitesRoutes,
+  ManageConnectedSitesRoutesParams,
+} from '../../ManageConnectedSites/types';
+
+type NavigationProps = ModalScreenProps<ManageConnectedSitesRoutesParams>;
 
 export const UtilSection = () => {
   const intl = useIntl();
   const small = useIsVerticalLayout();
   const { themeVariant } = useTheme();
+  const { connections } = useAppSelector((s) => s.dapp);
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const onLock = useCallback(() => {
     backgroundApiProxy.serviceApp.lock(true);
@@ -123,6 +137,43 @@ export const UtilSection = () => {
             </Pressable>
           </>
         ) : null}
+        <>
+          <Divider />
+          <Pressable
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            py={4}
+            px={{ base: 4, md: 6 }}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.ManageConnectedSites,
+                params: {
+                  screen: ManageConnectedSitesRoutes.ManageConnectedSitesModel,
+                },
+              });
+            }}
+          >
+            <Icon name="ConnectOutline" />
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex="1"
+              numberOfLines={1}
+              mx={3}
+            >
+              {intl.formatMessage({
+                id: 'action__connected_sites',
+                defaultMessage: 'Connected Sites',
+              })}
+
+              {connections.length > 0 ? ` (${connections.length})` : ''}
+            </Text>
+            <Box>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Box>
+          </Pressable>
+        </>
       </Box>
     </Box>
   );

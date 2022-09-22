@@ -15,7 +15,10 @@ import { waitForDataLoaded } from '../../background/utils';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { WalletService } from './types';
-import { WALLET_CONNECT_BRIDGE } from './walletConnectConsts';
+import {
+  WALLET_CONNECT_BRIDGE,
+  WALLET_CONNECT_CONNECTION_TIMEOUT,
+} from './walletConnectConsts';
 
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
@@ -202,7 +205,7 @@ export class WalletConnectClientBase extends CrossEventEmitter {
     await this.waitConnectorPeerReady({
       connector,
       logName: 'waitConnectorPeerReady -> connect()',
-      timeout: 10 * 1000, //  timeout 10s
+      timeout: WALLET_CONNECT_CONNECTION_TIMEOUT, //  timeout 10s
     });
 
     if (!connector.connected) {

@@ -15,7 +15,7 @@ import {
   IWalletConnectClientEventRpc,
 } from '../../components/WalletConnect/WalletConnectClient';
 import { WalletConnectClientForWallet } from '../../components/WalletConnect/WalletConnectClientForWallet';
-import { wait } from '../../utils/helper';
+import { closeDappConnectionPreloading } from '../../store/reducers/refresher';
 import { backgroundClass } from '../decorators';
 
 import type { IBackgroundApi } from '../IBackgroundApi';
@@ -57,6 +57,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async removeConnectedAccounts(connector: OneKeyWalletConnector) {
     const { accounts } = connector;
     const origin = this.getConnectorOrigin(connector);
@@ -66,8 +67,6 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         networkImpl: IMPL_EVM,
         addresses: accounts,
       });
-      await wait(1500);
-      this.backgroundApi.serviceAccount.notifyAccountsChanged();
     }
   }
 
@@ -101,11 +100,17 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         'getSessionStatusToApprove Error: connector not initialized',
       );
     }
+    const { dispatch } = this.backgroundApi;
+    dispatch(closeDappConnectionPreloading());
     const result = await this.ethereumRequest<string[]>(connector, {
       method: 'eth_requestAccounts',
     });
 
     const chainId = await this.getChainIdInteger(connector);
+    // walletConnect approve empty accounts is not allowed
+    if (!result || !result.length) {
+      throw new Error('WalletConnect Session error: accounts is empty');
+    }
     return { chainId, accounts: result };
   }
 

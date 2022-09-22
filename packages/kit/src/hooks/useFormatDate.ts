@@ -42,9 +42,13 @@ export default function useFormatDate() {
         parsedDate = date;
       }
 
-      return fnsFormat(parsedDate, _format ?? 'PPp', {
-        locale: parseLocal(locale),
-      });
+      try {
+        return fnsFormat(parsedDate, _format ?? 'PPp', {
+          locale: parseLocal(locale),
+        });
+      } catch (error) {
+        return '-';
+      }
     },
     [locale],
   );

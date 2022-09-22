@@ -23,6 +23,7 @@ import OnLanding from '@onekeyhq/kit/src/views/OnLanding';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ModalStackNavigator from '../Modal';
+import { buildModalOpenAnimationOptions } from '../Modal/buildModalStackNavigatorOptions';
 import {
   UpdateFeatureModalRoutes,
   UpdateFeatureRoutesParams,
@@ -117,14 +118,9 @@ const App = () => {
       />
       <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen
-        options={
-          isVerticalLayout
-            ? {
-                animationEnabled: true,
-                ...TransitionPresets.ModalSlideFromBottomIOS,
-              }
-            : undefined
-        }
+        options={{
+          ...buildModalOpenAnimationOptions({ isVerticalLayout }),
+        }}
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
       />

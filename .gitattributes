@@ -1,3 +1,0 @@
-packages/desktop/public/static/bin/bridge/mac-*/onekeyd filter=lfs diff=lfs merge=lfs -text
-packages/desktop/public/static/bin/bridge/linux-*/onekeyd filter=lfs diff=lfs merge=lfs -text
-packages/desktop/public/static/bin/bridge/win-*/onekeyd.exe filter=lfs diff=lfs merge=lfs -text

@@ -39,6 +39,7 @@ import {
 import { timeout } from '../../utils/helper';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
+import { showHomeBalanceSettings } from '../Overlay/BottomSheetSettings';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -272,7 +273,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     (t) => item.tokenIdOnNetwork === t.tokenIdOnNetwork && !t.autoDetected,
   );
 
-  const onPress = useCallback(async () => {
+  const onAddToken = useCallback(async () => {
     if (accountId && networkId) {
       try {
         await timeout(
@@ -296,7 +297,6 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         );
         return;
       }
-      toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
       backgroundApiProxy.serviceToken.fetchAccountTokens({
         activeAccountId: accountId,
         activeNetworkId: networkId,
@@ -320,16 +320,46 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
           tokens: [item],
         });
         if (value.isLessThan(1)) {
-          // TODO native toast
-          toast.show({
-            title: intl.formatMessage({
-              id: 'msg__token_has_been_added_but_is_hidden',
-            }),
-          });
+          toast.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__token_has_been_added_but_is_hidden',
+              }),
+            },
+            {
+              type: 'action',
+              text2: intl.formatMessage({
+                id: 'action__go_to_setting',
+              }),
+              onPress: showHomeBalanceSettings,
+            },
+          );
+          return;
         }
       }
+      toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
     }
   }, [accountId, networkId, toast, intl, hideSmallBalance, item]);
+
+  const onPress = useCallback(async () => {
+    if (accountId && networkId) {
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+        networkId,
+      );
+      if (vaultSettings?.activateTokenRequired) {
+        navigation.navigate(ManageTokenRoutes.ActivateToken, {
+          accountId,
+          networkId,
+          tokenId: item.tokenIdOnNetwork,
+          onSuccess() {
+            onAddToken();
+          },
+        });
+      } else {
+        onAddToken();
+      }
+    }
+  }, [accountId, item.tokenIdOnNetwork, navigation, networkId, onAddToken]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned

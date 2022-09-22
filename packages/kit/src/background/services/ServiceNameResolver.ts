@@ -2,11 +2,8 @@ import { createInstance } from 'dotbit';
 import { filter, groupBy, map } from 'lodash';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import {
-  COINTYPE_BTC,
-  COINTYPE_ETH,
-  NETWORK_ID_EVM_ETH,
-} from '@onekeyhq/engine/src/constants';
+import { COINTYPE_BTC, COINTYPE_ETH } from '@onekeyhq/engine/src/constants';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -37,7 +34,7 @@ export default class ServiceNameResolver extends ServiceBase {
         shownSymbol: 'ENS',
         supportImplsMap: {
           'evm--*': ['eth'],
-          'btc--0': ['btc'],
+          [OnekeyNetwork.btc]: ['btc'],
         },
         resolver: this.resolveENS.bind(this),
       },
@@ -46,9 +43,9 @@ export default class ServiceNameResolver extends ServiceBase {
         shownSymbol: '.bit',
         supportImplsMap: {
           'evm--*': ['eth', 'bsc', 'etc', 'polygon', 'celo'],
-          'btc--0': ['btc'],
-          'near--0': ['near'],
-          'sol--101': ['sol'],
+          [OnekeyNetwork.btc]: ['btc'],
+          [OnekeyNetwork.near]: ['near'],
+          [OnekeyNetwork.sol]: ['sol'],
         },
         resolver: this.resolveDotBit.bind(this),
       },
@@ -164,7 +161,7 @@ export default class ServiceNameResolver extends ServiceBase {
     const { engine } = this.backgroundApi;
 
     // always using ETH mainnet for name resolve
-    const chainOnlyVault = await engine.getChainOnlyVault(NETWORK_ID_EVM_ETH);
+    const chainOnlyVault = await engine.getChainOnlyVault(OnekeyNetwork.eth);
     try {
       const ethersProvider = await chainOnlyVault.getEthersProvider();
       const resolver = await ethersProvider.getResolver(name);

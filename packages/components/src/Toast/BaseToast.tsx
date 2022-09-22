@@ -1,5 +1,4 @@
-/* eslint-disable object-shorthand */
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { StyleSheet, TextStyle } from 'react-native';
 import {
@@ -25,7 +24,7 @@ const BaseToast: FC<BaseToastProps & RNBaseToastProps> = ({
   textColorToken,
   ...props
 }) => {
-  const [bgColor, borderColor, shaodwColor, textColor] = useThemeValue([
+  const [bgColor, borderColor, shadowColor, textColor] = useThemeValue([
     bgColorToken || 'surface-neutral-default',
     borderColorToken || bgColorToken || 'border-default',
     shadowColorToken || shadowColorToken || 'text-default',
@@ -44,9 +43,9 @@ const BaseToast: FC<BaseToastProps & RNBaseToastProps> = ({
         borderRadius: 9999,
         borderWidth: StyleSheet.hairlineWidth,
         borderLeftWidth: StyleSheet.hairlineWidth,
-        borderColor: borderColor,
+        borderColor,
         borderLeftColor: borderColor,
-        shadowColor: shaodwColor,
+        shadowColor,
         shadowOffset: {
           width: 0,
           height: 4,

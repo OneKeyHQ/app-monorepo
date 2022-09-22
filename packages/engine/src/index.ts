@@ -38,7 +38,6 @@ import {
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
-  NETWORK_ID_EVM_ETH,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
@@ -82,6 +81,7 @@ import {
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { syncLatestNetworkList } from './presets/network';
+import { OnekeyNetwork } from './presets/networkIds';
 import { ChartQueryParams, PriceController } from './priceController';
 import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
 import {
@@ -134,6 +134,7 @@ import { VaultFactory } from './vaults/VaultFactory';
 
 import type { BackupObject, ImportableHDWallet } from './types/backup';
 import type VaultEvm from './vaults/impl/evm/Vault';
+import type VaultSol from './vaults/impl/sol/Vault';
 import type { ITransferInfo } from './vaults/types';
 
 const updateTokenCache: {
@@ -457,8 +458,8 @@ class Engine {
     // Add BTC & ETH accounts by default.
     try {
       if (wallet.accounts.length === 0) {
-        await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
-        await this.addHdOrHwAccounts('', wallet.id, NETWORK_ID_EVM_ETH);
+        await this.addHdOrHwAccounts('', wallet.id, OnekeyNetwork.btc);
+        await this.addHdOrHwAccounts('', wallet.id, OnekeyNetwork.eth);
       }
     } catch (e) {
       await this.removeWallet(wallet.id, '');
@@ -678,12 +679,14 @@ class Engine {
     const { coinType } = await this.dbApi.getAccount(accountId);
     // TODO: need a method to get default network from coinType.
     const networkId = {
-      '60': NETWORK_ID_EVM_ETH,
-      '503': 'cfx--1029',
-      '397': 'near--0',
-      '0': 'btc--0',
-      '101010': 'stc--1',
-      '501': 'sol--101',
+      '60': OnekeyNetwork.eth,
+      '503': OnekeyNetwork.cfx,
+      '397': OnekeyNetwork.near,
+      '0': OnekeyNetwork.btc,
+      '101010': OnekeyNetwork.stc,
+      '501': OnekeyNetwork.sol,
+      '195': OnekeyNetwork.trx,
+      '637': OnekeyNetwork.tapt, // TODO temp
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -718,7 +721,7 @@ class Engine {
 
     const ret: Record<string, string | undefined> = {};
     let newTokens: Token[] | undefined;
-    if (balanceSupprtedNetwork[networkId]) {
+    if (balanceSupprtedNetwork.includes(networkId)) {
       try {
         const { address: accountAddress } = await this.getAccount(
           accountId,
@@ -1148,7 +1151,7 @@ class Engine {
           });
         }
       }
-      if (typeof tokenInfo === 'undefined') {
+      if (!tokenInfo) {
         throw new Error('findToken ERROR: token not found.');
       }
       return {
@@ -1257,6 +1260,42 @@ class Engine {
         message: error instanceof Error ? error.message : error,
       });
     }
+  }
+
+  /**
+   * Currently used in Mint
+   */
+  @backgroundMethod()
+  async activateAccount(accountId: string, networkId: string): Promise<void> {
+    // Activate an account.
+    const vaultSettings = await this.getVaultSettings(networkId);
+    if (!vaultSettings.activateAccountRequired) return Promise.resolve();
+
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.activateAccount();
+  }
+
+  @backgroundMethod()
+  async activateToken(
+    password: string,
+    accountId: string,
+    networkId: string,
+    tokenIdOnNetwork: string,
+  ): Promise<boolean> {
+    const vaultSettings = await this.getVaultSettings(networkId);
+    if (!vaultSettings.activateTokenRequired) return true;
+
+    const normalizedAddress = await this.validator.validateTokenAddress(
+      networkId,
+      tokenIdOnNetwork,
+    );
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+      throw new OneKeyInternalError(
+        `account ${accountId} and network ${networkId} isn't compatible.`,
+      );
+    }
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.activateToken(normalizedAddress, password);
   }
 
   @backgroundMethod()
@@ -1422,9 +1461,10 @@ class Engine {
     const tokens = await fetchOnlineTokens({
       impl,
       chainId,
+      includeNativeToken: 1,
     });
     if (tokens.length) {
-      await simpleDb.token.updateTokens(impl, +chainId, tokens);
+      await simpleDb.token.updateTokens(impl, chainId, tokens);
     }
     updateTokenCache[networkId] = true;
   }
@@ -1440,29 +1480,36 @@ class Engine {
 
   @backgroundMethod()
   async searchTokens(
-    networkId: string,
+    networkId: string | undefined,
     searchTerm: string,
   ): Promise<Array<Token>> {
     if (searchTerm.length === 0) {
       return [];
     }
+    if (!networkId) {
+      const result = await fetchOnlineTokens({
+        query: searchTerm,
+      });
+      return result.map((t) => formatServerToken(t));
+    }
+    let tokenAddress = '';
+    try {
+      const vault = await this.getChainOnlyVault(networkId);
+      tokenAddress = await vault.validateTokenAddress(searchTerm);
+    } catch {
+      // pass
+    }
 
-    const { displayAddress, normalizedAddress, isValid } =
-      await this.providerManager.verifyTokenAddress(networkId, searchTerm);
-
-    if (
-      isValid &&
-      typeof displayAddress !== 'undefined' &&
-      typeof normalizedAddress !== 'undefined'
-    ) {
+    if (tokenAddress.length > 0) {
       const token = await this.findToken({
         networkId,
-        tokenIdOnNetwork: normalizedAddress,
+        tokenIdOnNetwork: tokenAddress,
       });
       if (token) {
         return [token];
       }
     }
+
     const { impl, chainId } = parseNetworkId(networkId);
     if (!impl || !chainId) {
       return [];
@@ -1474,7 +1521,7 @@ class Engine {
         chainId,
         query: searchTerm,
       });
-      onlineTokens = result.map((t) => formatServerToken(networkId, t));
+      onlineTokens = result.map((t) => formatServerToken(t));
     } catch (error) {
       debugLogger.engine.error('search online tokens error', {
         error: error instanceof Error ? error.message : error,
@@ -2426,6 +2473,23 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async solanaRefreshRecentBlockBash({
+    accountId,
+    networkId,
+    transaction,
+  }: {
+    accountId: string;
+    networkId: string;
+    transaction: string;
+  }): Promise<string> {
+    const vault = (await this.getVault({
+      accountId,
+      networkId,
+    })) as VaultSol;
+    return vault.refreshRecentBlockBash(transaction);
   }
 }
 

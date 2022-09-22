@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -16,6 +16,7 @@ import Box from '../Box';
 import LottieView from '../LottieView';
 import { Text } from '../Typography';
 
+import ActionToast from './ActionToast';
 import BaseToast from './BaseToast';
 
 type Props = ComponentProps<typeof Toast>;
@@ -71,6 +72,7 @@ const CustomToast: FC<Props> = (outerProps) => {
             textColorToken="text-on-critical"
           />
         ),
+        action: (props) => <ActionToast {...props} />,
         enterPinOnDevice: ({ props }) => (
           <Box px={6} w="full" maxW="374">
             <Box

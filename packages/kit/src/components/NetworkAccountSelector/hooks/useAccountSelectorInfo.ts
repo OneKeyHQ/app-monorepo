@@ -14,18 +14,20 @@ import {
   useAppSelector,
   useDebounce,
   useManageNetworks,
+  usePrevious,
 } from '../../../hooks';
 import { useRuntimeWallets } from '../../../hooks/redux';
+import { useEffectOnUpdate } from '../../../hooks/useEffectOnUpdate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../utils/helper';
-
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
   ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
   ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN,
-} from './accountSelectorConsts';
+} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+
 import { useDeviceStatusOfHardwareWallet } from './useDeviceStatusOfHardwareWallet';
 
 const { updateIsLoading } = reducerAccountSelector.actions;
@@ -40,6 +42,8 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
       ? ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY
       : ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY + 100,
   );
+  const isOpenPrev = usePrevious(isOpen);
+  const isOpenFromClose = !isOpenPrev && isOpen;
 
   const { wallets } = useRuntimeWallets();
 
@@ -169,16 +173,19 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
     ],
   );
 
-  useEffect(() => {
+  // TODO move all useEffects to NetworkAccountSelectorTrigger,
+  //      as onMount and isOpen will trigger twice useEffect
+  useEffectOnUpdate(() => {
     refreshAccounts();
   }, [refreshHookDeps, refreshAccounts]);
+
   useEffect(() => {
     if (!ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN && isOpenDelay) {
       refreshAccounts();
     }
   }, [isOpenDelay, refreshAccounts]);
 
-  useEffect(() => {
+  useEffectOnUpdate(() => {
     InteractionManager.runAfterInteractions(async () => {
       if (!isOpenDelay) {
         await wait(ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY);
@@ -206,22 +213,40 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
     return dataLen <= 0;
   }, [accountsGroup]);
 
-  return {
-    deviceStatus,
+  return useMemo(
+    () => ({
+      deviceStatus,
 
-    isOpenDelay,
-    isOpenDelayForShow,
+      isOpenFromClose,
+      isOpenDelay,
+      isOpenDelayForShow,
 
-    selectedNetwork,
-    selectedNetworkId,
-    selectedWallet,
-    selectedWalletId,
+      selectedNetwork,
+      selectedNetworkId,
+      selectedWallet,
+      selectedWalletId,
 
-    accountsGroup,
-    isLoading,
-    isAccountsGroupEmpty,
-    preloadingCreateAccount,
+      accountsGroup,
+      isLoading,
+      isAccountsGroupEmpty,
+      preloadingCreateAccount,
 
-    refreshAccounts,
-  };
+      refreshAccounts,
+    }),
+    [
+      accountsGroup,
+      deviceStatus,
+      isAccountsGroupEmpty,
+      isLoading,
+      isOpenDelay,
+      isOpenDelayForShow,
+      isOpenFromClose,
+      preloadingCreateAccount,
+      refreshAccounts,
+      selectedNetwork,
+      selectedNetworkId,
+      selectedWallet,
+      selectedWalletId,
+    ],
+  );
 }

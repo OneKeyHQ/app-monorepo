@@ -11,8 +11,9 @@ import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Deskt
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAccountSelectorInfo } from '../NetworkAccountSelector/hooks/useAccountSelectorInfo';
+
 import AccountSelectorChildren from './AccountSelectorChildren';
-import { useAccountSelectorInfo } from './AccountSelectorChildren/useAccountSelectorInfo';
 
 type ChildDropdownProps = {
   visible: boolean;

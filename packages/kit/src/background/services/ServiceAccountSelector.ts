@@ -151,7 +151,9 @@ export default class ServiceAccountSelector extends ServiceBase {
     }
     debugLogger.accountSelector.info('refreshAccountsGroup start');
     dispatch(updateIsLoading(true));
-    await wait(delay);
+    if (delay > 0) {
+      await wait(delay);
+    }
     this._refreshAccountsGroup();
   }
 

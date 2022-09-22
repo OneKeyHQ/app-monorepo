@@ -12,12 +12,15 @@ import {
 } from '../typings';
 
 import { SimpleQuoter } from './0x';
+import { JupiterQuoter } from './jupiter';
 import { MdexQuoter } from './mdex';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
 
 export class SwapQuoter {
   static client = new SwapQuoter();
+
+  jupiter = new JupiterQuoter();
 
   swftc = new SwftcQuoter();
 
@@ -27,7 +30,13 @@ export class SwapQuoter {
 
   mdex = new MdexQuoter();
 
-  quoters: Quoter[] = [this.mdex, this.simple, this.socket, this.swftc];
+  quoters: Quoter[] = [
+    this.mdex,
+    this.simple,
+    this.socket,
+    this.jupiter,
+    this.swftc,
+  ];
 
   prepare() {
     this.quoters.forEach((quoter) => {

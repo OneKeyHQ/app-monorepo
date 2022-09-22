@@ -13,7 +13,8 @@
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules && rimraf .expo && rimraf __generated__",
     "eas-build-post-install": "expo-yarn-workspaces postinstall",
-    "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh"
+    "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh",
+    "bundle-analyzer": "yarn react-native-bundle-visualizer --entry-file __generated__/AppEntry.js"
   },
   "dependencies": {
     "@ethersproject/shims": "^5.7.0",
@@ -37,7 +38,7 @@
     "@react-navigation/native": "^6.0.6",
     "@react-navigation/native-stack": "^6.2.5",
     "@react-navigation/stack": "^6.0.11",
-    "buffer": "^5.7.1",
+    "buffer": "^6.0.3",
     "expo": "^45.0.5",
     "expo-clipboard": "^3.0.1",
     "expo-device": "^4.3.0",

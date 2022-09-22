@@ -36,16 +36,16 @@ export const useOnboardingRequired = () => {
 
 export function useOnboardingDone() {
   // TODO should set s.status.boardingCompleted=true ?
-  const { closeDrawer, openRootHome } = useNavigationActions();
+  const { closeWalletSelector, openRootHome } = useNavigationActions();
   const onboardingDone = useCallback(
     async ({ delay = 0 }: { delay?: number } = {}) => {
-      closeDrawer();
+      closeWalletSelector();
       await wait(delay);
       openRootHome();
       await wait(delay);
       closeExtensionWindowIfOnboardingFinished();
     },
-    [closeDrawer, openRootHome],
+    [closeWalletSelector, openRootHome],
   );
   return onboardingDone;
 }

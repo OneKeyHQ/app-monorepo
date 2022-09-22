@@ -1,7 +1,7 @@
-import React, { FC, Fragment } from 'react';
+import { FC } from 'react';
 
 import axios from 'axios';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay } from 'react-native-screens';
@@ -17,14 +17,6 @@ import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
 import NotificationProvider from './NotificationProvider';
 import ThemeApp from './ThemeProvider';
-
-const ToastOverlay = platformEnv.isNativeIOS
-  ? // FullWindowOverlay can render above native views
-    // but can not work with modal
-    // https://github.com/software-mansion/react-native-screens/issues/1149
-    // so now only used for toast
-    FullWindowOverlay
-  : Fragment;
 
 const swrConfig = {
   refreshInterval: 0,
@@ -49,9 +41,22 @@ const KitProvider: FC = () => (
               <NotificationProvider>
                 <RootSiblingParent>
                   <NavigationApp />
-                  <ToastOverlay style={StyleSheet.absoluteFill}>
+                  {platformEnv.isNativeIOS ? (
+                    // FullWindowOverlay can render above native views
+                    // but can not work with modal
+                    // https://github.com/software-mansion/react-native-screens/issues/1149
+                    // so now only used for toast
+                    <FullWindowOverlay style={StyleSheet.absoluteFill}>
+                      <View
+                        pointerEvents="box-none"
+                        style={StyleSheet.absoluteFill}
+                      >
+                        <CustomToast bottomOffset={60} />
+                      </View>
+                    </FullWindowOverlay>
+                  ) : (
                     <CustomToast bottomOffset={60} />
-                  </ToastOverlay>
+                  )}
                 </RootSiblingParent>
               </NotificationProvider>
             </ErrorBoundary>

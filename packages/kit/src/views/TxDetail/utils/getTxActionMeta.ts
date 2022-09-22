@@ -1,6 +1,11 @@
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
 import {
+  TxActionNFTTransfer,
+  TxActionNFTTransferT0,
+  getTxActionNFTTransferInfo,
+} from '../TxAction/TxActionNFTTransfer';
+import {
   TxActionStake,
   TxActionStakeT0,
   getTxActionStakeInfo,
@@ -10,6 +15,11 @@ import {
   TxActionSwapT0,
   getTxActionSwapInfo,
 } from '../TxAction/TxActionSwap';
+import {
+  TxActionTokenActivate,
+  TxActionTokenActivateT0,
+  getTxActionTokenActivateInfo,
+} from '../TxAction/TxActionTokenActivate';
 import {
   TxActionTokenApprove,
   TxActionTokenApproveT0,
@@ -34,6 +44,12 @@ import {
 
 // ClipboardListSolid, ClipboardListOutline, ActivityOutline
 export const UNKNOWN_ACTION_ICON_NAME = 'ClipboardListOutline';
+
+/*
+T0: UI component in ListView
+T1: UI component in DetailView
+T2: currently unused
+ */
 
 export type IGetTxActionMetaReturn = {
   meta: ITxActionMeta;
@@ -82,6 +98,16 @@ export function getTxActionMeta(
       T2: TxActionTokenApprove,
     };
   }
+  if (action.type === IDecodedTxActionType.TOKEN_ACTIVATE) {
+    const info = getTxActionTokenActivateInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionTokenActivateT0,
+      T1: TxActionTokenActivate,
+      T2: TxActionTokenActivate,
+    };
+  }
   if (action.type === IDecodedTxActionType.INTERNAL_SWAP) {
     const info = getTxActionSwapInfo(props);
     titleInfo = info.titleInfo;
@@ -100,6 +126,20 @@ export function getTxActionMeta(
       T0: TxActionStakeT0,
       T1: TxActionStake,
       T2: TxActionStake,
+    };
+  }
+  if (
+    action.type === IDecodedTxActionType.NFT_TRANSFER ||
+    action.type === IDecodedTxActionType.NFT_MINT ||
+    action.type === IDecodedTxActionType.NFT_SALE
+  ) {
+    const info = getTxActionNFTTransferInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionNFTTransferT0,
+      T1: TxActionNFTTransfer,
+      T2: TxActionNFTTransfer,
     };
   }
   return {

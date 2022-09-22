@@ -1,18 +1,22 @@
 import {
   COINTYPE_ALGO,
+  COINTYPE_APTOS,
   COINTYPE_BTC,
   COINTYPE_CFX,
   COINTYPE_ETH,
   COINTYPE_NEAR,
   COINTYPE_SOL,
   COINTYPE_STC,
+  COINTYPE_TRON,
   IMPL_ALGO,
+  IMPL_APTOS,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TRON,
 } from '../constants';
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
@@ -31,6 +35,8 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_STC]: COINTYPE_STC,
   [IMPL_CFX]: COINTYPE_CFX,
   [IMPL_BTC]: COINTYPE_BTC,
+  [IMPL_TRON]: COINTYPE_TRON,
+  [IMPL_APTOS]: COINTYPE_APTOS,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -45,6 +51,8 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_STC]: AccountType.SIMPLE,
   [IMPL_CFX]: AccountType.VARIANT,
   [IMPL_BTC]: AccountType.UTXO,
+  [IMPL_TRON]: AccountType.SIMPLE,
+  [IMPL_APTOS]: AccountType.SIMPLE,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -59,6 +67,8 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_STC]: Curve.ED25519,
   [IMPL_CFX]: Curve.SECP256K1,
   [IMPL_BTC]: Curve.SECP256K1,
+  [IMPL_TRON]: Curve.SECP256K1,
+  [IMPL_APTOS]: Curve.ED25519,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -103,6 +113,12 @@ const defaultAccountNameInfo: Record<
       category: `84'/${COINTYPE_BTC}'`,
       label: 'Native SegWit',
     },
+  },
+  [IMPL_TRON]: {
+    default: { prefix: 'TRON', category: `44'/${COINTYPE_TRON}'` },
+  },
+  [IMPL_APTOS]: {
+    default: { prefix: 'APT', category: `44'/${COINTYPE_APTOS}'` },
   },
 };
 

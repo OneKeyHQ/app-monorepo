@@ -6,7 +6,10 @@ import {
   BaseClient,
   BaseProvider,
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -14,7 +17,7 @@ import { isNil } from 'lodash';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HISTORY_CONSTS } from '../constants';
+import { HISTORY_CONSTS, IMPL_APTOS } from '../constants';
 import simpleDb from '../dbs/simple/simpleDb';
 import {
   InvalidAddress,
@@ -22,6 +25,7 @@ import {
   NotImplemented,
   PendingQueueTooLong,
 } from '../errors';
+import { IMPL_MAPPINGS } from '../proxy';
 import { Account, DBAccount } from '../types/account';
 import { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import { WalletType } from '../types/wallet';
@@ -64,6 +68,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   engineProvider!: BaseProvider;
 
   async initProvider() {
+    const networkImpl = (await this.getNetwork()).impl;
+    if (isNil(IMPL_MAPPINGS[networkImpl])) {
+      return;
+    }
+
     this.engineProvider = await this.engine.providerManager.getProvider(
       this.networkId,
     );
@@ -142,6 +151,15 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         address,
         coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
       })),
+    );
+  }
+
+  getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    return this.engine.providerManager.getTransactionStatuses(
+      this.networkId,
+      txids,
     );
   }
 
@@ -270,6 +288,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       ...signedTx,
       txid,
     };
+  }
+
+  // TODO: is currently a mint
+  async activateAccount() {
+    throw new NotImplemented();
+  }
+
+  async activateToken(
+    tokenAddress: string,
+    password: string,
+  ): Promise<boolean> {
+    throw new NotImplemented();
   }
 
   async getTokenAllowance(

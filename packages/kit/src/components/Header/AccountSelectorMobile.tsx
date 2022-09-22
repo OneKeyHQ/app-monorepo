@@ -6,8 +6,12 @@ import {
   useDrawerStatus,
 } from '@react-navigation/drawer';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { LazyDisplayView } from '../LazyDisplayView';
+import { useAccountSelectorInfo } from '../NetworkAccountSelector/hooks/useAccountSelectorInfo';
+
 import AccountSelectorChildren from './AccountSelectorChildren';
-import { useAccountSelectorInfo } from './AccountSelectorChildren/useAccountSelectorInfo';
 
 const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
   const status = useDrawerStatus();
@@ -18,16 +22,22 @@ const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
   });
 
   return (
-    <DrawerContentScrollView
-      {...props}
-      scrollEnabled={false}
-      contentContainerStyle={{ flexDirection: 'row', flex: 1 }}
+    <LazyDisplayView
+      delay={200}
+      hideOnUnmount={false}
+      isLazyDisabled={platformEnv.isNative}
     >
-      <AccountSelectorChildren
-        isOpen={isOpen}
-        accountSelectorInfo={accountSelectorInfo}
-      />
-    </DrawerContentScrollView>
+      <DrawerContentScrollView
+        {...props}
+        scrollEnabled={false}
+        contentContainerStyle={{ flexDirection: 'row', flex: 1 }}
+      >
+        <AccountSelectorChildren
+          isOpen={isOpen}
+          accountSelectorInfo={accountSelectorInfo}
+        />
+      </DrawerContentScrollView>
+    </LazyDisplayView>
   );
 };
 

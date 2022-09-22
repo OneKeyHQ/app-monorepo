@@ -10,15 +10,21 @@ import {
   ManageNetworkRoutesParams,
 } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
+import { NetworkAccountSelectorModal } from '../../components/NetworkAccountSelector';
 import { AddNetworkConfirm } from '../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
 import { SwitchNetwork } from '../../views/ManageNetworks/SwitchNetwork';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 const ManageNetworkNavigator =
   createStackNavigator<ManageNetworkRoutesParams>();
 
 const modalRoutes = [
+  {
+    name: ManageNetworkRoutes.NetworkAccountSelector,
+    component: NetworkAccountSelectorModal,
+  },
   {
     name: ManageNetworkRoutes.Listing,
     component: Listing,
@@ -49,10 +55,9 @@ const ManageNetworkModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <ManageNetworkNavigator.Navigator
-      screenOptions={{
-        headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+      screenOptions={(navInfo) => ({
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <ManageNetworkNavigator.Screen

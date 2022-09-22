@@ -14,7 +14,6 @@ import {
   ScrollView,
   Spinner,
   Switch,
-  Text,
   Typography,
   useTheme,
 } from '@onekeyhq/components';
@@ -30,7 +29,7 @@ import {
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import WalletAvatar from '../../components/Header/WalletAvatar';
+import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 
 import { ListEmptyComponent } from './Empty';
@@ -101,7 +100,15 @@ const Section: FC<
     refreash: () => Promise<void>;
     enabledAccounts: AccountDynamicItem[];
   }
-> = ({ name, type, accounts, avatar, enabledAccounts, refreash }) => {
+> = ({
+  name,
+  type,
+  accounts,
+  avatar,
+  enabledAccounts,
+  refreash,
+  passphraseState,
+}) => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const { serviceNotification } = backgroundApiProxy;
@@ -113,6 +120,7 @@ const Section: FC<
           accountId: account.id,
           address: account.address,
           name: account.name,
+          passphrase: !!passphraseState,
         });
       } else {
         await serviceNotification.removeAccountDynamic({
@@ -121,7 +129,7 @@ const Section: FC<
       }
       await refreash();
     },
-    [serviceNotification, refreash],
+    [serviceNotification, refreash, passphraseState],
   );
 
   const { length } = accounts;
@@ -206,6 +214,15 @@ const NotificationAccountDynamic = () => {
     useEnabledAccountDynamicAccounts();
   const navigation = useNavigation<NavigationProps>();
 
+  const supportedWallets = wallets
+    .map((w) => ({
+      ...w,
+      accounts: w.accounts.filter((a) =>
+        isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM),
+      ),
+    }))
+    .filter((w) => !!w.accounts.length);
+
   useLayoutEffect(() => {
     const title = intl.formatMessage({ id: 'title__manage_account_dynamic' });
     navigation.setOptions({
@@ -213,7 +230,7 @@ const NotificationAccountDynamic = () => {
     });
   }, [navigation, intl]);
 
-  if (!wallets.length) {
+  if (!supportedWallets.length) {
     return (
       <ListEmptyComponent
         isLoading={loading}
@@ -233,22 +250,14 @@ const NotificationAccountDynamic = () => {
       maxW={768}
       mx="auto"
     >
-      {wallets
-        .map((w) => ({
-          ...w,
-          accounts: w.accounts.filter((a) =>
-            isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM),
-          ),
-        }))
-        .filter((w) => !!w.accounts.length)
-        .map((wallet) => (
-          <Section
-            key={wallet.id}
-            {...wallet}
-            refreash={refresh}
-            enabledAccounts={enabledAccounts}
-          />
-        ))}
+      {supportedWallets.map((wallet) => (
+        <Section
+          key={wallet.id}
+          {...wallet}
+          refreash={refresh}
+          enabledAccounts={enabledAccounts}
+        />
+      ))}
     </ScrollView>
   );
 };

@@ -48,13 +48,6 @@ export type SwapRoutesParams = {
   };
 };
 
-export enum ApprovalState {
-  UNKNOWN = 'UNKNOWN',
-  NOT_APPROVED = 'NOT_APPROVED',
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-}
-
 export enum SwapError {
   QuoteFailed = 'QuoteFailed',
   InsufficientBalance = 'InsufficientBalance',
@@ -68,6 +61,7 @@ export enum QuoterType {
   socket = 'socket',
   mdex = 'mdex',
   zeroX = '0x',
+  jupiter = 'jupiter',
 }
 
 export type FieldType = 'INPUT' | 'OUTPUT';
@@ -117,10 +111,14 @@ export type QuoteData = {
   buyTokenAddress: string;
   allowanceTarget?: string;
   providers?: Provider[];
-  txData?: TransactionData;
-  txAttachment?: TransactionAttachment;
   arrivalTime?: number;
+  txData?: TransactionData;
+  additionalParams?: BuildTransactionAdditionalParameters;
 };
+
+export interface BuildTransactionAdditionalParameters {
+  socketUsedBridgeNames?: string[];
+}
 
 export interface TransactionAttachment {
   swftcOrderId?: string;
@@ -129,7 +127,7 @@ export interface TransactionAttachment {
 
 export type BuildTransactionParams = FetchQuoteParams & {
   txData?: TransactionData;
-  txAttachment?: TransactionAttachment;
+  additionalParams?: BuildTransactionAdditionalParameters;
 };
 
 type BuildTransactionError = {

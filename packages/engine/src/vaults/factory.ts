@@ -1,11 +1,13 @@
 /* eslint-disable new-cap, @typescript-eslint/require-await */
 import {
+  IMPL_APTOS,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TRON,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getNetworkImpl } from '../managers/network';
@@ -15,6 +17,8 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 
+import VaultAptos from './impl/apt/Vault';
+import VaultHelperAptos from './impl/apt/VaultHelper';
 import VaultBtc from './impl/btc/Vault';
 import VaultHelperBtc from './impl/btc/VaultHelper';
 import VaultCfx from './impl/cfx/Vault';
@@ -27,6 +31,8 @@ import VaultSol from './impl/sol/Vault';
 import VauleHelperSol from './impl/sol/VaultHelper';
 import VaultStc from './impl/stc/Vault';
 import VaultHelperStc from './impl/stc/VaultHelper';
+import VaultTron from './impl/tron/Vault';
+import VaultHelperTron from './impl/tron/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
 import type { KeyringBase } from './keyring/KeyringBase';
@@ -54,6 +60,12 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_SOL) {
     return new VauleHelperSol(options);
+  }
+  if (impl === IMPL_TRON) {
+    return new VaultHelperTron(options);
+  }
+  if (impl === IMPL_APTOS) {
+    return new VaultHelperAptos(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -115,6 +127,12 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_SOL) {
     vault = new VaultSol(options);
+  }
+  if (network.impl === IMPL_TRON) {
+    vault = new VaultTron(options);
+  }
+  if (network.impl === IMPL_APTOS) {
+    vault = new VaultAptos(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

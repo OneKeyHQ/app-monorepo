@@ -114,7 +114,7 @@ const RightChainSelector: FC<Props> = ({
           });
         }, 500);
       }}
-      renderTrigger={(activeOption, isHovered, visible) => (
+      renderTrigger={({ activeOption, isHovered, visible }) => (
         <Box
           display="flex"
           flexDirection="row"

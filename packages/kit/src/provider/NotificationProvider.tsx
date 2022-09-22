@@ -278,6 +278,15 @@ const NotificationProvider: React.FC<{
     checkPermissionAndInit,
   ]);
 
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    // sync local accounts first
+    // for disable hidden passphrase account dynamic subscriptions
+    backgroundApiProxy.serviceNotification.syncLocalEnabledAccounts();
+  }, []);
+
   return children;
 };
 

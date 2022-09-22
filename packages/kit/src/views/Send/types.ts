@@ -124,6 +124,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   feeInfoEditable: boolean;
   onDetail?: (txid: string) => any;
   signOnly?: boolean;
+  skipSaveHistory?: boolean;
 };
 
 export type IWalletConnectExternalAccountInfo = {

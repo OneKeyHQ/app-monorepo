@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
@@ -11,10 +11,9 @@ import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import { DeviceState } from '../../Provider/device';
 import { useSafeAreaInsets, useUserDevice } from '../../Provider/hooks';
-import BottomBarModal from '../BottomBarModal';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
-import type { BottomTabBarProps, TBottomBarRefAttr } from '../BottomTabs/types';
+import type { BottomTabBarProps } from '../BottomTabs/types';
 
 const DEFAULT_TABBAR_HEIGHT = 49;
 
@@ -38,10 +37,7 @@ export default function BottomTabBar({
   navigation,
   state,
   descriptors,
-  foldableList,
 }: BottomTabBarProps) {
-  const [isFABOpen, setFABOpenStatus] = useState(false);
-  const bottomBarRef = useRef<TBottomBarRefAttr>();
   const { size } = useUserDevice();
   const insets = useSafeAreaInsets();
   const { routes } = state;
@@ -82,8 +78,7 @@ export default function BottomTabBar({
               alignItems="center"
               px={0.5}
               py={1.5}
-              disabled={isFABOpen}
-              onPress={isFABOpen ? undefined : onPress}
+              onPress={onPress}
               _hover={{ bg: 'surface-hovered' }}
               rounded="xl"
               justifyContent="center"
@@ -101,84 +96,14 @@ export default function BottomTabBar({
               <Icon
                 // @ts-expect-error
                 name={options?.tabBarIcon?.() as ICON_NAMES}
-                color={
-                  isFABOpen
-                    ? 'icon-disabled'
-                    : isActive
-                    ? 'icon-pressed'
-                    : 'icon-subdued'
-                }
+                color={isActive ? 'icon-pressed' : 'icon-subdued'}
                 size={28}
               />
             </Pressable>
           </Box>
         );
       }),
-    [
-      descriptors,
-      horizontal,
-      navigation,
-      routes,
-      state.index,
-      state.key,
-      isFABOpen,
-    ],
-  );
-
-  const handleClose = useCallback(() => {
-    setFABOpenStatus(false);
-    bottomBarRef?.current?.close();
-  }, []);
-  const handleOpen = useCallback(() => {
-    setFABOpenStatus(true);
-    bottomBarRef?.current?.expand?.();
-    // @ts-expect-error
-    bottomBarRef?.current?.open?.();
-  }, []);
-
-  const tabsWithFloatButton = useMemo(() => {
-    const middleIndex = Math.floor(tabs.length / 2);
-    const onPress = () => {
-      if (isFABOpen) {
-        handleClose();
-      } else {
-        handleOpen();
-      }
-    };
-
-    return [
-      ...tabs.slice(0, middleIndex),
-      <Box
-        flex={1}
-        key={`@@middle-float-button-${isFABOpen ? 'open' : 'close'}`}
-        justifyContent="center"
-        alignItems="center"
-        mb={8}
-      >
-        <Pressable
-          alignItems="center"
-          w={12}
-          h={12}
-          onPress={onPress}
-          _hover={{ bg: 'surface-hovered' }}
-          rounded="full"
-          justifyContent="center"
-          bgColor="interactive-default"
-        >
-          <Icon
-            name={isFABOpen ? 'CloseOutline' : 'SwitchHorizontalOutline'}
-            size={24}
-            color="icon-on-primary"
-          />
-        </Pressable>
-      </Box>,
-      ...tabs.slice(middleIndex),
-    ];
-  }, [tabs, isFABOpen, handleClose, handleOpen]);
-
-  const items = useMemo(
-    () => foldableList.filter((item) => !item.hideInVerticalLayaout),
-    [foldableList],
+    [descriptors, horizontal, navigation, routes, state.index, state.key],
   );
 
   return (
@@ -196,18 +121,9 @@ export default function BottomTabBar({
         py={Math.max(insets.left ?? 0, insets.right ?? 0)}
       >
         <Box accessibilityRole="tablist" flex="1" flexDirection="row">
-          {tabsWithFloatButton}
+          {tabs}
         </Box>
       </Box>
-      <BottomBarModal
-        tabBarHeight={tabBarHeight}
-        foldableList={items}
-        onOpen={() => setFABOpenStatus(true)}
-        onClose={() => setFABOpenStatus(false)}
-        handleClose={handleClose}
-        handleOpen={handleOpen}
-        ref={(el) => (bottomBarRef.current = el || undefined)}
-      />
     </>
   );
 }

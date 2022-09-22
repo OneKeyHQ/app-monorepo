@@ -1,5 +1,5 @@
 diff --git a/node_modules/@walletconnect/core/dist/esm/index.js b/node_modules/@walletconnect/core/dist/esm/index.js
-index 23da9cb..affa2ca 100644
+index a66eece..fccf73d 100644
 --- a/node_modules/@walletconnect/core/dist/esm/index.js
 +++ b/node_modules/@walletconnect/core/dist/esm/index.js
 @@ -22,7 +22,8 @@ class Connector {
@@ -22,7 +22,26 @@ index 23da9cb..affa2ca 100644
          if (session) {
              this.session = session;
          }
-@@ -810,7 +812,9 @@ class Connector {
+@@ -354,7 +356,7 @@ class Connector {
+             ],
+         });
+     }
+-    rejectSession(sessionError) {
++    async rejectSession(sessionError) {
+         if (this._connected) {
+             throw new Error(ERROR_SESSION_CONNECTED);
+         }
+@@ -363,7 +365,8 @@ class Connector {
+             id: this.handshakeId,
+             error: { message },
+         });
+-        this._sendResponse(response);
++        // await is needs here, otherwise disconnect event will set peerId to "" before _transport.send()
++        await this._sendResponse(response);
+         this._connected = false;
+         this._eventManager.trigger({
+             event: "disconnect",
+@@ -810,7 +813,9 @@ class Connector {
              event: "transport_error",
              params: ["Websocket connection failed"],
          }));

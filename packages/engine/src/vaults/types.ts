@@ -1,7 +1,10 @@
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
+import { NFTAsset } from '../types/nft';
 import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
+
+import { IEncodedTxAptos } from './impl/apt/types';
 
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
@@ -21,6 +24,7 @@ import type {
 } from './impl/near/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
+import type { IEncodedTxTron } from './impl/tron/types';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // Options ----------------------------------------------
@@ -38,6 +42,8 @@ export type IVaultSettings = {
   minTransferAmount?: string;
 
   isUTXOModel: boolean;
+  activateAccountRequired?: boolean;
+  activateTokenRequired?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -93,7 +99,9 @@ export type IEncodedTx =
   | IEncodedTxNear
   | IEncodedTxBtc
   | IEncodedTxSTC
-  | IEncodedTxSol;
+  | IEncodedTxSol
+  | IEncodedTxTron
+  | IEncodedTxAptos;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear
@@ -246,9 +254,12 @@ export enum IDecodedTxActionType {
   // TOKEN
   TOKEN_TRANSFER = 'TOKEN_TRANSFER',
   TOKEN_APPROVE = 'TOKEN_APPROVE',
+  TOKEN_ACTIVATE = 'TOKEN_ACTIVATE',
 
   // NFT
-  // NFT_TRANSFER = 'NFT_TRANSFER',
+  NFT_TRANSFER = 'NFT_TRANSFER',
+  NFT_MINT = 'NFT_MINT',
+  NFT_SALE = 'NFT_SALE',
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',
@@ -305,12 +316,28 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amountValue: string;
   isMax: boolean;
 };
+export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
+  tokenAddress: string;
+  logoURI: string;
+  decimals: number;
+  name: string;
+  symbol: string;
+};
 export type IDecodedTxActionEvmInfo = {
   from: string;
   to: string;
   value: string;
   data?: string;
 };
+export type IDecodedTxActionNFTTransfer = IDecodedTxActionBase & {
+  asset: NFTAsset;
+  send: string;
+  receive: string;
+  amount: string;
+  value?: string;
+  exchangeName?: string; // Only for Sale
+};
+
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
 export type IDecodedTxActionInternalStake = IDecodedTxActionBase & IStakeInfo;
 // other Unknown Action
@@ -322,12 +349,14 @@ export type IDecodedTxAction = {
   nativeTransfer?: IDecodedTxActionNativeTransfer;
   tokenTransfer?: IDecodedTxActionTokenTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
+  tokenActivate?: IDecodedTxActionTokenActivate;
   internalSwap?: IDecodedTxActionInternalSwap;
   internalStake?: IDecodedTxActionInternalStake;
   functionCall?: IDecodedTxActionFunctionCall;
   // other Unknown Action
   unknownAction?: IDecodedTxActionUnknown;
   evmInfo?: IDecodedTxActionEvmInfo;
+  nftTransfer?: IDecodedTxActionNFTTransfer;
 };
 export type IDecodedTx = {
   txid: string; // blockHash

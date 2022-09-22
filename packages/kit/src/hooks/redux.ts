@@ -11,16 +11,10 @@ import {
 } from '@onekeyhq/engine/src/types/wallet';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { appDispatch, appSelector } from '../store';
+import { appSelector } from '../store';
 
 import type { IAppState } from '../store';
 
-export const useAppDispatch = () => {
-  console.error(
-    '`useAppDispatch()` is deprecated. use `const { dispatch } = backgroundApiProxy;` instead.',
-  );
-  return appDispatch;
-};
 export const useAppSelector: TypedUseSelectorHook<IAppState> = useSelector;
 
 export type ISelectorBuilder = (

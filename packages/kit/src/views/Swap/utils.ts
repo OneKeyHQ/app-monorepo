@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import { enabledNetworkIds } from './config';
 import { QuoterType } from './typings';
 
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
@@ -117,6 +118,19 @@ export function formatAmount(value?: BigNumber.Value, precision = 4) {
   return bn.decimalPlaces(precision).toFixed();
 }
 
+export function calculateRate(
+  inDecimals: number,
+  outDecimals: number,
+  inNum: number | string,
+  outNum: number | string,
+): string {
+  const result = new BigNumber(10 ** inDecimals)
+    .multipliedBy(outNum)
+    .div(10 ** outDecimals)
+    .div(inNum);
+  return result.toFixed();
+}
+
 export function getChainIdFromNetwork(network?: Network): string {
   const chainId = network?.extraInfo?.chainId;
   return network ? String(+chainId) : '';
@@ -131,6 +145,10 @@ export function isEvmNetworkId(networdId?: string) {
     return;
   }
   return networdId.split('--')[0] === 'evm';
+}
+
+export function isNetworkEnabled(network?: Network) {
+  return network && enabledNetworkIds.includes(network.id);
 }
 
 export function getEvmTokenAddress(token: Token) {

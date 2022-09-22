@@ -3,7 +3,7 @@ import React, { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, IconButton, Pressable, Text } from '@onekeyhq/components';
-import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 type SectionHeaderProps = {
   walletName?: string;

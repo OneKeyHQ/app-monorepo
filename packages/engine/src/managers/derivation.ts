@@ -1,18 +1,22 @@
 import {
   COINTYPE_ALGO,
+  COINTYPE_APTOS,
   COINTYPE_BTC,
   COINTYPE_CFX,
   COINTYPE_ETH,
   COINTYPE_NEAR,
   COINTYPE_SOL,
   COINTYPE_STC,
+  COINTYPE_TRON,
   IMPL_ALGO,
+  IMPL_APTOS,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TRON,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
 
@@ -24,6 +28,8 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_STC]: [44],
   [IMPL_CFX]: [44],
   [IMPL_BTC]: [49, 44, 84],
+  [IMPL_TRON]: [44],
+  [IMPL_APTOS]: [44],
 };
 
 // derive path template by coin types.
@@ -31,12 +37,15 @@ const INCREMENT_LEVEL_TAG = 'INCR';
 const PURPOSE_TAG = 'PURPOSE';
 const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_ALGO]: `m/44'/${COINTYPE_ALGO}'/0'/0'/${INCREMENT_LEVEL_TAG}'`,
+  // see https://aptos.dev/guides/building-your-own-wallet#supporting-1-mnemonic---n-account-wallets
+  [COINTYPE_APTOS]: `m/44'/${COINTYPE_APTOS}'/${INCREMENT_LEVEL_TAG}'/0'/0'`,
   [COINTYPE_ETH]: `m/44'/${COINTYPE_ETH}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_NEAR]: `m/44'/${COINTYPE_NEAR}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_SOL]: `m/44'/${COINTYPE_SOL}'/${INCREMENT_LEVEL_TAG}'/0'`,
   [COINTYPE_STC]: `m/44'/${COINTYPE_STC}'/0'/0'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_CFX]: `m/44'/${COINTYPE_CFX}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_BTC]: `m/${PURPOSE_TAG}'/${COINTYPE_BTC}'/${INCREMENT_LEVEL_TAG}'`,
+  [COINTYPE_TRON]: `m/44'/${COINTYPE_TRON}'/0'/0/${INCREMENT_LEVEL_TAG}`,
 };
 
 function getDerivationPaths(

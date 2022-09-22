@@ -317,6 +317,15 @@ function createMainWindow() {
         callback(url);
       },
     );
+    browserWindow.webContents.on(
+      'did-fail-load',
+      (_, __, ___, validatedURL) => {
+        const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
+        if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
+          browserWindow.loadURL(src);
+        }
+      },
+    );
   }
 
   browserWindow.on('close', (event: Event) => {

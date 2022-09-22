@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 
 import { Box } from '@onekeyhq/components';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import { useActiveWalletAccount } from '../../../../hooks';
 
@@ -17,10 +18,10 @@ const StakedAssets: FC<StakedAssetsProps> = ({
 }) => {
   const { accountId } = useActiveWalletAccount();
   let children: JSX.Element | undefined;
-  if (networkId === 'evm--1' && !tokenIdOnNetwork) {
+  if (networkId === OnekeyNetwork.eth && !tokenIdOnNetwork) {
     children = <ETHAsset networkId={networkId} accountId={accountId} />;
   }
-  if (networkId === 'evm--3' && !tokenIdOnNetwork) {
+  if (networkId === OnekeyNetwork.teth && !tokenIdOnNetwork) {
     children = <ETHAsset networkId={networkId} accountId={accountId} />;
   }
   return children ? <Box mb="4">{children}</Box> : null;

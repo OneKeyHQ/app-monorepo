@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -21,6 +22,8 @@ import {
 } from '../typings';
 import {
   calculateRange,
+  calculateRate,
+  div,
   getChainIdFromNetwork,
   getChainIdFromNetworkId,
   getEvmTokenAddress,
@@ -118,20 +121,15 @@ export interface SocketBridgeStatusResponse {
   };
 }
 
-const baseURL = `${getFiatEndpoint()}/socketBridge`;
-
-function calculateRate(
-  inDecimals: number,
-  outDecimals: number,
-  inNum: number | string,
-  outNum: number | string,
-): string {
-  const result = new BigNumber(10 ** inDecimals)
-    .multipliedBy(outNum)
-    .div(10 ** outDecimals)
-    .div(inNum);
-  return result.toFixed();
+interface SocketTokenPrice {
+  chainId: number;
+  tokenAddress: string;
+  tokenPrice: number;
+  decimals: number;
+  currency: string;
 }
+
+const baseURL = `${getFiatEndpoint()}/socketBridge`;
 
 interface SupportedChain {
   name: string;
@@ -166,6 +164,98 @@ export class SocketQuoter implements Quoter {
 
   prepare() {
     this.refreshSupportedChains();
+  }
+
+  async fetchTokenPrice(token: Token): Promise<SocketTokenPrice | undefined> {
+    const url = `${baseURL}/token-price`;
+    const data = await this.client.get(url, {
+      params: {
+        tokenAddress: getEvmTokenAddress(token),
+        chainId: getChainIdFromNetworkId(token.networkId),
+      },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return data?.data?.result as SocketTokenPrice | undefined;
+  }
+
+  async fetchInstantTokenRate(
+    tokenIn: Token,
+    tokenOut: Token,
+  ): Promise<number | undefined> {
+    const tokenInPrice = await this.fetchTokenPrice(tokenIn);
+    const tokenOutPrice = await this.fetchTokenPrice(tokenOut);
+    if (tokenInPrice && tokenOutPrice) {
+      return new BigNumber(tokenOutPrice.tokenPrice)
+        .div(tokenInPrice.tokenPrice)
+        .toNumber();
+    }
+    return undefined;
+  }
+
+  async fetchInstantTokenRateFromChain(
+    tokenIn: Token,
+    tokenOut: Token,
+    userAddress: string,
+  ): Promise<number | undefined> {
+    const url = `${baseURL}/quote`;
+    const params = {
+      fromChainId: getChainIdFromNetworkId(tokenIn.networkId),
+      fromTokenAddress: getEvmTokenAddress(tokenIn),
+      toChainId: getChainIdFromNetworkId(tokenOut.networkId),
+      toTokenAddress: getEvmTokenAddress(tokenOut),
+      fromAmount: getTokenAmountString(tokenIn, '1'),
+      userAddress,
+      sort: 'output',
+      singleTxOnly: true,
+    };
+    let res = await this.client.get(url, { params });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    let data = res?.data?.result as SocketQuoteResponse | undefined;
+    if (!data) {
+      return;
+    }
+    if (data.routes.length > 0) {
+      const route = data.routes[0];
+      const instantRate = calculateRate(
+        tokenIn.decimals,
+        tokenOut.decimals,
+        route.fromAmount,
+        route.toAmount,
+      );
+      return Number(instantRate);
+    }
+    if (!data.bridgeRouteErrors) {
+      return;
+    }
+    const bridgeRouteError = Object.values(data.bridgeRouteErrors).find(
+      (item) => item.maxAmount || item.minAmount,
+    );
+    if (!bridgeRouteError) {
+      return;
+    }
+    const fromAmount =
+      bridgeRouteError?.maxAmount || bridgeRouteError?.minAmount;
+    if (!fromAmount) {
+      return;
+    }
+    params.fromAmount = fromAmount;
+
+    res = await this.client.get(url, { params });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    data = res?.data?.result as SocketQuoteResponse | undefined;
+    if (!data) {
+      return;
+    }
+    if (data.routes.length > 0) {
+      const route = data.routes[0];
+      const instantRate = calculateRate(
+        tokenIn.decimals,
+        tokenOut.decimals,
+        route.fromAmount,
+        route.toAmount,
+      );
+      return Number(instantRate);
+    }
   }
 
   async refreshSupportedChains() {
@@ -231,11 +321,14 @@ export class SocketQuoter implements Quoter {
     return data;
   }
 
-  async fetchSimpleQuote(
+  async fetchSimpleQuoteFromInput(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
     const url = `${baseURL}/quote`;
-    if (params.networkIn.id !== params.networkOut.id) {
+    if (
+      params.networkIn.id !== params.networkOut.id ||
+      params.independentField === 'OUTPUT'
+    ) {
       return undefined;
     }
 
@@ -315,7 +408,6 @@ export class SocketQuoter implements Quoter {
           txData,
           arrivalTime: 30,
           providers,
-          txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
         };
 
         return { data: result };
@@ -323,7 +415,48 @@ export class SocketQuoter implements Quoter {
     }
   }
 
-  async fetchCrosschainQuote(
+  async fetchSimpleQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    const { independentField } = params;
+    if (independentField === 'INPUT') {
+      return this.fetchSimpleQuoteFromInput(params);
+    }
+    const { tokenIn, tokenOut, typedValue } = params;
+    const instantRate = await this.fetchInstantTokenRateFromChain(
+      tokenIn,
+      tokenOut,
+      params.activeAccount.address,
+    );
+    if (!instantRate) {
+      return;
+    }
+
+    const newTypedValue = div(typedValue, instantRate);
+    const newParams = { ...params };
+    newParams.independentField = 'INPUT';
+    newParams.typedValue = newTypedValue;
+
+    const result = await this.fetchSimpleQuoteFromInput(newParams);
+    if (!result?.data) {
+      return result;
+    }
+
+    const buyAmountBN = new BigNumber(result.data.buyAmount);
+    const expectedbuyAmount = new BigNumber(
+      getTokenAmountString(tokenOut, typedValue),
+    );
+    const isExpected = buyAmountBN.isGreaterThan(
+      expectedbuyAmount.multipliedBy(0.95),
+    );
+    if (isExpected) {
+      const { data } = result;
+      data.buyAmount = getTokenAmountString(tokenOut, typedValue);
+      return { data };
+    }
+  }
+
+  async fetchMultichainQuoteFromInput(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
     const url = `${baseURL}/quote`;
@@ -402,7 +535,7 @@ export class SocketQuoter implements Quoter {
         txData,
         arrivalTime: route.serviceTime,
         providers,
-        txAttachment: { socketUsedBridgeNames: route.usedBridgeNames },
+        additionalParams: { socketUsedBridgeNames: route.usedBridgeNames },
       };
       return { data: result };
     }
@@ -418,6 +551,45 @@ export class SocketQuoter implements Quoter {
     }
   }
 
+  async fetchMultichainQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    if (params.independentField === 'INPUT') {
+      return this.fetchMultichainQuoteFromInput(params);
+    }
+    const { tokenIn, tokenOut, typedValue } = params;
+    const instantRate = await this.fetchInstantTokenRateFromChain(
+      tokenIn,
+      tokenOut,
+      params.activeAccount.address,
+    );
+    if (!instantRate) {
+      return;
+    }
+
+    const newTypedValue = div(typedValue, instantRate);
+    const newParams = { ...params };
+    newParams.independentField = 'INPUT';
+    newParams.typedValue = newTypedValue;
+
+    const result = await this.fetchMultichainQuoteFromInput(newParams);
+    if (!result?.data) {
+      return result;
+    }
+    const buyAmountBN = new BigNumber(result.data.buyAmount);
+    const expectedbuyAmount = new BigNumber(
+      getTokenAmountString(tokenOut, typedValue),
+    );
+    const isExpected = buyAmountBN.isGreaterThan(
+      expectedbuyAmount.multipliedBy(0.95),
+    );
+    if (isExpected) {
+      const { data } = result;
+      data.buyAmount = getTokenAmountString(tokenOut, typedValue);
+      return { data };
+    }
+  }
+
   async fetchQuote(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
@@ -427,20 +599,31 @@ export class SocketQuoter implements Quoter {
     if (params.networkIn.id === params.networkOut.id) {
       return this.fetchSimpleQuote(params);
     }
-    return this.fetchCrosschainQuote(params);
+    return this.fetchMultichainQuote(params);
   }
 
   async buildTransaction(
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
-    const { txData, txAttachment } = params;
+    const { txData, additionalParams } = params;
     if (txData) {
-      return { data: txData, attachment: txAttachment };
+      return {
+        data: txData,
+        attachment: {
+          socketUsedBridgeNames: additionalParams?.socketUsedBridgeNames,
+        },
+      };
     }
     const data = await this.fetchQuote(params);
     if (data?.data) {
       if (data?.data?.txData) {
-        return { data: data?.data.txData, attachment: data?.data.txAttachment };
+        return {
+          data: data?.data.txData,
+          attachment: {
+            socketUsedBridgeNames:
+              data.data.additionalParams?.socketUsedBridgeNames,
+          },
+        };
       }
     }
 

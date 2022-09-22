@@ -15,7 +15,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,

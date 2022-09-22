@@ -65,7 +65,7 @@ const AccountAmountInfo: FC = () => {
     pollingInterval: 15000,
   });
 
-  const { isHwWallet, copyAddress } = useCopyAddress({ wallet });
+  const { copyAddress } = useCopyAddress({ wallet });
 
   const [summedValue, summedValueComp] = useMemo(() => {
     const displayValue = getSummedValues({
@@ -164,11 +164,7 @@ const AccountAmountInfo: FC = () => {
             mr={2}
             color="text-subdued"
           >
-            {isHwWallet
-              ? intl.formatMessage({ id: 'action__copy_address' })
-              : shortenAddress(
-                  account?.displayAddress ?? account?.address ?? '',
-                )}
+            {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
           </Text>
           <Icon name="DuplicateOutline" size={16} />
         </Pressable>

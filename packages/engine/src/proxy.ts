@@ -61,7 +61,7 @@ import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
 
 // IMPL naming aren't necessarily the same.
-const IMPL_MAPPINGS: Record<
+export const IMPL_MAPPINGS: Record<
   string,
   { implName?: string; defaultClient: string }
 > = {
@@ -78,9 +78,6 @@ type Curve = 'secp256k1' | 'ed25519';
 
 function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   const defaultClient = IMPL_MAPPINGS[dbNetwork.impl]?.defaultClient;
-  if (typeof defaultClient === 'undefined') {
-    throw new OneKeyInternalError('Unable to build chain info from dbNetwork.');
-  }
 
   let providerOptions: Record<string, any> = {};
   let { rpcURL } = dbNetwork;

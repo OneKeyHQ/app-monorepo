@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { Image } from 'native-base';
@@ -8,6 +14,7 @@ import { StyleSheet } from 'react-native';
 import {
   Box,
   Center,
+  Empty,
   HStack,
   Icon,
   Modal,
@@ -17,15 +24,18 @@ import {
   VStack,
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import X from '@onekeyhq/kit/assets/connect_x.png';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks';
+import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
+import { useEffectUpdateOnly } from '../../hooks/useEffectUpdateOnly';
+import { refreshConnectedSites } from '../../store/reducers/refresher';
 
 import RugConfirmDialog from './RugConfirmDialog';
 import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
@@ -57,20 +67,63 @@ type RouteProps = RouteProp<
   DappConnectionModalRoutes.ConnectionModal
 >;
 
+let lastWalletConnectUri: string | undefined = '';
+
 /* Connection Modal are use to accept user with permission to dapp */
 const defaultSourceInfo = Object.freeze({}) as IDappSourceInfo;
 const Connection = () => {
+  const { dispatch } = backgroundApiProxy;
+  const { closeDappConnectionPreloadingTs } = useAppSelector(
+    (s) => s.refresher,
+  );
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
   const { networkImpl, network, accountAddress, account } =
     useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? defaultSourceInfo;
-  const computedIsRug = isRug(origin);
+  const computedIsRug = useMemo(() => isRug(origin), [origin]);
+  const hostname = useMemo(() => {
+    try {
+      return new URL(origin).hostname;
+    } catch {
+      return origin?.split('://')?.[1] || origin;
+    }
+  }, [origin]);
   const route = useRoute<RouteProps>();
   const walletConnectUri = route?.params?.walletConnectUri;
+  lastWalletConnectUri = walletConnectUri;
   const isWalletConnectPreloading = Boolean(walletConnectUri);
   const [walletConnectError, setWalletConnectError] = useState<string>('');
+  const closeModal = useModalClose();
+
+  const isClosedDone = useRef(false);
+  useEffectUpdateOnly(() => {
+    if (isClosedDone.current) {
+      return;
+    }
+    // **** close preloading Modal on Extension
+    if (platformEnv.isExtensionUi) {
+      if (isWalletConnectPreloading) {
+        if (closeDappConnectionPreloadingTs) {
+          isClosedDone.current = true;
+          closeModal();
+        }
+      }
+    }
+  }, [
+    closeDappConnectionPreloadingTs,
+    closeModal,
+    dispatch,
+    isWalletConnectPreloading,
+  ]);
+
+  useEffect(
+    () => () => {
+      isClosedDone.current = true;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (walletConnectUri) {
@@ -78,15 +131,23 @@ const Connection = () => {
         .connect({
           uri: walletConnectUri || '',
         })
+        .then(() => {
+          if (!isClosedDone.current && lastWalletConnectUri) {
+            closeModal();
+            isClosedDone.current = true;
+          }
+          dispatch(refreshConnectedSites());
+        })
         .catch((error) => {
-          debugLogger.walletConnect.error(error);
+          debugLogger.common.error(error);
           setWalletConnectError(
+            // TODO general connection failed error
             // timeout or qrcode expired
-            intl.formatMessage({ id: 'msg__hardware_connect_timeout_error' }),
+            intl.formatMessage({ id: 'modal__failed_to_connect' }),
           );
         });
     }
-  }, [intl, walletConnectUri]);
+  }, [closeModal, dispatch, intl, walletConnectUri]);
 
   // TODO move to DappService
   const getResolveData = useCallback(() => {
@@ -167,12 +228,20 @@ const Connection = () => {
         // TODO onClose may trigger many times
         onModalClose={dappApprove.reject}
         scrollViewProps={{
+          contentContainerStyle: { flex: 1 },
           children: isWalletConnectPreloading ? (
             <Center flex={1} minH="300px">
               {walletConnectError ? (
-                <Typography.DisplayXLarge my="16px">
-                  {walletConnectError}
-                </Typography.DisplayXLarge>
+                // <Typography.DisplayXLarge my="16px">
+                //   {walletConnectError}
+                // </Typography.DisplayXLarge>
+                <Empty
+                  emoji="😵"
+                  title={walletConnectError}
+                  subTitle={intl.formatMessage({
+                    id: 'empty__connection_failed_desc',
+                  })}
+                />
               ) : (
                 <Spinner size="lg" />
               )}
@@ -180,7 +249,7 @@ const Connection = () => {
           ) : (
             // Add padding to escape the footer
             <VStack flex="1" space={6}>
-              <Center flex="1" mt="12px">
+              <Center mt="12px">
                 <HStack alignItems="center">
                   <Box
                     size="44px"
@@ -214,7 +283,7 @@ const Connection = () => {
                   })}
                 </Typography.DisplayXLarge>
                 <Typography.Body2 textAlign="right" color="text-subdued" mt={1}>
-                  {origin?.split('://')[1] ?? 'DApp'}
+                  {hostname ?? 'DApp'}
                 </Typography.Body2>
               </Center>
               <VStack space={6} mx="8px" mt="40px">

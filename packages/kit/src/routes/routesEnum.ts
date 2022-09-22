@@ -11,6 +11,7 @@ export enum ModalRoutes {
   ManagerWallet = 'ManagerWallet',
   ManagerAccount = 'ManagerAccount',
   WalletViewMnemonics = 'WalletViewMnemonics',
+  ManageConnectedSites = 'ManageConnectedSites',
   // Found screens with the same name nested inside one another. Check:
   //    modal > Send, modal > Send > Send
   Send = 'Send',
@@ -36,6 +37,7 @@ export enum ModalRoutes {
   AddressBook = 'AddressBook',
   ImportBackupPassword = 'ImportBackupPassword',
   Staking = 'Staking',
+  PushNotification = 'PushNotification',
 }
 
 export enum RootRoutes {
@@ -45,6 +47,9 @@ export enum RootRoutes {
   Onboarding = 'onboarding',
   Account = 'account',
   OnLanding = 'onlanding',
+}
+export enum ReceiveTokenRoutes {
+  ReceiveToken = 'ReceiveToken',
 }
 export enum HomeRoutes {
   // InitialTab = 'overview',
@@ -79,6 +84,25 @@ export enum TabRoutes {
   Developer = 'developer',
   Send = 'send',
   Receive = 'receive',
+}
+
+export enum CreateAccountModalRoutes {
+  CreateAccountForm = 'CreateAccountForm',
+  CreateAccountAuthentication = 'CreateAccountAuthentication',
+  RecoverySelectChainList = 'RecoverySelectChainList',
+  RecoverAccountsList = 'RecoverAccountList',
+  RecoverAccountsConfirm = 'RecoverAccountsConfirm',
+  RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
+}
+
+export enum ManageNetworkRoutes {
+  NetworkAccountSelector = 'NetworkAccountSelector',
+  Listing = 'Listing',
+  AddNetwork = 'AddNetwork',
+  CustomNetwork = 'CustomNetwork',
+  PresetNetwork = 'PresetNetwork',
+  AddNetworkConfirm = 'AddNetworkConfirm',
+  SwitchNetwork = 'SwitchNetwork',
 }
 
 export enum CreateWalletModalRoutes {

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
+import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
@@ -151,12 +152,16 @@ if (process.env.NODE_ENV !== 'production') {
 
 const Stack = createNativeStackNavigator();
 
+function buildTabName(name: TabRoutes) {
+  return `tab-${name}`;
+}
+
 export const getStackTabScreen = (tabName: TabRoutes) => {
   const tab = tabRoutes.find((t) => t.name === tabName) as TabRouteConfig;
   const screens = [
     {
       // fix: Found screens with the same name nested inside one another
-      name: `tab-${tab.name}`,
+      name: buildTabName(tab.name),
       component: tab.component,
     },
     ...(tab.children || []),
@@ -168,6 +173,7 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
       'text-default',
       'border-subdued',
     ]);
+    const renderHeader = useCallback(() => <LayoutHeaderDesktop />, []);
     return (
       <Stack.Navigator
         screenOptions={{
@@ -185,11 +191,28 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
           headerTintColor: textColor,
         }}
       >
-        {screens.map((s, index) => (
-          <Stack.Group key={s.name} screenOptions={{ headerShown: index > 0 }}>
-            <Stack.Screen name={s.name} component={s.component} />
-          </Stack.Group>
-        ))}
+        {screens.map((s, index) => {
+          const tabsWithHeader = [TabRoutes.Home, TabRoutes.Swap].map(
+            buildTabName,
+          );
+          const customRenderHeader =
+            index === 0 && tabsWithHeader.includes(s.name)
+              ? renderHeader
+              : undefined;
+          return (
+            // show navigation header
+            <Stack.Group
+              key={s.name}
+              screenOptions={{
+                header: customRenderHeader,
+                // lazy: true,
+                headerShown: index > 0 || Boolean(customRenderHeader),
+              }}
+            >
+              <Stack.Screen name={s.name} component={s.component} />
+            </Stack.Group>
+          );
+        })}
       </Stack.Navigator>
     );
   };

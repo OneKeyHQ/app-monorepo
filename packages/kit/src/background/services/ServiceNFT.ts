@@ -38,6 +38,29 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
+  async batchLocalCollection({
+    networkId,
+    accountId,
+    contractAddressList,
+  }: {
+    networkId: string;
+    accountId: string;
+    contractAddressList: string[];
+  }) {
+    const collections = await this.getLocalNFTs({ networkId, accountId });
+    const collectionMap: Record<string, Collection> = {};
+    contractAddressList.forEach((address) => {
+      const collection = collections.find(
+        (item) => item.contractAddress && item.contractAddress === address,
+      );
+      if (collection) {
+        collectionMap[address] = collection;
+      }
+    });
+    return collectionMap;
+  }
+
+  @backgroundMethod()
   async getLocalNFTs({
     networkId,
     accountId,
@@ -91,15 +114,18 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   async fetchSymbolPrice(networkId: string) {
-    const price = await getNFTSymbolPrice(networkId);
-    const { dispatch } = this.backgroundApi;
-    dispatch(
-      setNFTSymbolPrice({
-        networkId,
-        price,
-      }),
-    );
-    return price;
+    const priceStr = await getNFTSymbolPrice(networkId);
+    if (priceStr) {
+      const price = parseFloat(priceStr);
+      const { dispatch } = this.backgroundApi;
+      dispatch(
+        setNFTSymbolPrice({
+          networkId,
+          price,
+        }),
+      );
+      return price;
+    }
   }
 
   @backgroundMethod()

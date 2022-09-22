@@ -16,7 +16,6 @@ jobs:
         node-version: [16.x]
 
     steps:
-
       - name: Checkout Source Code
         uses: actions/checkout@v2
         with:
@@ -24,7 +23,7 @@ jobs:
 
       - name: Dotenv Action
         id: dotenv
-        uses: falti/dotenv-action@v0.2.7
+        uses: OneKeyHQ/actions/dotenv-action@main
         with:
           path: .env.version
 
@@ -59,7 +58,6 @@ jobs:
           github_ref: ${{ github.ref }}
           workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
-
       - name: Setup Node
         uses: actions/setup-node@v2
         with:
@@ -85,7 +83,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn global add expo-cli && yarn
+          yarn global add expo-cli sharp-cli@^1.10.0 && yarn
 
       - name: Inject Environment Variables
         env:
@@ -110,7 +108,7 @@ jobs:
             ./packages/ext/build/_dist/*.zip
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/onekey-github-actions/notice-slack-app-update@main
+        uses: onekeyhq/actions/notice-slack-app-update@main
         with:
           web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
           artifact-type: Extension

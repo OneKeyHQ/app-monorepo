@@ -267,7 +267,7 @@ export const SecuritySection = () => {
                 options={lockTimerOptions}
                 dropdownProps={{ width: '64' }}
                 dropdownPosition="right"
-                renderTrigger={(activeOption) => (
+                renderTrigger={({ activeOption }) => (
                   <SelectTrigger<number>
                     title={intl.formatMessage({
                       id: 'form__app_lock_timer',

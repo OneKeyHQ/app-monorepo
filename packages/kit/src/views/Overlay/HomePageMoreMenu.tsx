@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { MessageDescriptor, useIntl } from 'react-intl';
 
@@ -13,7 +13,11 @@ import {
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import {
+  IMPL_EVM,
+  enabledAccountDynamicNetworkIds,
+} from '@onekeyhq/engine/src/constants';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,13 +34,6 @@ import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
 
-const enabledAccountDynamicNetworkIds = [
-  'evm--1',
-  'evm--137',
-  'evm--42161',
-  'evm--10',
-];
-
 const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const intl = useIntl();
   const toast = useToast();
@@ -46,6 +43,8 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   const { serviceNotification, dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
   const { enabledAccounts, loading } = useEnabledAccountDynamicAccounts();
+  const [needActivateAccount, setNeedActivateAccount] =
+    useState<boolean>(false);
 
   const enabledNotification = useMemo(
     () =>
@@ -54,6 +53,17 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       ),
     [enabledAccounts, account],
   );
+
+  useEffect(() => {
+    (async () => {
+      if (!network) return false;
+
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+        network.id,
+      );
+      setNeedActivateAccount(!!vaultSettings?.activateAccountRequired);
+    })();
+  }, [network]);
 
   const showSubscriptionIcon =
     !!account &&
@@ -92,6 +102,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         accountId: account.id,
         address: account.address,
         name: account.name,
+        passphrase: !!wallet && isPassphraseWallet(wallet),
       });
     }
     if (!res) {
@@ -105,6 +116,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       }),
     });
   }, [
+    wallet,
     account,
     intl,
     toast,
@@ -128,6 +140,17 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         id: 'action__scan',
         onPress: () => gotoScanQrcode(),
         icon: 'ScanSolid',
+      },
+      !!needActivateAccount && {
+        id: 'action__get_faucet',
+        onPress: () => {
+          if (!account) return;
+          if (!network) return;
+          backgroundApiProxy.engine
+            .activateAccount(account.id, network.id)
+            .catch(() => {});
+        },
+        icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbSolid',
       },
       // TODO Connected Sites
       walletType !== 'watching' && {
@@ -189,16 +212,17 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       // TODO Share
     ],
     [
-      showSubscriptionIcon,
-      accountSubscriptionIcon,
-      onChangeAccountSubscribe,
-      enabledNotification,
       disableScan,
-      walletType,
+      needActivateAccount,
       isVerticalLayout,
+      walletType,
+      showSubscriptionIcon,
+      enabledNotification,
+      onChangeAccountSubscribe,
+      accountSubscriptionIcon,
       account,
+      network,
       navigation,
-      network?.id,
       copyAddress,
     ],
   );

@@ -5,6 +5,8 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { cloneDeep, debounce } from 'lodash';
 
+import { SEPERATOR } from '@onekeyhq/engine/src/constants';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
 import {
@@ -38,6 +40,18 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  @backgroundMethod()
+  async getActiveConnectedAccountsAsync({
+    origin,
+    impl,
+  }: {
+    origin: string;
+    impl: string;
+  }) {
+    return this.getActiveConnectedAccounts({ origin, impl });
+  }
+
   // TODO add IInjectedProviderNames or scope
   getActiveConnectedAccounts({
     origin,
@@ -47,7 +61,7 @@ class ServiceDapp extends ServiceBase {
     impl: string;
   }): DappSiteConnection[] {
     const { appSelector } = this.backgroundApi;
-    const { accountAddress } = getActiveWalletAccount();
+    const { accountAddress, accountId } = getActiveWalletAccount();
     const connections: DappSiteConnection[] = appSelector(
       (s) => s.dapp.connections,
     );
@@ -58,7 +72,17 @@ class ServiceDapp extends ServiceBase {
     }
     const accounts = connections
       .filter(
-        (item) => item.site.origin === origin && item.networkImpl === impl,
+        (item) => {
+          try {
+            return (
+              // only match hostname
+              new URL(item.site.origin).hostname === new URL(origin).hostname &&
+              item.networkImpl === impl
+            );
+          } catch {
+            return false;
+          }
+        },
         // && item.address === accountAddress, // only match current active account
       )
       .filter((item) => item.address && item.networkImpl);
@@ -66,7 +90,16 @@ class ServiceDapp extends ServiceBase {
     if (accounts.length) {
       const list = cloneDeep(accounts);
       // support all accounts for dapp connection, do NOT need approval again
-      list.forEach((item) => (item.address = accountAddress));
+      list.forEach((item) => {
+        if (
+          isAccountCompatibleWithNetwork(
+            accountId,
+            `${item.networkImpl}${SEPERATOR}1`,
+          )
+        ) {
+          item.address = accountAddress;
+        }
+      });
       return list;
     }
     return accounts;
@@ -80,6 +113,37 @@ class ServiceDapp extends ServiceBase {
   @backgroundMethod()
   removeConnectedAccounts(payload: DappSiteConnectionRemovePayload) {
     this.backgroundApi.dispatch(dappRemoveSiteConnections(payload));
+    setTimeout(() => {
+      this.backgroundApi.serviceAccount.notifyAccountsChanged();
+    }, 1500);
+  }
+
+  @backgroundMethod()
+  async cancellConnectedSite(payload: DappSiteConnection): Promise<void> {
+    // check walletConnect
+    if (
+      this.backgroundApi.walletConnect.connector &&
+      this.backgroundApi.walletConnect.connector.peerMeta?.url ===
+        payload.site.origin
+    ) {
+      this.backgroundApi.walletConnect.disconnect();
+    }
+    this.removeConnectedAccounts({
+      origin: payload.site.origin,
+      networkImpl: payload.networkImpl,
+      addresses: [payload.address],
+    });
+    await this.backgroundApi.serviceAccount.notifyAccountsChanged();
+  }
+
+  @backgroundMethod()
+  async getWalletConnectSession() {
+    if (this.backgroundApi.walletConnect.connector) {
+      const { session } = this.backgroundApi.walletConnect.connector;
+      return Promise.resolve(
+        this.backgroundApi.walletConnect.connector.connected ? session : null,
+      );
+    }
   }
 
   // TODO to decorator @permissionRequired()
@@ -106,6 +170,7 @@ class ServiceDapp extends ServiceBase {
     return Boolean(accounts && accounts.length);
   }
 
+  @backgroundMethod()
   openConnectionModal(request: CommonRequestParams['request']) {
     return this.openModal({
       request,

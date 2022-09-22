@@ -2,14 +2,17 @@ import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
 import {
-  AvailableNetworks,
   NFTAsset,
   NFTChainMap,
   NFTScanNFTsResp,
   NFTSymbolMap,
+  NFTTransaction,
+  TransactionsResp,
 } from '@onekeyhq/engine/src/types/nft';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { getFiatEndpoint } from '../endpoint';
+import { IDecodedTxActionType, IDecodedTxDirection } from '../vaults/types';
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
   if (!networkId) return false;
@@ -79,18 +82,13 @@ export function getContentWithAsset(asset: NFTAsset) {
   }
 }
 
-export function getNFTScanChainWithNetWork(network: AvailableNetworks): string {
-  return NFTChainMap[network];
-}
-
 export const getUserNFTAssets = async (params: {
   accountId: string;
-  networkId: AvailableNetworks;
+  networkId: string;
 }): Promise<NFTScanNFTsResp> => {
   const { accountId, networkId } = params;
-  const chain = getNFTScanChainWithNetWork(networkId);
   const endpoint = getFiatEndpoint();
-  const apiUrl = `${endpoint}/NFT/v2/list?address=${accountId}&chain=${chain}`;
+  const apiUrl = `${endpoint}/NFT/v2/list?address=${accountId}&chain=${networkId}`;
   const data = await axios
     .get<NFTScanNFTsResp>(apiUrl)
     .then((resp) => resp.data)
@@ -112,15 +110,100 @@ export const syncImage = async (params: {
   return data;
 };
 
-type SymbolPricePayload = Record<string, Record<string, number>>;
-export const getNFTSymbolPrice = async (networkId: AvailableNetworks) => {
-  const endpoint = getFiatEndpoint();
-  const symbolId = NFTSymbolMap[networkId];
-  const vsCurrencies = 'usd';
-  const apiUrl = `${endpoint}/simple/price?vs_currencies=${vsCurrencies}&ids=${symbolId}`;
-  const data = await axios
-    .get<SymbolPricePayload>(apiUrl)
-    .then((resp) => resp.data[symbolId][vsCurrencies])
-    .catch(() => 0);
-  return data;
+export const getNFTSymbolPrice = async (networkId: string) => {
+  const tokenId = NFTSymbolMap[networkId];
+  if (typeof tokenId === 'undefined') {
+    return null;
+  }
+
+  const prices = await backgroundApiProxy.serviceToken.getPrices({
+    networkId,
+    tokenIds: [tokenId],
+  });
+  return prices?.[tokenId];
 };
+
+export const getNFTTransactionHistory = async (
+  accountId: string,
+  networkId: string,
+): Promise<NFTTransaction[]> => {
+  const endpoint = getFiatEndpoint();
+  const apiUrl = `${endpoint}/NFT/transactions/account?address=${accountId}&chain=${networkId}`;
+  const data = await axios
+    .get<TransactionsResp>(apiUrl)
+    .then((resp) => resp.data)
+    .catch(() => ({ data: [] }));
+  const transactions = camelcaseKeys(data, { deep: true }).data;
+
+  const contractAddressList = transactions
+    .map((item) => item.contractAddress)
+    .filter(Boolean);
+  const { serviceNFT } = backgroundApiProxy;
+  const collectionMap = await serviceNFT.batchLocalCollection({
+    networkId,
+    accountId,
+    contractAddressList,
+  });
+  return transactions.map((tx): NFTTransaction => {
+    const { asset, contractAddress } = tx;
+    if (contractAddress) {
+      const collection = collectionMap[contractAddress];
+      if (collection) {
+        const findAsset = collection.assets.find(
+          (item) => item.tokenId === tx.tokenId,
+        );
+        if (findAsset) {
+          if (!asset) {
+            return {
+              ...tx,
+              asset: findAsset,
+            };
+          }
+          return {
+            ...tx,
+            asset: { ...asset, collection: findAsset.collection },
+          };
+        }
+      }
+    }
+    return tx;
+  });
+};
+
+export function createOutputActionFromNFTTransaction({
+  transaction,
+  address,
+}: {
+  transaction: NFTTransaction;
+  address: string;
+}) {
+  const { send, receive, amount, tradePrice, asset, exchangeName, eventType } =
+    transaction;
+  if (!asset) {
+    return null;
+  }
+  let type: IDecodedTxActionType = IDecodedTxActionType.UNKNOWN;
+  if (eventType === 'Transfer') {
+    type = IDecodedTxActionType.NFT_TRANSFER;
+  } else if (eventType === 'Sale') {
+    type = IDecodedTxActionType.NFT_SALE;
+  } else if (eventType === 'Mint') {
+    type = IDecodedTxActionType.NFT_MINT;
+  }
+
+  const action = {
+    type,
+    hidden: !(send === address || receive === address),
+    direction: IDecodedTxDirection.IN,
+    nftTransfer: {
+      send,
+      receive,
+      amount: (amount ?? 0).toString(),
+      asset,
+      value: tradePrice,
+      exchangeName,
+      extraInfo: null,
+    },
+  };
+  return action;
+}

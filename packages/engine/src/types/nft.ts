@@ -1,30 +1,21 @@
-export const NFTSupportNetworks = [
-  'evm--1',
-  'evm--10',
-  'evm--56',
-  'evm--137',
-  'evm--42161',
-  'sol--101',
-];
+import { OnekeyNetwork } from '../presets/networkIds';
 
-export type AvailableNetworks = typeof NFTSupportNetworks[number];
-
-export const NFTChainMap: Record<AvailableNetworks, string> = {
-  'evm--1': 'eth',
-  'evm--10': 'optimism',
-  'evm--56': 'bsc',
-  'evm--137': 'polygon',
-  'evm--42161': 'arbitrum',
-  'sol--101': 'sol',
+export const NFTChainMap: Record<string, string> = {
+  [OnekeyNetwork.eth]: 'eth',
+  [OnekeyNetwork.optimism]: 'optimism',
+  [OnekeyNetwork.bsc]: 'bsc',
+  [OnekeyNetwork.polygon]: 'polygon',
+  [OnekeyNetwork.arbitrum]: 'arbitrum',
+  [OnekeyNetwork.sol]: 'sol',
 };
 
-export const NFTSymbolMap: Record<AvailableNetworks, string> = {
-  'evm--1': 'ethereum',
-  'evm--10': 'ethereum',
-  'evm--56': 'binancecoin',
-  'evm--137': 'weth',
-  'evm--42161': 'ethereum',
-  'sol--101': 'solana',
+export const NFTSymbolMap: Record<string, string> = {
+  [OnekeyNetwork.eth]: 'main',
+  [OnekeyNetwork.optimism]: 'main',
+  [OnekeyNetwork.bsc]: 'main',
+  [OnekeyNetwork.polygon]: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619', // weth
+  [OnekeyNetwork.arbitrum]: 'main',
+  [OnekeyNetwork.sol]: 'main',
 };
 
 export type ERCType = 'erc721' | 'erc1155';
@@ -79,4 +70,32 @@ export type NFTAsset = {
 export type NFTScanNFTsResp = {
   success?: boolean;
   data: Collection[];
+};
+
+export type NFTTransaction = {
+  hash: string;
+  from: string;
+  to: string;
+  blockNumber?: string;
+  blockHash?: string;
+  gasPrice?: string;
+  timestamp?: string;
+  contractAddress?: string;
+  contractName?: string;
+  tokenId?: string;
+  ercType?: string;
+  send: string;
+  receive: string;
+  amount?: string;
+  tradeValue?: string;
+  tradePrice?: string;
+  tradeSymbol?: string;
+  eventType?: string;
+  exchangeName?: string;
+  asset?: NFTAsset;
+};
+
+export type TransactionsResp = {
+  success?: boolean;
+  data: NFTTransaction[];
 };

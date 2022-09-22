@@ -24,7 +24,7 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
-import { NETWORK_ID_EVM_ETH } from '@onekeyhq/engine/src/constants';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
@@ -64,7 +64,7 @@ function getColor(value: number) {
 
 async function measure(
   url: string,
-  networkId = NETWORK_ID_EVM_ETH,
+  networkId: string = OnekeyNetwork.eth,
 ): Promise<number> {
   const { responseTime } =
     await backgroundApiProxy.serviceNetwork.getRPCEndpointStatus(
@@ -120,17 +120,6 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
-      try {
-        await serviceNetwork.preAddNetwork(data.rpcURL || '');
-      } catch (error) {
-        toast.show(
-          { title: intl.formatMessage({ id: 'form__rpc_fetched_failed' }) },
-          {
-            type: 'error',
-          },
-        );
-        return;
-      }
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       refData.current.preventRemove = true;

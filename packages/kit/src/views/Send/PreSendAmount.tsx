@@ -144,9 +144,10 @@ function usePreSendAmountInfo({
       new BigNumber(
         getTokenPrice({
           token: tokenInfo,
+          fiatSymbol: selectedFiatMoneySymbol,
         }),
       ),
-    [getTokenPrice, tokenInfo],
+    [getTokenPrice, selectedFiatMoneySymbol, tokenInfo],
   );
   const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
   const getInputText = useCallback(
@@ -169,15 +170,16 @@ function usePreSendAmountInfo({
     [getInputText, isFiatMode],
   );
   const onTextChange = (text0: string) => {
+    const normalizedText = text0.replace(/。/g, '.');
     // delete action
-    if (text0.length < text.length) {
-      setText(text0);
+    if (normalizedText.length < text.length) {
+      setText(normalizedText);
       return;
     }
-    if (validTextRegex.test(text0)) {
-      setText(text0);
+    if (validTextRegex.test(normalizedText)) {
+      setText(normalizedText);
     } else {
-      const textBN = new BigNumber(text0);
+      const textBN = new BigNumber(normalizedText);
       if (!textBN.isNaN()) {
         const textFixed = textBN.toFixed(
           textInputDecimals,
@@ -252,6 +254,7 @@ function usePreSendAmountInfo({
     );
   }, [amount, amountDisplayDecimals, desc, isFiatMode, tokenInfo]);
   useEffect(() => {
+    // isFiatMode calculate fiat value
     if (isFiatMode) {
       if (!text) {
         return onAmountChange('');
@@ -431,12 +434,17 @@ function PreSendAmount() {
           console.error(e);
           const { key: errorKey = '' } = e;
           if (errorKey === 'form__amount_invalid') {
-            toast.show({
-              title: intl.formatMessage(
-                { id: 'form__amount_invalid' },
-                { 0: tokenInfo?.symbol ?? '' },
-              ),
-            });
+            toast.show(
+              {
+                title: intl.formatMessage(
+                  { id: 'form__amount_invalid' },
+                  { 0: tokenInfo?.symbol ?? '' },
+                ),
+              },
+              { type: 'error' },
+            );
+          } else if (typeof e === 'string') {
+            toast.show({ title: e }, { type: 'error' });
           }
         } finally {
           setIsLoading(false);

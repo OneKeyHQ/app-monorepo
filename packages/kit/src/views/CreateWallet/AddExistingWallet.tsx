@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NameServiceResolver, {
@@ -40,6 +41,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
+import { useWalletName } from '../../hooks/useWalletName';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 
@@ -110,10 +112,12 @@ function useAddExistingWallet({
       if (!text) {
         return;
       }
-      const results = await backgroundApiProxy.validator.validateCreateInput({
-        input: text,
-        onlyFor: inputCategory,
-      });
+      const results = (
+        await backgroundApiProxy.validator.validateCreateInput({
+          input: text,
+          onlyFor: inputCategory,
+        })
+      ).filter(({ category }) => category !== UserInputCategory.ADDRESS);
 
       if (results.length === 0) {
         // Check failed. Shouldn't happen.
@@ -346,6 +350,8 @@ function AddExistingWalletView(
                     input: text,
                     onlyFor: inputCategory,
                   })
+                ).filter(
+                  ({ category }) => category !== UserInputCategory.ADDRESS,
                 ).length > 0
               ) {
                 return true;
@@ -353,7 +359,7 @@ function AddExistingWalletView(
               // Special treatment for BTC address.
               try {
                 await backgroundApiProxy.validator.validateAddress(
-                  'btc--0',
+                  OnekeyNetwork.btc,
                   text,
                 );
                 return intl.formatMessage({
@@ -516,6 +522,9 @@ function OneKeyLiteRecoveryButton() {
 const AddExistingWallet = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const onboardingDone = useOnboardingDone();
+  const route = useRoute();
+  // @ts-expect-error
+  const walletName = useWalletName({ wallet: route?.params?.wallet });
 
   const onMultipleResults = useCallback(
     (p: IAddImportedOrWatchingAccountModalParams) => {
@@ -578,13 +587,14 @@ const AddExistingWallet = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
+      headerDescription={walletName}
       primaryActionTranslationId="action__import"
       primaryActionProps={{
         onPromise: handleSubmit((values) => {
           if (!disableSubmitBtn && address) {
             values.text = address;
           }
-          onSubmit(values);
+          return onSubmit(values);
         }),
         isDisabled: submitDisabled || disableSubmitBtn,
       }}

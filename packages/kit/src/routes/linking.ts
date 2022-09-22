@@ -52,6 +52,10 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/${RootRoutes.Account}`,
   },
   {
+    screen: `${RootRoutes.OnLanding}`,
+    path: `/${RootRoutes.OnLanding}`,
+  },
+  {
     screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
     path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },
@@ -195,7 +199,6 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
   config: {
     initialRouteName: RootRoutes.Root,
     screens: {
-      [RootRoutes.Account]: AccountRootLandingPathSchema,
       [RootRoutes.Root]: {
         screens: {
           [HomeRoutes.InitialTab]: {
@@ -208,6 +211,8 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
         },
       },
       ...generateScreenHierarchyRouteConfigList(normalRouteWhiteList),
+      // custom route with path params needs to be defined at last
+      [RootRoutes.Account]: AccountRootLandingPathSchema,
       NotFound: '*',
     },
   },

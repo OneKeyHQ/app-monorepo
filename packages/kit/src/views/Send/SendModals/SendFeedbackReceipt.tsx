@@ -51,8 +51,8 @@ export function SendFeedbackReceipt() {
       headerDescription={undefined}
       primaryActionProps={{
         children: isAutoClose
-          ? `${intl.formatMessage({ id: 'action__close' })} (${count})`
-          : `${intl.formatMessage({ id: 'action__close' })}`,
+          ? `${intl.formatMessage({ id: 'action__done' })} (${count})`
+          : `${intl.formatMessage({ id: 'action__done' })}`,
       }}
       onPrimaryActionPress={() => doClose()}
       hideSecondaryAction={
