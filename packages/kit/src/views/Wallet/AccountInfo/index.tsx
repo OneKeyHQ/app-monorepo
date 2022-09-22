@@ -168,7 +168,7 @@ const AccountAmountInfo: FC = () => {
           <Icon name="DuplicateOutline" size={16} />
         </Pressable>
       </Box>
-      <Box flexDirection="row" mt={1}>
+      <Box flexDirection="row" alignItems="center" mt={1}>
         {summedValueComp}
       </Box>
       <Box flexDirection="row" mt={1}>
