@@ -97,6 +97,7 @@ function normalizeConfig({ platform, config, env }) {
     '@solana/buffer-layout-utils':
       '@solana/buffer-layout-utils/lib/cjs/index.js',
     '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
+    'aptos': 'aptos/dist/index.js',
   };
   return config;
 }

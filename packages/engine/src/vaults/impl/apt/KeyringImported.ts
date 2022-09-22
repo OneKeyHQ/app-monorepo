@@ -89,10 +89,21 @@ export class KeyringImported extends KeyringImportedBase {
     return signTransaction(aptosClient, unsignedTx, signer);
   }
 
-  override signMessage(
+  override async signMessage(
     messages: any[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    throw new OneKeyInternalError('Not implemented.');
+    const dbAccount = await this.getDbAccount();
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+
+    return Promise.all(
+      messages.map(async (message) => {
+        const [signature] = await signer.sign(Buffer.from(message));
+        return signature.toString('hex');
+      }),
+    );
   }
 }
