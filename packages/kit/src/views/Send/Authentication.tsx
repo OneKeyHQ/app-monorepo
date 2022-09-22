@@ -30,6 +30,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { useWalletConnectSendInfo } from '../../components/WalletConnect/useWalletConnectSendInfo';
 import { useDecodedTx, useInteractWithInfo } from '../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../hooks/useOnboardingRequired';
+import { deviceUtils } from '../../utils/hardware';
 import { wait } from '../../utils/helper';
 
 import { AuthExternalAccountInfo } from './AuthExternalAccountInfo';
@@ -305,13 +306,15 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
           error.className !==
           OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
         ) {
-          toast.show(
-            {
-              title: msg || intl.formatMessage({ id: 'transaction__failed' }),
-              description: msg,
-            },
-            { type: 'error' },
-          );
+          if (!deviceUtils.showErrorToast(error)) {
+            toast.show(
+              {
+                title: msg || intl.formatMessage({ id: 'transaction__failed' }),
+                description: msg,
+              },
+              { type: 'error' },
+            );
+          }
         }
       }
 
