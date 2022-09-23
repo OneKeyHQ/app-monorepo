@@ -175,6 +175,12 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
   }, [refreshHookDeps, refreshAccounts]);
 
   useEffect(() => {
+    if (!isOpenDelay) {
+      serviceAccountSelector.updateSelectedWallet(activeWallet?.id);
+    }
+  }, [activeWallet?.id, isOpenDelay, serviceAccountSelector]);
+
+  useEffect(() => {
     if (!ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN && isOpenDelay) {
       refreshAccounts();
     }

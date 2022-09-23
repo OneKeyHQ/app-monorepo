@@ -42,6 +42,7 @@ type INetworkAccountSelectorAccountListSectionData = {
   networkId: string;
   data: IAccount[];
 };
+
 let lastDataCache: INetworkAccountSelectorAccountListSectionData[] = [];
 
 function AccountList({
@@ -101,6 +102,7 @@ function AccountList({
   const isMounted = useIsMounted();
   useEffect(
     () => () => {
+      // TODO cache is error in android, change HD wallet to imported wallet
       lastDataCache = data;
     },
     [data],

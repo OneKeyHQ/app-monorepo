@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import { Box, Modal } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
@@ -40,6 +41,10 @@ function NetworkAccountSelectorModal() {
   const accountSelectorInfo = useAccountSelectorInfo({
     isOpen,
   });
+
+  if (!accountSelectorInfo.isOpenDelay && platformEnv.isNativeAndroid) {
+    return null;
+  }
 
   return (
     <Modal

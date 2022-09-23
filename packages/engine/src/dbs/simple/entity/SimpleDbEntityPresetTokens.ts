@@ -140,30 +140,6 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
     return this.localTokens.removeToken(accountId, tokenId);
   }
 
-  async addDefaultToken(accountId: string, impl: string) {
-    const defaultTokens = this.defaultStableTokens;
-    let networkIds: string[] = Object.keys(defaultTokens).filter((v) => {
-      const parsed = parseNetworkId(v);
-      if (!parsed.impl) {
-        return false;
-      }
-      return getSupportedImpls().has(parsed.impl);
-    });
-    if (accountId && impl) {
-      // filter for account
-      networkIds = networkIds.filter((v) => parseNetworkId(v).impl === impl);
-    }
-    for (const networkId of networkIds) {
-      const tokens = await this.getTokens({
-        networkId,
-        query: { addToIndex: true },
-      });
-      for (const token of tokens) {
-        await this.addTokenToAccount(accountId, token);
-      }
-    }
-  }
-
   async clearTokens() {
     return this.setRawData({});
   }
