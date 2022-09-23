@@ -74,7 +74,7 @@ const Item: FC<{
     >
       <Box flex="1" flexDirection="row" alignItems="center">
         {icon}
-        <Box ml="3" flex="1">
+        <Box mx="3" flex="1">
           <AccountComponent
             hiddenAvatar
             address={account?.displayAddress ?? account?.address ?? ''}
