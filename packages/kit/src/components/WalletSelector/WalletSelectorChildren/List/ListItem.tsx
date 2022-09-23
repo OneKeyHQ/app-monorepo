@@ -30,12 +30,13 @@ import type { IWalletDataBase } from './index';
 const SelectedIndicator = () => (
   <Box
     position="absolute"
-    left="-8px"
+    left={platformEnv.isNativeAndroid ? 0 : '-8px'}
     top="8px"
     bottom="8px"
     w="3px"
     bgColor="interactive-default"
     roundedRight="full"
+    zIndex={9999}
   />
 );
 

@@ -20,8 +20,12 @@ import { useManageNetworks } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+import {
+  ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK,
+  ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY,
+} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
+import { LazyDisplayView } from '../../LazyDisplayView';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 function ChainNetworkIcon({
@@ -50,7 +54,7 @@ function ChainSelector({
   const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
-  const { selectedNetworkId } = accountSelectorInfo;
+  const { selectedNetworkId, isOpenDelay } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
 
@@ -86,85 +90,83 @@ function ChainSelector({
   }, [enabledNetworks, selectedNetworkId]);
 
   return (
-    <>
+    <Box
+      alignSelf="stretch"
+      borderRightWidth={StyleSheet.hairlineWidth}
+      borderColor="border-subdued"
+    >
+      <FlatListRef
+        initialNumToRender={20}
+        // TODO auto scroll to active item
+        ref={flatListRef}
+        data={enabledNetworks}
+        // @ts-expect-error
+        keyExtractor={(item: INetwork) => item.id}
+        // @ts-expect-error
+        renderItem={(options: {
+          // eslint-disable-next-line react/no-unused-prop-types
+          item: INetwork;
+          index: number;
+        }) => {
+          const { item, index } = options;
+          const isLastItem = index === enabledNetworks.length - 1;
+          const isActive = selectedNetworkId === item.id;
+          return (
+            <Pressable
+              onPress={() => {
+                const id = (item.id === AllNetwork ? '' : item.id) || '';
+                serviceAccountSelector.updateSelectedNetwork(id);
+              }}
+            >
+              {({ isHovered, isPressed }) => (
+                <Box
+                  p={1.5}
+                  m={1}
+                  borderWidth={2}
+                  borderColor={
+                    isActive
+                      ? 'interactive-default'
+                      : isPressed
+                      ? 'border-default'
+                      : isHovered
+                      ? 'border-subdued'
+                      : 'transparent'
+                  }
+                  rounded="full"
+                >
+                  <ChainNetworkIcon
+                    item={item}
+                    isLastItem={isLastItem}
+                    onLastItemRender={scrollToItem}
+                  />
+                </Box>
+              )}
+            </Pressable>
+          );
+        }}
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 4 }}
+      />
       <Box
-        alignSelf="stretch"
-        borderRightWidth={StyleSheet.hairlineWidth}
+        p={2}
+        mb={insets.bottom}
+        borderTopWidth={StyleSheet.hairlineWidth}
         borderColor="border-subdued"
       >
-        <FlatListRef
-          initialNumToRender={20}
-          // TODO auto scroll to active item
-          ref={flatListRef}
-          data={enabledNetworks}
-          // @ts-expect-error
-          keyExtractor={(item: INetwork) => item.id}
-          // @ts-expect-error
-          renderItem={(options: {
-            // eslint-disable-next-line react/no-unused-prop-types
-            item: INetwork;
-            index: number;
-          }) => {
-            const { item, index } = options;
-            const isLastItem = index === enabledNetworks.length - 1;
-            const isActive = selectedNetworkId === item.id;
-            return (
-              <Pressable
-                onPress={() => {
-                  const id = (item.id === AllNetwork ? '' : item.id) || '';
-                  serviceAccountSelector.updateSelectedNetwork(id);
-                }}
-              >
-                {({ isHovered, isPressed }) => (
-                  <Box
-                    p={1.5}
-                    m={1}
-                    borderWidth={2}
-                    borderColor={
-                      isActive
-                        ? 'interactive-default'
-                        : isPressed
-                        ? 'border-default'
-                        : isHovered
-                        ? 'border-subdued'
-                        : 'transparent'
-                    }
-                    rounded="full"
-                  >
-                    <ChainNetworkIcon
-                      item={item}
-                      isLastItem={isLastItem}
-                      onLastItemRender={scrollToItem}
-                    />
-                  </Box>
-                )}
-              </Pressable>
-            );
+        <IconButton
+          name="CogOutline"
+          size="xl"
+          type="plain"
+          circle
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageNetwork,
+              params: { screen: ManageNetworkRoutes.Listing },
+            });
           }}
-          showsVerticalScrollIndicator={false}
-          style={{ flex: 1, padding: 4 }}
         />
-        <Box
-          p={2}
-          mb={insets.bottom}
-          borderTopWidth={StyleSheet.hairlineWidth}
-          borderColor="border-subdued"
-        >
-          <IconButton
-            name="CogOutline"
-            size="xl"
-            type="plain"
-            circle
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageNetwork,
-                params: { screen: ManageNetworkRoutes.Listing },
-              });
-            }}
-          />
-        </Box>
       </Box>
-    </>
+    </Box>
   );
 }
 
