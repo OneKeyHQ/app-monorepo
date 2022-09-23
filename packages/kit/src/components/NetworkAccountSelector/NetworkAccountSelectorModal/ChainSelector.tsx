@@ -111,9 +111,6 @@ function ChainSelector({
           const { item, index } = options;
           const isLastItem = index === enabledNetworks.length - 1;
           const isActive = selectedNetworkId === item.id;
-          if (!isOpenDelay) {
-            return null;
-          }
           return (
             <Pressable
               onPress={() => {

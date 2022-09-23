@@ -26,10 +26,6 @@ function Header({
   const { dispatch } = backgroundApiProxy;
   const close = useModalClose();
 
-  if (!isOpenDelay) {
-    return null;
-  }
-
   return (
     <Box pr={3.5}>
       <Box flexDirection="row" alignItems="center" pt={3.5} pb={2} pl={4}>
