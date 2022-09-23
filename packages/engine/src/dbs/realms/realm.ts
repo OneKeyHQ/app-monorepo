@@ -1436,7 +1436,7 @@ class RealmDB implements DBAPI {
       if (typeof context !== 'undefined') {
         const wallets = this.realm!.objects<WalletSchema>('Wallet');
         for (const wallet of wallets) {
-          if (!context.pendingWallets?.has(wallet.id)) {
+          if (context.pendingWallets?.has(wallet.id)) {
             const credential =
               this.realm!.objectForPrimaryKey<CredentialSchema>(
                 'Credential',
