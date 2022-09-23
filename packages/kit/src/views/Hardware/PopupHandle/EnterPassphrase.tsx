@@ -46,10 +46,16 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           name="value"
           label=""
           rules={{
+            maxLength: {
+              value: 50,
+              message: intl.formatMessage({
+                id: 'msg__exceeding_the_maximum_word_limit',
+              }),
+            },
             validate: (value) => {
               if (!value.length) return true;
               const passphraseReg = new RegExp(
-                '^[a-zA-Z0-9-><_.:@\\|*!()+%&-\\[\\]?{},\'`;"~$\\^=]+$',
+                '^[a-zA-Z0-9-><_.:@\\|*!()+%&-\\[\\]?{},#\'`;"~$\\^=]+$',
                 'i',
               );
               if (!passphraseReg.test(value)) {
@@ -69,7 +75,6 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
             rightIconName="ArrowRightOutline"
             onPressRightIcon={() => onSubmit()}
             onKeyPress={(e) => {
-              console.log('current key = ', e.nativeEvent.key);
               if (e.nativeEvent.key === 'Enter') {
                 onSubmit();
               }

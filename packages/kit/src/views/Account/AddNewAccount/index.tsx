@@ -199,7 +199,9 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             addedAccount = acc?.[0];
           })
           .catch((e) => {
-            deviceUtils.showErrorToast(e);
+            setTimeout(() => {
+              deviceUtils.showErrorToast(e);
+            }, 300);
           })
           .finally(() => {
             serviceAccountSelector.preloadingCreateAccountDone({
