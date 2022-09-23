@@ -226,6 +226,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             }}
           >
             <Form.Textarea
+              trimValue
               placeholder={intl.formatMessage({
                 id: 'form__enter_or_paste_contract_address',
                 defaultMessage: 'Enter or paste contract address',

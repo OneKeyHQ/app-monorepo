@@ -6,9 +6,10 @@ export const copyToClipboard = (msg: string) => {
   Clipboard.setString(msg);
 };
 
-export const getClipboard = () => {
+export const getClipboard = async () => {
   if (!platformEnv.canGetClipboard) {
     throw new Error('getClipboard is not allowed in Web and Extension');
   }
-  return Clipboard.getStringAsync();
+  const str = await Clipboard.getStringAsync();
+  return str.trim();
 };

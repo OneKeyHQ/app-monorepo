@@ -162,9 +162,16 @@ function PreSendAddress() {
                         networkId,
                         toAddress,
                       );
-                    } catch (error0) {
+                    } catch (error0: any) {
                       if (isValidNameServiceName && !resolvedAddress)
                         return undefined;
+
+                      const { key } = error0;
+                      if (key) {
+                        return intl.formatMessage({
+                          id: key,
+                        });
+                      }
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });

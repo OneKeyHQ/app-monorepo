@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Icon,
   IconButton,
   Pressable,
@@ -40,14 +39,14 @@ import {
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/BottomSheetSettings';
-import { showHomePageMoreMenu } from '../../Overlay/HomePageMoreMenu';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
-export const FIXED_HORIZONTAL_HEDER_HEIGHT = 216;
+export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
@@ -89,12 +88,12 @@ const AccountAmountInfo: FC = () => {
               }
             />
           </Typography.Display2XLarge>
-          <Button
-            type="plain"
-            alignItems="center"
-            justifyContent="center"
+          <IconButton
+            name="ChevronDownSolid"
             onPress={showAccountValueSettings}
-            leftIconName="ChevronDownSolid"
+            type="plain"
+            circle
+            ml={1}
           />
         </>
       ),
@@ -169,7 +168,7 @@ const AccountAmountInfo: FC = () => {
           <Icon name="DuplicateOutline" size={16} />
         </Pressable>
       </Box>
-      <Box flexDirection="row" mt={1}>
+      <Box flexDirection="row" alignItems="center" mt={1}>
         {summedValueComp}
       </Box>
       <Box flexDirection="row" mt={1}>
@@ -287,7 +286,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           size={isSmallView ? 'xl' : 'lg'}
           name="DotsVerticalOutline"
           type="basic"
-          onPress={() => showHomePageMoreMenu(moreButtonRef?.current)}
+          onPress={() => showAccountMoreMenu(moreButtonRef.current)}
         />
         <Typography.CaptionStrong
           textAlign="center"
@@ -326,8 +325,7 @@ const AccountInfo = () => {
       <DesktopDragZoneAbsoluteBar h={8} />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
-        pt="96px"
-        pb="32px"
+        py={8}
         px={{ sm: 8, lg: 4 }}
         flexDirection="row"
         justifyContent="space-between"

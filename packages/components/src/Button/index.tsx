@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 
 import { Text } from 'native-base';
+import { StyleSheet } from 'react-native';
 
 import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
@@ -124,7 +125,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
       borderRadius="12"
       variant="outline"
       bg="action-secondary-default"
-      borderWidth="1"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor="border-default"
       _text={{ color: 'text-default', ...nbTextProps }}
       _hover={{
@@ -186,7 +187,7 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
       rightIcon={rightIcon}
       borderRadius="12"
       variant="solid"
-      borderWidth="1"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor="transparent"
       _text={{ color: 'text-on-primary', ...nbTextProps }}
       bg="action-primary-default"
@@ -297,7 +298,7 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
       rightIcon={rightIcon}
       borderRadius="12"
       variant="solid"
-      borderWidth="1"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor="action-critical-default"
       bg="action-critical-default"
       _hover={{ bg: 'action-critical-hovered' }}
@@ -367,7 +368,7 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
       rightIcon={rightIcon}
       borderRadius="12"
       variant="outline"
-      borderWidth="1"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor="border-critical-default"
       _text={{ color: 'text-critical', ...nbTextProps }}
       _focus={{ bg: undefined, borderColor: 'border-critical-default' }}

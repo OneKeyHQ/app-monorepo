@@ -56,6 +56,8 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       defaultValues: { name: '', addressType: 'default' },
     });
   const { activeNetworkId } = useGeneral();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();

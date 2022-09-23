@@ -296,10 +296,15 @@ class ServiceDapp extends ServiceBase {
       } as IDappSourceInfo;
       const routeParams = {
         // stringify required, nested object not working with Ext route linking
-        query: JSON.stringify({
-          sourceInfo, // TODO rename $sourceInfo
-          ...params,
-        }),
+        query: JSON.stringify(
+          {
+            sourceInfo, // TODO rename $sourceInfo
+            ...params,
+          },
+          (key, value) =>
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            typeof value === 'bigint' ? value.toString() : value,
+        ),
       };
 
       const modalParams = buildModalRouteParams({

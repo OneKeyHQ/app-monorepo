@@ -84,6 +84,7 @@ const AddressInput: FC<AddressInputProps> = ({
       borderColor={isFocus ? 'focused-default' : 'border-default'}
     >
       <Textarea
+        trimValue
         borderRadius={0}
         w="full"
         value={value}

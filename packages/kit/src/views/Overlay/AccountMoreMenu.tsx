@@ -28,13 +28,14 @@ import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
-import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
 import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
 
-const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
+const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
+  closeOverlay,
+}) => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
@@ -78,9 +79,6 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
     }
     return enabledNotification ? 'BellOffSolid' : 'BellSolid';
   }, [isVerticalLayout, enabledNotification]);
-
-  // https://www.figma.com/file/vKm9jnpi3gfoJxZsoqH8Q2?node-id=489:30375#244559862
-  const disableScan = platformEnv.isWeb && !isVerticalLayout;
 
   const onChangeAccountSubscribe = useCallback(async () => {
     if (!account) {
@@ -136,11 +134,6 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
     | undefined
   )[] = useMemo(
     () => [
-      !disableScan && {
-        id: 'action__scan',
-        onPress: () => gotoScanQrcode(),
-        icon: 'ScanSolid',
-      },
       !!needActivateAccount && {
         id: 'action__get_faucet',
         onPress: () => {
@@ -186,15 +179,6 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
         },
         icon: isVerticalLayout ? 'CashOutline' : 'CashSolid',
       },
-      platformEnv.isExtensionUiPopup && {
-        id: 'form__expand_view',
-        onPress: () => {
-          backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: '',
-          });
-        },
-        icon: 'ArrowsExpandOutline',
-      },
       {
         id: 'action__copy_address',
         onPress: () => {
@@ -212,7 +196,6 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
       // TODO Share
     ],
     [
-      disableScan,
       needActivateAccount,
       isVerticalLayout,
       walletType,
@@ -257,8 +240,7 @@ const MoreSettings: FC<{ closeOverlay: () => void }> = ({ closeOverlay }) => {
   );
 };
 
-// @ts-ignore
-export const showHomePageMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
+export const showAccountMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
   showOverlay((closeOverlay) => (
     <OverlayPanel
       triggerEle={triggerEle}
@@ -267,6 +249,6 @@ export const showHomePageMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
         header: formatMessage({ id: 'action__more' }),
       }}
     >
-      <MoreSettings closeOverlay={closeOverlay} />
+      <AccountMoreSettings closeOverlay={closeOverlay} />
     </OverlayPanel>
   ));

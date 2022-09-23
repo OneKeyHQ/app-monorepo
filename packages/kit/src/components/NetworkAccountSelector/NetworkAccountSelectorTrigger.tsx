@@ -1,22 +1,20 @@
 import React, { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   HStack,
+  Hidden,
   Icon,
   Pressable,
   Token,
   Typography,
-  useIsVerticalLayout,
-  useUserDevice,
 } from '@onekeyhq/components';
 
 import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 
 function NetworkAccountSelectorTrigger() {
-  const isVerticalLayout = useIsVerticalLayout();
-  const { screenWidth } = useUserDevice();
   // TODO different options of scene
   const { network, account } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
@@ -50,35 +48,35 @@ function NetworkAccountSelectorTrigger() {
     >
       {(status) => {
         let bgColor: string | undefined;
+        bgColor = 'action-secondary-default';
         if (status.isPressed) {
-          bgColor = 'surface-pressed';
+          bgColor = 'action-secondary-pressed';
         }
         if (status.isHovered) {
-          bgColor = 'surface-hovered';
+          bgColor = 'action-secondary-hovered';
         }
         if (status.isFocused) {
           bgColor = 'surface-selected';
         }
         return (
           <HStack
-            p={2}
+            alignItems="center"
+            p={1.5}
             space={1}
             bg={bgColor}
-            borderRadius="xl"
-            alignItems="center"
-            justifyContent={isVerticalLayout ? 'flex-end' : 'space-between'}
+            borderRadius="full"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-default"
           >
-            <HStack space={3} alignItems="center">
-              <Token size={6} {...activeOption.tokenProps} />
-              <Typography.Body2Strong
-                isTruncated
-                numberOfLines={1}
-                maxW={screenWidth / 2 - 72}
-              >
+            <HStack space={2} alignItems="center">
+              <Token size={{ base: 5, md: 6 }} {...activeOption.tokenProps} />
+              <Typography.Body2Strong isTruncated maxW="120px">
                 {activeOption.label}
               </Typography.Body2Strong>
             </HStack>
-            <Icon size={20} name="ChevronDownSolid" />
+            <Hidden from="base" till="md">
+              <Icon size={20} name="ChevronDownSolid" />
+            </Hidden>
           </HStack>
         );
       }}
