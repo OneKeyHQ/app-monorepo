@@ -41,6 +41,10 @@ function NetworkAccountSelectorModal() {
     isOpen,
   });
 
+  if (!accountSelectorInfo.isOpenDelay) {
+    return null;
+  }
+
   return (
     <Modal
       headerShown={false}

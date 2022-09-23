@@ -64,9 +64,10 @@ const Restore: FC = () => {
 
   const goBackHome = () => {
     openRootHome();
+
     // wait openRootHome DONE!
     setTimeout(() => {
-      openAccountSelector();
+      // openAccountSelector();
     }, 600);
     // openDrawer();
   };
