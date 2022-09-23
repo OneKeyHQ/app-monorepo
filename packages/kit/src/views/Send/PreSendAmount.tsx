@@ -53,6 +53,7 @@ export function PreSendAmountPreview({
   onChangeText,
   loading,
   desc,
+  placeholder = '0',
 }: {
   text: string;
   onChangeText?: (text: string) => void;
@@ -60,6 +61,7 @@ export function PreSendAmountPreview({
   titleAction?: JSX.Element;
   desc?: string | JSX.Element;
   loading?: boolean;
+  placeholder?: string;
 }) {
   return (
     <Box height="140px">
@@ -83,7 +85,7 @@ export function PreSendAmountPreview({
           autoFocus
           text={text}
           onChangeText={onChangeText}
-          placeholder="0"
+          placeholder={placeholder}
         />
       </Center>
 
