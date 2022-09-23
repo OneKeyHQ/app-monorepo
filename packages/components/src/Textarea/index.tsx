@@ -1,4 +1,5 @@
-import React, { ComponentProps } from 'react';
+/* eslint-disable react/prop-types */
+import React, { ComponentProps, useCallback } from 'react';
 
 import { TextArea as NativeBaseTextArea } from 'native-base';
 
@@ -16,12 +17,13 @@ export type TextAreaAction = {
 type TextAreaProps = {
   isInvalid?: boolean;
   actions?: Array<TextAreaAction>;
+  trimValue?: boolean;
 };
 
 const TextArea = React.forwardRef<
   typeof NativeBaseTextArea,
   ComponentProps<typeof NativeBaseTextArea> & TextAreaProps
->(({ isInvalid, actions = [], ...props }, ref) => {
+>(({ isInvalid, trimValue, actions = [], onChangeText, ...props }, ref) => {
   const small = useIsVerticalLayout();
   const textProps = small
     ? getTypographyStyleProps('Body1')
@@ -29,6 +31,13 @@ const TextArea = React.forwardRef<
         ComponentProps<typeof Text>,
         'fontFamily' | 'fontWeight' | 'fontSize'
       >);
+
+  const onChangeTrimText = useCallback(
+    (v: string) => {
+      onChangeText?.(trimValue ? v?.trim?.() : v);
+    },
+    [onChangeText, trimValue],
+  );
 
   const primaryComponent = (
     <NativeBaseTextArea
@@ -70,6 +79,7 @@ const TextArea = React.forwardRef<
         borderColor: 'border-critical-default',
       }}
       shadow="depth.1"
+      onChangeText={onChangeTrimText}
       {...props}
     />
   );

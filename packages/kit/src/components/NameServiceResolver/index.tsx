@@ -37,6 +37,7 @@ type NameServiceState = {
 };
 
 type NameServiceResolverProps = {
+  disable?: boolean;
   name: string;
   disableBTC?: boolean;
   networkId?: string;
@@ -85,6 +86,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
   onChange,
   disableBTC,
   networkId,
+  disable = false,
 }) => {
   const name = useDebounce(nameInput, 500);
   const isVerticalLayout = useIsVerticalLayout();
@@ -165,21 +167,23 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
     } finally {
       setResolverState((prev) => ({
         ...prev,
-        name: '',
         isSearching: false,
       }));
     }
   }, [serviceNameResolver, name, setResolverState, disableBTC, networkId]);
 
   useEffect(() => {
+    if (disable) return;
     checkNameStatus(name);
-  }, [name, checkNameStatus]);
+  }, [name, checkNameStatus, disable]);
 
   useEffect(() => {
+    if (disable) return;
     if (!resolverState.isValidName) return;
     fetchNameResolveResult();
-  }, [fetchNameResolveResult, resolverState.isValidName, name]);
+  }, [fetchNameResolveResult, resolverState.isValidName, name, disable]);
 
+  if (disable) return null;
   if (!resolverState?.isValidName) return null;
   if (resolverState?.errorMessage) {
     return (

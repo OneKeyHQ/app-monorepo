@@ -53,7 +53,7 @@ type RouteProps = RouteProp<
   CreateWalletModalRoutes.AddExistingWalletModal
 >;
 
-type AddExistingWalletValues = { text: string };
+type AddExistingWalletValues = { text: string; defaultName?: string };
 
 const emptyParams = Object.freeze({});
 
@@ -108,7 +108,7 @@ function useAddExistingWallet({
 
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
-      const { text } = values;
+      const { text, defaultName } = values;
       if (!text) {
         return;
       }
@@ -126,6 +126,7 @@ function useAddExistingWallet({
 
       if (results.length > 1) {
         onMultipleResults({
+          defaultName,
           text,
           checkResults: results,
           onSuccess() {
@@ -309,7 +310,6 @@ function AddExistingWalletView(
     inputCategory,
     placeholder,
     onPaste,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     mode,
     children,
     showSubmitButton,
@@ -376,12 +376,17 @@ function AddExistingWalletView(
           helpText={(value) => (
             <NameServiceResolver
               name={value}
+              disable={mode === 'imported'}
               onChange={onNameServiceChange || onNameServiceStatusChange}
               disableBTC
             />
           )}
         >
-          <Form.Textarea placeholder={placeholder} h="48" />
+          <Form.Textarea
+            placeholder={placeholder}
+            h="48"
+            trimValue={!['all', 'mnemonic'].includes(mode)}
+          />
         </Form.Item>
         {!(platformEnv.isExtension || platformEnv.isWeb) && showPasteButton && (
           <Center>
@@ -568,8 +573,8 @@ const AddExistingWallet = () => {
     onChange: onNameServiceChange,
     disableSubmitBtn,
     address,
+    name,
   } = useNameServiceStatus();
-
   const { intl, onSubmit, handleSubmit, submitDisabled, mode } = viewProps;
 
   const liteRecoveryButton = useMemo(
@@ -592,6 +597,7 @@ const AddExistingWallet = () => {
       primaryActionProps={{
         onPromise: handleSubmit((values) => {
           if (!disableSubmitBtn && address) {
+            values.defaultName = name;
             values.text = address;
           }
           return onSubmit(values);

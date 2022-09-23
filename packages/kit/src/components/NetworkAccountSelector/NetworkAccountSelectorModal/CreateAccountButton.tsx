@@ -6,16 +6,7 @@ import React, {
   useState,
 } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import {
-  Box,
-  Button,
-  HStack,
-  Icon,
-  IconButton,
-  Text,
-} from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 import { isExternalWallet } from '@onekeyhq/engine/src/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,18 +15,14 @@ import { InitWalletServicesData } from '../../WalletConnect/WalletConnectQrcodeM
 import { useCreateAccountInWallet } from '../hooks/useCreateAccountInWallet';
 
 export function CreateAccountButton({
-  fullBleed,
   walletId,
   networkId,
   isLoading,
 }: {
-  fullBleed: boolean;
   walletId: string;
   networkId: string | undefined;
   isLoading?: boolean;
 }) {
-  const intl = useIntl();
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     networkId,
@@ -94,50 +81,14 @@ export function CreateAccountButton({
       {/* TODO move to parent */}
       {initWalletServiceRef.current}
 
-      {fullBleed ? (
-        <Box p={2} pb={0}>
-          <Button
-            type="outline"
-            isLoading={buttonIsLoading}
-            onPress={buttonOnPress}
-            rounded="xl"
-            p={2}
-            borderWidth={1}
-            borderColor="border-default"
-            borderStyle="dashed"
-            _hover={{
-              bgColor: 'surface-hovered',
-              borderColor: 'border-default',
-            }}
-            _pressed={{
-              bgColor: 'surface-pressed',
-              borderColor: 'border-default',
-            }}
-            _focus={{
-              bgColor: 'surface-pressed',
-              borderColor: 'border-default',
-            }}
-          >
-            <HStack alignItems="center">
-              <Icon
-                name={isCreateAccountSupported ? 'PlusSmSolid' : 'BanOutline'}
-                size={20}
-              />
-              <Text ml={2} typography="Body2Strong">
-                {intl.formatMessage({ id: 'action__add_account' })}
-              </Text>
-            </HStack>
-          </Button>
-        </Box>
-      ) : (
-        <IconButton
-          isLoading={buttonIsLoading}
-          onPress={buttonOnPress}
-          type="plain"
-          name="PlusCircleSolid"
-          circle
-        />
-      )}
+      <IconButton
+        isLoading={buttonIsLoading}
+        onPress={buttonOnPress}
+        type="plain"
+        name={isCreateAccountSupported ? 'PlusSolid' : 'BanSolid'}
+        circle
+        hitSlop={8}
+      />
     </>
   );
 }

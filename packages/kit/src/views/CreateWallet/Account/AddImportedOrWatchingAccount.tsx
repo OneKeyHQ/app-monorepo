@@ -52,7 +52,7 @@ const AddImportedOrWatchingAccount = () => {
   const { control, handleSubmit, getValues, watch } =
     useForm<AddImportedOrWatchingAccountValues>();
   const {
-    params: { text, checkResults, onSuccess },
+    params: { text, checkResults, onSuccess, defaultName },
   } = useRoute<RouteProps>();
 
   const { activeNetworkId } = useGeneral();
@@ -108,7 +108,8 @@ const AddImportedOrWatchingAccount = () => {
       const selectedTypeIndex =
         values.importAs ?? inputCategories.indexOf(possibleAddTypes[0]);
       const importType = inputCategories[selectedTypeIndex];
-      const name = values.name || defaultAccountNames[selectedTypeIndex];
+      const name =
+        values.name || defaultName || defaultAccountNames[selectedTypeIndex];
 
       if (importType === UserInputCategory.IMPORTED) {
         navigation.navigate(
@@ -139,6 +140,7 @@ const AddImportedOrWatchingAccount = () => {
       }
     },
     [
+      defaultName,
       possibleAddTypes,
       defaultAccountNames,
       navigation,
@@ -194,7 +196,9 @@ const AddImportedOrWatchingAccount = () => {
           label={intl.formatMessage({ id: 'form__account_name' })}
           control={control}
         >
-          <Form.Input placeholder={defaultAccountNames[importTypeIndex]} />
+          <Form.Input
+            placeholder={defaultName || defaultAccountNames[importTypeIndex]}
+          />
         </Form.Item>
       </Form>
     </Modal>
