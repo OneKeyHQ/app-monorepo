@@ -178,8 +178,7 @@ export default class Vault extends VaultBase {
           const balance = get(accountResource, 'data.coin.value', 0);
           return new BigNumber(balance);
         } catch (error: any) {
-          const { errorCode } = error || {};
-          if (errorCode === 'resource_not_found') {
+          if (error instanceof InvalidAccount) {
             return Promise.resolve(new BigNumber(0));
           }
           // pass
@@ -222,11 +221,15 @@ export default class Vault extends VaultBase {
   ): Promise<boolean> {
     const { address } = (await this.getDbAccount()) as DBSimpleAccount;
 
+    console.log('=====>>> activateToken', tokenAddress, address);
+
     const resource = await getAccountCoinResource(
       await this.getClient(),
       address,
       tokenAddress,
     );
+
+    console.log('=====>>> resource', resource);
 
     if (resource) return Promise.resolve(true);
 
@@ -547,6 +550,9 @@ export default class Vault extends VaultBase {
         encodedTx: unsignedTx.encodedTx,
       };
     } catch (error: any) {
+      console.log('signAndSendTransaction error', error);
+      console.log('signAndSendTransaction error string', JSON.stringify(error));
+
       const { errorCode, message } = error || {};
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new OneKeyInternalError(`${errorCode ?? ''} ${message}`);
