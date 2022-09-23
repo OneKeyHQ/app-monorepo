@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "Cela supprimera définitivement vos données. Mais vous pouvez toujours le restaurer à partir du portefeuille matériel qui est chargé de la phrase de récupération de ce portefeuille.",
   "dialog__delete_wallet_desc": "Assurez-vous d'avoir noté la phrase de récupération avant de la supprimer. Sinon, vous ne pourrez pas récupérer le portefeuille.",
   "dialog__device_has_disabled_passphrase": "L'appareil a désactivé la phrase secrète",
-  "dialog__device_has_disabled_passphrase_desc": "Vous pouvez activer la phrase de passe pour utiliser le portefeuille standard.",
+  "dialog__device_has_disabled_passphrase_desc": "Vous pouvez activer la phrase secrète pour utiliser le portefeuille caché.",
   "dialog__device_has_enabled_passphrase": "L'appareil a activé la phrase secrète",
   "dialog__device_has_enabled_passphrase_desc": "Vous pouvez désactiver la phrase secrète pour utiliser le portefeuille standard.",
   "dialog__disabling_sync": "Désactivation de la synchronisation",

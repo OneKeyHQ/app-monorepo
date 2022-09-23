@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "Make sure you’ve written down the recovery phrase before removing the wallet. Otherwise, you won’t be able to recover the wallet.",
   "dialog__device_has_disabled_passphrase": "Device has disabled passphrase",
-  "dialog__device_has_disabled_passphrase_desc": "You can enable passphrase to use Standard Wallet.",
+  "dialog__device_has_disabled_passphrase_desc": "You can enable passphrase to use Hidden Wallet.",
   "dialog__device_has_enabled_passphrase": "Device has enabled passphrase",
   "dialog__device_has_enabled_passphrase_desc": "You can disabled passphrase to use Standard Wallet.",
   "dialog__disabling_sync": "Disabling Sync",
