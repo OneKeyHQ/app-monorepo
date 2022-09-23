@@ -45,7 +45,6 @@ import {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,
-  IDecodedTxDirection,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IDecodedTxStatus,
@@ -65,7 +64,7 @@ import {
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
-import { Erc1155MethodSelectors, Erc20MethodSelectors } from './decoder/abi';
+import { Erc20MethodSelectors } from './decoder/abi';
 import {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,

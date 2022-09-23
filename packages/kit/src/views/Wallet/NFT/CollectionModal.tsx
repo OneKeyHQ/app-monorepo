@@ -15,15 +15,20 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '../../../routes/Modal/Collectibles';
-import { NavigationProps } from '../type';
 
 import NFTListAssetCard from './NFTList/NFTListAssetCard';
+
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 const ViewTypes = {
   LOGO: 0,

@@ -24,14 +24,19 @@ import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { SendRoutes } from '../../../../routes';
-import { NavigationProps } from '../../type';
 
 import CollectibleContent from './CollectibleContent';
+
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function useAssetOwner({
   asset,
