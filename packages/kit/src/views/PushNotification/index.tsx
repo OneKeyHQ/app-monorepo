@@ -181,7 +181,7 @@ const NotificationArea = ({
             divider={!!footer || index !== switchLen - 1}
           />
         ))}
-        {footer || null}
+        {switchs?.[0]?.value && footer ? footer : null}
       </Box>
       {extraText && (
         <Text mt={2} color="text-subdued" typography="Caption">
