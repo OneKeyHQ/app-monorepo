@@ -76,7 +76,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async initWallets() {
+  async initWallets({ noDispatch } = { noDispatch: false }) {
     const { engine, dispatch, appSelector } = this.backgroundApi;
     const displayPassphraseWalletIdList = appSelector(
       (s) => s.runtime.displayPassphraseWalletIdList,
@@ -84,7 +84,9 @@ class ServiceAccount extends ServiceBase {
     const wallets = await engine.getWallets({
       displayPassphraseWalletIds: displayPassphraseWalletIdList,
     });
-    dispatch(updateWallets(wallets));
+    if (!noDispatch) {
+      dispatch(updateWallets(wallets));
+    }
     return wallets;
   }
 
@@ -107,13 +109,16 @@ class ServiceAccount extends ServiceBase {
   async reloadAccountsByWalletIdNetworkId(
     walletId: string | null,
     networkId: string | null,
+    { noDispatch } = { noDispatch: false },
   ) {
     if (!walletId || !networkId) return;
     const { engine, dispatch } = this.backgroundApi;
     const wallet = await engine.getWallet(walletId);
     const accountIds = wallet.accounts;
     const accounts = await engine.getAccounts(accountIds, networkId);
-    dispatch(updateAccounts(accounts));
+    if (!noDispatch) {
+      dispatch(updateAccounts(accounts));
+    }
     return accounts;
   }
 
@@ -518,27 +523,32 @@ class ServiceAccount extends ServiceBase {
       serviceCloudBackup,
     } = this.backgroundApi;
 
+    const actions = [];
+
     if (checkOnBoarding) {
       const status: { boardingCompleted: boolean } = appSelector(
         (s) => s.status,
       );
       if (!status.boardingCompleted) {
-        dispatch(setBoardingCompleted());
+        actions.push(setBoardingCompleted());
       }
     }
 
     if (checkPasswordSet) {
       const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
       if (!data.isPasswordSet) {
-        dispatch(passwordSet(), setEnableAppLock(true));
+        actions.push(passwordSet());
+        actions.push(setEnableAppLock(true));
       }
     }
 
     if (checkOnBoarding || checkPasswordSet) {
-      dispatch(unlock(), release());
+      actions.push(unlock());
+      actions.push(release());
     }
 
-    const wallets = await serviceAccount.initWallets();
+    const wallets = await serviceAccount.initWallets({ noDispatch: true });
+    actions.push(updateWallets(wallets));
     let activeWallet: Wallet | undefined;
     if (walletId) {
       activeWallet = wallets.find((wallet) => wallet.id === walletId);
@@ -546,19 +556,19 @@ class ServiceAccount extends ServiceBase {
       activeWallet = wallets.find((wallet) => wallet.type === walletType);
     }
 
-    if (!activeWallet) return;
-    await serviceAccount.reloadAccountsByWalletIdNetworkId(
+    if (!activeWallet) {
+      dispatch(...actions);
+      return;
+    }
+
+    const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
       activeWallet?.id,
       networkId,
+      { noDispatch: true },
     );
-
-    dispatch(
-      setActiveIds({
-        activeAccountId: account.id,
-        activeWalletId: activeWallet.id,
-        activeNetworkId: networkId,
-      }),
-    );
+    if (accounts) {
+      actions.push(updateAccounts(accounts));
+    }
 
     if (shouldBackup) {
       serviceCloudBackup.requestBackup();
@@ -570,6 +580,15 @@ class ServiceAccount extends ServiceBase {
         await servicePassword.savePassword(password);
       }
     }
+
+    dispatch(
+      ...actions,
+      setActiveIds({
+        activeAccountId: account.id,
+        activeWalletId: activeWallet.id,
+        activeNetworkId: networkId,
+      }),
+    );
 
     this.backgroundApi.serviceNetwork.notifyChainChanged();
     this.backgroundApi.serviceAccount.notifyAccountsChanged();
