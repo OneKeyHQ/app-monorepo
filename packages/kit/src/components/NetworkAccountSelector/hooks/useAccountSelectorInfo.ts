@@ -222,9 +222,9 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
       isOpenDelay,
       isOpenDelayForShow,
 
-      selectedNetwork,
+      selectedNetwork, // TODO selectedNetworkLazy
       selectedNetworkId,
-      selectedWallet,
+      selectedWallet, // TODO selectedWalletLazy
       selectedWalletId,
 
       accountsGroup,

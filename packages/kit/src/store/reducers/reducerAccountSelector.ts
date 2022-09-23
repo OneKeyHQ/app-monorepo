@@ -4,6 +4,7 @@ import type { AccountGroup } from '../../components/Header/AccountSelectorChildr
 
 type InitialState = {
   isDesktopWalletSelectorVisible: boolean;
+  isMobileWalletSelectorDrawerOpen: boolean;
   isOpenDelay: boolean; // isOpenDelay 600ms
   isLoading: boolean;
   isRefreshDisabled: boolean;
@@ -19,6 +20,7 @@ type InitialState = {
 
 const initialState: InitialState = {
   isDesktopWalletSelectorVisible: false,
+  isMobileWalletSelectorDrawerOpen: false,
   // check packages/kit/src/components/Header/AccountSelector.tsx
   //      const visible = isSmallLayout ? isDrawerOpen : innerVisible;
   isOpenDelay: false,
@@ -39,6 +41,12 @@ export const reducerSlice = createSlice({
       action: PayloadAction<InitialState['isDesktopWalletSelectorVisible']>,
     ) {
       state.isDesktopWalletSelectorVisible = action.payload;
+    },
+    updateMobileWalletSelectorDrawerOpen(
+      state,
+      action: PayloadAction<InitialState['isMobileWalletSelectorDrawerOpen']>,
+    ) {
+      state.isMobileWalletSelectorDrawerOpen = action.payload;
     },
     updateSelectedWalletId(
       state,

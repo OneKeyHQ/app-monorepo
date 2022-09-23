@@ -113,7 +113,12 @@ function AccountList({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const acc = activeAccountId; // keep this for refresh deps
     const groupData: INetworkAccountSelectorAccountListSectionData[] = [];
-    if (isMounted.current && selectedNetworkId && isOpenDelay) {
+    if (
+      isMounted.current &&
+      selectedNetworkId &&
+      isOpenDelay &&
+      selectedWallet
+    ) {
       debugLogger.accountSelector.info(
         'rebuild NetworkAccountSelector accountList data',
         {
