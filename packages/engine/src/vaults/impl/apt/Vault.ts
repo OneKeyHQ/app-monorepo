@@ -262,6 +262,19 @@ export default class Vault extends VaultBase {
     throw new InvalidTokenAddress();
   }
 
+  override async normalizeTokenAddress(tokenAddress: string): Promise<string> {
+    const tokenAddressSplit = tokenAddress.split('::');
+    return tokenAddressSplit.reduce((acc, cur, index) => {
+      let $acc = acc;
+      if (index === 0) {
+        $acc += cur.toLowerCase();
+      } else {
+        $acc += `::${cur}`;
+      }
+      return $acc;
+    }, '');
+  }
+
   override attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTx;
     feeInfoValue: IFeeInfoUnit;

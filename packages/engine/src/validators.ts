@@ -182,6 +182,15 @@ class Validators {
   }
 
   @backgroundMethod()
+  async normalizeTokenAddress(
+    networkId: string,
+    address: string,
+  ): Promise<string> {
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    return vault.normalizeTokenAddress(address);
+  }
+
+  @backgroundMethod()
   private validateNumericString(value: string): boolean {
     return new BigNumber(value).isFinite();
   }

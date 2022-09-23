@@ -137,6 +137,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve(normalizedAddress);
   }
 
+  async normalizeTokenAddress(address: string): Promise<string> {
+    return Promise.resolve(address.trim().toLowerCase());
+  }
+
   async checkAccountExistence(accountIdOnNetwork: string): Promise<boolean> {
     return Promise.resolve(true);
   }
