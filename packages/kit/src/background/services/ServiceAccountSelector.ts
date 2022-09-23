@@ -118,21 +118,7 @@ export default class ServiceAccountSelector extends ServiceBase {
 
   _refreshAccountsGroup = debounce(
     async () => {
-      const { dispatch } = this.backgroundApi;
-      try {
-        dispatch(updateIsLoading(true));
-
-        let data: AccountGroup[] = [];
-        try {
-          data = await this.getAccountsByGroup();
-        } catch (error) {
-          debugLogger.accountSelector.error(error);
-        }
-
-        dispatch(updateAccountsGroup(data));
-      } finally {
-        dispatch(updateIsLoading(false));
-      }
+      // noop
     },
     ACCOUNT_SELECTOR_REFRESH_DEBOUNCE,
     {
@@ -143,18 +129,9 @@ export default class ServiceAccountSelector extends ServiceBase {
 
   @bindThis()
   @backgroundMethod()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async refreshAccountsGroup({ delay = 0 }: { delay?: number } = {}) {
-    const { dispatch, appSelector } = this.backgroundApi;
-    const { isRefreshDisabled } = appSelector((s) => s.accountSelector);
-    if (isRefreshDisabled) {
-      return;
-    }
-    debugLogger.accountSelector.info('refreshAccountsGroup start');
-    dispatch(updateIsLoading(true));
-    if (delay > 0) {
-      await wait(delay);
-    }
-    this._refreshAccountsGroup();
+    // noop
   }
 
   @bindThis()

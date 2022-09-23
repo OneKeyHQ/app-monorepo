@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { orderBy } from 'lodash';
+import { useIsFocused } from '@react-navigation/core';
+import { debounce, orderBy } from 'lodash';
 
 import { IWallet } from '@onekeyhq/engine/src/types';
 import {
@@ -10,8 +11,11 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useRuntime } from '../../../hooks/redux';
+
+import { useWalletSelectorStatus } from './useWalletSelectorStatus';
 
 import type { IWalletDataBase } from '../WalletSelectorChildren/List';
 
@@ -26,16 +30,20 @@ export type IWalletDataSection = {
 };
 
 export function useWalletSelectorSectionData(): IWalletDataSection[] {
-  // TODO rename \ remove \ change avatar \ deviceStatus
   const { wallets } = useRuntime();
+  const [data, setData] = useState<
+    { type: EWalletDataSectionType; data: IWalletDataBase[] }[]
+  >([]);
 
-  const data = useMemo(() => {
+  const { visible } = useWalletSelectorStatus();
+
+  const buildData = useCallback(() => {
     const hdData: IWalletDataBase[] = [];
     const hwData: IWalletDataBase[] = [];
     const otherData: IWalletDataBase[] = []; // TODO sort by type
     const hwWalletsMap: Partial<{ [deviceId: string]: IWallet[] }> = {};
 
-    wallets.forEach((wallet) => {
+    wallets.forEach((wallet, index) => {
       // hd wallet
       if (wallet.type === WALLET_TYPE_HD) {
         hdData.push({
@@ -53,6 +61,7 @@ export function useWalletSelectorSectionData(): IWalletDataSection[] {
         otherData.push({
           wallet,
           isSingleton: true,
+          isLastItem: index === wallets.length - 1,
         });
       }
       // hw wallet
@@ -85,7 +94,8 @@ export function useWalletSelectorSectionData(): IWalletDataSection[] {
       }
     });
 
-    return [
+    debugLogger.accountSelector.info('rebuild WalletSelector walletList data');
+    const d = [
       {
         type: EWalletDataSectionType.hd,
         data: hdData,
@@ -98,6 +108,24 @@ export function useWalletSelectorSectionData(): IWalletDataSection[] {
       },
       { type: EWalletDataSectionType.other, data: otherData },
     ];
+    setData(d);
   }, [wallets]);
+
+  const buildDataDebounced = useMemo(
+    () =>
+      debounce(buildData, 150, {
+        leading: false,
+        trailing: true,
+      }),
+    [buildData],
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    buildDataDebounced();
+  }, [buildDataDebounced, visible]);
+
   return data;
 }

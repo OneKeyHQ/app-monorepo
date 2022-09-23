@@ -16,28 +16,31 @@ import Header from './Header';
 const { updateIsOpenDelay } = reducerAccountSelector.actions;
 function NetworkAccountSelectorModal() {
   const { dispatch } = backgroundApiProxy;
-  const isMountedRef = useRef(true);
+  const isMountedRef = useRef(false);
   useEffect(() => {
-    isMountedRef.current = true;
+    setTimeout(() => {
+      isMountedRef.current = true;
+    }, 50);
+
+    // delay wait drawer closed animation done
+    setTimeout(() => {
+      dispatch(updateIsOpenDelay(true));
+    }, ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY);
     return () => {
-      isMountedRef.current = false;
+      setTimeout(() => {
+        isMountedRef.current = false;
+      }, 50);
+
+      setTimeout(() => {
+        dispatch(updateIsOpenDelay(false));
+      }, ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY);
     };
-  }, []);
+  }, [dispatch]);
+
   const isOpen = isMountedRef.current;
   const accountSelectorInfo = useAccountSelectorInfo({
     isOpen,
   });
-
-  const isVertical = useIsVerticalLayout();
-
-  // delay wait drawer closed animation done
-  const isOpenDelay = useDebounce(
-    isOpen,
-    isVertical ? ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY : 150,
-  );
-  useEffect(() => {
-    dispatch(updateIsOpenDelay(Boolean(isOpenDelay)));
-  }, [dispatch, isOpenDelay]);
 
   return (
     <Modal

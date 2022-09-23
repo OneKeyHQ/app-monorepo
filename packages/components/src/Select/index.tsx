@@ -110,6 +110,7 @@ export type SelectProps<T = string> = {
   setPositionOnlyMounted?: boolean;
   positionTranslateY?: number;
   withReactModal?: boolean;
+  autoAdjustPosition?: boolean;
 };
 
 export type ChildProps<T> = Pick<
@@ -133,6 +134,7 @@ export type ChildProps<T> = Pick<
   | 'setPositionOnlyMounted'
   | 'positionTranslateY'
   | 'withReactModal'
+  | 'autoAdjustPosition'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -176,6 +178,7 @@ function Select<T = string>({
   positionTranslateY,
   onModalHide,
   withReactModal,
+  autoAdjustPosition,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
@@ -265,12 +268,13 @@ function Select<T = string>({
     return (
       <OverlayContainer>
         <CloseBackDrop onClose={toggleVisible} />
-        <Desktop<T> {...childContainerProps} />
+        <Desktop<T>
+          {...childContainerProps}
+          autoAdjustPosition={autoAdjustPosition}
+        />
       </OverlayContainer>
     );
   }, [
-    withReactModal,
-    onModalHide,
     selectVisible,
     visible,
     options,
@@ -289,7 +293,10 @@ function Select<T = string>({
     handlePressFooter,
     setPositionOnlyMounted,
     positionTranslateY,
+    withReactModal,
     size,
+    autoAdjustPosition,
+    onModalHide,
   ]);
 
   return (
