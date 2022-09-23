@@ -57,6 +57,7 @@ function AccountList({
     preloadingCreateAccount,
     isOpenDelay,
     selectedWallet,
+    // selectedWalletId,
   } = accountSelectorInfo;
   const { engine } = backgroundApiProxy;
   const [data, setData] =
@@ -114,7 +115,13 @@ function AccountList({
     if (isMounted.current && selectedNetworkId && isOpenDelay) {
       debugLogger.accountSelector.info(
         'rebuild NetworkAccountSelector accountList data',
-        { selectedNetworkId, refreshAccountSelectorTs, isOpenDelay, wallets },
+        {
+          refreshAccountSelectorTs,
+          isOpenDelay,
+          selectedNetworkId,
+          selectedWalletId: selectedWallet?.id,
+          activeAccountId,
+        },
       );
       const pushWalletAccountsData = async (wallet: IWallet) => {
         const accounts = await engine.getAccounts(
