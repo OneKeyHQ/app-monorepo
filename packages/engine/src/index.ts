@@ -911,8 +911,6 @@ class Engine {
     for (const dbAccount of accounts) {
       const { id } = await this.dbApi.addAccountToWallet(walletId, dbAccount);
 
-      await this.addDefaultToken(id, impl);
-
       const account = await this.getAccount(id, networkId);
       ret.push(account);
       if ((await callback(account)) === false) {
@@ -979,8 +977,6 @@ class Engine {
       password,
     });
 
-    await this.addDefaultToken(dbAccount.id, impl);
-
     return this.getAccount(dbAccount.id, networkId);
   }
 
@@ -1003,7 +999,6 @@ class Engine {
     // TODO: now only adding by address is supported.
     await this.validator.validateAccountNames([name]);
 
-    const { impl } = parseNetworkId(networkId);
     const vault = await this.getWalletOnlyVault(networkId, walletType);
 
     // create dbAccountInfo to save to DB
@@ -1021,8 +1016,6 @@ class Engine {
     }
 
     const a = await this.dbApi.addAccountToWallet(walletType, dbAccount);
-
-    await this.addDefaultToken(a.id, impl);
 
     return this.getAccount(a.id, networkId);
   }
@@ -1190,17 +1183,6 @@ class Engine {
       ...token,
       logoURI: token.logoURI || logoURI || '',
     } as Token);
-  }
-
-  private async addDefaultToken(
-    accountId: string,
-    impl?: string,
-  ): Promise<void> {
-    if (!impl) {
-      debugLogger.engine.error(`Can not add default token: Invalid impl`, impl);
-      return;
-    }
-    return simpleDb.token.addDefaultToken(accountId, impl);
   }
 
   @backgroundMethod()
