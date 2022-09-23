@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
+import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { makeTimeoutPromise } from '@onekeyhq/kit/src/background/utils';
 import AddressInput from '@onekeyhq/kit/src/components/AddressInput';
@@ -13,6 +14,8 @@ import NameServiceResolver, {
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { useFormOnChangeDebounced } from '@onekeyhq/kit/src/hooks/useFormOnChangeDebounced';
 import { useTokenInfo } from '@onekeyhq/kit/src/hooks/useTokenInfo';
+
+import CollectibleListImage from '../Wallet/NFT/NFTList/CollectibleListImage';
 
 import { BaseSendModal } from './components/BaseSendModal';
 import { SendRoutes, SendRoutesParams } from './types';
@@ -29,11 +32,25 @@ type FormValues = {
   to: string;
 };
 
+function NFTView({ asset }: { asset?: NFTAsset }) {
+  if (asset) {
+    return (
+      <Box flexDirection="row" alignItems="center">
+        <CollectibleListImage asset={asset} borderRadius="6px" size={40} />
+        <Typography.Body1Strong ml={3}>{asset.name}</Typography.Body1Strong>
+      </Box>
+    );
+  }
+  return <Box size="40px" />;
+}
+
 function PreSendAddress() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
+  const { serviceNFT, engine } = backgroundApiProxy;
   const transferInfo = useMemo(() => ({ ...route.params }), [route.params]);
-  const { networkId } = useActiveWalletAccount();
+  const { isNFT } = transferInfo;
+  const { networkId, account, accountId, network } = useActiveWalletAccount();
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -59,6 +76,26 @@ function PreSendAddress() {
     networkId,
     tokenIdOnNetwork: transferInfo.token,
   });
+
+  const [nftInfo, updateNFTInfo] = useState<NFTAsset>();
+  useEffect(() => {
+    (async () => {
+      const { tokenId } = transferInfo;
+      if (tokenId) {
+        const contractAddress = transferInfo.token;
+        const asset = await serviceNFT.getAsset({
+          accountId: account?.address ?? '',
+          networkId,
+          contractAddress,
+          tokenId,
+          local: true,
+        });
+        updateNFTInfo(asset);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transferInfo.tokenId, transferInfo.token]);
+
   const submitDisabled =
     isLoading ||
     !formValues?.to ||
@@ -95,18 +132,60 @@ function PreSendAddress() {
     [trigger, onNameServiceChange],
   );
 
+  const nftSendConfirm = useCallback(
+    async (toVal: string) => {
+      if (!account || !network || !nftInfo) {
+        return;
+      }
+      if (transferInfo) {
+        transferInfo.amount = '1';
+        transferInfo.from = account.address;
+        transferInfo.to = toVal;
+      }
+      const encodedTx = await engine.buildEncodedTxFromTransfer({
+        networkId,
+        accountId,
+        transferInfo,
+      });
+      navigation.navigate(SendRoutes.SendConfirm, {
+        ...transferInfo,
+        encodedTx,
+        feeInfoUseFeeInTx: false,
+        feeInfoEditable: true,
+        backRouteName: SendRoutes.PreSendAddress,
+        payloadInfo: {
+          type: 'Transfer',
+          nftInfo: {
+            asset: nftInfo,
+            amount: '1',
+            from: account.address,
+            to: toVal,
+          },
+        },
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigation, nftInfo, transferInfo],
+  );
+
   const onSubmit = useCallback(
     (values: FormValues) => {
       const toVal = resolvedAddress || values.to;
       if (isLoading || !toVal) {
         return;
       }
-      navigation.navigate(SendRoutes.PreSendAmount, {
-        ...transferInfo,
-        to: toVal,
-      });
+      if (isNFT) {
+        nftSendConfirm(toVal);
+      } else {
+        navigation.navigate(SendRoutes.PreSendAmount, {
+          ...transferInfo,
+          to: toVal,
+        });
+      }
     },
-    [resolvedAddress, isLoading, navigation, transferInfo],
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resolvedAddress, isLoading, nftSendConfirm, navigation, transferInfo],
   );
   const doSubmit = handleSubmit(onSubmit);
 
@@ -124,12 +203,17 @@ function PreSendAddress() {
         children: (
           <Box>
             <Form>
-              <Box flexDirection="row" alignItems="center">
-                <Token size={8} src={tokenInfo?.logoURI} />
-                <Typography.Body1Strong ml={3}>
-                  {tokenInfo?.symbol}
-                </Typography.Body1Strong>
-              </Box>
+              {isNFT ? (
+                <NFTView asset={nftInfo} />
+              ) : (
+                <Box flexDirection="row" alignItems="center">
+                  <Token size={8} src={tokenInfo?.logoURI} />
+                  <Typography.Body1Strong ml={3}>
+                    {tokenInfo?.symbol}
+                  </Typography.Body1Strong>
+                </Box>
+              )}
+
               <Form.Item
                 control={control}
                 warningMessage={warningMessage}

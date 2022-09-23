@@ -15,16 +15,13 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '../../../routes/Modal/Collectibles';
+import { NavigationProps } from '../type';
 
 import NFTListAssetCard from './NFTList/NFTListAssetCard';
 
@@ -72,8 +69,6 @@ function generateListArray(originData: Collection): ListDataType {
   return result;
 }
 
-type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
-
 type CollectionModalProps = {
   onSelectAsset: (asset: NFTAsset) => void;
 };
@@ -110,7 +105,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
-          screen: CollectiblesModalRoutes.CollectibleDetailModal,
+          screen: CollectiblesModalRoutes.NFTDetailModal,
           params: {
             asset,
             network,
