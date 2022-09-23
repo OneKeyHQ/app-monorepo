@@ -37,14 +37,20 @@ import { showOverlay } from '../../utils/overlayUtils';
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
 
-const sortConnectionsSite = (connections: DappSiteConnection[]) => {
-  let parseConnections: DappSiteConnection[] = cloneDeep(connections);
-  parseConnections = parseConnections.map<DappSiteConnection>((c) => {
-    const { origin } = c.site;
-    c.site.hostname = new URL(origin).hostname;
-    return c;
-  });
-  return parseConnections.sort((c1, c2) =>
+const parseConnectionsSite = (connections: DappSiteConnection[]) => {
+  // remove repeat & sort & add hostname
+  const parsedConnections: DappSiteConnection[] = cloneDeep(connections);
+  const resultConnections: DappSiteConnection[] = [];
+  const exitMap = new Map();
+  for (const c of parsedConnections) {
+    const connectionStr = c.site.origin + c.address + c.networkImpl;
+    if (!exitMap.has(connectionStr)) {
+      c.site.hostname = new URL(c.site.origin).hostname;
+      resultConnections.push(c);
+      exitMap.set(connectionStr, 1);
+    }
+  }
+  return resultConnections.sort((c1, c2) =>
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     natsort({ insensitive: true })(c1.site.hostname!, c2.site.hostname!),
   );
@@ -132,8 +138,8 @@ export default function ConnectedSites() {
   const connections: DappSiteConnection[] = useAppSelector(
     (s) => s.dapp.connections,
   );
-  const sortConnections = useMemo(
-    () => sortConnectionsSite(connections),
+  const parsedConnections = useMemo(
+    () => parseConnectionsSite(connections),
     [connections],
   );
 
@@ -190,10 +196,12 @@ export default function ConnectedSites() {
           width="100%"
           bgColor="surface-default"
           borderTopRadius={index === 0 ? '12px' : '0px'}
-          borderRadius={index === connections?.length - 1 ? '12px' : '0px'}
+          borderRadius={
+            index === parsedConnections?.length - 1 ? '12px' : '0px'
+          }
           borderWidth={1}
           borderTopWidth={index === 0 ? 1 : 0}
-          borderBottomWidth={index === connections?.length - 1 ? 1 : 0}
+          borderBottomWidth={index === parsedConnections?.length - 1 ? 1 : 0}
           borderColor="border-subdued"
         >
           <Box flexDirection="row" flex={1} alignItems="center">
@@ -238,7 +246,7 @@ export default function ConnectedSites() {
             onAddConnectSite={openAddDialog}
           />
         ),
-        data: sortConnections,
+        data: parsedConnections,
         // @ts-ignore
         renderItem,
         ListEmptyComponent: (
