@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "Permanente nitong tatanggalin ang iyong data. Ngunit maaari mo pa ring ibalik ito mula sa hardware wallet na nag-load ng recovery phrase ng wallet na ito.",
   "dialog__delete_wallet_desc": "Tiyaking naisulat mo ang parirala sa pagbawi bago ito tanggalin. Hindi mo na mababawi ang wallet kung hindi.",
   "dialog__device_has_disabled_passphrase": "Hindi pinagana ng device ang passphrase",
-  "dialog__device_has_disabled_passphrase_desc": "Maaari mong paganahin ang passphrase na gamitin ang Standard Wallet.",
+  "dialog__device_has_disabled_passphrase_desc": "Maaari mong paganahin ang passphrase na gamitin ang Hidden Wallet.",
   "dialog__device_has_enabled_passphrase": "Pinagana ng device ang passphrase",
   "dialog__device_has_enabled_passphrase_desc": "Maaari mong i-disable ang passphrase para magamit ang Standard Wallet.",
   "dialog__disabling_sync": "Hindi pagpapagana ng Pag-sync",

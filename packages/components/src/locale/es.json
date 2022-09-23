@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "Esto eliminará permanentemente sus datos. Pero aún puede restaurarlo desde la billetera de hardware que está cargada con la frase de recuperación de esta billetera.",
   "dialog__delete_wallet_desc": "Asegúrate de haber anotado la frase de recuperación antes de eliminarla. De lo contrario, no podrá recuperar la billetera.",
   "dialog__device_has_disabled_passphrase": "El dispositivo ha deshabilitado la frase de contraseña",
-  "dialog__device_has_disabled_passphrase_desc": "Puede habilitar la frase de contraseña para usar Standard Wallet.",
+  "dialog__device_has_disabled_passphrase_desc": "Puede habilitar la frase de contraseña para usar Hidden Wallet.",
   "dialog__device_has_enabled_passphrase": "El dispositivo ha habilitado la frase de contraseña",
   "dialog__device_has_enabled_passphrase_desc": "Puede deshabilitar la frase de contraseña para usar Standard Wallet.",
   "dialog__disabling_sync": "Deshabilitar la sincronización",

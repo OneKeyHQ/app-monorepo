@@ -149,7 +149,7 @@ function ChainSelector({
       />
       <Box
         p={2}
-        mb={insets.bottom}
+        mb={`${insets.bottom}px`}
         borderTopWidth={StyleSheet.hairlineWidth}
         borderColor="border-subdued"
       >

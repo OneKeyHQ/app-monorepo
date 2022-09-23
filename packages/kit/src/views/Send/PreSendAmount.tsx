@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -53,6 +59,7 @@ export function PreSendAmountPreview({
   onChangeText,
   loading,
   desc,
+  placeholder = '0',
 }: {
   text: string;
   onChangeText?: (text: string) => void;
@@ -60,7 +67,21 @@ export function PreSendAmountPreview({
   titleAction?: JSX.Element;
   desc?: string | JSX.Element;
   loading?: boolean;
+  placeholder?: string;
 }) {
+  const descView = useMemo(() => {
+    if (!desc) {
+      return null;
+    }
+    if (isValidElement(desc)) {
+      return desc;
+    }
+    return (
+      <Text typography="Body1Strong" textAlign="center" isTruncated>
+        {desc}
+      </Text>
+    );
+  }, [desc]);
   return (
     <Box height="140px">
       {!!title && (
@@ -83,19 +104,11 @@ export function PreSendAmountPreview({
           autoFocus
           text={text}
           onChangeText={onChangeText}
-          placeholder="0"
+          placeholder={placeholder}
         />
       </Center>
 
-      {loading ? (
-        <Spinner size="sm" />
-      ) : (
-        !!desc && (
-          <Text typography="Body1Strong" textAlign="center" isTruncated>
-            {desc}
-          </Text>
-        )
-      )}
+      {loading ? <Spinner size="sm" /> : descView}
     </Box>
   );
 }

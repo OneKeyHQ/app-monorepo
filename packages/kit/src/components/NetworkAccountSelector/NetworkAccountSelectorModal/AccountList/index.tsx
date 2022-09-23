@@ -16,7 +16,6 @@ import {
   Box,
   Empty,
   SectionList,
-  Text,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -213,14 +212,6 @@ function AccountList({
         //       sectionIndex: sectionIndex,
         //       itemIndex: itemIndex
         //     });
-        ListEmptyComponent={
-          <Empty
-            emoji="💳"
-            title={intl.formatMessage({ id: 'empty__no_account_title' })}
-            subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
-            mt={16}
-          />
-        }
         stickySectionHeadersEnabled
         sections={data}
         keyExtractor={(item: IAccount) => item.id}
@@ -301,9 +292,12 @@ function AccountList({
               ) : null}
 
               {isEmptySectionData && !isPreloadingCreate ? (
-                <Text typography="Body2" color="text-subdued" px={2}>
-                  {intl.formatMessage({ id: 'empty__no_account_title' })}
-                </Text>
+                <Empty
+                  emoji="💳"
+                  title={intl.formatMessage({ id: 'empty__no_account_desc' })}
+                  flex={1}
+                  mt={8}
+                />
               ) : null}
 
               <Box h={6} />
