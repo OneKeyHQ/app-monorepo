@@ -14,7 +14,7 @@ export function LayoutHeaderMobile() {
       // headerRight={() => <ChainSelector />}
       headerRight={() => (
         <HStack space={2}>
-          <NetworkAccountSelectorTrigger />
+          <NetworkAccountSelectorTrigger type="basic" />
           <IconButton
             name="DotsVerticalSolid"
             onPress={() => showHomeMoreMenu()}

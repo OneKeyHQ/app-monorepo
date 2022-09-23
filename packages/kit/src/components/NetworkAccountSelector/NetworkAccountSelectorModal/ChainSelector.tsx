@@ -145,6 +145,7 @@ function ChainSelector({
               )}
             </Pressable>
           )}
+          showsVerticalScrollIndicator={false}
           style={{ flex: 1, padding: 4 }}
         />
         <Box
