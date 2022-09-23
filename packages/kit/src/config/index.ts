@@ -9,6 +9,7 @@ export const CLOUNDINARY_NAME_KEY = process.env.CLOUNDINARY_NAME!;
 export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;
 
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
+export const WEBSOCKET_ENDPOINT = process.env.WEBSOCKET_ENDPOINT!;
 
 export const HARDWARE_SDK_IFRAME_SRC =
   process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.1.53/';

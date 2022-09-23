@@ -18,6 +18,7 @@ import ServiceNotification from './services/serviceNotification';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePassword from './services/ServicePassword';
 import ServicePromise from './services/ServicePromise';
+import ServiceSocket from './services/ServiceSocket';
 import ServiceStaking from './services/ServiceStaking';
 import ServiceSwap from './services/ServiceSwap';
 import ServiceToken from './services/ServiceToken';
@@ -107,6 +108,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceNotification = new ServiceNotification({
+    backgroundApi: this,
+  });
+
+  serviceSocket = new ServiceSocket({
     backgroundApi: this,
   });
 }

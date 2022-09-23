@@ -22,6 +22,9 @@ export const checkPushNotificationPermission = async () => {
 };
 
 export const initJpush = () => {
+  if (!platformEnv.isNative) {
+    return;
+  }
   if (jpushInited) {
     return;
   }

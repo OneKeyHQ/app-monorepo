@@ -68,7 +68,6 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
 
   const showSubscriptionIcon =
     !!account &&
-    platformEnv.isNative &&
     !loading &&
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);

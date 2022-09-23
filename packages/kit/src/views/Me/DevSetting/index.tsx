@@ -29,7 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const DevSettingSection = () => {
   const toast = useToast();
   const { themeVariant } = useTheme();
-  const { devMode, pushNotification } = useSettings();
+  const { devMode, pushNotification, instanceId } = useSettings();
   const { registrationId } = pushNotification || {};
   const {
     enable: devModeEnable,
@@ -42,6 +42,12 @@ export const DevSettingSection = () => {
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
 
+  const pushId = useMemo(() => {
+    if (platformEnv.isNative) {
+      return registrationId;
+    }
+    return instanceId;
+  }, [registrationId, instanceId]);
   const onToggleTestVersionUpdate = useCallback(() => {
     dispatch(setPreReleaseUpdate(!preReleaseUpdate));
   }, [preReleaseUpdate, dispatch]);
@@ -51,9 +57,9 @@ export const DevSettingSection = () => {
   }, [devModeEnable, dispatch]);
 
   const copyRegistrationId = useCallback(() => {
-    copyToClipboard(registrationId || '');
+    copyToClipboard(pushId || '');
     toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [toast, intl, registrationId]);
+  }, [toast, intl, pushId]);
 
   const fiatEndpoint = useMemo(getFiatEndpoint, [enableTestFiatEndpoint]);
 
@@ -151,7 +157,7 @@ export const DevSettingSection = () => {
             titleColor="text-critical"
             subDescribeCustom={
               <Pressable onPress={copyRegistrationId}>
-                <Text color="text-subdued">{registrationId}</Text>
+                <Text color="text-subdued">{pushId}</Text>
               </Pressable>
             }
           />

@@ -22,6 +22,10 @@ const bridge = bridgeSetup.background.createHostBridge({
 
 backgroundApiProxy.connectBridge(bridge);
 
+backgroundApiProxy.serviceSocket.initSocket().finally(() => {
+  backgroundApiProxy.serviceNotification.registerNotificationCallback();
+});
+
 // extension reload() method expose to dapp
 if (platformEnv.isDev) {
   chrome.runtime.onMessage.addListener(

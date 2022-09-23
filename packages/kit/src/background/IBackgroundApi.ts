@@ -20,6 +20,7 @@ import type ServiceNotification from './services/serviceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
+import type ServiceSocket from './services/ServiceSocket';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -69,6 +70,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePassword: ServicePassword;
   serviceCloudBackup: ServiceCloudBackup;
   serviceNotification: ServiceNotification;
+  serviceSocket: ServiceSocket;
 }
 
 export type IDappSourceInfo = {

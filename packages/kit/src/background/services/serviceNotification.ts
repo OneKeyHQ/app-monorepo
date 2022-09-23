@@ -1,5 +1,11 @@
+import { pick } from 'lodash';
+import { Dimensions } from 'react-native';
+
+import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import {
   AddPriceAlertConfig,
+  NotificationExtra,
   NotificationType,
   RemovePriceAlertConfig,
   addAccountDynamic,
@@ -12,11 +18,19 @@ import {
   syncPushNotificationConfig,
 } from '@onekeyhq/engine/src/managers/notification';
 import {
+  EVMDecodedItem,
+  EVMDecodedTxType,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { HomeRoutes, RootRoutes, TabRoutes } from '../../routes/types';
+import { setHomeTabName } from '../../store/reducers/status';
+import { WalletHomeTabEnum } from '../../views/Wallet/type';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
@@ -89,5 +103,183 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   emitNotificationStatusChange(content: NotificationType) {
     appEventBus.emit(AppEventBusNames.NotificationStatusChanged, content);
+  }
+
+  @backgroundMethod()
+  async switchToTokenDetailScreen(params: NotificationExtra['params']) {
+    const navigation = global.$navigationRef.current;
+    const width = await this.getWindowWidthInBackground();
+    const isVertical = width < SCREEN_SIZE.MEDIUM;
+    const { appSelector, serviceApp } = this.backgroundApi;
+    const { activeAccountId: accountId, activeNetworkId: networkId } =
+      appSelector((s) => s.general);
+    const filter = params.tokenId
+      ? undefined
+      : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+
+    const routerParams = {
+      accountId,
+      networkId: params.networkId || networkId,
+      tokenId: params.tokenId || '',
+      historyFilter: filter,
+    };
+    let expandRoutes = [
+      RootRoutes.Root,
+      HomeRoutes.InitialTab,
+      RootRoutes.Tab,
+      TabRoutes.Home,
+      HomeRoutes.ScreenTokenDetail,
+    ];
+    let navigationRoutes = {
+      screen: HomeRoutes.InitialTab,
+      params: {
+        screen: RootRoutes.Tab,
+        params: {
+          screen: TabRoutes.Home,
+          params: {
+            screen: HomeRoutes.ScreenTokenDetail,
+            params: routerParams,
+          },
+        },
+      } as any,
+    };
+    if (isVertical) {
+      expandRoutes = [RootRoutes.Root, HomeRoutes.ScreenTokenDetail];
+      navigationRoutes = {
+        screen: HomeRoutes.ScreenTokenDetail,
+        params: routerParams as any,
+      };
+    }
+    if (platformEnv.isExtension) {
+      serviceApp.openExtensionExpandTab({
+        routes: expandRoutes,
+        params: routerParams,
+      });
+    } else {
+      navigation?.navigate(RootRoutes.Root, navigationRoutes);
+    }
+  }
+
+  @backgroundMethod()
+  switchToScreen({ screen, params }: NotificationExtra) {
+    const navigation = global.$navigationRef.current;
+    const { dispatch, serviceApp } = this.backgroundApi;
+    if (!platformEnv.isExtension) {
+      navigation?.navigate(RootRoutes.Tab, {
+        screen: TabRoutes.Home,
+      });
+    }
+    switch (screen) {
+      case HomeRoutes.ScreenTokenDetail:
+        this.switchToTokenDetailScreen(params);
+        break;
+      case HomeRoutes.InitialTab:
+        dispatch(setHomeTabName(WalletHomeTabEnum.History));
+        if (platformEnv.isExtension) {
+          serviceApp.openExtensionExpandTab({
+            routes: [RootRoutes.Tab, TabRoutes.Home],
+          });
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  @backgroundMethod()
+  async handleNotificaitonCallback(result: NotificationType) {
+    debugLogger.notification.info('notification', result);
+    this.emitNotificationStatusChange(result);
+    const { appSelector, serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { activeAccountId: accountId, activeNetworkId: networkId } =
+      appSelector((s) => s.general);
+    if (!accountId || !networkId) {
+      return;
+    }
+    if (
+      result?.notificationEventType !== 'notificationOpened' ||
+      !result.extras
+    ) {
+      return;
+    }
+    // focus browser tab
+    if (platformEnv.isWeb) {
+      window?.focus?.();
+    }
+    const extras = result?.extras as {
+      screen: NotificationExtra['screen'];
+      params: string;
+    };
+    if (!extras.screen) {
+      return;
+    }
+    let params: NotificationExtra['params'] = {};
+    try {
+      params = platformEnv.isNativeAndroid
+        ? JSON.parse(extras.params)
+        : extras.params;
+      if (params.accountId) {
+        await serviceAccount.changeActiveAccountByAccountId(params.accountId);
+      }
+      if (params.networkId) {
+        await serviceNetwork.changeActiveNetwork(params.networkId);
+      }
+    } catch (error) {
+      debugLogger.notification.error(
+        `Jpush parse params error`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+    this.switchToScreen({
+      screen: extras.screen,
+      params,
+    });
+  }
+
+  @backgroundMethod()
+  getWindowWidthInBackground(): Promise<number> {
+    if (platformEnv.isExtensionBackground) {
+      return new Promise((resolve) => {
+        chrome.windows.getCurrent((w) => {
+          resolve(w.width || 0);
+        });
+      });
+    }
+    return Promise.resolve(Dimensions.get('window').width);
+  }
+
+  @backgroundMethod()
+  registerNotificationCallback() {
+    // native use jpush notification
+    if (!platformEnv.isRuntimeBrowser) {
+      return;
+    }
+    if (!('Notification' in window)) {
+      debugLogger.notification.warn(
+        'This browser does not support desktop notification',
+      );
+      return;
+    }
+    const { serviceSocket } = this.backgroundApi;
+    serviceSocket.registerSocketCallback(
+      SocketEvents.Notification,
+      (params: NotificationType) => {
+        debugLogger.notification.info(`received notification`, params);
+        this.handleNotificaitonCallback({
+          messageID: '',
+          ...pick(params, 'title', 'content', 'extras'),
+          notificationEventType: 'notificationArrived',
+        });
+        new Notification(params.title, {
+          body: params.content,
+        }).onclick = () => {
+          this.handleNotificaitonCallback({
+            messageID: '',
+            ...pick(params, 'title', 'content', 'extras'),
+            notificationEventType: 'notificationOpened',
+          });
+        };
+      },
+    );
   }
 }
