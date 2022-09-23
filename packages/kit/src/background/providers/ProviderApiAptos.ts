@@ -39,6 +39,13 @@ import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';
 
+type AccountInfo =
+  | {
+      publicKey: string;
+      address: string;
+    }
+  | undefined;
+
 @backgroundClass()
 class ProviderApiAptos extends ProviderApiBase {
   public providerName = IInjectedProviderNames.aptos;
@@ -46,7 +53,7 @@ class ProviderApiAptos extends ProviderApiBase {
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.account();
+      const params = await this.account({ origin });
       const result = {
         method: 'wallet_events_accountsChanged',
         params,
@@ -80,18 +87,27 @@ class ProviderApiAptos extends ProviderApiBase {
     return network.rpcURL;
   }
 
+  private wrapperConnectAccount(account: AccountInfo) {
+    const status = account ? 200 : 4001;
+    return {
+      ...account,
+      'method': 'connected',
+      'status': status,
+    };
+  }
+
   @providerApiMethod()
   public async connect(request: IJsBridgeMessagePayload) {
     debugLogger.providerApi.info('aptos connect', request);
-    const account = await this.account();
-    if (!account) return null;
-    return this.backgroundApi.serviceDapp
-      .openConnectionModal(request)
-      .then(() => ({
-        ...account,
-        'method': 'connected',
-        'status': 200,
-      }));
+    const account = await this.account(request);
+
+    if (account) {
+      return this.wrapperConnectAccount(account);
+    }
+
+    await this.backgroundApi.serviceDapp.openConnectionModal(request);
+
+    return this.wrapperConnectAccount(await this.account(request));
   }
 
   @providerApiMethod()
@@ -111,7 +127,7 @@ class ProviderApiAptos extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public async account(): Promise<
+  public async account(request: IJsBridgeMessagePayload): Promise<
     | {
         publicKey: string;
         address: string;
@@ -123,11 +139,27 @@ class ProviderApiAptos extends ProviderApiBase {
     if (networkImpl !== IMPL_APTOS) {
       return undefined;
     }
+
+    const connectedAccounts =
+      this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
+        origin: request.origin as string,
+        impl: IMPL_APTOS,
+      });
+    if (!connectedAccounts) {
+      return undefined;
+    }
+
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
     })) as VaultAptos;
     const address = await vault.getAccountAddress();
+
+    const addresses = connectedAccounts.map((account) => account.address);
+    if (!addresses.includes(address)) {
+      return undefined;
+    }
+
     const publicKey = await vault._getPublicKey();
     return Promise.resolve({ publicKey, address });
   }
@@ -310,7 +342,7 @@ class ProviderApiAptos extends ProviderApiBase {
     params: SignMessagePayload,
   ): Promise<SignMessageResponse> {
     debugLogger.providerApi.info('aptos signMessage', params);
-    const account = await this.account();
+    const account = await this.account(request);
 
     const { networkId, accountId } = getActiveWalletAccount();
     const vault = (await this.backgroundApi.engine.getVault({
