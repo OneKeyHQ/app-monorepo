@@ -511,13 +511,21 @@ export function formatSignMessage(
     fullMessage += `address: ${address}\n`;
     response.address = address;
   }
-  if (message.chainId) {
-    fullMessage += `chain_id: ${chainId}\n`;
-    response.chainId = chainId;
-  }
   if (message.application) {
-    fullMessage += `application: ${application}\n`;
+    let host: string;
+    try {
+      const urlObj = new URL(application);
+      host = urlObj.host;
+    } catch (error) {
+      host = application;
+    }
+
+    fullMessage += `application: ${host}\n`;
     response.application = application;
+  }
+  if (message.chainId) {
+    fullMessage += `chainId: ${chainId}\n`;
+    response.chainId = chainId;
   }
   fullMessage += `message: ${message.message}\n`;
   fullMessage += `nonce: ${message.nonce}`;
