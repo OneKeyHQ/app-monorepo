@@ -17,11 +17,13 @@ export function LayoutHeaderDesktop() {
       // headerRight={() => <NetworkAccountSelectorTrigger />}
       headerRight={() => (
         <HStack space={2}>
-          <NetworkAccountSelectorTrigger />
+          <NetworkAccountSelectorTrigger size="lg" />
           <Box ref={moreBtnRef}>
             <IconButton
-              name="DotsVerticalSolid"
+              name="DotsVerticalOutline"
+              size="lg"
               onPress={() => showHomeMoreMenu(moreBtnRef.current)}
+              type="plain"
               circle
             />
           </Box>
