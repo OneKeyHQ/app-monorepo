@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import React, { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -15,22 +15,15 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useSettings,
-} from '../../../hooks/redux';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { useWalletName } from '../../../hooks/useWalletName';
 import { RootRoutes } from '../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../routes/types';
-import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
+import { useDeviceStatusOfHardwareWallet } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import ExternalAccountImg from '../../WalletConnect/ExternalAccountImg';
-import WalletAvatar from '../WalletAvatar';
+import { WalletAvatarPro } from '../WalletAvatar';
 
 import type { CreateWalletRoutesParams } from '../../../routes';
 
@@ -45,49 +38,14 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
   handleToggleVisible,
 }) => {
   const intl = useIntl();
-  const { engine } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings();
-  const { connected } = useAppSelector((s) => s.hardware);
   const isVerticalLayout = useIsVerticalLayout();
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [hasWalletState, setHasWalletState] = useState(false);
-  const [walletState, setWalletState] = useState<string>();
-  const [isPassphrase, setIsPassphrase] = useState<boolean>(false);
   const { isLoading } = useAppSelector((s) => s.accountSelector);
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
   const walletName = useWalletName({ wallet });
-
-  const hwWalletType = useMemo(() => {
-    let deviceType = wallet?.deviceType as IOneKeyDeviceType;
-    if (!deviceType) {
-      deviceType = getDeviceTypeByDeviceId(wallet?.associatedDevice);
-    }
-    return deviceType;
-  }, [wallet?.associatedDevice, wallet?.deviceType]);
-
-  useEffect(() => {
-    if (wallet) {
-      setIsPassphrase(isPassphraseWallet(wallet));
-    }
-    if (wallet?.type === 'hw' && deviceUpdates) {
-      engine.getHWDeviceByWalletId(wallet.id).then((device) => {
-        if (!device) return;
-        const { ble, firmware } = deviceUpdates[device.mac] || {};
-        const hasConnected = connected.includes(device.mac);
-        setHasWalletState(!!ble || !!firmware || !!hasConnected);
-        if (ble || firmware) {
-          setWalletState('warning');
-        } else if (hasConnected) {
-          setWalletState('connected');
-        }
-      });
-    } else {
-      setHasWalletState(false);
-      setWalletState(undefined);
-    }
-  }, [connected, deviceUpdates, engine, wallet]);
+  const { deviceStatus } = useDeviceStatusOfHardwareWallet();
 
   if (!wallet) {
     return (
@@ -134,13 +92,10 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
                   </Skeleton>
                 </Box>
               ) : (
-                <WalletAvatar
-                  walletImage={wallet.type}
-                  hwWalletType={hwWalletType}
-                  avatar={wallet.avatar}
-                  isPassphrase={isPassphrase}
+                <WalletAvatarPro
+                  wallet={wallet}
+                  deviceStatus={deviceStatus}
                   size="sm"
-                  status={hasWalletState ? walletState : undefined}
                 />
               )}
               {showExternalImg && account ? (

@@ -6,6 +6,7 @@ import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import { Text, TypographyStyle } from '@onekeyhq/components/src/Typography';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
@@ -220,7 +221,7 @@ const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
 
 function WalletAvatarPro({
   wallet,
-  deviceStatus,
+  deviceStatus, // get by useDeviceStatusOfHardwareWallet()
   ...others
 }: {
   wallet: IWallet;
@@ -238,16 +239,19 @@ function WalletAvatarPro({
       // TODO how to test status?
       //    packages/kit/src/components/Header/AccountSelectorChildren/LeftSide.tsx #getWalletItemStatus()
       status = convertDeviceStatus(deviceStatus?.[deviceId]); // hw status
-      isPassphrase = !!wallet.passphraseState; // hw hiddenWallet
+      isPassphrase = isPassphraseWallet(wallet); // hw hiddenWallet
     }
-    const hwWalletType =
-      (deviceType as IOneKeyDeviceType) || getDeviceTypeByDeviceId(deviceId);
+    let hwWalletType = deviceType as IOneKeyDeviceType;
+    if (!hwWalletType) {
+      hwWalletType = getDeviceTypeByDeviceId(deviceId);
+    }
+
     return {
       isPassphrase,
       status,
       hwWalletType,
     };
-  }, [deviceId, deviceStatus, deviceType, type, wallet.passphraseState]);
+  }, [deviceId, deviceStatus, deviceType, type, wallet]);
 
   return (
     <WalletAvatar

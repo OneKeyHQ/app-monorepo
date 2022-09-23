@@ -131,7 +131,9 @@ const ListItem: FC<ListItemProps> = ({
           >
             <ExternalAccountImg mr={2} accountId={account?.id} />
             <Box flex={1} mr={3}>
-              <Text typography="Body2Strong">{label}</Text>
+              <Text typography="Body2Strong" isTruncated numberOfLines={1}>
+                {label}
+              </Text>
               <Box flexDirection="row">
                 <Text typography="Body2" color="text-subdued">
                   {address}
