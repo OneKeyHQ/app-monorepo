@@ -30,7 +30,7 @@ import type { IWalletDataBase } from './index';
 const SelectedIndicator = () => (
   <Box
     position="absolute"
-    left={platformEnv.isNativeAndroid ? 0 : '-8px'}
+    left="0"
     top="8px"
     bottom="8px"
     w="3px"
@@ -43,10 +43,8 @@ const SelectedIndicator = () => (
 function RightContent({
   wallet,
   isSingleton,
-  isSelected,
   deviceStatus,
 }: IWalletDataBase & {
-  isSelected: boolean;
   deviceStatus: IHardwareDeviceStatusMap | undefined;
 }) {
   return (
@@ -61,7 +59,6 @@ function RightContent({
           ) : null}
         </>
       )}
-      {isSelected ? <SelectedIndicator /> : undefined}
     </>
   );
 }
@@ -101,63 +98,64 @@ function ListItem({
   }, [isLastItem, onLastItemRender]);
 
   return (
-    <Pressable
-      p={2}
-      flexDirection="row"
-      alignItems="center"
-      rounded="2xl"
-      // bgColor={selectedBgColor}
-      _hover={{ bgColor: 'surface-hovered' }}
-      _pressed={{ bgColor: 'surface-pressed' }}
-      onPress={() => {
-        closeWalletSelector();
+    <Box px={2}>
+      <Pressable
+        p={2}
+        flexDirection="row"
+        alignItems="center"
+        rounded="2xl"
+        // bgColor={selectedBgColor}
+        _hover={{ bgColor: 'surface-hovered' }}
+        _pressed={{ bgColor: 'surface-pressed' }}
+        onPress={() => {
+          closeWalletSelector();
 
-        setTimeout(async () => {
-          try {
-            dispatch(updateIsRefreshDisabled(true), updateIsLoading(true));
+          setTimeout(async () => {
+            try {
+              dispatch(updateIsRefreshDisabled(true), updateIsLoading(true));
 
-            if (isVertical) {
-              await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
-            } else {
-              await wait(WALLET_SELECTOR_DESKTOP_ACTION_DELAY_AFTER_CLOSE);
+              if (isVertical) {
+                await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
+              } else {
+                await wait(WALLET_SELECTOR_DESKTOP_ACTION_DELAY_AFTER_CLOSE);
+              }
+
+              // await serviceNetwork.changeActiveNetwork(section?.title?.id);
+              // TODO performance
+              await serviceAccount.autoChangeAccount({
+                walletId: wallet?.id ?? '',
+              });
+              // await serviceAccountSelector.setSelectedWalletToActive();
+            } finally {
+              await wait(100);
+              dispatch(updateIsRefreshDisabled(false), updateIsLoading(false));
             }
-
-            // await serviceNetwork.changeActiveNetwork(section?.title?.id);
-            // TODO performance
-            await serviceAccount.autoChangeAccount({
-              walletId: wallet?.id ?? '',
-            });
-            // await serviceAccountSelector.setSelectedWalletToActive();
-          } finally {
-            await wait(100);
-            dispatch(updateIsRefreshDisabled(false), updateIsLoading(false));
-          }
-        });
-      }}
-    >
-      <WalletAvatarPro
-        size={platformEnv.isNative ? 'lg' : 'sm'}
-        circular={circular}
-        wallet={wallet}
-        deviceStatus={deviceStatus}
-      />
-
-      <Text
-        flex={1}
-        mx={3}
-        typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
-        isTruncated
+          });
+        }}
       >
-        {name}
-      </Text>
-      <RightContent
-        wallet={wallet}
-        isSingleton={isSingleton}
-        isSelected={isSelected}
-        deviceStatus={deviceStatus}
-      />
+        <WalletAvatarPro
+          size={platformEnv.isNative ? 'lg' : 'sm'}
+          circular={circular}
+          wallet={wallet}
+          deviceStatus={deviceStatus}
+        />
+
+        <Text
+          flex={1}
+          mx={3}
+          typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
+          isTruncated
+        >
+          {name}
+        </Text>
+        <RightContent
+          wallet={wallet}
+          isSingleton={isSingleton}
+          deviceStatus={deviceStatus}
+        />
+      </Pressable>
       {isSelected ? <SelectedIndicator /> : undefined}
-    </Pressable>
+    </Box>
   );
 }
 
