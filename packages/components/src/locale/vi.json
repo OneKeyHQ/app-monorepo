@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "Điều này sẽ xóa vĩnh viễn dữ liệu của bạn. Nhưng bạn vẫn có thể khôi phục nó từ ví phần cứng được tải cụm từ khôi phục của ví này.",
   "dialog__delete_wallet_desc": "Đảm bảo rằng bạn đã viết ra cụm từ khôi phục trước khi xóa nó. Nếu không, bạn sẽ không thể khôi phục ví.",
   "dialog__device_has_disabled_passphrase": "Thiết bị đã tắt cụm mật khẩu",
-  "dialog__device_has_disabled_passphrase_desc": "Bạn có thể bật cụm mật khẩu để sử dụng Ví tiêu chuẩn.",
+  "dialog__device_has_disabled_passphrase_desc": "Bạn có thể bật cụm mật khẩu để sử dụng Ví ẩn.",
   "dialog__device_has_enabled_passphrase": "Thiết bị đã bật cụm mật khẩu",
   "dialog__device_has_enabled_passphrase_desc": "Bạn có thể tắt cụm mật khẩu để sử dụng Ví tiêu chuẩn.",
   "dialog__disabling_sync": "Tắt đồng bộ hóa",
