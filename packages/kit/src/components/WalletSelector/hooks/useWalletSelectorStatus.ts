@@ -1,7 +1,4 @@
-import * as React from 'react';
-
-// @ts-ignore
-import DrawerStatusContext from '@react-navigation/drawer/lib/module/utils/DrawerStatusContext';
+import { useDrawerStatus } from '@react-navigation/drawer';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
@@ -12,8 +9,9 @@ function useWalletSelectorStatus() {
   const { isDesktopWalletSelectorVisible } = useAppSelector(
     (s) => s.accountSelector,
   );
-  const drawerStatus = React.useContext(DrawerStatusContext);
-  // const drawerStatus = useDrawerStatus(); // cause error on iPad
+  // TODO useDrawerStatus() may throw error called by outside Drawer component,
+  //    you can sync drawerStatus to Redux
+  const drawerStatus = useDrawerStatus();
 
   const isDrawerOpen = drawerStatus === 'open';
   const visible = isVertical ? isDrawerOpen : isDesktopWalletSelectorVisible;

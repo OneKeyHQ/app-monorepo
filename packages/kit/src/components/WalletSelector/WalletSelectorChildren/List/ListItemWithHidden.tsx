@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, Text, VStack } from '@onekeyhq/components';
+import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
@@ -39,22 +39,35 @@ function ListItemWithHidden({
     <>
       {/* Grouping wallet items if they have nested hidden wallets */}
       {isPassphraseMode ? (
-        <VStack space={1} rounded="16px" bgColor="surface-subdued">
+        <Box>
+          <Box
+            position="absolute"
+            left="8px"
+            top="0px"
+            right="8px"
+            bottom="0px"
+            rounded="16px"
+            borderWidth={1}
+            borderColor="divider"
+          />
           <ListItem
             onLastItemRender={onLastItemRender}
             deviceStatus={deviceStatus}
             {...item}
           />
           {item.hiddenWallets?.map((hiddenWallet, index) => (
-            <ListItem
-              {...item}
-              key={index}
-              deviceStatus={deviceStatus}
-              wallet={hiddenWallet}
-              onLastItemRender={onLastItemRender}
-            />
+            <>
+              {index !== 0 ? <Box h={1} /> : null}
+              <ListItem
+                {...item}
+                key={index}
+                deviceStatus={deviceStatus}
+                wallet={hiddenWallet}
+                onLastItemRender={onLastItemRender}
+              />
+            </>
           ))}
-          <Box p={2}>
+          <Box px={4} py={2}>
             <Pressable
               // TODO hidden wallet add
               rounded="xl"
@@ -83,7 +96,7 @@ function ListItemWithHidden({
               </Text>
             </Pressable>
           </Box>
-        </VStack>
+        </Box>
       ) : (
         <ListItem
           onLastItemRender={onLastItemRender}

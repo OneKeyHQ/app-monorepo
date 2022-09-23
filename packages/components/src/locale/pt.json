@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "Isso excluirá permanentemente seus dados. Mas você ainda pode restaurá-lo da carteira de hardware que carrega a frase de recuperação desta carteira.",
   "dialog__delete_wallet_desc": "Certifique-se de ter anotado a frase de recuperação antes de excluí-la. Você não poderá recuperar a carteira de outra forma.",
   "dialog__device_has_disabled_passphrase": "O dispositivo desativou a senha",
-  "dialog__device_has_disabled_passphrase_desc": "Você pode habilitar a senha para usar a Carteira Padrão.",
+  "dialog__device_has_disabled_passphrase_desc": "Você pode habilitar a senha para usar a carteira oculta.",
   "dialog__device_has_enabled_passphrase": "O dispositivo ativou a senha",
   "dialog__device_has_enabled_passphrase_desc": "Você pode desativar a senha para usar a Carteira Padrão.",
   "dialog__disabling_sync": "Desativando a sincronização",

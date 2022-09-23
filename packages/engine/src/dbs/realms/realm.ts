@@ -696,7 +696,6 @@ class RealmDB implements DBAPI {
     displayPassphraseWalletIds?: string[];
   }): Promise<Wallet[]> {
     try {
-      const ret = [];
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
@@ -706,33 +705,18 @@ class RealmDB implements DBAPI {
       }
 
       const wallets = this.realm!.objects<WalletSchema>('Wallet');
-      for (const wallet of wallets) {
-        if (context.pendingWallets?.has(wallet.id)) {
-          const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
-            'Credential',
-            wallet.id,
-          );
-          this.realm!.write(() => {
-            context.pendingWallets!.delete(wallet.id);
-            this.realm!.delete(Array.from(wallet.accounts!));
-            this.realm!.delete(wallet);
-            if (typeof credential !== 'undefined') {
-              this.realm!.delete(credential);
-            }
-          });
-        } else {
-          ret.push(wallet.internalObj);
-        }
-      }
-
       return Promise.resolve(
-        ret.filter((w) =>
-          filterPassphraseWallet(
-            w,
-            option?.includeAllPassphraseWallet,
-            option?.displayPassphraseWalletIds,
+        wallets
+          .map((w) => w.internalObj)
+          .filter(
+            (w) =>
+              !context.pendingWallets?.has(w.id) &&
+              filterPassphraseWallet(
+                w,
+                option?.includeAllPassphraseWallet,
+                option?.displayPassphraseWalletIds,
+              ),
           ),
-        ),
       );
     } catch (error: any) {
       console.error(error);
@@ -1441,6 +1425,38 @@ class RealmDB implements DBAPI {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
     }
+  }
+
+  cleanupPendingWallets(): Promise<void> {
+    try {
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (typeof context !== 'undefined') {
+        const wallets = this.realm!.objects<WalletSchema>('Wallet');
+        for (const wallet of wallets) {
+          if (!context.pendingWallets?.has(wallet.id)) {
+            const credential =
+              this.realm!.objectForPrimaryKey<CredentialSchema>(
+                'Credential',
+                wallet.id,
+              );
+            this.realm!.write(() => {
+              context.pendingWallets!.delete(wallet.id);
+              this.realm!.delete(Array.from(wallet.accounts!));
+              this.realm!.delete(wallet);
+              if (typeof credential !== 'undefined') {
+                this.realm!.delete(credential);
+              }
+            });
+          }
+        }
+      }
+    } catch (error: any) {
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+    return Promise.resolve();
   }
 
   /**
