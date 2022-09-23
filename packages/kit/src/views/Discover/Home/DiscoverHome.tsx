@@ -245,7 +245,7 @@ const DiscoverHomeNative: FC<DiscoverProps> = ({
             actionTitle={intl.formatMessage({
               id: 'action__retry',
             })}
-            handleAction={() => getData()}
+            handleAction={getData}
           />
         );
       case 'loading':

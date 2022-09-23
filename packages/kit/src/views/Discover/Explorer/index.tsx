@@ -1,10 +1,9 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { RouteProp, useRoute } from '@react-navigation/core';
+import { Freeze } from 'react-freeze';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
@@ -14,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   addWebSiteHistory,
@@ -26,13 +24,16 @@ import { openUrl, openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabRoutes, TabRoutesParams } from '../../../routes/types';
-import DiscoverHome from '../Home/DiscoverHome';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
+import WebContent from './Content/WebContent';
+import {
+  WebControllerContext,
+  WebviewRefs,
+} from './Controller/WebControllerContext';
 import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
-import { useWebviewRef } from './useWebviewRef';
 
 import type { MatchDAppItemType } from './Search/useSearchHistories';
 
@@ -68,7 +69,6 @@ export type ExplorerViewProps = {
 
 let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
 
-// 空白页面 URL
 const blankPage = 'about:blank';
 
 type DiscoverRouteProp = RouteProp<TabRoutesParams, TabRoutes.Discover>;
@@ -79,11 +79,8 @@ const Explorer: FC = () => {
   const { incomingUrl } = route.params || {};
   const { dispatch } = backgroundApiProxy;
   const discover = useAppSelector((s) => s.discover);
-
-  const [navigationStateChangeEvent, setNavigationStateChangeEvent] = useState<
-    any | null
-  >(null);
-  const [webviewRef, setWebviewRef] = useState<IWebViewWrapperRef | null>(null);
+  const webviewRefs = useRef<WebviewRefs>({});
+  const { tabs, currentTabId } = useAppSelector((s) => s.webTabs);
 
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
   const [canGoForward, setCanGoForward] = useState<boolean>(false);
@@ -100,26 +97,6 @@ const Explorer: FC = () => {
   const [refreshKey, setRefreshKey] = useState<string>();
 
   const isVerticalLayout = useIsVerticalLayout();
-
-  const {
-    canGoBack: webCanGoBack,
-    canGoForward: webCanGoForward,
-    goBack,
-    goForward,
-    stopLoading,
-    loading: webLoading,
-    url: webUrl,
-    title: webTitle,
-    favicon: webFavicon,
-  } = useWebviewRef(webviewRef, navigationStateChangeEvent, (url: string) => {
-    setCurrentWebSite({ url });
-    dispatch(
-      addWebSiteHistory({
-        keyUrl: undefined,
-        webSite: { url },
-      }),
-    );
-  });
 
   const gotoUrl = async (item: (string | MatchDAppItemType) | undefined) => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
@@ -247,51 +224,51 @@ const Explorer: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incomingUrl]);
 
-  useEffect(() => {
-    let content: string;
-    if (displayInitialPage) {
-      content = '';
-    } else if (webUrl && webUrl.trim() !== '') {
-      content = webUrl;
-    } else {
-      content = currentWebSite?.url ?? '';
-    }
+  // useEffect(() => {
+  //   let content: string;
+  //   if (displayInitialPage) {
+  //     content = '';
+  //   } else if (webUrl && webUrl.trim() !== '') {
+  //     content = webUrl;
+  //   } else {
+  //     content = currentWebSite?.url ?? '';
+  //   }
 
-    if (content !== blankPage) setSearchContent({ searchContent: content });
+  //   if (content !== blankPage) setSearchContent({ searchContent: content });
 
-    if (displayInitialPage === false || webCanGoBack()) {
-      setCanGoBack(true);
-    } else {
-      setCanGoBack(false);
-    }
+  //   if (displayInitialPage === false || webCanGoBack()) {
+  //     setCanGoBack(true);
+  //   } else {
+  //     setCanGoBack(false);
+  //   }
 
-    if (displayInitialPage === true) {
-      if (webCanGoForward() || currentWebSite) {
-        setCanGoForward(true);
-      } else {
-        setCanGoForward(false);
-      }
-    } else {
-      setCanGoForward(false);
-    }
-  }, [
-    currentWebSite,
-    webUrl,
-    displayInitialPage,
-    webCanGoBack,
-    webCanGoForward,
-  ]);
+  //   if (displayInitialPage === true) {
+  //     if (webCanGoForward() || currentWebSite) {
+  //       setCanGoForward(true);
+  //     } else {
+  //       setCanGoForward(false);
+  //     }
+  //   } else {
+  //     setCanGoForward(false);
+  //   }
+  // }, [
+  //   currentWebSite,
+  //   webUrl,
+  //   displayInitialPage,
+  //   webCanGoBack,
+  //   webCanGoForward,
+  // ]);
 
-  useEffect(() => {
-    dispatch(
-      updateWebSiteHistory({
-        keyUrl: currentWebSite?.historyId,
-        webSite: { url: webUrl, title: webTitle, favicon: webFavicon },
-      }),
-    );
-    // currentWebSite 变动不更新 history
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, webTitle, webUrl, webFavicon]);
+  // useEffect(() => {
+  //   dispatch(
+  //     updateWebSiteHistory({
+  //       keyUrl: currentWebSite?.historyId,
+  //       webSite: { url: webUrl, title: webTitle, favicon: webFavicon },
+  //     }),
+  //   );
+  //   // currentWebSite 变动不更新 history
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [dispatch, webTitle, webUrl, webFavicon]);
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
@@ -375,32 +352,14 @@ const Explorer: FC = () => {
     }
   };
 
-  const currentWebSiteMemo = useDeepCompareMemo(
-    () => currentWebSite,
-    [currentWebSite],
-  );
   const explorerContent = useMemo(
-    () => (
-      <Box flex={1}>
-        {displayInitialPage ? (
-          <DiscoverHome
-            onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })}
-            onItemSelectHistory={(item) => gotoUrl(item)}
-          />
-        ) : (
-          <WebView
-            src={currentWebSiteMemo?.url ?? ''}
-            onWebViewRef={(ref) => {
-              setWebviewRef(ref);
-            }}
-            onNavigationStateChange={setNavigationStateChangeEvent}
-            allowpopups
-          />
-        )}
-      </Box>
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentWebSiteMemo, displayInitialPage],
+    () =>
+      tabs.map((tab) => (
+        <Freeze key={tab.id} freeze={currentTabId !== tab.id}>
+          <WebContent {...tab} />
+        </Freeze>
+      )),
+    [currentTabId, tabs],
   );
 
   const moreViewContent = useMemo(
@@ -420,43 +379,45 @@ const Explorer: FC = () => {
   );
 
   return (
-    <Box flex={1} bg="background-default">
-      {isVerticalLayout ? (
-        <Mobile
-          key={refreshKey}
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
-          onSearchSubmitEditing={onSearchSubmitEditing}
-          explorerContent={explorerContent}
-          canGoBack={canGoBack}
-          onGoBack={onGoBack}
-          onNext={onNext}
-          onRefresh={onRefresh}
-          onMore={onMore}
-          moreView={moreViewContent}
-          showExplorerBar={showExplorerBar}
-        />
-      ) : (
-        <Desktop
-          key={refreshKey}
-          displayInitialPage={displayInitialPage}
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
-          onSearchSubmitEditing={onSearchSubmitEditing}
-          explorerContent={explorerContent}
-          canGoBack={canGoBack}
-          canGoForward={canGoForward}
-          loading={webLoading}
-          onGoBack={onGoBack}
-          onNext={onNext}
-          onRefresh={onRefresh}
-          onStopLoading={onStopLoading}
-          onMore={onMore}
-          moreView={moreViewContent}
-          showExplorerBar={showExplorerBar}
-        />
-      )}
-    </Box>
+    <WebControllerContext.Provider value={webviewRefs}>
+      <Box flex={1} bg="background-default">
+        {isVerticalLayout ? (
+          <Mobile
+            key={refreshKey}
+            searchContent={searchContent}
+            onSearchContentChange={setSearchContent}
+            onSearchSubmitEditing={onSearchSubmitEditing}
+            explorerContent={explorerContent}
+            canGoBack={canGoBack}
+            onGoBack={onGoBack}
+            onNext={onNext}
+            onRefresh={onRefresh}
+            onMore={onMore}
+            moreView={moreViewContent}
+            showExplorerBar={showExplorerBar}
+          />
+        ) : (
+          <Desktop
+            key={refreshKey}
+            displayInitialPage={displayInitialPage}
+            searchContent={searchContent}
+            onSearchContentChange={setSearchContent}
+            onSearchSubmitEditing={onSearchSubmitEditing}
+            explorerContent={explorerContent}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            // loading={webLoading}
+            onGoBack={onGoBack}
+            onNext={onNext}
+            onRefresh={onRefresh}
+            onStopLoading={onStopLoading}
+            onMore={onMore}
+            moreView={moreViewContent}
+            showExplorerBar={showExplorerBar}
+          />
+        )}
+      </Box>
+    </WebControllerContext.Provider>
   );
 };
 

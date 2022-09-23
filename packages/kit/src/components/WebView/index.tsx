@@ -1,12 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
-import React, { ComponentProps, useCallback, useEffect, useState } from 'react';
+import { ComponentProps, useCallback, useEffect, useState } from 'react';
 
 import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import {
   IWebViewWrapperRef,
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
-import { useIsFocused } from '@react-navigation/native';
 import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
 import { Box, Button, Center } from '@onekeyhq/components';
@@ -14,7 +12,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../hooks';
 import extUtils from '../../utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
@@ -53,7 +50,6 @@ function WebView({
 
   const { jsBridge, webviewRef, setWebViewRef } = useWebViewBridge();
   const [webviewVisible, setWebViewVisible] = useState(true);
-  const webviewGlobalKey = useAppSelector((s) => s.status.webviewGlobalKey);
 
   useEffect(() => {
     onWebViewRef?.(webviewRef.current);

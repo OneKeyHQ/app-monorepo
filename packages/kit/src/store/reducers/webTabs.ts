@@ -27,7 +27,7 @@ const homeTab: WebTab = {
 };
 const initialState: WebTabsInitialState = {
   tabs: [homeTab],
-  currentTabId: '',
+  currentTabId: 'home',
 };
 
 export const tokensSlice = createSlice({

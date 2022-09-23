@@ -75,7 +75,7 @@ const addNewTab = () => {
   dispatch(
     addWebTab({
       id: nanoid(),
-      url: 'about:blank',
+      url: '',
       // TODO i18n
       title: 'New Tab',
       isCurrent: true,

@@ -10,40 +10,15 @@ export const useWebviewRef = (
   navigationStateChangeEvent: any | null,
   onOpenNewUrl: (url: string) => void,
 ) => {
-  const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
-  const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();
   const [currentTitle, setCurrentTitle] = useState<string>();
   const [isLoading, setLoading] = useState<boolean>(false);
   const [currentUrl, setCurrentUrl] = useState<string>();
   const [currentFavicon, setCurrentFavicon] = useState<string>();
 
   useEffect(() => {
-    // RN Webview
-
-    if (platformEnv.isNative) {
-      try {
-        const { canGoBack, canGoForward, loading, title, url } =
-          navigationStateChangeEvent;
-
-        setRNCanGoBack(canGoBack);
-        setRNCanGoForward(canGoForward);
-        setCurrentTitle(title);
-        setCurrentUrl(url);
-        setLoading(loading);
-
-        const urlObj = new URL(url);
-        setCurrentFavicon(`${urlObj.protocol}//${urlObj.host}/favicon.ico`);
-      } catch (e) {
-        console.log(e);
-      }
-    }
-  }, [navigationStateChangeEvent]);
-
-  useEffect(() => {
     if (platformEnv.isDesktop) {
       try {
         // Electron Webview
-
         const electronWebView = webViewRef?.innerRef as IElectronWebView;
         if (!electronWebView) {
           return;
@@ -144,9 +119,6 @@ export const useWebviewRef = (
   const canGoBack = useCallback((): boolean => {
     if (webViewRef?.innerRef) {
       try {
-        if (rnCanGoBack !== undefined) {
-          return rnCanGoBack;
-        }
         // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
         return webViewRef?.innerRef?.canGoBack();
@@ -155,7 +127,7 @@ export const useWebviewRef = (
       }
     }
     return false;
-  }, [rnCanGoBack, webViewRef?.innerRef]);
+  }, [webViewRef?.innerRef]);
 
   const goBack = useCallback(() => {
     if (webViewRef?.innerRef) {
@@ -172,10 +144,6 @@ export const useWebviewRef = (
   const canGoForward = useCallback((): boolean => {
     if (webViewRef?.innerRef) {
       try {
-        if (rnCanGoForward !== undefined) {
-          return rnCanGoForward;
-        }
-
         // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
         return webViewRef?.innerRef?.canGoForward();
@@ -184,7 +152,7 @@ export const useWebviewRef = (
       }
     }
     return false;
-  }, [rnCanGoForward, webViewRef?.innerRef]);
+  }, [webViewRef?.innerRef]);
 
   const goForward = useCallback(() => {
     if (webViewRef?.innerRef) {

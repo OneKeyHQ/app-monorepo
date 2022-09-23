@@ -21,8 +21,8 @@ import {
 } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components';
 
+import TabBarDesktop from '../Controller/TabBarDesktop';
 import SearchView from '../Search/SearchView';
-import TabBarDesktop from '../Tab/TabBarDesktop';
 
 import type { ExplorerViewProps, SearchContentType } from '..';
 import type { MatchDAppItemType } from '../Search/useSearchHistories';
