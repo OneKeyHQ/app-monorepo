@@ -547,11 +547,11 @@ export const Listing: FC = () => {
                     token.id,
                   );
                 }
-                closeOverlay();
-                backgroundApiProxy.serviceToken.fetchAccountTokens({
+                await backgroundApiProxy.serviceToken.fetchAccountTokens({
                   activeAccountId: accountId,
                   activeNetworkId: networkId,
                 });
+                closeOverlay();
               },
             },
           }}
