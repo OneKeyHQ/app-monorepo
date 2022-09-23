@@ -1,7 +1,6 @@
 /* eslint-disable no-nested-ternary */
 import React, { useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,9 +15,11 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useRuntime } from '../../../hooks/redux';
+import { useIsMounted } from '../../../hooks/useIsMounted';
 import { getWalletName } from '../../../hooks/useWalletName';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
@@ -45,18 +46,21 @@ function Header({
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { wallets } = useRuntime();
-  const isFocused = useIsFocused();
+  const isMountedRef = useIsMounted();
 
   const walletsOptions = useMemo(() => {
-    if (!isFocused || !isOpenDelay) {
+    if (!isMountedRef.current || !isOpenDelay) {
       return [];
     }
+    debugLogger.accountSelector.info(
+      'rebuild NetworkAccountSelector walletList data',
+    );
     return wallets.map((wallet) => ({
       label: getWalletName({ wallet, intl }) || '-',
       value: wallet.id,
       wallet,
     }));
-  }, [intl, isFocused, isOpenDelay, wallets]);
+  }, [intl, isMountedRef, isOpenDelay, wallets]);
 
   const isPreloadingCreate = useMemo(
     () =>

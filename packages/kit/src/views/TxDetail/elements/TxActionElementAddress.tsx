@@ -58,7 +58,9 @@ export function TxActionElementAddress(
       }
       icon={isCopy ? <Icon name="DuplicateSolid" size={20} /> : undefined}
     >
-      <Text {...others}>{text}</Text>
+      <Text isTruncated maxW="300px" {...others}>
+        {text}
+      </Text>
     </TxActionElementPressable>
   );
 }
