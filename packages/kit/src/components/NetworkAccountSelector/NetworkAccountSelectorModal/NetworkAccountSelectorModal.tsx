@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import React, { useEffect, useRef } from 'react';
 
-import { Box, Modal, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Modal } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';

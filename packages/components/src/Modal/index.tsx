@@ -5,7 +5,6 @@ import React, {
   ReactNode,
   cloneElement,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
 } from 'react';

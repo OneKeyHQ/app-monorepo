@@ -19,8 +19,6 @@ import type { AccountGroup } from '../../components/Header/AccountSelectorChildr
 const {
   updateSelectedWalletId,
   updateSelectedNetworkId,
-  updateAccountsGroup,
-  updateIsLoading,
   updatePreloadingCreateAccount,
 } = reducerAccountSelector.actions;
 

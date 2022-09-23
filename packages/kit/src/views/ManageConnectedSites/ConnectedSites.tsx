@@ -228,7 +228,7 @@ export default function ConnectedSites() {
         </Box>
       </Pressable>
     ),
-    [connections.length, openDeleteDialog],
+    [openDeleteDialog, parsedConnections?.length],
   );
   return (
     <Modal

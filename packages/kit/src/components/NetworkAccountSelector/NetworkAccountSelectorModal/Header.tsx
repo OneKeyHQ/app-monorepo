@@ -15,13 +15,11 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import WalletAvatar, {
-  WalletAvatarPro,
-} from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
+import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useRuntime } from '../../../hooks/redux';
-import { getWalletName, useWalletName } from '../../../hooks/useWalletName';
+import { getWalletName } from '../../../hooks/useWalletName';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 

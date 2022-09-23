@@ -88,6 +88,7 @@ function ListItem({
   const { closeWalletSelector } = useNavigationActions();
   const name = useWalletName({ wallet });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const numberOfAccounts = wallet.accounts.length;
   const isSelected = walletId === wallet.id;
   const circular = !isSelected;

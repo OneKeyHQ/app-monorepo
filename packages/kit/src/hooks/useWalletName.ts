@@ -7,7 +7,6 @@ import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-  WalletType,
 } from '@onekeyhq/engine/src/types/wallet';
 
 function getWalletName({

@@ -4,7 +4,6 @@
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -58,7 +57,6 @@ function AccountList({
     preloadingCreateAccount,
     isOpenDelay,
     selectedWallet,
-    selectedWalletId,
   } = accountSelectorInfo;
   const { engine } = backgroundApiProxy;
   const [data, setData] =
@@ -110,6 +108,7 @@ function AccountList({
   const buildData = useCallback(async () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const ts = refreshAccountSelectorTs; // keep this for refresh deps
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const acc = activeAccountId; // keep this for refresh deps
     const groupData: INetworkAccountSelectorAccountListSectionData[] = [];
     if (isMounted.current && selectedNetworkId && isOpenDelay) {
@@ -139,6 +138,7 @@ function AccountList({
       } else {
         let walletIndex = 0;
         for (const wallet of wallets) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           walletIndex += 1;
           await pushWalletAccountsData(wallet);
         }

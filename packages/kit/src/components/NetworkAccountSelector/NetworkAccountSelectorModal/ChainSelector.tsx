@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import React, { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useLayoutEffect, useRef } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -22,7 +22,6 @@ import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
-import { scrollToSectionItem } from '../../WalletSelector';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 function ChainNetworkIcon({

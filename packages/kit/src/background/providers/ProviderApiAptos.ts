@@ -44,6 +44,7 @@ class ProviderApiAptos extends ProviderApiBase {
   public providerName = IInjectedProviderNames.aptos;
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
       const params = await this.account();
       const result = {

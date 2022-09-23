@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { debounce, orderBy } from 'lodash';
 
 import { IWallet } from '@onekeyhq/engine/src/types';
