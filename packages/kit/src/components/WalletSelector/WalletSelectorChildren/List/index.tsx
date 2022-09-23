@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unused-prop-types */
-import React, { useLayoutEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,7 +10,6 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useActiveWalletAccount } from '../../../../hooks/redux';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_WALLET } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
@@ -21,12 +20,14 @@ import {
   useWalletSelectorSectionData,
 } from '../../hooks/useWalletSelectorSectionData';
 import { useWalletSelectorStatus } from '../../hooks/useWalletSelectorStatus';
+import { scrollToSectionItem } from '../../scrollToSectionItem';
 
 import { ListItemWithHidden } from './ListItemWithHidden';
 
 export type IWalletDataBase = {
   wallet: IWallet | undefined;
   isSingleton?: boolean;
+  isLastItem?: boolean;
   hiddenWallets?: IWallet[];
 };
 
@@ -56,7 +57,7 @@ function Body() {
   const insets = useSafeAreaInsets();
 
   const isScrolledRef = useRef(false);
-  useLayoutEffect(() => {
+  const scrollToItem = useCallback(() => {
     if (
       isScrolledRef.current ||
       !visible ||
@@ -66,41 +67,22 @@ function Body() {
     ) {
       return;
     }
-    setTimeout(() => {
-      try {
-        let sectionIndex = 0;
-        let itemIndex = 1;
-        // TODO use for in, break;
-        const index = sectionData.findIndex((section) => {
-          const i = section.data.findIndex(
-            (wallet) =>
-              wallet.wallet?.id === walletId ||
-              Boolean(wallet.hiddenWallets?.find((w) => w.id === walletId)),
-          );
-          if (i >= 0) {
-            itemIndex = i + 1;
-            return true;
-          }
-          return false;
-        });
-        if (index >= 0) {
-          sectionIndex = index;
-        }
-        if (sectionIndex === 0 && itemIndex < 5) {
-          return;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-        sectionListRef?.current?.scrollToLocation?.({
-          animated: true,
-          sectionIndex, // starts from 0
-          itemIndex, // starts from 1
-        });
+    scrollToSectionItem({
+      delay: ACCOUNT_SELECTOR_AUTO_SCROLL_WALLET,
+      // delay: 0,
+      sectionListRef,
+      sectionData,
+      skipScrollIndex: 5,
+      isScrollToItem(item) {
+        return (
+          item?.wallet?.id === walletId ||
+          Boolean(item?.hiddenWallets?.find((w) => w.id === walletId))
+        );
+      },
+      onScrolled() {
         isScrolledRef.current = true;
-      } catch (error) {
-        debugLogger.common.error(error);
-      }
-    }, ACCOUNT_SELECTOR_AUTO_SCROLL_WALLET);
+      },
+    });
   }, [sectionData, visible, walletId]);
 
   return (
@@ -120,7 +102,11 @@ function Body() {
           </>
         )}
         renderItem={({ item }: { item: IWalletDataBase }) => (
-          <ListItemWithHidden item={item} deviceStatus={deviceStatus} />
+          <ListItemWithHidden
+            item={item}
+            deviceStatus={deviceStatus}
+            onLastItemRender={scrollToItem}
+          />
         )}
         ItemSeparatorComponent={() => <Box h={1} />} // The spacing between items within a section
         renderSectionFooter={({ section }: { section: IWalletDataSection }) =>

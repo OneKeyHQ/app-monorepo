@@ -37,6 +37,7 @@ function Desktop<T>({
   triggerEle,
   setPositionOnlyMounted,
   positionTranslateY = 2,
+  autoAdjustPosition,
 }: ChildProps<T>) {
   const translateY = positionTranslateY;
 
@@ -50,6 +51,7 @@ function Desktop<T>({
       translateY,
       setPositionOnlyMounted,
       dropdownProps,
+      autoAdjust: autoAdjustPosition,
     });
 
   const content = (

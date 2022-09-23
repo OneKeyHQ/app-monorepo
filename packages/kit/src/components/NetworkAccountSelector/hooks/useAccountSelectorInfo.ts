@@ -82,13 +82,8 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
   isOpenDelayRef.current = isOpenDelay && isOpen;
 
   const refreshAccounts = useCallback(() => {
-    InteractionManager.runAfterInteractions(() => {
-      if (isOpenDelayRef.current) {
-        // TODO dispatch loading action directly in UI?
-        serviceAccountSelector.refreshAccountsGroup();
-      }
-    });
-  }, [serviceAccountSelector]);
+    // noop
+  }, []);
 
   const { result: selectedWallet } = usePromiseResult(
     (): Promise<IWallet | null | undefined> =>

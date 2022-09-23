@@ -64,9 +64,7 @@ const ManagerAccountModal: FC = () => {
       .then(($account) => {
         setAccount($account);
       });
-
-    if (typeof refreshAccounts === 'function') refreshAccounts?.();
-  }, [accountId, networkId, refreshAccounts]);
+  }, [accountId, networkId]);
 
   useEffect(() => {
     refreshWallet();

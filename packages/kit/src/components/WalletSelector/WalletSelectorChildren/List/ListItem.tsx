@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 
 import {
   Box,
@@ -71,11 +71,15 @@ const { updateIsRefreshDisabled, updateIsLoading } =
 function ListItem({
   wallet,
   isSingleton,
+  isLastItem,
   deviceStatus,
+  onLastItemRender,
 }: {
   wallet: IWallet;
   isSingleton?: boolean;
+  isLastItem?: boolean;
   deviceStatus: IHardwareDeviceStatusMap | undefined;
+  onLastItemRender?: () => void;
 }) {
   const { walletId } = useActiveWalletAccount();
   // const deviceId = wallet.associatedDevice || '';
@@ -84,9 +88,16 @@ function ListItem({
   const { closeWalletSelector } = useNavigationActions();
   const name = useWalletName({ wallet });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const numberOfAccounts = wallet.accounts.length;
   const isSelected = walletId === wallet.id;
   const circular = !isSelected;
+
+  useLayoutEffect(() => {
+    if (isLastItem) {
+      onLastItemRender?.();
+    }
+  }, [isLastItem, onLastItemRender]);
 
   return (
     <Pressable
@@ -152,18 +163,23 @@ function ListItem({
 function ListItemWithEmptyWallet({
   wallet,
   isSingleton,
+  isLastItem,
   deviceStatus,
+  onLastItemRender,
 }: IWalletDataBase & {
   deviceStatus: IHardwareDeviceStatusMap | undefined;
+  onLastItemRender?: () => void;
 }) {
   if (!wallet) {
     return null;
   }
   return (
     <ListItem
+      onLastItemRender={onLastItemRender}
       deviceStatus={deviceStatus}
       wallet={wallet}
       isSingleton={isSingleton}
+      isLastItem={isLastItem}
     />
   );
 }

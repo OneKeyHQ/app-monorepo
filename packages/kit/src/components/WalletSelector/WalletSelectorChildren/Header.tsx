@@ -3,6 +3,7 @@ import React, { FC } from 'react';
 import { Box, IconButton, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useNavigationActions } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { RootRoutes } from '../../../routes/routesEnum';
 
@@ -12,6 +13,7 @@ type HeaderProps = {
 
 const Header: FC<HeaderProps> = ({ title }) => {
   const navigation = useAppNavigation();
+  const { closeWalletSelector } = useNavigationActions();
 
   return (
     <>
@@ -36,6 +38,9 @@ const Header: FC<HeaderProps> = ({ title }) => {
           name="PlusSolid"
           onPress={() => {
             navigation.navigate(RootRoutes.Onboarding);
+            setTimeout(() => {
+              closeWalletSelector();
+            }, 300);
           }}
         />
       </Box>

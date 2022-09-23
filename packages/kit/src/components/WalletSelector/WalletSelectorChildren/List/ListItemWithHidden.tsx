@@ -16,9 +16,11 @@ import type { IWalletDataBase } from './index';
 function ListItemWithHidden({
   deviceStatus,
   item,
+  onLastItemRender,
 }: {
   item: IWalletDataBase;
   deviceStatus: IHardwareDeviceStatusMap | undefined;
+  onLastItemRender?: () => void;
 }) {
   const intl = useIntl();
   const isPassphraseMode = useIsPassphraseMode(item);
@@ -38,13 +40,18 @@ function ListItemWithHidden({
       {/* Grouping wallet items if they have nested hidden wallets */}
       {isPassphraseMode ? (
         <VStack space={1} rounded="16px" bgColor="surface-subdued">
-          <ListItem deviceStatus={deviceStatus} {...item} />
+          <ListItem
+            onLastItemRender={onLastItemRender}
+            deviceStatus={deviceStatus}
+            {...item}
+          />
           {item.hiddenWallets?.map((hiddenWallet, index) => (
             <ListItem
               {...item}
               key={index}
               deviceStatus={deviceStatus}
               wallet={hiddenWallet}
+              onLastItemRender={onLastItemRender}
             />
           ))}
           <Box p={2}>
@@ -78,7 +85,11 @@ function ListItemWithHidden({
           </Box>
         </VStack>
       ) : (
-        <ListItem deviceStatus={deviceStatus} {...item} />
+        <ListItem
+          onLastItemRender={onLastItemRender}
+          deviceStatus={deviceStatus}
+          {...item}
+        />
       )}
     </>
   );

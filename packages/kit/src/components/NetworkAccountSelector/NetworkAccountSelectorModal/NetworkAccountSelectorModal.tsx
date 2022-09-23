@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import React, { useEffect, useRef } from 'react';
 
-import { Box, Modal, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Modal } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
@@ -16,28 +15,31 @@ import Header from './Header';
 const { updateIsOpenDelay } = reducerAccountSelector.actions;
 function NetworkAccountSelectorModal() {
   const { dispatch } = backgroundApiProxy;
-  const isMountedRef = useRef(true);
+  const isMountedRef = useRef(false);
   useEffect(() => {
-    isMountedRef.current = true;
+    setTimeout(() => {
+      isMountedRef.current = true;
+    }, 50);
+
+    // delay wait drawer closed animation done
+    setTimeout(() => {
+      dispatch(updateIsOpenDelay(true));
+    }, ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY);
     return () => {
-      isMountedRef.current = false;
+      setTimeout(() => {
+        isMountedRef.current = false;
+      }, 50);
+
+      setTimeout(() => {
+        dispatch(updateIsOpenDelay(false));
+      }, ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY);
     };
-  }, []);
+  }, [dispatch]);
+
   const isOpen = isMountedRef.current;
   const accountSelectorInfo = useAccountSelectorInfo({
     isOpen,
   });
-
-  const isVertical = useIsVerticalLayout();
-
-  // delay wait drawer closed animation done
-  const isOpenDelay = useDebounce(
-    isOpen,
-    isVertical ? ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY : 150,
-  );
-  useEffect(() => {
-    dispatch(updateIsOpenDelay(Boolean(isOpenDelay)));
-  }, [dispatch, isOpenDelay]);
 
   return (
     <Modal

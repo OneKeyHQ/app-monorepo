@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { FC, useMemo } from 'react';
+import React, { FC, useLayoutEffect, useMemo } from 'react';
 
 import { InteractionManager } from 'react-native';
 
@@ -32,6 +32,7 @@ type ListItemProps = {
   network: INetwork | null | undefined;
   networkId: string | undefined;
   walletId: string | undefined;
+  onLastItemRender?: () => void;
 };
 
 const defaultProps = {} as const;
@@ -46,12 +47,22 @@ const ListItem: FC<ListItemProps> = ({
   networkId,
   walletId,
   wallet,
+  onLastItemRender,
 }) => {
   const { dispatch, serviceNetwork, serviceAccount, serviceAccountSelector } =
     backgroundApiProxy;
   const isVertical = useIsVerticalLayout();
   const closeModal = useModalClose();
   const { closeWalletSelector } = useNavigationActions();
+
+  // @ts-ignore
+  const isLastItem = account?.$isLastItem;
+  useLayoutEffect(() => {
+    if (isLastItem) {
+      onLastItemRender?.();
+    }
+  }, [isLastItem, onLastItemRender]);
+
   const {
     walletId: activeWalletId,
     accountId: activeAccountId,
@@ -142,6 +153,7 @@ const ListItem: FC<ListItemProps> = ({
               </Box>
             </Box>
             <AccountItemSelectDropdown
+              // key={account?.id}
               wallet={wallet}
               account={account}
               network={network}

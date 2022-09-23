@@ -114,6 +114,7 @@ const DesktopModal = ({
       justifyContent="center"
       alignItems="center"
     >
+      {/* TODO render backdrop by Portal? */}
       {closeOnOverlayClick && (
         <Pressable
           testID="DesktopModalBackdrop"

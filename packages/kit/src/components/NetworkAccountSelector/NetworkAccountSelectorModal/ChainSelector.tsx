@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import React, { useLayoutEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useLayoutEffect, useRef } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -24,12 +24,24 @@ import { ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK } from '../../Header/AccountSelect
 import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
-type IChainSelectorNetworkItem = {
-  id: string;
-  network: INetwork;
-  logoURL: string;
-  isActive: boolean;
-};
+function ChainNetworkIcon({
+  onLastItemRender,
+  item,
+  isLastItem,
+}: {
+  onLastItemRender?: () => void;
+  item: INetwork;
+  isLastItem: boolean;
+}) {
+  useLayoutEffect(() => {
+    if (isLastItem) {
+      onLastItemRender?.();
+    }
+  }, [isLastItem, onLastItemRender]);
+
+  return <Token size={8} src={item.logoURI} />;
+}
+
 function ChainSelector({
   accountSelectorInfo,
 }: {
@@ -43,7 +55,7 @@ function ChainSelector({
   const insets = useSafeAreaInsets();
 
   const isScrolledRef = useRef(false);
-  useLayoutEffect(() => {
+  const scrollToItem = useCallback(() => {
     if (
       isScrolledRef.current ||
       !enabledNetworks ||
@@ -52,6 +64,7 @@ function ChainSelector({
     ) {
       return;
     }
+
     /* timeout required:
     scrollToIndex should be used in conjunction with getItemLayout or onScrollToIndexFailed, otherwise there is no way to know the location of offscreen indices or handle failures.
      */
@@ -72,32 +85,6 @@ function ChainSelector({
     }, ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK);
   }, [enabledNetworks, selectedNetworkId]);
 
-  // const options = useMemo(() => {
-  //   if (!enabledNetworks) return [];
-  //
-  //   return enabledNetworks.map((network) => ({
-  //     label: network.shortName,
-  //     value: network.id,
-  //     tokenProps: {
-  //       src: network.logoURI,
-  //       letter: network.shortName,
-  //     },
-  //     badge: network.impl === 'evm' ? 'EVM' : undefined,
-  //   }));
-  // }, [enabledNetworks]);
-
-  const networkList = useMemo((): IChainSelectorNetworkItem[] => {
-    if (!enabledNetworks) return [];
-    // TODO sort by isActive
-    //   origin sort by user custom network
-    return enabledNetworks.map((network) => ({
-      id: network.id,
-      network,
-      logoURL: network.logoURI,
-      isActive: selectedNetworkId === network.id,
-    }));
-  }, [enabledNetworks, selectedNetworkId]);
-
   return (
     <>
       <Box
@@ -106,45 +93,54 @@ function ChainSelector({
         borderColor="border-subdued"
       >
         <FlatListRef
+          initialNumToRender={20}
           // TODO auto scroll to active item
           ref={flatListRef}
-          data={networkList}
+          data={enabledNetworks}
           // @ts-expect-error
-          keyExtractor={(item: IChainSelectorNetworkItem) => item.id}
+          keyExtractor={(item: INetwork) => item.id}
           // @ts-expect-error
-          renderItem={({
-            item,
-          }: {
+          renderItem={(options: {
             // eslint-disable-next-line react/no-unused-prop-types
-            item: IChainSelectorNetworkItem;
-          }) => (
-            <Pressable
-              onPress={() => {
-                const id = (item.id === AllNetwork ? '' : item.id) || '';
-                serviceAccountSelector.updateSelectedNetwork(id);
-              }}
-            >
-              {({ isHovered, isPressed }) => (
-                <Box
-                  p={1.5}
-                  m={1}
-                  borderWidth={2}
-                  borderColor={
-                    item.isActive
-                      ? 'interactive-default'
-                      : isPressed
-                      ? 'border-default'
-                      : isHovered
-                      ? 'border-subdued'
-                      : 'transparent'
-                  }
-                  rounded="full"
-                >
-                  <Token size={8} src={item.logoURL} />
-                </Box>
-              )}
-            </Pressable>
-          )}
+            item: INetwork;
+            index: number;
+          }) => {
+            const { item, index } = options;
+            const isLastItem = index === enabledNetworks.length - 1;
+            const isActive = selectedNetworkId === item.id;
+            return (
+              <Pressable
+                onPress={() => {
+                  const id = (item.id === AllNetwork ? '' : item.id) || '';
+                  serviceAccountSelector.updateSelectedNetwork(id);
+                }}
+              >
+                {({ isHovered, isPressed }) => (
+                  <Box
+                    p={1.5}
+                    m={1}
+                    borderWidth={2}
+                    borderColor={
+                      isActive
+                        ? 'interactive-default'
+                        : isPressed
+                        ? 'border-default'
+                        : isHovered
+                        ? 'border-subdued'
+                        : 'transparent'
+                    }
+                    rounded="full"
+                  >
+                    <ChainNetworkIcon
+                      item={item}
+                      isLastItem={isLastItem}
+                      onLastItemRender={scrollToItem}
+                    />
+                  </Box>
+                )}
+              </Pressable>
+            );
+          }}
           showsVerticalScrollIndicator={false}
           style={{ flex: 1, padding: 4 }}
         />

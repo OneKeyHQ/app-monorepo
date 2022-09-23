@@ -191,6 +191,8 @@ function AccountItemSelectDropdown({
       {/* TODO move to parent */}
       {RemoveAccountDialog}
       <Select
+        // setPositionOnlyMounted
+        // autoAdjustPosition={false}
         dropdownPosition="right"
         onChange={handleChange}
         activatable={false}

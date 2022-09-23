@@ -4,11 +4,12 @@
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,11 +29,14 @@ import {
   useAppSelector,
   useRuntime,
 } from '../../../../hooks/redux';
+import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
+import { scrollToSectionItem } from '../../../WalletSelector';
 import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
 import ListItem from './ListItem';
+import SectionHeader from './SectionHeader';
 
 type INetworkAccountSelectorAccountListSectionData = {
   wallet: IWallet;
@@ -47,8 +51,13 @@ function AccountList({
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
   const { wallets } = useRuntime();
-  const { selectedNetworkId, selectedNetwork, preloadingCreateAccount } =
-    accountSelectorInfo;
+  const {
+    selectedNetworkId,
+    selectedNetwork,
+    preloadingCreateAccount,
+    isOpenDelay,
+    selectedWallet,
+  } = accountSelectorInfo;
   const { engine } = backgroundApiProxy;
   const [data, setData] =
     useState<INetworkAccountSelectorAccountListSectionData[]>(lastDataCache);
@@ -62,84 +71,102 @@ function AccountList({
   const insets = useSafeAreaInsets();
   const intl = useIntl();
 
-  // TODO define useScrollToActiveItem hooks
+  const isListAccountsOnlySingleWallet = true;
   const isScrolledRef = useRef(false);
-  useLayoutEffect(() => {
+  const scrollToItem = useCallback(() => {
     if (isScrolledRef.current || !activeWalletId || !data || !data.length) {
       return;
     }
-    setTimeout(() => {
-      try {
-        let sectionIndex = 0;
-        let itemIndex = 1;
-
-        const index = data.findIndex((item) => {
-          if (
-            item.wallet?.id === activeWalletId &&
-            item.networkId === activeNetworkId
-          ) {
-            const i = item.data.findIndex(
-              (account) => account.id === activeAccountId,
-            );
-            if (i >= 0) {
-              itemIndex = i + 1;
-              return true;
-            }
-            if (item.data.length === 0 && !activeAccountId) {
-              itemIndex = 1;
-              return true;
-            }
-          }
-          return false;
-        });
-        if (index >= 0) {
-          sectionIndex = index;
-        }
-
-        if (sectionIndex === 0 && itemIndex < 5) {
-          return;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        sectionListRef?.current?.scrollToLocation?.({
-          animated: true,
-          sectionIndex, // starts from 0
-          itemIndex, // starts from 1
-        });
+    scrollToSectionItem({
+      sectionListRef,
+      sectionData: data,
+      isScrollToItem(
+        item,
+        section: INetworkAccountSelectorAccountListSectionData,
+      ) {
+        return (
+          section.wallet?.id === activeWalletId &&
+          section.networkId === activeNetworkId &&
+          (!item || item?.id === activeAccountId)
+        );
+      },
+      onScrolled() {
         isScrolledRef.current = true;
-      } catch (error) {
-        debugLogger.common.error(error);
-      }
-    }, ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT);
-  }, [activeNetworkId, activeAccountId, activeWalletId, data]);
-
+      },
+      skipScrollIndex: 3,
+      delay: ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT,
+      // delay: 0,
+    });
+  }, [activeAccountId, activeNetworkId, activeWalletId, data]);
+  const isMounted = useIsMounted();
   useEffect(
     () => () => {
       lastDataCache = data;
     },
     [data],
   );
-  useEffect(() => {
-    (async () => {
-      // TODO sort by active accounts first only if trigger by open modal
-      const groupData: INetworkAccountSelectorAccountListSectionData[] = [];
-      if (selectedNetworkId) {
-        // TODO performance
-        for (const wallet of wallets) {
-          const accounts = await engine.getAccounts(
-            wallet.accounts,
-            selectedNetworkId,
-          );
-          groupData.push({
-            wallet,
-            networkId: selectedNetworkId,
-            data: accounts || [],
-          });
+  const buildData = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const ts = refreshAccountSelectorTs; // keep this for refresh deps
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const acc = activeAccountId; // keep this for refresh deps
+    const groupData: INetworkAccountSelectorAccountListSectionData[] = [];
+    if (isMounted.current && selectedNetworkId && isOpenDelay) {
+      debugLogger.accountSelector.info(
+        'rebuild NetworkAccountSelector accountList data',
+        { selectedNetworkId, refreshAccountSelectorTs, isOpenDelay, wallets },
+      );
+      const pushWalletAccountsData = async (wallet: IWallet) => {
+        const accounts = await engine.getAccounts(
+          wallet.accounts,
+          selectedNetworkId,
+        );
+        if (accounts.length) {
+          // @ts-ignore
+          accounts[accounts.length - 1].$isLastItem = true;
         }
-        setData(groupData);
+        groupData.push({
+          wallet,
+          networkId: selectedNetworkId,
+          data: accounts || [],
+        });
+      };
+      if (isListAccountsOnlySingleWallet) {
+        if (selectedWallet) {
+          await pushWalletAccountsData(selectedWallet);
+        }
+      } else {
+        let walletIndex = 0;
+        for (const wallet of wallets) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          walletIndex += 1;
+          await pushWalletAccountsData(wallet);
+        }
       }
-    })();
-  }, [engine, selectedNetworkId, wallets, refreshAccountSelectorTs]);
+      setData(groupData);
+    }
+  }, [
+    activeAccountId,
+    refreshAccountSelectorTs,
+    isMounted,
+    selectedNetworkId,
+    isOpenDelay,
+    wallets,
+    isListAccountsOnlySingleWallet,
+    engine,
+    selectedWallet,
+  ]);
+  const buildDataDebounced = useMemo(
+    () =>
+      debounce(buildData, 150, {
+        leading: false,
+        trailing: true,
+      }),
+    [buildData],
+  );
+  useEffect(() => {
+    buildDataDebounced();
+  }, [buildDataDebounced]);
 
   const getSectionMetaInfo = useCallback(
     ({
@@ -162,9 +189,15 @@ function AccountList({
     [preloadingCreateAccount?.networkId, preloadingCreateAccount?.walletId],
   );
 
+  // for performance: do NOT render UI if selector not open
+  if (!isOpenDelay) {
+    return null;
+  }
+
   return (
     <>
       <SectionList
+        initialNumToRender={20}
         // TODO auto scroll to active item
         ref={sectionListRef}
         //    this.refs.foo.scrollToLocation({
@@ -182,26 +215,29 @@ function AccountList({
         stickySectionHeadersEnabled
         sections={data}
         keyExtractor={(item: IAccount) => item.id}
-        // renderSectionHeader={({
-        //   section,
-        // }: {
-        //   // eslint-disable-next-line react/no-unused-prop-types
-        //   section: INetworkAccountSelectorAccountListSectionData;
-        // }) => {
-        //   const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
-        //     { section },
-        //   );
-        //   return (
-        //     <>
-        //       <SectionHeader
-        //         wallet={section?.wallet}
-        //         networkId={selectedNetworkId}
-        //         emptySectionData={isEmptySectionData}
-        //         isCreateLoading={isPreloadingCreate}
-        //       />
-        //     </>
-        //   );
-        // }}
+        renderSectionHeader={({
+          section,
+        }: {
+          // eslint-disable-next-line react/no-unused-prop-types
+          section: INetworkAccountSelectorAccountListSectionData;
+        }) => {
+          if (isListAccountsOnlySingleWallet) {
+            return null;
+          }
+          const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
+            { section },
+          );
+          return (
+            <>
+              <SectionHeader
+                wallet={section?.wallet}
+                networkId={selectedNetworkId}
+                emptySectionData={isEmptySectionData}
+                isCreateLoading={isPreloadingCreate}
+              />
+            </>
+          );
+        }}
         renderItem={({
           item,
           section,
@@ -224,6 +260,7 @@ function AccountList({
             <>
               <ListItem
                 key={item.id}
+                onLastItemRender={scrollToItem}
                 account={item}
                 wallet={section?.wallet}
                 network={selectedNetwork}

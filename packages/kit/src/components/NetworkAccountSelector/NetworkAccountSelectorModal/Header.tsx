@@ -1,6 +1,7 @@
 /* eslint-disable no-nested-ternary */
-import React from 'react';
+import React, { useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,11 +15,15 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
+import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useRuntime } from '../../../hooks/redux';
+import { getWalletName } from '../../../hooks/useWalletName';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
+
+import { CreateAccountButton } from './CreateAccountButton';
 
 const { updateIsLoading } = reducerAccountSelector.actions;
 function Header({
@@ -26,11 +31,49 @@ function Header({
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
-  const { selectedNetwork, isLoading } = accountSelectorInfo;
-  const { dispatch } = backgroundApiProxy;
+  const {
+    selectedNetwork,
+    selectedNetworkId,
+    isLoading,
+    selectedWallet,
+    selectedWalletId,
+    isOpenDelay,
+    preloadingCreateAccount,
+  } = accountSelectorInfo;
+  const { dispatch, serviceAccountSelector } = backgroundApiProxy;
   const close = useModalClose();
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const { wallets } = useRuntime();
+  const isFocused = useIsFocused();
+
+  const walletsOptions = useMemo(() => {
+    if (!isFocused || !isOpenDelay) {
+      return [];
+    }
+    return wallets.map((wallet) => ({
+      label: getWalletName({ wallet, intl }) || '-',
+      value: wallet.id,
+      wallet,
+    }));
+  }, [intl, isFocused, isOpenDelay, wallets]);
+
+  const isPreloadingCreate = useMemo(
+    () =>
+      Boolean(
+        preloadingCreateAccount?.walletId &&
+          preloadingCreateAccount?.networkId &&
+          preloadingCreateAccount?.walletId === selectedWalletId &&
+          preloadingCreateAccount?.networkId === selectedNetworkId,
+      ),
+    [
+      preloadingCreateAccount?.networkId,
+      preloadingCreateAccount?.walletId,
+      selectedNetworkId,
+      selectedWalletId,
+    ],
+  );
+
   return (
     <Box pr={3.5}>
       <Box flexDirection="row" alignItems="center" pt={3.5} pb={2} pl={4}>
@@ -64,28 +107,15 @@ function Header({
         <Select
           title={intl.formatMessage({ id: 'title__wallets' })}
           footer={null}
-          defaultValue="scan"
+          value={selectedWalletId}
           activatable={false}
           containerProps={{
             flex: 1,
             alignItems: 'flex-start',
           }}
-          options={[
-            {
-              label: 'Wallet #1',
-              value: 'scan',
-            },
-            {
-              label: 'Wallet #2',
-              value: 'expand',
-            },
-            {
-              label: 'Wallet #3',
-              value: 'lock',
-            },
-          ]}
+          options={walletsOptions}
           renderTrigger={({ visible, onPress }) => (
-            <Pressable onPress={onPress}>
+            <Pressable minW="150px" onPress={onPress}>
               {({ isHovered, isPressed }) => (
                 <Box
                   flexDirection="row"
@@ -102,18 +132,34 @@ function Header({
                       : undefined
                   }
                 >
-                  <WalletAvatar size="xs" />
+                  {selectedWallet ? (
+                    <WalletAvatarPro
+                      wallet={selectedWallet}
+                      size="xs"
+                      deviceStatus={undefined}
+                    />
+                  ) : null}
                   <Text typography="Body1Strong" mx={2} isTruncated>
-                    Wallet Name
+                    {getWalletName({
+                      wallet: selectedWallet,
+                      intl,
+                    })}
                   </Text>
                   <Icon name="SelectorSolid" size={20} />
                 </Box>
               )}
             </Pressable>
           )}
-          renderItem={(item, isActive) => (
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          renderItem={(item, isActive, onChange) => (
             <>
-              <Pressable>
+              <Pressable
+                onPress={async () => {
+                  // call internal select onChange to make sure selector closed
+                  onChange?.(item.value, item);
+                  await serviceAccountSelector.updateSelectedWallet(item.value);
+                }}
+              >
                 {({ isHovered, isPressed }) => (
                   <Box
                     p={2}
@@ -129,7 +175,18 @@ function Header({
                     }
                     rounded="xl"
                   >
-                    <WalletAvatar size={isVerticalLayout ? 'lg' : 'xs'} />
+                    {
+                      // @ts-expect-error
+                      item.wallet ? (
+                        <WalletAvatarPro
+                          // @ts-expect-error
+                          wallet={item.wallet}
+                          deviceStatus={undefined}
+                          size={isVerticalLayout ? 'lg' : 'xs'}
+                        />
+                      ) : null
+                    }
+
                     <Text
                       typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                       flex={1}
@@ -150,7 +207,11 @@ function Header({
             </>
           )}
         />
-        <IconButton name="PlusSolid" type="plain" circle hitSlop={8} />
+        <CreateAccountButton
+          walletId={selectedWalletId || ''}
+          networkId={selectedNetworkId}
+          isLoading={isPreloadingCreate}
+        />
       </Box>
     </Box>
   );
