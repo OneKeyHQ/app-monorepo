@@ -29,9 +29,10 @@ import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
 import {
-  WebControllerContext,
   WebviewRefs,
-} from './Controller/WebControllerContext';
+  WebviewRefsContext,
+  webviewRefs,
+} from './Controller/WebviewRefsContext';
 import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
 
@@ -79,7 +80,6 @@ const Explorer: FC = () => {
   const { incomingUrl } = route.params || {};
   const { dispatch } = backgroundApiProxy;
   const discover = useAppSelector((s) => s.discover);
-  const webviewRefs = useRef<WebviewRefs>({});
   const { tabs, currentTabId } = useAppSelector((s) => s.webTabs);
 
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
@@ -379,7 +379,7 @@ const Explorer: FC = () => {
   );
 
   return (
-    <WebControllerContext.Provider value={webviewRefs}>
+    <WebviewRefsContext.Provider value={webviewRefs}>
       <Box flex={1} bg="background-default">
         {isVerticalLayout ? (
           <Mobile
@@ -417,7 +417,7 @@ const Explorer: FC = () => {
           />
         )}
       </Box>
-    </WebControllerContext.Provider>
+    </WebviewRefsContext.Provider>
   );
 };
 

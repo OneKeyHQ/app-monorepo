@@ -6,7 +6,7 @@ import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useWebviewRef = (
-  webViewRef: IWebViewWrapperRef | null,
+  webViewRef: IWebViewWrapperRef | undefined,
   navigationStateChangeEvent: any | null,
   onOpenNewUrl: (url: string) => void,
 ) => {

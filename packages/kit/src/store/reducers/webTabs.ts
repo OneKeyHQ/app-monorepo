@@ -43,6 +43,15 @@ export const tokensSlice = createSlice({
       }
       state.tabs.push(action.payload);
     },
+    setWebTabData: (
+      state,
+      action: PayloadAction<Partial<Omit<WebTab, 'isCurrent'>>>,
+    ) => {
+      const tab = state.tabs.find((t) => t.id === action.payload.id);
+      if (tab) {
+        Object.assign(tab, action.payload);
+      }
+    },
     closeWebTab: (state, action: PayloadAction<string>) => {
       state.tabs = state.tabs.filter((tab, index) => {
         if (tab.id === action.payload) {
@@ -65,5 +74,6 @@ export const tokensSlice = createSlice({
   },
 });
 
-export const { addWebTab, closeWebTab, setCurrentWebTab } = tokensSlice.actions;
+export const { addWebTab, setWebTabData, closeWebTab, setCurrentWebTab } =
+  tokensSlice.actions;
 export default tokensSlice.reducer;

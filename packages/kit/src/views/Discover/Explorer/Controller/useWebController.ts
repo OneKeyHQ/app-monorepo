@@ -1,9 +1,18 @@
-import { useWebviewRef } from './useWebviewRef';
+import { createRef, useContext } from 'react';
 
-export const useWebController = () => {
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { addWebSiteHistory } from '../../../../store/reducers/discover';
+import { setWebTabData } from '../../../../store/reducers/webTabs';
+
+import { useWebviewRef } from './useWebviewRef';
+import { WebviewRefsContext } from './WebviewRefsContext';
+
+export const useWebController = ({ id }: { id: string }) => {
+  const webviewRefs = useContext(WebviewRefsContext);
+  const { dispatch } = backgroundApiProxy;
   const {
-    canGoBack: webCanGoBack,
-    canGoForward: webCanGoForward,
+    canGoBack,
+    canGoForward,
     goBack,
     goForward,
     stopLoading,
@@ -11,13 +20,17 @@ export const useWebController = () => {
     url: webUrl,
     title: webTitle,
     favicon: webFavicon,
-  } = useWebviewRef(webviewRef, navigationStateChangeEvent, (url: string) => {
-    //     setCurrentWebSite({ url });
-    //     dispatch(
-    //       addWebSiteHistory({
-    //         keyUrl: undefined,
-    //         webSite: { url },
-    //       }),
-    //     );
-  });
+  } = useWebviewRef(
+    webviewRefs[id],
+    navigationStateChangeEvent,
+    (url: string) => {
+      dispatch(
+        setWebTabData({ id, url }),
+        addWebSiteHistory({
+          keyUrl: undefined,
+          webSite: { url },
+        }),
+      );
+    },
+  );
 };
