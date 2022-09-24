@@ -166,6 +166,10 @@ class Engine {
     this.validator = new Validators(this);
   }
 
+  async cleanupDBOnStart() {
+    await this.dbApi.cleanupPendingWallets();
+  }
+
   async syncPresetNetworks(): Promise<void> {
     await syncLatestNetworkList();
 

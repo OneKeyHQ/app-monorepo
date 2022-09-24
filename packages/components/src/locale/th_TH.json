@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "การดำเนินการนี้จะลบข้อมูลของคุณอย่างถาวร แต่คุณยังสามารถกู้คืนได้จากกระเป๋าเงินฮาร์ดแวร์ซึ่งโหลดวลีกู้คืนของกระเป๋าเงินนี้",
   "dialog__delete_wallet_desc": "ตรวจสอบให้แน่ใจว่าคุณได้จดวลีกู้คืนก่อนที่จะลบ คุณจะไม่สามารถกู้คืนกระเป๋าเงินได้",
   "dialog__device_has_disabled_passphrase": "อุปกรณ์ได้ปิดการใช้งานข้อความรหัสผ่าน",
-  "dialog__device_has_disabled_passphrase_desc": "คุณสามารถเปิดใช้งานข้อความรหัสผ่านเพื่อใช้ Standard Wallet",
+  "dialog__device_has_disabled_passphrase_desc": "คุณสามารถเปิดใช้งานข้อความรหัสผ่านเพื่อใช้กระเป๋าเงินที่ซ่อนอยู่",
   "dialog__device_has_enabled_passphrase": "อุปกรณ์ได้เปิดใช้งานข้อความรหัสผ่าน",
   "dialog__device_has_enabled_passphrase_desc": "คุณสามารถปิดใช้งานข้อความรหัสผ่านเพื่อใช้ Standard Wallet",
   "dialog__disabling_sync": "ปิดการใช้งานการซิงค์",

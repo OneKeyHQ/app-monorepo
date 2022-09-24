@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "Questo cancellerà definitivamente i tuoi dati. Ma puoi comunque ripristinarlo dal portafoglio hardware su cui viene caricata la frase di ripristino di questo portafoglio.",
   "dialog__delete_wallet_desc": "Assicurati di aver annotato la frase di ripristino prima di eliminarla. In caso contrario, non sarai in grado di recuperare il portafoglio.",
   "dialog__device_has_disabled_passphrase": "Il dispositivo ha disabilitato la passphrase",
-  "dialog__device_has_disabled_passphrase_desc": "Puoi abilitare la passphrase per utilizzare il portafoglio standard.",
+  "dialog__device_has_disabled_passphrase_desc": "Puoi abilitare la passphrase per utilizzare Hidden Wallet.",
   "dialog__device_has_enabled_passphrase": "Il dispositivo ha abilitato la passphrase",
   "dialog__device_has_enabled_passphrase_desc": "Puoi disabilitare la passphrase per utilizzare il portafoglio standard.",
   "dialog__disabling_sync": "Disabilitazione della sincronizzazione",

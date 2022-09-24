@@ -178,7 +178,9 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                     height="16px"
                     borderRadius="full"
                   />
-                  <Typography.Body2>{activeAccount?.name}</Typography.Body2>
+                  <Typography.Body2 maxW="40" isTruncated>
+                    {activeAccount?.name}
+                  </Typography.Body2>
                 </HStack>
               </Box>
 
