@@ -54,7 +54,7 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
 export class UnknownMethod extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 
-  override key: LocaleIds = 'msg__hardware_default_error';
+  override key: LocaleIds = 'msg__hardware_unknown_message_error';
 }
 
 export class ConnectTimeout extends OneKeyHardwareError {
