@@ -43,10 +43,7 @@ function AccountItemSelectDropdown({
   const navigation = useAppNavigation();
   const isHardwareWallet = type === WALLET_TYPE_HW;
   const { dispatch } = backgroundApiProxy;
-  const {
-    goToRemoveAccount,
-    RemoveAccountDialog,
-  } = useRemoveAccountDialog();
+  const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const { copyAddress } = useCopyAddress({
     wallet,
     account,

@@ -9,7 +9,6 @@ import {
   useRuntimeWallets,
   useSettings,
 } from '../../../hooks/redux';
-import { useWalletSelectorStatus } from '../../WalletSelector/hooks/useWalletSelectorStatus';
 
 export type DeviceStatusType = {
   isConnected: boolean;

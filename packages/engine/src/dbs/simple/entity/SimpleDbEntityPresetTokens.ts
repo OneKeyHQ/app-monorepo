@@ -1,5 +1,6 @@
-// import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
+// import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
 import { getSupportedImpls } from '../../../constants';
 import { parseNetworkId } from '../../../managers/network';
 import { formatServerToken } from '../../../managers/token';

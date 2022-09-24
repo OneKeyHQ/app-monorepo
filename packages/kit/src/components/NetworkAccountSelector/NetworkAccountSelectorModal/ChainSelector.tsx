@@ -20,12 +20,8 @@ import { useManageNetworks } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
-import {
-  ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK,
-  ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY,
-} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
-import { LazyDisplayView } from '../../LazyDisplayView';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 function ChainNetworkIcon({
@@ -54,7 +50,7 @@ function ChainSelector({
   const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
-  const { selectedNetworkId, isOpenDelay } = accountSelectorInfo;
+  const { selectedNetworkId } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
 

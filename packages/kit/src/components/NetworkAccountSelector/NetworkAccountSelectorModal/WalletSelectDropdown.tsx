@@ -28,15 +28,13 @@ export function WalletSelectDropdown({
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
   const {
-    selectedNetwork,
     selectedNetworkId,
-    isLoading,
     selectedWallet,
     selectedWalletId,
     isOpenDelay,
     preloadingCreateAccount,
   } = accountSelectorInfo;
-  const { dispatch, serviceAccountSelector } = backgroundApiProxy;
+  const { serviceAccountSelector } = backgroundApiProxy;
 
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();

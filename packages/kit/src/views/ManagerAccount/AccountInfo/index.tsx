@@ -18,9 +18,7 @@ import {
   ManagerAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
-import { ValidationFields } from '../../../components/Protected';
 import { useActiveWalletAccount } from '../../../hooks';
-import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { useWalletName } from '../../../hooks/useWalletName';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import AccountModifyNameDialog from '../ModifyAccount';
@@ -35,12 +33,7 @@ const ManagerAccountModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
 
-  const { showVerify } = useLocalAuthenticationModal();
-  const {
-    show: showRemoveAccountDialog,
-    goToRemoveAccount,
-    RemoveAccountDialog,
-  } = useRemoveAccountDialog();
+  const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const [modifyNameVisible, setModifyNameVisible] = useState(false);
   const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
   const { walletId, accountId, networkId, refreshAccounts } =

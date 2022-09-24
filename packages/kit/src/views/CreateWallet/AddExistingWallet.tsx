@@ -44,6 +44,7 @@ import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
+import { wait } from '../../utils/helper';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -406,11 +407,12 @@ function AddExistingWalletView(
             isDisabled={submitDisabled || disableSubmitBtn}
             type="primary"
             size={isVerticalLayout ? 'xl' : 'lg'}
-            onPromise={handleSubmit((values) => {
+            onPromise={handleSubmit(async (values) => {
               if (!disableSubmitBtn && address) {
                 values.text = address;
               }
-              onSubmit(values);
+              await onSubmit(values);
+              await wait(600);
             })}
           >
             {intl.formatMessage({ id: 'action__confirm' })}
