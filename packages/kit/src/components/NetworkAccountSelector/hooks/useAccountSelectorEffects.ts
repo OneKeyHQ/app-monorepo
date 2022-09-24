@@ -80,7 +80,7 @@ function useAccountSelectorEffects() {
       if (isCloseFromOpen) {
         await wait(ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY);
         dispatch(
-          // updateAccountsGroup([])
+          // updateAccountsGroup([]), // clear section data in redux
           updateIsLoading(false),
           updatePreloadingCreateAccount(undefined),
           updateSelectedWalletId(activeWallet?.id),

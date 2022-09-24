@@ -29,7 +29,10 @@ import {
   useRuntime,
 } from '../../../../hooks/redux';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import {
+  ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT,
+  ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK,
+} from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
 import { scrollToSectionItem } from '../../../WalletSelector';
 import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
@@ -72,7 +75,8 @@ function AccountList({
   const insets = useSafeAreaInsets();
   const intl = useIntl();
 
-  const isListAccountsOnlySingleWallet = true;
+  // TODO $isLastItem in multiple wallet mode optimize
+  const isListAccountsSingleWalletMode = true;
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
     if (isScrolledRef.current || !activeWalletId || !data || !data.length) {
@@ -95,10 +99,18 @@ function AccountList({
         isScrolledRef.current = true;
       },
       skipScrollIndex: 3,
-      delay: ACCOUNT_SELECTOR_AUTO_SCROLL_ACCOUNT,
-      // delay: 0,
+      delay: 0,
     });
   }, [activeAccountId, activeNetworkId, activeWalletId, data]);
+  const scrollToItemDebounced = useMemo(
+    () =>
+      debounce(scrollToItem, ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT, {
+        leading: false,
+        trailing: true,
+      }),
+    [scrollToItem],
+  );
+
   const isMounted = useIsMounted();
   useEffect(
     () => () => {
@@ -144,7 +156,7 @@ function AccountList({
           data: accounts || [],
         });
       };
-      if (isListAccountsOnlySingleWallet) {
+      if (isListAccountsSingleWalletMode) {
         if (selectedWallet) {
           await pushWalletAccountsData(selectedWallet);
         }
@@ -165,7 +177,7 @@ function AccountList({
     selectedNetworkId,
     isOpenDelay,
     wallets,
-    isListAccountsOnlySingleWallet,
+    isListAccountsSingleWalletMode,
     engine,
     selectedWallet,
   ]);
@@ -226,7 +238,7 @@ function AccountList({
           // eslint-disable-next-line react/no-unused-prop-types
           section: INetworkAccountSelectorAccountListSectionData;
         }) => {
-          if (isListAccountsOnlySingleWallet) {
+          if (isListAccountsSingleWalletMode) {
             return null;
           }
           const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
@@ -265,7 +277,7 @@ function AccountList({
             <>
               <ListItem
                 key={item.id}
-                onLastItemRender={scrollToItem}
+                onLastItemRender={scrollToItemDebounced}
                 account={item}
                 wallet={section?.wallet}
                 network={selectedNetwork}

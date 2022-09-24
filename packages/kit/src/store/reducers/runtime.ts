@@ -28,14 +28,6 @@ const initialState: InitialState = {
   displayPassphraseWalletIdList: [],
 };
 
-const WALLET_SORT_WEIGHT = {
-  [WALLET_TYPE_HD]: 1,
-  [WALLET_TYPE_HW]: 10,
-  [WALLET_TYPE_IMPORTED]: 20,
-  [WALLET_TYPE_WATCHING]: 30,
-  [WALLET_TYPE_EXTERNAL]: 40,
-};
-
 export const walletSlice = createSlice({
   name: 'runtime',
   initialState,
@@ -70,10 +62,7 @@ export const walletSlice = createSlice({
       state.networks = action.payload;
     },
     updateWallets(state, action: PayloadAction<BaseWallet[]>) {
-      state.wallets = action.payload.sort(
-        (item1, item2) =>
-          WALLET_SORT_WEIGHT[item1.type] - WALLET_SORT_WEIGHT[item2.type],
-      );
+      state.wallets = action.payload;
     },
     updateWallet(state, action: PayloadAction<BaseWallet>) {
       state.wallets = state.wallets.map((w) =>
