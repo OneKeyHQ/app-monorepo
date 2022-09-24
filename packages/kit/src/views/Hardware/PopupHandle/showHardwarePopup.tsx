@@ -183,6 +183,7 @@ export default async function showHardwarePopup({
     };
     popupView = (
       <EnterPassphraseView
+        passphraseState={payload?.passphraseState}
         onConfirm={(passphrase) => onPassphraseAck(passphrase)}
         onDeviceInput={() => onPassphraseAck('', true)}
         onCancel={() => {

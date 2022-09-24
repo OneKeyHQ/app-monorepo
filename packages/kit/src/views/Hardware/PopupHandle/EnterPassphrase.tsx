@@ -15,6 +15,7 @@ import {
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
 type EnterPassphraseViewProps = {
+  passphraseState?: string;
   onConfirm: (passphrase: string) => void;
   onDeviceInput: () => void;
 } & Omit<BaseRequestViewProps, 'children'>;
@@ -24,6 +25,7 @@ type FieldValues = { value: string };
 const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
   onConfirm,
   onDeviceInput,
+  passphraseState,
   ...props
 }) => {
   const intl = useIntl();
@@ -88,34 +90,42 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
         type="plain"
         size="base"
         mt={3}
-        mb={6}
+        mb={passphraseState ? 0 : 6}
         onPress={() => onDeviceInput()}
       >
         {intl.formatMessage({ id: 'msg__enter_passphrase_on_device' })}
       </Button>
-      <Divider />
-      <Box mt={6}>
-        <Box flexDirection="row">
-          <Box>
-            <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
+      {passphraseState ? null : (
+        <>
+          <Divider />
+          <Box mt={6}>
+            <Box flexDirection="row">
+              <Box>
+                <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
+              </Box>
+              <Text flex={1} ml={3} typography="Body2" color="text-default">
+                {intl.formatMessage({
+                  id: 'msg__use_passphrase_enter_hint_hide_wallet',
+                })}
+              </Text>
+            </Box>
+            <Box flexDirection="row" mt={4}>
+              <Box>
+                <Icon
+                  name="ExclamationOutline"
+                  size={20}
+                  color="icon-warning"
+                />
+              </Box>
+              <Text flex={1} typography="Body2" ml={3} color="text-default">
+                {intl.formatMessage({
+                  id: 'msg__use_passphrase_enter_hint_not_forget',
+                })}
+              </Text>
+            </Box>
           </Box>
-          <Text flex={1} ml={3} typography="Body2" color="text-default">
-            {intl.formatMessage({
-              id: 'msg__use_passphrase_enter_hint_hide_wallet',
-            })}
-          </Text>
-        </Box>
-        <Box flexDirection="row" mt={4}>
-          <Box>
-            <Icon name="ExclamationOutline" size={20} color="icon-warning" />
-          </Box>
-          <Text flex={1} typography="Body2" ml={3} color="text-default">
-            {intl.formatMessage({
-              id: 'msg__use_passphrase_enter_hint_not_forget',
-            })}
-          </Text>
-        </Box>
-      </Box>
+        </>
+      )}
     </BaseRequestView>
   );
 };
