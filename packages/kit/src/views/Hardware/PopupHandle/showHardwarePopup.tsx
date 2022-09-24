@@ -1,8 +1,8 @@
 import React, { ReactElement } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
+import { Modal } from 'native-base';
 import { PermissionsAndroid } from 'react-native';
-import Modal from 'react-native-modal';
 import RootSiblingsManager from 'react-native-root-siblings';
 
 import DialogManager from '@onekeyhq/components/src/DialogManager';
@@ -181,6 +181,7 @@ export default async function showHardwarePopup({
       });
       closeHardwarePopup();
     };
+    popupType = 'input';
     popupView = (
       <EnterPassphraseView
         passphraseState={payload?.passphraseState}
@@ -317,16 +318,20 @@ export default async function showHardwarePopup({
   setTimeout(() => {
     const modalPopup = (
       <Modal
-        isVisible
-        onModalHide={closeHardwarePopup}
-        backdropColor="overlay"
-        animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
-        animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
-        animationOutTiming={300}
-        backdropTransitionOutTiming={0}
-        coverScreen
-        useNativeDriver
-        hideModalContentWhileAnimating
+        isOpen
+        onClose={closeHardwarePopup}
+        bg="overlay"
+        closeOnOverlayClick={false}
+        // isVisible
+        // onModalHide={closeHardwarePopup}
+        // backdropColor="overlay"
+        // animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
+        // animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
+        // animationOutTiming={300}
+        // backdropTransitionOutTiming={0}
+        // coverScreen
+        // useNativeDriver
+        // hideModalContentWhileAnimating
         style={{
           justifyContent:
             popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
