@@ -1,5 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { webviewRefs } from '../../views/Discover/Explorer/Controller/webviewRefs';
+
 export interface WebTab {
   id: string;
   url: string;
@@ -53,6 +55,7 @@ export const tokensSlice = createSlice({
       }
     },
     closeWebTab: (state, action: PayloadAction<string>) => {
+      delete webviewRefs[action.payload];
       state.tabs = state.tabs.filter((tab, index) => {
         if (tab.id === action.payload) {
           const prev = state.tabs[index - 1];

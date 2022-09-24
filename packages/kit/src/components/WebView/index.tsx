@@ -5,7 +5,10 @@ import {
   IWebViewWrapperRef,
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
-import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
+import {
+  WebViewNavigation,
+  WebViewSource,
+} from 'react-native-webview/lib/WebViewTypes';
 
 import { Box, Button, Center } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -34,7 +37,7 @@ function WebView({
   onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
   onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
-  onNavigationStateChange?: (event: any) => void;
+  onNavigationStateChange?: (event: WebViewNavigation) => void;
   allowpopups?: boolean;
   containerProps?: ComponentProps<typeof Box>;
   customReceiveHandler?: IJsBridgeReceiveHandler;

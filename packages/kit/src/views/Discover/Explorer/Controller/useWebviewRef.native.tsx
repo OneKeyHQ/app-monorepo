@@ -33,74 +33,22 @@ export const useWebviewRef = (
     }
   }, [navigationStateChangeEvent]);
 
-  const canGoBack = useCallback((): boolean => {
-    if (webViewRef?.innerRef) {
-      try {
-        if (rnCanGoBack !== undefined) {
-          return rnCanGoBack;
-        }
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-        return webViewRef?.innerRef?.canGoBack();
-      } catch (e) {
-        console.log(e);
-      }
-    }
-    return false;
-  }, [rnCanGoBack, webViewRef?.innerRef]);
-
   const goBack = useCallback(() => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        webViewRef?.innerRef?.goBack();
-      } catch (e) {
-        console.log(e);
-      }
-    }
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    webViewRef?.innerRef?.goBack();
   }, [webViewRef?.innerRef]);
 
-  const canGoForward = useCallback((): boolean => {
-    if (webViewRef?.innerRef) {
-      try {
-        if (rnCanGoForward !== undefined) {
-          return rnCanGoForward;
-        }
-
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-        return webViewRef?.innerRef?.canGoForward();
-      } catch (e) {
-        console.log(e);
-      }
-    }
-    return false;
-  }, [rnCanGoForward, webViewRef?.innerRef]);
-
   const goForward = useCallback(() => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        webViewRef?.innerRef?.goForward();
-      } catch (e) {
-        console.log(e);
-      }
-      return false;
-    }
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    webViewRef?.innerRef?.goForward();
   }, [webViewRef?.innerRef]);
 
   const stopLoading = useCallback(() => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        webViewRef?.innerRef?.stop();
-      } catch (e) {
-        console.log(e);
-      }
-    }
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    webViewRef?.innerRef?.stop();
   }, [webViewRef?.innerRef]);
 
   return useMemo(
@@ -116,8 +64,6 @@ export const useWebviewRef = (
       favicon: currentFavicon,
     }),
     [
-      canGoBack,
-      canGoForward,
       isLoading,
       currentTitle,
       currentUrl,

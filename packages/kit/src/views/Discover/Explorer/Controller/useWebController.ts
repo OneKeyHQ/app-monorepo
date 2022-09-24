@@ -7,8 +7,7 @@ import { setWebTabData } from '../../../../store/reducers/webTabs';
 import { useWebviewRef } from './useWebviewRef';
 import { WebviewRefsContext } from './WebviewRefsContext';
 
-export const useWebController = ({ id }: { id: string }) => {
-  const webviewRefs = useContext(WebviewRefsContext);
+export const useWebController = ({ webviewRef,navigationStateChangeEvent }: { webviewRef: string }) => {
   const { dispatch } = backgroundApiProxy;
   const {
     canGoBack,
@@ -21,7 +20,8 @@ export const useWebController = ({ id }: { id: string }) => {
     title: webTitle,
     favicon: webFavicon,
   } = useWebviewRef(
-    webviewRefs[id],
+    webviewRef,
+
     navigationStateChangeEvent,
     (url: string) => {
       dispatch(

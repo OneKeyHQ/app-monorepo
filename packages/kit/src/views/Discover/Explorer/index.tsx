@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
@@ -28,11 +28,7 @@ import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
-import {
-  WebviewRefs,
-  WebviewRefsContext,
-  webviewRefs,
-} from './Controller/WebviewRefsContext';
+import { webviewRefs } from './Controller/webviewRefs';
 import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
 
@@ -80,7 +76,7 @@ const Explorer: FC = () => {
   const { incomingUrl } = route.params || {};
   const { dispatch } = backgroundApiProxy;
   const discover = useAppSelector((s) => s.discover);
-  const { tabs, currentTabId } = useAppSelector((s) => s.webTabs);
+  const { tabs } = useAppSelector((s) => s.webTabs);
 
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
   const [canGoForward, setCanGoForward] = useState<boolean>(false);
@@ -355,11 +351,11 @@ const Explorer: FC = () => {
   const explorerContent = useMemo(
     () =>
       tabs.map((tab) => (
-        <Freeze key={tab.id} freeze={currentTabId !== tab.id}>
-          <WebContent {...tab} />
+        <Freeze key={tab.id} freeze={!tab.isCurrent}>
+          <WebContent key={tab.isCurrent ? refreshKey : undefined} {...tab} />
         </Freeze>
       )),
-    [currentTabId, tabs],
+    [refreshKey, tabs],
   );
 
   const moreViewContent = useMemo(
@@ -379,45 +375,41 @@ const Explorer: FC = () => {
   );
 
   return (
-    <WebviewRefsContext.Provider value={webviewRefs}>
-      <Box flex={1} bg="background-default">
-        {isVerticalLayout ? (
-          <Mobile
-            key={refreshKey}
-            searchContent={searchContent}
-            onSearchContentChange={setSearchContent}
-            onSearchSubmitEditing={onSearchSubmitEditing}
-            explorerContent={explorerContent}
-            canGoBack={canGoBack}
-            onGoBack={onGoBack}
-            onNext={onNext}
-            onRefresh={onRefresh}
-            onMore={onMore}
-            moreView={moreViewContent}
-            showExplorerBar={showExplorerBar}
-          />
-        ) : (
-          <Desktop
-            key={refreshKey}
-            displayInitialPage={displayInitialPage}
-            searchContent={searchContent}
-            onSearchContentChange={setSearchContent}
-            onSearchSubmitEditing={onSearchSubmitEditing}
-            explorerContent={explorerContent}
-            canGoBack={canGoBack}
-            canGoForward={canGoForward}
-            // loading={webLoading}
-            onGoBack={onGoBack}
-            onNext={onNext}
-            onRefresh={onRefresh}
-            onStopLoading={onStopLoading}
-            onMore={onMore}
-            moreView={moreViewContent}
-            showExplorerBar={showExplorerBar}
-          />
-        )}
-      </Box>
-    </WebviewRefsContext.Provider>
+    <Box flex={1} bg="background-default">
+      {isVerticalLayout ? (
+        <Mobile
+          searchContent={searchContent}
+          onSearchContentChange={setSearchContent}
+          onSearchSubmitEditing={onSearchSubmitEditing}
+          explorerContent={explorerContent}
+          canGoBack={canGoBack}
+          onGoBack={onGoBack}
+          onNext={onNext}
+          onRefresh={onRefresh}
+          onMore={onMore}
+          moreView={moreViewContent}
+          showExplorerBar={showExplorerBar}
+        />
+      ) : (
+        <Desktop
+          displayInitialPage={displayInitialPage}
+          searchContent={searchContent}
+          onSearchContentChange={setSearchContent}
+          onSearchSubmitEditing={onSearchSubmitEditing}
+          explorerContent={explorerContent}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          // loading={webLoading}
+          onGoBack={onGoBack}
+          onNext={onNext}
+          onRefresh={onRefresh}
+          onStopLoading={onStopLoading}
+          onMore={onMore}
+          moreView={moreViewContent}
+          showExplorerBar={showExplorerBar}
+        />
+      )}
+    </Box>
   );
 };
 
