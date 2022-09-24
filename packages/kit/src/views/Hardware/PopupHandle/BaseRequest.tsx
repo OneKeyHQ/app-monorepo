@@ -74,10 +74,10 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({
               onClose?.();
             }}
             position="absolute"
-            top={2}
-            right={2}
-            size="lg"
+            top={1}
+            right={1}
             type="plain"
+            circle
             name="CloseSolid"
           />
         )}
