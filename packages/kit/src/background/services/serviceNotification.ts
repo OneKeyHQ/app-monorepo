@@ -1,3 +1,4 @@
+import JPush from 'jpush-react-native';
 import { pick } from 'lodash';
 import { Dimensions } from 'react-native';
 
@@ -26,9 +27,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeRoutes, RootRoutes, TabRoutes } from '../../routes/types';
+import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setHomeTabName } from '../../store/reducers/status';
 import { WalletHomeTabEnum } from '../../views/Wallet/type';
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -39,12 +42,34 @@ import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 export default class ServiceNotification extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
-    if (!platformEnv.isNative) {
-      return;
-    }
+    this.init();
+  }
+
+  @backgroundMethod()
+  init() {
     setInterval(() => {
       this.syncLocalEnabledAccounts();
     }, 5 * 60 * 1000);
+
+    if (platformEnv.isNative) {
+      initJpush();
+      debugLogger.notification.info(`init jpush`);
+
+      const handleNotificationCallback = (res: NotificationType) => {
+        console.log(res);
+        return this.handleNotificationCallback(res);
+      };
+      const handleConnectStateChangeCallback = (res: {
+        connectEnable: boolean;
+      }) => this.handleConnectStateChangeCallback(res);
+
+      JPush.addConnectEventListener(handleConnectStateChangeCallback);
+      // @ts-ignore
+      JPush.addNotificationListener(handleNotificationCallback);
+      // @ts-ignore
+      // JPush.addLocalNotificationListener(handleNotificationCallback);
+      this.clearBadge();
+    }
   }
 
   @backgroundMethod()
@@ -103,6 +128,38 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   emitNotificationStatusChange(content: NotificationType) {
     appEventBus.emit(AppEventBusNames.NotificationStatusChanged, content);
+  }
+
+  @backgroundMethod()
+  clearBadge() {
+    debugLogger.notification.debug('clearBadge');
+    if (platformEnv.isNative) {
+      JPush.setBadge({
+        badge: 0,
+        appBadge: 0,
+      });
+    }
+  }
+
+  @backgroundMethod()
+  handleConnectStateChangeCallback(result: { connectEnable: boolean }) {
+    debugLogger.notification.debug('JPUSH.addConnectEventListener', result);
+    if (!result.connectEnable) {
+      return;
+    }
+    JPush.getRegistrationID(this.handleRegistrationIdCallback.bind(this));
+  }
+
+  @backgroundMethod()
+  handleRegistrationIdCallback(res: { registerID: string }) {
+    debugLogger.notification.debug('JPUSH.getRegistrationID', res);
+    const { dispatch } = this.backgroundApi;
+    dispatch(
+      setPushNotificationConfig({
+        registrationId: res.registerID,
+      }),
+    );
+    this.syncPushNotificationConfig();
   }
 
   @backgroundMethod()
@@ -187,7 +244,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  async handleNotificaitonCallback(result: NotificationType) {
+  async handleNotificationCallback(result: NotificationType) {
     debugLogger.notification.info('notification', result);
     this.emitNotificationStatusChange(result);
     const { appSelector, serviceAccount, serviceNetwork } = this.backgroundApi;
@@ -265,7 +322,7 @@ export default class ServiceNotification extends ServiceBase {
       SocketEvents.Notification,
       (params: NotificationType) => {
         debugLogger.notification.info(`received notification`, params);
-        this.handleNotificaitonCallback({
+        this.handleNotificationCallback({
           messageID: '',
           ...pick(params, 'title', 'content', 'extras'),
           notificationEventType: 'notificationArrived',
@@ -273,7 +330,7 @@ export default class ServiceNotification extends ServiceBase {
         new Notification(params.title, {
           body: params.content,
         }).onclick = () => {
-          this.handleNotificaitonCallback({
+          this.handleNotificationCallback({
             messageID: '',
             ...pick(params, 'title', 'content', 'extras'),
             notificationEventType: 'notificationOpened',

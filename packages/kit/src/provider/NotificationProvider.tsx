@@ -1,17 +1,13 @@
 import React, { memo, useCallback, useEffect } from 'react';
 
 import { requestPermissionsAsync } from 'expo-notifications';
-import JPush from 'jpush-react-native';
-import { AppState } from 'react-native';
+import { AppState, NativeModules } from 'react-native';
 
 import { DialogManager } from '@onekeyhq/components';
-import { NotificationType } from '@onekeyhq/engine/src/managers/notification';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import {
   checkPushNotificationPermission,
   hasPermission,
-  initJpush,
 } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -25,47 +21,6 @@ const NotificationProvider: React.FC<{
   const { pushNotification } = useSettings();
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
-
-  const clearBadge = useCallback(() => {
-    debugLogger.notification.debug('clearBadge');
-    if (platformEnv.isNative) {
-      JPush.setBadge({
-        badge: 0,
-        appBadge: 0,
-      });
-    }
-  }, []);
-
-  const handleNotificationCallback = useCallback(
-    (result: NotificationType) => {
-      serviceNotification.handleNotificaitonCallback(result);
-    },
-    [serviceNotification],
-  );
-
-  const handleRegistrationIdCallback = useCallback(
-    (res: { registerID: string }) => {
-      debugLogger.notification.debug('JPUSH.getRegistrationID', res);
-      dispatch(
-        setPushNotificationConfig({
-          registrationId: res.registerID,
-        }),
-      );
-      serviceNotification.syncPushNotificationConfig();
-    },
-    [dispatch, serviceNotification],
-  );
-
-  const handleConnectStateChangeCallback = useCallback(
-    (result: { connectEnable: boolean }) => {
-      debugLogger.notification.debug('JPUSH.addConnectEventListener', result);
-      if (!result.connectEnable) {
-        return;
-      }
-      JPush.getRegistrationID(handleRegistrationIdCallback);
-    },
-    [handleRegistrationIdCallback],
-  );
 
   const checkPermission = useCallback(async () => {
     if (!pushNotification?.pushEnable) {
@@ -104,50 +59,24 @@ const NotificationProvider: React.FC<{
 
   const checkPermissionAndInitJpush = useCallback(async () => {
     const enabled = await checkPermission();
-    serviceNotification.syncPushNotificationConfig();
     if (!enabled) {
       return;
     }
-    if (platformEnv.isNative) {
-      initJpush();
-      JPush.getRegistrationID(handleRegistrationIdCallback);
+    if (platformEnv.isNativeIOS) {
+      NativeModules.JPushManager.registerNotification();
     }
-  }, [checkPermission, serviceNotification, handleRegistrationIdCallback]);
+  }, [checkPermission]);
 
-  // addEventListener
   useEffect(() => {
     serviceNotification.syncLocalEnabledAccounts();
-    if (platformEnv.isRuntimeBrowser) {
-      serviceNotification.registerNotificationCallback();
-    }
-    const clear = () => {
-      if (!platformEnv.isNative) {
-        return;
-      }
-      JPush.removeListener(handleNotificationCallback);
-      JPush.removeListener(handleConnectStateChangeCallback);
-    };
-    if (platformEnv.isNative) {
-      clear();
-      JPush.addConnectEventListener(handleConnectStateChangeCallback);
-      // @ts-ignore
-      JPush.addNotificationListener(handleNotificationCallback);
-      // @ts-ignore
-      JPush.addLocalNotificationListener(handleNotificationCallback);
-    }
-    return clear;
-  }, [
-    handleNotificationCallback,
-    handleConnectStateChangeCallback,
-    serviceNotification,
-  ]);
+  }, [serviceNotification]);
 
   // checkPermission and init
   useEffect(() => {
-    clearBadge();
+    serviceNotification.clearBadge();
     const listener = AppState.addEventListener('change', (state) => {
       if (!['background', 'inactive'].includes(state)) {
-        clearBadge();
+        serviceNotification.clearBadge();
         checkPermission();
       }
     });
@@ -158,7 +87,7 @@ const NotificationProvider: React.FC<{
       listener.remove();
     };
   }, [
-    clearBadge,
+    serviceNotification,
     checkPermission,
     pushNotification?.pushEnable,
     checkPermissionAndInitJpush,

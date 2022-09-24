@@ -4,7 +4,6 @@ import {
   getPermissionsAsync,
 } from 'expo-notifications';
 import JPush from 'jpush-react-native';
-import { NativeModules } from 'react-native';
 
 import { JPUSH_KEY } from '@onekeyhq/kit/src/config';
 
@@ -35,11 +34,11 @@ export const initJpush = () => {
     'channel': 'prod',
     'production': true,
   };
-  debugLogger.common.debug(`JPUSH:init`, config);
+  debugLogger.notification.debug(`JPUSH:init`, config);
   // @ts-expect-error
   JPush.init(config);
-  if (platformEnv.isNativeIOS) {
-    // eslint-disable-next-line
-    NativeModules.JPushManager.registerNotification();
+
+  if (platformEnv.isNativeAndroid) {
+    JPush.requestPermission();
   }
 };
