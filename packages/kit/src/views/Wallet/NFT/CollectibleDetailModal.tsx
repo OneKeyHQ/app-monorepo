@@ -1,12 +1,10 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import useSWR from 'swr';
 
 import {
   Box,
-  Button,
   IconButton,
   Modal,
   ScrollView,
@@ -17,78 +15,12 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useIsMounted } from '../../../../hooks/useIsMounted';
-import { SendRoutes } from '../../../../routes';
 
 import CollectibleContent from './CollectibleContent';
-
-type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
-
-function useAssetOwner({
-  asset,
-  accountId,
-  networkId,
-}: {
-  asset: NFTAsset;
-  accountId?: string;
-  networkId: string;
-}) {
-  const isMountedRef = useIsMounted();
-  const { serviceNFT } = backgroundApiProxy;
-  const tokenId = useMemo(() => {
-    if (networkId === OnekeyNetwork.sol) {
-      return asset.tokenAddress;
-    }
-    return asset.tokenId;
-  }, [asset.tokenAddress, asset.tokenId, networkId]);
-  const [isOwner, updateIsOwner] = useState(asset.owner === accountId);
-  const swrKey = 'fetchNFTList';
-  const fetchData = useCallback(
-    async () =>
-      serviceNFT.getAsset({
-        accountId,
-        networkId,
-        contractAddress: asset.contractAddress,
-        tokenId: tokenId ?? '',
-        local: false,
-      }),
-    [serviceNFT, accountId, networkId, asset.contractAddress, tokenId],
-  );
-
-  useSWR(swrKey, fetchData, {
-    refreshInterval: 20 * 1000,
-    revalidateOnMount: true,
-    revalidateOnFocus: true,
-    shouldRetryOnError: false,
-    onSuccess(data) {
-      if (data && isMountedRef.current) {
-        const newIsowner = data.owner === accountId;
-        updateIsOwner(newIsowner);
-      }
-    },
-  });
-
-  return useMemo(
-    () => ({
-      isOwner,
-    }),
-    [isOwner],
-  );
-}
 
 type Props = {
   imageContent: JSX.Element;
@@ -111,65 +43,20 @@ const Mobile: FC<Props> = ({ imageContent, content }) => (
   </Box>
 );
 
-const NFTDetailModal: FC = () => {
+const CollectibleDetailModal: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const { wallet, networkId, account } = useActiveWalletAccount();
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const isSmallScreen = useIsVerticalLayout();
   const route =
     useRoute<
       RouteProp<
         CollectiblesRoutesParams,
-        CollectiblesModalRoutes.NFTDetailModal
+        CollectiblesModalRoutes.CollectibleDetailModal
       >
     >();
   const { network, asset } = route.params;
-  const { isOwner } = useAssetOwner({
-    asset,
-    networkId,
-    accountId: account?.address,
-  });
-
-  const transferEnable =
-    isOwner && network.id !== OnekeyNetwork.sol && wallet?.type !== 'watching';
-  const sendAction = () => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Send,
-      params: {
-        screen: SendRoutes.PreSendAddress,
-        params: {
-          isNFT: true,
-          from: '',
-          to: '',
-          amount: '1',
-          token: asset.contractAddress,
-          tokenId: asset.tokenId,
-          type: asset.ercType,
-        },
-      },
-    });
-  };
-
   const shareProps: Props = {
-    imageContent: (
-      <Box flexDirection="column">
-        <CollectibleContent asset={asset} />
-        <Button
-          isDisabled={!transferEnable}
-          mt="24px"
-          width="full"
-          height="42px"
-          size="lg"
-          type="primary"
-          onPress={sendAction}
-        >
-          {intl.formatMessage({
-            id: 'action__send',
-          })}
-        </Button>
-      </Box>
-    ),
+    imageContent: <CollectibleContent asset={asset} />,
     content: asset && (
       <Box w="100%">
         {/* Asset name and collection name */}
@@ -341,4 +228,4 @@ const NFTDetailModal: FC = () => {
   );
 };
 
-export default NFTDetailModal;
+export default CollectibleDetailModal;

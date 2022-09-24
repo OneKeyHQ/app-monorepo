@@ -7,7 +7,6 @@ import type {
   IDecodedTx,
   IEncodedTx,
   IFeeInfoSelected,
-  INFTInfo,
   ISignedTx,
   IStakeInfo,
   ISwapInfo,
@@ -102,7 +101,6 @@ export type SendConfirmPayloadInfo = {
   transferInfo?: ITransferInfo;
   swapInfo?: ISwapInfo;
   stakeInfo?: IStakeInfo;
-  nftInfo?: INFTInfo;
 };
 export type SendConfirmSharedParams = {
   encodedTx?: IEncodedTx;
