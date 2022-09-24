@@ -37,10 +37,10 @@ export type Collection = {
 };
 
 export type NFTAsset = {
-  tokenAddress?: string; // sol
-  contractAddress?: string; // evm
+  tokenAddress?: string;
+  contractAddress?: string;
   contractTokenId?: string;
-  tokenId?: string; // evm
+  tokenId?: string;
   contractName?: string;
   ercType?: string;
   amount?: string;
@@ -70,11 +70,6 @@ export type NFTAsset = {
 export type NFTScanNFTsResp = {
   success?: boolean;
   data: Collection[];
-};
-
-export type NFTGetAssetResp = {
-  success?: boolean;
-  data?: NFTAsset;
 };
 
 export type NFTTransaction = {

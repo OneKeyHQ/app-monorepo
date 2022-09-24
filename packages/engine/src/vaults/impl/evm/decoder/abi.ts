@@ -17,28 +17,8 @@ export enum Erc20MethodSelectors {
   tokenApprove = '0x095ea7b3',
 }
 
-const ERC721 = [
-  'function supportsInterface(bytes4) public view returns(bool)',
-  'function safeTransferFrom(address from, address to, uint256 tokenId)',
-];
-
-const ERC1155 = [
-  'function supportsInterface(bytes4) public view returns(bool)',
-  'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)',
-];
-
-export enum Erc721MethodSelectors {
-  safeTransferFrom = '0x42842e0e', // keccak256(Buffer.from('safeTransferFrom(address,address,uint256)')) => 0x42842e0eb38857a7775b4e7364b2775df7325074d088e7fb39590cd6281184ed
-}
-
-export enum Erc1155MethodSelectors {
-  safeTransferFrom = '0xf242432a', // keccak256(Buffer.from('safeTransferFrom(address,address,uint256,uint256,bytes)')) => 0xf242432a01954b0e0efb67e72c9b3b8ed77690657780385b256ac9aba0e35f0b
-}
-
 const ABI = {
   ERC20,
-  ERC721,
-  ERC1155,
 };
 
 export { ABI };

@@ -1,6 +1,5 @@
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
-  getAsset,
   getNFTSymbolPrice,
   getUserNFTAssets,
 } from '@onekeyhq/engine/src/managers/nft';
@@ -111,47 +110,6 @@ class ServiceNFT extends ServiceBase {
     );
     this.saveNFTs({ networkId, accountId, items });
     return items;
-  }
-
-  @backgroundMethod()
-  async getAsset(params: {
-    accountId?: string;
-    networkId: string;
-    contractAddress?: string;
-    tokenId: string;
-    local: boolean;
-  }) {
-    const { local } = params;
-    const localAsset = await this.getAssetFromLocal(params);
-    if (localAsset && local) {
-      return localAsset;
-    }
-    const resp = await getAsset(params);
-    if (resp) {
-      return resp.data;
-    }
-  }
-
-  @backgroundMethod()
-  async getAssetFromLocal({
-    accountId,
-    networkId,
-    contractAddress,
-    tokenId,
-  }: {
-    accountId?: string;
-    networkId: string;
-    contractAddress?: string;
-    tokenId: string;
-  }) {
-    if (!accountId) {
-      return;
-    }
-    const collections = await this.getLocalNFTs({ networkId, accountId });
-    const collection = collections.find(
-      (item) => item.contractAddress === contractAddress,
-    );
-    return collection?.assets.find((item) => item.tokenId === tokenId);
   }
 
   @backgroundMethod()

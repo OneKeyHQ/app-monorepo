@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { TransitionPresets } from '@react-navigation/stack';
+
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import SendAuthentication from '@onekeyhq/kit/src/views/Send/Authentication';
 import { PreSendAddress } from '@onekeyhq/kit/src/views/Send/PreSendAddress';
 import { PreSendAmount } from '@onekeyhq/kit/src/views/Send/PreSendAmount';

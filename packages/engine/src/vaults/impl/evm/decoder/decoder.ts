@@ -33,15 +33,9 @@ class EVMTxDecoder {
 
   private erc20Iface: ethers.utils.Interface;
 
-  private erc721Iface: ethers.utils.Interface;
-
-  private erc1155Iface: ethers.utils.Interface;
-
   private constructor(engine: Engine) {
     this.engine = engine;
     this.erc20Iface = new ethers.utils.Interface(ABI.ERC20);
-    this.erc721Iface = new ethers.utils.Interface(ABI.ERC721);
-    this.erc1155Iface = new ethers.utils.Interface(ABI.ERC1155);
   }
 
   public static getDecoder(engine: Engine): EVMTxDecoder {
@@ -167,7 +161,7 @@ class EVMTxDecoder {
       | EVMDecodedItemERC20Approve
       | null = null;
 
-    // erc20
+    // erc20 or erc721
     if (itemBuilder.protocol === 'erc20') {
       let token;
       try {
@@ -305,22 +299,6 @@ class EVMTxDecoder {
       return itemBuilder;
     }
 
-    const [erc1155TxDesc, erc1155TxType] = this.parseERC1155(tx);
-    if (erc1155TxDesc) {
-      itemBuilder.protocol = 'erc1155';
-      itemBuilder.txDesc = erc1155TxDesc;
-      itemBuilder.txType = erc1155TxType;
-      return itemBuilder;
-    }
-
-    const [erc721TxDesc, erc721TxType] = this.parseERC721(tx);
-    if (erc721TxDesc) {
-      itemBuilder.protocol = 'erc721';
-      itemBuilder.txDesc = erc721TxDesc;
-      itemBuilder.txType = erc721TxType;
-      return itemBuilder;
-    }
-
     itemBuilder.txType = EVMDecodedTxType.TRANSACTION;
     return itemBuilder;
   }
@@ -372,50 +350,7 @@ class EVMTxDecoder {
         txType = EVMDecodedTxType.TRANSACTION;
       }
     }
-    return [txDesc, txType];
-  }
 
-  private parseERC721(
-    tx: ethers.Transaction,
-  ): [ethers.utils.TransactionDescription | null, EVMDecodedTxType] {
-    let txDesc: ethers.utils.TransactionDescription | null;
-    let txType = EVMDecodedTxType.TRANSACTION;
-    try {
-      txDesc = this.erc721Iface.parseTransaction(tx);
-    } catch (error) {
-      return [null, txType];
-    }
-    switch (txDesc.name) {
-      case 'safeTransferFrom': {
-        txType = EVMDecodedTxType.ERC721_TRANSFER;
-        break;
-      }
-      default: {
-        txType = EVMDecodedTxType.TRANSACTION;
-      }
-    }
-    return [txDesc, txType];
-  }
-
-  private parseERC1155(
-    tx: ethers.Transaction,
-  ): [ethers.utils.TransactionDescription | null, EVMDecodedTxType] {
-    let txDesc: ethers.utils.TransactionDescription | null;
-    let txType = EVMDecodedTxType.TRANSACTION;
-    try {
-      txDesc = this.erc1155Iface.parseTransaction(tx);
-    } catch (error) {
-      return [null, txType];
-    }
-    switch (txDesc.name) {
-      case 'safeTransferFrom': {
-        txType = EVMDecodedTxType.ERC1155_TRANSFER;
-        break;
-      }
-      default: {
-        txType = EVMDecodedTxType.TRANSACTION;
-      }
-    }
     return [txDesc, txType];
   }
 }
