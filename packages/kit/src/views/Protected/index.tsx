@@ -2,7 +2,14 @@ import React, { FC, useCallback, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Switch, Text, Typography, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  Hidden,
+  Switch,
+  Text,
+  Typography,
+  useTheme,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../components/Protected';
@@ -106,15 +113,18 @@ const Protected = () => {
                 setValue(ValidationFields.Account, !validationSetting.Account)
               }
             />
-            <Options
-              title={intl.formatMessage({
-                id: 'form__view_recovery_phrase_private_key',
-              })}
-              isChecked={validationSetting.Secret}
-              onToggle={() =>
-                setValue(ValidationFields.Secret, !validationSetting.Secret)
-              }
-            />
+            {/* // view recovery_phrase or private_key always need input password */}
+            <Hidden>
+              <Options
+                title={intl.formatMessage({
+                  id: 'form__view_recovery_phrase_private_key',
+                })}
+                isChecked={validationSetting.Secret}
+                onToggle={() =>
+                  setValue(ValidationFields.Secret, !validationSetting.Secret)
+                }
+              />
+            </Hidden>
           </Box>
         </Box>
       </Box>

@@ -42,9 +42,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
+import { wait } from '../../utils/helper';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
-import { wait } from '../../utils/helper';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
