@@ -77,7 +77,7 @@ const addNewTab = () => {
       id: nanoid(),
       url: '',
       // TODO i18n
-      title: 'New Tab',
+      title: 'Home',
       isCurrent: true,
     }),
   );

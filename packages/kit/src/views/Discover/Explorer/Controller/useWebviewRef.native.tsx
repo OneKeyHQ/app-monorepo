@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 export const useWebviewRef = (
-  webViewRef: IWebViewWrapperRef | null,
-  navigationStateChangeEvent: any | null,
-  onOpenNewUrl: (url: string) => void,
+  webViewRef?: IWebViewWrapperRef,
+  navigationStateChangeEvent?: WebViewNavigation,
+  onOpenNewUrl?: (url: string) => void,
 ) => {
   const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
   const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();
@@ -53,9 +54,9 @@ export const useWebviewRef = (
 
   return useMemo(
     () => ({
-      canGoBack,
+      // canGoBack,
       goBack,
-      canGoForward,
+      // canGoForward,
       goForward,
       stopLoading,
       loading: isLoading,

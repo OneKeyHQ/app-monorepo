@@ -2,14 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+import { batch } from 'react-redux';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useWebviewRef = (
-  webViewRef: IWebViewWrapperRef | undefined,
-  navigationStateChangeEvent: any | null,
-  onOpenNewUrl: (url: string) => void,
+  webViewRef?: IWebViewWrapperRef,
+  navigationStateChangeEvent?: WebViewNavigation,
+  onOpenNewUrl?: (url: string) => void,
 ) => {
+  const electronWebView = webViewRef?.innerRef as IElectronWebView;
   const [currentTitle, setCurrentTitle] = useState<string>();
   const [isLoading, setLoading] = useState<boolean>(false);
   const [currentUrl, setCurrentUrl] = useState<string>();
@@ -19,26 +22,26 @@ export const useWebviewRef = (
     if (platformEnv.isDesktop) {
       try {
         // Electron Webview
-        const electronWebView = webViewRef?.innerRef as IElectronWebView;
         if (!electronWebView) {
           return;
         }
-        const handleMessage = () => {
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          setCurrentTitle(webViewRef?.innerRef?.getTitle());
+        const handleMessage = () =>
+          batch(() => {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            setCurrentTitle(electronWebView?.getTitle());
 
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          setCurrentUrl(webViewRef?.innerRef?.getURL());
-          setLoading(false);
-        };
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            setCurrentUrl(electronWebView?.getURL());
+            setLoading(false);
+          });
 
-        const handleStartLoadingMessage = () => {
-          setCurrentTitle(undefined);
-          setCurrentUrl(undefined);
-          setLoading(true);
-        };
+        const handleStartLoadingMessage = () =>
+          batch(() => {
+            setCurrentTitle(undefined);
+            setCurrentUrl(undefined);
+            setLoading(true);
+          });
 
         const handleFaviconMessage = (event: any) => {
           // console.log('page-favicon-updated:', event);
@@ -59,15 +62,13 @@ export const useWebviewRef = (
           setLoading(false);
         };
         const handleNewWindowMessage = (e: Event) => {
+          console.log({ e });
           // @ts-expect-error
           const { url } = e;
           if (url) {
-            onOpenNewUrl(url);
+            onOpenNewUrl?.(url);
           }
         };
-
-        console.log('RN WebView addEventListener', !!electronWebView);
-
         electronWebView.addEventListener(
           'did-start-loading',
           handleStartLoadingMessage,
@@ -114,70 +115,41 @@ export const useWebviewRef = (
         console.error(error);
       }
     }
-  }, [onOpenNewUrl, webViewRef?.innerRef]);
+  }, [onOpenNewUrl, electronWebView]);
 
-  const canGoBack = useCallback((): boolean => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-        return webViewRef?.innerRef?.canGoBack();
-      } catch (e) {
-        console.log(e);
-      }
-    }
-    return false;
-  }, [webViewRef?.innerRef]);
+  const canGoBack = useCallback(
+    (): boolean =>
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+      electronWebView?.canGoBack(),
+    [electronWebView],
+  );
 
   const goBack = useCallback(() => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        webViewRef?.innerRef?.goBack();
-      } catch (e) {
-        console.log(e);
-      }
-    }
-  }, [webViewRef?.innerRef]);
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    electronWebView?.goBack();
+  }, [electronWebView]);
 
-  const canGoForward = useCallback((): boolean => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-        return webViewRef?.innerRef?.canGoForward();
-      } catch (e) {
-        console.log(e);
-      }
-    }
-    return false;
-  }, [webViewRef?.innerRef]);
+  const canGoForward = useCallback(
+    (): boolean =>
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+      electronWebView?.canGoForward(),
+    [electronWebView],
+  );
 
   const goForward = useCallback(() => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        webViewRef?.innerRef?.goForward();
-      } catch (e) {
-        console.log(e);
-      }
-      return false;
-    }
-  }, [webViewRef?.innerRef]);
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    electronWebView?.goForward();
+  }, [electronWebView]);
 
   const stopLoading = useCallback(() => {
-    if (webViewRef?.innerRef) {
-      try {
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        webViewRef?.innerRef?.stop();
-      } catch (e) {
-        console.log(e);
-      }
-    }
-  }, [webViewRef?.innerRef]);
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    electronWebView?.stop();
+  }, [electronWebView]);
 
   return useMemo(
     () => ({

@@ -1,4 +1,6 @@
-import { FC, useContext } from 'react';
+import { FC, useState } from 'react';
+
+import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
@@ -10,14 +12,26 @@ import { webviewRefs } from '../Controller/webviewRefs';
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
-  const { gotoUrl } = useWebController({
-    webviewRef: webviewRefs[id],
+  const { gotoSite } = useWebController({
+    id,
     navigationStateChangeEvent,
   });
   return id === 'home' || url === '' ? (
     <DiscoverHome
-      onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })}
-      onItemSelectHistory={(item) => gotoUrl(item)}
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      onItemSelect={({ url, name, favicon }) =>
+        gotoSite({ url, title: name, favicon })
+      }
+      onItemSelectHistory={({ dapp, webSite }) => {
+        const site = dapp || webSite;
+        if (site) {
+          gotoSite({
+            url: site.url,
+            title: dapp?.name || site.url,
+            favicon: site.favicon,
+          });
+        }
+      }}
     />
   ) : (
     <WebView
@@ -25,6 +39,8 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       onWebViewRef={(ref) => {
         if (ref) {
           webviewRefs[id] = ref;
+        } else {
+          delete webviewRefs[id];
         }
       }}
       onNavigationStateChange={setNavigationStateChangeEvent}

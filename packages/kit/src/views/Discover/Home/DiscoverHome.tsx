@@ -45,7 +45,7 @@ type NavigationProps = NativeStackNavigationProp<
 type PageStatusType = 'network' | 'loading' | 'data';
 
 type DiscoverProps = {
-  onItemSelect: (item: DAppItemType) => Promise<boolean>;
+  onItemSelect: (item: DAppItemType) => Promise<boolean> | void;
   onItemSelectHistory: (item: MatchDAppItemType) => void;
 };
 const DiscoverHomeNative: FC<DiscoverProps> = ({

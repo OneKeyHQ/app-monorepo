@@ -5,7 +5,7 @@ import { webviewRefs } from '../../views/Discover/Explorer/Controller/webviewRef
 export interface WebTab {
   id: string;
   url: string;
-  title: string;
+  title?: string;
   favicon?: string;
   // isPinned: boolean;
   isCurrent: boolean;

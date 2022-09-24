@@ -28,7 +28,6 @@ import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
-import { webviewRefs } from './Controller/webviewRefs';
 import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
 
