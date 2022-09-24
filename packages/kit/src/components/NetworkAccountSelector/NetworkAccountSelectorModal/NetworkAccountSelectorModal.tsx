@@ -13,22 +13,25 @@ import AccountList from './AccountList';
 import ChainSelector from './ChainSelector';
 import Header from './Header';
 
-const { updateIsOpenDelay } = reducerAccountSelector.actions;
+const { updateIsOpenDelay, updateIsOpen } = reducerAccountSelector.actions;
 function NetworkAccountSelectorModal() {
   const { dispatch } = backgroundApiProxy;
   const isMountedRef = useRef(false);
   useEffect(() => {
     setTimeout(() => {
       isMountedRef.current = true;
+      dispatch(updateIsOpen(true));
     }, 50);
 
     // delay wait drawer closed animation done
     setTimeout(() => {
       dispatch(updateIsOpenDelay(true));
     }, ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY);
+
     return () => {
       setTimeout(() => {
         isMountedRef.current = false;
+        dispatch(updateIsOpen(false));
       }, 50);
 
       setTimeout(() => {
@@ -37,10 +40,7 @@ function NetworkAccountSelectorModal() {
     };
   }, [dispatch]);
 
-  const isOpen = isMountedRef.current;
-  const accountSelectorInfo = useAccountSelectorInfo({
-    isOpen,
-  });
+  const accountSelectorInfo = useAccountSelectorInfo();
 
   if (!accountSelectorInfo.isOpenDelay && platformEnv.isNativeAndroid) {
     return null;

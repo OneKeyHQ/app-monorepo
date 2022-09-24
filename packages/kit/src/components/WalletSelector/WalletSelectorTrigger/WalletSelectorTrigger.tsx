@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigationActions } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
+import { useWalletSelectorEffects } from '../hooks/useWalletSelectorEffects';
 import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import WalletSelectorDesktop from '../WalletSelectorDesktop';
 
@@ -51,17 +52,7 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const { toggleWalletSelector } = useNavigationActions();
   const { visible } = useWalletSelectorStatus();
 
-  useEffect(() => {
-    debugLogger.accountSelector.info('HeaderAccountSelector mount');
-    return () => {
-      debugLogger.accountSelector.info('HeaderAccountSelector unmounted');
-    };
-  }, []);
-  useEffect(() => {
-    debugLogger.accountSelector.info(
-      `WalletSelector visible=${visible.toString()}`,
-    );
-  }, [visible]);
+  useWalletSelectorEffects();
 
   useFocusEffect(
     useCallback(() => {

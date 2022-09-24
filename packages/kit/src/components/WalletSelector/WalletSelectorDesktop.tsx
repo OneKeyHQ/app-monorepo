@@ -30,9 +30,9 @@ const WalletSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
     }));
 
     useEffect(() => {
-      debugLogger.accountSelector.info('AccountSelectorDesktop mount');
+      debugLogger.accountSelector.info('WalletSelectorDesktop mount');
       return () => {
-        debugLogger.accountSelector.info('AccountSelectorDesktop unmounted');
+        debugLogger.accountSelector.info('WalletSelectorDesktop unmounted');
       };
     }, []);
 
