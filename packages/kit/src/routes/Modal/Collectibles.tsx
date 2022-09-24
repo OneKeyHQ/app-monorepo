@@ -3,14 +3,14 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import CollectibleDetail from '@onekeyhq/kit/src/views/Wallet/NFT/CollectibleDetailModal';
 import CollectionModalView from '@onekeyhq/kit/src/views/Wallet/NFT/CollectionModal';
+import NFTDetailView from '@onekeyhq/kit/src/views/Wallet/NFT/NFTDetail';
 
 import createStackNavigator from './createStackNavigator';
 
 export enum CollectiblesModalRoutes {
   CollectionModal = 'CollectionModal',
-  CollectibleDetailModal = 'CollectibleDetailModal',
+  NFTDetailModal = 'NFTDetailModal',
 }
 
 export type CollectiblesRoutesParams = {
@@ -18,10 +18,9 @@ export type CollectiblesRoutesParams = {
     collectible: Collection;
     network: Network;
   };
-  [CollectiblesModalRoutes.CollectibleDetailModal]: {
+  [CollectiblesModalRoutes.NFTDetailModal]: {
     asset: NFTAsset;
     network: Network;
-    // address?: string | null;
   };
 };
 
@@ -33,8 +32,8 @@ const modalRoutes = [
     component: CollectionModalView,
   },
   {
-    name: CollectiblesModalRoutes.CollectibleDetailModal,
-    component: CollectibleDetail,
+    name: CollectiblesModalRoutes.NFTDetailModal,
+    component: NFTDetailView,
   },
 ];
 
