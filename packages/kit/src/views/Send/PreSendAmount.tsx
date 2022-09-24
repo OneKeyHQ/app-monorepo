@@ -74,7 +74,7 @@ export function PreSendAmountPreview({
       return null;
     }
     if (isValidElement(desc)) {
-      return desc;
+      return <Center>{desc}</Center>;
     }
     return (
       <Text typography="Body1Strong" textAlign="center" isTruncated>
