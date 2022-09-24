@@ -2,6 +2,7 @@ import React, { ComponentProps, useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import natsort from 'natsort';
 import { FlatListProps } from 'react-native';
 
 import {
@@ -96,8 +97,21 @@ function AssetsList({
         tokenValues.set(t, v);
         return true;
       })
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      .sort((a, b) => tokenValues.get(b)!.comparedTo(tokenValues.get(a)!));
+      .sort(
+        (a, b) =>
+          // By value
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          tokenValues.get(b)!.comparedTo(tokenValues.get(a)!) ||
+          // By price
+          new BigNumber(prices[b.tokenIdOnNetwork || 'main'] || 0).comparedTo(
+            new BigNumber(prices[a.tokenIdOnNetwork || 'main'] || 0),
+          ) ||
+          // By native token
+          (b.isNative ? 1 : 0) ||
+          (a.isNative ? -1 : 0) ||
+          // By name
+          natsort({ insensitive: true })(a.name, b.name),
+      );
 
     return limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens;
   }, [accountTokens, balances, hideSmallBalance, limitSize, prices]);

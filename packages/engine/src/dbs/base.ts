@@ -158,6 +158,7 @@ interface DBAPI {
   ): Promise<ExportedCredential>;
   confirmHDWalletBackuped(walletId: string): Promise<Wallet>;
   confirmWalletCreated(walletId: string): Promise<Wallet>;
+  cleanupPendingWallets(): Promise<void>;
 
   addAccountToWallet(
     walletId: string,

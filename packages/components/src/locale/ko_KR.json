@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "데이터가 영구적으로 삭제됩니다. 그러나 이 지갑의 복구 문구가 로드된 하드웨어 지갑에서 여전히 복원할 수 있습니다.",
   "dialog__delete_wallet_desc": "삭제하기 전에 복구 문구를 적어 두었는지 확인하십시오. 그렇지 않으면 지갑을 복구할 수 없습니다.",
   "dialog__device_has_disabled_passphrase": "장치가 암호를 비활성화했습니다",
-  "dialog__device_has_disabled_passphrase_desc": "표준 지갑을 사용하기 위해 암호를 활성화할 수 있습니다.",
+  "dialog__device_has_disabled_passphrase_desc": "히든 월렛을 사용하기 위해 암호를 활성화할 수 있습니다.",
   "dialog__device_has_enabled_passphrase": "장치에서 암호를 활성화했습니다.",
   "dialog__device_has_enabled_passphrase_desc": "표준 지갑을 사용하기 위해 암호를 비활성화할 수 있습니다.",
   "dialog__disabling_sync": "동기화 비활성화",

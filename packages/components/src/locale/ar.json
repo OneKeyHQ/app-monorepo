@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. ولكن لا يزال بإمكانك استعادتها من محفظة الأجهزة التي تم تحميل عبارة الاسترداد لهذه المحفظة.",
   "dialog__delete_wallet_desc": "تأكد من كتابة عبارة الاسترداد قبل حذفها. لن تتمكن من استرداد المحفظة بخلاف ذلك.",
   "dialog__device_has_disabled_passphrase": "أوقف الجهاز عبارة المرور",
-  "dialog__device_has_disabled_passphrase_desc": "يمكنك تمكين عبارة المرور لاستخدام المحفظة القياسية.",
+  "dialog__device_has_disabled_passphrase_desc": "يمكنك تمكين عبارة المرور لاستخدام المحفظة المخفية.",
   "dialog__device_has_enabled_passphrase": "قام الجهاز بتمكين عبارة المرور",
   "dialog__device_has_enabled_passphrase_desc": "يمكنك تعطيل عبارة المرور لاستخدام المحفظة القياسية.",
   "dialog__disabling_sync": "تعطيل المزامنة",

@@ -190,7 +190,7 @@ class ServiceApp extends ServiceBase {
    */
   @backgroundMethod()
   async initApp() {
-    const { dispatch, serviceAccount, serviceNetwork, appSelector } =
+    const { dispatch, engine, serviceAccount, serviceNetwork, appSelector } =
       this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -198,6 +198,8 @@ class ServiceApp extends ServiceBase {
         (s) => s?.settings?.devMode?.enableTestFiatEndpoint ?? false,
       ) ?? false;
     switchTestEndpoint(enableTestFiatEndpoint);
+
+    await engine.cleanupDBOnStart();
 
     await this.initPassword();
     await this.initLocalAuthentication();

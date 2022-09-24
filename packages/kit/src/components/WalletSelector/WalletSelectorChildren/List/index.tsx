@@ -41,7 +41,7 @@ function SectionHeader({ type }: { type: EWalletDataSectionType }) {
   }, [intl, type]);
   return (
     <Box bgColor="background-default" pt={2} mt={-2}>
-      <Typography.Subheading color="text-subdued" px={2} mb={1}>
+      <Typography.Subheading color="text-subdued" px={4} mb={1}>
         {label}
       </Typography.Subheading>
     </Box>
@@ -113,7 +113,7 @@ function Body() {
           section.data?.length ? <Box h={6} /> : null
         }
         // The spacing between sections
-        p={2}
+        py={2}
         style={
           {
             // ERROR on iOS: JSON value '8px' of type NSString cannot be converted to YGVaule

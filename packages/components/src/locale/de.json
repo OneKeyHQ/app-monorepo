@@ -494,7 +494,7 @@
   "dialog__delete_hardware_wallet_desc": "Dadurch werden Ihre Daten dauerhaft gelöscht. Sie können es jedoch immer noch aus der Hardware-Brieftasche wiederherstellen, in die die Wiederherstellungsphrase dieser Brieftasche geladen ist.",
   "dialog__delete_wallet_desc": "Stellen Sie sicher, dass Sie sich den Wiederherstellungssatz notiert haben, bevor Sie ihn löschen. Andernfalls können Sie die Brieftasche nicht wiederherstellen.",
   "dialog__device_has_disabled_passphrase": "Das Gerät hat die Passphrase deaktiviert",
-  "dialog__device_has_disabled_passphrase_desc": "Sie können die Passphrase aktivieren, um Standard Wallet zu verwenden.",
+  "dialog__device_has_disabled_passphrase_desc": "Sie können die Passphrase aktivieren, um Hidden Wallet zu verwenden.",
   "dialog__device_has_enabled_passphrase": "Gerät hat Passphrase aktiviert",
   "dialog__device_has_enabled_passphrase_desc": "Sie können die Passphrase deaktivieren, um Standard Wallet zu verwenden.",
   "dialog__disabling_sync": "Synchronisierung deaktivieren",

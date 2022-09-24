@@ -9,6 +9,7 @@ import {
   useRuntimeWallets,
   useSettings,
 } from '../../../hooks/redux';
+import { useWalletSelectorStatus } from '../../WalletSelector/hooks/useWalletSelectorStatus';
 
 export type DeviceStatusType = {
   isConnected: boolean;
@@ -22,9 +23,7 @@ export function useDeviceStatusOfHardwareWallet() {
   const { hardwareWallets } = useRuntimeWallets();
   const { deviceUpdates } = useSettings();
   const { connected } = useAppSelector((s) => s.hardware);
-  const { isOpenDelay } = useAppSelector((s) => s.accountSelector);
   const [deviceStatus, setDeviceStatus] = useState<IHardwareDeviceStatusMap>();
-
   const getStatus = useCallback(
     (connectId: string | undefined): DeviceStatusType | undefined => {
       if (!connectId) return undefined;
@@ -43,9 +42,6 @@ export function useDeviceStatusOfHardwareWallet() {
     debugLogger.accountSelector.info(
       'useEffect hardwareWallets changed >>> useDeviceStatusOfHardwareWallet',
     );
-    if (!isOpenDelay) {
-      return;
-    }
     (async () => {
       const hwDeviceRec = (
         await backgroundApiProxy.engine.getHWDevices()
@@ -67,7 +63,7 @@ export function useDeviceStatusOfHardwareWallet() {
       );
     })();
     // TODO watch walletSelector / accountSelector open
-  }, [getStatus, hardwareWallets, isOpenDelay]);
+  }, [getStatus, hardwareWallets]);
 
   // for RightHeader
   // deviceStatus?.[activeSelectedWallet?.associatedDevice ?? ''] ??

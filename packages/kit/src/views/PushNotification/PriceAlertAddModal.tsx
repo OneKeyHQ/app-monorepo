@@ -11,6 +11,8 @@ import {
   Box,
   Keyboard,
   Modal,
+  Pressable,
+  Typography,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
@@ -81,11 +83,42 @@ export const PriceAlertAddModal: FC = () => {
     [intl, selectedFiatMoneySymbol, maxDecimals],
   );
 
-  const [text, setText] = useState(
-    formatPrice(price, { style: 'decimal', useGrouping: false }),
-  );
+  const [text, setText] = useState('');
   const shortScreen = height < 768;
   const disabled = loading || !text;
+  const placeholder = useMemo(
+    () =>
+      formatPrice(price, {
+        style: 'decimal',
+        useGrouping: false,
+      }),
+    [formatPrice, price],
+  );
+
+  const AmountPreviewDesc = useMemo(
+    () => (
+      <Pressable
+        onPress={() => {
+          setText(placeholder);
+        }}
+        w="100%"
+        flexDirection="row"
+      >
+        <Typography.Body1Strong textAlign="center" flex="1">
+          {intl.formatMessage(
+            { id: 'content__current_price_str' },
+            {
+              0: formatPrice(price, {
+                style: 'currency',
+                useGrouping: true,
+              }),
+            },
+          )}
+        </Typography.Body1Strong>
+      </Pressable>
+    ),
+    [formatPrice, intl, price, placeholder],
+  );
 
   const onConfirm = useCallback(async () => {
     const newPrice = formatPrice(new B(text).toFixed(maxDecimals), {
@@ -178,16 +211,9 @@ export const PriceAlertAddModal: FC = () => {
         >
           <PreSendAmountPreview
             title={intl.formatMessage({ id: 'content__when_price_reaches' })}
-            desc={intl.formatMessage(
-              { id: 'content__current_price_str' },
-              {
-                0: formatPrice(price, {
-                  style: 'currency',
-                  useGrouping: true,
-                }),
-              },
-            )}
+            desc={AmountPreviewDesc}
             text={text}
+            placeholder={placeholder}
             onChangeText={onTextChange}
           />
         </Box>
