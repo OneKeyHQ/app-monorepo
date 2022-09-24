@@ -62,7 +62,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
         >
           <Form.Input
             autoFocus
-            size="lg"
+            size="xl"
             placeholder={intl.formatMessage({
               id: 'form__passphrase_placeholder',
             })}
