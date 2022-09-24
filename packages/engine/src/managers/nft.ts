@@ -1,9 +1,11 @@
+import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
 import {
   NFTAsset,
   NFTChainMap,
+  NFTGetAssetResp,
   NFTScanNFTsResp,
   NFTSymbolMap,
   NFTTransaction,
@@ -12,6 +14,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { getFiatEndpoint } from '../endpoint';
+import { OnekeyNetwork } from '../presets/networkIds';
+import {
+  Erc1155MethodSelectors,
+  Erc721MethodSelectors,
+} from '../vaults/impl/evm/decoder/abi';
 import { IDecodedTxActionType, IDecodedTxDirection } from '../vaults/types';
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
@@ -123,52 +130,104 @@ export const getNFTSymbolPrice = async (networkId: string) => {
   return prices?.[tokenId];
 };
 
-export const getNFTTransactionHistory = async (
-  accountId: string,
-  networkId: string,
-): Promise<NFTTransaction[]> => {
+export const getAsset = async (params: {
+  networkId: string;
+  contractAddress?: string;
+  tokenId: string;
+}): Promise<NFTGetAssetResp | undefined> => {
+  const { networkId, contractAddress, tokenId } = params;
   const endpoint = getFiatEndpoint();
-  const apiUrl = `${endpoint}/NFT/transactions/account?address=${accountId}&chain=${networkId}`;
-  const data = await axios
-    .get<TransactionsResp>(apiUrl)
-    .then((resp) => resp.data)
-    .catch(() => ({ data: [] }));
-  const transactions = camelcaseKeys(data, { deep: true }).data;
-
-  const contractAddressList = transactions
-    .map((item) => item.contractAddress)
-    .filter(Boolean);
-  const { serviceNFT } = backgroundApiProxy;
-  const collectionMap = await serviceNFT.batchLocalCollection({
-    networkId,
-    accountId,
-    contractAddressList,
+  const urlParams = new URLSearchParams({
+    chain: networkId,
+    tokenId,
   });
-  return transactions.map((tx): NFTTransaction => {
-    const { asset, contractAddress } = tx;
-    if (contractAddress) {
-      const collection = collectionMap[contractAddress];
-      if (collection) {
-        const findAsset = collection.assets.find(
-          (item) => item.tokenId === tx.tokenId,
-        );
-        if (findAsset) {
-          if (!asset) {
+  let apiUrl;
+  if (contractAddress) {
+    apiUrl = `${endpoint}/NFT/asset?contractAddress=${contractAddress}&${urlParams.toString()}`;
+  }
+  if (OnekeyNetwork.sol === networkId) {
+    apiUrl = `${endpoint}/NFT/asset?${urlParams.toString()}`;
+  }
+  if (!apiUrl) {
+    return;
+  }
+  const data = await axios
+    .get<NFTGetAssetResp>(apiUrl)
+    .then((resp) => resp.data)
+    .catch(() => ({ data: undefined }));
+  return camelcaseKeys(data, { deep: true });
+};
+
+export const getNFTTransactionHistory = async (
+  accountId?: string,
+  networkId?: string,
+): Promise<NFTTransaction[]> => {
+  if (networkId && accountId && isCollectibleSupportedChainId(networkId)) {
+    const endpoint = getFiatEndpoint();
+    const apiUrl = `${endpoint}/NFT/transactions/account?address=${accountId}&chain=${networkId}`;
+    const data = await axios
+      .get<TransactionsResp>(apiUrl)
+      .then((resp) => resp.data)
+      .catch(() => ({ data: [] }));
+    const transactions = camelcaseKeys(data, { deep: true }).data;
+
+    const contractAddressList = transactions
+      .map((item) => item.contractAddress)
+      .filter(Boolean);
+    const { serviceNFT } = backgroundApiProxy;
+    const collectionMap = await serviceNFT.batchLocalCollection({
+      networkId,
+      accountId,
+      contractAddressList,
+    });
+    return transactions.map((tx): NFTTransaction => {
+      const { asset, contractAddress } = tx;
+      if (contractAddress) {
+        const collection = collectionMap[contractAddress];
+        if (collection) {
+          const findAsset = collection.assets.find(
+            (item) => item.tokenId === tx.tokenId,
+          );
+          if (findAsset) {
+            if (!asset) {
+              return {
+                ...tx,
+                asset: findAsset,
+              };
+            }
             return {
               ...tx,
-              asset: findAsset,
+              asset: { ...asset, collection: findAsset.collection },
             };
           }
-          return {
-            ...tx,
-            asset: { ...asset, collection: findAsset.collection },
-          };
         }
       }
-    }
-    return tx;
-  });
+      return tx;
+    });
+  }
+  return [];
 };
+
+export function buildEncodeDataWithABI(param: {
+  type: string;
+  from: string;
+  to: string;
+  id: string;
+  amount: string;
+}) {
+  const { type, from, to, id, amount } = param;
+  if (type === 'erc721') {
+    return `${Erc721MethodSelectors.safeTransferFrom}${defaultAbiCoder
+      .encode(['address', 'address', 'uint256'], [from, to, id])
+      .slice(2)}`;
+  }
+  return `${Erc1155MethodSelectors.safeTransferFrom}${defaultAbiCoder
+    .encode(
+      ['address', 'address', 'uint256', 'uint256', 'bytes'],
+      [from, to, id, amount, '0x00'],
+    )
+    .slice(2)}`;
+}
 
 export function createOutputActionFromNFTTransaction({
   transaction,
