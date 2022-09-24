@@ -32,11 +32,11 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
         content: intl.formatMessage({
           id: 'dialog__device_has_enabled_passphrase_desc',
         }),
-        iconName: 'LockClosedOutline',
-        iconType: 'info',
+        iconName: 'LockClosedSolid',
+        iconType: 'success',
       }}
       footerButtonProps={{
-        primaryActionTranslationId: 'action__close',
+        primaryActionTranslationId: 'action__disable',
         onSecondaryActionPress: () => onClose?.(),
         onPrimaryActionPress: () => {
           onClose?.();

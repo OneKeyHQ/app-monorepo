@@ -40,7 +40,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
   return (
     <BaseRequestView {...props}>
       {/* TODO: temporary margin-top */}
-      <Form mt={6}>
+      <Form mt={4}>
         <Form.Item
           control={control}
           name="value"
@@ -61,13 +61,12 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           }}
         >
           <Form.Input
+            type="password"
             autoFocus
-            size="lg"
+            size="xl"
             placeholder={intl.formatMessage({
               id: 'form__passphrase_placeholder',
             })}
-            rightIconName="ArrowRightOutline"
-            onPressRightIcon={() => onSubmit()}
             onKeyPress={(e) => {
               console.log('current key = ', e.nativeEvent.key);
               if (e.nativeEvent.key === 'Enter') {
@@ -79,11 +78,14 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           />
         </Form.Item>
       </Form>
+      <Button type="primary" size="lg" mt={3} onPress={() => onSubmit()}>
+        {intl.formatMessage({ id: 'action__confirm' })}
+      </Button>
       <Button
         type="plain"
         size="base"
         mt={3}
-        mb={6}
+        mb={4}
         onPress={() => onDeviceInput()}
       >
         {intl.formatMessage({ id: 'msg__enter_passphrase_on_device' })}
