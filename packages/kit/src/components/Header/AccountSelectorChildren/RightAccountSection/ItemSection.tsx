@@ -59,8 +59,11 @@ const AccountSectionItem: FC<Props> = ({
 
   const isVertical = useIsVerticalLayout();
   const { showVerify } = useLocalAuthenticationModal();
-  const { show: showRemoveAccountDialog, RemoveAccountDialog } =
-    useRemoveAccountDialog();
+  const {
+    show: showRemoveAccountDialog,
+    goToRemoveAccount,
+    RemoveAccountDialog,
+  } = useRemoveAccountDialog();
   const { closeWalletSelector } = useNavigationActions();
 
   const { copyAddress } = useCopyAddress({
@@ -110,40 +113,13 @@ const AccountSectionItem: FC<Props> = ({
           });
           break;
         case 'remove':
-          // bypass password verify
-          if (
-            activeWallet?.type === 'watching' ||
-            activeWallet?.type === 'external'
-          ) {
-            showRemoveAccountDialog(
-              activeWallet?.id ?? '',
-              item.id,
-              undefined,
-              () =>
-                refreshAccounts(
-                  activeWallet?.id ?? '',
-                  activeNetwork?.id ?? '',
-                ),
-            );
-          } else {
-            showVerify(
-              (pwd) => {
-                showRemoveAccountDialog(
-                  activeWallet?.id ?? '',
-                  item.id,
-                  pwd,
-                  () =>
-                    refreshAccounts(
-                      activeWallet?.id ?? '',
-                      activeNetwork?.id ?? '',
-                    ),
-                );
-              },
-              () => {},
-              null,
-              ValidationFields.Account,
-            );
-          }
+          goToRemoveAccount({
+            wallet: activeWallet,
+            accountId: item.id,
+            callback: () =>
+              refreshAccounts(activeWallet?.id ?? '', activeNetwork?.id ?? ''),
+          });
+
           break;
 
         default:
@@ -154,12 +130,10 @@ const AccountSectionItem: FC<Props> = ({
       copyAddress,
       item,
       navigation,
-      activeWallet?.id,
-      activeWallet?.type,
+      activeWallet,
       activeNetwork?.id,
+      goToRemoveAccount,
       refreshAccounts,
-      showRemoveAccountDialog,
-      showVerify,
     ],
   );
 

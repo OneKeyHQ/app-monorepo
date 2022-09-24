@@ -36,8 +36,11 @@ const ManagerAccountModal: FC = () => {
   const navigation = useNavigation();
 
   const { showVerify } = useLocalAuthenticationModal();
-  const { show: showRemoveAccountDialog, RemoveAccountDialog } =
-    useRemoveAccountDialog();
+  const {
+    show: showRemoveAccountDialog,
+    goToRemoveAccount,
+    RemoveAccountDialog,
+  } = useRemoveAccountDialog();
   const [modifyNameVisible, setModifyNameVisible] = useState(false);
   const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
   const { walletId, accountId, networkId, refreshAccounts } =
@@ -144,35 +147,14 @@ const ManagerAccountModal: FC = () => {
                   title={intl.formatMessage({ id: 'action__remove_account' })}
                   titleColor="text-critical"
                   onPress={() => {
-                    if (wallet?.type === 'hw' || wallet?.type === 'watching') {
-                      showRemoveAccountDialog(
-                        walletId,
-                        accountId,
-                        undefined,
-                        () => {
-                          refreshAccounts?.();
-                          if (navigation?.canGoBack?.()) navigation.goBack();
-                        },
-                      );
-                      return;
-                    }
-
-                    showVerify(
-                      (pwd) => {
-                        showRemoveAccountDialog(
-                          walletId,
-                          accountId,
-                          pwd,
-                          () => {
-                            refreshAccounts?.();
-                            if (navigation?.canGoBack?.()) navigation.goBack();
-                          },
-                        );
+                    goToRemoveAccount({
+                      wallet,
+                      accountId,
+                      callback: () => {
+                        refreshAccounts?.();
+                        if (navigation?.canGoBack?.()) navigation.goBack();
                       },
-                      () => {},
-                      null,
-                      ValidationFields.Account,
-                    );
+                    });
                   }}
                 />
               </Container.Box>
