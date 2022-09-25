@@ -1,8 +1,9 @@
-import React, { ReactElement } from 'react';
+import { ReactElement } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
-import { Modal } from 'native-base';
+import { Modal as NBModal } from 'native-base';
 import { PermissionsAndroid } from 'react-native';
+import Modal from 'react-native-modal';
 import RootSiblingsManager from 'react-native-root-siblings';
 
 import DialogManager from '@onekeyhq/components/src/DialogManager';
@@ -316,22 +317,18 @@ export default async function showHardwarePopup({
   const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
   setTimeout(() => {
-    const modalPopup = (
+    const modalPopup = platformEnv.isNativeIOS ? (
       <Modal
-        isOpen
-        onClose={closeHardwarePopup}
-        bg="overlay"
-        closeOnOverlayClick={false}
-        // isVisible
-        // onModalHide={closeHardwarePopup}
-        // backdropColor="overlay"
-        // animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
-        // animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
-        // animationOutTiming={300}
-        // backdropTransitionOutTiming={0}
-        // coverScreen
-        // useNativeDriver
-        // hideModalContentWhileAnimating
+        isVisible
+        onModalHide={closeHardwarePopup}
+        backdropColor="overlay"
+        animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
+        animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
+        animationOutTiming={300}
+        backdropTransitionOutTiming={0}
+        coverScreen
+        useNativeDriver
+        hideModalContentWhileAnimating
         style={{
           justifyContent:
             popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
@@ -343,6 +340,23 @@ export default async function showHardwarePopup({
       >
         {popupView}
       </Modal>
+    ) : (
+      <NBModal
+        isOpen
+        onClose={closeHardwarePopup}
+        bg="overlay"
+        closeOnOverlayClick={false}
+        style={{
+          justifyContent:
+            popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
+          alignItems: 'center',
+          padding: 0,
+          margin: 0,
+          top: popupType === 'normal' ? modalTop : 0,
+        }}
+      >
+        {popupView}
+      </NBModal>
     );
     if (hardwarePopupHolder) {
       hardwarePopupHolder.update(modalPopup);
