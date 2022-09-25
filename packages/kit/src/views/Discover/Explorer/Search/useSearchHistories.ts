@@ -34,14 +34,6 @@ const options = {
   ],
 };
 
-export type MatchDAppItemType = {
-  id: string;
-  dapp?: DAppItemType | undefined;
-  webSite?: WebSiteHistory | undefined;
-  clicks?: number | undefined;
-  timestamp?: number | undefined;
-};
-
 function searchScore(params: Fuse.FuseResult<MatchDAppItemType>) {
   return (params.score ?? 1) - (params.item.clicks ?? 1) / 100;
 }

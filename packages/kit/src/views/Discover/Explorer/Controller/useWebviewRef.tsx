@@ -13,6 +13,7 @@ export const useWebviewRef = (
   onOpenNewUrl?: (url: string) => void,
 ) => {
   const electronWebView = webViewRef?.innerRef as IElectronWebView;
+  console.log({ electronWebView, webViewRef });
   const [currentTitle, setCurrentTitle] = useState<string>();
   const [isLoading, setLoading] = useState<boolean>(false);
   const [currentUrl, setCurrentUrl] = useState<string>();
@@ -151,28 +152,15 @@ export const useWebviewRef = (
     electronWebView?.stop();
   }, [electronWebView]);
 
-  return useMemo(
-    () => ({
-      canGoBack,
-      goBack,
-      canGoForward,
-      goForward,
-      stopLoading,
-      loading: isLoading,
-      title: currentTitle,
-      url: currentUrl,
-      favicon: currentFavicon,
-    }),
-    [
-      canGoBack,
-      canGoForward,
-      isLoading,
-      currentTitle,
-      currentUrl,
-      currentFavicon,
-      goBack,
-      goForward,
-      stopLoading,
-    ],
-  );
+  return {
+    canGoBack,
+    goBack,
+    canGoForward,
+    goForward,
+    stopLoading,
+    loading: isLoading,
+    title: currentTitle,
+    url: currentUrl,
+    favicon: currentFavicon,
+  };
 };

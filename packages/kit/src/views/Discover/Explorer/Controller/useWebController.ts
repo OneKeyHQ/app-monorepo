@@ -1,4 +1,4 @@
-import { createRef, useCallback, useContext } from 'react';
+import { createRef, useCallback, useContext, useEffect } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { nanoid } from '@reduxjs/toolkit';
@@ -11,6 +11,7 @@ import {
   addWebSiteHistory,
 } from '../../../../store/reducers/discover';
 import { addWebTab, setWebTabData } from '../../../../store/reducers/webTabs';
+import { MatchDAppItemType, webHandler } from '../explorerUtils';
 
 import { useWebviewRef } from './useWebviewRef';
 import { webviewRefs } from './webviewRefs';
@@ -28,12 +29,13 @@ export const useWebController = ({
   const { currentTabId, tabs } = appSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const webviewRef = webviewRefs[curId];
+  console.log({ curId, webviewRef });
   const tab = tabs.find((t) => t.id === curId);
   const gotoSite = useCallback(
     ({ url, title, favicon }: WebSiteHistory) => {
       if (url) {
         dispatch(
-          id === 'home'
+          id === 'home' && webHandler === 'tabbedWebview'
             ? addWebTab({
                 id: nanoid(),
                 title,
@@ -51,6 +53,19 @@ export const useWebController = ({
     },
     [id, dispatch],
   );
+  const openMatchDApp = useCallback(
+    ({ dapp, webSite }: MatchDAppItemType) => {
+      const site = dapp || webSite;
+      if (site) {
+        gotoSite({
+          url: site.url,
+          title: dapp?.name || site.url,
+          favicon: site.favicon,
+        });
+      }
+    },
+    [gotoSite],
+  );
   const {
     canGoBack,
     canGoForward,
@@ -62,23 +77,32 @@ export const useWebController = ({
     title,
     favicon,
     // eslint-disable-next-line @typescript-eslint/no-shadow
-  } = useWebviewRef(webviewRef, navigationStateChangeEvent, (url: string) =>
-    gotoSite({ url }),
-  );
+  } = useWebviewRef(webviewRef, navigationStateChangeEvent);
 
-  console.log(tab);
+  useEffect(() => {
+    console.log({ url });
+    if (url !== tab.url) {
+      dispatch(
+        setWebTabData({ id, url, title, favicon }),
+        addWebSiteHistory({
+          keyUrl: undefined,
+          webSite: { url, title, favicon },
+        }),
+      );
+    }
+  }, [dispatch, favicon, id, tab.url, title, url]);
 
   return {
     gotoSite,
-    ...tab,
-    // url,
-    // title,
-    // favicon,
-    // canGoBack,
-    // canGoForward,
-    // goBack,
-    // goForward,
-    // stopLoading,
-    // loading,
+    openMatchDApp,
+    url,
+    title,
+    favicon,
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
+    stopLoading,
+    loading,
   };
 };

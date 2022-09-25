@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, memo, useState } from 'react';
 
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
@@ -12,26 +12,18 @@ import { webviewRefs } from '../Controller/webviewRefs';
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
-  const { gotoSite } = useWebController({
+  const { gotoSite, openMatchDApp } = useWebController({
     id,
     navigationStateChangeEvent,
   });
+
   return id === 'home' || url === '' ? (
     <DiscoverHome
       // eslint-disable-next-line @typescript-eslint/no-shadow
       onItemSelect={({ url, name, favicon }) =>
         gotoSite({ url, title: name, favicon })
       }
-      onItemSelectHistory={({ dapp, webSite }) => {
-        const site = dapp || webSite;
-        if (site) {
-          gotoSite({
-            url: site.url,
-            title: dapp?.name || site.url,
-            favicon: site.favicon,
-          });
-        }
-      }}
+      onItemSelectHistory={openMatchDApp}
     />
   ) : (
     <WebView
@@ -51,4 +43,4 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
 
 WebContent.displayName = 'WebContent';
 
-export default WebContent;
+export default memo(WebContent, () => true);

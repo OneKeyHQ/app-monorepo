@@ -1,4 +1,4 @@
-import React, {
+import {
   FC,
   forwardRef,
   useEffect,
@@ -10,7 +10,6 @@ import React, {
 
 import { useIntl } from 'react-intl';
 import { FlatListProps, useWindowDimensions } from 'react-native';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
@@ -30,24 +29,14 @@ import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownP
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
 import DAppIcon from '../../DAppIcon';
+import {
+  MatchDAppItemType,
+  SearchViewKeyEventType,
+  SearchViewProps,
+} from '../types';
 
 import { useLimitHistories } from './useLimitHistories';
 import { useSearchLocalDapp } from './useSearchLocalDapp';
-
-import type { SearchContentType } from '..';
-import type { KeyEventType } from '../Content/Desktop';
-import type { MatchDAppItemType } from './useSearchHistories';
-
-export type SearchViewProps = {
-  visible: boolean;
-  searchContent: SearchContentType | undefined;
-  relativeComponent: any;
-  onVisibleChange?: (visible: boolean) => void;
-  onSelectorItem?: (item: MatchDAppItemType) => void;
-  onHoverItem?: (item: MatchDAppItemType) => void;
-  forwardedRef?: any;
-  onKeyPress?: (event: KeyEventType) => void;
-};
 
 const SearchView: FC<SearchViewProps> = ({
   visible,
@@ -60,7 +49,6 @@ const SearchView: FC<SearchViewProps> = ({
   const intl = useIntl();
   const translateY = 9;
 
-  const visibleMemo = useDeepCompareMemo(() => visible, [visible]);
   const [selectItemIndex, setSelectItemIndex] = useState<number>();
   const [tempSearchContent, setTempSearchContent] = useState<string>();
 
@@ -190,7 +178,7 @@ const SearchView: FC<SearchViewProps> = ({
     autoAdjust: false,
   });
 
-  const onKeyPress = (keyEvent: KeyEventType) => {
+  const onKeyPress = (keyEvent: SearchViewKeyEventType) => {
     if (!keyEvent) return;
 
     if (keyEvent === 'ArrowDown') {
@@ -213,7 +201,7 @@ const SearchView: FC<SearchViewProps> = ({
 
   useEffect(() => {
     setSelectItemIndex(undefined);
-  }, [visibleMemo, tempSearchContent]);
+  }, [tempSearchContent]);
 
   useEffect(() => {
     if (selectItemIndex !== undefined) {
@@ -229,7 +217,7 @@ const SearchView: FC<SearchViewProps> = ({
   }, [selectItemIndex]);
 
   useImperativeHandle(forwardedRef, () => ({
-    onKeyPress: (event: KeyEventType) => {
+    onKeyPress: (event: SearchViewKeyEventType) => {
       onKeyPress(event);
     },
   }));
@@ -286,7 +274,7 @@ const SearchView: FC<SearchViewProps> = ({
             keyExtractor={(_item: MatchDAppItemType, index) =>
               `${index}-${_item.id}`
             }
-            extraData={selectItemIndex}
+            // extraData={selectItemIndex}
             showsVerticalScrollIndicator={false}
           />
         </Box>

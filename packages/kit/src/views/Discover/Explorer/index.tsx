@@ -29,24 +29,13 @@ import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
 import DappOpenHintDialog from './DappOpenHintDialog';
-import MoreMenuView from './MoreMenu';
-
-import type { MatchDAppItemType } from './Search/useSearchHistories';
-
-type WebSiteType = {
-  url?: string;
-  title?: string;
-  favicon?: string;
-  historyId?: string;
-};
-
-export type SearchContentType = {
-  searchContent: string;
-  dapp?: MatchDAppItemType; // don`t search dapp
-};
+import {
+  MatchDAppItemType,
+  SearchContentType,
+  webHandler,
+} from './explorerUtils';
 
 export type ExplorerViewProps = {
-  displayInitialPage?: boolean;
   searchContent?: SearchContentType;
   loading?: boolean;
   onSearchContentChange?: (text: SearchContentType) => void;
@@ -58,14 +47,14 @@ export type ExplorerViewProps = {
   onNext?: () => void;
   onRefresh?: () => void;
   onStopLoading?: () => void;
-  onMore?: () => void;
-  moreView: React.ReactNode;
   showExplorerBar?: boolean;
 };
 
 let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
 
 const blankPage = 'about:blank';
+
+const showExplorerBar = webHandler !== 'browser';
 
 type DiscoverRouteProp = RouteProp<TabRoutesParams, TabRoutes.Discover>;
 const Explorer: FC = () => {
@@ -77,31 +66,28 @@ const Explorer: FC = () => {
   const discover = useAppSelector((s) => s.discover);
   const { tabs } = useAppSelector((s) => s.webTabs);
 
-  const [canGoBack, setCanGoBack] = useState<boolean>(false);
-  const [canGoForward, setCanGoForward] = useState<boolean>(false);
+  const isVerticalLayout = useIsVerticalLayout();
 
   const [visibleMore, setVisibleMore] = useState(false);
 
-  const [displayInitialPage, setDisplayInitialPage] = useState(true);
-
+  const [canGoBack, setCanGoBack] = useState<boolean>(false);
+  const [canGoForward, setCanGoForward] = useState<boolean>(false);
   const [searchContent, setSearchContent] = useState<SearchContentType>();
-  const [currentWebSite, setCurrentWebSite] = useState<WebSiteType>();
-
-  const showExplorerBar = platformEnv.isNative || platformEnv.isDesktop;
-
   const [refreshKey, setRefreshKey] = useState<string>();
 
-  const isVerticalLayout = useIsVerticalLayout();
-
   const gotoUrl = async (item: (string | MatchDAppItemType) | undefined) => {
-    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+    if (webHandler !== 'tabbedWebview') {
       if (typeof item === 'string') {
         openUrl(item);
-      } else if (item?.dapp) {
-        openUrl(item?.dapp?.url ?? '');
-      } else if (item?.webSite) {
-        openUrl(item?.webSite?.url ?? '');
+      } else {
+        openUrl(
+          item?.dapp?.url || item?.webSite?.url || '',
+          item?.dapp?.name || item?.webSite?.title,
+        );
       }
+      return false;
+    }
+    if (webHandler === 'webview') {
       return false;
     }
 
@@ -357,54 +343,32 @@ const Explorer: FC = () => {
     [refreshKey, tabs],
   );
 
-  const moreViewContent = useMemo(
-    () => (
-      <MoreMenuView
-        visible={visibleMore}
-        onVisibleChange={setVisibleMore}
-        onRefresh={onRefresh}
-        onShare={onShare}
-        onOpenBrowser={onOpenBrowser}
-        onCopyUrlToClipboard={onCopyUrlToClipboard}
-        onGoHomePage={onGoHomePage}
-      />
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleMore],
-  );
+  // const moreViewContent = useMemo(
+  //   () => (
+  //     <MoreMenuView
+  //       visible={visibleMore}
+  //       onVisibleChange={setVisibleMore}
+  //       onRefresh={onRefresh}
+  //       onShare={onShare}
+  //       onOpenBrowser={onOpenBrowser}
+  //       onCopyUrlToClipboard={onCopyUrlToClipboard}
+  //       onGoHomePage={onGoHomePage}
+  //     />
+  //   ),
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  //   [visibleMore],
+  // );
 
   return (
     <Box flex={1} bg="background-default">
       {isVerticalLayout ? (
         <Mobile
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
-          onSearchSubmitEditing={onSearchSubmitEditing}
           explorerContent={explorerContent}
-          canGoBack={canGoBack}
-          onGoBack={onGoBack}
-          onNext={onNext}
-          onRefresh={onRefresh}
-          onMore={onMore}
-          moreView={moreViewContent}
           showExplorerBar={showExplorerBar}
         />
       ) : (
         <Desktop
-          displayInitialPage={displayInitialPage}
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
-          onSearchSubmitEditing={onSearchSubmitEditing}
           explorerContent={explorerContent}
-          canGoBack={canGoBack}
-          canGoForward={canGoForward}
-          // loading={webLoading}
-          onGoBack={onGoBack}
-          onNext={onNext}
-          onRefresh={onRefresh}
-          onStopLoading={onStopLoading}
-          onMore={onMore}
-          moreView={moreViewContent}
           showExplorerBar={showExplorerBar}
         />
       )}

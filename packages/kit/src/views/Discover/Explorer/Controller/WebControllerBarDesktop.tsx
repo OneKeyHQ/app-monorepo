@@ -18,11 +18,14 @@ import {
   Pressable,
 } from '@onekeyhq/components';
 
-import { SearchContentType } from '..';
 import SearchView from '../Search/SearchView';
-import { MatchDAppItemType } from '../Search/useLimitHistories';
 
 import { useWebController } from './useWebController';
+import {
+  MatchDAppItemType,
+  SearchContentType,
+  SearchViewKeyEventType,
+} from '../explorerUtils';
 
 type BrowserURLInputProps = {
   onClear?: () => void;
@@ -65,8 +68,6 @@ const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
 
 BrowserURLInput.displayName = 'BrowserURLInput';
 
-export type KeyEventType = 'ArrowUp' | 'ArrowDown';
-
 function getHttpSafeState(searchContent?: SearchContentType): ICON_NAMES {
   try {
     if (!searchContent || !searchContent?.searchContent) {
@@ -96,7 +97,6 @@ const WebControllerBarDesktop: FC = ({
   onNext,
   onRefresh,
   onStopLoading,
-  moreView,
 }) => {
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
@@ -107,7 +107,7 @@ const WebControllerBarDesktop: FC = ({
   // Todo Ref Type
   const searchView = useRef<any>(null);
 
-  const onKeyEvent = (event: KeyEventType) => {
+  const onKeyEvent = (event: SearchViewKeyEventType) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     searchView?.current?.onKeyPress?.(event);
   };
@@ -194,7 +194,7 @@ const WebControllerBarDesktop: FC = ({
   onPress={onMore}
   /> */}
       </HStack>
-      {moreView}
+      {/* {moreView} */}
       <SearchView
         ref={searchView}
         visible={historyVisible}
