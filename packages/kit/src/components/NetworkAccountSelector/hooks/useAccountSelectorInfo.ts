@@ -16,6 +16,7 @@ import { useRuntimeWallets } from '../../../hooks/redux';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
+  ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
 } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 
@@ -116,6 +117,7 @@ export function useAccountSelectorInfo() {
       refreshAccountSelectorTs,
       deviceStatus,
       isOpenFromClose,
+      isCloseFromOpen,
       isOpenDelay,
       isOpenDelayForShow,
       isOpen,

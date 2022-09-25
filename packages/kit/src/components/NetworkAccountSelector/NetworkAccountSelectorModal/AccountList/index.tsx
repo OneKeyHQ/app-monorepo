@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -19,54 +13,37 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { IAccount, IWallet } from '@onekeyhq/engine/src/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { IAccount } from '@onekeyhq/engine/src/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useRuntime,
-} from '../../../../hooks/redux';
-import { useIsMounted } from '../../../../hooks/useIsMounted';
-import {
-  ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT,
-  ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK,
-} from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { useActiveWalletAccount } from '../../../../hooks/redux';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
 import { scrollToSectionItem } from '../../../WalletSelector';
 import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+import {
+  INetworkAccountSelectorAccountListSectionData,
+  isListAccountsSingleWalletMode,
+  useAccountSelectorSectionData,
+} from '../../hooks/useAccountSelectorSectionData';
 
 import ListItem from './ListItem';
 import SectionHeader from './SectionHeader';
-
-type INetworkAccountSelectorAccountListSectionData = {
-  wallet: IWallet;
-  networkId: string;
-  data: IAccount[];
-};
-
-let lastDataCache: INetworkAccountSelectorAccountListSectionData[] = [];
 
 function AccountList({
   accountSelectorInfo,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
-  const { wallets } = useRuntime();
   const {
     selectedNetworkId,
     selectedNetwork,
     preloadingCreateAccount,
     isOpenDelay,
-    selectedWallet,
-    // selectedWalletId,
   } = accountSelectorInfo;
-  const { engine } = backgroundApiProxy;
-  const [data, setData] =
-    useState<INetworkAccountSelectorAccountListSectionData[]>(lastDataCache);
+  const data = useAccountSelectorSectionData({
+    accountSelectorInfo,
+  });
   const sectionListRef = useRef<any>(null);
-  const { refreshAccountSelectorTs } = useAppSelector((s) => s.refresher);
   const {
     walletId: activeWalletId,
     accountId: activeAccountId,
@@ -75,8 +52,6 @@ function AccountList({
   const insets = useSafeAreaInsets();
   const intl = useIntl();
 
-  // TODO $isLastItem in multiple wallet mode optimize
-  const isListAccountsSingleWalletMode = true;
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
     if (isScrolledRef.current || !activeWalletId || !data || !data.length) {
@@ -110,88 +85,6 @@ function AccountList({
       }),
     [scrollToItem],
   );
-
-  const isMounted = useIsMounted();
-  useEffect(
-    () => () => {
-      // TODO cache is error in android, change HD wallet to imported wallet
-      lastDataCache = data;
-    },
-    [data],
-  );
-  const buildData = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const ts = refreshAccountSelectorTs; // keep this for refresh deps
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const acc = activeAccountId; // keep this for refresh deps
-    const groupData: INetworkAccountSelectorAccountListSectionData[] = [];
-    if (
-      isMounted.current &&
-      selectedNetworkId &&
-      isOpenDelay &&
-      selectedWallet
-    ) {
-      debugLogger.accountSelector.info(
-        'rebuild NetworkAccountSelector accountList data',
-        {
-          refreshAccountSelectorTs,
-          isOpenDelay,
-          selectedNetworkId,
-          selectedWalletId: selectedWallet?.id,
-          activeAccountId,
-        },
-      );
-      const pushWalletAccountsData = async (wallet: IWallet) => {
-        const accounts = await engine.getAccounts(
-          wallet.accounts,
-          selectedNetworkId,
-        );
-        if (accounts.length) {
-          // @ts-ignore
-          accounts[accounts.length - 1].$isLastItem = true;
-        }
-        groupData.push({
-          wallet,
-          networkId: selectedNetworkId,
-          data: accounts || [],
-        });
-      };
-      if (isListAccountsSingleWalletMode) {
-        if (selectedWallet) {
-          await pushWalletAccountsData(selectedWallet);
-        }
-      } else {
-        let walletIndex = 0;
-        for (const wallet of wallets) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          walletIndex += 1;
-          await pushWalletAccountsData(wallet);
-        }
-      }
-      setData(groupData);
-    }
-  }, [
-    activeAccountId,
-    refreshAccountSelectorTs,
-    isMounted,
-    selectedNetworkId,
-    isOpenDelay,
-    wallets,
-    isListAccountsSingleWalletMode,
-    engine,
-    selectedWallet,
-  ]);
-  const buildDataDebounced = useMemo(
-    () =>
-      debounce(buildData, 150, {
-        leading: false,
-        trailing: true,
-      }),
-    [buildData],
-  );
-  useEffect(() => {
-    buildDataDebounced();
-  }, [buildDataDebounced]);
 
   const getSectionMetaInfo = useCallback(
     ({
