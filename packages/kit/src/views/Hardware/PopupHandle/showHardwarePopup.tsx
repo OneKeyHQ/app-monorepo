@@ -27,7 +27,7 @@ export type HardwarePopup = {
   payload?: HardwareUiEventPayload;
   content?: string;
 };
-export type PopupType = 'normal' | 'input';
+export type PopupType = 'normal' | 'inputPin' | 'inputPassphrase';
 
 export const CUSTOM_UI_RESPONSE = {
   // monorepo custom
@@ -79,7 +79,7 @@ export default async function showHardwarePopup({
   }
   lastCallTime = currentCallTime;
   lastParams = currentParams;
-  let popupType = 'normal';
+  let popupType: PopupType = 'normal';
   let popupView: ReactElement | undefined;
 
   const { engine, serviceHardware } = backgroundApiProxy;
@@ -110,7 +110,7 @@ export default async function showHardwarePopup({
         onDeviceInputPin = true;
       }
     }
-    popupType = onDeviceInputPin ? 'normal' : 'input';
+    popupType = onDeviceInputPin ? 'normal' : 'inputPin';
 
     popupView = (
       <RequestPinView
@@ -127,7 +127,7 @@ export default async function showHardwarePopup({
           closeHardwarePopup();
         }}
         onDeviceInputChange={(onDeviceInput) => {
-          popupType = onDeviceInputPin ? 'normal' : 'input';
+          popupType = onDeviceInputPin ? 'normal' : 'inputPin';
           if (!onDeviceInput) return;
 
           serviceHardware.sendUiResponse({
@@ -182,7 +182,7 @@ export default async function showHardwarePopup({
       });
       closeHardwarePopup();
     };
-    popupType = 'input';
+    popupType = 'inputPassphrase';
     popupView = (
       <EnterPassphraseView
         passphraseState={payload?.passphraseState}
@@ -330,12 +330,18 @@ export default async function showHardwarePopup({
         useNativeDriver
         hideModalContentWhileAnimating
         style={{
+          // passphrase input modal should always be displayed at the top of the page
           justifyContent:
-            popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? 'flex-start'
+              : nativeInputContentAlign,
           alignItems: 'center',
           padding: 0,
           margin: 0,
-          top: popupType === 'normal' ? modalTop : 0,
+          top:
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? modalTop
+              : 0,
         }}
       >
         {popupView}
@@ -348,11 +354,16 @@ export default async function showHardwarePopup({
         closeOnOverlayClick={false}
         style={{
           justifyContent:
-            popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? 'flex-start'
+              : nativeInputContentAlign,
           alignItems: 'center',
           padding: 0,
           margin: 0,
-          top: popupType === 'normal' ? modalTop : 0,
+          top:
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? modalTop
+              : 0,
         }}
       >
         {popupView}
