@@ -123,14 +123,24 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async autoChangeAccount({ walletId }: { walletId: string }) {
+  async autoChangeAccount({
+    walletId,
+    shouldUpdateWallets,
+  }: {
+    walletId: string;
+    shouldUpdateWallets?: boolean;
+  }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     if (!walletId) {
       return;
     }
     const wallet: Wallet | null = await engine.getWallet(walletId);
-    dispatch(updateWallet(wallet));
+
+    // ATTENTION: update redux runtime.wallets may cause performance issue, make sure you really need this
+    if (shouldUpdateWallets) {
+      dispatch(updateWallet(wallet));
+    }
 
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
 

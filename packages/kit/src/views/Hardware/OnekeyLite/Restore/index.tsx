@@ -33,7 +33,7 @@ type RouteProps = RouteProp<
 
 const Restore: FC = () => {
   const intl = useIntl();
-  const { openRootHome, openAccountSelector } = useNavigationActions();
+  const { openRootHome } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { pinCode } = useRoute<RouteProps>().params;

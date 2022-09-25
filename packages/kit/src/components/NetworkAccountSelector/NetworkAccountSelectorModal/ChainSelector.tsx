@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import React, { useCallback, useLayoutEffect, useRef } from 'react';
+import React, { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
+import { debounce } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -20,12 +21,8 @@ import { useManageNetworks } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
-import {
-  ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK,
-  ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY,
-} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
-import { LazyDisplayView } from '../../LazyDisplayView';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 function ChainNetworkIcon({
@@ -54,7 +51,7 @@ function ChainSelector({
   const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
-  const { selectedNetworkId, isOpenDelay } = accountSelectorInfo;
+  const { selectedNetworkId } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
 
@@ -86,9 +83,16 @@ function ChainSelector({
       } catch (error) {
         debugLogger.common.error(error);
       }
-    }, ACCOUNT_SELECTOR_AUTO_SCROLL_NETWORK);
+    }, 0);
   }, [enabledNetworks, selectedNetworkId]);
-
+  const scrollToItemDebounced = useMemo(
+    () =>
+      debounce(scrollToItem, ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK, {
+        leading: false,
+        trailing: true,
+      }),
+    [scrollToItem],
+  );
   return (
     <Box
       alignSelf="stretch"
@@ -137,7 +141,7 @@ function ChainSelector({
                   <ChainNetworkIcon
                     item={item}
                     isLastItem={isLastItem}
-                    onLastItemRender={scrollToItem}
+                    onLastItemRender={scrollToItemDebounced}
                   />
                 </Box>
               )}

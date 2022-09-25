@@ -32,29 +32,53 @@ export default class ServiceAccountSelector extends ServiceBase {
       'ServiceAccountSelector.setSelectedWalletToActive >>>> ',
       wallet?.id,
     );
-    await this.updateSelectedNetwork(network?.id);
-    await this.updateSelectedWallet(wallet?.id);
+    return this.updateSelectedWalletAndNetwork({
+      walletId: wallet?.id,
+      networkId: network?.id,
+    });
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  async updateSelectedWalletAndNetwork({
+    walletId,
+    networkId,
+  }: {
+    walletId?: string;
+    networkId?: string;
+  }) {
+    const { dispatch } = this.backgroundApi;
+    const actions = [];
+    if (walletId) {
+      actions.push(updateSelectedWalletId(walletId || undefined));
+    }
+    if (networkId) {
+      actions.push(updateSelectedNetworkId(networkId || undefined));
+    }
+    if (actions.length) {
+      dispatch(...actions);
+    }
   }
 
   @bindThis()
   @backgroundMethod()
   async updateSelectedWallet(walletId?: string) {
-    const { dispatch } = this.backgroundApi;
-
     debugLogger.accountSelector.info(
       'ServiceAccountSelector.updateSelectedWallet >>>> ',
       walletId,
     );
     // TODO ignore update if create new account loading
-    dispatch(updateSelectedWalletId(walletId || undefined));
+    return this.updateSelectedWalletAndNetwork({
+      walletId,
+    });
   }
 
   @bindThis()
   @backgroundMethod()
   async updateSelectedNetwork(networkId?: string) {
-    const { dispatch } = this.backgroundApi;
-
-    dispatch(updateSelectedNetworkId(networkId || undefined));
+    return this.updateSelectedWalletAndNetwork({
+      networkId,
+    });
   }
 
   async getAccountsByGroup() {

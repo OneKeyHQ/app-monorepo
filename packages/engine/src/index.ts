@@ -309,15 +309,42 @@ class Engine {
     );
   }
 
+  WALLET_SORT_WEIGHT = {
+    [WALLET_TYPE_HD]: 1,
+    [WALLET_TYPE_HW]: 10,
+    [WALLET_TYPE_IMPORTED]: 20,
+    [WALLET_TYPE_WATCHING]: 30,
+    [WALLET_TYPE_EXTERNAL]: 40,
+  };
+
+  HIDDEN_WALLET_SORT_WEIGHT = {
+    normal: 1,
+    hidden: 10,
+  };
+
   @backgroundMethod()
   async getWallets(option?: {
     includeAllPassphraseWallet?: boolean;
     displayPassphraseWalletIds?: string[];
   }): Promise<Array<Wallet>> {
     const wallets = await this.dbApi.getWallets(option);
-    return wallets.sort((a, b) =>
-      natsort({ insensitive: true })(a.name, b.name),
-    );
+    return wallets.sort((a, b) => {
+      let weight =
+        this.WALLET_SORT_WEIGHT[a.type] - this.WALLET_SORT_WEIGHT[b.type];
+      if (weight === 0) {
+        weight =
+          this.HIDDEN_WALLET_SORT_WEIGHT[
+            a.passphraseState || a.hidden ? 'hidden' : 'normal'
+          ] -
+          this.HIDDEN_WALLET_SORT_WEIGHT[
+            b.passphraseState || b.hidden ? 'hidden' : 'normal'
+          ];
+        if (weight === 0) {
+          return natsort({ insensitive: true })(a.name, b.name);
+        }
+      }
+      return weight;
+    });
   }
 
   @backgroundMethod()

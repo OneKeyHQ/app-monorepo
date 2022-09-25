@@ -1,6 +1,7 @@
 /* eslint-disable react/no-unused-prop-types */
 import React, { useCallback, useMemo, useRef } from 'react';
 
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,7 +13,7 @@ import {
 import { IWallet } from '@onekeyhq/engine/src/types';
 
 import { useActiveWalletAccount } from '../../../../hooks/redux';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_WALLET } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_WALLET } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { useDeviceStatusOfHardwareWallet } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import {
   EWalletDataSectionType,
@@ -68,11 +69,10 @@ function Body() {
       return;
     }
     scrollToSectionItem({
-      delay: ACCOUNT_SELECTOR_AUTO_SCROLL_WALLET,
-      // delay: 0,
+      delay: 0,
       sectionListRef,
       sectionData,
-      skipScrollIndex: 5,
+      skipScrollIndex: 7,
       isScrollToItem(item) {
         return (
           item?.wallet?.id === walletId ||
@@ -84,7 +84,14 @@ function Body() {
       },
     });
   }, [sectionData, visible, walletId]);
-
+  const scrollToItemDebounced = useMemo(
+    () =>
+      debounce(scrollToItem, ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_WALLET, {
+        leading: false,
+        trailing: true,
+      }),
+    [scrollToItem],
+  );
   return (
     <>
       <SectionList
@@ -105,7 +112,7 @@ function Body() {
           <ListItemWithHidden
             item={item}
             deviceStatus={deviceStatus}
-            onLastItemRender={scrollToItem}
+            onLastItemRender={scrollToItemDebounced}
           />
         )}
         ItemSeparatorComponent={() => <Box h={1} />} // The spacing between items within a section

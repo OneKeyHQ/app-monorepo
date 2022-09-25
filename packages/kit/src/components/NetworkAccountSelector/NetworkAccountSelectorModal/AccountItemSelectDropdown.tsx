@@ -15,13 +15,11 @@ import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
-import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { refreshAccountSelector } from '../../../store/reducers/refresher';
 import AccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../views/ManagerAccount/RemoveAccount';
-import { ValidationFields } from '../../Protected';
 
 enum EAccountSelectorItemSelectOptions {
   rename = 'rename',
@@ -45,9 +43,7 @@ function AccountItemSelectDropdown({
   const navigation = useAppNavigation();
   const isHardwareWallet = type === WALLET_TYPE_HW;
   const { dispatch } = backgroundApiProxy;
-  const { showVerify } = useLocalAuthenticationModal();
-  const { show: showRemoveAccountDialog, RemoveAccountDialog } =
-    useRemoveAccountDialog();
+  const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const { copyAddress } = useCopyAddress({
     wallet,
     account,
@@ -147,26 +143,12 @@ function AccountItemSelectDropdown({
           });
           break;
         case 'remove':
-          // bypass password verify
-          if (wallet?.type === 'watching' || wallet?.type === 'external') {
-            showRemoveAccountDialog(
-              wallet?.id ?? '',
-              account.id,
-              undefined,
-              () => refreshAccounts(wallet?.id ?? '', network?.id ?? ''),
-            );
-          } else {
-            showVerify(
-              (pwd) => {
-                showRemoveAccountDialog(wallet?.id ?? '', account.id, pwd, () =>
-                  refreshAccounts(wallet?.id ?? '', network?.id ?? ''),
-                );
-              },
-              () => {},
-              null,
-              ValidationFields.Account,
-            );
-          }
+          goToRemoveAccount({
+            wallet,
+            accountId: account.id,
+            callback: () =>
+              refreshAccounts(wallet?.id ?? '', network?.id ?? ''),
+          });
           break;
 
         default:
@@ -176,13 +158,11 @@ function AccountItemSelectDropdown({
     [
       account,
       copyAddress,
+      goToRemoveAccount,
       navigation,
       network?.id,
       refreshAccounts,
-      showRemoveAccountDialog,
-      showVerify,
-      wallet?.id,
-      wallet?.type,
+      wallet,
     ],
   );
 

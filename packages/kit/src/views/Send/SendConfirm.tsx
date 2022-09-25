@@ -84,6 +84,7 @@ async function prepareSendConfirmEncodedTx({
     const encodedTxEvm = encodedTx as IEncodedTxEvm;
     // routeParams is not editable, so should create new one
     let tx = { ...encodedTxEvm };
+    // TODO convert from & to to lower-case, as Metamask support it
     tx.from = tx.from || address;
     // remove gas price if encodedTx build by DAPP
     if (sendConfirmParams.sourceInfo) {

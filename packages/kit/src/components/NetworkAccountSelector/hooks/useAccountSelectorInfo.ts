@@ -1,12 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-
-import { InteractionManager } from 'react-native';
+import { useCallback, useMemo } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -17,24 +12,27 @@ import {
   usePrevious,
 } from '../../../hooks';
 import { useRuntimeWallets } from '../../../hooks/redux';
-import { useEffectOnUpdate } from '../../../hooks/useEffectOnUpdate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { wait } from '../../../utils/helper';
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
-  ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
-  ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN,
 } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 
 import { useDeviceStatusOfHardwareWallet } from './useDeviceStatusOfHardwareWallet';
 
-const { updateIsLoading } = reducerAccountSelector.actions;
-
-export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
-  const { dispatch, serviceAccountSelector, engine } = backgroundApiProxy;
+export function useAccountSelectorInfo() {
+  const { engine } = backgroundApiProxy;
   const isVertical = useIsVerticalLayout();
+
+  const {
+    networkId,
+    walletId,
+    accountsGroup,
+    isLoading,
+    preloadingCreateAccount,
+    isOpenDelay,
+    isOpen,
+  } = useAppSelector((s) => s.accountSelector);
 
   const isOpenDelayForShow = useDebounce(
     isOpen,
@@ -44,9 +42,9 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
   );
   const isOpenPrev = usePrevious(isOpen);
   const isOpenFromClose = !isOpenPrev && isOpen;
+  const isCloseFromOpen = isOpenPrev && !isOpen;
 
   const { wallets } = useRuntimeWallets();
-
   const { enabledNetworks } = useManageNetworks();
   const { deviceStatus } = useDeviceStatusOfHardwareWallet();
 
@@ -56,30 +54,10 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
     network: activeNetwork,
   } = useActiveWalletAccount();
 
-  const {
-    networkId,
-    walletId,
-    accountsGroup,
-    isLoading,
-    preloadingCreateAccount,
-    isOpenDelay,
-  } = useAppSelector((s) => s.accountSelector);
   const { refreshAccountSelectorTs } = useAppSelector((s) => s.refresher);
 
-  const existsHardwareWallet = useMemo(
-    () => wallets.some((w) => w.type === WALLET_TYPE_HW),
-    [wallets],
-  );
-
-  useEffect(() => {
-    debugLogger.accountSelector.info('useAccountSelectorInfo mount');
-    return () => {
-      debugLogger.accountSelector.info('useAccountSelectorInfo unmounted');
-    };
-  }, []);
-
-  const isOpenDelayRef = useRef<boolean | undefined>();
-  isOpenDelayRef.current = isOpenDelay && isOpen;
+  const selectedNetworkId = networkId;
+  const selectedWalletId = walletId;
 
   const refreshAccounts = useCallback(() => {
     // noop
@@ -96,115 +74,6 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
     [networkId, enabledNetworks],
   );
 
-  const selectedNetworkId = networkId;
-  useEffect(() => {
-    debugLogger.accountSelector.info('useEffect selectedNetworkId changed: ', {
-      selectedNetworkId,
-      isOpenDelay,
-    });
-    if (!isOpenDelay) {
-      return;
-    }
-    if (
-      selectedNetworkId &&
-      !enabledNetworks.find((item) => item.id === selectedNetworkId)
-    ) {
-      // update selected network to ALL
-      serviceAccountSelector.updateSelectedNetwork(undefined);
-    }
-  }, [enabledNetworks, isOpenDelay, selectedNetworkId, serviceAccountSelector]);
-  useEffect(() => {
-    InteractionManager.runAfterInteractions(() => {
-      if (isOpenDelay && !preloadingCreateAccount) {
-        serviceAccountSelector.updateSelectedNetwork(activeNetwork?.id);
-      }
-    });
-  }, [
-    activeNetwork,
-    preloadingCreateAccount,
-    isOpenDelay,
-    serviceAccountSelector,
-  ]);
-
-  const selectedWalletId = walletId;
-  useEffect(() => {
-    debugLogger.accountSelector.info('useEffect selectedWalletId changed: ', {
-      selectedWalletId,
-      isOpenDelay,
-    });
-    if (!isOpenDelay) {
-      return;
-    }
-    if (
-      wallets.length &&
-      !wallets.find((item) => item.id === selectedWalletId)
-    ) {
-      const nextWallet = wallets?.[0];
-      if (nextWallet) {
-        serviceAccountSelector.updateSelectedWallet(nextWallet?.id);
-      }
-    }
-  }, [isOpenDelay, selectedWalletId, serviceAccountSelector, wallets]);
-  useEffect(() => {
-    InteractionManager.runAfterInteractions(() => {
-      if (isOpenDelayRef.current && !preloadingCreateAccount) {
-        serviceAccountSelector.updateSelectedWallet(activeWallet?.id);
-      }
-    });
-  }, [activeWallet, preloadingCreateAccount, serviceAccountSelector]);
-
-  const refreshHookDeps = useMemo(
-    () => ({
-      refreshAccountSelectorTs,
-      selectedNetworkId,
-      selectedWalletId,
-      activeAccount,
-    }),
-    [
-      refreshAccountSelectorTs,
-      selectedNetworkId,
-      selectedWalletId,
-      activeAccount,
-    ],
-  );
-
-  // TODO move all useEffects to NetworkAccountSelectorTrigger,
-  //      as onMount and isOpen will trigger twice useEffect
-  useEffectOnUpdate(() => {
-    refreshAccounts();
-  }, [refreshHookDeps, refreshAccounts]);
-
-  useEffect(() => {
-    if (!isOpenDelay) {
-      serviceAccountSelector.updateSelectedWallet(activeWallet?.id);
-    }
-  }, [activeWallet?.id, isOpenDelay, serviceAccountSelector]);
-
-  useEffect(() => {
-    if (!ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN && isOpenDelay) {
-      refreshAccounts();
-    }
-  }, [isOpenDelay, refreshAccounts]);
-
-  useEffectOnUpdate(() => {
-    InteractionManager.runAfterInteractions(async () => {
-      if (!isOpenDelay) {
-        await wait(ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY);
-        // dispatch(updateAccountsGroup([]));
-        dispatch(updateIsLoading(false));
-        await serviceAccountSelector.preloadingCreateAccountDone({ delay: 0 });
-        await serviceAccountSelector.setSelectedWalletToActive();
-      }
-    });
-  }, [dispatch, isOpenDelay, serviceAccountSelector]);
-
-  useEffect(() => {
-    if (isOpen && existsHardwareWallet) {
-      // open account selector refresh device connect status
-      deviceUtils.syncDeviceConnectStatus();
-    }
-  }, [existsHardwareWallet, isOpen]);
-
   const isAccountsGroupEmpty = useMemo(() => {
     if (!accountsGroup?.length) {
       return true;
@@ -216,15 +85,19 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
 
   return useMemo(
     () => ({
+      wallets,
+      refreshAccountSelectorTs,
       deviceStatus,
 
       isOpenFromClose,
+      isCloseFromOpen,
       isOpenDelay,
       isOpenDelayForShow,
+      isOpen,
 
-      selectedNetwork,
+      selectedNetwork, // TODO selectedNetworkLazy
       selectedNetworkId,
-      selectedWallet,
+      selectedWallet, // TODO selectedWalletLazy
       selectedWalletId,
 
       accountsGroup,
@@ -233,21 +106,31 @@ export function useAccountSelectorInfo({ isOpen }: { isOpen?: boolean }) {
       preloadingCreateAccount,
 
       refreshAccounts,
+      activeAccount,
+      activeWallet,
+      activeNetwork,
     }),
     [
-      accountsGroup,
+      wallets,
+      refreshAccountSelectorTs,
       deviceStatus,
-      isAccountsGroupEmpty,
-      isLoading,
+      isOpenFromClose,
+      isCloseFromOpen,
       isOpenDelay,
       isOpenDelayForShow,
-      isOpenFromClose,
-      preloadingCreateAccount,
-      refreshAccounts,
+      isOpen,
       selectedNetwork,
       selectedNetworkId,
       selectedWallet,
       selectedWalletId,
+      accountsGroup,
+      isLoading,
+      isAccountsGroupEmpty,
+      preloadingCreateAccount,
+      refreshAccounts,
+      activeAccount,
+      activeWallet,
+      activeNetwork,
     ],
   );
 }

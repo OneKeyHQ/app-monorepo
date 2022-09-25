@@ -22,7 +22,7 @@ function Header({
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
-  const { selectedNetwork, isLoading, isOpenDelay } = accountSelectorInfo;
+  const { selectedNetwork, isLoading } = accountSelectorInfo;
   const { dispatch } = backgroundApiProxy;
   const close = useModalClose();
 
