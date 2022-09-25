@@ -4,7 +4,6 @@ import React, {
   ReactNode,
   memo,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
 } from 'react';
@@ -17,7 +16,6 @@ import {
   addNewRef,
   removeOldRef,
 } from '@onekeyhq/components/src/utils/SelectAutoHide';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

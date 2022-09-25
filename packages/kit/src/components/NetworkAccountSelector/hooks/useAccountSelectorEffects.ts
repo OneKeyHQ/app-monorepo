@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { InteractionManager } from 'react-native';
 
@@ -7,12 +7,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useEffectOnUpdate } from '../../../hooks/useEffectOnUpdate';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
-import {
-  ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY,
-  ACCOUNT_SELECTOR_PRE_FRESH_BEFORE_OPEN,
-} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 
 import { useAccountSelectorInfo } from './useAccountSelectorInfo';
 
@@ -25,16 +21,10 @@ const {
 
 function useAccountSelectorEffects() {
   const {
-    selectedWalletId,
     isOpenDelay,
     isCloseFromOpen,
-    wallets,
-    refreshAccounts,
     preloadingCreateAccount,
-    refreshAccountSelectorTs,
-    selectedNetworkId,
     activeWallet,
-    activeAccount,
     activeNetwork,
     isOpen,
   } = useAccountSelectorInfo();

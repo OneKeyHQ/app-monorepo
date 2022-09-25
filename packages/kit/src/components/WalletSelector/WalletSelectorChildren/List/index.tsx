@@ -13,10 +13,7 @@ import {
 import { IWallet } from '@onekeyhq/engine/src/types';
 
 import { useActiveWalletAccount } from '../../../../hooks/redux';
-import {
-  ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT,
-  ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_WALLET,
-} from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_WALLET } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { useDeviceStatusOfHardwareWallet } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import {
   EWalletDataSectionType,

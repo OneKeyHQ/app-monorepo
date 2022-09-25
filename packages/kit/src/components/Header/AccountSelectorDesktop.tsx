@@ -31,9 +31,7 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
       domId,
     }));
 
-    const accountSelectorInfo = useAccountSelectorInfo({
-      isOpen: visible,
-    });
+    const accountSelectorInfo = useAccountSelectorInfo();
 
     useEffect(() => {
       debugLogger.accountSelector.info('AccountSelectorDesktop mount');

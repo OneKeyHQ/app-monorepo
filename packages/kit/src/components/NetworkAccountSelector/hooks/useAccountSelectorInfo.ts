@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -16,7 +15,6 @@ import { useRuntimeWallets } from '../../../hooks/redux';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
-  ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
 } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 
