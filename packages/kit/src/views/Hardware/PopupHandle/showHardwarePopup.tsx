@@ -1,6 +1,7 @@
-import React, { ReactElement } from 'react';
+import { ReactElement } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
+import { Modal as NBModal } from 'native-base';
 import { PermissionsAndroid } from 'react-native';
 import Modal from 'react-native-modal';
 import RootSiblingsManager from 'react-native-root-siblings';
@@ -26,7 +27,7 @@ export type HardwarePopup = {
   payload?: HardwareUiEventPayload;
   content?: string;
 };
-export type PopupType = 'normal' | 'input';
+export type PopupType = 'normal' | 'inputPin' | 'inputPassphrase';
 
 export const CUSTOM_UI_RESPONSE = {
   // monorepo custom
@@ -78,7 +79,7 @@ export default async function showHardwarePopup({
   }
   lastCallTime = currentCallTime;
   lastParams = currentParams;
-  let popupType = 'normal';
+  let popupType: PopupType = 'normal';
   let popupView: ReactElement | undefined;
 
   const { engine, serviceHardware } = backgroundApiProxy;
@@ -109,7 +110,7 @@ export default async function showHardwarePopup({
         onDeviceInputPin = true;
       }
     }
-    popupType = onDeviceInputPin ? 'normal' : 'input';
+    popupType = onDeviceInputPin ? 'normal' : 'inputPin';
 
     popupView = (
       <RequestPinView
@@ -126,7 +127,7 @@ export default async function showHardwarePopup({
           closeHardwarePopup();
         }}
         onDeviceInputChange={(onDeviceInput) => {
-          popupType = onDeviceInputPin ? 'normal' : 'input';
+          popupType = onDeviceInputPin ? 'normal' : 'inputPin';
           if (!onDeviceInput) return;
 
           serviceHardware.sendUiResponse({
@@ -181,8 +182,10 @@ export default async function showHardwarePopup({
       });
       closeHardwarePopup();
     };
+    popupType = 'inputPassphrase';
     popupView = (
       <EnterPassphraseView
+        passphraseState={payload?.passphraseState}
         onConfirm={(passphrase) => onPassphraseAck(passphrase)}
         onDeviceInput={() => onPassphraseAck('', true)}
         onCancel={() => {
@@ -314,7 +317,7 @@ export default async function showHardwarePopup({
   const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
   setTimeout(() => {
-    const modalPopup = (
+    const modalPopup = platformEnv.isNativeIOS ? (
       <Modal
         isVisible
         onModalHide={closeHardwarePopup}
@@ -327,16 +330,44 @@ export default async function showHardwarePopup({
         useNativeDriver
         hideModalContentWhileAnimating
         style={{
+          // passphrase input modal should always be displayed at the top of the page
           justifyContent:
-            popupType === 'normal' ? 'flex-start' : nativeInputContentAlign,
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? 'flex-start'
+              : nativeInputContentAlign,
           alignItems: 'center',
           padding: 0,
           margin: 0,
-          top: popupType === 'normal' ? modalTop : 0,
+          top:
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? modalTop
+              : 0,
         }}
       >
         {popupView}
       </Modal>
+    ) : (
+      <NBModal
+        isOpen
+        onClose={closeHardwarePopup}
+        bg="overlay"
+        closeOnOverlayClick={false}
+        style={{
+          justifyContent:
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? 'flex-start'
+              : nativeInputContentAlign,
+          alignItems: 'center',
+          padding: 0,
+          margin: 0,
+          top:
+            popupType === 'normal' || popupType === 'inputPassphrase'
+              ? modalTop
+              : 0,
+        }}
+      >
+        {popupView}
+      </NBModal>
     );
     if (hardwarePopupHolder) {
       hardwarePopupHolder.update(modalPopup);

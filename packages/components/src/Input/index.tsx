@@ -1,7 +1,8 @@
-import React, {
+import {
   ComponentProps,
   ReactElement,
   ReactNode,
+  forwardRef,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -40,7 +41,7 @@ type Props = {
   onPressSecondaryRightIcon?: () => void;
 };
 
-const Input = React.forwardRef<
+const Input = forwardRef<
   typeof BaseInput,
   ComponentProps<typeof BaseInput> & Props
 >(
