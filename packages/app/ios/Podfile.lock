@@ -560,7 +560,7 @@ PODS:
     - Firebase/Crashlytics (= 8.15.0)
     - React-Core
     - RNFBApp
-  - RNGestureHandler (2.6.1):
+  - RNGestureHandler (2.6.2):
     - React-Core
   - RNReanimated (2.9.1):
     - DoubleConversion
@@ -1019,7 +1019,7 @@ SPEC CHECKSUMS:
   RNFBAnalytics: 58d1a73d42514ddf3c4f43662db0f3ce9a85457b
   RNFBApp: ca5f49bbe21f663142320337eb39956b04de4d12
   RNFBCrashlytics: 97bf2b05e4a5523c57adc8f9e5bf6e1b17804482
-  RNGestureHandler: 28ad20bf02257791f7f137b31beef34b9549f54b
+  RNGestureHandler: 4defbd70b2faf3d6761b82fa7880285241762cb0
   RNReanimated: 5c8c17e26787fd8984cd5accdc70fef2ca70aafd
   RNScreens: 0df01424e9e0ed7827200d6ed1087ddd06c493f9
   RNShare: d56424e3926cbc239db1cc1c168adcb051aad50b
