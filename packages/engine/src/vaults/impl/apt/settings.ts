@@ -15,7 +15,7 @@ const settings: IVaultSettings = {
   activateTokenRequired: true,
 
   feeInfoEditable: true,
-  minGasLimit: 2000,
+  minGasLimit: 1000,
 };
 
 export default settings;
