@@ -86,10 +86,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let pubKeys: Array<string> = [];
     if (!isSearching) {
-      const includePublicKey =
-        (isArray(addressesResponse.payload) &&
-          !!addressesResponse.payload?.[0]?.publicKey) ||
-        !!addressesResponse.payload?.publicKey;
+      const includePublicKey = !!addressesResponse.payload?.[0]?.publicKey;
 
       if (!includePublicKey) {
         pubKeys = await this.getPublicKey(connectId, deviceId, paths);
