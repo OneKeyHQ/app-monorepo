@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { toLower } from 'lodash';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -84,7 +85,6 @@ async function prepareSendConfirmEncodedTx({
     const encodedTxEvm = encodedTx as IEncodedTxEvm;
     // routeParams is not editable, so should create new one
     let tx = { ...encodedTxEvm };
-    // TODO convert from & to to lower-case, as Metamask support it
     tx.from = tx.from || address;
     // remove gas price if encodedTx build by DAPP
     if (sendConfirmParams.sourceInfo) {
@@ -95,6 +95,18 @@ async function prepareSendConfirmEncodedTx({
       // Ensure IEncodedTxEvm's value is hex string.
       tx.value = `0x${valueBn.toString(16)}`;
     }
+    try {
+      // convert from & to to lower-case, as Metamask support it
+      if (tx.from) {
+        tx.from = toLower(tx.from) || tx.from;
+      }
+      if (tx.to) {
+        tx.to = toLower(tx.to) || tx.to;
+      }
+    } catch {
+      //
+    }
+
     return Promise.resolve(tx);
   }
   return Promise.resolve(encodedTx);
