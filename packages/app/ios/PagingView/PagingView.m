@@ -12,6 +12,7 @@
 #import "RNTabView.h"
 #import "UIColor+Hex.h"
 #import <React/RCTUtils.h>
+#import "JXCategoryView.h"
 
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
@@ -35,6 +36,8 @@
 @property (nonatomic, copy) NSString *spinnerColor;
 
 @property (nonatomic, assign) BOOL isDragging;
+@property (nonatomic, assign) BOOL willDecelerate;
+
 @property (nonatomic, assign) CGFloat offsetY;
 
 
@@ -48,6 +51,10 @@
     NSLog(@"PagingView init");
   }
   return self;
+}
+
+- (void)setPageIndex:(NSInteger)index{
+  [self.tabView.categoryView selectItemAtIndex:index];
 }
 
 -(void)setDefaultIndex:(NSInteger)defaultIndex {
@@ -199,7 +206,7 @@
   UIWindow *window = RCTKeyWindow();
   CGRect rect = [self convertRect:self.frame toView:window];
   BOOL isPhone = [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone;
-  if (isPhone && self.isDragging && CGRectGetMinX(rect) > 0) {
+  if (isPhone && CGRectGetMinX(rect) > 0 && (self.isDragging || self.willDecelerate)) {
     CGPoint offset = scrollView.contentOffset;
     offset.y = self.offsetY;
     [scrollView setContentOffset:offset];
@@ -208,6 +215,11 @@
 
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
   self.isDragging = NO;
+  self.willDecelerate = decelerate;
+}
+
+- (void)pagerView:(JXPagerView *)pagerView mainTableViewDidEndDecelerating:(UIScrollView *)scrollView {
+  self.willDecelerate = NO;
 }
 
 - (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {

@@ -23,16 +23,16 @@ RCT_EXPORT_VIEW_PROPERTY(refresh, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(disableRefresh, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(onRefreshCallBack, RCTBubblingEventBlock)
 
-//RCT_EXPORT_METHOD(setPageIndex:(nonnull NSNumber *)reactTag index:(nonnull NSNumber *)index) {
-//  [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager,NSDictionary<NSNumber *, UIView *> *viewRegistry) {
-//    PagingView *view = (PagingView *)viewRegistry[reactTag];
-//    if (!view || ![view isKindOfClass:[PagingView class]]) {
-//      RCTLogError(@"Cannot find ReactNativePageView with tag #%@", reactTag);
-//      return;
-//    }
-//    [view goTo:index.integerValue];
-//  }];
-//}
+
+RCT_EXPORT_METHOD(setPageIndex:(nonnull NSNumber *)reactTag index:(nonnull NSNumber *)index) {
+  [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager,NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+    PagingView *view = (PagingView *)viewRegistry[reactTag];
+    if (!view || ![view isKindOfClass:[PagingView class]]) {
+      return;
+    }
+    [view setPageIndex:index.integerValue];
+  }];
+}
 
 - (UIView *)view
 {
