@@ -17,7 +17,7 @@ import { isNil } from 'lodash';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HISTORY_CONSTS, IMPL_APTOS } from '../constants';
+import { HISTORY_CONSTS } from '../constants';
 import simpleDb from '../dbs/simple/simpleDb';
 import {
   InvalidAddress,
@@ -135,10 +135,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       throw new InvalidTokenAddress();
     }
     return Promise.resolve(normalizedAddress);
-  }
-
-  async normalizeTokenAddress(address: string): Promise<string> {
-    return Promise.resolve(address.trim().toLowerCase());
   }
 
   async checkAccountExistence(accountIdOnNetwork: string): Promise<boolean> {

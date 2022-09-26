@@ -186,8 +186,12 @@ class Validators {
     networkId: string,
     address: string,
   ): Promise<string> {
-    const vault = await this.engine.getChainOnlyVault(networkId);
-    return vault.normalizeTokenAddress(address);
+    try {
+      const vault = await this.engine.getChainOnlyVault(networkId);
+      return await vault.validateTokenAddress(address);
+    } catch (error) {
+      return address;
+    }
   }
 
   @backgroundMethod()

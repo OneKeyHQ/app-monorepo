@@ -224,15 +224,11 @@ export default class Vault extends VaultBase {
   ): Promise<boolean> {
     const { address } = (await this.getDbAccount()) as DBSimpleAccount;
 
-    console.log('=====>>> activateToken', tokenAddress, address);
-
     const resource = await getAccountCoinResource(
       await this.getClient(),
       address,
       tokenAddress,
     );
-
-    console.log('=====>>> resource', resource);
 
     if (resource) return Promise.resolve(true);
 
@@ -260,25 +256,14 @@ export default class Vault extends VaultBase {
     const [address, module, name] = tokenAddress.split('::');
     if (module && name) {
       try {
-        return `${await this.validateAddress(address)}::${module}::${name}`;
+        return `${(
+          await this.validateAddress(address)
+        ).toLowerCase()}::${module}::${name}`;
       } catch {
         // pass
       }
     }
     throw new InvalidTokenAddress();
-  }
-
-  override async normalizeTokenAddress(tokenAddress: string): Promise<string> {
-    const tokenAddressSplit = tokenAddress.split('::');
-    return tokenAddressSplit.reduce((acc, cur, index) => {
-      let $acc = acc;
-      if (index === 0) {
-        $acc += cur.toLowerCase();
-      } else {
-        $acc += `::${cur}`;
-      }
-      return $acc;
-    }, '');
   }
 
   override async attachFeeInfoToEncodedTx(params: {
@@ -572,9 +557,6 @@ export default class Vault extends VaultBase {
         encodedTx: unsignedTx.encodedTx,
       };
     } catch (error: any) {
-      console.log('signAndSendTransaction error', error);
-      console.log('signAndSendTransaction error string', JSON.stringify(error));
-
       const { errorCode, message } = error || {};
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new OneKeyInternalError(`${errorCode ?? ''} ${message}`);
