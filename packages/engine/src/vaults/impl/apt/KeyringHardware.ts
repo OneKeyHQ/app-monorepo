@@ -1,36 +1,166 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { bytesToHex } from '@noble/hashes/utils';
 import {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { AptosClient, BCS } from 'aptos';
+
+import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
-import { DBSimpleAccount } from '../../../types/account';
+import { OneKeyHardwareError } from '../../../errors';
+import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import { addHexPrefix } from '../../utils/hexUtils';
+
+import { buildSignedTx, generateUnsignedTransaction } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 export class KeyringHardware extends KeyringHardwareBase {
-  prepareAccounts(
+  async getPublicKey(
+    connectId: string,
+    deviceId: string,
+    paths: Array<string>,
+  ): Promise<Array<string>> {
+    let response;
+    try {
+      response = await HardwareSDK.batchGetPublicKey(connectId, deviceId, {
+        paths,
+        ecdsaCurveName: 'ed25519',
+      });
+    } catch (error: any) {
+      debugLogger.common.error(error);
+      throw new OneKeyHardwareError(error);
+    }
+
+    if (!response.success) {
+      debugLogger.common.error(response.payload);
+      throw deviceUtils.convertDeviceError(response.payload);
+    }
+
+    const pubKeys = response.payload
+      .map((result) => result.publicKey)
+      .filter((item: string | undefined): item is string => !!item);
+
+    return pubKeys;
+  }
+
+  async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    throw new Error('Method not implemented.');
+    const { type, indexes, names } = params;
+    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'/0'/0'`);
+    const isSearching = type === 'SEARCH_ACCOUNTS';
+    const showOnOneKey = false;
+    await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    let addressesResponse;
+    try {
+      addressesResponse = await HardwareSDK.aptosGetAddress(
+        connectId,
+        deviceId,
+        {
+          bundle: paths.map((path) => ({ path, showOnOneKey })),
+          ...passphraseState,
+        },
+      );
+    } catch (error: any) {
+      debugLogger.common.error(error);
+      throw new OneKeyHardwareError(error);
+    }
+    if (!addressesResponse.success) {
+      debugLogger.common.error(addressesResponse.payload);
+      throw deviceUtils.convertDeviceError(addressesResponse.payload);
+    }
+
+    let pubKeys: Array<string> = [];
+    if (!isSearching) {
+      const includePublicKey = !!addressesResponse.payload?.[0]?.publicKey;
+
+      if (!includePublicKey) {
+        pubKeys = await this.getPublicKey(connectId, deviceId, paths);
+      }
+    }
+
+    const ret = [];
+    let index = 0;
+    for (const addressInfo of addressesResponse.payload) {
+      const { address, path, publicKey } = addressInfo;
+      if (address) {
+        const name = (names || [])[index] || `APT #${indexes[index] + 1}`;
+        ret.push({
+          id: `${this.walletId}--${path}`,
+          name,
+          type: AccountType.SIMPLE,
+          path,
+          coinType: COIN_TYPE,
+          pub: publicKey ?? (pubKeys[index] || ''),
+          address: addHexPrefix(address),
+        });
+        index += 1;
+      }
+    }
+    return ret;
   }
 
-  getAddress(params: IHardwareGetAddressParams): Promise<string> {
-    throw new Error('Method not implemented.');
+  async getAddress(params: IHardwareGetAddressParams): Promise<string> {
+    await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const response = await HardwareSDK.aptosGetAddress(connectId, deviceId, {
+      path: params.path,
+      showOnOneKey: params.showOnOneKey,
+      ...passphraseState,
+    });
+    if (response.success && !!response.payload?.address) {
+      return response.payload.address;
+    }
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 
-  signTransaction(
+  async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
-    throw new Error('Method not implemented.');
+    debugLogger.common.info('signTransaction', unsignedTx);
+    const dbAccount = await this.getDbAccount();
+    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const aptosClient = new AptosClient(rpcURL);
+
+    const rawTx = await generateUnsignedTransaction(aptosClient, unsignedTx);
+    const serialize = new BCS.Serializer();
+    rawTx.serialize(serialize);
+
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    await this.getHardwareSDKInstance();
+    const response = await HardwareSDK.aptosSignTransaction(
+      connectId,
+      deviceId,
+      {
+        path: dbAccount.path,
+        rawTx: bytesToHex(serialize.getBytes()),
+        ...passphraseState,
+      },
+    );
+
+    if (response.success) {
+      const { signature, public_key: senderPublicKey } = response.payload;
+      return buildSignedTx(rawTx, senderPublicKey, signature);
+    }
+
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 
   signMessage(

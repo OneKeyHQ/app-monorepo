@@ -22,7 +22,7 @@ import {
 import { addHexPrefix } from '../../utils/hexUtils';
 import { IUnsignedMessageEvm } from '../evm/Vault';
 
-import { signTransaction } from './utils';
+import { generateUnsignedTransaction, signRawTransaction } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
@@ -113,7 +113,13 @@ export class KeyringHd extends KeyringHdBase {
 
     const signer = signers[dbAccount.address];
 
-    return signTransaction(aptosClient, unsignedTx, signer);
+    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+    if (!senderPublicKey) {
+      throw new OneKeyInternalError('Unable to get sender public key.');
+    }
+
+    const rawTx = await generateUnsignedTransaction(aptosClient, unsignedTx);
+    return signRawTransaction(signer, senderPublicKey, rawTx);
   }
 
   override async signMessage(

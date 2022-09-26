@@ -6,7 +6,7 @@ const settings: IVaultSettings = {
   txCanBeReplaced: false,
 
   importedAccountEnabled: true,
-  hardwareAccountEnabled: false,
+  hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
@@ -15,7 +15,7 @@ const settings: IVaultSettings = {
   activateTokenRequired: true,
 
   feeInfoEditable: true,
-  minGasLimit: 2000,
+  minGasLimit: 1000,
 };
 
 export default settings;

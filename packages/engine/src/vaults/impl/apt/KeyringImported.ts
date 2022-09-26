@@ -18,7 +18,7 @@ import {
 } from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
 
-import { signTransaction } from './utils';
+import { generateUnsignedTransaction, signRawTransaction } from './utils';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {
@@ -84,9 +84,15 @@ export class KeyringImported extends KeyringImportedBase {
       dbAccount.address,
     ]);
 
+    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+    if (!senderPublicKey) {
+      throw new OneKeyInternalError('Unable to get sender public key.');
+    }
+
     const signer = signers[dbAccount.address];
 
-    return signTransaction(aptosClient, unsignedTx, signer);
+    const rawTx = await generateUnsignedTransaction(aptosClient, unsignedTx);
+    return signRawTransaction(signer, senderPublicKey, rawTx);
   }
 
   override async signMessage(
