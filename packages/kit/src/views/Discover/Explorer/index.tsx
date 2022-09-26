@@ -10,6 +10,8 @@ import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
+import { useNavigation } from '../../../hooks';
+import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 
 import Desktop from './Container/Desktop';
@@ -47,6 +49,7 @@ const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<DiscoverRouteProp>();
+  const navigation = useNavigation();
   const { incomingUrl } = route.params || {};
   const { openMatchDApp, gotoSite, currentTab, tabs, gotoHome } =
     useWebController();
@@ -59,11 +62,14 @@ const Explorer: FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      // TODO web incoming url not work
+      // TODO: not work for tab
       if (incomingUrl) {
         gotoSite({ url: incomingUrl, isNewWindow: true });
       }
-    }, [gotoSite, incomingUrl]),
+      return () => {
+        navigation.setParams({ incomingUrl: undefined });
+      };
+    }, [gotoSite, incomingUrl, navigation]),
   );
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {

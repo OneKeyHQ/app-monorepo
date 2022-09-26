@@ -17,7 +17,7 @@ export const useWebviewRef = ({
     isInPlace,
     isNewWindow,
   }: {
-    url: string;
+    url?: string;
     title?: string;
     favicon?: string;
     isInPlace?: boolean;
@@ -69,7 +69,6 @@ export const useWebviewRef = ({
         const handleTitleMessage = ({ title }: { title: string }) => {
           if (title) {
             onNavigation({
-              url: ref.getURL(),
               title,
             });
           }
@@ -79,7 +78,6 @@ export const useWebviewRef = ({
           // console.log('page-favicon-updated:', event);
           if (favicons.length > 0) {
             onNavigation({
-              url: ref.getURL(),
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               favicon: favicons[0],
             });

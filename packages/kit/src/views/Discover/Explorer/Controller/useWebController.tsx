@@ -144,7 +144,6 @@ export const useWebController = ({
     // @ts-expect-error
     ref: innerRef,
     onNavigation: ({ url, title, favicon, isNewWindow, isInPlace }) => {
-      console.log({ url, title, favicon, isNewWindow, isInPlace });
       if (url && url !== tab?.url) {
         if (Date.now() - lasNewUrlTimestamp < 500) {
           return;
