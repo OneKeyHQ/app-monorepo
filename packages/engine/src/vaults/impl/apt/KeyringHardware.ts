@@ -5,7 +5,6 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient, BCS } from 'aptos';
-import { isArray } from 'lodash';
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';

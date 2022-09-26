@@ -303,6 +303,11 @@ const RecoverAccounts: FC = () => {
     [],
   );
 
+  const isDisabled = useMemo(() => {
+    if (isLoading) return true;
+    return !isValid;
+  }, [isValid, isLoading]);
+
   return (
     <Modal
       height="640px"
@@ -321,7 +326,7 @@ const RecoverAccounts: FC = () => {
         });
       }}
       primaryActionProps={{
-        isDisabled: !isValid,
+        isDisabled,
       }}
       hideSecondaryAction
       staticChildrenProps={{
