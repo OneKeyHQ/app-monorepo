@@ -9,16 +9,6 @@ import DiscoverHome from '../../Home/DiscoverHome';
 import { useWebController } from '../Controller/useWebController';
 import { webviewRefs } from '../Controller/webviewRefs';
 
-// const cachedHome = (
-//   <DiscoverHome
-//     // eslint-disable-next-line @typescript-eslint/no-shadow
-//     onItemSelect={({ url, name, favicon }) =>
-//       gotoSite({ url, title: name, favicon })
-//     }
-//     onItemSelectHistory={openMatchDApp}
-//   />
-// );
-
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();

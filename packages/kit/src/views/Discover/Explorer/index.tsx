@@ -1,6 +1,7 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
+import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
@@ -56,11 +57,14 @@ const Explorer: FC = () => {
   const [visibleMore, setVisibleMore] = useState(false);
   const [refreshKey, setRefreshKey] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    if (incomingUrl) {
-      gotoSite({ url: incomingUrl, isNewWindow: true });
-    }
-  }, [gotoSite, incomingUrl]);
+  useFocusEffect(
+    useCallback(() => {
+      // TODO web incoming url not work
+      if (incomingUrl) {
+        gotoSite({ url: incomingUrl, isNewWindow: true });
+      }
+    }, [gotoSite, incomingUrl]),
+  );
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
