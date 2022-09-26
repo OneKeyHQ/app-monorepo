@@ -26,7 +26,6 @@ import {
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { RestoreResult } from '../../../../background/services/ServiceCloudBackup.types';
-import { ValidationFields } from '../../../../components/Protected';
 import { useNavigation } from '../../../../hooks';
 import { useData } from '../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
@@ -359,8 +358,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
             });
         },
         () => {},
-        null,
-        ValidationFields.Secret,
       );
     } else {
       requestBackupPassword(
