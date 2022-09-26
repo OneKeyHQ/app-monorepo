@@ -101,7 +101,7 @@ const WebControllerBarDesktop: FC = ({
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
   const httpSafeState = getHttpSafeState(searchContent);
-  const { url } = useWebController();
+  const { currentTab } = useWebController();
 
   const searchBar = useRef<TextInput>(null);
   // Todo Ref Type
@@ -156,7 +156,7 @@ const WebControllerBarDesktop: FC = ({
             })}
             customLeftIcon={httpSafeState}
             size="base"
-            value={searchContent?.searchContent || url}
+            value={searchContent?.searchContent || currentTab?.url}
             onClear={() => onSearchContentChange?.({ searchContent: '' })}
             onChangeText={(text) =>
               onSearchContentChange?.({ searchContent: text })

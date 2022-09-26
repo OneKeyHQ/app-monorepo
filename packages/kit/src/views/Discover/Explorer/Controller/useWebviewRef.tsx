@@ -1,152 +1,168 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 import { batch } from 'react-redux';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const useWebviewRef = (
-  electronWebView?: IElectronWebView,
-  navigationStateChangeEvent?: WebViewNavigation,
-  onOpenNewUrl?: (url: string) => void,
-) => {
-  const [currentTitle, setCurrentTitle] = useState<string>();
-  const [isLoading, setLoading] = useState<boolean>(false);
-  const [currentUrl, setCurrentUrl] = useState<string>();
-  const [currentFavicon, setCurrentFavicon] = useState<string>();
-
+export const useWebviewRef = ({
+  ref,
+  onNavigation,
+}: {
+  ref?: IElectronWebView;
+  onNavigation: ({
+    url,
+    title,
+    favicon,
+    isInPlace,
+    isNewWindow,
+  }: {
+    url: string;
+    title?: string;
+    favicon?: string;
+    isInPlace?: boolean;
+    isNewWindow?: boolean;
+  }) => void;
+}) => {
   useEffect(() => {
     if (platformEnv.isDesktop) {
       try {
         // Electron Webview
-        if (!electronWebView) {
+        if (!ref) {
           return;
         }
-        const handleMessage = () =>
-          batch(() => {
-            // @ts-expect-error
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            setCurrentTitle(electronWebView?.getTitle());
-
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            setCurrentUrl(electronWebView?.getURL());
-            setLoading(false);
-          });
+        const handleFinishLoading = () => {
+          // onNavigation({
+          //   url: ref.getURL(),
+          //   // @ts-ignore
+          //   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          //   title: ref.getTitle(),
+          // });
+        };
+        const handleNavigation = ({
+          url,
+          isInPlace,
+          isMainFrame,
+        }: {
+          url: string;
+          isInPlace: boolean;
+          isMainFrame: boolean;
+        }) => {
+          if (isMainFrame) {
+            onNavigation({
+              url,
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              title: ref.getTitle(),
+              isInPlace,
+            });
+          }
+        };
 
         const handleStartLoadingMessage = () =>
           batch(() => {
-            setCurrentTitle(undefined);
-            setCurrentUrl(undefined);
-            setLoading(true);
+            // setCurrentTitle(undefined);
+            // setCurrentUrl(undefined);
+            // setLoading(true);
           });
 
-        const handleFaviconMessage = (event: any) => {
+        const handleTitleMessage = ({ title }: { title: string }) => {
+          if (title) {
+            onNavigation({
+              url: ref.getURL(),
+              title,
+            });
+          }
+        };
+
+        const handleFaviconMessage = ({ favicons }: { favicons: string[] }) => {
           // console.log('page-favicon-updated:', event);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (event.favicons && event.favicons.length > 0) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            setCurrentFavicon(event.favicons[0]);
+          if (favicons.length > 0) {
+            onNavigation({
+              url: ref.getURL(),
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              favicon: favicons[0],
+            });
           }
         };
 
         const handleLoadFailMessage = (event: any) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (event.errorCode !== -3) {
-            setLoading(false);
+            // setLoading(false);
           }
         };
         const handleLoadStopMessage = () => {
-          setLoading(false);
+          // setLoading(false);
         };
         const handleNewWindowMessage = (e: Event) => {
           // @ts-expect-error
           const { url } = e;
           if (url) {
-            onOpenNewUrl?.(url);
+            onNavigation({ url, isNewWindow: true });
           }
         };
-        electronWebView.addEventListener(
-          'did-start-loading',
-          handleStartLoadingMessage,
-        );
-        electronWebView.addEventListener(
-          'page-favicon-updated',
-          handleFaviconMessage,
-        );
-        electronWebView.addEventListener('did-finish-load', handleMessage);
-        electronWebView.addEventListener(
-          'did-stop-loading',
-          handleLoadStopMessage,
-        );
-        electronWebView.addEventListener(
-          'did-fail-load',
-          handleLoadFailMessage,
-        );
-        electronWebView.addEventListener('new-window', handleNewWindowMessage);
+        ref.addEventListener('did-start-loading', handleStartLoadingMessage);
+        ref.addEventListener('page-title-updated', handleTitleMessage);
+        ref.addEventListener('page-favicon-updated', handleFaviconMessage);
+        ref.addEventListener('did-finish-load', handleFinishLoading);
+        ref.addEventListener('did-start-navigation', handleNavigation);
+        ref.addEventListener('did-stop-loading', handleLoadStopMessage);
+        ref.addEventListener('did-fail-load', handleLoadFailMessage);
+        ref.addEventListener('new-window', handleNewWindowMessage);
 
         return () => {
-          electronWebView.removeEventListener(
+          ref.removeEventListener(
             'did-start-loading',
             handleStartLoadingMessage,
           );
-          electronWebView.removeEventListener(
-            'page-favicon-updated',
-            handleFaviconMessage,
-          );
-          electronWebView.removeEventListener('did-finish-load', handleMessage);
-          electronWebView.removeEventListener(
-            'did-fail-load',
-            handleLoadFailMessage,
-          );
-          electronWebView.removeEventListener(
-            'did-stop-loading',
-            handleLoadStopMessage,
-          );
-          electronWebView.removeEventListener(
-            'new-window',
-            handleNewWindowMessage,
-          );
+          ref.removeEventListener('page-title-updated', handleTitleMessage);
+          ref.removeEventListener('page-favicon-updated', handleFaviconMessage);
+          ref.removeEventListener('did-finish-load', handleFinishLoading);
+          ref.removeEventListener('did-start-navigation', handleNavigation);
+          ref.removeEventListener('did-fail-load', handleLoadFailMessage);
+          ref.removeEventListener('did-stop-loading', handleLoadStopMessage);
+          ref.removeEventListener('new-window', handleNewWindowMessage);
         };
       } catch (error) {
         console.error(error);
       }
     }
-  }, [onOpenNewUrl, electronWebView]);
+  }, [ref, onNavigation]);
 
   const canGoBack = useCallback(
     (): boolean =>
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-      electronWebView?.canGoBack(),
-    [electronWebView],
+      ref?.canGoBack(),
+    [ref],
   );
 
   const goBack = useCallback(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    electronWebView?.goBack();
-  }, [electronWebView]);
+    ref?.goBack();
+  }, [ref]);
 
   const canGoForward = useCallback(
     (): boolean =>
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-      electronWebView?.canGoForward(),
-    [electronWebView],
+      ref?.canGoForward(),
+    [ref],
   );
 
   const goForward = useCallback(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    electronWebView?.goForward();
-  }, [electronWebView]);
+    ref?.goForward();
+  }, [ref]);
 
   const stopLoading = useCallback(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    electronWebView?.stop();
-  }, [electronWebView]);
+    ref?.stop();
+  }, [ref]);
 
   return {
     canGoBack,
@@ -154,9 +170,5 @@ export const useWebviewRef = (
     canGoForward,
     goForward,
     stopLoading,
-    loading: isLoading,
-    title: currentTitle,
-    url: currentUrl,
-    favicon: currentFavicon,
   };
 };

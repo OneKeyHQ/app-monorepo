@@ -6,7 +6,7 @@ import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 export const useWebviewRef = (
   webViewRef?: IWebViewWrapperRef,
   navigationStateChangeEvent?: WebViewNavigation,
-  onOpenNewUrl?: (url: string) => void,
+  onOpenWindow?: (url: string) => void,
 ) => {
   const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
   const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();

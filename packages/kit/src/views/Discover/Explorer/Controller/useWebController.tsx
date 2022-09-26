@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { nanoid } from '@reduxjs/toolkit';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -25,9 +25,9 @@ import { MatchDAppItemType, webHandler } from '../explorerUtils';
 import { useWebviewRef } from './useWebviewRef';
 import { webviewRefs } from './webviewRefs';
 
+let lasNewUrlTimestamp = Date.now();
 export const useWebController = ({
   id,
-  navigationStateChangeEvent,
 }:
   | {
       id?: string;
@@ -38,20 +38,34 @@ export const useWebController = ({
   const { firstRemindDAPP } = useAppSelector((s) => s.discover);
   const { currentTabId, tabs } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
-  const webviewRef = webviewRefs[curId];
+  const innerRef = webviewRefs[curId]?.innerRef;
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
   const gotoHome = useCallback(
     () => dispatch(setCurrentWebTab('home')),
     [dispatch],
   );
   const gotoSite = useCallback(
-    ({ url, title, favicon, dAppId }: WebSiteHistory & { dAppId?: string }) => {
+    ({
+      url,
+      title,
+      favicon,
+      dAppId,
+      isNewWindow,
+      isInPlace,
+    }: WebSiteHistory & {
+      dAppId?: string;
+      isNewWindow?: boolean;
+      isInPlace?: boolean;
+    }) => {
       if (url) {
         if (webHandler === 'browser') {
           return openUrl(url);
         }
+        const isNewTab =
+          isNewWindow || (curId === 'home' && webHandler === 'tabbedWebview');
+
         dispatch(
-          curId === 'home' && webHandler === 'tabbedWebview'
+          isNewTab
             ? addWebTab({
                 id: nanoid(),
                 title,
@@ -66,9 +80,14 @@ export const useWebController = ({
                 webSite: { url, title, favicon },
               }),
         );
+        if (!isNewTab && !isInPlace) {
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          innerRef?.loadURL(url);
+        }
       }
     },
-    [curId, dispatch],
+    [curId, dispatch, innerRef],
   );
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -80,7 +99,6 @@ export const useWebController = ({
         });
       }
 
-      // 打开的是 Dapp, 处理首次打开 Dapp 提示
       if (dapp && firstRemindDAPP && dapp.url !== tab?.url) {
         let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
         DialogManager.show({
@@ -121,24 +139,25 @@ export const useWebController = ({
     goBack,
     goForward,
     stopLoading,
-    loading,
-    url,
-    title,
-    favicon,
     // eslint-disable-next-line @typescript-eslint/no-shadow
+  } = useWebviewRef({
     // @ts-expect-error
-  } = useWebviewRef(webviewRef?.innerRef, navigationStateChangeEvent);
-
-  useEffect(() => {
-    // TODO 避免手动触发
-    if (url && url !== tab?.url) {
-      gotoSite({
-        url,
-        title,
-        favicon,
-      });
-    }
-  }, [dispatch, favicon, gotoSite, id, tab?.url, title, url]);
+    ref: innerRef,
+    onNavigation: ({ url, title, favicon, isNewWindow, isInPlace }) => {
+      console.log({ url, title, favicon, isNewWindow, isInPlace });
+      if (url && url !== tab?.url) {
+        if (Date.now() - lasNewUrlTimestamp < 500) {
+          return;
+        }
+        lasNewUrlTimestamp = Date.now();
+        gotoSite({ url, title, favicon, isNewWindow, isInPlace });
+      } else if (title) {
+        dispatch(setWebTabData({ id: curId, title }));
+      } else if (favicon) {
+        dispatch(setWebTabData({ id: curId, favicon }));
+      }
+    },
+  });
 
   return {
     tabs,
@@ -147,14 +166,10 @@ export const useWebController = ({
     gotoHome,
     gotoSite,
     openMatchDApp,
-    url: url || tab?.url,
-    title: title || tab?.title,
-    favicon: favicon || tab?.favicon,
     canGoBack,
     canGoForward,
     goBack,
     goForward,
     stopLoading,
-    loading,
   };
 };
