@@ -96,7 +96,7 @@ export const discoverSlice = createSlice({
     addWebSiteHistory(
       state,
       action: PayloadAction<{
-        keyUrl: string | undefined;
+        keyUrl?: string;
         webSite: WebSiteHistory;
       }>,
     ) {

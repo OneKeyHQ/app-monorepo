@@ -33,7 +33,7 @@ import {
   MatchDAppItemType,
   SearchViewKeyEventType,
   SearchViewProps,
-} from '../types';
+} from '../explorerUtils';
 
 import { useLimitHistories } from './useLimitHistories';
 import { useSearchLocalDapp } from './useSearchLocalDapp';
@@ -75,10 +75,6 @@ const SearchView: FC<SearchViewProps> = ({
     }
   }, [searchContent]);
 
-  const onSelectHistory = (item: MatchDAppItemType) => {
-    onSelectorItem?.(item);
-  };
-
   const renderItem: FlatListProps<MatchDAppItemType>['renderItem'] = ({
     item,
     index,
@@ -111,9 +107,8 @@ const SearchView: FC<SearchViewProps> = ({
         }
         borderWidth={1}
         borderRadius={12}
-        key={`${index}-${item.id}`}
         onPress={() => {
-          onSelectHistory(item);
+          onSelectorItem?.(item);
         }}
       >
         <HStack space={3} w="100%" alignItems="center">
@@ -217,24 +212,22 @@ const SearchView: FC<SearchViewProps> = ({
   }, [selectItemIndex]);
 
   useImperativeHandle(forwardedRef, () => ({
-    onKeyPress: (event: SearchViewKeyEventType) => {
-      onKeyPress(event);
-    },
+    onKeyPress,
   }));
 
   return (
-    <PresenceTransition
-      visible={visible}
-      initial={{ opacity: 0, translateY: 0 }}
-      animate={{
-        opacity: 1,
-        translateY,
-        transition: {
-          duration: 150,
-        },
-      }}
-    >
-      <OverlayContainer>
+    <OverlayContainer>
+      <PresenceTransition
+        visible={visible}
+        initial={{ opacity: 0, translateY: 0 }}
+        animate={{
+          opacity: 1,
+          translateY,
+          transition: {
+            duration: 150,
+          },
+        }}
+      >
         <Box
           ref={ele}
           maxH={toPxPositionValue(maxHeight)}
@@ -278,8 +271,8 @@ const SearchView: FC<SearchViewProps> = ({
             showsVerticalScrollIndicator={false}
           />
         </Box>
-      </OverlayContainer>
-    </PresenceTransition>
+      </PresenceTransition>
+    </OverlayContainer>
   );
 };
 

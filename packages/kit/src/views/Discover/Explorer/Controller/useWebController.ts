@@ -1,6 +1,5 @@
-import { createRef, useCallback, useContext, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { nanoid } from '@reduxjs/toolkit';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
@@ -9,6 +8,7 @@ import { appSelector } from '../../../../store';
 import {
   WebSiteHistory,
   addWebSiteHistory,
+  updateHistory,
 } from '../../../../store/reducers/discover';
 import { addWebTab, setWebTabData } from '../../../../store/reducers/webTabs';
 import { MatchDAppItemType, webHandler } from '../explorerUtils';
@@ -31,7 +31,7 @@ export const useWebController = ({
   const webviewRef = webviewRefs[curId];
   const tab = tabs.find((t) => t.id === curId);
   const gotoSite = useCallback(
-    ({ url, title, favicon }: WebSiteHistory) => {
+    ({ url, title, favicon, dAppId }: WebSiteHistory & { dAppId?: string }) => {
       if (url) {
         dispatch(
           id === 'home' && webHandler === 'tabbedWebview'
@@ -43,10 +43,11 @@ export const useWebController = ({
                 isCurrent: true,
               })
             : setWebTabData({ id, url, title, favicon }),
-          addWebSiteHistory({
-            keyUrl: undefined,
-            webSite: { url, title, favicon },
-          }),
+          dAppId
+            ? updateHistory(dAppId)
+            : addWebSiteHistory({
+                webSite: { url, title, favicon },
+              }),
         );
       }
     },
@@ -54,12 +55,13 @@ export const useWebController = ({
   );
   const openMatchDApp = useCallback(
     ({ dapp, webSite }: MatchDAppItemType) => {
-      const site = dapp || webSite;
+      const site = webSite || dapp;
       if (site) {
-        gotoSite({
+        return gotoSite({
           url: site.url,
-          title: dapp?.name || site.url,
+          title: dapp?.name || webSite?.title,
           favicon: site.favicon,
+          dAppId: dapp?.id,
         });
       }
     },

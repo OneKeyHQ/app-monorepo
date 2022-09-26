@@ -70,11 +70,6 @@ const Explorer: FC = () => {
 
   const [visibleMore, setVisibleMore] = useState(false);
 
-  const [canGoBack, setCanGoBack] = useState<boolean>(false);
-  const [canGoForward, setCanGoForward] = useState<boolean>(false);
-  const [searchContent, setSearchContent] = useState<SearchContentType>();
-  const [refreshKey, setRefreshKey] = useState<string>();
-
   const gotoUrl = async (item: (string | MatchDAppItemType) | undefined) => {
     if (webHandler !== 'tabbedWebview') {
       if (typeof item === 'string') {
@@ -112,7 +107,6 @@ const Explorer: FC = () => {
 
           dispatch(
             addWebSiteHistory({
-              keyUrl: undefined,
               webSite: { url },
             }),
           );

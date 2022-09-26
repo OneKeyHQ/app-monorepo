@@ -18,14 +18,14 @@ import {
   Pressable,
 } from '@onekeyhq/components';
 
-import SearchView from '../Search/SearchView';
-
-import { useWebController } from './useWebController';
 import {
   MatchDAppItemType,
   SearchContentType,
   SearchViewKeyEventType,
 } from '../explorerUtils';
+import SearchView from '../Search/SearchView';
+
+import { useWebController } from './useWebController';
 
 type BrowserURLInputProps = {
   onClear?: () => void;
