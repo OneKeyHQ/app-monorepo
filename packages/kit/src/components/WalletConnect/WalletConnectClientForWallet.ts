@@ -53,6 +53,8 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
   // connectToDapp
   @backgroundMethod()
   async connect({ uri }: { uri: string }) {
+    // eslint-disable-next-line no-param-reassign
+    uri = uri?.trim() || uri;
     // uri network param defaults to evm
     const network = new URL(uri).searchParams.get('network') || IMPL_EVM;
 
@@ -113,6 +115,8 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
         error,
       );
       connector.rejectSession(error as any);
+    } finally {
+      await wait(600);
     }
   }
 }
