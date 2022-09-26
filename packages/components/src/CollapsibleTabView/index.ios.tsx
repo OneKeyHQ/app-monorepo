@@ -24,6 +24,7 @@ const Container: FC<ContainerProps> = ({
   onRefresh,
   refreshing,
   containerStyle,
+  // ref,
 }) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
@@ -49,9 +50,11 @@ const Container: FC<ContainerProps> = ({
     'text-default',
   ]);
 
+  // const iosRef = useRef<NestedTabView>(null);
   return (
     <Context.Provider value={tabs[selectedIndex].name}>
       <NestedTabView
+        // ref={iosRef}
         style={containerStyle}
         values={tabs}
         defaultIndex={selectedIndex}
