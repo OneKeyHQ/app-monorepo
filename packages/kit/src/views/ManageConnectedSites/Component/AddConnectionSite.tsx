@@ -2,18 +2,8 @@ import React, { FC, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  Dialog,
-  Form,
-  Input,
-  Text,
-  useForm,
-  useToast,
-} from '@onekeyhq/components';
+import { Button, Dialog, Input, Text, useToast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../../components/WalletConnect/walletConnectUtils';
 import { useActiveWalletAccount } from '../../../hooks';
