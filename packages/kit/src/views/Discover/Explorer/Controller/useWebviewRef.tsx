@@ -8,12 +8,10 @@ import { batch } from 'react-redux';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useWebviewRef = (
-  webViewRef?: IWebViewWrapperRef,
+  electronWebView?: IElectronWebView,
   navigationStateChangeEvent?: WebViewNavigation,
   onOpenNewUrl?: (url: string) => void,
 ) => {
-  const electronWebView = webViewRef?.innerRef as IElectronWebView;
-  console.log({ electronWebView, webViewRef });
   const [currentTitle, setCurrentTitle] = useState<string>();
   const [isLoading, setLoading] = useState<boolean>(false);
   const [currentUrl, setCurrentUrl] = useState<string>();
@@ -63,7 +61,6 @@ export const useWebviewRef = (
           setLoading(false);
         };
         const handleNewWindowMessage = (e: Event) => {
-          console.log({ e });
           // @ts-expect-error
           const { url } = e;
           if (url) {

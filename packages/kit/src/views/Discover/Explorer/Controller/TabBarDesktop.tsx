@@ -50,9 +50,9 @@ const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
       alignItems="center"
     >
       <Typography.Caption
-        w="82px"
+        maxW="82px"
         mr="10px"
-        textOverflow="ellipsis"
+        isTruncated
         color={isCurrent ? 'text-default' : 'text-subdued'}
       >
         {title}

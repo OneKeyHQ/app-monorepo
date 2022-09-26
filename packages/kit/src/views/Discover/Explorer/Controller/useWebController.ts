@@ -29,7 +29,6 @@ export const useWebController = ({
   const { currentTabId, tabs } = appSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const webviewRef = webviewRefs[curId];
-  console.log({ curId, webviewRef });
   const tab = tabs.find((t) => t.id === curId);
   const gotoSite = useCallback(
     ({ url, title, favicon }: WebSiteHistory) => {
@@ -77,27 +76,25 @@ export const useWebController = ({
     title,
     favicon,
     // eslint-disable-next-line @typescript-eslint/no-shadow
-  } = useWebviewRef(webviewRef, navigationStateChangeEvent);
+    // @ts-expect-error
+  } = useWebviewRef(webviewRef?.innerRef, navigationStateChangeEvent);
 
   useEffect(() => {
-    console.log({ url });
-    if (url !== tab.url) {
-      dispatch(
-        setWebTabData({ id, url, title, favicon }),
-        addWebSiteHistory({
-          keyUrl: undefined,
-          webSite: { url, title, favicon },
-        }),
-      );
+    if (url && url !== tab?.url) {
+      gotoSite({
+        url,
+        title,
+        favicon,
+      });
     }
-  }, [dispatch, favicon, id, tab.url, title, url]);
+  }, [dispatch, favicon, gotoSite, id, tab?.url, title, url]);
 
   return {
     gotoSite,
     openMatchDApp,
-    url,
-    title,
-    favicon,
+    url: url || tab?.url,
+    title: title || tab?.title,
+    favicon: favicon || tab?.favicon,
     canGoBack,
     canGoForward,
     goBack,

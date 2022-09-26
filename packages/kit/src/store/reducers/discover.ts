@@ -145,7 +145,9 @@ export const discoverSlice = createSlice({
       }
     },
     updateSyncData(state, action: PayloadAction<InitialState['syncData']>) {
-      state.syncData = action.payload;
+      if (action.payload.timestamp > state.syncData.timestamp) {
+        state.syncData = action.payload;
+      }
     },
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;

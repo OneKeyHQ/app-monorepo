@@ -337,10 +337,10 @@ const Explorer: FC = () => {
     () =>
       tabs.map((tab) => (
         <Freeze key={tab.id} freeze={!tab.isCurrent}>
-          <WebContent key={tab.isCurrent ? refreshKey : undefined} {...tab} />
+          <WebContent {...tab} />
         </Freeze>
       )),
-    [refreshKey, tabs],
+    [tabs],
   );
 
   // const moreViewContent = useMemo(
