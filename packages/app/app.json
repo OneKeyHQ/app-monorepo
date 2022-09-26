@@ -18,7 +18,8 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "so.onekey.wallet"
+      "bundleIdentifier": "so.onekey.wallet",
+      "associatedDomains": ["applinks:app.onekey.so"]
     },
     "android": {
       "adaptiveIcon": {
