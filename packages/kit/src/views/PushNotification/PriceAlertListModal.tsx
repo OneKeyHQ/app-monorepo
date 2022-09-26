@@ -74,14 +74,16 @@ export const PriceAlertListModal: FC = () => {
   );
 
   const onPrimaryActionPress = useCallback(() => {
-    if (!pushNotification?.pushEnable) {
-      dispatch(setPushNotificationConfig({ pushEnable: true }));
+    if (!pushNotification?.pushEnable || !pushNotification.priceAlertEnable) {
+      dispatch(
+        setPushNotificationConfig({ pushEnable: true, priceAlertEnable: true }),
+      );
     }
     navigation.navigate(ManageTokenRoutes.PriceAlertAdd, {
       token,
       alerts: data,
     });
-  }, [pushNotification?.pushEnable, dispatch, navigation, token, data]);
+  }, [pushNotification, dispatch, navigation, token, data]);
 
   useFocusEffect(
     useCallback(() => {

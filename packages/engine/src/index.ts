@@ -1358,6 +1358,7 @@ class Engine {
 
   async generateNativeTokenByNetworkId(networkId: string) {
     const network = await this.getNetwork(networkId);
+    const { impl, chainId } = parseNetworkId(networkId);
     return {
       id: network.id,
       name: network.symbol,
@@ -1366,6 +1367,11 @@ class Engine {
       symbol: network.symbol,
       decimals: network.decimals,
       logoURI: network.logoURI,
+      impl,
+      chainId,
+      address: '',
+      source: [],
+      isNative: true,
     };
   }
 
