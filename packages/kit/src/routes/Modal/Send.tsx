@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenApproveAmountEdit';
+import { HardwareSwapContinue } from '../../views/Send/SendModals/HardwareSwapContinue';
 import { SendFeedbackReceipt } from '../../views/Send/SendModals/SendFeedbackReceipt';
 import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
 
@@ -73,6 +74,10 @@ const modalRoutes = [
   {
     name: SendRoutes.SignMessageConfirm,
     component: SignMessageConfirm,
+  },
+  {
+    name: SendRoutes.HardwareSwapContinue,
+    component: HardwareSwapContinue,
   },
 ];
 

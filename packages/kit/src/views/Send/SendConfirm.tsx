@@ -126,7 +126,7 @@ function SendConfirm() {
   useOnboardingRequired();
   useReloadAccountBalance();
   const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
-  const { accountId, networkId, walletId, networkImpl, account } =
+  const { accountId, networkId, walletId, networkImpl, account, wallet } =
     useActiveWalletAccount();
 
   const {
@@ -236,11 +236,21 @@ function SendConfirm() {
           }
         }
 
-        navigation.navigate(SendRoutes.SendFeedbackReceipt, {
-          txid: tx.txid ?? 'unknown_txid',
-          closeModal: close,
-          onDetail: routeParams.onDetail,
-        });
+        if (
+          payloadInfo?.swapInfo &&
+          payloadInfo?.swapInfo.isApprove &&
+          wallet?.type === 'hw'
+        ) {
+          navigation.navigate(SendRoutes.HardwareSwapContinue, {
+            closeModal: close,
+          });
+        } else {
+          navigation.navigate(SendRoutes.SendFeedbackReceipt, {
+            txid: tx.txid ?? 'unknown_txid',
+            closeModal: close,
+            onDetail: routeParams.onDetail,
+          });
+        }
 
         if (routeParams.onSuccess) {
           routeParams.onSuccess(tx, data);
@@ -288,6 +298,8 @@ function SendConfirm() {
       serviceHistory,
       serviceToken,
       walletId,
+      wallet,
+      payloadInfo?.swapInfo,
     ],
   );
 

@@ -7,6 +7,10 @@ import { Button, useToast } from '@onekeyhq/components';
 import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
@@ -217,10 +221,11 @@ const ExchangeButton = () => {
             params: {
               payloadInfo: {
                 type: 'InternalSwap',
-                swapInfo,
+                swapInfo: { ...swapInfo, isApprove: true },
               },
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
+              skipSaveHistory: true,
               encodedTx: { ...encodedApproveTx, from: account?.address },
               onSuccess: async () => {
                 if (!encodedTx) {
@@ -236,6 +241,7 @@ const ExchangeButton = () => {
                       swapInfo,
                     },
                   });
+                appEventBus.emit(AppEventBusNames.SwapCompleted);
                 addSwapTransaction(result.txid, decodedTx.nonce);
               },
             },
