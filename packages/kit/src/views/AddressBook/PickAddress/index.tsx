@@ -148,6 +148,7 @@ type WalletAccount = {
 };
 
 const MyWallet = () => {
+  const intl = useIntl();
   const { wallets } = useRuntime();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
@@ -223,6 +224,22 @@ const MyWallet = () => {
       </Box>
     </Pressable>
   );
+
+  const renderWalletTitle = useCallback(
+    (wallet: Wallet) => {
+      if (wallet.type === 'external') {
+        return intl.formatMessage({ id: 'content__external_account' });
+      }
+      if (wallet.type === 'imported') {
+        return intl.formatMessage({ id: 'wallet__imported_accounts' });
+      }
+      if (wallet.type === 'watching') {
+        return intl.formatMessage({ id: 'wallet__watched_accounts' });
+      }
+      return wallet.name;
+    },
+    [intl],
+  );
   return (
     <SectionList
       sections={sections}
@@ -236,7 +253,7 @@ const MyWallet = () => {
       // eslint-disable-next-line
       renderSectionHeader={({ section }: { section: WalletAccount }) => (
         <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>
-          {section.wallet.name}
+          {renderWalletTitle(section.wallet)}
         </Typography.Subheading>
       )}
     />
