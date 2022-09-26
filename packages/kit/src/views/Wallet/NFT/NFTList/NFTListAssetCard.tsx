@@ -10,9 +10,11 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
+import { useNFTSymbolPrice } from '../../../../hooks/useTokens';
 
 import CollectibleListImage from './CollectibleListImage';
 import { useNFTListContent } from './NFTListContent';
@@ -26,7 +28,8 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const nftContent = useNFTListContent();
-  const price = nftContent?.context.price ?? 0;
+  const { network } = useActiveWalletAccount();
+  const symbolPrice = useNFTSymbolPrice({ networkId: network?.id ?? '' });
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -40,6 +43,10 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
     : 177;
   const { themeVariant } = useTheme();
   const { latestTradePrice } = asset;
+
+  const price = nftContent?.context.price ?? symbolPrice ?? 0;
+  const value = price * (latestTradePrice ?? 0);
+
   return (
     <Box mb="16px" {...rest}>
       <Pressable
@@ -73,10 +80,7 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         </Text>
         {latestTradePrice ? (
           <Text typography="Body2" height="20px" color="text-subdued">
-            <FormatCurrencyNumber
-              decimals={2}
-              value={price * latestTradePrice}
-            />
+            <FormatCurrencyNumber decimals={2} value={value > 0 ? value : ''} />
           </Text>
         ) : (
           <Box height="20px" />

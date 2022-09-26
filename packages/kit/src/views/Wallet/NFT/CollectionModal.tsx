@@ -28,6 +28,8 @@ import {
 
 import NFTListAssetCard from './NFTList/NFTListAssetCard';
 
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
+
 const ViewTypes = {
   LOGO: 0,
   NAME: 1,
@@ -72,8 +74,6 @@ function generateListArray(originData: Collection): ListDataType {
   return result;
 }
 
-type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
-
 type CollectionModalProps = {
   onSelectAsset: (asset: NFTAsset) => void;
 };
@@ -110,7 +110,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
-          screen: CollectiblesModalRoutes.CollectibleDetailModal,
+          screen: CollectiblesModalRoutes.NFTDetailModal,
           params: {
             asset,
             network,
