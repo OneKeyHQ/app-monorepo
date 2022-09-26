@@ -44,6 +44,8 @@ export type IVaultSettings = {
   isUTXOModel: boolean;
   activateAccountRequired?: boolean;
   activateTokenRequired?: boolean;
+
+  minGasLimit?: number;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

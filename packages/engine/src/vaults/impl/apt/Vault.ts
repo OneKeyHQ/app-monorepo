@@ -47,7 +47,10 @@ import {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
+import {
+  convertFeeGweiToValue,
+  convertFeeValueToGwei,
+} from '../../utils/feeInfoUtils';
 import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
@@ -178,8 +181,7 @@ export default class Vault extends VaultBase {
           const balance = get(accountResource, 'data.coin.value', 0);
           return new BigNumber(balance);
         } catch (error: any) {
-          const { errorCode } = error || {};
-          if (errorCode === 'resource_not_found') {
+          if (error instanceof InvalidAccount) {
             return Promise.resolve(new BigNumber(0));
           }
           // pass
@@ -254,7 +256,9 @@ export default class Vault extends VaultBase {
     const [address, module, name] = tokenAddress.split('::');
     if (module && name) {
       try {
-        return `${await this.validateAddress(address)}::${module}::${name}`;
+        return `${(
+          await this.validateAddress(address)
+        ).toLowerCase()}::${module}::${name}`;
       } catch {
         // pass
       }
@@ -262,11 +266,30 @@ export default class Vault extends VaultBase {
     throw new InvalidTokenAddress();
   }
 
-  override attachFeeInfoToEncodedTx(params: {
-    encodedTx: IEncodedTx;
+  override async attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxAptos;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<IEncodedTx> {
-    return Promise.resolve(params.encodedTx);
+  }): Promise<IEncodedTxAptos> {
+    const { price, limit } = params.feeInfoValue;
+    if (typeof price !== 'undefined' && typeof price !== 'string') {
+      throw new OneKeyInternalError('Invalid gas price.');
+    }
+    if (typeof limit !== 'string') {
+      throw new OneKeyInternalError('Invalid fee limit');
+    }
+    const network = await this.getNetwork();
+
+    // TODO: Dapp transaction edit fee
+
+    const encodedTxWithFee = {
+      ...params.encodedTx,
+      gas_unit_price: convertFeeGweiToValue({
+        value: price || '0.000000001',
+        network,
+      }),
+      max_gas_amount: limit,
+    };
+    return Promise.resolve(encodedTxWithFee);
   }
 
   override decodedTxToLegacy(

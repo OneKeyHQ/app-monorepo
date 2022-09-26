@@ -1,7 +1,6 @@
 import { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = {
-  feeInfoEditable: true,
   privateKeyExportEnabled: true,
   tokenEnabled: true,
   txCanBeReplaced: false,
@@ -14,6 +13,9 @@ const settings: IVaultSettings = {
   isUTXOModel: false,
   activateAccountRequired: true,
   activateTokenRequired: true,
+
+  feeInfoEditable: true,
+  minGasLimit: 2000,
 };
 
 export default settings;

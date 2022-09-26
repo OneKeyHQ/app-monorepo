@@ -15,7 +15,11 @@ import {
 } from 'aptos';
 import { get } from 'lodash';
 
-import { OneKeyError, OneKeyHardwareError } from '../../../errors';
+import {
+  InvalidAccount,
+  OneKeyError,
+  OneKeyHardwareError,
+} from '../../../errors';
 import { IDecodedTxActionType } from '../../types';
 import { hexlify, stripHexPrefix } from '../../utils/hexUtils';
 
@@ -279,11 +283,23 @@ export async function getAccountCoinResource(
   address: string,
   tokenAddress?: string | undefined,
 ): Promise<Types.MoveResource | undefined> {
-  // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
-  const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
-  const resources = await client.getAccountResources(stripHexPrefix(address));
-  const accountResource = resources.find((r) => r.type === typeTag);
-  return Promise.resolve(accountResource);
+  try {
+    // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
+    const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
+    const resources = await client.getAccountResources(stripHexPrefix(address));
+    const accountResource = resources.find((r) => r.type === typeTag);
+    return await Promise.resolve(accountResource);
+  } catch (error: any) {
+    const { errorCode } = error || {};
+    if (errorCode === 'account_not_found') {
+      throw new InvalidAccount(errorCode);
+    }
+    // TODO: handle resource not found
+    if (errorCode === 'resource_not_found') {
+      throw new InvalidAccount(errorCode);
+    }
+  }
+  return Promise.resolve(undefined);
 }
 
 export async function getModuleAbiMap(aptosClient: AptosClient, addr: string) {
@@ -495,13 +511,21 @@ export function formatSignMessage(
     fullMessage += `address: ${address}\n`;
     response.address = address;
   }
-  if (message.chainId) {
-    fullMessage += `chain_id: ${chainId}\n`;
-    response.chainId = chainId;
-  }
   if (message.application) {
-    fullMessage += `application: ${application}\n`;
+    let host: string;
+    try {
+      const urlObj = new URL(application);
+      host = urlObj.host;
+    } catch (error) {
+      host = application;
+    }
+
+    fullMessage += `application: ${host}\n`;
     response.application = application;
+  }
+  if (message.chainId) {
+    fullMessage += `chainId: ${chainId}\n`;
+    response.chainId = chainId;
   }
   fullMessage += `message: ${message.message}\n`;
   fullMessage += `nonce: ${message.nonce}`;

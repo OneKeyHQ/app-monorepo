@@ -182,6 +182,19 @@ class Validators {
   }
 
   @backgroundMethod()
+  async normalizeTokenAddress(
+    networkId: string,
+    address: string,
+  ): Promise<string> {
+    try {
+      const vault = await this.engine.getChainOnlyVault(networkId);
+      return await vault.validateTokenAddress(address);
+    } catch (error) {
+      return address;
+    }
+  }
+
+  @backgroundMethod()
   private validateNumericString(value: string): boolean {
     return new BigNumber(value).isFinite();
   }
@@ -273,8 +286,10 @@ class Validators {
     value: string | BigNumber;
     highValue?: string | number;
   }): Promise<void> {
-    // TODO 21000 may relate to network
-    const minLimit = 21000;
+    const vaultSettings = await this.engine.getVaultSettings(networkId);
+    // default: EVM 21000
+    const minLimit = vaultSettings.minGasLimit ?? 21000;
+
     // eslint-disable-next-line no-param-reassign
     highValue = highValue ?? minLimit;
     const minI18nData = {

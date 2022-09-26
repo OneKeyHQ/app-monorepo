@@ -154,12 +154,17 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
 
   useEffect(() => {
     async function doQuery() {
-      const trimedAddress = debouncedAddress.trim();
+      if (!activeNetwork) return;
+      const normalizeTokenAddress =
+        await backgroundApiProxy.validator.normalizeTokenAddress(
+          activeNetwork?.id,
+          debouncedAddress,
+        );
+
       if (
-        !accountTokensMap.has(trimedAddress.toLowerCase()) &&
+        !accountTokensMap.has(normalizeTokenAddress) &&
         activeAccount &&
-        activeNetwork &&
-        trimedAddress
+        normalizeTokenAddress
       ) {
         let preResult;
         setSearching(true);
@@ -167,7 +172,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
           preResult = await backgroundApiProxy.engine.preAddToken(
             activeAccount.id,
             activeNetwork.id,
-            trimedAddress,
+            normalizeTokenAddress,
           );
           if (preResult?.[1]) {
             onSearch(preResult?.[1]);
@@ -216,8 +221,15 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
               required: intl.formatMessage({
                 id: 'form__field_is_required',
               }),
-              validate: (value) => {
-                if (accountTokensMap.has(value.toLowerCase())) {
+              validate: async (value) => {
+                if (!activeNetwork) return;
+
+                const normalizeTokenAddress =
+                  await backgroundApiProxy.validator.normalizeTokenAddress(
+                    activeNetwork?.id,
+                    value,
+                  );
+                if (accountTokensMap.has(normalizeTokenAddress)) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',
                   });
