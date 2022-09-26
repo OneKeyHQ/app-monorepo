@@ -14,8 +14,9 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { MatchDAppItemType } from '../explorerUtils';
+
 import type { ExplorerViewProps } from '..';
-import type { MatchDAppItemType } from '../Search/useSearchHistories';
 
 type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 

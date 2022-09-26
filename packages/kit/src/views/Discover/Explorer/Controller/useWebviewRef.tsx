@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 import { batch } from 'react-redux';
 

@@ -20,12 +20,12 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/Discover';
 
 import DAppIcon from '../../DAppIcon';
+import { MatchDAppItemType } from '../explorerUtils';
 
 import { Header, ListEmptyComponent } from './Header';
 import { useLimitHistories } from './useLimitHistories';
 import { useSearchLocalDapp } from './useSearchLocalDapp';
 
-import type { MatchDAppItemType } from './useSearchHistories';
 import type { FlatListProps } from 'react-native';
 
 type RouteProps = RouteProp<
@@ -131,14 +131,9 @@ const SearchModalView: FC = () => {
         // @ts-expect-error
         renderItem,
         ItemSeparatorComponent: () => <Divider />,
-        keyExtractor: (_item, index) => {
-          try {
-            const item = _item as MatchDAppItemType;
-            return `${index}-${item.id}`;
-          } catch (e) {
-            return index.toString();
-          }
-        },
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        keyExtractor: (item, index) => `${index}-${item?.id}`,
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (
           <ListEmptyComponent isLoading={loading} terms={searchContentTerm} />

@@ -198,7 +198,7 @@ const WebControllerBarDesktop: FC = ({
       <SearchView
         ref={searchView}
         visible={historyVisible}
-        // onSearchContentChange={onSearchContentChange}
+        onSearchContentChange={onSearchContentChange}
         searchContent={searchContent}
         onSelectorItem={(item: MatchDAppItemType) => {
           onSearchSubmitEditing?.(item);
