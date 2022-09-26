@@ -34,7 +34,12 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       id === 'home' || url === '' ? (
         <DiscoverHome
           onItemSelect={(dapp) =>
-            gotoSite({ url: dapp.url, title: dapp.name, favicon: dapp.favicon })
+            gotoSite({
+              url: dapp.url,
+              title: dapp.name,
+              favicon: dapp.favicon,
+              dAppId: dapp.id,
+            })
           }
           onItemSelectHistory={openMatchDApp}
         />
@@ -54,9 +59,9 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
           allowpopups
         />
       ),
-    // no need to refresh webview
+    // only refresh when url is empty
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [url === ''],
   );
 };
 

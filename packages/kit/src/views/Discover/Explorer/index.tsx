@@ -7,20 +7,19 @@ import { Platform, Share } from 'react-native';
 
 import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 
-import WebContent from './Content/WebContent';
-import Mobile from './Container/Mobile';
 import Desktop from './Container/Desktop';
+import Mobile from './Container/Mobile';
+import WebContent from './Content/WebContent';
+import { useWebController } from './Controller/useWebController';
 import {
   MatchDAppItemType,
   SearchContentType,
   webHandler,
 } from './explorerUtils';
-import { useWebController } from './Controller/useWebController';
 import MoreView from './MoreMenu';
 
 export type ExplorerViewProps = {
@@ -48,9 +47,9 @@ const Explorer: FC = () => {
   const toast = useToast();
   const route = useRoute<DiscoverRouteProp>();
   const { incomingUrl } = route.params || {};
-  // const [searchContent, setSearchContent] = useState<SearchContentType>();
   const { openMatchDApp, gotoSite, currentTab, tabs, gotoHome } =
     useWebController();
+  // const [searchContent, setSearchContent] = useState<SearchContentType>();
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -59,48 +58,15 @@ const Explorer: FC = () => {
 
   useEffect(() => {
     if (incomingUrl) {
-      gotoSite({ url: incomingUrl });
+      gotoSite({ url: incomingUrl, isNewWindow: true });
     }
-  }, [incomingUrl]);
+  }, [gotoSite, incomingUrl]);
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
       return gotoSite({ url: dapp });
     }
     openMatchDApp(dapp);
-  };
-
-  const getCurrentUrl = () => currentTab?.url ?? '';
-
-  const onCopyUrlToClipboard = () => {
-    copyToClipboard(getCurrentUrl());
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  };
-
-  const onOpenBrowser = () => {
-    openUrlExternal(getCurrentUrl());
-  };
-
-  const onShare = () => {
-    try {
-      Share.share(
-        Platform.OS === 'ios'
-          ? {
-              url: getCurrentUrl(),
-            }
-          : {
-              message: getCurrentUrl(),
-            },
-      )
-        .then((result) => {
-          console.log(result);
-        })
-        .catch((error) => {
-          console.error(error);
-        });
-    } catch (error) {
-      console.warn(error);
-    }
   };
 
   const explorerContent = useMemo(
@@ -110,11 +76,43 @@ const Explorer: FC = () => {
           <WebContent key={tab.isCurrent ? refreshKey : undefined} {...tab} />
         </Freeze>
       )),
-    [tabs],
+    [refreshKey, tabs],
   );
 
-  const moreViewContent = useMemo(
-    () => (
+  const moreViewContent = useMemo(() => {
+    const getCurrentUrl = () => currentTab?.url ?? '';
+
+    const onCopyUrlToClipboard = () => {
+      copyToClipboard(getCurrentUrl());
+      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+    };
+
+    const onOpenBrowser = () => {
+      openUrlExternal(getCurrentUrl());
+    };
+
+    const onShare = () => {
+      try {
+        Share.share(
+          Platform.OS === 'ios'
+            ? {
+                url: getCurrentUrl(),
+              }
+            : {
+                message: getCurrentUrl(),
+              },
+        )
+          .then((result) => {
+            console.log(result);
+          })
+          .catch((error) => {
+            console.error(error);
+          });
+      } catch (error) {
+        console.warn(error);
+      }
+    };
+    return (
       <MoreView
         visible={visibleMore}
         onVisibleChange={setVisibleMore}
@@ -124,9 +122,8 @@ const Explorer: FC = () => {
         onCopyUrlToClipboard={onCopyUrlToClipboard}
         onGoHomePage={gotoHome}
       />
-    ),
-    [visibleMore],
-  );
+    );
+  }, [currentTab?.url, gotoHome, intl, toast, visibleMore]);
 
   return (
     <Box flex={1} bg="background-default">
