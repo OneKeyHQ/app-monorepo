@@ -97,7 +97,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of addressesResponse.payload) {
       const { address, path, publicKey } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `APTOS #${indexes[index] + 1}`;
+        const name = (names || [])[index] || `APT #${indexes[index] + 1}`;
         ret.push({
           id: `${this.walletId}--${path}`,
           name,
