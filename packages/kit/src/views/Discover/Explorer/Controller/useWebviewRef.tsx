@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -24,6 +24,7 @@ export const useWebviewRef = ({
   }) => void;
 }) => {
   const [loading, setLoading] = useState(false);
+  const [isDomReady, setIsDomReady] = useState(false);
   useEffect(() => {
     if (platformEnv.isDesktop) {
       try {
@@ -52,6 +53,8 @@ export const useWebviewRef = ({
           }
         };
 
+        const handleDomReady = () => setIsDomReady(true);
+
         const handleStartLoadingMessage = () => setLoading(true);
 
         const handleTitleMessage = ({ title }: { title: string }) => {
@@ -72,12 +75,7 @@ export const useWebviewRef = ({
           }
         };
 
-        const handleLoadFailMessage = (event: any) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (event.errorCode !== -3) {
-            // setLoading(false);
-          }
-        };
+        const handleLoadFailMessage = handleFinishLoading;
         const handleLoadStopMessage = handleFinishLoading;
         const handleNewWindowMessage = (e: Event) => {
           // @ts-expect-error
@@ -87,13 +85,14 @@ export const useWebviewRef = ({
           }
         };
         ref.addEventListener('did-start-loading', handleStartLoadingMessage);
+        ref.addEventListener('did-start-navigation', handleNavigation);
         ref.addEventListener('page-title-updated', handleTitleMessage);
         ref.addEventListener('page-favicon-updated', handleFaviconMessage);
         ref.addEventListener('did-finish-load', handleFinishLoading);
-        ref.addEventListener('did-start-navigation', handleNavigation);
         ref.addEventListener('did-stop-loading', handleLoadStopMessage);
         ref.addEventListener('did-fail-load', handleLoadFailMessage);
         ref.addEventListener('new-window', handleNewWindowMessage);
+        ref.addEventListener('dom-ready', handleDomReady);
 
         return () => {
           ref.removeEventListener(
@@ -104,9 +103,10 @@ export const useWebviewRef = ({
           ref.removeEventListener('page-favicon-updated', handleFaviconMessage);
           ref.removeEventListener('did-finish-load', handleFinishLoading);
           ref.removeEventListener('did-start-navigation', handleNavigation);
-          ref.removeEventListener('did-fail-load', handleLoadFailMessage);
           ref.removeEventListener('did-stop-loading', handleLoadStopMessage);
+          ref.removeEventListener('did-fail-load', handleLoadFailMessage);
           ref.removeEventListener('new-window', handleNewWindowMessage);
+          ref.removeEventListener('dom-ready', handleDomReady);
         };
       } catch (error) {
         console.error(error);
@@ -114,7 +114,8 @@ export const useWebviewRef = ({
     }
   }, [ref, onNavigation]);
 
-  const canGoBack = // @ts-expect-error
+  const canGoBack =
+    isDomReady && // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
     ref?.canGoBack();
 
@@ -124,7 +125,8 @@ export const useWebviewRef = ({
     ref?.goBack();
   }, [ref]);
 
-  const canGoForward = // @ts-expect-error
+  const canGoForward =
+    isDomReady && // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
     ref?.canGoForward();
 
@@ -138,6 +140,7 @@ export const useWebviewRef = ({
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     ref?.stop();
+    setLoading(false);
   }, [ref]);
 
   const reload = useCallback(() => {
@@ -153,5 +156,6 @@ export const useWebviewRef = ({
     stopLoading,
     reload,
     loading,
+    isDomReady,
   };
 };
