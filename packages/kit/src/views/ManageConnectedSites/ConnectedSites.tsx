@@ -239,7 +239,8 @@ export default function ConnectedSites() {
       })}
       footer={null}
       flatListProps={{
-        ListHeaderComponent: (
+        // use function to avoid Header re-render
+        ListHeaderComponent: () => (
           <ConnectedSitesHeader
             connections={connections}
             onDisConnectWalletConnected={openDeleteDialog}

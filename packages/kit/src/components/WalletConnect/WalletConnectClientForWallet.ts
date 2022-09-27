@@ -53,6 +53,8 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
   // connectToDapp
   @backgroundMethod()
   async connect({ uri }: { uri: string }) {
+    // eslint-disable-next-line no-param-reassign
+    uri = uri?.trim() || uri;
     // uri network param defaults to evm
     const network = new URL(uri).searchParams.get('network') || IMPL_EVM;
 
@@ -97,15 +99,24 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
         );
         connector.updateSession(sessionStatus);
       } else {
-        debugLogger.walletConnect.info(
-          'walletConnect.connect -> approveSession',
-          sessionStatus,
-        );
-        connector.approveSession(sessionStatus);
+        const doApproveSession = () => {
+          debugLogger.walletConnect.info(
+            'walletConnect.connect -> approveSession',
+            sessionStatus,
+          );
+          connector.approveSession(sessionStatus);
+        };
+        doApproveSession();
+        // setTimeout(doApproveSession, 2000);// throw error if connected already
       }
     } catch (error) {
-      debugLogger.walletConnect.info('walletConnect.connect reject', error);
+      debugLogger.walletConnect.info(
+        'walletConnect.connect -> rejectSession',
+        error,
+      );
       connector.rejectSession(error as any);
+    } finally {
+      await wait(600);
     }
   }
 }
