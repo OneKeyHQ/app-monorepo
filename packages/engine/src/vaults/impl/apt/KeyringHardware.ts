@@ -123,7 +123,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       ...passphraseState,
     });
     if (response.success && !!response.payload?.address) {
-      return response.payload.address;
+      return response.payload.address.toLowerCase();
     }
     throw deviceUtils.convertDeviceError(response.payload);
   }
