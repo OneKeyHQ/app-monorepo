@@ -141,160 +141,158 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
 
   const accountOption = useMemo(
     () => (
-      <Box>
-        <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
-          <Box flex={1} mx={3} minW="56px" alignItems="center">
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="ArrowUpOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching'}
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.Send,
+      <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
+        <Box flex={1} mx={3} minW="56px" alignItems="center">
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="ArrowUpOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Send,
+                params: {
+                  screen: SendRoutes.PreSendAddress,
                   params: {
-                    screen: SendRoutes.PreSendAddress,
-                    params: {
-                      from: '',
-                      to: '',
-                      amount: '',
-                      token: token?.tokenIdOnNetwork ?? '',
-                    },
+                    from: '',
+                    to: '',
+                    amount: '',
+                    token: token?.tokenIdOnNetwork ?? '',
                   },
-                });
-              }}
-            />
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color={
-                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
-              }
-            >
-              {intl.formatMessage({ id: 'action__send' })}
-            </Typography.CaptionStrong>
-          </Box>
-          <Box flex={1} mx={3} minW="56px" alignItems="center">
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="ArrowDownOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching'}
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.Receive,
-                  params: {
-                    screen: ReceiveTokenRoutes.ReceiveToken,
-                    params: {},
-                  },
-                });
-              }}
-            />
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color={
-                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
-              }
-            >
-              {intl.formatMessage({ id: 'action__receive' })}
-            </Typography.CaptionStrong>
-          </Box>
-          {cryptoCurrency && (
-            <Box flex={1} mx={3} minW="56px" alignItems="center">
-              <IconButton
-                circle
-                size={isVertical ? 'xl' : 'lg'}
-                name="PlusOutline"
-                type="basic"
-                isDisabled={wallet?.type === 'watching'}
-                onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.FiatPay,
-                    params: {
-                      screen: FiatPayRoutes.AmountInputModal,
-                      params: {
-                        token: cryptoCurrency as CurrencyType,
-                        type: 'Buy',
-                      },
-                    },
-                  });
-                }}
-              />
-              <Typography.CaptionStrong
-                textAlign="center"
-                mt="8px"
-                color={
-                  wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
-                }
-              >
-                {intl.formatMessage({ id: 'action__buy' })}
-              </Typography.CaptionStrong>
-            </Box>
-          )}
-          {sellEnable && (
-            <Box flex={1} mx={3} minW="56px" alignItems="center">
-              <IconButton
-                circle
-                size={isVertical ? 'xl' : 'lg'}
-                name="CurrencyDollarOutline"
-                type="basic"
-                isDisabled={wallet?.type === 'watching'}
-                onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.FiatPay,
-                    params: {
-                      screen: FiatPayRoutes.AmountInputModal,
-                      params: {
-                        token: cryptoCurrency as CurrencyType,
-                        type: 'Sell',
-                      },
-                    },
-                  });
-                }}
-              />
-              <Typography.CaptionStrong
-                textAlign="center"
-                mt="8px"
-                color={
-                  wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
-                }
-              >
-                {intl.formatMessage({ id: 'action__sell' })}
-              </Typography.CaptionStrong>
-            </Box>
-          )}
-          {priceReady && !isVertical && (
-            <Box flex={1} mx={3} minW="56px" alignItems="center">
-              <IconButton
-                circle
-                size={isVertical ? 'xl' : 'lg'}
-                name="BellOutline"
-                type="basic"
-                onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.ManageToken,
-                    params: {
-                      screen: ManageTokenRoutes.PriceAlertList,
-                      params: {
-                        token: token as TokenDO,
-                      },
-                    },
-                  });
-                }}
-              />
-              <Typography.CaptionStrong
-                textAlign="center"
-                mt="8px"
-                color="text-default"
-              >
-                {intl.formatMessage({ id: 'form__price_alert' })}
-              </Typography.CaptionStrong>
-            </Box>
-          )}
+                },
+              });
+            }}
+          />
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+            }
+          >
+            {intl.formatMessage({ id: 'action__send' })}
+          </Typography.CaptionStrong>
         </Box>
+        <Box flex={1} mx={3} minW="56px" alignItems="center">
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="ArrowDownOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Receive,
+                params: {
+                  screen: ReceiveTokenRoutes.ReceiveToken,
+                  params: {},
+                },
+              });
+            }}
+          />
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+            }
+          >
+            {intl.formatMessage({ id: 'action__receive' })}
+          </Typography.CaptionStrong>
+        </Box>
+        {cryptoCurrency && (
+          <Box flex={1} mx={3} minW="56px" alignItems="center">
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="PlusOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching'}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FiatPay,
+                  params: {
+                    screen: FiatPayRoutes.AmountInputModal,
+                    params: {
+                      token: cryptoCurrency as CurrencyType,
+                      type: 'Buy',
+                    },
+                  },
+                });
+              }}
+            />
+            <Typography.CaptionStrong
+              textAlign="center"
+              mt="8px"
+              color={
+                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+              }
+            >
+              {intl.formatMessage({ id: 'action__buy' })}
+            </Typography.CaptionStrong>
+          </Box>
+        )}
+        {sellEnable && (
+          <Box flex={1} mx={3} minW="56px" alignItems="center">
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="CurrencyDollarOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching'}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FiatPay,
+                  params: {
+                    screen: FiatPayRoutes.AmountInputModal,
+                    params: {
+                      token: cryptoCurrency as CurrencyType,
+                      type: 'Sell',
+                    },
+                  },
+                });
+              }}
+            />
+            <Typography.CaptionStrong
+              textAlign="center"
+              mt="8px"
+              color={
+                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+              }
+            >
+              {intl.formatMessage({ id: 'action__sell' })}
+            </Typography.CaptionStrong>
+          </Box>
+        )}
+        {priceReady && !isVertical && (
+          <Box flex={1} mx={3} minW="56px" alignItems="center">
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="BellOutline"
+              type="basic"
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageToken,
+                  params: {
+                    screen: ManageTokenRoutes.PriceAlertList,
+                    params: {
+                      token: token as TokenDO,
+                    },
+                  },
+                });
+              }}
+            />
+            <Typography.CaptionStrong
+              textAlign="center"
+              mt="8px"
+              color="text-default"
+            >
+              {intl.formatMessage({ id: 'form__price_alert' })}
+            </Typography.CaptionStrong>
+          </Box>
+        )}
       </Box>
     ),
     [
