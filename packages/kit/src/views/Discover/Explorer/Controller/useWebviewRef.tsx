@@ -6,12 +6,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OnWebviewNavigation } from '../explorerUtils';
 
+import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+
 export const useWebviewRef = ({
   ref,
   onNavigation,
 }: {
   ref?: IElectronWebView;
   onNavigation: OnWebviewNavigation;
+  navigationStateChangeEvent?: WebViewNavigation;
 }) => {
   const [loading, setLoading] = useState(false);
   const [isDomReady, setIsDomReady] = useState(false);
@@ -110,10 +113,12 @@ export const useWebviewRef = ({
     ref?.canGoBack();
 
   const goBack = useCallback(() => {
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    ref?.goBack();
-  }, [ref]);
+    if (isDomReady) {
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      ref?.goBack();
+    }
+  }, [isDomReady, ref]);
 
   const canGoForward =
     isDomReady && // @ts-expect-error
@@ -121,22 +126,21 @@ export const useWebviewRef = ({
     ref?.canGoForward();
 
   const goForward = useCallback(() => {
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    ref?.goForward();
-  }, [ref]);
+    if (isDomReady) {
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      ref?.goForward();
+    }
+  }, [isDomReady, ref]);
 
   const stopLoading = useCallback(() => {
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    ref?.stop();
-    setLoading(false);
-  }, [ref]);
-
-  const reload = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    ref?.reload();
-  }, [ref]);
+    if (isDomReady) {
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      ref?.stop();
+      setLoading(false);
+    }
+  }, [isDomReady, ref]);
 
   return {
     canGoBack,
@@ -144,7 +148,6 @@ export const useWebviewRef = ({
     canGoForward,
     goForward,
     stopLoading,
-    reload,
     loading,
     isDomReady,
   };

@@ -21,7 +21,7 @@ const Desktop: FC<ExplorerViewProps> = ({
     <Box flex="1" zIndex={3}>
       {!!showExplorerBar && (
         <DesktopDragZoneBox>
-          <Box mt={`${top}px`} bg="surface-subdued" zIndex={5}>
+          <Box mt={`${top ? top + 10 : 0}px`} bg="surface-subdued" zIndex={5}>
             <TabBarDesktop />
             <WebControllerBarDesktop {...rest} />
           </Box>

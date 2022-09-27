@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { nanoid } from '@reduxjs/toolkit';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { DialogManager } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
@@ -25,9 +26,10 @@ import { MatchDAppItemType, webHandler, webviewRefs } from '../explorerUtils';
 
 import { useWebviewRef } from './useWebviewRef';
 
-let lasNewUrlTimestamp = Date.now();
+let lastNewUrlTimestamp = Date.now();
 export const useWebController = ({
   id,
+  navigationStateChangeEvent,
 }:
   | {
       id?: string;
@@ -85,12 +87,19 @@ export const useWebController = ({
                 webSite: { url, title, favicon },
               }),
         );
-        if (!isNewTab && !isInPlace && tab?.url !== '') {
+        if (
+          !isNewTab &&
+          !isInPlace &&
+          tab?.url !== '' &&
+          platformEnv.isDesktop
+        ) {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           innerRef?.loadURL(url);
         }
+        return true;
       }
+      return false;
     },
     [curId, dispatch, innerRef, tab?.url],
   );
@@ -125,7 +134,7 @@ export const useWebController = ({
           });
 
           if (!isConfirm) {
-            return;
+            return false;
           }
 
           dispatch(updateFirstRemindDAPP(false));
@@ -143,11 +152,20 @@ export const useWebController = ({
   );
   const onNavigation = useCallback(
     ({ url, title, favicon, isNewWindow, isInPlace }) => {
-      if (url && url !== tab?.url) {
-        if (Date.now() - lasNewUrlTimestamp < 500) {
+      let isValidNewUrl = typeof url === 'string' && url !== '';
+      // tab url changes *AFTER* `gotoSite` on desktop
+      // but *BEFORE* `gotoSite` on native
+      // so new target url should not be the same on desktop
+      // but can be the same on native
+      if (isValidNewUrl && platformEnv.isDesktop) {
+        isValidNewUrl = url !== tab?.url;
+      }
+      if (isValidNewUrl) {
+        if (Date.now() - lastNewUrlTimestamp < 500) {
+          // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
-        lasNewUrlTimestamp = Date.now();
+        lastNewUrlTimestamp = Date.now();
         gotoSite({ url, title, favicon, isNewWindow, isInPlace });
       } else if (title) {
         dispatch(setWebTabData({ id: curId, title }));
@@ -157,19 +175,13 @@ export const useWebController = ({
     },
     [curId, dispatch, gotoSite, tab?.url],
   );
-  const {
-    canGoBack,
-    canGoForward,
-    goBack,
-    goForward,
-    stopLoading,
-    reload,
-    loading,
-  } = useWebviewRef({
-    // @ts-expect-error
-    ref: innerRef,
-    onNavigation,
-  });
+  const { canGoBack, canGoForward, goBack, goForward, stopLoading, loading } =
+    useWebviewRef({
+      // @ts-expect-error
+      ref: innerRef,
+      onNavigation,
+      navigationStateChangeEvent,
+    });
 
   return {
     tabs,
@@ -186,6 +198,5 @@ export const useWebController = ({
     incomingUrl,
     clearIncomingUrl,
     loading,
-    reload,
   };
 };

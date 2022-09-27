@@ -3,24 +3,26 @@ import { useCallback, useEffect, useState } from 'react';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 import { batch } from 'react-redux';
 
+import { OnWebviewNavigation } from '../explorerUtils';
+
 import type { WebView } from 'react-native-webview';
 
 export const useWebviewRef = ({
   ref,
   navigationStateChangeEvent,
+  onNavigation,
 }: {
   ref?: WebView;
   navigationStateChangeEvent?: WebViewNavigation;
+  onNavigation: OnWebviewNavigation;
 }) => {
-  const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
-  const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();
-  const [currentTitle, setCurrentTitle] = useState<string>();
+  const [rnCanGoBack, setRNCanGoBack] = useState<boolean>(false);
+  const [rnCanGoForward, setRNCanGoForward] = useState<boolean>(false);
   const [isLoading, setLoading] = useState<boolean>(false);
-  const [currentUrl, setCurrentUrl] = useState<string>();
-  const [currentFavicon, setCurrentFavicon] = useState<string>();
 
   useEffect(() => {
     if (navigationStateChangeEvent) {
+      console.log('navigationStateChangeEvent', navigationStateChangeEvent);
       try {
         const { canGoBack, canGoForward, loading, title, url } =
           navigationStateChangeEvent;
@@ -28,18 +30,16 @@ export const useWebviewRef = ({
         batch(() => {
           setRNCanGoBack(canGoBack);
           setRNCanGoForward(canGoForward);
-          setCurrentTitle(title);
-          setCurrentUrl(url);
           setLoading(loading);
         });
-
         const urlObj = new URL(url);
-        setCurrentFavicon(`${urlObj.protocol}//${urlObj.host}/favicon.ico`);
+        const favicon = `${urlObj.protocol}//${urlObj.host}/favicon.ico`;
+        if (loading) onNavigation({ url, title, favicon });
       } catch (e) {
         // console.log(e);
       }
     }
-  }, [navigationStateChangeEvent]);
+  }, [navigationStateChangeEvent, onNavigation]);
 
   const goBack = useCallback(() => {
     ref?.goBack();
@@ -60,8 +60,5 @@ export const useWebviewRef = ({
     goForward,
     stopLoading,
     loading: isLoading,
-    title: currentTitle,
-    url: currentUrl,
-    favicon: currentFavicon,
   };
 };

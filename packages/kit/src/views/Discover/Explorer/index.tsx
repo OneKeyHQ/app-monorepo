@@ -9,8 +9,6 @@ import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
-import IdentityAssertion from '../../../components/IdentityAssertion';
-
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
@@ -126,24 +124,22 @@ const Explorer: FC = () => {
 
   const Container = isVerticalLayout ? Mobile : Desktop;
   return (
-    <IdentityAssertion>
-      <Box flex={1} bg="background-default">
-        <Container
-          explorerContent={explorerContent}
-          showExplorerBar={showExplorerBar}
-          onSearchSubmitEditing={onSearchSubmitEditing}
-          moreView={moreViewContent}
-          onMore={setVisibleMore}
-          onRefresh={onRefresh}
-          loading={loading}
-          canGoBack={canGoBack}
-          canGoForward={canGoForward}
-          onGoBack={goBack}
-          onNext={goForward}
-          onStopLoading={stopLoading}
-        />
-      </Box>
-    </IdentityAssertion>
+    <Box flex={1} bg="background-default">
+      <Container
+        explorerContent={explorerContent}
+        showExplorerBar={showExplorerBar}
+        onSearchSubmitEditing={onSearchSubmitEditing}
+        moreView={moreViewContent}
+        onMore={setVisibleMore}
+        onRefresh={onRefresh}
+        loading={loading}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
+        onGoBack={goBack}
+        onNext={goForward}
+        onStopLoading={stopLoading}
+      />
+    </Box>
   );
 };
 

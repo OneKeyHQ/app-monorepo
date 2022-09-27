@@ -64,7 +64,7 @@ export const webHandler: WebHandler = (() => {
   if (platformEnv.isWeb || platformEnv.isExtension) {
     return 'browser';
   }
-  if (platformEnv.isDesktop) {
+  if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
     return 'tabbedWebview';
   }
   return 'webview';

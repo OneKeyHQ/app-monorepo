@@ -1,259 +1,248 @@
-import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
+import { ListRenderItem, useWindowDimensions } from 'react-native';
 
 import {
   Box,
   Center,
-  Divider,
   Empty,
   FlatList,
-  Icon,
-  Image,
+  NetImage,
   Pressable,
   Spinner,
   Typography,
+  useIsVerticalLayout,
   useLocale,
-  useTheme,
 } from '@onekeyhq/components';
-import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
-import ExploreIMG from '@onekeyhq/kit/assets/explore.png';
-import ExploreBG from '@onekeyhq/kit/assets/Explore_bg.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   updateRankData,
   updateSyncData,
 } from '@onekeyhq/kit/src/store/reducers/discover';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useDiscover } from '../../../hooks/redux';
-import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
 import DAppIcon from '../DAppIcon';
-import { MatchDAppItemType } from '../Explorer/Search/useSearchHistories';
-import { requestRankings, requestSync } from '../Service';
-import { DAppItemType } from '../type';
+import { MatchDAppItemType } from '../Explorer/explorerUtils';
+import { imageUrl, requestRankings, requestSync } from '../Service';
+import { DAppItemType, RankingsPayload, SyncRequestPayload } from '../type';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import CardView from './CardView';
+import ListView from './ListView';
 
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.ExploreScreen
->;
+import type { SectionDataType } from './type';
 
-type PageStatusType = 'network' | 'loading' | 'data';
+interface DiscoverProps {
+  onItemSelect: (item: DAppItemType) => Promise<boolean>;
+  onItemSelectHistory: (item: MatchDAppItemType) => Promise<boolean>;
+}
 
-type DiscoverProps = {
-  onItemSelect: (item: DAppItemType) => Promise<boolean> | void;
-  onItemSelectHistory: (item: MatchDAppItemType) => void;
-};
-const DiscoverHomeNative: FC<DiscoverProps> = ({
-  onItemSelect,
-  onItemSelectHistory,
-}) => {
+const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
-  const { history, syncData } = useDiscover();
-  const { locale } = useLocale();
-  const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
-  const { dispatch } = backgroundApiProxy;
-  const [dappHistory, setDappHistory] = useState<MatchDAppItemType[]>([]);
-  const { themeVariant } = useTheme();
-
-  useEffect(() => {
-    const dappHistoryArray: MatchDAppItemType[] = [];
-
-    Object.entries(history).forEach(([key, value]) => {
-      const dAppItem = {
-        id: key,
-        dapp: syncData.increment[key],
-        webSite: value.webSite,
-        clicks: value?.clicks ?? 0,
-        timestamp: value?.timestamp ?? 0,
-      };
-      if (dAppItem) dappHistoryArray.push(dAppItem);
-    });
-
-    setDappHistory(
-      dappHistoryArray.sort((a, b) => (b.timestamp ?? 0) - (a?.timestamp ?? 0)),
-    );
-  }, [history, syncData.increment]);
-
-  const banner = useMemo(
-    () => (
-      <Pressable
-        onPress={() => {
-          navigation.navigate(HomeRoutes.ExploreScreen, { onItemSelect });
-        }}
-      >
-        <Box width="100%" height="268px">
-          <Box
-            justifyContent="center"
-            width="100%"
-            height="220px"
+  const isSmallScreen = useIsVerticalLayout();
+  const { width } = useWindowDimensions();
+  const cardWidth = (width - 256 - 96) / 3;
+  const renderItem: ListRenderItem<DAppItemType> = useCallback(
+    ({ item }) => {
+      const url = imageUrl(item.pic ?? '');
+      return (
+        <Box
+          padding="8px"
+          justifyContent="center"
+          alignItems="center"
+          height={isSmallScreen ? '258px' : `285px`}
+        >
+          <Pressable
+            onPress={() => {
+              if (onItemSelect) {
+                onItemSelect(item);
+              }
+            }}
+            width={isSmallScreen ? 294 : cardWidth}
+            height="100%"
             bgColor="surface-default"
             borderRadius="12px"
+            padding="12px"
             borderWidth={1}
             borderColor="border-subdued"
-            overflow="hidden"
+            _hover={{
+              bg: 'surface-hovered',
+            }}
           >
-            <Image
-              width="100%"
-              height="220px"
-              position="absolute"
-              source={ExploreBG}
+            <NetImage
+              width={isSmallScreen ? 270 : cardWidth - 24}
+              height={isSmallScreen ? 134 : 177}
+              src={url}
+              borderRadius="12px"
             />
-            <Empty
-              imageUrl={ExploreIMG}
-              title={intl.formatMessage({
-                id: 'title__explore_dapps',
-              })}
-              subTitle="https://explore.onekey.so →"
-            />
-          </Box>
-          <Typography.Subheading color="text-subdued" mt="24px">
-            {intl.formatMessage({
-              id: 'transaction__history',
-            })}
-          </Typography.Subheading>
-        </Box>
-      </Pressable>
-    ),
-    [intl, navigation, onItemSelect],
-  );
-
-  const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item, index }) => {
-      const {
-        favicon: dappFavicon,
-        chain,
-        name,
-        url: dappUrl,
-      } = item.dapp || {};
-
-      const {
-        favicon: webSiteFavicon,
-        title,
-        url: webSiteUrl,
-      } = item.webSite || {};
-
-      const itemTitle = () => {
-        const itemName = name ?? title ?? 'Unknown';
-        if (itemName.length > 24) {
-          return `${itemName.slice(0, 24)}...`;
-        }
-        return itemName;
-      };
-
-      return (
-        <Pressable
-          onPress={() => {
-            onItemSelectHistory(item);
-          }}
-        >
-          <Box
-            padding="16px"
-            height="76px"
-            width="100%"
-            bgColor="surface-default"
-            borderTopRadius={index === 0 ? '12px' : '0px'}
-            borderRadius={index === dappHistory.length - 1 ? '12px' : '0px'}
-            borderWidth={1}
-            borderColor={
-              themeVariant === 'light' ? 'border-subdued' : 'transparent'
-            }
-            borderTopWidth={index === 0 ? 1 : 0}
-            borderBottomWidth={index === dappHistory?.length - 1 ? 1 : 0}
-          >
-            <Box flexDirection="row" flex={1} alignItems="center">
-              {(!!dappFavicon || item.dapp) && (
-                <DAppIcon size={40} favicon={dappFavicon ?? ''} chain={chain} />
-              )}
-
-              {(!!webSiteFavicon || item.webSite) && (
-                <Center
-                  width="40px"
-                  height="40px"
-                  borderRadius="12px"
-                  borderWidth="1px"
-                  borderColor="border-subdued"
-                >
-                  <Image
-                    width="36px"
-                    height="36px"
-                    src={webSiteFavicon ?? ''}
-                    source={{ uri: webSiteFavicon }}
-                    borderColor="border-subdued"
-                    fallbackElement={
-                      <Center w="40px" h="40px">
-                        <Icon size={24} name="GlobeSolid" />
-                      </Center>
-                    }
-                  />
-                </Center>
-              )}
-
-              <Box
-                flexDirection="column"
-                ml="12px"
-                justifyContent="center"
-                flex={1}
-              >
-                <Typography.Body2Strong>{itemTitle()}</Typography.Body2Strong>
-                <Typography.Caption color="text-subdued" numberOfLines={1}>
-                  {dappUrl ?? webSiteUrl}
-                </Typography.Caption>
-              </Box>
+            <Box mt="12px" flexDirection="row" alignItems="center">
+              <DAppIcon size={28} favicon={item.favicon} chain={item.chain} />
+              <Typography.Body2Strong ml="10px">
+                {item.name}
+              </Typography.Body2Strong>
             </Box>
-          </Box>
-        </Pressable>
+            <Typography.Caption
+              mt="12px"
+              color="text-subdued"
+              numberOfLines={2}
+            >
+              {item.subtitle}
+            </Typography.Caption>
+          </Pressable>
+        </Box>
       );
     },
-    [dappHistory.length, onItemSelectHistory, themeVariant],
+    [cardWidth, isSmallScreen, onItemSelect],
+  );
+  return (
+    <Box width="100%" height={isSmallScreen ? '306px' : '349px'}>
+      <Typography.PageHeading pl={isSmallScreen ? '16px' : '32px'}>
+        {intl.formatMessage({
+          id: 'title__explore',
+        })}
+      </Typography.PageHeading>
+      <FlatList
+        mt="24px"
+        contentContainerStyle={{
+          paddingLeft: isSmallScreen ? 8 : 24,
+          paddingRight: 16,
+        }}
+        showsHorizontalScrollIndicator={false}
+        horizontal
+        data={data}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => `Banner${index}`}
+      />
+    </Box>
+  );
+};
+
+const DiscoverHome: FC<DiscoverProps> = ({ onItemSelect, ...rest }) => {
+  const { locale } = useLocale();
+  const navigation = useNavigation();
+  const intl = useIntl();
+  const { dispatch } = backgroundApiProxy;
+  useLayoutEffect(() => {
+    if (platformEnv.isNative) {
+      navigation.setOptions({
+        title: intl.formatMessage({
+          id: 'title__explore',
+        }),
+      });
+    }
+  }, [navigation, intl]);
+
+  const callback = useCallback(
+    (item: DAppItemType) =>
+      // eslint-disable-next-line no-async-promise-executor
+      new Promise<boolean>(async (resolve) => {
+        if (onItemSelect) {
+          const agree = await onItemSelect(item);
+          if (agree) {
+            // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
+            if (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad) {
+              navigation.goBack();
+            }
+          }
+          return resolve(agree);
+        }
+        return resolve(false);
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onItemSelect],
   );
 
+  const renderItem: ListRenderItem<SectionDataType> = useCallback(
+    ({ item }) => {
+      switch (item.type) {
+        case 'banner':
+          return <Banner {...item} {...rest} onItemSelect={callback} />;
+        case 'card':
+          return <CardView {...item} {...rest} onItemSelect={callback} />;
+        case 'list':
+          return <ListView {...item} {...rest} onItemSelect={callback} />;
+        default:
+          return null;
+      }
+    },
+    [callback, rest],
+  );
+
+  const generaListData = useCallback(
+    (
+      syncResponceData?: SyncRequestPayload,
+      rankResponceData?: RankingsPayload,
+    ) => {
+      if (syncResponceData && rankResponceData) {
+        const listData: SectionDataType[] = [];
+        const { increment, banners } = syncResponceData;
+        const { tags, special } = rankResponceData;
+        if (increment) {
+          if (banners) {
+            const dAppItems = banners.map((item) => {
+              const dApp = increment[item.dapp];
+              return { pic: item.pic, ...dApp, id: item.dapp };
+            });
+            listData.push({
+              type: 'banner',
+              title: 'Explore',
+              data: dAppItems,
+            });
+          }
+          const newTags = [
+            {
+              name: intl.formatMessage({ id: 'title__leaderboard' }),
+              dapps: special.daily,
+            },
+            {
+              name: intl.formatMessage({ id: 'title__newly_added' }),
+              dapps: special.new,
+            },
+            ...tags,
+          ];
+
+          newTags.forEach((item) => {
+            const { dapps } = item;
+            const dAppItems = dapps.map((key) => ({
+              ...increment[key],
+              id: key,
+            }));
+            if (dAppItems.length > 0) {
+              listData.push({
+                type: listData.length % 2 === 1 ? 'card' : 'list',
+                title: item.name,
+                data: dAppItems,
+              });
+            }
+          });
+        }
+        return listData;
+      }
+      return [];
+    },
+    [intl],
+  );
+
+  const [flatListData, updateFlatListData] = useState<SectionDataType[]>([]);
+
+  const [loading, setLoading] = useState<boolean>();
   const getData = useCallback(async () => {
-    setPageStatus(
-      Object.keys(syncData.increment).length > 0 ? 'data' : 'loading',
-    );
+    setLoading(true);
     const [syncDataResult, rankDataResult] = await Promise.all([
       requestSync(0, locale),
       requestRankings(),
     ]);
-    if (syncDataResult && rankDataResult) {
-      setPageStatus('data');
-      dispatch(updateSyncData(syncDataResult), updateRankData(rankDataResult));
-    } else {
-      setPageStatus(
-        Object.keys(syncData.increment).length > 0 ? 'data' : 'network',
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, locale]);
+    setLoading(false);
 
-  const noData = () => {
-    switch (pageStatus) {
-      case 'network':
-        return (
-          <Empty
-            imageUrl={IconWifi}
-            title={intl.formatMessage({ id: 'title__no_connection' })}
-            subTitle={intl.formatMessage({
-              id: 'title__no_connection_desc',
-            })}
-            actionTitle={intl.formatMessage({
-              id: 'action__retry',
-            })}
-            handleAction={getData}
-          />
-        );
-      case 'loading':
-        return <Spinner size="sm" />;
-      default:
-        return null;
+    if (syncDataResult && rankDataResult) {
+      dispatch(updateSyncData(syncDataResult), updateRankData(rankDataResult));
+      updateFlatListData(() => generaListData(syncDataResult, rankDataResult));
+    } else {
+      updateFlatListData(() => []);
     }
-  };
+  }, [dispatch, generaListData, locale]);
 
   useEffect(() => {
     getData();
@@ -261,33 +250,36 @@ const DiscoverHomeNative: FC<DiscoverProps> = ({
 
   return (
     <Box flex="1" bg="background-default">
-      {pageStatus === 'data' ? (
+      {loading ? (
+        <Center flex={1}>
+          <Spinner size="sm" />
+        </Center>
+      ) : (
         <FlatList
           contentContainerStyle={{
             paddingBottom: 24,
             paddingTop: 24,
           }}
-          px="16px"
-          data={dappHistory}
+          data={flatListData}
           renderItem={renderItem}
-          keyExtractor={(item, index) => `Dapp history${item.id}${index}`}
-          ListHeaderComponent={banner}
-          ItemSeparatorComponent={Divider}
+          keyExtractor={(item, index) => `${item.type ?? ''}${index}`}
           ListEmptyComponent={
             <Empty
-              imageUrl={IconHistory}
-              title={intl.formatMessage({ id: 'title__no_history' })}
-              subTitle={intl.formatMessage({ id: 'title__no_history_desc' })}
+              imageUrl={IconWifi}
+              title={intl.formatMessage({ id: 'title__no_connection' })}
+              subTitle={intl.formatMessage({
+                id: 'title__no_connection_desc',
+              })}
+              actionTitle={intl.formatMessage({
+                id: 'action__retry',
+              })}
+              handleAction={() => getData()}
             />
           }
         />
-      ) : (
-        <Box flex={1} flexDirection="column" justifyContent="center">
-          {noData()}
-        </Box>
       )}
     </Box>
   );
 };
 
-export default memo(DiscoverHomeNative);
+export default DiscoverHome;

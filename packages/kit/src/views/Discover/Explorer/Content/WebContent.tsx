@@ -3,6 +3,7 @@ import { FC, useMemo, useState } from 'react';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WebTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home/DiscoverHome';
@@ -19,20 +20,29 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
     navigationStateChangeEvent,
   });
 
+  const refreshCondition = platformEnv.isNative
+    ? url
+    : // electron is using loadURL() to load url
+      // instead of url props changing
+      // so only refresh when url changed from '' to non-empty
+      // that is, from DiscoverHome to other pages
+      url === '';
   return useMemo(
     () =>
       id === 'home' || url === '' ? (
         // TODO avoid rerender, maybe singleton
         <DiscoverHome
-          onItemSelect={(dapp) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          onItemSelect={(dapp) =>
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
             gotoSite({
               url: dapp.url,
               title: dapp.name,
               favicon: dapp.favicon,
               dAppId: dapp.id,
-            });
-          }}
+            })
+          }
+          // @ts-expect-error
           onItemSelectHistory={openMatchDApp}
         />
       ) : (
@@ -53,9 +63,8 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
           allowpopups
         />
       ),
-    // only refresh when url is empty
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [url === ''],
+    [refreshCondition],
   );
 };
 
