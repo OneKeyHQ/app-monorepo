@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { WebTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home/DiscoverHome';
 import { useWebController } from '../Controller/useWebController';
-import { webviewRefs } from '../explorerUtils';
+import { webHandler, webviewRefs } from '../explorerUtils';
 
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
@@ -20,6 +20,8 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
     navigationStateChangeEvent,
   });
 
+  const showHome =
+    (id === 'home' && webHandler === 'tabbedWebview') || url === '';
   const refreshCondition = platformEnv.isNative
     ? url
     : // electron is using loadURL() to load url
@@ -29,7 +31,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       url === '';
   return useMemo(
     () =>
-      id === 'home' || url === '' ? (
+      showHome ? (
         // TODO avoid rerender, maybe singleton
         <DiscoverHome
           onItemSelect={(dapp) =>
