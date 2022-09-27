@@ -243,6 +243,7 @@ const MyWallet = () => {
   return (
     <SectionList
       sections={sections}
+      contentContainerStyle={{ flexGrow: 1 }}
       keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
       ItemSeparatorComponent={() => (
