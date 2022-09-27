@@ -265,7 +265,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { walletId, accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
@@ -348,6 +348,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       );
       if (vaultSettings?.activateTokenRequired) {
         navigation.navigate(ManageTokenRoutes.ActivateToken, {
+          walletId,
           accountId,
           networkId,
           tokenId: item.tokenIdOnNetwork,
@@ -359,7 +360,14 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         onAddToken();
       }
     }
-  }, [accountId, item.tokenIdOnNetwork, navigation, networkId, onAddToken]);
+  }, [
+    walletId,
+    accountId,
+    item.tokenIdOnNetwork,
+    navigation,
+    networkId,
+    onAddToken,
+  ]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned

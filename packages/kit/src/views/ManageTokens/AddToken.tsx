@@ -234,8 +234,11 @@ function ViewTokenModal(props: IViewTokenModalProps) {
 
 function AddTokenModal() {
   const toast = useToast();
-  const { account: activeAccount, network: activeNetwork } =
-    useActiveWalletAccount();
+  const {
+    walletId,
+    account: activeAccount,
+    network: activeNetwork,
+  } = useActiveWalletAccount();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { address, logoURI } = useRouteParams();
@@ -278,6 +281,7 @@ function AddTokenModal() {
       );
       if (vaultSettings?.activateTokenRequired) {
         navigation.navigate(ManageTokenRoutes.ActivateToken, {
+          walletId,
           accountId: activeAccount?.id,
           networkId: activeNetwork?.id,
           tokenId: address,
@@ -289,7 +293,14 @@ function AddTokenModal() {
         addAccountToken();
       }
     }
-  }, [activeAccount, activeNetwork, addAccountToken, address, navigation]);
+  }, [
+    activeAccount,
+    activeNetwork,
+    addAccountToken,
+    address,
+    navigation,
+    walletId,
+  ]);
 
   return (
     <ViewTokenModal
