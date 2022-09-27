@@ -4,24 +4,14 @@ import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { OnWebviewNavigation } from '../explorerUtils';
+
 export const useWebviewRef = ({
   ref,
   onNavigation,
 }: {
   ref?: IElectronWebView;
-  onNavigation: ({
-    url,
-    title,
-    favicon,
-    isInPlace,
-    isNewWindow,
-  }: {
-    url?: string;
-    title?: string;
-    favicon?: string;
-    isInPlace?: boolean;
-    isNewWindow?: boolean;
-  }) => void;
+  onNavigation: OnWebviewNavigation;
 }) => {
   const [loading, setLoading] = useState(false);
   const [isDomReady, setIsDomReady] = useState(false);

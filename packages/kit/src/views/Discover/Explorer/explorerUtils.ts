@@ -74,3 +74,17 @@ export const isValidDomain = (domain: string) =>
   /\.(com|net|io|dev|info|org|network|xyz|ai|co)$/.test(domain);
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
+
+export type OnWebviewNavigation = ({
+  url,
+  title,
+  favicon,
+  isInPlace,
+  isNewWindow,
+}: {
+  url?: string;
+  title?: string;
+  favicon?: string;
+  isInPlace?: boolean;
+  isNewWindow?: boolean;
+}) => void;
