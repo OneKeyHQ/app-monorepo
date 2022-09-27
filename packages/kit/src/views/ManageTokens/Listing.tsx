@@ -110,26 +110,20 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 _hover={{ bgColor: 'surface-hovered' }}
                 _pressed={{ bgColor: 'surface-pressed' }}
               >
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  flexDirection="row"
+                <TokenImage
+                  size={8}
+                  token={item}
+                  showInfo
                   flex={1}
-                >
-                  <TokenImage
-                    size={8}
-                    token={item}
-                    showInfo
-                    showExtra={false}
-                    description={
-                      <FormatBalance
-                        balance={balances[item.tokenIdOnNetwork] ?? '0'}
-                        suffix={item.symbol}
-                        formatOptions={{ fixed: 6 }}
-                      />
-                    }
-                  />
-                </Box>
+                  showExtra={false}
+                  description={
+                    <FormatBalance
+                      balance={balances[item.tokenIdOnNetwork] ?? '0'}
+                      suffix={item.symbol}
+                      formatOptions={{ fixed: 6 }}
+                    />
+                  }
+                />
                 <IconButton
                   name="TrashSolid"
                   type="plain"
@@ -397,7 +391,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
             // @ts-ignore
             color: isOwned ? 'text-disabled' : 'text-subdued',
           }}
-          addressProps={{
+          extraProps={{
             // @ts-ignore
             color: isOwned ? 'text-disabled' : 'text-subdued',
           }}

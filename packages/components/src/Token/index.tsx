@@ -32,7 +32,7 @@ export type TokenProps = {
 
   nameProps?: ComponentProps<typeof Text>;
   descProps?: ComponentProps<typeof Body2>;
-  addressProps?: ComponentProps<typeof Body2>;
+  extraProps?: ComponentProps<typeof Body2>;
 
   showInfo?: boolean;
   showName?: boolean;
@@ -176,7 +176,7 @@ const Token: FC<TokenProps> = ({
 
   nameProps,
   descProps,
-  addressProps,
+  extraProps: addressProps,
 
   showName = true,
   showInfo = false,
@@ -191,6 +191,9 @@ const Token: FC<TokenProps> = ({
 
   const nameView = useMemo(() => {
     if (!showName && !name) {
+      return null;
+    }
+    if (!name && !token?.name) {
       return null;
     }
     const dom = renderEle(name || token?.name, Text, {
@@ -211,7 +214,10 @@ const Token: FC<TokenProps> = ({
   }, [name, token, nameProps, showName, showTokenVerifiedIcon]);
 
   const descView = useMemo(() => {
-    if (!showDescription || !description || !symbol) {
+    if (!showDescription && !description) {
+      return null;
+    }
+    if (!description && !symbol) {
       return null;
     }
     return renderEle(description || symbol, Body2, {
@@ -223,7 +229,10 @@ const Token: FC<TokenProps> = ({
   }, [descProps, description, symbol, showDescription]);
 
   const extraView = useMemo(() => {
-    if (!showExtra || !extra || !address) {
+    if (!showExtra && !extra) {
+      return null;
+    }
+    if (!extra && !address) {
       return null;
     }
     return renderEle(extra || shortenAddress(address || ''), Body2, {
