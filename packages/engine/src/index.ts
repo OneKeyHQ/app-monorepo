@@ -2510,6 +2510,16 @@ class Engine {
     })) as VaultSol;
     return vault.refreshRecentBlockBash(transaction);
   }
+
+  @backgroundMethod()
+  async getEvmNextNonce(params: { networkId: string; accountId: string }) {
+    const vault = await this.getVault({
+      networkId: params.networkId,
+      accountId: params.accountId,
+    });
+    const dbAccount = await vault.getDbAccount();
+    return vault.getNextNonce(params.networkId, dbAccount);
+  }
 }
 
 export { Engine };
