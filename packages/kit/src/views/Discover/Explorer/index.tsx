@@ -1,6 +1,5 @@
 import { FC, useCallback, useMemo, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
 import { useIntl } from 'react-intl';
@@ -10,8 +9,7 @@ import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
-import { useNavigation } from '../../../hooks';
-import { TabRoutes, TabRoutesParams } from '../../../routes/types';
+import IdentityAssertion from '../../../components/IdentityAssertion';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
@@ -22,15 +20,18 @@ import MoreView from './MoreMenu';
 
 const showExplorerBar = webHandler !== 'browser';
 
-type DiscoverRouteProp = RouteProp<TabRoutesParams, TabRoutes.Discover>;
 const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const route = useRoute<DiscoverRouteProp>();
-  const navigation = useNavigation();
-  const { incomingUrl } = route.params || {};
-  const { openMatchDApp, gotoSite, currentTab, tabs, gotoHome } =
-    useWebController();
+  const {
+    openMatchDApp,
+    gotoSite,
+    currentTab,
+    tabs,
+    gotoHome,
+    incomingUrl,
+    clearIncomingUrl,
+  } = useWebController();
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -39,14 +40,11 @@ const Explorer: FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      // TODO: not work for tab
       if (incomingUrl) {
         gotoSite({ url: incomingUrl, isNewWindow: true });
+        clearIncomingUrl();
       }
-      return () => {
-        navigation.setParams({ incomingUrl: undefined });
-      };
-    }, [gotoSite, incomingUrl, navigation]),
+    }, [clearIncomingUrl, gotoSite, incomingUrl]),
   );
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
@@ -119,25 +117,27 @@ const Explorer: FC = () => {
   }, [currentTab?.url, gotoHome, intl, toast, visibleMore]);
 
   return (
-    <Box flex={1} bg="background-default">
-      {isVerticalLayout ? (
-        <Mobile
-          explorerContent={explorerContent}
-          showExplorerBar={showExplorerBar}
-          onSearchSubmitEditing={onSearchSubmitEditing}
-          moreView={moreViewContent}
-          onMore={setVisibleMore}
-        />
-      ) : (
-        <Desktop
-          explorerContent={explorerContent}
-          showExplorerBar={showExplorerBar}
-          onSearchSubmitEditing={onSearchSubmitEditing}
-          moreView={moreViewContent}
-          onMore={setVisibleMore}
-        />
-      )}
-    </Box>
+    <IdentityAssertion>
+      <Box flex={1} bg="background-default">
+        {isVerticalLayout ? (
+          <Mobile
+            explorerContent={explorerContent}
+            showExplorerBar={showExplorerBar}
+            onSearchSubmitEditing={onSearchSubmitEditing}
+            moreView={moreViewContent}
+            onMore={setVisibleMore}
+          />
+        ) : (
+          <Desktop
+            explorerContent={explorerContent}
+            showExplorerBar={showExplorerBar}
+            onSearchSubmitEditing={onSearchSubmitEditing}
+            moreView={moreViewContent}
+            onMore={setVisibleMore}
+          />
+        )}
+      </Box>
+    </IdentityAssertion>
   );
 };
 

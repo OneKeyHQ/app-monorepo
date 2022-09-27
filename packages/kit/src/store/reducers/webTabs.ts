@@ -16,6 +16,8 @@ export interface WebTab {
 export interface WebTabsInitialState {
   tabs: WebTab[];
   currentTabId: string;
+  // external url passing to explorer to open
+  incomingUrl: string;
 }
 
 const homeTab: WebTab = {
@@ -27,6 +29,7 @@ const homeTab: WebTab = {
 const initialState: WebTabsInitialState = {
   tabs: [homeTab],
   currentTabId: 'home',
+  incomingUrl: '',
 };
 
 export const tokensSlice = createSlice({
@@ -71,9 +74,17 @@ export const tokensSlice = createSlice({
         state.currentTabId = action.payload;
       }
     },
+    setIncomingUrl: (state, action: PayloadAction<string>) => {
+      state.incomingUrl = action.payload;
+    },
   },
 });
 
-export const { addWebTab, setWebTabData, closeWebTab, setCurrentWebTab } =
-  tokensSlice.actions;
+export const {
+  addWebTab,
+  setWebTabData,
+  closeWebTab,
+  setCurrentWebTab,
+  setIncomingUrl,
+} = tokensSlice.actions;
 export default tokensSlice.reducer;

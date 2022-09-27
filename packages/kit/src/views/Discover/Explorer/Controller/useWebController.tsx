@@ -16,6 +16,7 @@ import {
 import {
   addWebTab,
   setCurrentWebTab,
+  setIncomingUrl,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
@@ -35,13 +36,17 @@ export const useWebController = ({
   | undefined = {}) => {
   const { dispatch } = backgroundApiProxy;
   const { firstRemindDAPP } = useAppSelector((s) => s.discover);
-  const { currentTabId, tabs } = useAppSelector((s) => s.webTabs);
+  const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const innerRef = webviewRefs[curId]?.innerRef;
 
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
   const gotoHome = useCallback(
     () => dispatch(setCurrentWebTab('home')),
+    [dispatch],
+  );
+  const clearIncomingUrl = useCallback(
+    () => dispatch(setIncomingUrl('')),
     [dispatch],
   );
   const gotoSite = useCallback(
@@ -171,5 +176,7 @@ export const useWebController = ({
     goBack,
     goForward,
     stopLoading,
+    incomingUrl,
+    clearIncomingUrl,
   };
 };
