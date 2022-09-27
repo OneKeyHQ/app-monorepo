@@ -118,7 +118,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
                   numberOfLines={1}
                   ml={3}
                   mr={1}
-                  maxWidth={isVerticalLayout ? '106px' : '144px'}
+                  maxWidth="106px"
                 >
                   {name}
                 </Typography.Body2Strong>
