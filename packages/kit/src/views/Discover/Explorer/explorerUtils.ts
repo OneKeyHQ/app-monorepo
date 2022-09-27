@@ -28,7 +28,6 @@ export interface MatchDAppItemType {
 }
 
 export interface WebControllerBarProps {
-  searchContent?: string;
   loading?: boolean;
   onSearchSubmitEditing: (text: MatchDAppItemType | string) => void;
   canGoBack?: boolean;

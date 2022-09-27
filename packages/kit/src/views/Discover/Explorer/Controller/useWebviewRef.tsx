@@ -1,7 +1,6 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import { batch } from 'react-redux';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,6 +23,7 @@ export const useWebviewRef = ({
     isNewWindow?: boolean;
   }) => void;
 }) => {
+  const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (platformEnv.isDesktop) {
       try {
@@ -31,14 +31,7 @@ export const useWebviewRef = ({
         if (!ref) {
           return;
         }
-        // const handleFinishLoading = () => {
-        //   // onNavigation({
-        //   //   url: ref.getURL(),
-        //   //   // @ts-ignore
-        //   //   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        //   //   title: ref.getTitle(),
-        //   // });
-        // };
+        const handleFinishLoading = () => setLoading(false);
         const handleNavigation = ({
           url,
           isInPlace,
@@ -59,12 +52,7 @@ export const useWebviewRef = ({
           }
         };
 
-        const handleStartLoadingMessage = () =>
-          batch(() => {
-            // setCurrentTitle(undefined);
-            // setCurrentUrl(undefined);
-            // setLoading(true);
-          });
+        const handleStartLoadingMessage = () => setLoading(true);
 
         const handleTitleMessage = ({ title }: { title: string }) => {
           if (title) {
@@ -84,15 +72,13 @@ export const useWebviewRef = ({
           }
         };
 
-        // const handleLoadFailMessage = (event: any) => {
-        //   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        //   if (event.errorCode !== -3) {
-        //     // setLoading(false);
-        //   }
-        // };
-        // const handleLoadStopMessage = () => {
-        //   // setLoading(false);
-        // };
+        const handleLoadFailMessage = (event: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (event.errorCode !== -3) {
+            // setLoading(false);
+          }
+        };
+        const handleLoadStopMessage = handleFinishLoading;
         const handleNewWindowMessage = (e: Event) => {
           // @ts-expect-error
           const { url } = e;
@@ -103,10 +89,10 @@ export const useWebviewRef = ({
         ref.addEventListener('did-start-loading', handleStartLoadingMessage);
         ref.addEventListener('page-title-updated', handleTitleMessage);
         ref.addEventListener('page-favicon-updated', handleFaviconMessage);
-        // ref.addEventListener('did-finish-load', handleFinishLoading);
+        ref.addEventListener('did-finish-load', handleFinishLoading);
         ref.addEventListener('did-start-navigation', handleNavigation);
-        // ref.addEventListener('did-stop-loading', handleLoadStopMessage);
-        // ref.addEventListener('did-fail-load', handleLoadFailMessage);
+        ref.addEventListener('did-stop-loading', handleLoadStopMessage);
+        ref.addEventListener('did-fail-load', handleLoadFailMessage);
         ref.addEventListener('new-window', handleNewWindowMessage);
 
         return () => {
@@ -116,10 +102,10 @@ export const useWebviewRef = ({
           );
           ref.removeEventListener('page-title-updated', handleTitleMessage);
           ref.removeEventListener('page-favicon-updated', handleFaviconMessage);
-          // ref.removeEventListener('did-finish-load', handleFinishLoading);
+          ref.removeEventListener('did-finish-load', handleFinishLoading);
           ref.removeEventListener('did-start-navigation', handleNavigation);
-          // ref.removeEventListener('did-fail-load', handleLoadFailMessage);
-          // ref.removeEventListener('did-stop-loading', handleLoadStopMessage);
+          ref.removeEventListener('did-fail-load', handleLoadFailMessage);
+          ref.removeEventListener('did-stop-loading', handleLoadStopMessage);
           ref.removeEventListener('new-window', handleNewWindowMessage);
         };
       } catch (error) {
@@ -128,13 +114,9 @@ export const useWebviewRef = ({
     }
   }, [ref, onNavigation]);
 
-  const canGoBack = useCallback(
-    (): boolean =>
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-      ref?.canGoBack(),
-    [ref],
-  );
+  const canGoBack = // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+    ref?.canGoBack();
 
   const goBack = useCallback(() => {
     // @ts-expect-error
@@ -142,13 +124,9 @@ export const useWebviewRef = ({
     ref?.goBack();
   }, [ref]);
 
-  const canGoForward = useCallback(
-    (): boolean =>
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-      ref?.canGoForward(),
-    [ref],
-  );
+  const canGoForward = // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+    ref?.canGoForward();
 
   const goForward = useCallback(() => {
     // @ts-expect-error
@@ -174,5 +152,6 @@ export const useWebviewRef = ({
     goForward,
     stopLoading,
     reload,
+    loading,
   };
 };

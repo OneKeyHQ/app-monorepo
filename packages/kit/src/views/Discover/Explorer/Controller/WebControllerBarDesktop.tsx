@@ -88,7 +88,6 @@ function getHttpSafeState(searchContent?: string): ICON_NAMES {
   return 'SearchCircleSolid';
 }
 const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
-  searchContent,
   onSearchSubmitEditing,
   loading,
   canGoBack,
@@ -100,15 +99,15 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
 }) => {
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const httpSafeState = getHttpSafeState(searchContent);
   const { currentTab } = useWebController();
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const url: string = currentTab?.url || '';
+  const [searchText, setSearchText] = useState(url);
+  const httpSafeState = getHttpSafeState(url);
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    setSearchText(currentTab?.url);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  }, [currentTab.id, currentTab?.url, searchContent]);
+    setSearchText(url);
+  }, [url]);
 
   const searchBar = useRef<TextInput>(null);
   // Todo Ref Type
@@ -190,7 +189,7 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
             onBlur={() => {
               if (searchText?.trim() === '') {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                setSearchText(currentTab.url);
+                setSearchText(url);
               }
               setHistoryVisible(false);
             }}
@@ -208,7 +207,7 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
         ref={searchView}
         visible={historyVisible}
         onSearchContentChange={setSearchText}
-        searchContent={searchContent}
+        searchContent={searchText}
         onSelectorItem={(item: MatchDAppItemType) => {
           onSearchSubmitEditing(item);
           searchBar.current?.blur();

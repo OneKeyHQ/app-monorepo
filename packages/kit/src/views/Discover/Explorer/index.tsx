@@ -31,6 +31,12 @@ const Explorer: FC = () => {
     gotoHome,
     incomingUrl,
     clearIncomingUrl,
+    loading,
+    stopLoading,
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
   } = useWebController();
 
   const isVerticalLayout = useIsVerticalLayout();
@@ -59,6 +65,8 @@ const Explorer: FC = () => {
     }
     openMatchDApp(dapp);
   };
+
+  const onRefresh = useCallback(() => setRefreshKey(String(Date.now())), []);
 
   const explorerContent = useMemo(
     () =>
@@ -107,35 +115,33 @@ const Explorer: FC = () => {
       <MoreView
         visible={visibleMore}
         onVisibleChange={setVisibleMore}
-        onRefresh={() => setRefreshKey(String(Date.now()))}
+        onRefresh={onRefresh}
         onShare={onShare}
         onOpenBrowser={onOpenBrowser}
         onCopyUrlToClipboard={onCopyUrlToClipboard}
         onGoHomePage={gotoHome}
       />
     );
-  }, [currentTab?.url, gotoHome, intl, toast, visibleMore]);
+  }, [currentTab?.url, gotoHome, intl, onRefresh, toast, visibleMore]);
 
+  const Container = isVerticalLayout ? Mobile : Desktop;
   return (
     <IdentityAssertion>
       <Box flex={1} bg="background-default">
-        {isVerticalLayout ? (
-          <Mobile
-            explorerContent={explorerContent}
-            showExplorerBar={showExplorerBar}
-            onSearchSubmitEditing={onSearchSubmitEditing}
-            moreView={moreViewContent}
-            onMore={setVisibleMore}
-          />
-        ) : (
-          <Desktop
-            explorerContent={explorerContent}
-            showExplorerBar={showExplorerBar}
-            onSearchSubmitEditing={onSearchSubmitEditing}
-            moreView={moreViewContent}
-            onMore={setVisibleMore}
-          />
-        )}
+        <Container
+          explorerContent={explorerContent}
+          showExplorerBar={showExplorerBar}
+          onSearchSubmitEditing={onSearchSubmitEditing}
+          moreView={moreViewContent}
+          onMore={setVisibleMore}
+          onRefresh={onRefresh}
+          loading={loading}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onGoBack={goBack}
+          onNext={goForward}
+          onStopLoading={stopLoading}
+        />
       </Box>
     </IdentityAssertion>
   );

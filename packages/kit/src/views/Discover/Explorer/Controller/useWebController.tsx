@@ -157,12 +157,19 @@ export const useWebController = ({
     },
     [curId, dispatch, gotoSite, tab?.url],
   );
-  const { canGoBack, canGoForward, goBack, goForward, stopLoading } =
-    useWebviewRef({
-      // @ts-expect-error
-      ref: innerRef,
-      onNavigation,
-    });
+  const {
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
+    stopLoading,
+    reload,
+    loading,
+  } = useWebviewRef({
+    // @ts-expect-error
+    ref: innerRef,
+    onNavigation,
+  });
 
   return {
     tabs,
@@ -178,5 +185,7 @@ export const useWebController = ({
     stopLoading,
     incomingUrl,
     clearIncomingUrl,
+    loading,
+    reload,
   };
 };
