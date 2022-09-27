@@ -342,6 +342,10 @@ class ProviderApiAptos extends ProviderApiBase {
     params: SignMessagePayload,
   ): Promise<SignMessageResponse> {
     debugLogger.providerApi.info('aptos signMessage', params);
+
+    // @ts-expect-error
+    const isPetra = request.data?.aptosProviderType === 'petra';
+
     const account = await this.account(request);
 
     const { networkId, accountId } = getActiveWalletAccount();
@@ -370,7 +374,7 @@ class ProviderApiAptos extends ProviderApiBase {
       },
     )) as string;
 
-    format.signature = result;
+    format.signature = isPetra ? stripHexPrefix(result) : result;
 
     return Promise.resolve(format);
   }
