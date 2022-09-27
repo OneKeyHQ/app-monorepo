@@ -26,7 +26,7 @@ export type Traits = {
 
 export type Collection = {
   contractAddress?: string;
-  contractName?: string | null;
+  contractName?: string;
   description?: string;
   logoUrl?: string;
   ownsTotal?: string;
@@ -98,6 +98,11 @@ export type NFTTransaction = {
   eventType?: string;
   exchangeName?: string;
   asset?: NFTAsset;
+
+  // sol
+  tokenAddress?: string;
+  source?: string; // from
+  destination?: string; // to
 };
 
 export type TransactionsResp = {

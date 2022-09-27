@@ -4,6 +4,7 @@ import {
   getNFTSymbolPrice,
   getUserNFTAssets,
 } from '@onekeyhq/engine/src/managers/nft';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import {
@@ -46,14 +47,17 @@ class ServiceNFT extends ServiceBase {
   }: {
     networkId: string;
     accountId: string;
-    contractAddressList: string[];
+    contractAddressList: string[]; // sol:use contractName
   }) {
     const collections = await this.getLocalNFTs({ networkId, accountId });
     const collectionMap: Record<string, Collection> = {};
     contractAddressList.forEach((address) => {
-      const collection = collections.find(
-        (item) => item.contractAddress && item.contractAddress === address,
-      );
+      const collection = collections.find((item) => {
+        if (networkId === OnekeyNetwork.sol) {
+          return item.contractName === address;
+        }
+        return item.contractAddress && item.contractAddress === address;
+      });
       if (collection) {
         collectionMap[address] = collection;
       }

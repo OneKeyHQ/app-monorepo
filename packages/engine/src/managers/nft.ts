@@ -3,6 +3,7 @@ import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
 import {
+  Collection,
   NFTAsset,
   NFTChainMap,
   NFTGetAssetResp,
@@ -158,6 +159,59 @@ export const getAsset = async (params: {
   return camelcaseKeys(data, { deep: true });
 };
 
+function mergeLocalAsset({
+  transaction,
+  collectionMap,
+}: {
+  transaction: NFTTransaction;
+  collectionMap: Record<string, Collection>;
+}) {
+  const { asset, contractAddress, contractName } = transaction;
+  const collectionKey = contractAddress ?? contractName;
+  if (collectionKey) {
+    const collection = collectionMap[collectionKey];
+    if (collection) {
+      const findAsset = collection.assets.find((item) => {
+        const { tokenAddress, tokenId } = item;
+        if (tokenAddress) {
+          return item.tokenAddress === transaction.tokenAddress;
+        }
+        return item.tokenId === tokenId;
+      });
+
+      const collectionName = collection.contractName ?? '';
+      const logoUrl = collection.logoUrl ?? '';
+      if (findAsset) {
+        if (!asset) {
+          return {
+            ...transaction,
+            asset: findAsset,
+          };
+        }
+        return {
+          ...transaction,
+          asset: {
+            ...asset,
+            contractName: collectionName,
+            collection: findAsset.collection,
+          },
+        };
+      }
+      if (asset) {
+        return {
+          ...transaction,
+          asset: {
+            ...asset,
+            contractName: collectionName,
+            collection: { contractName: collectionName, logoUrl },
+          },
+        };
+      }
+    }
+  }
+  return transaction;
+}
+
 export const getNFTTransactionHistory = async (
   accountId?: string,
   networkId?: string,
@@ -172,7 +226,18 @@ export const getNFTTransactionHistory = async (
     const transactions = camelcaseKeys(data, { deep: true }).data;
 
     const contractAddressList = transactions
-      .map((item) => item.contractAddress)
+      .map((tx) => {
+        const { contractName, contractAddress } = tx;
+        // evm
+        if (contractAddress) {
+          return contractAddress;
+        }
+        // sol
+        if (contractName) {
+          return contractName;
+        }
+        return undefined;
+      })
       .filter(Boolean);
     const { serviceNFT } = backgroundApiProxy;
     const collectionMap = await serviceNFT.batchLocalCollection({
@@ -180,30 +245,12 @@ export const getNFTTransactionHistory = async (
       accountId,
       contractAddressList,
     });
-    return transactions.map((tx): NFTTransaction => {
-      const { asset, contractAddress } = tx;
-      if (contractAddress) {
-        const collection = collectionMap[contractAddress];
-        if (collection) {
-          const findAsset = collection.assets.find(
-            (item) => item.tokenId === tx.tokenId,
-          );
-          if (findAsset) {
-            if (!asset) {
-              return {
-                ...tx,
-                asset: findAsset,
-              };
-            }
-            return {
-              ...tx,
-              asset: { ...asset, collection: findAsset.collection },
-            };
-          }
-        }
-      }
-      return tx;
-    });
+
+    const txList = transactions.map(
+      (transaction): NFTTransaction =>
+        mergeLocalAsset({ transaction, collectionMap }),
+    );
+    return txList;
   }
   return [];
 };
