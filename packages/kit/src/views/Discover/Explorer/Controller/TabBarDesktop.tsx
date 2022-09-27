@@ -1,6 +1,6 @@
 import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { nanoid } from 'nanoid';
+import { nanoid } from '@reduxjs/toolkit';
 import { ScrollView } from 'react-native';
 
 import { Box, Button, Pressable, Typography } from '@onekeyhq/components';

@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { nanoid } from '@reduxjs/toolkit';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
@@ -21,12 +20,7 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import DappOpenHintDialog from '../DappOpenHintDialog';
-import {
-  MatchDAppItemType,
-  searchContentMaps,
-  webHandler,
-  webviewRefs,
-} from '../explorerUtils';
+import { MatchDAppItemType, webHandler, webviewRefs } from '../explorerUtils';
 
 import { useWebviewRef } from './useWebviewRef';
 
@@ -44,13 +38,6 @@ export const useWebController = ({
   const { currentTabId, tabs } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const innerRef = webviewRefs[curId]?.innerRef;
-  const searchContent = searchContentMaps[curId];
-  const setSearchContent = useCallback(
-    (content: string) => {
-      searchContentMaps[curId] = content;
-    },
-    [curId],
-  );
 
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
   const gotoHome = useCallback(
@@ -112,30 +99,33 @@ export const useWebController = ({
         });
       }
 
-      if (dapp && firstRemindDAPP && dapp.url !== tab?.url) {
-        let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
-        DialogManager.show({
-          render: (
-            <DappOpenHintDialog
-              onVisibilityChange={() => {
-                dappOpenConfirm = undefined;
-              }}
-              onConfirm={() => {
-                dappOpenConfirm?.(true);
-              }}
-            />
-          ),
-        });
+      if (dapp && dapp.url !== tab?.url) {
+        if (firstRemindDAPP) {
+          let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
+          DialogManager.show({
+            render: (
+              <DappOpenHintDialog
+                onVisibilityChange={() => {
+                  dappOpenConfirm = undefined;
+                }}
+                onConfirm={() => {
+                  dappOpenConfirm?.(true);
+                }}
+              />
+            ),
+          });
 
-        const isConfirm = await new Promise<boolean>((resolve) => {
-          dappOpenConfirm = resolve;
-        });
+          const isConfirm = await new Promise<boolean>((resolve) => {
+            dappOpenConfirm = resolve;
+          });
 
-        if (!isConfirm) {
-          return;
+          if (!isConfirm) {
+            return;
+          }
+
+          dispatch(updateFirstRemindDAPP(false));
         }
 
-        dispatch(updateFirstRemindDAPP(false));
         return gotoSite({
           url: dapp.url,
           title: dapp.name,
@@ -181,7 +171,5 @@ export const useWebController = ({
     goBack,
     goForward,
     stopLoading,
-    searchContent,
-    setSearchContent,
   };
 };

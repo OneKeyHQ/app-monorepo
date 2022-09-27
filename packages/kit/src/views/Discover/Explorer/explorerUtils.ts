@@ -30,7 +30,6 @@ export interface MatchDAppItemType {
 export interface WebControllerBarProps {
   searchContent?: string;
   loading?: boolean;
-  onSearchContentChange: (text: string) => void;
   onSearchSubmitEditing: (text: MatchDAppItemType | string) => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -58,7 +57,7 @@ export interface SearchViewProps {
   onHoverItem?: (item: MatchDAppItemType) => void;
   forwardedRef?: any;
   onKeyPress?: (event: SearchViewKeyEventType) => void;
-  onSearchContentChange: (searchContent: string) => void;
+  onSearchContentChange?: (searchContent: string) => void;
 }
 
 export type WebHandler = 'browser' | 'webview' | 'tabbedWebview';
@@ -76,4 +75,3 @@ export const isValidDomain = (domain: string) =>
   /\.(com|net|io|dev|info|org|network|xyz|ai|co)$/.test(domain);
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
-export const searchContentMaps: Record<string, string> = {};

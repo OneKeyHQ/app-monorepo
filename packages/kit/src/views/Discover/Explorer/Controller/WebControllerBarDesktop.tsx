@@ -89,7 +89,6 @@ function getHttpSafeState(searchContent?: string): ICON_NAMES {
 }
 const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
   searchContent,
-  onSearchContentChange,
   onSearchSubmitEditing,
   loading,
   canGoBack,
@@ -101,22 +100,16 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
 }) => {
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
-  const [searchText, setSearchText] = useState(searchContent);
+  const [searchText, setSearchText] = useState('');
   const httpSafeState = getHttpSafeState(searchContent);
   const { currentTab } = useWebController();
 
   useEffect(() => {
-    setSearchText(searchContent);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  }, [currentTab?.id, searchContent]);
+    setSearchText(currentTab?.url);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  }, [currentTab.id, currentTab?.url, searchContent]);
 
-  const onSearchTextChange = useCallback(
-    (text: string) => {
-      setSearchText(text);
-      onSearchContentChange(text);
-    },
-    [onSearchContentChange],
-  );
   const searchBar = useRef<TextInput>(null);
   // Todo Ref Type
   const searchView = useRef<any>(null);
@@ -171,13 +164,16 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
             customLeftIcon={httpSafeState}
             size="base"
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            value={searchText || currentTab?.url}
-            onClear={() => onSearchTextChange('')}
-            onChangeText={onSearchTextChange}
+            value={searchText}
+            onClear={() => setSearchText('')}
+            onChangeText={setSearchText}
             // @ts-expect-error
             onSubmitEditing={({ nativeEvent: { text } }) => {
-              onSearchTextChange(text);
-              onSearchSubmitEditing(text);
+              const trimText = text.trim();
+              if (trimText) {
+                setSearchText(trimText);
+                onSearchSubmitEditing(trimText);
+              }
             }}
             // @ts-expect-error
             onKeyPress={(event) => {
@@ -192,6 +188,10 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
               setHistoryVisible(true);
             }}
             onBlur={() => {
+              if (searchText?.trim() === '') {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                setSearchText(currentTab.url);
+              }
               setHistoryVisible(false);
             }}
           />
@@ -207,21 +207,21 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
       <SearchView
         ref={searchView}
         visible={historyVisible}
-        onSearchContentChange={onSearchContentChange}
+        onSearchContentChange={setSearchText}
         searchContent={searchContent}
         onSelectorItem={(item: MatchDAppItemType) => {
           onSearchSubmitEditing(item);
           searchBar.current?.blur();
         }}
-        onHoverItem={(item: MatchDAppItemType) => {
-          let url;
-          if (item.dapp) {
-            url = item.dapp.url;
-          } else if (item.webSite) {
-            url = item.webSite.url;
-          }
-          if (url) onSearchContentChange(url);
-        }}
+        // onHoverItem={(item: MatchDAppItemType) => {
+        //   let url;
+        //   if (item.dapp) {
+        //     url = item.dapp.url;
+        //   } else if (item.webSite) {
+        //     url = item.webSite.url;
+        //   }
+        //   if (url) onSearchTextChange(url);
+        // }}
         relativeComponent={searchBar.current}
       />
     </>

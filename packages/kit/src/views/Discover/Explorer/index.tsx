@@ -29,15 +29,8 @@ const Explorer: FC = () => {
   const route = useRoute<DiscoverRouteProp>();
   const navigation = useNavigation();
   const { incomingUrl } = route.params || {};
-  const {
-    openMatchDApp,
-    gotoSite,
-    currentTab,
-    tabs,
-    gotoHome,
-    searchContent,
-    setSearchContent,
-  } = useWebController();
+  const { openMatchDApp, gotoSite, currentTab, tabs, gotoHome } =
+    useWebController();
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -134,8 +127,6 @@ const Explorer: FC = () => {
           onSearchSubmitEditing={onSearchSubmitEditing}
           moreView={moreViewContent}
           onMore={setVisibleMore}
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
         />
       ) : (
         <Desktop
@@ -144,8 +135,6 @@ const Explorer: FC = () => {
           onSearchSubmitEditing={onSearchSubmitEditing}
           moreView={moreViewContent}
           onMore={setVisibleMore}
-          searchContent={searchContent}
-          onSearchContentChange={setSearchContent}
         />
       )}
     </Box>
