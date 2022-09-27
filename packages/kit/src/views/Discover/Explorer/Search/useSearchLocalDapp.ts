@@ -4,7 +4,7 @@ import Fuse from 'fuse.js';
 
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
-import { MatchDAppItemType } from './useSearchHistories';
+import { MatchDAppItemType } from '../explorerUtils';
 
 const options = {
   includeScore: true,

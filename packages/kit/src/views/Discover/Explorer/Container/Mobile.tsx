@@ -101,6 +101,7 @@ const Mobile: FC<ExplorerViewProps> = ({
             </Box>
           </Pressable>
           <IconButton
+            // @ts-expect-error
             onPress={onMore}
             name="DotsHorizontalOutline"
             size="lg"

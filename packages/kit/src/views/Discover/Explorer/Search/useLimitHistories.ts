@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
-import { MatchDAppItemType } from '../types';
+import { MatchDAppItemType } from '../explorerUtils';
 
 export const useLimitHistories = (limit = 50) => {
   const { history, syncData } = useAppSelector((s) => s.discover);

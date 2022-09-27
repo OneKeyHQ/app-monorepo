@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { nanoid } from '@reduxjs/toolkit';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';

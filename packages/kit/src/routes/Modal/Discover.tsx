@@ -3,8 +3,9 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
 
-import createStackNavigator from './createStackNavigator';
 import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum DiscoverModalRoutes {
   SearchHistoryModal = 'SearchHistoryModal',

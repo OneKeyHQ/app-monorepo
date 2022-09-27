@@ -166,7 +166,7 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
             value={searchText}
             onClear={() => setSearchText('')}
             onChangeText={setSearchText}
-            // @ts-expect-error
+            // @ts-ignore
             onSubmitEditing={({ nativeEvent: { text } }) => {
               const trimText = text.trim();
               if (trimText) {
@@ -174,7 +174,7 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
                 onSearchSubmitEditing(trimText);
               }
             }}
-            // @ts-expect-error
+            // @ts-ignore
             onKeyPress={(event) => {
               const { key } = event.nativeEvent;
               if (key === 'ArrowUp' || key === 'ArrowDown') {
