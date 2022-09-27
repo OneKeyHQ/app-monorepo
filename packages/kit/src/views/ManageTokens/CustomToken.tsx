@@ -42,8 +42,11 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const { account: activeAccount, network: defaultNetwork } =
-    useActiveWalletAccount();
+  const {
+    walletId,
+    account: activeAccount,
+    network: defaultNetwork,
+  } = useActiveWalletAccount();
   const activeNetwork = useNetwork(networkId ?? null) ?? defaultNetwork;
   const { accountTokensMap } = useManageTokens();
   const isSmallScreen = useIsVerticalLayout();
@@ -116,6 +119,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             params: {
               screen: ManageTokenRoutes.ActivateToken,
               params: {
+                walletId,
                 accountId: $accountId,
                 networkId: $networkId,
                 tokenId,
@@ -130,7 +134,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         }
       }
     },
-    [activeNetwork, activeAccount, navigation, onAddToken],
+    [activeNetwork, activeAccount, navigation, walletId, onAddToken],
   );
 
   const onSearch = useCallback(

@@ -26,6 +26,7 @@ export type ManageTokenRoutesParams = {
       }
     | { query: string };
   [ManageTokenRoutes.ActivateToken]: {
+    walletId: string;
     accountId: string;
     networkId: string;
     tokenId: string;
