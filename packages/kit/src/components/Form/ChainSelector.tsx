@@ -51,8 +51,10 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
         label: network.shortName,
         value: network.id,
         tokenProps: {
-          src: network.logoURI,
-          letter: network.name,
+          token: {
+            logoURI: network?.logoURI,
+            name: network?.shortName,
+          },
         },
         badge: network.impl === 'evm' ? 'EVM' : undefined,
       }));

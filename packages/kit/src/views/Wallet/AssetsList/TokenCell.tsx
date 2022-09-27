@@ -6,9 +6,7 @@ import {
   Box,
   Pressable,
   Skeleton,
-  Text,
   Token,
-  TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -91,9 +89,12 @@ const TokenCell: FC<TokenCellProps> = ({
       alignItems="center"
     >
       <Token
+        ml="12px"
+        flex={1}
         size={8}
-        src={token.logoURI}
-        name={token.name}
+        showInfo
+        token={token}
+        showExtra={false}
         description={
           balance ? (
             <FormatBalance

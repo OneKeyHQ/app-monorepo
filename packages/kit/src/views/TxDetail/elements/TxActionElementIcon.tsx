@@ -20,7 +20,15 @@ export function TxActionElementIcon(
     nativeID: 'TxActionElementIcon-Center-Container',
   };
   const singleIcon = iconInfo?.icon ?? {};
-  const defaultIcon = <Token src={singleIcon?.url} size={sizePx} name={name} />;
+  const defaultIcon = (
+    <Token
+      size={sizePx}
+      token={{
+        name,
+        logoURI: singleIcon.url,
+      }}
+    />
+  );
   if (singleIcon?.name) {
     return (
       <Center {...containerProps}>

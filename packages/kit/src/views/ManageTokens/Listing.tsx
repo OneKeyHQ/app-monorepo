@@ -17,12 +17,9 @@ import {
   Searchbar,
   Spinner,
   Token as TokenImage,
-  TokenVerifiedIcon,
   Typography,
   useToast,
-  utils,
 } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 
@@ -121,9 +118,9 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 >
                   <TokenImage
                     size={8}
-                    withDetail
-                    src={item.logoURI}
-                    name={item.name}
+                    token={item}
+                    showInfo
+                    showExtra={false}
                     description={
                       <FormatBalance
                         balance={balances[item.tokenIdOnNetwork] ?? '0'}
@@ -390,11 +387,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       <Box display="flex" alignItems="center" flexDirection="row" flex={1}>
         <TokenImage
           size={8}
-          withDetail
-          src={item.logoURI}
-          name={item.name}
-          description={item.symbol}
-          address={utils.shortenAddress(item.tokenIdOnNetwork)}
+          showInfo
+          token={item}
+          showExtra
           nameProps={{
             color: isOwned ? 'text-disabled' : 'text-default',
           }}

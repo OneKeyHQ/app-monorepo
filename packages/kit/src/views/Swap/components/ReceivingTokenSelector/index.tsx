@@ -15,10 +15,8 @@ import {
   Searchbar,
   Spinner,
   Token as TokenComponent,
-  TokenVerifiedIcon,
   Typography,
 } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
@@ -230,46 +228,14 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       width="full"
       opacity={isSelected ? 60 : 1000}
     >
-      <Box display="flex" alignItems="center" flexDirection="row">
-        <Box position="relative">
-          <TokenComponent size="8" src={token.logoURI} name={token.name} />
-          {networkId === undefined && tokenNetwork && token.tokenIdOnNetwork ? (
-            <Box
-              position="absolute"
-              top="-2"
-              right="-2"
-              w="18px"
-              h="18px"
-              bg="surface-default"
-              justifyContent="center"
-              alignItems="center"
-              borderRadius="full"
-            >
-              <TokenComponent
-                size="4"
-                src={tokenNetwork.logoURI}
-                name={tokenNetwork.name}
-              />
-            </Box>
-          ) : null}
-        </Box>
-        <Box ml="3">
-          <Box alignItems="center" flexDirection="row">
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              maxW="56"
-              numberOfLines={2}
-              color="text-default"
-            >
-              {token.symbol}
-            </Text>
-            <TokenVerifiedIcon token={token} />
-          </Box>
-          <Typography.Body2 numberOfLines={1} color="text-subdued">
-            {description}
-          </Typography.Body2>
-        </Box>
-      </Box>
+      <TokenComponent
+        size="8"
+        token={token}
+        name={token.symbol}
+        description={description}
+        showNetworkIcon
+        showInfo
+      />
     </Pressable>
   );
 };

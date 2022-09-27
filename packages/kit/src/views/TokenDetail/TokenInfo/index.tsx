@@ -79,8 +79,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       >
         <Token
           size={12}
-          src={token?.logoURI ?? network?.logoURI}
-          name={token?.name}
+          token={{ ...token, logoURI: token?.logoURI || network?.logoURI }}
         />
         <Box
           width="100%"

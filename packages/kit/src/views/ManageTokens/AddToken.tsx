@@ -139,7 +139,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                 mb="8"
                 mt="6"
               >
-                <Token src={logoURI} size="56px" name={token.name} />
+                <Token token={token} size="56px" />
                 <Box
                   alignItems="center"
                   flexDirection="row"

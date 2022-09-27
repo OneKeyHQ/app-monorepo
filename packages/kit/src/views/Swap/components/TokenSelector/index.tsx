@@ -8,17 +8,15 @@ import {
   Center,
   Divider,
   Empty,
-  Icon,
   Image,
   Modal,
   Pressable,
   ScrollView,
   Searchbar,
   Spinner,
-  TokenVerifiedIcon,
+  Token as TokenComponent,
   Typography,
 } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
@@ -195,7 +193,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   isLast,
   onSelect,
 }) => {
-  const { selectedToken, networkId } = useContext(TokenSelectorContext);
+  const { selectedToken } = useContext(TokenSelectorContext);
 
   const tokenNetwork = useNetwork(token.networkId);
 
@@ -228,57 +226,15 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       width="full"
       opacity={isSelected ? 60 : 1000}
     >
-      <Box display="flex" alignItems="center" flexDirection="row">
-        <Box position="relative">
-          <Image
-            source={{ uri: token.logoURI }}
-            alt="logoURI"
-            size="8"
-            borderRadius="full"
-            fallbackElement={
-              <Center
-                w={8}
-                h={8}
-                rounded="full"
-                bgColor="surface-neutral-default"
-              >
-                <Icon size={20} name="QuestionMarkOutline" />
-              </Center>
-            }
-          />
-          {networkId === undefined && tokenNetwork && token.tokenIdOnNetwork ? (
-            <Box
-              position="absolute"
-              top="-2"
-              right="-2"
-              w="18px"
-              h="18px"
-              bg="surface-default"
-              justifyContent="center"
-              alignItems="center"
-              borderRadius="full"
-            >
-              <Image w="4" h="4" source={{ uri: tokenNetwork.logoURI }} />
-            </Box>
-          ) : null}
-        </Box>
-        <Box ml="3">
-          <Box alignItems="center" flexDirection="row">
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              maxW="56"
-              numberOfLines={2}
-              color="text-default"
-            >
-              {token.symbol}
-            </Text>
-            <TokenVerifiedIcon token={token} />
-          </Box>
-          <Typography.Body2 numberOfLines={1} color="text-subdued">
-            {description}
-          </Typography.Body2>
-        </Box>
-      </Box>
+      <TokenComponent
+        token={token}
+        showInfo
+        showNetworkIcon
+        showTokenVerifiedIcon
+        name={token.symbol}
+        description={description}
+        nameProps={{ numberOfLines: 2 }}
+      />
     </Pressable>
   );
 };
