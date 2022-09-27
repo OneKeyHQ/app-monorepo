@@ -1,1 +1,4 @@
-export { Fragment as default } from 'react';
+import { Fragment } from 'react';
+
+export const DesktopDragZoneAbsoluteBar = Fragment;
+export default Fragment;
