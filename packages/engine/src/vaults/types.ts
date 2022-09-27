@@ -87,6 +87,7 @@ export type ISwapInfo = {
   slippagePercentage: string;
   independentField: 'INPUT' | 'OUTPUT';
   swapQuote: QuoteData;
+  isApprove?: boolean;
 };
 
 export type IStakeInfo = {
