@@ -45,7 +45,6 @@ const SearchView: FC<SearchViewProps> = ({
   onSelectorItem,
   onHoverItem,
   forwardedRef,
-  onSearchContentChange,
 }) => {
   const intl = useIntl();
   const translateY = 9;
@@ -69,7 +68,6 @@ const SearchView: FC<SearchViewProps> = ({
     () => (searchContentTerm ? searchedDapps : allHistories),
     [searchContentTerm, allHistories, searchedDapps],
   );
-
 
   const renderItem: FlatListProps<MatchDAppItemType>['renderItem'] = ({
     item,

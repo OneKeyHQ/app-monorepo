@@ -22,7 +22,7 @@ export const useWebviewRef = ({
 
   useEffect(() => {
     if (navigationStateChangeEvent) {
-      console.log('navigationStateChangeEvent', navigationStateChangeEvent);
+      // console.log('navigationStateChangeEvent', navigationStateChangeEvent);
       try {
         const { canGoBack, canGoForward, loading, title, url } =
           navigationStateChangeEvent;
