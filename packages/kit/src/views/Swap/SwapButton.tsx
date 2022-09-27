@@ -214,6 +214,10 @@ const ExchangeButton = () => {
             token: inputAmount.token.tokenIdOnNetwork,
             amount: 'unlimited',
           })) as IEncodedTxEvm;
+        const nonce = await backgroundApiProxy.engine.getEvmNextNonce({
+          networkId: params.tokenIn.networkId,
+          accountId: account.id,
+        });
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -226,16 +230,21 @@ const ExchangeButton = () => {
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
               skipSaveHistory: true,
-              encodedTx: { ...encodedApproveTx, from: account?.address },
+              encodedTx: {
+                ...encodedApproveTx,
+                nonce,
+                from: account?.address,
+              },
               onSuccess: async () => {
                 if (!encodedTx) {
                   return;
                 }
+                const encodedEvmTx = encodedTx as IEncodedTxEvm;
                 const { result, decodedTx } =
                   await backgroundApiProxy.serviceSwap.sendTransaction({
                     accountId: params.activeAccount.id,
                     networkId: params.tokenIn.networkId,
-                    encodedTx,
+                    encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
                     payload: {
                       type: 'InternalSwap',
                       swapInfo,
