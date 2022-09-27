@@ -1,6 +1,9 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { webviewRefs } from '../../views/Discover/Explorer/Controller/webviewRefs';
+import {
+  searchContentMaps,
+  webviewRefs,
+} from '../../views/Discover/Explorer/explorerUtils';
 
 export interface WebTab {
   id: string;
@@ -16,9 +19,6 @@ export interface WebTab {
 export interface WebTabsInitialState {
   tabs: WebTab[];
   currentTabId: string;
-  // pinnedTabs: WebTab[];
-  // mutedTabs: WebTab[];
-  // closedTabs: WebTab[];
 }
 
 const homeTab: WebTab = {
@@ -56,6 +56,7 @@ export const tokensSlice = createSlice({
     },
     closeWebTab: (state, action: PayloadAction<string>) => {
       delete webviewRefs[action.payload];
+      delete searchContentMaps[action.payload];
       state.tabs = state.tabs.filter((tab, index) => {
         if (tab.id === action.payload) {
           const prev = state.tabs[index - 1];

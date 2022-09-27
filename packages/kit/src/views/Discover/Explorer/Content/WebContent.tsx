@@ -7,7 +7,7 @@ import WebView from '@onekeyhq/kit/src/components/WebView';
 import { WebTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home/DiscoverHome';
 import { useWebController } from '../Controller/useWebController';
-import { webviewRefs } from '../Controller/webviewRefs';
+import { webviewRefs } from '../explorerUtils';
 
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
@@ -22,15 +22,17 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   return useMemo(
     () =>
       id === 'home' || url === '' ? (
+        // TODO avoid rerender, maybe singleton
         <DiscoverHome
-          onItemSelect={(dapp) =>
+          onItemSelect={(dapp) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             gotoSite({
               url: dapp.url,
               title: dapp.name,
               favicon: dapp.favicon,
               dAppId: dapp.id,
-            })
-          }
+            });
+          }}
           onItemSelectHistory={openMatchDApp}
         />
       ) : (
@@ -38,10 +40,12 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
           src={url}
           onWebViewRef={(ref) => {
             if (ref && ref.innerRef) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               webviewRefs[id] = ref;
               // force update webcontroller
               setIsWebviewReady(true);
             } else {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               delete webviewRefs[id];
             }
           }}

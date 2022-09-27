@@ -8,8 +8,7 @@ import {
 
 import TabBarDesktop from '../Controller/TabBarDesktop';
 import WebControllerBarDesktop from '../Controller/WebControllerBarDesktop';
-
-import type { ExplorerViewProps } from '..';
+import { ExplorerViewProps } from '../explorerUtils';
 
 const Desktop: FC<ExplorerViewProps> = ({
   explorerContent,

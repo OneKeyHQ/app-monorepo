@@ -40,11 +40,12 @@ import { useSearchLocalDapp } from './useSearchLocalDapp';
 
 const SearchView: FC<SearchViewProps> = ({
   visible,
-  searchContent,
+  searchContent = '',
   relativeComponent,
   onSelectorItem,
   onHoverItem,
   forwardedRef,
+  onSearchContentChange,
 }) => {
   const intl = useIntl();
   const translateY = 9;
@@ -59,7 +60,7 @@ const SearchView: FC<SearchViewProps> = ({
 
   const { searchedDapps } = useSearchLocalDapp(
     searchContentTerm,
-    searchContent?.searchContent ?? '',
+    searchContent,
   );
 
   const { limitHistories: allHistories } = useLimitHistories();
@@ -69,11 +70,6 @@ const SearchView: FC<SearchViewProps> = ({
     [searchContentTerm, allHistories, searchedDapps],
   );
 
-  useEffect(() => {
-    if (!searchContent?.dapp) {
-      setTempSearchContent(searchContent?.searchContent ?? '');
-    }
-  }, [searchContent]);
 
   const renderItem: FlatListProps<MatchDAppItemType>['renderItem'] = ({
     item,

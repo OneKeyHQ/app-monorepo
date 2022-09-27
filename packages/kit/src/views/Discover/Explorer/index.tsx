@@ -11,36 +11,14 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { useNavigation } from '../../../hooks';
-import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
 import { useWebController } from './Controller/useWebController';
-import {
-  MatchDAppItemType,
-  SearchContentType,
-  webHandler,
-} from './explorerUtils';
+import { MatchDAppItemType, isValidDomain, webHandler } from './explorerUtils';
 import MoreView from './MoreMenu';
-
-export type ExplorerViewProps = {
-  searchContent?: SearchContentType;
-  loading?: boolean;
-  onSearchContentChange?: (text: SearchContentType) => void;
-  onSearchSubmitEditing?: (text: MatchDAppItemType | string) => void;
-  explorerContent: React.ReactNode;
-  canGoBack?: boolean;
-  canGoForward?: boolean;
-  onGoBack?: () => void;
-  onNext?: () => void;
-  onRefresh?: () => void;
-  onStopLoading?: () => void;
-  showExplorerBar?: boolean;
-  onMore?: () => any;
-  moreView: React.ReactNode;
-};
 
 const showExplorerBar = webHandler !== 'browser';
 
@@ -51,9 +29,15 @@ const Explorer: FC = () => {
   const route = useRoute<DiscoverRouteProp>();
   const navigation = useNavigation();
   const { incomingUrl } = route.params || {};
-  const { openMatchDApp, gotoSite, currentTab, tabs, gotoHome } =
-    useWebController();
-  // const [searchContent, setSearchContent] = useState<SearchContentType>();
+  const {
+    openMatchDApp,
+    gotoSite,
+    currentTab,
+    tabs,
+    gotoHome,
+    searchContent,
+    setSearchContent,
+  } = useWebController();
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -74,7 +58,13 @@ const Explorer: FC = () => {
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
-      return gotoSite({ url: dapp });
+      if (dapp.startsWith('http')) {
+        return gotoSite({ url: dapp });
+      }
+      if (isValidDomain(dapp)) {
+        return gotoSite({ url: `https://${dapp}` });
+      }
+      return gotoSite({ url: `https://www.google.com/search?q=${dapp}` });
     }
     openMatchDApp(dapp);
   };
@@ -144,6 +134,8 @@ const Explorer: FC = () => {
           onSearchSubmitEditing={onSearchSubmitEditing}
           moreView={moreViewContent}
           onMore={setVisibleMore}
+          searchContent={searchContent}
+          onSearchContentChange={setSearchContent}
         />
       ) : (
         <Desktop
@@ -152,6 +144,8 @@ const Explorer: FC = () => {
           onSearchSubmitEditing={onSearchSubmitEditing}
           moreView={moreViewContent}
           onMore={setVisibleMore}
+          searchContent={searchContent}
+          onSearchContentChange={setSearchContent}
         />
       )}
     </Box>

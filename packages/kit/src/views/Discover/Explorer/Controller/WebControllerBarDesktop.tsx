@@ -3,6 +3,7 @@ import {
   FC,
   forwardRef,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -20,8 +21,8 @@ import {
 
 import {
   MatchDAppItemType,
-  SearchContentType,
   SearchViewKeyEventType,
+  WebControllerBarProps,
 } from '../explorerUtils';
 import SearchView from '../Search/SearchView';
 
@@ -68,13 +69,13 @@ const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
 
 BrowserURLInput.displayName = 'BrowserURLInput';
 
-function getHttpSafeState(searchContent?: SearchContentType): ICON_NAMES {
+function getHttpSafeState(searchContent?: string): ICON_NAMES {
   try {
-    if (!searchContent || !searchContent?.searchContent) {
+    if (!searchContent) {
       return 'SearchCircleSolid';
     }
 
-    const url = new URL(searchContent?.searchContent ?? '');
+    const url = new URL(searchContent);
     if (url.protocol === 'https:') {
       return 'LockClosedSolid';
     }
@@ -86,7 +87,7 @@ function getHttpSafeState(searchContent?: SearchContentType): ICON_NAMES {
   }
   return 'SearchCircleSolid';
 }
-const WebControllerBarDesktop: FC = ({
+const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
   searchContent,
   onSearchContentChange,
   onSearchSubmitEditing,
@@ -100,9 +101,22 @@ const WebControllerBarDesktop: FC = ({
 }) => {
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
+  const [searchText, setSearchText] = useState(searchContent);
   const httpSafeState = getHttpSafeState(searchContent);
   const { currentTab } = useWebController();
 
+  useEffect(() => {
+    setSearchText(searchContent);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  }, [currentTab?.id, searchContent]);
+
+  const onSearchTextChange = useCallback(
+    (text: string) => {
+      setSearchText(text);
+      onSearchContentChange(text);
+    },
+    [onSearchContentChange],
+  );
   const searchBar = useRef<TextInput>(null);
   // Todo Ref Type
   const searchView = useRef<any>(null);
@@ -156,21 +170,16 @@ const WebControllerBarDesktop: FC = ({
             })}
             customLeftIcon={httpSafeState}
             size="base"
-            value={searchContent?.searchContent || currentTab?.url}
-            onClear={() => onSearchContentChange?.({ searchContent: '' })}
-            onChangeText={(text) =>
-              onSearchContentChange?.({ searchContent: text })
-            }
-            onSubmitEditing={(event) => {
-              if (searchContent?.dapp) {
-                onSearchSubmitEditing?.(searchContent.dapp);
-              } else {
-                onSearchContentChange?.({
-                  searchContent: event.nativeEvent.text,
-                });
-                onSearchSubmitEditing?.(event.nativeEvent.text);
-              }
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            value={searchText || currentTab?.url}
+            onClear={() => onSearchTextChange('')}
+            onChangeText={onSearchTextChange}
+            // @ts-expect-error
+            onSubmitEditing={({ nativeEvent: { text } }) => {
+              onSearchTextChange(text);
+              onSearchSubmitEditing(text);
             }}
+            // @ts-expect-error
             onKeyPress={(event) => {
               const { key } = event.nativeEvent;
               if (key === 'ArrowUp' || key === 'ArrowDown') {
@@ -201,7 +210,7 @@ const WebControllerBarDesktop: FC = ({
         onSearchContentChange={onSearchContentChange}
         searchContent={searchContent}
         onSelectorItem={(item: MatchDAppItemType) => {
-          onSearchSubmitEditing?.(item);
+          onSearchSubmitEditing(item);
           searchBar.current?.blur();
         }}
         onHoverItem={(item: MatchDAppItemType) => {
@@ -211,11 +220,7 @@ const WebControllerBarDesktop: FC = ({
           } else if (item.webSite) {
             url = item.webSite.url;
           }
-          if (url)
-            onSearchContentChange?.({
-              searchContent: url,
-              dapp: item,
-            });
+          if (url) onSearchContentChange(url);
         }}
         relativeComponent={searchBar.current}
       />

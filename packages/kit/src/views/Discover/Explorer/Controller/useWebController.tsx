@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { nanoid } from '@reduxjs/toolkit';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
@@ -20,10 +21,14 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import DappOpenHintDialog from '../DappOpenHintDialog';
-import { MatchDAppItemType, webHandler } from '../explorerUtils';
+import {
+  MatchDAppItemType,
+  searchContentMaps,
+  webHandler,
+  webviewRefs,
+} from '../explorerUtils';
 
 import { useWebviewRef } from './useWebviewRef';
-import { webviewRefs } from './webviewRefs';
 
 let lasNewUrlTimestamp = Date.now();
 export const useWebController = ({
@@ -39,6 +44,14 @@ export const useWebController = ({
   const { currentTabId, tabs } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const innerRef = webviewRefs[curId]?.innerRef;
+  const searchContent = searchContentMaps[curId];
+  const setSearchContent = useCallback(
+    (content: string) => {
+      searchContentMaps[curId] = content;
+    },
+    [curId],
+  );
+
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
   const gotoHome = useCallback(
     () => dispatch(setCurrentWebTab('home')),
@@ -62,7 +75,7 @@ export const useWebController = ({
           return openUrl(url);
         }
         const isNewTab =
-          isNewWindow || (curId === 'home' && webHandler === 'tabbedWebview');
+          (isNewWindow || curId === 'home') && webHandler === 'tabbedWebview';
 
         dispatch(
           isNewTab
@@ -80,14 +93,14 @@ export const useWebController = ({
                 webSite: { url, title, favicon },
               }),
         );
-        if (!isNewTab && !isInPlace) {
+        if (!isNewTab && !isInPlace && tab?.url !== '') {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           innerRef?.loadURL(url);
         }
       }
     },
-    [curId, dispatch, innerRef],
+    [curId, dispatch, innerRef, tab?.url],
   );
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -133,17 +146,8 @@ export const useWebController = ({
     },
     [firstRemindDAPP, dispatch, gotoSite, tab?.url],
   );
-  const {
-    canGoBack,
-    canGoForward,
-    goBack,
-    goForward,
-    stopLoading,
-    // eslint-disable-next-line @typescript-eslint/no-shadow
-  } = useWebviewRef({
-    // @ts-expect-error
-    ref: innerRef,
-    onNavigation: ({ url, title, favicon, isNewWindow, isInPlace }) => {
+  const onNavigation = useCallback(
+    ({ url, title, favicon, isNewWindow, isInPlace }) => {
       if (url && url !== tab?.url) {
         if (Date.now() - lasNewUrlTimestamp < 500) {
           return;
@@ -156,7 +160,14 @@ export const useWebController = ({
         dispatch(setWebTabData({ id: curId, favicon }));
       }
     },
-  });
+    [curId, dispatch, gotoSite, tab?.url],
+  );
+  const { canGoBack, canGoForward, goBack, goForward, stopLoading } =
+    useWebviewRef({
+      // @ts-expect-error
+      ref: innerRef,
+      onNavigation,
+    });
 
   return {
     tabs,
@@ -170,5 +181,7 @@ export const useWebController = ({
     goBack,
     goForward,
     stopLoading,
+    searchContent,
+    setSearchContent,
   };
 };
