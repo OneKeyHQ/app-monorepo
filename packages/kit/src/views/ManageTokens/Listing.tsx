@@ -410,12 +410,14 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
           >
             {item.symbol}
           </Typography.Body2>
-          <Typography.Body2
-            numberOfLines={1}
-            color={isOwned ? 'text-disabled' : 'text-subdued'}
-          >
-            {utils.shortenAddress(item.tokenIdOnNetwork)}
-          </Typography.Body2>
+          {item.tokenIdOnNetwork ? (
+            <Typography.Body2
+              numberOfLines={1}
+              color={isOwned ? 'text-disabled' : 'text-subdued'}
+            >
+              {utils.shortenAddress(item.tokenIdOnNetwork)}
+            </Typography.Body2>
+          ) : null}
         </Box>
       </Box>
       <Box>
