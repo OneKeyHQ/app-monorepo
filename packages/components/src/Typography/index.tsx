@@ -1,6 +1,7 @@
 import React, { ComponentProps, FC } from 'react';
 
 import { Text as NBText } from 'native-base';
+import { TextStyle } from 'react-native';
 
 import { useIsVerticalLayout } from '../Provider/hooks';
 
@@ -25,39 +26,40 @@ export type TypographyStyle =
   | 'CaptionStrong'
   | 'CaptionUnderline';
 
-export type FontProps = ComponentProps<typeof NBText>;
+export type FontProps = ComponentProps<typeof NBText> &
+  Pick<TextStyle, 'textTransform'>;
 
-export const Display2XLargeProps = {
+export const Display2XLargeProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
   fontSize: 32,
   lineHeight: 40,
 };
-export const DisplayXLargeProps = {
+export const DisplayXLargeProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
   fontSize: 28,
   lineHeight: 36,
 };
-export const DisplayLargeProps = {
+export const DisplayLargeProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '600',
   fontSize: 24,
   lineHeight: 32,
 };
-export const DisplayMediumProps = {
+export const DisplayMediumProps: FontProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 20,
   lineHeight: 28,
 };
-export const DisplaySmallProps = {
+export const DisplaySmallProps: FontProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
-export const PageHeadingProps = {
+export const PageHeadingProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '500',
   fontSize: 24,
@@ -69,52 +71,53 @@ export const HeadingProps = {
   fontSize: 18,
   lineHeight: 28,
 };
-export const SubheadingProps = {
+export const SubheadingProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
   fontSize: 12,
   lineHeight: 16,
   letterSpacing: 0.8,
+  textTransform: 'uppercase',
 };
-export const Button1Props = {
+export const Button1Props: FontProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
-export const Button2Props = {
+export const Button2Props: FontProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 14,
   lineHeight: 20,
 };
-export const Body1Props = {
+export const Body1Props: FontProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 16,
   lineHeight: 24,
 };
-export const Body2Props = {
+export const Body2Props: FontProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 14,
   lineHeight: 20,
 };
-export const CaptionProps = {
+export const CaptionProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 12,
   lineHeight: 16,
 };
 
-export const Body1StrongProps = {
+export const Body1StrongProps: FontProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
 
-export const Body1UnderlineProps = {
+export const Body1UnderlineProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 16,
@@ -122,14 +125,14 @@ export const Body1UnderlineProps = {
   underline: true,
 };
 
-export const Body2StrongProps = {
+export const Body2StrongProps: FontProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 14,
   lineHeight: 20,
 };
 
-export const Body2UnderlineProps = {
+export const Body2UnderlineProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 14,
@@ -137,14 +140,14 @@ export const Body2UnderlineProps = {
   underline: true,
 };
 
-export const CaptionStrongProps = {
+export const CaptionStrongProps: FontProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 12,
   lineHeight: 16,
 };
 
-export const CaptionUnderlineProps = {
+export const CaptionUnderlineProps: FontProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 12,
@@ -213,12 +216,7 @@ export const Heading: FC<FontProps> = ({ children, ...rest }) => (
   </NBText>
 );
 export const Subheading: FC<FontProps> = ({ children, ...rest }) => (
-  <NBText
-    color="text-default"
-    textTransform="uppercase"
-    {...SubheadingProps}
-    {...rest}
-  >
+  <NBText color="text-default" {...SubheadingProps} {...rest}>
     {children}
   </NBText>
 );
