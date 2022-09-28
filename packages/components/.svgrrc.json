@@ -1,17 +1,17 @@
 {
   "native": true,
   "typescript": true,
+  "jsxRuntime": "automatic",
   "svgoConfig": {
     "plugins": [
-      { "name": "removeDimensions" },
-      { "removeXMLNS": true },
+      "removeDimensions",
+      "removeXMLNS",
       {
         "name": "preset-default",
         "params": {
           "overrides": {
-            "cleanupIDs": false,
-            "removeUselessDefs": false,
-            "removeXMLNS": true
+            "cleanupids": false,
+            "removeuselessdefs": false
           }
         }
       }

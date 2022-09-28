@@ -1,7 +1,16 @@
 diff --git a/node_modules/metro-react-native-babel-preset/src/configs/main.js b/node_modules/metro-react-native-babel-preset/src/configs/main.js
-index 6c23f9a..058b094 100644
+index 6c23f9a..b323cb5 100644
 --- a/node_modules/metro-react-native-babel-preset/src/configs/main.js
 +++ b/node_modules/metro-react-native-babel-preset/src/configs/main.js
+@@ -48,7 +48,7 @@ const getPreset = (src, options) => {
+   if (!options.useTransformReactJSXExperimental) {
+     extraPlugins.push([
+       require("@babel/plugin-transform-react-jsx", {
+-        useBuiltIns: true,
++        runtime: 'automatic',
+       }),
+     ]);
+   }
 @@ -131,11 +131,11 @@ const getPreset = (src, options) => {
      extraPlugins.push([require("@babel/plugin-transform-async-to-generator")]);
    }

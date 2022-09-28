@@ -62,6 +62,14 @@ const tsRules = {
       'warnOnUnassignedImports': true,
     },
   ],
+  // 'no-restricted-syntax': [
+  //   'error',
+  //   {
+  //     selector:
+  //       "ImportDeclaration[source.value='react'][specifiers.0.type='ImportDefaultSpecifier']",
+  //     message: 'Default React import not allowed',
+  //   },
+  // ],
 };
 module.exports = {
   env: {
