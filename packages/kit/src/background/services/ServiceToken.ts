@@ -297,7 +297,7 @@ export default class ServiceToken extends ServiceBase {
       tokenIdsOnNetwork,
     );
     const fullPrices: Record<string, string | null> = {
-      main: prices.main?.toFixed(),
+      main: prices.main?.toFixed() || null,
     };
     tokenIdsOnNetwork.forEach((id) => {
       if (prices[id] === undefined) {

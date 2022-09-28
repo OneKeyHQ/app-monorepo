@@ -1,14 +1,6 @@
-import {
-  FC,
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
-} from 'react';
+import { FC, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { ListRenderItem, useWindowDimensions } from 'react-native';
 
@@ -26,7 +18,6 @@ import {
 } from '@onekeyhq/components';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import {
   updateRankData,
   updateSyncData,
@@ -34,22 +25,19 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import DAppIcon from '../DAppIcon';
-import { MatchDAppItemType } from '../Explorer/Search/useSearchHistories';
+import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { imageUrl, requestRankings, requestSync } from '../Service';
 import { DAppItemType, RankingsPayload, SyncRequestPayload } from '../type';
 
 import CardView from './CardView';
-import DiscoverNative from './DiscoverNative';
 import ListView from './ListView';
 
 import type { SectionDataType } from './type';
 
-type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ExploreScreen>;
-
-type DiscoverProps = {
+interface DiscoverProps {
   onItemSelect: (item: DAppItemType) => Promise<boolean>;
   onItemSelectHistory: (item: MatchDAppItemType) => Promise<boolean>;
-};
+}
 
 const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   const intl = useIntl();
@@ -131,18 +119,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   );
 };
 
-export const Discover: FC<DiscoverProps> = ({
-  onItemSelect: propOnItemSelect,
-  ...rest
-}) => {
-  let onItemSelect: ((item: DAppItemType) => Promise<boolean>) | undefined;
-  const route = useRoute<RouteProps>();
-  if (platformEnv.isNative) {
-    const { onItemSelect: routeOnItemSelect } = route.params;
-    onItemSelect = routeOnItemSelect;
-  } else {
-    onItemSelect = propOnItemSelect;
-  }
+const DiscoverHome: FC<DiscoverProps> = ({ onItemSelect, ...rest }) => {
   const { locale } = useLocale();
   const navigation = useNavigation();
   const intl = useIntl();
@@ -165,7 +142,7 @@ export const Discover: FC<DiscoverProps> = ({
           const agree = await onItemSelect(item);
           if (agree) {
             // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
-            if (platformEnv.isNative) {
+            if (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad) {
               navigation.goBack();
             }
           }
@@ -305,7 +282,4 @@ export const Discover: FC<DiscoverProps> = ({
   );
 };
 
-const Home: FC<DiscoverProps> = ({ ...rest }) =>
-  platformEnv.isNative ? <DiscoverNative {...rest} /> : <Discover {...rest} />;
-
-export default memo(Home);
+export default DiscoverHome;

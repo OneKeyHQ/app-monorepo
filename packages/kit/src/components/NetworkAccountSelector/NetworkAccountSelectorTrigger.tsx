@@ -13,6 +13,8 @@ import {
 
 import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 
+import { useAccountSelectorEffects } from './hooks/useAccountSelectorEffects';
+
 type NetworkAccountSelectorTriggerProps = {
   size?: 'sm' | 'lg' | string;
   type?: 'basic' | 'plain';
@@ -27,6 +29,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   size,
   type,
 }) => {
+  useAccountSelectorEffects();
   // TODO different options of scene
   const { network, account } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();

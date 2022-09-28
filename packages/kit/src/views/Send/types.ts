@@ -32,6 +32,7 @@ export enum SendRoutes {
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
   SendFeedbackReceipt = 'SendFeedbackReceipt',
+  HardwareSwapContinue = 'HardwareSwapContinue',
 }
 
 export type TokenApproveAmountEditParams = {
@@ -164,6 +165,10 @@ export type SendFeedbackReceiptParams = {
   onDetail?: (txid: string) => any;
 };
 
+export type HardwareSwapContinueParams = {
+  closeModal?: () => any;
+};
+
 export type SendRoutesParams = {
   [SendRoutes.SendLegacy]: SendLegacyParams;
   [SendRoutes.PreSendToken]: PreSendParams;
@@ -176,4 +181,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
   [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
+  [SendRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
 };

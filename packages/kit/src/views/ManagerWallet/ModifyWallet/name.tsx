@@ -25,7 +25,6 @@ import {
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import { Avatar, defaultAvatar } from '../../../utils/emojiUtils';
@@ -42,7 +41,8 @@ const ModifyWalletNameViewModal: FC = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const { walletId } = useRoute<RouteProps>().params;
-  const { engine, dispatch, serviceCloudBackup } = backgroundApiProxy;
+  const { engine, dispatch, serviceCloudBackup, serviceAccount } =
+    backgroundApiProxy;
   const { wallets } = useRuntime();
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
   const [isLoading, setIsLoading] = React.useState(false);
@@ -74,7 +74,8 @@ const ModifyWalletNameViewModal: FC = () => {
     });
     if (changedWallet) {
       serviceCloudBackup.requestBackup();
-      dispatch(updateWallet(changedWallet));
+      // dispatch(updateWallet(changedWallet)); // won't update wallets order
+      await serviceAccount.initWallets();
       setTimeout(() => dispatch(setRefreshTS()));
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       navigation.getParent()?.goBack();

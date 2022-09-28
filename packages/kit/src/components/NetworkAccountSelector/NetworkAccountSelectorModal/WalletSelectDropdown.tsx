@@ -1,7 +1,8 @@
 /* eslint-disable no-nested-ternary */
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-import { useIntl } from 'react-intl';
+import { debounce } from 'lodash';
+import { IntlShape, useIntl } from 'react-intl';
 
 import {
   Box,
@@ -11,6 +12,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -22,40 +24,67 @@ import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 import { CreateAccountButton } from './CreateAccountButton';
 
+const buildData = debounce(
+  ({
+    setData,
+    wallets,
+    intl,
+  }: {
+    intl: IntlShape;
+    wallets: IWallet[];
+    setData: React.Dispatch<
+      React.SetStateAction<{ label: string; value: string; wallet: IWallet }[]>
+    >;
+  }) => {
+    const data = wallets.map((wallet) => ({
+      label: getWalletName({ wallet, intl }) || '-',
+      value: wallet.id,
+      wallet,
+    }));
+    debugLogger.accountSelector.info(
+      'rebuild NetworkAccountSelector walletList data',
+    );
+    setData(data);
+  },
+  150,
+  {
+    leading: false,
+    trailing: true,
+  },
+);
+
 export function WalletSelectDropdown({
   accountSelectorInfo,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) {
   const {
-    selectedNetwork,
     selectedNetworkId,
-    isLoading,
     selectedWallet,
     selectedWalletId,
     isOpenDelay,
+    isOpen,
     preloadingCreateAccount,
   } = accountSelectorInfo;
-  const { dispatch, serviceAccountSelector } = backgroundApiProxy;
+  const { serviceAccountSelector } = backgroundApiProxy;
 
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { wallets } = useRuntime();
-  const isMountedRef = useIsMounted();
+  const [data, setData] = useState<
+    { label: string; value: string; wallet: IWallet }[]
+  >([]);
+  const isMounted = useIsMounted();
 
-  const walletsOptions = useMemo(() => {
-    if (!isMountedRef.current || !isOpenDelay) {
-      return [];
+  useEffect(() => {
+    if (isMounted.current && isOpenDelay && isOpen) {
+      buildData({
+        wallets,
+        setData,
+        intl,
+      });
     }
-    debugLogger.accountSelector.info(
-      'rebuild NetworkAccountSelector walletList data',
-    );
-    return wallets.map((wallet) => ({
-      label: getWalletName({ wallet, intl }) || '-',
-      value: wallet.id,
-      wallet,
-    }));
-  }, [intl, isMountedRef, isOpenDelay, wallets]);
+  }, [intl, isOpenDelay, isOpen, wallets, isMounted]);
 
   const isPreloadingCreate = useMemo(
     () =>
@@ -84,7 +113,7 @@ export function WalletSelectDropdown({
           flex: 1,
           alignItems: 'flex-start',
         }}
-        options={walletsOptions}
+        options={data}
         renderTrigger={({ visible, onPress }) => (
           <Pressable minW="150px" onPress={onPress}>
             {({ isHovered, isPressed }) => (

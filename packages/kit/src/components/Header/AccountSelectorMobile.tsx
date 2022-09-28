@@ -17,9 +17,7 @@ const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
   const status = useDrawerStatus();
   const isOpen = status === 'open';
 
-  const accountSelectorInfo = useAccountSelectorInfo({
-    isOpen,
-  });
+  const accountSelectorInfo = useAccountSelectorInfo();
 
   return (
     <LazyDisplayView

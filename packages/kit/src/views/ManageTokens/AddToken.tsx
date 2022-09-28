@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,7 +27,14 @@ import useDappParams from '../../hooks/useDappParams';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 type RouteProps = RouteProp<
+  ManageTokenRoutesParams,
+  ManageTokenRoutes.AddToken
+>;
+
+type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
   ManageTokenRoutes.AddToken
 >;
@@ -227,9 +234,13 @@ function ViewTokenModal(props: IViewTokenModalProps) {
 
 function AddTokenModal() {
   const toast = useToast();
-  const { account: activeAccount, network: activeNetwork } =
-    useActiveWalletAccount();
+  const {
+    walletId,
+    account: activeAccount,
+    network: activeNetwork,
+  } = useActiveWalletAccount();
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
   const { address, logoURI } = useRouteParams();
   const queryInfo = useDappParams();
 
@@ -237,7 +248,7 @@ function AddTokenModal() {
     id: queryInfo.sourceInfo?.id ?? '',
   });
 
-  const onPrimaryActionPress = useCallback(
+  const addAccountToken = useCallback(
     async ({ close } = {}) => {
       if (activeAccount && activeNetwork) {
         const addedToken =
@@ -262,6 +273,34 @@ function AddTokenModal() {
     },
     [activeAccount, activeNetwork, address, toast, intl, dappApprove, logoURI],
   );
+
+  const onPrimaryActionPress = useCallback(async () => {
+    if (activeAccount && activeNetwork) {
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+        activeNetwork?.id,
+      );
+      if (vaultSettings?.activateTokenRequired) {
+        navigation.navigate(ManageTokenRoutes.ActivateToken, {
+          walletId,
+          accountId: activeAccount?.id,
+          networkId: activeNetwork?.id,
+          tokenId: address,
+          onSuccess() {
+            addAccountToken();
+          },
+        });
+      } else {
+        addAccountToken();
+      }
+    }
+  }, [
+    activeAccount,
+    activeNetwork,
+    addAccountToken,
+    address,
+    navigation,
+    walletId,
+  ]);
 
   return (
     <ViewTokenModal

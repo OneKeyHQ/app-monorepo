@@ -1,8 +1,5 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
@@ -15,7 +12,11 @@ import {
 } from 'aptos';
 import { get } from 'lodash';
 
-import { OneKeyError, OneKeyHardwareError } from '../../../errors';
+import {
+  InvalidAccount,
+  OneKeyError,
+  OneKeyHardwareError,
+} from '../../../errors';
 import { IDecodedTxActionType } from '../../types';
 import { hexlify, stripHexPrefix } from '../../utils/hexUtils';
 
@@ -116,38 +117,34 @@ export async function getTokenInfo(client: AptosClient, tokenAddress: string) {
   });
 }
 
-export async function generateSignTransaction(
-  client: AptosClient,
-  signer: Signer,
-  sender: string,
+export async function buildSignedTx(
+  rawTxn: TxnBuilderTypes.RawTransaction,
   senderPublicKey: string,
-  payload: TxPayload,
-  bscTxn?: string,
-  options?: {
-    sequence_number?: string;
-    max_gas_amount?: string;
-    gas_unit_price?: string;
-    expiration_timestamp_secs?: string;
-    chain_id?: number;
-  },
+  signature: string,
 ) {
-  let rawTxn;
-  if (bscTxn) {
-    const deserializer = new BCS.Deserializer(hexToBytes(bscTxn));
-    rawTxn = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
-  } else {
-    if (!payload.function) {
-      throw new OneKeyError('generate transaction error: function is empty');
-    }
-    // @ts-expect-error
-    rawTxn = await client.generateTransaction(sender, payload, {
-      sequence_number: options?.sequence_number,
-      max_gas_amount: options?.max_gas_amount,
-      gas_unit_price: options?.gas_unit_price,
-      expiration_timestamp_secs: options?.expiration_timestamp_secs,
-    });
-  }
+  const txSignature = new TxnBuilderTypes.Ed25519Signature(
+    hexToBytes(signature),
+  );
+  const authenticator = new TxnBuilderTypes.TransactionAuthenticatorEd25519(
+    new TxnBuilderTypes.Ed25519PublicKey(
+      hexToBytes(stripHexPrefix(senderPublicKey)),
+    ),
+    txSignature,
+  );
+  const signRawTx = BCS.bcsToBytes(
+    new TxnBuilderTypes.SignedTransaction(rawTxn, authenticator),
+  );
+  return Promise.resolve({
+    txid: '',
+    rawTx: bytesToHex(signRawTx),
+  });
+}
 
+export async function signRawTransaction(
+  signer: Signer,
+  senderPublicKey: string,
+  rawTxn: TxnBuilderTypes.RawTransaction,
+) {
   const signingMessage = TransactionBuilder.getSigningMessage(rawTxn);
   const [signature] = await signer.sign(
     Buffer.from(bytesToHex(signingMessage), 'hex'),
@@ -156,32 +153,14 @@ export async function generateSignTransaction(
   const signatureHex = hexlify(signature, {
     noPrefix: true,
   });
-  const txSignature = new TxnBuilderTypes.Ed25519Signature(
-    hexToBytes(signatureHex),
-  );
 
-  const authenticator = new TxnBuilderTypes.TransactionAuthenticatorEd25519(
-    new TxnBuilderTypes.Ed25519PublicKey(
-      hexToBytes(stripHexPrefix(senderPublicKey)),
-    ),
-    txSignature,
-  );
-
-  const signRawTx = BCS.bcsToBytes(
-    new TxnBuilderTypes.SignedTransaction(rawTxn, authenticator),
-  );
-
-  return Promise.resolve({
-    txid: '',
-    rawTx: bytesToHex(signRawTx),
-  });
+  return buildSignedTx(rawTxn, senderPublicKey, signatureHex);
 }
 
-export async function signTransaction(
+export async function generateUnsignedTransaction(
   client: AptosClient,
   unsignedTx: UnsignedTx,
-  signer: Signer,
-): Promise<SignedTx> {
+): Promise<TxnBuilderTypes.RawTransaction> {
   // IEncodedTxAptos
   const { encodedTx } = unsignedTx.payload;
   const {
@@ -193,11 +172,9 @@ export async function signTransaction(
     bscTxn,
 
     //  payload
-    type,
     function: func,
     arguments: args,
     type_arguments,
-    code,
   } = encodedTx;
 
   const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
@@ -210,26 +187,30 @@ export async function signTransaction(
     throw new OneKeyHardwareError(Error('senderPublicKey is required'));
   }
 
-  return generateSignTransaction(
-    client,
-    signer,
-    sender,
-    senderPublicKey,
-    {
-      type,
-      function: func,
-      arguments: args,
-      type_arguments,
-      code,
-    },
-    bscTxn,
-    {
-      sequence_number,
-      max_gas_amount,
-      gas_unit_price,
-      expiration_timestamp_secs,
-    },
-  );
+  let rawTxn;
+  if (bscTxn) {
+    const deserializer = new BCS.Deserializer(hexToBytes(bscTxn));
+    rawTxn = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+  } else {
+    if (!func) {
+      throw new OneKeyError('generate transaction error: function is empty');
+    }
+    rawTxn = await client.generateTransaction(
+      sender,
+      {
+        function: func,
+        arguments: args,
+        type_arguments,
+      },
+      {
+        sequence_number,
+        max_gas_amount,
+        gas_unit_price,
+        expiration_timestamp_secs,
+      },
+    );
+  }
+  return rawTxn;
 }
 
 export function waitPendingTransaction(
@@ -279,11 +260,23 @@ export async function getAccountCoinResource(
   address: string,
   tokenAddress?: string | undefined,
 ): Promise<Types.MoveResource | undefined> {
-  // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
-  const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
-  const resources = await client.getAccountResources(stripHexPrefix(address));
-  const accountResource = resources.find((r) => r.type === typeTag);
-  return Promise.resolve(accountResource);
+  try {
+    // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
+    const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
+    const resources = await client.getAccountResources(stripHexPrefix(address));
+    const accountResource = resources.find((r) => r.type === typeTag);
+    return await Promise.resolve(accountResource);
+  } catch (error: any) {
+    const { errorCode } = error || {};
+    if (errorCode === 'account_not_found') {
+      throw new InvalidAccount(errorCode);
+    }
+    // TODO: handle resource not found
+    if (errorCode === 'resource_not_found') {
+      throw new InvalidAccount(errorCode);
+    }
+  }
+  return Promise.resolve(undefined);
 }
 
 export async function getModuleAbiMap(aptosClient: AptosClient, addr: string) {
@@ -495,13 +488,21 @@ export function formatSignMessage(
     fullMessage += `address: ${address}\n`;
     response.address = address;
   }
-  if (message.chainId) {
-    fullMessage += `chain_id: ${chainId}\n`;
-    response.chainId = chainId;
-  }
   if (message.application) {
-    fullMessage += `application: ${application}\n`;
+    let host: string;
+    try {
+      const urlObj = new URL(application);
+      host = urlObj.host;
+    } catch (error) {
+      host = application;
+    }
+
+    fullMessage += `application: ${host}\n`;
     response.application = application;
+  }
+  if (message.chainId) {
+    fullMessage += `chainId: ${chainId}\n`;
+    response.chainId = chainId;
   }
   fullMessage += `message: ${message.message}\n`;
   fullMessage += `nonce: ${message.nonce}`;

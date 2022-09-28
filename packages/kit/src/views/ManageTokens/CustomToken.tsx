@@ -42,8 +42,11 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const { account: activeAccount, network: defaultNetwork } =
-    useActiveWalletAccount();
+  const {
+    walletId,
+    account: activeAccount,
+    network: defaultNetwork,
+  } = useActiveWalletAccount();
   const activeNetwork = useNetwork(networkId ?? null) ?? defaultNetwork;
   const { accountTokensMap } = useManageTokens();
   const isSmallScreen = useIsVerticalLayout();
@@ -116,6 +119,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             params: {
               screen: ManageTokenRoutes.ActivateToken,
               params: {
+                walletId,
                 accountId: $accountId,
                 networkId: $networkId,
                 tokenId,
@@ -130,7 +134,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         }
       }
     },
-    [activeNetwork, activeAccount, navigation, onAddToken],
+    [activeNetwork, activeAccount, navigation, walletId, onAddToken],
   );
 
   const onSearch = useCallback(
@@ -154,12 +158,17 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
 
   useEffect(() => {
     async function doQuery() {
-      const trimedAddress = debouncedAddress.trim();
+      if (!activeNetwork) return;
+      const normalizeTokenAddress =
+        await backgroundApiProxy.validator.normalizeTokenAddress(
+          activeNetwork?.id,
+          debouncedAddress,
+        );
+
       if (
-        !accountTokensMap.has(trimedAddress.toLowerCase()) &&
+        !accountTokensMap.has(normalizeTokenAddress) &&
         activeAccount &&
-        activeNetwork &&
-        trimedAddress
+        normalizeTokenAddress
       ) {
         let preResult;
         setSearching(true);
@@ -167,7 +176,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
           preResult = await backgroundApiProxy.engine.preAddToken(
             activeAccount.id,
             activeNetwork.id,
-            trimedAddress,
+            normalizeTokenAddress,
           );
           if (preResult?.[1]) {
             onSearch(preResult?.[1]);
@@ -216,8 +225,15 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
               required: intl.formatMessage({
                 id: 'form__field_is_required',
               }),
-              validate: (value) => {
-                if (accountTokensMap.has(value.toLowerCase())) {
+              validate: async (value) => {
+                if (!activeNetwork) return;
+
+                const normalizeTokenAddress =
+                  await backgroundApiProxy.validator.normalizeTokenAddress(
+                    activeNetwork?.id,
+                    value,
+                  );
+                if (accountTokensMap.has(normalizeTokenAddress)) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',
                   });

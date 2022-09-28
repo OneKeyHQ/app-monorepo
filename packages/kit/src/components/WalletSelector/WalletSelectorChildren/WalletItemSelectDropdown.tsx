@@ -100,6 +100,20 @@ function WalletItemSelectDropdown({
     [deviceStatus?.hasUpgrade, isHardwareWallet],
   );
 
+  const navigateToBackupModal = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.BackupWallet,
+      params: {
+        screen: platformEnv.isNative
+          ? BackupWalletModalRoutes.BackupWalletOptionsModal
+          : BackupWalletModalRoutes.BackupWalletManualModal,
+        params: {
+          walletId: wallet?.id ?? '',
+        },
+      },
+    });
+  }, [navigation, wallet?.id]);
+
   const onSelectChange = useCallback(
     (_value: EWalletSelectorListItemSelectOptions) => {
       if (_value === EWalletSelectorListItemSelectOptions.update) {
@@ -151,18 +165,7 @@ function WalletItemSelectDropdown({
       }
       // TODO always check password
       if (_value === EWalletSelectorListItemSelectOptions.backup) {
-        //
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.BackupWallet,
-          params: {
-            screen: platformEnv.isNative
-              ? BackupWalletModalRoutes.BackupWalletOptionsModal
-              : BackupWalletModalRoutes.BackupWalletManualModal,
-            params: {
-              walletId: wallet?.id ?? '',
-            },
-          },
-        });
+        navigateToBackupModal();
       }
       if (_value === EWalletSelectorListItemSelectOptions.restore) {
         //
@@ -180,7 +183,13 @@ function WalletItemSelectDropdown({
         onDeleteWallet();
       }
     },
-    [isHardwareWallet, navigation, onDeleteWallet, wallet?.id],
+    [
+      isHardwareWallet,
+      navigateToBackupModal,
+      navigation,
+      onDeleteWallet,
+      wallet?.id,
+    ],
   );
   const selectOptions = useMemo((): (
     | SelectItem<EWalletSelectorListItemSelectOptions>
@@ -337,17 +346,7 @@ function WalletItemSelectDropdown({
             onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
               onClose?.();
               setTimeout(() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.BackupWallet,
-                  params: {
-                    screen: platformEnv.isNative
-                      ? BackupWalletModalRoutes.BackupWalletOptionsModal
-                      : BackupWalletModalRoutes.BackupWalletManualModal,
-                    params: {
-                      walletId: wallet?.id ?? '',
-                    },
-                  },
-                });
+                navigateToBackupModal();
               }, 500);
             },
           }}
@@ -357,10 +356,9 @@ function WalletItemSelectDropdown({
     [
       deleteWallet,
       intl,
-      navigation,
+      navigateToBackupModal,
       showBackupDialog,
       showDeleteWalletDialog,
-      wallet?.id,
     ],
   );
 

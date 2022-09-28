@@ -1,7 +1,8 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
 import {
   Box,
@@ -11,10 +12,14 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -28,6 +33,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
+import { useIsMounted } from '../../../../hooks/useIsMounted';
+import { WalletHomeTabEnum } from '../../type';
 
 import CollectionCard from './CollectionCard';
 import NFTListAssetCard from './NFTListAssetCard';
@@ -203,60 +210,89 @@ const NFTList: FC<NFTListProps> = ({
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function NFTListContainer() {
-  const { account, network } = useActiveWalletAccount();
+  const { account, networkId, accountId, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const isNFTSupport = isCollectibleSupportedChainId(network?.id);
+  const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const { serviceNFT } = backgroundApiProxy;
-
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const isMountedRef = useIsMounted();
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const isFocused = useIsFocused();
   const [price, updatePrice] = useState<number>(0);
   const [collectibles, updateListData] = useState<Collection[]>([]);
 
-  const [refresh, setRefresh] = useState(0);
-
-  const fetchData = () => {
-    setRefresh((prev) => prev + 1);
+  const fetchData = async () => {
+    if (account && networkId) {
+      const result = await serviceNFT.fetchNFT({
+        accountId: account.address,
+        networkId,
+      });
+      return result;
+    }
+    return [];
   };
 
+  const shouldDoRefresh = useMemo((): boolean => {
+    if (!accountId || !networkId) {
+      return false;
+    }
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+      return false;
+    }
+    if (!isFocused) {
+      return false;
+    }
+    if (homeTabName !== WalletHomeTabEnum.Collectibles) {
+      return false;
+    }
+    return true;
+  }, [accountId, homeTabName, isFocused, networkId]);
+
+  const swrKey = 'fetchNFTList';
+  const { mutate, isValidating: isLoading } = useSWR(swrKey, fetchData, {
+    refreshInterval: 30 * 1000,
+    revalidateOnMount: false,
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+    isPaused() {
+      return !shouldDoRefresh;
+    },
+    onSuccess(data) {
+      if (isMountedRef.current) {
+        updateListData(data);
+      }
+    },
+  });
+
   useEffect(() => {
-    let isCancel = false;
     (async () => {
-      if (account && network?.id) {
-        setIsLoading(true);
+      if (account && networkId) {
         const localData = await serviceNFT.getLocalNFTs({
-          networkId: network.id,
+          networkId,
           accountId: account.address,
         });
-        updateListData(localData);
-        const result = await serviceNFT.fetchNFT({
-          accountId: account.address,
-          networkId: network?.id,
-        });
-        if (!isCancel) {
-          updateListData(result);
-          setIsLoading(false);
+        if (isMountedRef.current) {
+          updateListData(localData);
         }
       }
     })();
-    return () => {
-      isCancel = true;
-    };
-  }, [account, network, serviceNFT, refresh]);
+  }, [account, isMountedRef, networkId, serviceNFT]);
 
   useEffect(() => {
-    let isCancel = false;
+    if (shouldDoRefresh) {
+      mutate();
+    }
+  }, [mutate, shouldDoRefresh, account, networkId]);
+
+  useEffect(() => {
     (async () => {
-      if (network?.id) {
-        const data = await serviceNFT.fetchSymbolPrice(network.id);
-        if (!isCancel && data) {
+      if (networkId) {
+        const data = await serviceNFT.fetchSymbolPrice(networkId);
+        if (isMountedRef.current && data) {
           updatePrice(data);
         }
       }
     })();
-    return () => {
-      isCancel = true;
-    };
-  }, [network, serviceNFT]);
+  }, [isMountedRef, networkId, serviceNFT]);
 
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
@@ -264,7 +300,7 @@ function NFTListContainer() {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
-          screen: CollectiblesModalRoutes.CollectibleDetailModal,
+          screen: CollectiblesModalRoutes.NFTDetailModal,
           params: {
             asset,
             network,
@@ -299,7 +335,7 @@ function NFTListContainer() {
         collectibles={collectibles}
         onSelectCollection={handleSelectCollectible}
         onSelectAsset={handleSelectAsset}
-        fetchData={fetchData}
+        fetchData={mutate}
         isNFTSupport={isNFTSupport}
         isLoading={isLoading}
       />

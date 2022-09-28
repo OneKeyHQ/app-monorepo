@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { debounce, orderBy } from 'lodash';
+import { InteractionManager } from 'react-native';
 
 import { IWallet } from '@onekeyhq/engine/src/types';
 import {
@@ -28,18 +29,21 @@ export type IWalletDataSection = {
   data: IWalletDataBase[];
 };
 
-export function useWalletSelectorSectionData(): IWalletDataSection[] {
-  const { wallets } = useRuntime();
-  const [data, setData] = useState<
-    { type: EWalletDataSectionType; data: IWalletDataBase[] }[]
-  >([]);
-
-  const { visible } = useWalletSelectorStatus();
-
-  const buildData = useCallback(() => {
+const buildData = debounce(
+  ({
+    wallets,
+    setData,
+  }: {
+    wallets: IWallet[];
+    setData: React.Dispatch<
+      React.SetStateAction<
+        { type: EWalletDataSectionType; data: IWalletDataBase[] }[]
+      >
+    >;
+  }) => {
     const hdData: IWalletDataBase[] = [];
     const hwData: IWalletDataBase[] = [];
-    const otherData: IWalletDataBase[] = []; // TODO sort by type
+    const otherData: IWalletDataBase[] = [];
     const hwWalletsMap: Partial<{ [deviceId: string]: IWallet[] }> = {};
 
     wallets.forEach((wallet, index) => {
@@ -108,23 +112,33 @@ export function useWalletSelectorSectionData(): IWalletDataSection[] {
       { type: EWalletDataSectionType.other, data: otherData },
     ];
     setData(d);
-  }, [wallets]);
+  },
+  150,
+  {
+    leading: false,
+    trailing: true,
+  },
+);
 
-  const buildDataDebounced = useMemo(
-    () =>
-      debounce(buildData, 150, {
-        leading: false,
-        trailing: true,
-      }),
-    [buildData],
-  );
+export function useWalletSelectorSectionData(): IWalletDataSection[] {
+  const { wallets } = useRuntime();
+  const [data, setData] = useState<
+    { type: EWalletDataSectionType; data: IWalletDataBase[] }[]
+  >([]);
+
+  const { visible } = useWalletSelectorStatus();
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
   useEffect(() => {
-    if (!visible) {
-      return;
+    if (visibleRef.current) {
+      buildData({ wallets, setData });
+    } else {
+      InteractionManager.runAfterInteractions(() => {
+        buildData({ wallets, setData });
+      });
     }
-    buildDataDebounced();
-  }, [buildDataDebounced, visible]);
+  }, [wallets]);
 
   return data;
 }

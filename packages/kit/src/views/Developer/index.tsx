@@ -343,7 +343,7 @@ export const Debug = () => {
       "method": "eth_sendTransaction",
       "params": [
         {
-          "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
+          "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4dF",
           "data": "0x",
           "value": "${randomValue}"
         }
@@ -352,7 +352,7 @@ export const Debug = () => {
     }
   },
   "encodedTx": {
-    "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4df",
+    "to": "0xa9b4d559a98ff47c83b74522b7986146538cd4dF",
     "data": "0x",
     "value": "${randomValue}"
   }

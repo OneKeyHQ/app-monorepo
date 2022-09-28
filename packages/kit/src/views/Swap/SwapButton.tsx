@@ -7,6 +7,10 @@ import { Button, useToast } from '@onekeyhq/components';
 import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
@@ -210,6 +214,10 @@ const ExchangeButton = () => {
             token: inputAmount.token.tokenIdOnNetwork,
             amount: 'unlimited',
           })) as IEncodedTxEvm;
+        const nonce = await backgroundApiProxy.engine.getEvmNextNonce({
+          networkId: params.tokenIn.networkId,
+          accountId: account.id,
+        });
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -217,25 +225,32 @@ const ExchangeButton = () => {
             params: {
               payloadInfo: {
                 type: 'InternalSwap',
-                swapInfo,
+                swapInfo: { ...swapInfo, isApprove: true },
               },
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
-              encodedTx: { ...encodedApproveTx, from: account?.address },
+              skipSaveHistory: true,
+              encodedTx: {
+                ...encodedApproveTx,
+                nonce,
+                from: account?.address,
+              },
               onSuccess: async () => {
                 if (!encodedTx) {
                   return;
                 }
+                const encodedEvmTx = encodedTx as IEncodedTxEvm;
                 const { result, decodedTx } =
                   await backgroundApiProxy.serviceSwap.sendTransaction({
                     accountId: params.activeAccount.id,
                     networkId: params.tokenIn.networkId,
-                    encodedTx,
+                    encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
                     payload: {
                       type: 'InternalSwap',
                       swapInfo,
                     },
                   });
+                appEventBus.emit(AppEventBusNames.SwapCompleted);
                 addSwapTransaction(result.txid, decodedTx.nonce);
               },
             },

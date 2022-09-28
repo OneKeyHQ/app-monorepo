@@ -42,6 +42,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
+import { wait } from '../../utils/helper';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 
@@ -406,11 +407,12 @@ function AddExistingWalletView(
             isDisabled={submitDisabled || disableSubmitBtn}
             type="primary"
             size={isVerticalLayout ? 'xl' : 'lg'}
-            onPromise={handleSubmit((values) => {
+            onPromise={handleSubmit(async (values) => {
               if (!disableSubmitBtn && address) {
                 values.text = address;
               }
-              onSubmit(values);
+              await onSubmit(values);
+              await wait(600);
             })}
           >
             {intl.formatMessage({ id: 'action__confirm' })}

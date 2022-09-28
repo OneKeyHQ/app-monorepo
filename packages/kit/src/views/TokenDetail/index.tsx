@@ -15,7 +15,6 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
-import { useSettings } from '../../hooks/redux';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import {
   HomeRoutes,
@@ -47,7 +46,6 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
   const { charts, prices } = useManageTokens();
-  const { pushNotification } = useSettings();
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
@@ -60,11 +58,8 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     if (!platformEnv.isNative) {
       return false;
     }
-    if (!pushNotification?.pushEnable || !pushNotification?.priceAlertEnable) {
-      return false;
-    }
     return !!(charts?.[id] && prices?.[id]);
-  }, [charts, prices, tokenId, token, pushNotification]);
+  }, [charts, prices, tokenId, token]);
 
   useLayoutEffect(() => {
     if (firstUpdate.current) {

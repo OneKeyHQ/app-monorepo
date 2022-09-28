@@ -4,6 +4,15 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { Dialog, useToast } from '@onekeyhq/components';
+import { IWallet } from '@onekeyhq/engine/src/types';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/engine/src/types/wallet';
+
+import { ValidationFields } from '../../../components/Protected';
+import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 
 export default function useRemoveAccountDialog() {
   const intl = useIntl();
@@ -15,7 +24,7 @@ export default function useRemoveAccountDialog() {
   const [accountId, setAccountId] = React.useState('');
   const [walletId, setWalletId] = React.useState('');
   const [password, setPassword] = React.useState<string | undefined>();
-
+  const { showVerify } = useLocalAuthenticationModal();
   const onSubmit = useCallback(() => {
     if (!accountId) return Promise.resolve();
     return serviceAccount
@@ -44,6 +53,34 @@ export default function useRemoveAccountDialog() {
     setTimeout(() => setVisible(true), 250);
   };
 
+  const goToRemoveAccount = useCallback(
+    (options: {
+      wallet: IWallet | null | undefined;
+      accountId: string;
+      callback?: (() => void) | undefined;
+    }) => {
+      const { wallet, callback } = options;
+      const shouldVerifyPwd =
+        wallet?.type !== WALLET_TYPE_HW &&
+        wallet?.type !== WALLET_TYPE_WATCHING &&
+        wallet?.type !== WALLET_TYPE_EXTERNAL;
+      const $$walletId = wallet?.id ?? '';
+      if (shouldVerifyPwd) {
+        showVerify(
+          (pwd) => {
+            show($$walletId, options.accountId, pwd, callback);
+          },
+          () => {},
+          null,
+          ValidationFields.Account,
+        );
+      } else {
+        show($$walletId, options.accountId, undefined, callback);
+      }
+    },
+    [showVerify],
+  );
+
   const RemoveAccountDialog = useMemo(
     () =>
       visible && (
@@ -71,5 +108,5 @@ export default function useRemoveAccountDialog() {
     [intl, onSubmit, visible],
   );
 
-  return { RemoveAccountDialog, show };
+  return { RemoveAccountDialog, show, goToRemoveAccount };
 }

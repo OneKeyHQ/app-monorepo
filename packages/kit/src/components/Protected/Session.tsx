@@ -20,12 +20,16 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
   const [verifiedPwd, setVerifiedPwd] = useState(false);
   const [hasvPw, setHasPw] = useState<boolean | undefined>();
   const validationSetting = useAppSelector((s) => s.settings.validationSetting);
-  const isSkip = useMemo(
-    () => (field ? !!validationSetting?.[field] : false),
-    [validationSetting, field],
-  );
+  const isAlwaysNeedInputPassword = useMemo(() => {
+    const value = field ? !!validationSetting?.[field] : false;
+    if (field && field === ValidationFields.Secret) {
+      // view recovery_phrase or private_key always need input password
+      return true;
+    }
+    return value;
+  }, [validationSetting, field]);
   useEffect(() => {
-    async function load() {
+    async function loadCachePassword() {
       const data = await backgroundApiProxy.servicePassword.getPassword();
       if (data) {
         setVerifiedPwd(true);
@@ -38,8 +42,8 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
       setHasPw(!!data);
       setLoaded(true);
     }
-    if (!isSkip) {
-      load();
+    if (!isAlwaysNeedInputPassword) {
+      loadCachePassword();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -54,7 +58,7 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
   );
 
   if (!verifiedPwd) {
-    if (isSkip) {
+    if (isAlwaysNeedInputPassword) {
       return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
     }
 

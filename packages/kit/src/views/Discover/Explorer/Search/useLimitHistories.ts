@@ -1,17 +1,8 @@
 import { useMemo } from 'react';
 
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import { WebSiteHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 
-import type { DAppItemType } from '../../type';
-
-export type MatchDAppItemType = {
-  id: string;
-  dapp?: DAppItemType | undefined;
-  webSite?: WebSiteHistory | undefined;
-  clicks?: number | undefined;
-  timestamp?: number | undefined;
-};
+import { MatchDAppItemType } from '../explorerUtils';
 
 export const useLimitHistories = (limit = 50) => {
   const { history, syncData } = useAppSelector((s) => s.discover);

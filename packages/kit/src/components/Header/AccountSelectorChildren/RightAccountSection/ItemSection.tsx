@@ -14,9 +14,7 @@ import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/ac
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
 import { useNavigation, useNavigationActions } from '@onekeyhq/kit/src/hooks';
-import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/ModifyAccount';
@@ -58,9 +56,7 @@ const AccountSectionItem: FC<Props> = ({
   const navigation = useNavigation();
 
   const isVertical = useIsVerticalLayout();
-  const { showVerify } = useLocalAuthenticationModal();
-  const { show: showRemoveAccountDialog, RemoveAccountDialog } =
-    useRemoveAccountDialog();
+  const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const { closeWalletSelector } = useNavigationActions();
 
   const { copyAddress } = useCopyAddress({
@@ -110,40 +106,13 @@ const AccountSectionItem: FC<Props> = ({
           });
           break;
         case 'remove':
-          // bypass password verify
-          if (
-            activeWallet?.type === 'watching' ||
-            activeWallet?.type === 'external'
-          ) {
-            showRemoveAccountDialog(
-              activeWallet?.id ?? '',
-              item.id,
-              undefined,
-              () =>
-                refreshAccounts(
-                  activeWallet?.id ?? '',
-                  activeNetwork?.id ?? '',
-                ),
-            );
-          } else {
-            showVerify(
-              (pwd) => {
-                showRemoveAccountDialog(
-                  activeWallet?.id ?? '',
-                  item.id,
-                  pwd,
-                  () =>
-                    refreshAccounts(
-                      activeWallet?.id ?? '',
-                      activeNetwork?.id ?? '',
-                    ),
-                );
-              },
-              () => {},
-              null,
-              ValidationFields.Account,
-            );
-          }
+          goToRemoveAccount({
+            wallet: activeWallet,
+            accountId: item.id,
+            callback: () =>
+              refreshAccounts(activeWallet?.id ?? '', activeNetwork?.id ?? ''),
+          });
+
           break;
 
         default:
@@ -154,12 +123,10 @@ const AccountSectionItem: FC<Props> = ({
       copyAddress,
       item,
       navigation,
-      activeWallet?.id,
-      activeWallet?.type,
+      activeWallet,
       activeNetwork?.id,
+      goToRemoveAccount,
       refreshAccounts,
-      showRemoveAccountDialog,
-      showVerify,
     ],
   );
 

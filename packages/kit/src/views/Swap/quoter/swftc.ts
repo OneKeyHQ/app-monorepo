@@ -45,6 +45,8 @@ const networkId2SwftcNetworkName: Record<string, string> = {
   [OnekeyNetwork.trx]: 'TRX',
   [OnekeyNetwork.near]: 'NEAR',
   [OnekeyNetwork.etc]: 'ETC',
+  [OnekeyNetwork.ethw]: 'ETHW',
+  [OnekeyNetwork.etf]: 'ETF',
 };
 
 const swftcNetworkName2NetworkId: Record<string, string> = {};
