@@ -39,7 +39,7 @@ import {
 import { timeout } from '../../utils/helper';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
-import { showHomeBalanceSettings } from '../Overlay/BottomSheetSettings';
+import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
