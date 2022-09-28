@@ -112,7 +112,7 @@ function WebView({
   }
   return (
     <Box flex={1} bg="background-default" {...containerProps}>
-      {(src || nativeWebviewSource) && (
+      {Boolean(src || nativeWebviewSource) && (
         <InpageProviderWebView
           // key refresh not working for uniswap
           // key={webviewGlobalKey}
