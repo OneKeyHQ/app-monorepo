@@ -18,6 +18,8 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   width,
   height,
   borderRadius,
+  alt,
+  bgColor,
   ...rest
 }) => {
   const [imageState, updateImageState] = useState<ImageState>(
@@ -51,12 +53,14 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
     } else {
       updateImageState('fail');
     }
-  }, [onErrorWithTask, rest.src, retry, retryDuring]);
+  }, [onErrorWithTask, retry, rest.src, retryDuring]);
 
-  const renderImage = useMemo(
-    () => (
+  const renderImage = useMemo(() => {
+    const key = platformEnv.isWeb ? src : undefined;
+    return (
       <Pressable onPress={onImagePress} disabled={!preview}>
         <PlatformImage
+          key={key}
           onLoad={() => {
             updateImageState('success');
           }}
@@ -65,16 +69,37 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
           height={height}
           borderRadius={borderRadius}
           src={src}
+          alt={alt}
+          bgColor={bgColor}
+          fallbackElement={
+            <Box bgColor={bgColor} width={width} height={height} />
+          }
         />
       </Pressable>
-    ),
-    [height, onImageError, onImagePress, preview, src, width, borderRadius],
-  );
+    );
+  }, [
+    src,
+    onImagePress,
+    preview,
+    onImageError,
+    width,
+    height,
+    borderRadius,
+    alt,
+    bgColor,
+  ]);
   return (
     <Box {...rest}>
       {imageState === 'fail' ? fallbackElement : renderImage}
       {imageState === 'loading'
-        ? skeleton && <CustomSkeleton position="absolute" {...rest} />
+        ? skeleton && (
+            <CustomSkeleton
+              position="absolute"
+              width={width}
+              height={height}
+              borderRadius={borderRadius}
+            />
+          )
         : null}
     </Box>
   );
