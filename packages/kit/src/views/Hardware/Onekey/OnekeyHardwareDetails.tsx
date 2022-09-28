@@ -240,7 +240,7 @@ const OnekeyHardwareDetailsModal: FC = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'action__view_device_details' })}
+      header={intl.formatMessage({ id: 'action__device_settings' })}
       headerDescription=""
       footer={null}
       scrollViewProps={{
