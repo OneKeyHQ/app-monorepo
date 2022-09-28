@@ -1,6 +1,7 @@
 import React, { ComponentProps, FC } from 'react';
 
 import { Text as NBText } from 'native-base';
+import { TextStyle } from 'react-native';
 
 import { useIsVerticalLayout } from '../Provider/hooks';
 
@@ -69,12 +70,13 @@ export const HeadingProps = {
   fontSize: 18,
   lineHeight: 28,
 };
-export const SubheadingProps = {
+export const SubheadingProps: FontProps & Pick<TextStyle, 'textTransform'> = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
   fontSize: 12,
   lineHeight: 16,
   letterSpacing: 0.8,
+  textTransform: 'uppercase',
 };
 export const Button1Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
@@ -213,12 +215,7 @@ export const Heading: FC<FontProps> = ({ children, ...rest }) => (
   </NBText>
 );
 export const Subheading: FC<FontProps> = ({ children, ...rest }) => (
-  <NBText
-    color="text-default"
-    textTransform="uppercase"
-    {...SubheadingProps}
-    {...rest}
-  >
+  <NBText color="text-default" {...SubheadingProps} {...rest}>
     {children}
   </NBText>
 );
