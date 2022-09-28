@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
@@ -14,7 +14,7 @@ import {
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
-import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
+import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home/DiscoverHome';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
@@ -57,7 +57,7 @@ export const stackScreenList = [
   },
   {
     name: HomeRoutes.ExploreScreen,
-    component: Discover,
+    component: DiscoverHome,
   },
   {
     name: HomeRoutes.DAppListScreen,
