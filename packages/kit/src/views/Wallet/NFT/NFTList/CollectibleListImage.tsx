@@ -33,6 +33,7 @@ const CollectibleListImage: FC<Props> = ({
     return (
       <Box size={`${size}px`} {...props} overflow="hidden">
         <NFTImage
+          alt={undefined}
           resizeMode={resizeMode}
           width={`${size}px`}
           height={`${size}px`}

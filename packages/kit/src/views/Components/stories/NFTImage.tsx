@@ -10,7 +10,7 @@ const NFTImageGallery = () => {
 
   const contractAddress = 'test_contractAddress_0';
   const contractTokenId = 'test_tokenId_89';
-  const s3Url = `https://dev.onekey-asset.com/${contractAddress}/${contractTokenId}/source`;
+  const s3Url = `https://nft.onekey-asset.com/${contractAddress}/${contractTokenId}/source`;
 
   const uploadSource =
     'https://cloudflare-ipfs.com/ipfs/QmbmbDRHRexwpZm1QDcbtXyGH7TshwfrLXJRmoWiWvn8ey/6620.png';
