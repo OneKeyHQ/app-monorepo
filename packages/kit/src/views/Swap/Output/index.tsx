@@ -4,15 +4,15 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
-import ReceivingTokenSelector from '../components/ReceivingTokenSelector';
-import { ReceivingTokenSelectorContext } from '../components/ReceivingTokenSelector/context';
+import TokenSelector from '../components/TokenSelector';
+import { TokenSelectorContext } from '../components/TokenSelector/context';
 import { networkSupportedTokens, swftOnlyNetwork } from '../config';
 import { useSwapState } from '../hooks/useSwap';
 
 const Output = () => {
   const navigation = useNavigation();
   const { inputToken } = useSwapState();
-  const receivingNetworkId = useAppSelector((s) => s.swap.receivingNetworkId);
+  const networkSelectorId = useAppSelector((s) => s.swap.networkSelectorId);
 
   const onSelect = useCallback(
     (token: Token) => {
@@ -25,34 +25,34 @@ const Output = () => {
   const included = useMemo(() => {
     if (
       inputToken &&
-      receivingNetworkId &&
-      receivingNetworkId !== inputToken.networkId
+      networkSelectorId &&
+      networkSelectorId !== inputToken.networkId
     ) {
-      return networkSupportedTokens[receivingNetworkId];
+      return networkSupportedTokens[networkSelectorId];
     }
-    if (receivingNetworkId && swftOnlyNetwork.includes(receivingNetworkId)) {
-      return networkSupportedTokens[receivingNetworkId];
+    if (networkSelectorId && swftOnlyNetwork.includes(networkSelectorId)) {
+      return networkSupportedTokens[networkSelectorId];
     }
     return undefined;
-  }, [receivingNetworkId, inputToken]);
+  }, [networkSelectorId, inputToken]);
 
   const onSelectNetworkId = useCallback((networkid?: string) => {
-    backgroundApiProxy.serviceSwap.setReceivingNetworkId(networkid);
+    backgroundApiProxy.serviceSwap.setNetworkSelectorId(networkid);
   }, []);
 
   const value = useMemo(
     () => ({
-      networkId: receivingNetworkId,
+      networkId: networkSelectorId,
       setNetworkId: onSelectNetworkId,
       selectedToken: inputToken,
     }),
-    [receivingNetworkId, onSelectNetworkId, inputToken],
+    [networkSelectorId, onSelectNetworkId, inputToken],
   );
 
   return (
-    <ReceivingTokenSelectorContext.Provider value={value}>
-      <ReceivingTokenSelector included={included} onSelect={onSelect} />
-    </ReceivingTokenSelectorContext.Provider>
+    <TokenSelectorContext.Provider value={value}>
+      <TokenSelector included={included} onSelect={onSelect} />
+    </TokenSelectorContext.Provider>
   );
 };
 

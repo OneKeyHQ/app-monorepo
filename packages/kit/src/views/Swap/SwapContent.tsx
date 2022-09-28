@@ -37,6 +37,7 @@ const SwapContent = () => {
     typedValue,
     independentField,
     loading,
+    sendingAccount,
   } = useSwapState();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { account, wallet, network } = useActiveWalletAccount();
@@ -70,13 +71,6 @@ const SwapContent = () => {
   }, []);
 
   const onSwitchTokens = useCallback(() => {
-    if (
-      outputTokenNetwork &&
-      inputTokenNetwork &&
-      outputTokenNetwork?.impl !== inputTokenNetwork?.impl
-    ) {
-      return;
-    }
     backgroundApiProxy.serviceSwap.switchTokens();
   }, [outputTokenNetwork, inputTokenNetwork]);
 
@@ -109,7 +103,7 @@ const SwapContent = () => {
           type="INPUT"
           label={intl.formatMessage({ id: 'form__pay' })}
           token={inputToken}
-          tokenNetwork={inputTokenNetwork}
+          account={sendingAccount}
           inputValue={formattedAmounts.INPUT}
           onChange={onChangeInput}
           onPress={onSelectInput}

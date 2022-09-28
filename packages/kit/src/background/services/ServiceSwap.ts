@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/require-await */
 import { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { IEncodedTx, IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
@@ -11,12 +13,12 @@ import {
   resetState,
   resetTypedValue,
   setInputToken,
+  setNetworkSelectorId,
   setOutputToken,
   setQuote,
   setQuoteTime,
-  setReceivingNetworkId,
   setRecipient,
-  setSendingNetworkId,
+  setSendingAccount,
   setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
@@ -76,6 +78,7 @@ export default class ServiceSwap extends ServiceBase {
       );
     }
     this.selectToken('INPUT', this.getNetwork(token.networkId), token);
+    this.setSendingAccount(this.getNetwork(token.networkId));
   }
 
   @backgroundMethod()
@@ -103,8 +106,13 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async switchTokens() {
-    const { dispatch } = this.backgroundApi;
+    const { dispatch, appSelector, engine } = this.backgroundApi;
     dispatch(setQuote(undefined), switchTokens());
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    if (outputToken) {
+      const network = await engine.getNetwork(outputToken.networkId);
+      this.setSendingAccount(network);
+    }
   }
 
   @backgroundMethod()
@@ -120,15 +128,9 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setSendingNetworkId(networkId?: string) {
+  async setNetworkSelectorId(networkId?: string) {
     const { dispatch } = this.backgroundApi;
-    dispatch(setSendingNetworkId(networkId));
-  }
-
-  @backgroundMethod()
-  async setReceivingNetworkId(networkId?: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setReceivingNetworkId(networkId));
+    dispatch(setNetworkSelectorId(networkId));
   }
 
   @backgroundMethod()
@@ -203,6 +205,57 @@ export default class ServiceSwap extends ServiceBase {
       return data;
     }
     dispatch(setRecipient());
+  }
+
+  @backgroundMethod()
+  async setSendingAccount(network?: Network): Promise<Account | undefined> {
+    if (!network) {
+      return;
+    }
+    const { dispatch, appSelector, engine } = this.backgroundApi;
+    const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+    if (
+      sendingAccount &&
+      isAccountCompatibleWithNetwork(sendingAccount.id, network.id)
+    ) {
+      return sendingAccount;
+    }
+    const { wallets, networks } = appSelector((s) => s.runtime);
+    const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
+      (s) => s.general,
+    );
+    const activeWallet = wallets.find((item) => item.id === activeWalletId);
+    const activeNetwork = networks.find((item) => item.id === activeNetworkId);
+    if (!activeWallet || !activeNetwork) {
+      return;
+    }
+    const accounts = await engine.getAccounts(
+      activeWallet.accounts,
+      network.id,
+    );
+    const account =
+      network.impl === activeNetwork.impl
+        ? accounts.find((acc) => acc.id === activeAccountId)
+        : accounts[0];
+    if (account) {
+      const data = { ...account, impl: network.impl };
+      dispatch(setSendingAccount(data));
+      return data;
+    }
+    dispatch(setSendingAccount());
+  }
+
+  @backgroundMethod()
+  async getAccountRelatedWallet(accountId: string) {
+    const { appSelector } = this.backgroundApi;
+    const { wallets } = appSelector((s) => s.runtime);
+    for (let i = 0; i < wallets.length; i += 1) {
+      const wallet = wallets[0];
+      const { accounts } = wallet;
+      if (accounts.includes(accountId)) {
+        return wallet;
+      }
+    }
   }
 
   @backgroundMethod()
