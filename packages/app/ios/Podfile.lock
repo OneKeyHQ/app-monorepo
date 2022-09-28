@@ -441,7 +441,7 @@ PODS:
     - React-Core
   - react-native-view-shot (3.3.0):
     - React-Core
-  - react-native-webview (11.18.1):
+  - react-native-webview (11.23.1):
     - React-Core
   - React-perflogger (0.68.3)
   - React-RCTActionSheet (0.68.3):
@@ -560,7 +560,7 @@ PODS:
     - Firebase/Crashlytics (= 8.15.0)
     - React-Core
     - RNFBApp
-  - RNGestureHandler (2.6.0):
+  - RNGestureHandler (2.6.2):
     - React-Core
   - RNReanimated (2.9.1):
     - DoubleConversion
@@ -999,7 +999,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: b456e1c40ec86f5593d58b275bd0e9603169daca
   react-native-segmented-control: 06607462630512ff8eef652ec560e6235a30cc3e
   react-native-view-shot: da768466e1cd371de50a3a5c722d1e95456b5b2c
-  react-native-webview: 0b7bd2bffced115aefd393e1841babd9b9a557b1
+  react-native-webview: d33e2db8925d090871ffeb232dfa50cb3a727581
   React-perflogger: fa15d1d29ff7557ee25ea48f7f59e65896fb3215
   React-RCTActionSheet: e83515333352a3cc19c146e3c7a63a8a9269da8f
   React-RCTAnimation: 8032daa2846e3db7ac28c4c5a207d0bfb5e1e3ad
@@ -1019,7 +1019,7 @@ SPEC CHECKSUMS:
   RNFBAnalytics: 58d1a73d42514ddf3c4f43662db0f3ce9a85457b
   RNFBApp: ca5f49bbe21f663142320337eb39956b04de4d12
   RNFBCrashlytics: 97bf2b05e4a5523c57adc8f9e5bf6e1b17804482
-  RNGestureHandler: 920eb17f5b1e15dae6e5ed1904045f8f90e0b11e
+  RNGestureHandler: 4defbd70b2faf3d6761b82fa7880285241762cb0
   RNReanimated: 5c8c17e26787fd8984cd5accdc70fef2ca70aafd
   RNScreens: 0df01424e9e0ed7827200d6ed1087ddd06c493f9
   RNShare: d56424e3926cbc239db1cc1c168adcb051aad50b

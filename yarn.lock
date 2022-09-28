@@ -18643,10 +18643,10 @@ react-native-flipper@^0.162.0:
   resolved "https://registry.yarnpkg.com/react-native-flipper/-/react-native-flipper-0.162.0.tgz#9919adb743dae50a80d914eaa3a53eb33eaf39ec"
   integrity sha512-htXhzHDKWkMaBivc+SLTxqT1GkJxR2rrXobXlAhFYrvaQ6ws1KA6peqQssEiPSrXQJ2Z2oRXQ+yrlPKaBC/Hjg==
 
-react-native-gesture-handler@^2.5.0, react-native-gesture-handler@^2.6.0:
-  version "2.6.0"
-  resolved "https://registry.yarnpkg.com/react-native-gesture-handler/-/react-native-gesture-handler-2.6.0.tgz#8eeb25a2be9718db2e241084f4a337bec0e30ed1"
-  integrity sha512-IwdYdt5FKjjbRSrSqh8hoNctlYZl5DFnqSJ6buKtrl4A4gyzkrtW6WcmOFl5LnCa6Bcw+znSD77O6UiZ8qda7g==
+react-native-gesture-handler@^2.5.0, react-native-gesture-handler@^2.6.2:
+  version "2.6.2"
+  resolved "https://registry.yarnpkg.com/react-native-gesture-handler/-/react-native-gesture-handler-2.6.2.tgz#f3b68d374f5dda603ff29f7df2edb39472eb97ce"
+  integrity sha512-Ff/WKlR8KiM1wq7UJZvIyCB+OsweewaeZk+4RDIYNGM9tvNIAXEm/MtYnLHiBXiSJjZItF/8B83gE6pVq40vIw==
   dependencies:
     "@egjs/hammerjs" "^2.0.17"
     hoist-non-react-statics "^3.3.0"
@@ -18840,10 +18840,10 @@ react-native-uuid@^2.0.1:
   resolved "https://registry.yarnpkg.com/react-native-uuid/-/react-native-uuid-2.0.1.tgz#ed4e2dfb1683eddb66967eb5dca140dfe1abddb9"
   integrity sha512-cptnoIbL53GTCrWlb/+jrDC6tvb7ypIyzbXNJcpR3Vab0mkeaaVd5qnB3f0whXYzS+SMoSQLcUUB0gEWqkPC0g==
 
-react-native-v8@^1.4.6:
-  version "1.4.6"
-  resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.4.6.tgz#8425e79cd17bd56d6831964f7b9c04b3e8b59be3"
-  integrity sha512-Qv+gtTaGn45M3dZVW+4A1XsKd/YPrfbFvlnkCHFuO3PiN3pMmtBMXi0W3wRMipa4GIEy1ybqlahBtW9kXjY5XA==
+react-native-v8@^1.5.1:
+  version "1.5.1"
+  resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.5.1.tgz#d6e4abe6e0da794f79e377c595eca382bd459296"
+  integrity sha512-tbiwxhJTI9svJ5PEiAGnJ2/nA7ejDVIJARDOayBMwgKWFNTw/cwlx4E7xr8cOaehgd2C7kovZWdT/kziDYvP2g==
 
 react-native-view-shot@^3.3.0:
   version "3.3.0"
@@ -18868,10 +18868,10 @@ react-native-web@0.18.9:
     postcss-value-parser "^4.2.0"
     styleq "^0.1.2"
 
-react-native-webview@11.18.1, react-native-webview@^11.17.2:
-  version "11.18.1"
-  resolved "https://registry.yarnpkg.com/react-native-webview/-/react-native-webview-11.18.1.tgz#0a1893abd391c8f0e7d4c5874bfa737ca6311225"
-  integrity sha512-1VoVmkbsHJ44WA+frMhNfua64t0u2jq80h25sUWrKJRiYrO0XIsKBnJcqrzuOH1ZAT/zDHTqBB5OU+bxEHLJmQ==
+react-native-webview@11.23.1, react-native-webview@^11.17.2:
+  version "11.23.1"
+  resolved "https://registry.yarnpkg.com/react-native-webview/-/react-native-webview-11.23.1.tgz#6a4bf2620e491dd4fecf4e6dc079005117fae12c"
+  integrity sha512-bmqsdg4RYOUYD37R9XTrQALm7eD62KbLNPRfgvpLGd1SjaurvAjjsLrLN4mt6yOtKOMKeZvlcAl3x6De6cCQsA==
   dependencies:
     escape-string-regexp "2.0.0"
     invariant "2.2.4"

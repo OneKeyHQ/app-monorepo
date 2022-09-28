@@ -23,8 +23,10 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { TabRoutes } from '../../routes/types';
+import { setIncomingUrl } from '../../store/reducers/webTabs';
 import { AddressBookRoutes } from '../AddressBook/routes';
 
 import {
@@ -93,9 +95,8 @@ const ScanQrcodeResult: FC = () => {
           {...pressableProps}
           mb="16px"
           onPress={() => {
-            navigation
-              .getParent()
-              ?.navigate(TabRoutes.Discover, { incomingUrl: data });
+            backgroundApiProxy.dispatch(setIncomingUrl(data));
+            navigation.getParent()?.navigate(TabRoutes.Discover);
           }}
         >
           <HStack space="4">
