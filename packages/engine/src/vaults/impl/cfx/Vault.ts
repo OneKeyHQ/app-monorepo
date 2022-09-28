@@ -7,12 +7,16 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { Conflux } from 'js-conflux-sdk';
+import { Conflux, address as confluxAddress } from 'js-conflux-sdk';
 import memoizee from 'memoizee';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import {
+  InvalidAddress,
+  NotImplemented,
+  OneKeyInternalError,
+} from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
@@ -158,8 +162,6 @@ export default class Vault extends VaultBase {
     );
   }
 
-  // Chain only functionalities below.
-
   override async getAccountBalance(tokenIds: Array<string>, withMain = true) {
     const { address } = await this.getOutputAccount();
     return this.getBalances(
@@ -168,6 +170,18 @@ export default class Vault extends VaultBase {
       ),
     );
   }
+
+  override async validateAddress(address: string): Promise<string> {
+    const isValid = confluxAddress.isValidCfxAddress(address);
+    const normalizedAddress = isValid ? address.toLowerCase() : undefined;
+
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  // Chain only functionalities below.
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getClient();
