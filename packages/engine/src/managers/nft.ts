@@ -166,48 +166,30 @@ function mergeLocalAsset({
   transaction: NFTTransaction;
   collectionMap: Record<string, Collection>;
 }) {
-  const { asset, contractAddress, contractName } = transaction;
-  const collectionKey = contractAddress ?? contractName;
-  if (collectionKey) {
-    const collection = collectionMap[collectionKey];
+  const { asset: txAsset, collectionId } = transaction;
+  let localAsset;
+  let collectionName;
+  let logoUrl;
+  if (collectionId) {
+    const collection = collectionMap[collectionId];
     if (collection) {
-      const findAsset = collection.assets.find((item) => {
+      localAsset = collection.assets.find((item) => {
         const { tokenAddress, tokenId } = item;
         if (tokenAddress) {
           return item.tokenAddress === transaction.tokenAddress;
         }
         return item.tokenId === tokenId;
       });
-
-      const collectionName = collection.contractName ?? '';
-      const logoUrl = collection.logoUrl ?? '';
-      if (findAsset) {
-        if (!asset) {
-          return {
-            ...transaction,
-            asset: findAsset,
-          };
-        }
-        return {
-          ...transaction,
-          asset: {
-            ...asset,
-            contractName: collectionName,
-            collection: findAsset.collection,
-          },
-        };
-      }
-      if (asset) {
-        return {
-          ...transaction,
-          asset: {
-            ...asset,
-            contractName: collectionName,
-            collection: { contractName: collectionName, logoUrl },
-          },
-        };
-      }
+      collectionName = collection.contractName ?? '';
+      logoUrl = collection.logoUrl ?? '';
     }
+  }
+  const asset = txAsset ?? localAsset;
+  if (asset) {
+    return {
+      ...transaction,
+      asset: { ...asset, collection: { collectionName, logoUrl } },
+    };
   }
   return transaction;
 }
@@ -224,20 +206,8 @@ export const getNFTTransactionHistory = async (
       .then((resp) => resp.data)
       .catch(() => ({ data: [] }));
     const transactions = camelcaseKeys(data, { deep: true }).data;
-
     const contractAddressList = transactions
-      .map((tx) => {
-        const { contractName, contractAddress } = tx;
-        // evm
-        if (contractAddress) {
-          return contractAddress;
-        }
-        // sol
-        if (contractName) {
-          return contractName;
-        }
-        return undefined;
-      })
+      .map((tx) => tx.collectionId)
       .filter(Boolean);
     const { serviceNFT } = backgroundApiProxy;
     const collectionMap = await serviceNFT.batchLocalCollection({

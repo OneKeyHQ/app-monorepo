@@ -34,6 +34,7 @@ export type Collection = {
   priceSymbol?: string;
   assets: NFTAsset[];
   totalPrice: number;
+  collectionId?: string;
 };
 
 export type NFTAsset = {
@@ -98,11 +99,9 @@ export type NFTTransaction = {
   eventType?: string;
   exchangeName?: string;
   asset?: NFTAsset;
-
+  collectionId?: string;
   // sol
   tokenAddress?: string;
-  source?: string; // from
-  destination?: string; // to
 };
 
 export type TransactionsResp = {
