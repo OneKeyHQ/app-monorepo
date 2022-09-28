@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
@@ -8,6 +9,7 @@ import {
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { Conflux, address as confluxAddress } from 'js-conflux-sdk';
+import { isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -23,9 +25,14 @@ import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
   IDecodedTxLegacy,
+  IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
@@ -39,6 +46,8 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { IEncodedTxCfx } from './types';
+import { isCfxNativeTransferType } from './utils';
 
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
@@ -65,23 +74,72 @@ export default class Vault extends VaultBase {
     });
   }
 
-  attachFeeInfoToEncodedTx(params: {
-    encodedTx: any;
+  async attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxCfx;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<any> {
-    throw new Error('Method not implemented.');
+  }): Promise<IEncodedTxCfx> {
+    const network = await this.getNetwork();
+    const { encodedTx, feeInfoValue } = params;
+    const { limit, price } = feeInfoValue;
+    const encodedTxWithFee: IEncodedTxCfx = {
+      ...encodedTx,
+    };
+
+    if (!isNil(limit)) {
+      encodedTxWithFee.gas = toBigIntHex(new BigNumber(limit));
+      encodedTxWithFee.gasLimit = toBigIntHex(new BigNumber(limit));
+    }
+
+    if (!isNil(price)) {
+      encodedTxWithFee.gasPrice = toBigIntHex(
+        new BigNumber(price as string).shiftedBy(network.feeDecimals),
+      );
+    }
+
+    return Promise.resolve(encodedTxWithFee);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
-    throw new NotImplemented();
+    return Promise.resolve({} as IDecodedTxLegacy);
   }
 
-  decodeTx(encodedTx: IEncodedTx, payload?: any): Promise<IDecodedTx> {
-    throw new NotImplemented();
+  async decodeTx(encodedTx: IEncodedTxCfx, payload?: any): Promise<IDecodedTx> {
+    const { address } = await this.getOutputAccount();
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: address,
+      signer: address,
+      nonce: 0,
+      actions: (await this.buildEncodedTxAction(encodedTx)).filter(Boolean),
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      extraInfo: null,
+    };
+
+    return decodedTx;
   }
 
-  buildEncodedTxFromTransfer(transferInfo: ITransferInfo): Promise<any> {
-    throw new Error('Method not implemented.');
+  async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxCfx> {
+    const network = await this.getNetwork();
+    const { amount } = transferInfo;
+    let amountBN = new BigNumber(amount);
+    if (amountBN.isNaN()) {
+      amountBN = new BigNumber('0');
+    }
+
+    const amountHex = toBigIntHex(amountBN.shiftedBy(network.decimals));
+
+    return {
+      from: transferInfo.from,
+      to: transferInfo.to,
+      value: amountHex,
+      data: '0x',
+    };
   }
 
   buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
@@ -95,12 +153,75 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+  async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxCfx,
+  ): Promise<IUnsignedTxPro> {
+    const { from, to, value, data } = encodedTx;
+    const client = await this.getClient();
+
+    const [status, nonce, estimate] = await Promise.all([
+      client.getStatus(),
+      client.getNextNonce(encodedTx.from),
+      client.estimateGasAndCollateral({
+        from,
+        to,
+        value,
+        data,
+      }),
+    ]);
+
+    encodedTx.nonce = Number(nonce);
+    encodedTx.epochHeight = status.epochNumber;
+    encodedTx.chainId = status.chainId;
+    encodedTx.storageLimit = estimate.storageCollateralized;
+
+    const unsignedTx: IUnsignedTxPro = {
+      inputs: [],
+      outputs: [],
+      payload: { encodedTx },
+      encodedTx,
+    };
+    return Promise.resolve(unsignedTx);
   }
 
   async fetchFeeInfo(encodedTx: any): Promise<IFeeInfo> {
-    throw new Error('Method not implemented.');
+    const { gas, gasLimit } = encodedTx;
+
+    const network = await this.getNetwork();
+    const client = await this.getClient();
+    const { from, to, value, data } = encodedTx;
+
+    const [gasPrice, estimate] = await Promise.all([
+      client.getGasPrice(),
+      client.estimateGasAndCollateral({
+        from,
+        to,
+        value,
+        data,
+      }),
+    ]);
+
+    const limit = BigNumber.max(
+      estimate.gasLimit ?? '0',
+      gas ?? '0',
+      gasLimit ?? '0',
+    ).toFixed();
+
+    return {
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
+
+      limit,
+      prices: [
+        new BigNumber(gasPrice.toString())
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+      ],
+      defaultPresetIndex: '1',
+      tx: null,
+    };
   }
 
   keyringMap = {
@@ -112,11 +233,17 @@ export default class Vault extends VaultBase {
   };
 
   async updateEncodedTx(
-    encodedTx: IEncodedTx,
-    payload: any,
+    encodedTx: IEncodedTxCfx,
+    payload: IEncodedTxUpdatePayloadTransfer,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+    if (options.type === IEncodedTxUpdateType.transfer) {
+      const network = await this.getNetwork();
+      encodedTx.value = new BigNumber(payload.amount)
+        .shiftedBy(network.decimals)
+        .toFixed();
+    }
+    return Promise.resolve(encodedTx);
   }
 
   override async getOutputAccount(): Promise<Account> {
@@ -182,6 +309,54 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  async buildEncodedTxAction(encodedTx: IEncodedTxCfx) {
+    const { address } = await this.getOutputAccount();
+    const action: IDecodedTxAction = {
+      type: IDecodedTxActionType.UNKNOWN,
+      direction: await this.buildTxActionDirection({
+        from: encodedTx.from,
+        to: encodedTx.to,
+        address,
+      }),
+      unknownAction: {
+        extraInfo: {},
+      },
+    };
+
+    let extraNativeTransferAction: IDecodedTxAction | undefined;
+    if (encodedTx.value) {
+      const valueBn = new BigNumber(encodedTx.value);
+      if (!valueBn.isNaN() && valueBn.gt(0)) {
+        extraNativeTransferAction = {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          nativeTransfer: await this.buildNativeTransfer(encodedTx),
+        };
+      }
+    }
+
+    if (isCfxNativeTransferType({ data: encodedTx.data, to: encodedTx.to })) {
+      action.type = IDecodedTxActionType.NATIVE_TRANSFER;
+      action.nativeTransfer = await this.buildNativeTransfer(encodedTx);
+      extraNativeTransferAction = undefined;
+    }
+
+    return [action, extraNativeTransferAction];
+  }
+
+  async buildNativeTransfer(encodedTx: IEncodedTxCfx) {
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    const valueBn = new BigNumber(encodedTx.value);
+    const network = await this.getNetwork();
+    return {
+      tokenInfo: nativeToken,
+      from: encodedTx.from,
+      to: encodedTx.to,
+      amount: valueBn.shiftedBy(-network.decimals).toFixed(),
+      amountValue: valueBn.toFixed(),
+      extraInfo: null,
+    };
+  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getClient();
