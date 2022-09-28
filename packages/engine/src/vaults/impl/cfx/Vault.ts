@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { Conflux } from '@onekeyfe/blockchain-libs/dist/provider/chains/cfx/conflux';
+import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
@@ -7,6 +7,8 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import { Conflux } from 'js-conflux-sdk';
+import memoizee from 'memoizee';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -38,10 +40,25 @@ import settings from './settings';
 export default class Vault extends VaultBase {
   settings = settings;
 
-  private async getJsonRPCClient(): Promise<Conflux> {
-    return (await this.engine.providerManager.getClient(
-      this.networkId,
-    )) as Conflux;
+  getClientCache = memoizee(
+    async (rpcUrl, chainId) => this.getConfluxClient(rpcUrl, chainId),
+    {
+      promise: true,
+      max: 1,
+    },
+  );
+
+  async getClient() {
+    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const chainId = await this.getNetworkChainId();
+    return this.getClientCache(rpcURL, chainId);
+  }
+
+  getConfluxClient(url: string, chainId: string) {
+    return new Conflux({
+      url,
+      networkId: Number(chainId),
+    });
   }
 
   attachFeeInfoToEncodedTx(params: {
@@ -143,20 +160,27 @@ export default class Vault extends VaultBase {
 
   // Chain only functionalities below.
 
+  override async getAccountBalance(tokenIds: Array<string>, withMain = true) {
+    const { address } = await this.getOutputAccount();
+    return this.getBalances(
+      (withMain ? [{ address }] : []).concat(
+        tokenIds.map((tokenAddress) => ({ address, tokenAddress })),
+      ),
+    );
+  }
+
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
-    const client = await this.getJsonRPCClient();
+    const client = await this.getClient();
     try {
-      return await client.rpc.call(
-        request.method,
-        request.params as Record<string, any> | Array<any>,
-      );
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return client.request(request);
     } catch (e) {
       throw extractResponseError(e);
     }
   }
 
-  createClientFromURL(url: string): Conflux {
-    return new Conflux(url);
+  override createClientFromURL(_url: string): BaseClient {
+    throw new NotImplemented();
   }
 
   fetchTokenInfos(
