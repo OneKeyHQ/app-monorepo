@@ -1,5 +1,6 @@
 import React, { FC, useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -25,11 +26,16 @@ const defaultProps = {
   type: 'plain',
 } as const;
 
+function NetworkAccountSelectorTriggerEffects() {
+  useAccountSelectorEffects();
+  return null;
+}
+
 const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   size,
   type,
 }) => {
-  useAccountSelectorEffects();
+  const isFocused = useIsFocused();
   // TODO different options of scene
   const { network, account } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
@@ -56,52 +62,56 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   );
 
   return (
-    <Pressable
-      onPress={() => {
-        openAccountSelector();
-      }}
-    >
-      {(status) => {
-        let bgColor: string | undefined;
-        bgColor = type === 'basic' ? 'action-secondary-default' : undefined;
-        if (status.isPressed) {
-          bgColor =
-            type === 'basic' ? 'action-secondary-pressed' : 'surface-hovered';
-        }
-        if (status.isHovered) {
-          bgColor =
-            type === 'basic' ? 'action-secondary-hovered' : 'surface-hovered';
-        }
-        if (status.isFocused) {
-          bgColor = 'surface-selected';
-        }
-        return (
-          <HStack
-            alignItems="center"
-            p={1.5}
-            pr={2.5}
-            space={1}
-            bg={bgColor}
-            borderRadius="full"
-            borderWidth={type === 'basic' ? StyleSheet.hairlineWidth : 0}
-            borderColor="border-default"
-          >
-            <HStack space={size === 'sm' ? 2 : 3} alignItems="center">
-              <Token
-                size={size === 'sm' ? 5 : 7}
-                {...activeOption.tokenProps}
-              />
-              <Typography.Body2Strong isTruncated maxW="120px">
-                {activeOption.label}
-              </Typography.Body2Strong>
+    <>
+      {isFocused && <NetworkAccountSelectorTriggerEffects />}
+
+      <Pressable
+        onPress={() => {
+          openAccountSelector();
+        }}
+      >
+        {(status) => {
+          let bgColor: string | undefined;
+          bgColor = type === 'basic' ? 'action-secondary-default' : undefined;
+          if (status.isPressed) {
+            bgColor =
+              type === 'basic' ? 'action-secondary-pressed' : 'surface-hovered';
+          }
+          if (status.isHovered) {
+            bgColor =
+              type === 'basic' ? 'action-secondary-hovered' : 'surface-hovered';
+          }
+          if (status.isFocused) {
+            bgColor = 'surface-selected';
+          }
+          return (
+            <HStack
+              alignItems="center"
+              p={1.5}
+              pr={2.5}
+              space={1}
+              bg={bgColor}
+              borderRadius="full"
+              borderWidth={type === 'basic' ? StyleSheet.hairlineWidth : 0}
+              borderColor="border-default"
+            >
+              <HStack space={size === 'sm' ? 2 : 3} alignItems="center">
+                <Token
+                  size={size === 'sm' ? 5 : 7}
+                  {...activeOption.tokenProps}
+                />
+                <Typography.Body2Strong isTruncated maxW="120px">
+                  {activeOption.label}
+                </Typography.Body2Strong>
+              </HStack>
+              {type === 'plain' ? (
+                <Icon size={20} name="ChevronDownSolid" />
+              ) : null}
             </HStack>
-            {type === 'plain' ? (
-              <Icon size={20} name="ChevronDownSolid" />
-            ) : null}
-          </HStack>
-        );
-      }}
-    </Pressable>
+          );
+        }}
+      </Pressable>
+    </>
   );
 };
 
