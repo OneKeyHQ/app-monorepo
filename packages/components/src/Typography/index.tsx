@@ -26,40 +26,39 @@ export type TypographyStyle =
   | 'CaptionStrong'
   | 'CaptionUnderline';
 
-export type FontProps = ComponentProps<typeof NBText> &
-  Pick<TextStyle, 'textTransform'>;
+export type FontProps = ComponentProps<typeof NBText>;
 
-export const Display2XLargeProps: FontProps = {
+export const Display2XLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
   fontSize: 32,
   lineHeight: 40,
 };
-export const DisplayXLargeProps: FontProps = {
+export const DisplayXLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
   fontSize: 28,
   lineHeight: 36,
 };
-export const DisplayLargeProps: FontProps = {
+export const DisplayLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '600',
   fontSize: 24,
   lineHeight: 32,
 };
-export const DisplayMediumProps: FontProps = {
+export const DisplayMediumProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 20,
   lineHeight: 28,
 };
-export const DisplaySmallProps: FontProps = {
+export const DisplaySmallProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
-export const PageHeadingProps: FontProps = {
+export const PageHeadingProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '500',
   fontSize: 24,
@@ -71,7 +70,7 @@ export const HeadingProps = {
   fontSize: 18,
   lineHeight: 28,
 };
-export const SubheadingProps: FontProps = {
+export const SubheadingProps: FontProps & Pick<TextStyle, 'textTransform'> = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: '700',
   fontSize: 12,
@@ -79,45 +78,45 @@ export const SubheadingProps: FontProps = {
   letterSpacing: 0.8,
   textTransform: 'uppercase',
 };
-export const Button1Props: FontProps = {
+export const Button1Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
-export const Button2Props: FontProps = {
+export const Button2Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 14,
   lineHeight: 20,
 };
-export const Body1Props: FontProps = {
+export const Body1Props = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 16,
   lineHeight: 24,
 };
-export const Body2Props: FontProps = {
+export const Body2Props = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 14,
   lineHeight: 20,
 };
-export const CaptionProps: FontProps = {
+export const CaptionProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 12,
   lineHeight: 16,
 };
 
-export const Body1StrongProps: FontProps = {
+export const Body1StrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
 
-export const Body1UnderlineProps: FontProps = {
+export const Body1UnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 16,
@@ -125,14 +124,14 @@ export const Body1UnderlineProps: FontProps = {
   underline: true,
 };
 
-export const Body2StrongProps: FontProps = {
+export const Body2StrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 14,
   lineHeight: 20,
 };
 
-export const Body2UnderlineProps: FontProps = {
+export const Body2UnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 14,
@@ -140,14 +139,14 @@ export const Body2UnderlineProps: FontProps = {
   underline: true,
 };
 
-export const CaptionStrongProps: FontProps = {
+export const CaptionStrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
   fontSize: 12,
   lineHeight: 16,
 };
 
-export const CaptionUnderlineProps: FontProps = {
+export const CaptionUnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: '400',
   fontSize: 12,
