@@ -205,6 +205,9 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
+    // https://docs.phantom.app/integrating/extension-and-in-app-browser-web-apps/establishing-a-connection#eagerly-connecting
+    //    onlyIfTrusted: true     Do NOT show connection Modal
+    //    onlyIfTrusted: false    show connection Modal
     const { onlyIfTrusted = false } = params || {};
 
     let publicKey = await this.getConnectedAcccountPublicKey(request);
