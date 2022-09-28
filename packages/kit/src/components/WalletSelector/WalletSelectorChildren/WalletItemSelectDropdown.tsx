@@ -232,7 +232,7 @@ function WalletItemSelectDropdown({
       },
       [EWalletSelectorListItemSelectOptions.details]: {
         label: intl.formatMessage({
-          id: 'action__view_device_details',
+          id: 'action__device_settings',
         }),
         value: EWalletSelectorListItemSelectOptions.details,
         iconProps: {
