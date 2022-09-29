@@ -28,7 +28,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   type,
 }) => {
   // TODO different options of scene
-  const { network, account } = useActiveWalletAccount();
+  const { network, account, wallet } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
   const intl = useIntl();
   const activeOption = useMemo(
@@ -51,6 +51,10 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
       network?.shortName,
     ],
   );
+
+  if (!wallet) {
+    return null;
+  }
 
   return (
     <>
