@@ -24,6 +24,7 @@ import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons'
 import ImageViewerGallery from '@onekeyhq/kit/src/views/Components/stories/ImageViewer';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
 import KeyboardGallery from '@onekeyhq/kit/src/views/Components/stories/Keyboard';
+import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List/index';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
@@ -72,6 +73,7 @@ export enum StackRoutes {
   ComponentTheme = 'component/theme',
   ComponentIcon = 'component/icon',
   ComponentBadge = 'component/badge',
+  ComponentList = 'component/List',
   ComponentAlert = 'component/alert',
   ComponentButton = 'component/button',
   ComponentIconButton = 'component/icon-button',
@@ -171,6 +173,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentTypeWriter]: undefined;
   [StackRoutes.ComponentHomescreen]: undefined;
   [StackRoutes.ComponentNFTImage]: undefined;
+  [StackRoutes.ComponentList]: undefined;
 };
 
 export const stackScreenList = [
@@ -187,6 +190,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
   { name: StackRoutes.ComponentIcon, component: IconGallery },
   { name: StackRoutes.ComponentBadge, component: BadgeGallery },
+  { name: StackRoutes.ComponentList, component: ListGallery },
   { name: StackRoutes.ComponentAlert, component: AlertGallery },
   { name: StackRoutes.ComponentButton, component: ButtonsGallery },
   { name: StackRoutes.ComponentIconButton, component: IconButtons },
