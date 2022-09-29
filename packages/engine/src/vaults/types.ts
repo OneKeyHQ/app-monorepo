@@ -65,6 +65,9 @@ export type ITransferInfo = {
   to: string;
   amount: string;
   token?: string; // tokenIdOnNetwork
+  isNFT?: boolean;
+  tokenId?: string; // NFT token id
+  type?: string; // NFT standard: erc721/erc1155
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -94,6 +97,13 @@ export type IStakeInfo = {
   tokenInfo: Token;
   amount: string;
   accountAddress: string;
+};
+
+export type INFTInfo = {
+  asset: NFTAsset;
+  amount: string;
+  from: string;
+  to: string;
 };
 
 // EncodedTx\RawTx\SignedTx ----------------------------------------------

@@ -1,4 +1,4 @@
-// import { defaultAbiCoder } from '@ethersproject/abi';
+import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
@@ -16,10 +16,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 
 import { getFiatEndpoint } from '../endpoint';
 import { OnekeyNetwork } from '../presets/networkIds';
-// import {
-//   Erc1155MethodSelectors,
-//   Erc721MethodSelectors,
-// } from '../vaults/impl/evm/decoder/abi';
+import {
+  Erc1155MethodSelectors,
+  Erc721MethodSelectors,
+} from '../vaults/impl/evm/decoder/abi';
 import { IDecodedTxActionType, IDecodedTxDirection } from '../vaults/types';
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
@@ -225,26 +225,26 @@ export const getNFTTransactionHistory = async (
   return [];
 };
 
-// export function buildEncodeDataWithABI(param: {
-//   type: string;
-//   from: string;
-//   to: string;
-//   id: string;
-//   amount: string;
-// }) {
-//   const { type, from, to, id, amount } = param;
-//   if (type === 'erc721') {
-//     return `${Erc721MethodSelectors.safeTransferFrom}${defaultAbiCoder
-//       .encode(['address', 'address', 'uint256'], [from, to, id])
-//       .slice(2)}`;
-//   }
-//   return `${Erc1155MethodSelectors.safeTransferFrom}${defaultAbiCoder
-//     .encode(
-//       ['address', 'address', 'uint256', 'uint256', 'bytes'],
-//       [from, to, id, amount, '0x00'],
-//     )
-//     .slice(2)}`;
-// }
+export function buildEncodeDataWithABI(param: {
+  type: string;
+  from: string;
+  to: string;
+  id: string;
+  amount: string;
+}) {
+  const { type, from, to, id, amount } = param;
+  if (type === 'erc721') {
+    return `${Erc721MethodSelectors.safeTransferFrom}${defaultAbiCoder
+      .encode(['address', 'address', 'uint256'], [from, to, id])
+      .slice(2)}`;
+  }
+  return `${Erc1155MethodSelectors.safeTransferFrom}${defaultAbiCoder
+    .encode(
+      ['address', 'address', 'uint256', 'uint256', 'bytes'],
+      [from, to, id, amount, '0x00'],
+    )
+    .slice(2)}`;
+}
 
 export function createOutputActionFromNFTTransaction({
   transaction,
