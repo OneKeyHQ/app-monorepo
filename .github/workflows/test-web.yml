@@ -70,7 +70,7 @@ jobs:
             // Find any comment already made by the bot.    
             const commentPrefix = '👋 Successfully deployed the latest commit';                                                                                               
             const botComment = comments.find(comment => comment.body.startsWith(commentPrefix))                                                                       
-            const commentBody = `${commentPrefix} \`${process.env.SHA}\` to https://${process.env.TEST_ENDPOINT}`                 
+            const commentBody = `${commentPrefix} \`${process.env.SHA}\` to https://${process.env.TEST_ENDPOINT} at ${new Date().toLocaleString()}`                 
             
             if (botComment) {
                 github.rest.issues.updateComment({
