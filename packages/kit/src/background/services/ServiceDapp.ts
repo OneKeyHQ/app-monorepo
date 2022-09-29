@@ -5,7 +5,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { cloneDeep, debounce } from 'lodash';
 
-import { SEPERATOR } from '@onekeyhq/engine/src/constants';
+import { IMPL_SOL, SEPERATOR } from '@onekeyhq/engine/src/constants';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
@@ -268,10 +268,24 @@ class ServiceDapp extends ServiceBase {
       request.scope,
       network?.impl,
     );
+    let shouldShowNotMatchedNetworkModal = true;
+    const requestMethod = (request.data as IJsonRpcRequest)?.method || '';
+    const notMatchedErrorMessage = `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
+      request.scope || ''
+    }`;
 
     if (isAuthorizedRequired && isNotAuthorized) {
       // TODO show different modal for isNotAuthorized
       isNotMatchedNetwork = true;
+    }
+
+    if (
+      isNotMatchedNetwork &&
+      request.origin === 'https://opensea.io' &&
+      request.scope === 'solana' &&
+      network?.impl !== IMPL_SOL
+    ) {
+      shouldShowNotMatchedNetworkModal = false;
     }
 
     return new Promise((resolve, reject) => {
@@ -315,22 +329,20 @@ class ServiceDapp extends ServiceBase {
       ensureSerializable(modalParams);
 
       if (isNotMatchedNetwork) {
-        this._openModalByRouteParamsDebounced({
-          routeNames,
-          routeParams,
-          modalParams,
-        });
-        const requestMethod = (request.data as IJsonRpcRequest)?.method || '';
+        if (shouldShowNotMatchedNetworkModal) {
+          this._openModalByRouteParamsDebounced({
+            routeNames,
+            routeParams,
+            modalParams,
+          });
+        }
+
         if (requestMethod === 'eth_requestAccounts') {
           // some dapps like https://polymm.finance/ will call `eth_requestAccounts` infinitely if reject() on Mobile
           // so we should resolve([]) here
           resolve([]);
         } else {
-          let error = new Error(
-            `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
-              request.scope || ''
-            }`,
-          );
+          let error = new Error(notMatchedErrorMessage);
           if (isAuthorizedRequired && isNotAuthorized) {
             // debugLogger.dappApprove.error(web3Errors.provider.unauthorized());
             error = web3Errors.provider.unauthorized();

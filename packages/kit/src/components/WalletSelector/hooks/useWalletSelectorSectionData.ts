@@ -120,6 +120,7 @@ const buildData = debounce(
   },
 );
 
+// TODO move to redux to avoid mount & remount
 export function useWalletSelectorSectionData(): IWalletDataSection[] {
   const { wallets } = useRuntime();
   const [data, setData] = useState<
@@ -130,6 +131,7 @@ export function useWalletSelectorSectionData(): IWalletDataSection[] {
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
 
+  // TODO move to WalletSelectorEffectsSingleton
   useEffect(() => {
     if (visibleRef.current) {
       buildData({ wallets, setData });

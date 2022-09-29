@@ -28,6 +28,7 @@ import {
   Image,
   Spinner,
   Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import IconNoConnect from '@onekeyhq/kit/assets/ic_3d_no_connect.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -69,6 +70,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     const { webviewRef, setWebViewRef } = useWebViewBridge();
     const isRenderAsIframe = isWeb || isExtension;
     const iframeRef = useRef<HTMLIFrameElement>(null);
+    const isVertical = useIsVerticalLayout();
     const iframeWebviewRef = useRef<IWebViewWrapperRef>({
       reload: () => {
         if (iframeRef.current) {
@@ -229,6 +231,14 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
                 // Warning: any string work, any bool not work
                 // @ts-expect-error
                 allowpopups={allowpopups ? 'true' : false}
+                useragent={
+                  // TODO move it to Developer Settings
+                  // we can resize desktop to vertical only in DEV env currently
+                  platformEnv.isDev && isVertical
+                    ? // sim mobile app UA
+                      'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+                    : undefined
+                }
               />
             ))}
           {isApp && (

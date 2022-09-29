@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
@@ -30,6 +30,8 @@ import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
+import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
 import SwapHistory from '../../views/Swap/History';
 import Dev from '../Dev';
@@ -192,7 +194,8 @@ function MainScreen() {
     <RootSiblingParent>
       <Box ref={setMainScreenDom} w="full" h="full">
         <Dashboard />
-
+        <NetworkAccountSelectorEffectsSingleton />
+        <WalletSelectorEffectsSingleton />
         {/* TODO Waiting notification component */}
         <UpdateAlert />
       </Box>

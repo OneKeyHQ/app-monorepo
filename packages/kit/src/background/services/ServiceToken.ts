@@ -203,7 +203,7 @@ export default class ServiceToken extends ServiceBase {
     activeNetworkId: string;
     activeAccountId: string;
     tokenIds?: string[];
-  }) {
+  }): Promise<Record<string, string | undefined>> {
     const { engine, appSelector, dispatch } = this.backgroundApi;
     const { tokens, accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
@@ -213,6 +213,9 @@ export default class ServiceToken extends ServiceBase {
       const ids1 = tokens[activeNetworkId] || [];
       const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
+    }
+    if (!activeAccountId) {
+      return {};
     }
     const [tokensBalance, newTokens] = await engine.getAccountBalance(
       activeAccountId,

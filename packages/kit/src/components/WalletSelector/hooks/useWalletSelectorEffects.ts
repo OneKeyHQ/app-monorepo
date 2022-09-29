@@ -27,4 +27,9 @@ function useWalletSelectorEffects() {
   }, [existsHardwareWallet, visible]);
 }
 
+export function WalletSelectorEffectsSingleton() {
+  useWalletSelectorEffects();
+  return null;
+}
+
 export { useWalletSelectorEffects };
