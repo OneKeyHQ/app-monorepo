@@ -10,6 +10,7 @@ import {
   hasPermission,
 } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import icon from '@onekeyhq/web/public/static/images/icons/favicon/favicon.png';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
@@ -68,6 +69,7 @@ const NotificationProvider: React.FC<{
   }, [checkPermission]);
 
   useEffect(() => {
+    serviceNotification.init(icon);
     serviceNotification.syncLocalEnabledAccounts();
   }, [serviceNotification]);
 

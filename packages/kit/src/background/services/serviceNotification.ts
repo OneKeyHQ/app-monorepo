@@ -36,17 +36,12 @@ import { setHomeTabName } from '../../store/reducers/status';
 import { WalletHomeTabEnum } from '../../views/Wallet/type';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
-import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceNotification extends ServiceBase {
-  constructor(props: IServiceBaseProps) {
-    super(props);
-    this.init();
-  }
-
   @backgroundMethod()
-  init() {
+  init(icon?: string) {
     setInterval(() => {
       this.syncLocalEnabledAccounts();
     }, 5 * 60 * 1000);
@@ -54,21 +49,20 @@ export default class ServiceNotification extends ServiceBase {
     if (platformEnv.isNative) {
       initJpush();
       debugLogger.notification.info(`init jpush`);
-
-      const handleNotificationCallback = (res: NotificationType) => {
-        console.log(res);
-        return this.handleNotificationCallback(res);
-      };
-      const handleConnectStateChangeCallback = (res: {
-        connectEnable: boolean;
-      }) => this.handleConnectStateChangeCallback(res);
-
-      JPush.addConnectEventListener(handleConnectStateChangeCallback);
       // @ts-ignore
-      JPush.addNotificationListener(handleNotificationCallback);
+      JPush.addConnectEventListener(
+        this.handleConnectStateChangeCallback.bind(this),
+      );
       // @ts-ignore
-      // JPush.addLocalNotificationListener(handleNotificationCallback);
+      JPush.addNotificationListener(this.handleNotificationCallback.bind(this));
+      // @ts-ignore
+      JPush.addLocalNotificationListener(
+        // @ts-ignore
+        this.handleNotificationCallback.bind(this),
+      );
       this.clearBadge();
+    } else {
+      this.registerNotificationCallback(icon);
     }
   }
 
@@ -306,13 +300,13 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  registerNotificationCallback() {
+  registerNotificationCallback(icon?: string) {
     // native use jpush notification
     if (!platformEnv.isRuntimeBrowser) {
       return;
     }
     if (!('Notification' in window)) {
-      debugLogger.notification.warn(
+      debugLogger.notification.error(
         'This browser does not support desktop notification',
       );
       return;
@@ -321,7 +315,6 @@ export default class ServiceNotification extends ServiceBase {
     serviceSocket.registerSocketCallback(
       SocketEvents.Notification,
       (params: NotificationType) => {
-        debugLogger.notification.info(`received notification`, params);
         this.handleNotificationCallback({
           messageID: '',
           ...pick(params, 'title', 'content', 'extras'),
@@ -329,6 +322,7 @@ export default class ServiceNotification extends ServiceBase {
         });
         new Notification(params.title, {
           body: params.content,
+          icon,
         }).onclick = () => {
           this.handleNotificationCallback({
             messageID: '',

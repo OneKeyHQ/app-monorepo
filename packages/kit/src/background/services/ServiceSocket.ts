@@ -40,6 +40,7 @@ export default class ServiceSocket extends ServiceBase {
   ) {
     this.socket?.off(eventName);
     this.socket?.on(eventName, callback);
+    debugLogger.notification.info(`register socket callback: ${eventName}`);
   }
 
   @backgroundMethod()
