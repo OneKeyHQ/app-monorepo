@@ -152,59 +152,58 @@ export function WalletSelectDropdown({
         )}
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         renderItem={(item, isActive, onChange) => (
-          <>
-            <Pressable
-              onPress={async () => {
-                // call internal select onChange to make sure selector closed
-                onChange?.(item.value, item);
-                await serviceAccountSelector.updateSelectedWallet(item.value);
-              }}
-            >
-              {({ isHovered, isPressed }) => (
-                <Box
-                  p={2}
-                  pr={{ base: 3, md: 2 }}
-                  flexDirection="row"
-                  alignItems="center"
-                  bgColor={
-                    isPressed
-                      ? 'surface-pressed'
-                      : isHovered
-                      ? 'surface-hovered'
-                      : undefined
-                  }
-                  rounded="xl"
-                >
-                  {
-                    // @ts-expect-error
-                    item.wallet ? (
-                      <WalletAvatarPro
-                        // @ts-expect-error
-                        wallet={item.wallet}
-                        deviceStatus={undefined}
-                        size={isVerticalLayout ? 'lg' : 'xs'}
-                      />
-                    ) : null
-                  }
-
-                  <Text
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    flex={1}
-                    mx={3}
-                  >
-                    {item.label}
-                  </Text>
-                  {isActive ? (
-                    <Icon
-                      name={isVerticalLayout ? 'CheckOutline' : 'CheckSolid'}
-                      size={isVerticalLayout ? 24 : 20}
-                      color="interactive-default"
+          <Pressable
+            key={item.value}
+            onPress={async () => {
+              // call internal select onChange to make sure selector closed
+              onChange?.(item.value, item);
+              await serviceAccountSelector.updateSelectedWallet(item.value);
+            }}
+          >
+            {({ isHovered, isPressed }) => (
+              <Box
+                p={2}
+                pr={{ base: 3, md: 2 }}
+                flexDirection="row"
+                alignItems="center"
+                bgColor={
+                  isPressed
+                    ? 'surface-pressed'
+                    : isHovered
+                    ? 'surface-hovered'
+                    : undefined
+                }
+                rounded="xl"
+              >
+                {
+                  // @ts-expect-error
+                  item.wallet ? (
+                    <WalletAvatarPro
+                      // @ts-expect-error
+                      wallet={item.wallet}
+                      deviceStatus={undefined}
+                      size={isVerticalLayout ? 'lg' : 'xs'}
                     />
-                  ) : null}
-                </Box>
-              )}
-            </Pressable>
-          </>
+                  ) : null
+                }
+
+                <Text
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                  flex={1}
+                  mx={3}
+                >
+                  {item.label}
+                </Text>
+                {isActive ? (
+                  <Icon
+                    name={isVerticalLayout ? 'CheckOutline' : 'CheckSolid'}
+                    size={isVerticalLayout ? 24 : 20}
+                    color="interactive-default"
+                  />
+                ) : null}
+              </Box>
+            )}
+          </Pressable>
         )}
       />
       <CreateAccountButton
