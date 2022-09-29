@@ -1,6 +1,5 @@
 import React, { FC, useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -14,8 +13,6 @@ import {
 
 import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 
-import { useAccountSelectorEffects } from './hooks/useAccountSelectorEffects';
-
 type NetworkAccountSelectorTriggerProps = {
   size?: 'sm' | 'lg' | string;
   type?: 'basic' | 'plain';
@@ -26,16 +23,10 @@ const defaultProps = {
   type: 'plain',
 } as const;
 
-function NetworkAccountSelectorTriggerEffects() {
-  useAccountSelectorEffects();
-  return null;
-}
-
 const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   size,
   type,
 }) => {
-  const isFocused = useIsFocused();
   // TODO different options of scene
   const { network, account } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
@@ -63,8 +54,6 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
 
   return (
     <>
-      {isFocused && <NetworkAccountSelectorTriggerEffects />}
-
       <Pressable
         onPress={() => {
           openAccountSelector();

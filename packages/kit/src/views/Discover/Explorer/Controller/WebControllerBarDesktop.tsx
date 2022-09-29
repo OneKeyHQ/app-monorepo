@@ -1,4 +1,4 @@
-import {
+import React, {
   ComponentProps,
   FC,
   forwardRef,
@@ -19,6 +19,7 @@ import {
   Pressable,
 } from '@onekeyhq/components';
 
+import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
 import {
   MatchDAppItemType,
   SearchViewKeyEventType,
@@ -195,6 +196,8 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
             }}
           />
         </Pressable>
+
+        <NetworkAccountSelectorTrigger size="lg" />
 
         {/* <IconButton
   type="plain"
