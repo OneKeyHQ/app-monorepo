@@ -25,7 +25,7 @@ import { FormatCurrencyNumber } from '../../../components/Format';
 import { useManageTokens, useNavigation } from '../../../hooks';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { getSummedValues } from '../../../utils/priceUtils';
-import { showHomeBalanceSettings } from '../../Overlay/BottomSheetSettings';
+import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
