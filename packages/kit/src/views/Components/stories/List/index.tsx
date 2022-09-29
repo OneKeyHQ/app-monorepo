@@ -1,8 +1,3 @@
-/* eslint-disable @typescript-eslint/restrict-plus-operands */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-import React from 'react';
-
 import { ListRenderItemInfo } from 'react-native';
 
 import {
@@ -22,7 +17,14 @@ import { FlatList, ListItem, SectionList } from './ListView';
 import Footer from './ListView/Footer';
 import SectionHeader from './ListView/SectionHeader';
 
-const TokenListData = [
+interface TokenListDataType {
+  id: string;
+  type: string;
+  label: string;
+  description: string;
+  src: string;
+}
+const TokenListData: TokenListDataType[] = [
   {
     id: 'bd7acbea-c1b1-46c2-aed5-3ad53abb28ba',
     type: 'text',
@@ -50,7 +52,7 @@ const SettingListData = [
   {
     header: {
       title: 'group 1',
-      // actions: [{ label: 'Action', onPress: () => console.log('clicked') }],
+      actions: [{ label: 'Action', onPress: () => alert('clicked') }],
     },
     footer:
       'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
@@ -59,44 +61,34 @@ const SettingListData = [
       {
         iconName: 'ColorSwatchOutline',
         label: 'Item 1',
-        rightContent: <Icon name="ChevronRightSolid" size={20} />,
       },
       {
         iconName: 'CreditCardOutline',
         label: 'Item 2',
-        rightContent: <Icon name="ChevronRightSolid" size={20} />,
       },
       {
         iconName: 'CubeTransparentOutline',
         label: 'Item 3',
-        rightContent: <Icon name="ChevronRightSolid" size={20} />,
       },
     ],
   },
   {
     header: {
       title: 'group 2',
-      // actions: [{ label: 'Action', onPress: () => console.log('clicked') }],
     },
     index: 1,
     data: [
       {
         iconName: 'ColorSwatchOutline',
         label: 'Item 1',
-        // rightContent: <Switch />,
-        rightContent: <Icon name="ChevronRightSolid" size={20} />,
       },
       {
         iconName: 'CreditCardOutline',
         label: 'Item 2',
-        // rightContent: <Switch />,
-        rightContent: <Icon name="ChevronRightSolid" size={20} />,
       },
       {
         iconName: 'CubeTransparentOutline',
         label: 'Item 3',
-        // rightContent: <Switch />,
-        rightContent: <Icon name="ChevronRightSolid" size={20} />,
       },
     ],
   },
@@ -140,14 +132,12 @@ const ListGallery = () => (
     <VStack space={8} w="960" maxW="100%" mx="auto">
       <Box p={4} bgColor="background-default">
         <FlatList
-          header={{
+          headerProps={{
             title: 'Header',
-            actions: [
-              { label: 'Refresh', onPress: () => console.log('clicked') },
-            ],
+            actions: [{ label: 'Refresh', onPress: () => alert('clicked') }],
           }}
           data={TokenListData}
-          renderItem={({ item }: ListRenderItemInfo<any>) => (
+          renderItem={({ item }) => (
             <ListItem onPress={() => console.log('clicked')} flex={1}>
               <ListItem.Column image={{ src: item.src }} />
               <ListItem.Column
@@ -196,7 +186,7 @@ const ListGallery = () => (
             <ListItem onPress={() => console.log('clicked')} flex={1}>
               <ListItem.Column icon={{ name: item.iconName }} />
               <ListItem.Column text={{ label: item.label }} flex={1} />
-              <ListItem.Column>{item.rightContent}</ListItem.Column>
+              <ListItem.Column>{item.rightContent?.()}</ListItem.Column>
             </ListItem>
           )}
           keyExtractor={(item, index) => item + index}

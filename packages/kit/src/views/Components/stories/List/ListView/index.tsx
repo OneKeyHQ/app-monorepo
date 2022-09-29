@@ -1,47 +1,48 @@
 /* eslint-disable no-nested-ternary */
-import React, { ComponentProps, FC } from 'react';
+import { FC, useMemo } from 'react';
+
+import { IFlatListProps } from 'native-base/lib/typescript/components/basic/FlatList/types';
+import { ISectionListProps } from 'native-base/lib/typescript/components/basic/SectionList/types';
 
 import {
   FlatList as NBFlatList,
   SectionList as NBSectionList,
 } from '@onekeyhq/components';
 
-import Footer, { FooterProps } from './Footer';
+import Footer from './Footer';
 import Header, { HeaderProps } from './Header';
 import ListItem from './ListItem';
-import ListItemSeparator, { ListItemSeparatorProps } from './ListItemSeparator';
+import ListItemSeparator from './ListItemSeparator';
 
-type ListProps = {
-  header?: HeaderProps;
-  footer?: FooterProps['footer'];
-  showDivider?: ListItemSeparatorProps['showDivider'];
-};
+interface FlatListProps<T = any> extends IFlatListProps<T> {
+  headerProps?: HeaderProps;
+  footerText?: string;
+  showDivider?: boolean;
+  ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
+}
 
-/* 
-  FlatList
-*/
-type FlatListProps = {
-  customHeader?: ComponentProps<typeof NBFlatList>['ListHeaderComponent'];
-} & ComponentProps<typeof NBFlatList>;
-
-const FlatList: FC<ListProps & FlatListProps> = ({
-  customHeader,
-  header,
-  footer,
+const FlatList: FC<FlatListProps> = ({
+  ListHeaderComponent,
+  ListFooterComponent,
+  headerProps,
+  footerText,
   showDivider,
   ...rest
 }) => {
-  function renderHeader() {
-    if (customHeader) return customHeader;
-    if (header) return <Header title={header.title} actions={header.actions} />;
-
+  const renderHeader = useMemo(() => {
+    if (headerProps) {
+      if (ListHeaderComponent) return ListHeaderComponent(headerProps);
+      return <Header {...headerProps} />;
+    }
     return null;
-  }
+  }, [ListHeaderComponent, headerProps]);
 
   return (
     <NBFlatList
-      ListHeaderComponent={renderHeader()}
-      ListFooterComponent={<Footer footer={footer} />}
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={
+        footerText ? <Footer text={footerText} /> : ListFooterComponent
+      }
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
@@ -51,32 +52,35 @@ const FlatList: FC<ListProps & FlatListProps> = ({
   );
 };
 
-/* 
-  SectionList
-*/
+interface SectionListProps<T = any> extends ISectionListProps<T> {
+  headerProps?: HeaderProps;
+  footerText?: string;
+  showDivider?: boolean;
+  ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
+}
 
-type SectionListProps = {
-  customHeader?: ComponentProps<typeof NBSectionList>['ListHeaderComponent'];
-} & ComponentProps<typeof NBSectionList>;
-
-const SectionList: FC<ListProps & SectionListProps> = ({
-  customHeader,
-  header,
-  footer,
+const SectionList: FC<SectionListProps> = ({
+  ListHeaderComponent,
+  ListFooterComponent,
+  headerProps,
+  footerText,
   showDivider,
   ...rest
 }) => {
-  function renderHeader() {
-    if (customHeader) return customHeader;
-    if (header) return <Header title={header.title} actions={header.actions} />;
-
+  const renderHeader = useMemo(() => {
+    if (headerProps) {
+      if (ListHeaderComponent) return ListHeaderComponent(headerProps);
+      return <Header {...headerProps} />;
+    }
     return null;
-  }
+  }, [ListHeaderComponent, headerProps]);
 
   return (
     <NBSectionList
-      ListHeaderComponent={renderHeader()}
-      ListFooterComponent={footer ? <Footer footer={footer} /> : null}
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={
+        footerText ? <Footer text={footerText} /> : ListFooterComponent
+      }
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}

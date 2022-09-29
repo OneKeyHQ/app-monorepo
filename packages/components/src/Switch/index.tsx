@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
 import { ISizes } from 'native-base/lib/typescript/theme/base/sizes';
@@ -67,7 +67,7 @@ const Switch: FC<SwitchProps> = ({
       alignItems="center"
       flexDirection={labelType === 'after' ? 'row-reverse' : 'row'}
     >
-      {labelType !== 'false' && (
+      {/* {labelType !== 'false' && (
         <Typography.Body2Strong
           fontWeight="bold"
           mr={3}
@@ -88,7 +88,7 @@ const Switch: FC<SwitchProps> = ({
         isChecked={isChecked}
         isDisabled={isDisabled}
         onToggle={onToggle ? () => setTimeout(onToggle) : undefined}
-      />
+      /> */}
     </Box>
   );
 };

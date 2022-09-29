@@ -241,7 +241,6 @@ const SearchView: FC<SearchViewProps> = ({
           <FlatListRef
             ref={flatListRef}
             data={flatListData}
-            // @ts-expect-error
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
