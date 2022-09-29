@@ -16,13 +16,11 @@ import {
   SectionList,
   SegmentedControl,
   Typography,
-  useIsVerticalLayout,
   utils,
 } from '@onekeyhq/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import imageUrl from '../../../../assets/3d_contact.png';
@@ -263,7 +261,6 @@ const MyWallet = () => {
 
 const PickAddress = () => {
   const intl = useIntl();
-  const isSmall = useIsVerticalLayout();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const navigation = useNavigation<NavigationProps>();
   const onPrimaryPress = useCallback(() => {
@@ -282,6 +279,7 @@ const PickAddress = () => {
         type: 'basic',
         onPress: onPrimaryPress,
       }}
+      maxHeight="560px"
       hidePrimaryAction={selectedIndex !== 0}
       staticChildrenProps={{ flex: 1, py: 6 }}
     >
@@ -295,9 +293,7 @@ const PickAddress = () => {
           onChange={setSelectedIndex}
         />
       </Box>
-      <Box flex="1" maxH={!isSmall && !platformEnv.isNative ? '72' : undefined}>
-        {selectedIndex === 0 ? addressbook : wallet}
-      </Box>
+      <Box flex="1">{selectedIndex === 0 ? addressbook : wallet}</Box>
     </Modal>
   );
 };

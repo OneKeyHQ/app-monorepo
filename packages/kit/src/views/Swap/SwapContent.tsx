@@ -31,7 +31,6 @@ const SwapContent = () => {
   const navigation = useNavigation();
   const {
     inputToken,
-    inputTokenNetwork,
     outputToken,
     outputTokenNetwork,
     typedValue,
@@ -72,7 +71,7 @@ const SwapContent = () => {
 
   const onSwitchTokens = useCallback(() => {
     backgroundApiProxy.serviceSwap.switchTokens();
-  }, [outputTokenNetwork, inputTokenNetwork]);
+  }, []);
 
   useEffect(() => {
     backgroundApiProxy.serviceSwap.setQuote(undefined);

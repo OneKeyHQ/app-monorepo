@@ -245,9 +245,12 @@ function createMainWindow() {
   ipcMain.on('app/promptTouchID', async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);
-      event.reply('app/promptTouchID/res', true);
-    } catch {
-      event.reply('app/promptTouchID/res', false);
+      event.reply('app/promptTouchID/res', { success: true });
+    } catch (e: any) {
+      event.reply('app/promptTouchID/res', {
+        success: false,
+        error: e.message,
+      });
     }
   });
 

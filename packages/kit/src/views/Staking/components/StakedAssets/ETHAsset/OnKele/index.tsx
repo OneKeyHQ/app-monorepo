@@ -196,7 +196,10 @@ const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
             <Box flexDirection="row" alignItems="center">
               <Spinner size="sm" />
               <Typography.Body2 ml="2" color="text-subdued">
-                {intl.formatMessage({ id: 'title__staking_in_process' })}
+                {intl.formatMessage(
+                  { id: 'title__staking_in_process' },
+                  { '0': '5' },
+                )}
               </Typography.Body2>
             </Box>
           ) : (
