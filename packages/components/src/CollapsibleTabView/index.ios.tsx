@@ -1,4 +1,4 @@
-import { Children, FC, Fragment, createContext } from 'react';
+import React, { Children, FC, createContext } from 'react';
 
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView.ios';
 import { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
@@ -93,9 +93,7 @@ const Container: FC<ContainerProps> = ({
 
 export const Tabs = {
   Container,
-  // @ts-ignore to stop the warning about Fragment under development
-  // eslint-disable-next-line no-undef
-  Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
+  Tab: React.Fragment,
   FlatList,
   ScrollView,
   SectionList,

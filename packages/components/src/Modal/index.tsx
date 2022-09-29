@@ -1,4 +1,4 @@
-import {
+import React, {
   ComponentProps,
   MutableRefObject,
   ReactElement,
@@ -76,8 +76,6 @@ export type ModalProps = {
   modalHeight?: string | number | 'full';
 
   children?: ReactNode;
-
-  forceDesktop?: boolean;
 };
 
 const defaultProps = {
@@ -88,7 +86,6 @@ const defaultProps = {
   modalHeight: 'full',
   headerShown: true,
   closeOnOverlayClick: true,
-  forceDesktop: false,
 } as const;
 
 // used for Select in Modal
@@ -115,7 +112,6 @@ const Modal = ({
   header,
   headerShown,
   modalHeight,
-  forceDesktop,
   ...rest
 }: ModalProps) => {
   const { size } = useUserDevice();
@@ -218,51 +214,46 @@ const Modal = ({
   ]);
 
   const modalContainer = useMemo(() => {
-    if (!forceDesktop) {
-      const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
-      if (
-        isSmallScreen ||
-        /*
-          Why `platformEnv.isNativeIOS` ?
-          We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
-        */
-        platformEnv.isNativeIOS
-      ) {
-        return (
-          <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
-            <Box
-              ref={modalRef}
-              height={modalHeight}
-              // TODO 100vh in App
-              maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
-              w="100%"
-              borderBottomRadius={isSmallScreen ? 0 : '24px'}
-              borderTopRadius={
-                platformEnv.isExtensionUiStandaloneWindow ||
-                platformEnv.isNativeAndroid ||
-                ((platformEnv.isWeb ||
-                  platformEnv.isExtension ||
-                  platformEnv.isDesktop ||
-                  platformEnv.isRuntimeBrowser) &&
-                  isVerticalLayout)
-                  ? 0
-                  : '24px'
-              }
-              overflow="hidden"
-              testID="ModalContentContainerMobile"
+    /*
+      Why `platformEnv.isNativeIOS` ?
+      We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
+    */
+    const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
+    if (isSmallScreen || platformEnv.isNativeIOS) {
+      return (
+        <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
+          <Box
+            ref={modalRef}
+            height={modalHeight}
+            // TODO 100vh in App
+            maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
+            w="100%"
+            borderBottomRadius={isSmallScreen ? 0 : '24px'}
+            borderTopRadius={
+              platformEnv.isExtensionUiStandaloneWindow ||
+              platformEnv.isNativeAndroid ||
+              ((platformEnv.isWeb ||
+                platformEnv.isExtension ||
+                platformEnv.isDesktop ||
+                platformEnv.isRuntimeBrowser) &&
+                isVerticalLayout)
+                ? 0
+                : '24px'
+            }
+            overflow="hidden"
+            testID="ModalContentContainerMobile"
+          >
+            <Mobile
+              onClose={onModalClose}
+              headerShown={headerShown}
+              header={header}
+              {...rest}
             >
-              <Mobile
-                onClose={onModalClose}
-                headerShown={headerShown}
-                header={header}
-                {...rest}
-              >
-                {modalContent}
-              </Mobile>
-            </Box>
+              {modalContent}
+            </Mobile>
           </Box>
-        );
-      }
+        </Box>
+      );
     }
 
     return (
@@ -276,15 +267,14 @@ const Modal = ({
       </Desktop>
     );
   }, [
-    forceDesktop,
+    isVerticalLayout,
+    size,
     onModalClose,
     headerShown,
     header,
     rest,
     modalContent,
-    size,
     modalHeight,
-    isVerticalLayout,
   ]);
 
   const triggerNode = useMemo(() => {

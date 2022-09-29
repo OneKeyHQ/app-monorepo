@@ -85,9 +85,7 @@ const renderScrollComponent = (props: any) => <NestedScrollView {...props} />;
 
 export const Tabs = {
   Container,
-  // @ts-ignore to stop the warning about Fragment under development
-  // eslint-disable-next-line no-undef
-  Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
+  Tab: Fragment,
   FlatList: ({ contentContainerStyle, ...props }: any) => (
     <FlatList
       contentContainerStyle={[contentContainerStyle, { minHeight: '100%' }]}

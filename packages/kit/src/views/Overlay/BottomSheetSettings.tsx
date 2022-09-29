@@ -58,18 +58,11 @@ export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
   ) : (
     <Modal
       visible
-      forceDesktop
       header={intl.formatMessage({ id: 'title__settings' })}
       footer={null}
       closeAction={closeOverlay}
-      staticChildrenProps={{
-        pt: 6,
-        pb: 6,
-        px: { base: 4, md: 6 },
-        borderRadius: '24px',
-      }}
     >
-      {children}
+      <Box bg="surface-subdued">{children}</Box>
     </Modal>
   );
 };
