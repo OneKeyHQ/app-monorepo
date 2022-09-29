@@ -68,9 +68,10 @@ jobs:
               issue_number: context.payload.number,
             })
             // Find any comment already made by the bot.    
-            const commentPrefix = '👋 Successfully deployed the latest commit';                                                                                               
+            const commentPrefix = '👋 Successfully deployed the latest commit';   
+            const timeStamp = new Date().toLocaleString('en-HK', { hour12: false, timeZone: 'Hongkong' });                                                                                            
             const botComment = comments.find(comment => comment.body.startsWith(commentPrefix))                                                                       
-            const commentBody = `${commentPrefix} \`${process.env.SHA}\` to https://${process.env.TEST_ENDPOINT} at ${new Date().toLocaleString()}`                 
+            const commentBody = `${commentPrefix} \`${process.env.SHA}\` to https://${process.env.TEST_ENDPOINT} at ${timeStamp}`                 
             
             if (botComment) {
                 github.rest.issues.updateComment({
