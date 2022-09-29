@@ -1,11 +1,12 @@
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { Transaction, address as confluxAddress } from 'js-conflux-sdk';
+import Contract from 'js-conflux-sdk/dist/types/contract';
 
 import { Signer } from '../../../proxy';
-import { ISignedTx, IUnsignedTxPro } from '../../types';
+import { IDecodedTxActionType, ISignedTx, IUnsignedTxPro } from '../../types';
 
-import { IEncodedTxCfx } from './types';
+import { IEncodedTxCfx, ITxDescCfx } from './types';
 
 export function isCfxNativeTransferType(options: { data: string; to: string }) {
   const { data, to } = options;
@@ -42,4 +43,40 @@ export async function signTransaction(
     rawTx: signedTransaction.serialize(),
     encodedTx: unsignedTx.encodedTx,
   };
+}
+
+export function parseTransaction(
+  encodedTx: IEncodedTxCfx,
+  crc20Interface: Contract,
+): [IDecodedTxActionType, ITxDescCfx | null] {
+  if (isCfxNativeTransferType({ data: encodedTx.data, to: encodedTx.to })) {
+    return [IDecodedTxActionType.NATIVE_TRANSFER, null];
+  }
+
+  try {
+    let txType = IDecodedTxActionType.UNKNOWN;
+    const txDesc = crc20Interface.abi.decodeData(encodedTx.data);
+    if (txDesc) {
+      switch (txDesc.name) {
+        case 'transfer': {
+          txType = IDecodedTxActionType.TOKEN_TRANSFER;
+          break;
+        }
+        case 'transferFrom': {
+          txType = IDecodedTxActionType.TOKEN_TRANSFER;
+          break;
+        }
+        case 'approve': {
+          txType = IDecodedTxActionType.TOKEN_APPROVE;
+          break;
+        }
+        default: {
+          txType = IDecodedTxActionType.FUNCTION_CALL;
+        }
+      }
+    }
+    return [txType, txDesc];
+  } catch (error) {
+    return [IDecodedTxActionType.UNKNOWN, null];
+  }
 }

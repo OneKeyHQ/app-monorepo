@@ -11,3 +11,14 @@ export type IEncodedTxCfx = {
   chainId?: number;
   epochHeight?: number;
 };
+
+export type ITxDescCfx = {
+  name: string;
+  fullName: string;
+  type: string;
+  signature: string;
+  array: any[];
+  object: {
+    [index: string]: any;
+  };
+};

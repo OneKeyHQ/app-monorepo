@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { defaultAbiCoder } from '@ethersproject/abi';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
@@ -47,8 +48,9 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { IEncodedTxCfx } from './types';
-import { isCfxNativeTransferType } from './utils';
+import { parseTransaction } from './utils';
 
+const TOKEN_TRANSFER_FUNCTION_SIGNATURE = '0xa9059cbb';
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
   settings = settings;
@@ -127,12 +129,38 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxCfx> {
     const network = await this.getNetwork();
     const { amount } = transferInfo;
+    const isTransferToken = Boolean(transferInfo.token);
     let amountBN = new BigNumber(amount);
     if (amountBN.isNaN()) {
       amountBN = new BigNumber('0');
     }
 
     const amountHex = toBigIntHex(amountBN.shiftedBy(network.decimals));
+
+    if (isTransferToken) {
+      const token = await this.engine.ensureTokenInDB(
+        this.networkId,
+        transferInfo.token ?? '',
+      );
+      if (!token) {
+        throw new Error(`Token not found: ${transferInfo.token as string}`);
+      }
+
+      const toAddress = `0x${confluxAddress
+        .decodeCfxAddress(transferInfo.to)
+        .hexAddress.toString('hex')}`;
+
+      const data = `${TOKEN_TRANSFER_FUNCTION_SIGNATURE}${defaultAbiCoder
+        .encode(['address', 'uint256'], [toAddress, amountHex])
+        .slice(2)}`;
+
+      return {
+        from: transferInfo.from,
+        to: transferInfo.token ?? '',
+        value: '0x0',
+        data,
+      };
+    }
 
     return {
       from: transferInfo.from,
@@ -312,6 +340,9 @@ export default class Vault extends VaultBase {
 
   async buildEncodedTxAction(encodedTx: IEncodedTxCfx) {
     const { address } = await this.getOutputAccount();
+    const client = await this.getClient();
+    const crc20 = client.CRC20(encodedTx.to);
+    const [actionType, actionDesc] = parseTransaction(encodedTx, crc20);
     const action: IDecodedTxAction = {
       type: IDecodedTxActionType.UNKNOWN,
       direction: await this.buildTxActionDirection({
@@ -335,10 +366,31 @@ export default class Vault extends VaultBase {
       }
     }
 
-    if (isCfxNativeTransferType({ data: encodedTx.data, to: encodedTx.to })) {
+    if (actionType === IDecodedTxActionType.NATIVE_TRANSFER) {
       action.type = IDecodedTxActionType.NATIVE_TRANSFER;
       action.nativeTransfer = await this.buildNativeTransfer(encodedTx);
       extraNativeTransferAction = undefined;
+    }
+
+    if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
+      const token = await this.engine.findToken({
+        networkId: this.networkId,
+        tokenIdOnNetwork: encodedTx.to,
+      });
+
+      if (token && actionDesc) {
+        const { to, amount } = actionDesc.object;
+        const amountBn = new BigNumber(amount);
+        action.type = IDecodedTxActionType.TOKEN_TRANSFER;
+        action.tokenTransfer = {
+          tokenInfo: token,
+          from: encodedTx.from ?? address,
+          to,
+          amount: amountBn.shiftedBy(-token.decimals).toFixed(),
+          amountValue: amountBn.toFixed(),
+          extraInfo: null,
+        };
+      }
     }
 
     return [action, extraNativeTransferAction];
@@ -375,6 +427,9 @@ export default class Vault extends VaultBase {
   fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    throw new NotImplemented();
+    return this.engine.providerManager.getTokenInfos(
+      this.networkId,
+      tokenAddresses,
+    );
   }
 }
