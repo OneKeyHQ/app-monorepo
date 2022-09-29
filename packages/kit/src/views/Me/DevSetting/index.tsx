@@ -13,7 +13,10 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import {
+  getFiatEndpoint,
+  getSocketEndpoint,
+} from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -125,7 +128,7 @@ export const DevSettingSection = () => {
           </Container.Item>
           <Container.Item
             title="测试环境域名(需要重启App)"
-            subDescribe={`范围: \n[token、价格、余额、推送] \n ${fiatEndpoint}`}
+            subDescribe={`范围: \n[token、价格、余额、推送] \n ${fiatEndpoint}\n ${getSocketEndpoint()}`}
             titleColor="text-critical"
           >
             <Switch

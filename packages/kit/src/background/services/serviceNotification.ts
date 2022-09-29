@@ -62,9 +62,14 @@ export default class ServiceNotification extends ServiceBase {
         this.handleNotificationCallback.bind(this),
       );
       this.clearBadge();
-    } else {
-      await this.backgroundApi.serviceSocket.initSocket();
-      this.registerNotificationCallback(icon);
+    }
+    if (platformEnv.isRuntimeBrowser) {
+      try {
+        await this.backgroundApi.serviceSocket.initSocket();
+        this.registerNotificationCallback(icon);
+      } catch (e) {
+        debugLogger.notification.error(`init socket failed`, e);
+      }
     }
   }
 

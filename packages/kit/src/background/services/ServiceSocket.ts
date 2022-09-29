@@ -1,9 +1,9 @@
 import { Socket, io } from 'socket.io-client';
 
 import { SocketEvents } from '@onekeyhq/engine/src/constants';
+import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { WEBSOCKET_ENDPOINT } from '../../config';
 import { appSelector } from '../../store';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -15,12 +15,18 @@ export default class ServiceSocket extends ServiceBase {
 
   @backgroundMethod()
   initSocket() {
-    debugLogger.notification.info('init websocket', WEBSOCKET_ENDPOINT);
-    return new Promise((resolve) => {
-      this.socket = io(WEBSOCKET_ENDPOINT);
+    const endpoint = getSocketEndpoint();
+    debugLogger.notification.info('init websocket', endpoint);
+    return new Promise((resolve, reject) => {
+      this.socket = io(endpoint);
+      const timeout = setTimeout(() => {
+        reject(new Error('socket connection failed'));
+        this.socket?.disconnect?.();
+      }, 3 * 60 * 1000);
       this.socket.on('connect', () => {
         debugLogger.notification.info('websocket connected');
         this.login();
+        clearTimeout(timeout);
         resolve(true);
       });
       this.socket.on('reconnect', () => {
