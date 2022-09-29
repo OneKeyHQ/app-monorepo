@@ -24,6 +24,7 @@ import { HISTORY_CONSTS } from '../../../constants';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
 import {
+  buildEncodeDataWithABI,
   createOutputActionFromNFTTransaction,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
@@ -44,7 +45,6 @@ import {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,
-  IDecodedTxDirection,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IDecodedTxStatus,
@@ -298,6 +298,21 @@ export default class Vault extends VaultBase {
         extraInfo: null,
       };
     }
+    if (
+      (decodedTxLegacy.txType === EVMDecodedTxType.ERC721_TRANSFER ||
+        decodedTxLegacy.txType === EVMDecodedTxType.ERC1155_TRANSFER) &&
+      payload?.nftInfo
+    ) {
+      action.type = IDecodedTxActionType.NFT_TRANSFER;
+      action.nftTransfer = {
+        asset: payload.nftInfo.asset,
+        amount: payload.nftInfo.amount,
+        send: payload.nftInfo.from,
+        receive: payload.nftInfo.to,
+        extraInfo: null,
+      };
+      extraNativeTransferAction = undefined;
+    }
     if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
       action.internalSwap = {
         ...payload.swapInfo,
@@ -378,14 +393,31 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const isTransferToken = Boolean(transferInfo.token);
     const isTransferNativeToken = !isTransferToken;
-    const { amount } = transferInfo;
+    const { amount, tokenId, isNFT, type } = transferInfo;
+
     let amountBN = new BigNumber(amount);
     if (amountBN.isNaN()) {
       amountBN = new BigNumber('0');
     }
 
-    // erc20 token transfer
+    // erc20/erc721/erc1155 token transfer
     if (isTransferToken) {
+      if (isNFT && type && tokenId) {
+        const data = buildEncodeDataWithABI({
+          type,
+          from: transferInfo.from,
+          to: transferInfo.to,
+          id: tokenId,
+          amount: '1',
+        });
+        return {
+          from: transferInfo.from,
+          to: transferInfo.token ?? '',
+          value: '0x0',
+          data,
+        };
+      }
+      // erc20
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
         transferInfo.token ?? '',
@@ -633,6 +665,7 @@ export default class Vault extends VaultBase {
         );
       } catch (error) {
         debugLogger.common.error(error);
+        throw error;
       }
     }
 
