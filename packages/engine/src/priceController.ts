@@ -145,7 +145,9 @@ export class PriceController {
           points: '2',
         });
         charts.main = response.main;
-        prices.main = new BigNumber(charts.main[charts.main.length - 1][1]);
+        if (charts.main) {
+          prices.main = new BigNumber(charts.main[charts.main.length - 1][1]);
+        }
       } catch (e) {
         console.error(e);
       }

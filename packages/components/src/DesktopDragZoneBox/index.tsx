@@ -53,10 +53,10 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
 };
 
 export function DesktopDragZoneAbsoluteBar(props: ComponentProps<typeof Box>) {
-  const { w = '100%', h = 8, ...others } = props;
   if (!platformEnv.isDesktop) {
     return null;
   }
+  const { w = '100%', h = 8, ...others } = props;
   // const highlightDragZone = platformEnv.isDev;
   const highlightDragZone = false;
 

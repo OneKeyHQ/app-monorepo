@@ -78,7 +78,8 @@ export function getTxActionNFTTransferInfo(props: ITxActionCardProps) {
   const account = decodedTx.owner;
 
   const amount = nftTransfer?.amount ?? '0';
-  const symbol = nftTransfer?.asset.contractName ?? '';
+  const symbol =
+    nftTransfer?.asset.contractName ?? nftTransfer?.asset.name ?? '';
   const send = nftTransfer?.send ?? '';
   const receive = nftTransfer?.receive ?? '';
   const displayDecimals: number | undefined = 100;
