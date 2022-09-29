@@ -12,6 +12,7 @@ import {
   Spinner,
   Stack,
   Typography,
+  useTheme,
 } from '@onekeyhq/components';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 
@@ -55,6 +56,8 @@ const StakingButton: FC<StakingButtonProps> = ({ ...rest }) => {
 
 function NoAssetsOnKele() {
   const intl = useIntl();
+  const { themeVariant } = useTheme();
+
   return (
     <Box
       borderRadius={12}
@@ -63,23 +66,23 @@ function NoAssetsOnKele() {
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
+      borderWidth={themeVariant === 'light' ? 1 : 0}
+      borderColor="border-subdued"
     >
-      <Box flexDirection="row" alignItems="center">
+      <Box flexDirection="row" alignItems="center" flex={1}>
         <Center w="8" h="8" bg="interactive-default" mr="3" borderRadius="full">
           <Icon name="DatabaseSolid" color="icon-on-primary" />
         </Center>
-        <Box mr="4">
+        <Box mr="4" flex={1}>
           <Typography.Body1Strong>
             {intl.formatMessage({ id: 'form__stake_earn' })}
           </Typography.Body1Strong>
-          <Box>
-            <Typography.Caption>
-              {intl.formatMessage(
-                { id: 'form__stake_earn_desc' },
-                { '0': '4.12%' },
-              )}
-            </Typography.Caption>
-          </Box>
+          <Typography.Caption color="text-subdued">
+            {intl.formatMessage(
+              { id: 'form__stake_earn_desc' },
+              { '0': '4.12%' },
+            )}
+          </Typography.Caption>
         </Box>
       </Box>
       <StakingButton />
