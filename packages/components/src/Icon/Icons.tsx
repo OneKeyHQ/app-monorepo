@@ -1055,5 +1055,5 @@ const icons = {
   ZoomInSolid,
   ZoomOutSolid,
 };
-export type ICON_TYPE = keyof typeof icons;
+export type ICON_NAMES = keyof typeof icons;
 export default icons;
