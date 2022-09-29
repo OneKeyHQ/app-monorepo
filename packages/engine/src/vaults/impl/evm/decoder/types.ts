@@ -13,8 +13,11 @@ enum EVMDecodedTxType {
   TOKEN_TRANSFER = 'erc20_transfer',
   TOKEN_APPROVE = 'erc20_approve',
 
-  // ERC721 NFT
+  // ERC721
   ERC721_TRANSFER = 'erc721_transfer',
+
+  // ERC1155
+  ERC1155_TRANSFER = 'erc1155_transfer',
 
   // Swap
   SWAP = 'swap',
@@ -65,7 +68,7 @@ interface EVMDecodedItemInternalStake {
 
 interface EVMBaseDecodedItem {
   txType: EVMDecodedTxType;
-  protocol?: 'erc20' | 'erc721';
+  protocol?: 'erc20' | 'erc721' | 'erc1155';
   mainSource: 'raw' | 'ethersTx' | 'covalent';
   raw?: string;
 
