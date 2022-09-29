@@ -14,21 +14,21 @@ import Header, { HeaderProps } from './Header';
 import ListItem from './ListItem';
 import ListItemSeparator from './ListItemSeparator';
 
-interface FlatListProps<T = any> extends IFlatListProps<T> {
+interface ListProps<T> extends IFlatListProps<T> {
   headerProps?: HeaderProps;
   footerText?: string;
   showDivider?: boolean;
   ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
 }
 
-const FlatList: FC<FlatListProps> = ({
+function List<T>({
   ListHeaderComponent,
   ListFooterComponent,
   headerProps,
   footerText,
   showDivider,
   ...rest
-}) => {
+}: ListProps<T>) {
   const renderHeader = useMemo(() => {
     if (headerProps) {
       if (ListHeaderComponent) return ListHeaderComponent(headerProps);
@@ -50,23 +50,23 @@ const FlatList: FC<FlatListProps> = ({
       {...rest}
     />
   );
-};
+}
 
-interface SectionListProps<T = any> extends ISectionListProps<T> {
+interface GroupingListProps<T = any> extends ISectionListProps<T> {
   headerProps?: HeaderProps;
   footerText?: string;
   showDivider?: boolean;
   ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
 }
 
-const SectionList: FC<SectionListProps> = ({
+function GroupingList<T>({
   ListHeaderComponent,
   ListFooterComponent,
   headerProps,
   footerText,
   showDivider,
   ...rest
-}) => {
+}: GroupingListProps<T>) {
   const renderHeader = useMemo(() => {
     if (headerProps) {
       if (ListHeaderComponent) return ListHeaderComponent(headerProps);
@@ -88,6 +88,6 @@ const SectionList: FC<SectionListProps> = ({
       {...rest}
     />
   );
-};
+}
 
-export { FlatList, SectionList, ListItem };
+export { List, GroupingList, ListItem };
