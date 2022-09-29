@@ -52,14 +52,16 @@ import { getAccountDefaultByPurpose } from './utils';
 
 import type { IBlockBookTransaction, IBtcUTXO, IEncodedTxBtc } from './types';
 
+const DEFAULT_BLOCK_NUMS = [5, 2, 1];
+const DEFAULT_BLOCK_TIME = 600; // Average block time is 10 minutes.
+
 export default class Vault extends VaultBase {
   private getFeeRate = memoizee(
     async () => {
       const client = await (this.engineProvider as Provider).blockbook;
-      const blockNums = [20, 10, 5];
       try {
         return await Promise.all(
-          blockNums.map((blockNum) =>
+          DEFAULT_BLOCK_NUMS.map((blockNum) =>
             client
               .estimateFee(blockNum)
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
@@ -352,7 +354,10 @@ export default class Vault extends VaultBase {
       customDisabled: true,
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
-      defaultPresetIndex: '0',
+      waitingSeconds: DEFAULT_BLOCK_NUMS.map(
+        (numOfBlocks) => numOfBlocks * DEFAULT_BLOCK_TIME,
+      ),
+      defaultPresetIndex: '1',
       feeSymbol: 'BTC',
       feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
