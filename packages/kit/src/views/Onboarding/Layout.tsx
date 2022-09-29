@@ -9,6 +9,7 @@ import {
   PresenceTransition,
   ScrollView,
   Text,
+  Typography,
   useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -25,6 +26,7 @@ type LayoutProps = {
   showCloseButton?: boolean;
   secondaryContent?: ReactNode;
   title?: string;
+  subTitle?: string;
   description?: string;
   visible?: boolean;
   onPressBackButton?: () => void;
@@ -74,6 +76,7 @@ const Layout: FC<LayoutProps> = ({
   showCloseButton,
   secondaryContent,
   title,
+  subTitle,
   description,
   fullHeight,
   onPressBackButton,
@@ -177,6 +180,13 @@ const Layout: FC<LayoutProps> = ({
                   >
                     {title}
                   </Text>
+
+                  {subTitle ? (
+                    <Typography.Body1 textAlign="left" color="text-subdued">
+                      {subTitle}
+                    </Typography.Body1>
+                  ) : undefined}
+
                   {description ? (
                     <Text
                       typography={{ sm: 'DisplayLarge', md: 'DisplayXLarge' }}

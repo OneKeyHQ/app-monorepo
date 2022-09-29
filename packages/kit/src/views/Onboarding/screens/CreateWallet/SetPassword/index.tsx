@@ -85,6 +85,15 @@ const SetPassword = () => {
         : intl.formatMessage({ id: 'title__set_password' }),
     [intl, isPasswordSet],
   );
+  const subTitle = useMemo(
+    () =>
+      isPasswordSet
+        ? intl.formatMessage({
+            id: 'Verify_password_to_continue',
+          })
+        : undefined,
+    [intl, isPasswordSet],
+  );
 
   return (
     <>
@@ -92,6 +101,7 @@ const SetPassword = () => {
         // make sure Spinner display
         fullHeight
         title={title}
+        subTitle={subTitle}
         secondaryContent={
           isPasswordSet ? <SecondaryContent /> : <SecondaryContent />
         }
