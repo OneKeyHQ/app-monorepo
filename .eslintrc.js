@@ -21,6 +21,7 @@ const tsRules = {
   '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
   '@typescript-eslint/no-unsafe-assignment': 'off',
+  '@typescript-eslint/no-unsafe-argument': 'off',
   'sort-imports': [
     'error',
     {
