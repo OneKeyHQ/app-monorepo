@@ -173,6 +173,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentTypeWriter]: undefined;
   [StackRoutes.ComponentHomescreen]: undefined;
   [StackRoutes.ComponentNFTImage]: undefined;
+  [StackRoutes.ComponentList]: undefined;
 };
 
 export const stackScreenList = [

@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/restrict-plus-operands */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable no-nested-ternary */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import React from 'react';
 
 import {
