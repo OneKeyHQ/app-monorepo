@@ -67,7 +67,6 @@ const SelectNFTPriceType: FC<{ closeOverlay: () => void }> = ({
   );
 };
 
-// @ts-ignore
 export const showSelectNFTPriceType = () =>
   showOverlay((closeOverlay) => (
     <OverlayPanel

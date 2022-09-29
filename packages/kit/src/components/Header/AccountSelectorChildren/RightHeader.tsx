@@ -191,7 +191,7 @@ const RightHeader: FC<RightHeaderProps> = ({
     normalGroup.push(
       {
         label: intl.formatMessage({
-          id: 'action__view_device_details',
+          id: 'action__device_settings',
         }),
         value: 'details',
         iconProps: {
