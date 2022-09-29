@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/restrict-plus-operands */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import React from 'react';
+import React, { ComponentProps } from 'react';
+
+import { ListRenderItemInfo } from 'react-native';
 
 import {
   Badge,
@@ -146,7 +148,7 @@ const ListGallery = () => (
             ],
           }}
           data={TokenListData}
-          renderItem={({ item }) => (
+          renderItem={({ item }: ListRenderItemInfo<any>) => (
             <ListItem onPress={() => console.log('clicked')} flex={1}>
               <ListItem.Column image={{ src: item.src }} />
               <ListItem.Column
@@ -169,7 +171,7 @@ const ListGallery = () => (
             </ListItem>
           )}
           footer="Lorem Ipsum is simply dummy text of the printing and typesetting industry."
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.id}
         />
       </Box>
 
@@ -293,7 +295,7 @@ const ListGallery = () => (
               </ListItem>
             </>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item }: ListRenderItemInfo<any>) => (
             <ListItem onPress={() => console.log('clicked')} flex={1}>
               <ListItem.Column>
                 <HStack alignItems="center" w="64px" justifyContent="center">
@@ -373,7 +375,7 @@ const ListGallery = () => (
               </ListItem.Column>
             </ListItem>
           )}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.id}
         />
       </Box>
     </VStack>
