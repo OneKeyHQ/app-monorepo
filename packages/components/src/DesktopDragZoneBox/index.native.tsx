@@ -1,3 +1,4 @@
-const noop = () => null;
-export const DesktopDragZoneAbsoluteBar = noop;
-export default noop;
+import { Fragment } from 'react';
+
+export const DesktopDragZoneAbsoluteBar = Fragment;
+export default Fragment;
