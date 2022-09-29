@@ -39,12 +39,12 @@ const SwapContent = () => {
     sendingAccount,
   } = useSwapState();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
-  const { account, wallet, network } = useActiveWalletAccount();
+  const { wallet, network } = useActiveWalletAccount();
 
   const { formattedAmounts } = useDerivedSwapState();
 
   const isDisabled =
-    !wallet || !account || !network || !enabledNetworkIds.includes(network.id);
+    !wallet || !network || !enabledNetworkIds.includes(network.id);
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -119,6 +119,7 @@ const SwapContent = () => {
             <IconButton
               w="10"
               h="10"
+              isDisabled={loading}
               name="SwitchVerticalOutline"
               borderRadius="full"
               borderColor="border-disabled"

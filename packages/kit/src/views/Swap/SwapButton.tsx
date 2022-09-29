@@ -98,6 +98,22 @@ const ExchangeButton = () => {
       return;
     }
 
+    const accountInWallets =
+      await backgroundApiProxy.serviceSwap.checkAccountInWallets(
+        sendingAccount.id,
+      );
+
+    if (!accountInWallets) {
+      toast.show({
+        title: intl.formatMessage(
+          { id: 'msg__account_deleted' },
+          { '0': sendingAccount.name },
+        ),
+        type: 'error',
+      });
+      return;
+    }
+
     const targetNetworkId = inputAmount.token.networkId;
 
     if (network?.id !== targetNetworkId) {

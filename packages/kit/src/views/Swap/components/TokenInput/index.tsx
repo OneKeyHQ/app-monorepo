@@ -16,7 +16,12 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
-import { useNavigation, useNetwork } from '../../../../hooks';
+import { useCreateAccountInWallet } from '../../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
+import {
+  useActiveWalletAccount,
+  useNavigation,
+  useNetwork,
+} from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
 import { Token as TokenType } from '../../../../store/typings';
@@ -28,7 +33,7 @@ import { formatAmount } from '../../utils';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
-  account?: Account;
+  account?: Account | null;
   token?: TokenType;
   label?: string;
   inputValue?: string;
@@ -36,6 +41,72 @@ type TokenInputProps = {
   onChange?: (text: string) => void;
   containerProps?: ComponentProps<typeof Box>;
   isDisabled?: boolean;
+};
+
+type TokenAccountProps = {
+  account?: Account | null;
+  token?: TokenType;
+};
+
+const TokenInputSendingAccount: FC<TokenAccountProps> = ({
+  account,
+  token,
+}) => {
+  const intl = useIntl();
+  const navigation = useNavigation();
+  const onSwapQuote = useSwapQuoteCallback();
+  const { walletId } = useActiveWalletAccount();
+
+  const onPickAccount = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Swap,
+      params: {
+        screen: SwapRoutes.PickAccount,
+        params: {
+          networkId: token?.networkId,
+          onSelected: (acc) => {
+            backgroundApiProxy.dispatch(setSendingAccount(acc));
+            onSwapQuote();
+          },
+        },
+      },
+    });
+  }, [token, onSwapQuote, navigation]);
+
+  const { createAccount } = useCreateAccountInWallet({
+    networkId: token?.networkId,
+    walletId,
+  });
+
+  if (account === null) {
+    return (
+      <Pressable onPress={createAccount}>
+        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+          <Typography.CaptionStrong>
+            {intl.formatMessage({ id: 'action__create_account' })}
+          </Typography.CaptionStrong>
+        </Box>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onPickAccount}>
+      {!account ? (
+        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+          <Typography.CaptionStrong>
+            {intl.formatMessage({ id: 'title__choose_an_account' })}
+          </Typography.CaptionStrong>
+        </Box>
+      ) : (
+        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+          <Typography.Caption color="text-subdued" mr="1" numberOfLines={1}>
+            {`${account.name}(${account.address.slice(-4)})`}
+          </Typography.Caption>
+        </Box>
+      )}
+    </Pressable>
+  );
 };
 
 const TokenInput: FC<TokenInputProps> = ({
@@ -51,8 +122,6 @@ const TokenInput: FC<TokenInputProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const navigation = useNavigation();
-  const onSwapQuote = useSwapQuoteCallback();
   const tokenNetwork = useNetwork(token?.networkId);
 
   const balance = useTokenBalance(token, account?.id);
@@ -83,22 +152,6 @@ const TokenInput: FC<TokenInputProps> = ({
     text = '0';
   }
 
-  const onPickAccount = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Swap,
-      params: {
-        screen: SwapRoutes.PickAccount,
-        params: {
-          networkId: token?.networkId,
-          onSelected: (acc) => {
-            backgroundApiProxy.dispatch(setSendingAccount(acc));
-            onSwapQuote();
-          },
-        },
-      },
-    });
-  }, [token, onSwapQuote, navigation]);
-
   return (
     <Box {...containerProps} position="relative">
       <Box position="relative">
@@ -111,25 +164,7 @@ const TokenInput: FC<TokenInputProps> = ({
           <Typography.Caption p="2" color="text-subdued" fontWeight={500}>
             {label}
           </Typography.Caption>
-          <Pressable onPress={onPickAccount}>
-            {!account ? (
-              <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
-                <Typography.CaptionStrong>
-                  {intl.formatMessage({ id: 'title__choose_an_account' })}
-                </Typography.CaptionStrong>
-              </Box>
-            ) : (
-              <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
-                <Typography.Caption
-                  color="text-subdued"
-                  mr="1"
-                  numberOfLines={1}
-                >
-                  {`${account.name}(${account.address.slice(-4)})`}
-                </Typography.Caption>
-              </Box>
-            )}
-          </Pressable>
+          <TokenInputSendingAccount account={account} token={token} />
         </Box>
         <Box
           display="flex"

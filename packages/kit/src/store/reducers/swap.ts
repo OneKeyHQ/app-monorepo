@@ -27,7 +27,7 @@ type SwapState = {
   recipient?: Recipient;
 
   networkSelectorId?: string;
-  sendingAccount?: Account;
+  sendingAccount?: Account | null;
 };
 
 const initialState: SwapState = {
@@ -126,7 +126,10 @@ export const swapSlice = createSlice({
     setNetworkSelectorId(state, action: PayloadAction<string | undefined>) {
       state.networkSelectorId = action.payload;
     },
-    setSendingAccount(state, action: PayloadAction<Account | undefined>) {
+    setSendingAccount(
+      state,
+      action: PayloadAction<Account | undefined | null>,
+    ) {
       state.sendingAccount = action.payload;
     },
   },

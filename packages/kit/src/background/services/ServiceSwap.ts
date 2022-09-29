@@ -78,7 +78,7 @@ export default class ServiceSwap extends ServiceBase {
       );
     }
     this.selectToken('INPUT', this.getNetwork(token.networkId), token);
-    this.setSendingAccount(this.getNetwork(token.networkId));
+    this.setSendingAccountByNetwork(this.getNetwork(token.networkId));
   }
 
   @backgroundMethod()
@@ -107,11 +107,11 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async switchTokens() {
     const { dispatch, appSelector, engine } = this.backgroundApi;
-    dispatch(setQuote(undefined), switchTokens());
     const outputToken = appSelector((s) => s.swap.outputToken);
+    dispatch(setQuote(undefined), switchTokens());
     if (outputToken) {
       const network = await engine.getNetwork(outputToken.networkId);
-      this.setSendingAccount(network);
+      this.setSendingAccountByNetwork(network);
     }
   }
 
@@ -208,7 +208,24 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setSendingAccount(network?: Network): Promise<Account | undefined> {
+  async refreshSendingAccount() {
+    const { appSelector, engine } = this.backgroundApi;
+    const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+    if (sendingAccount !== null) {
+      return;
+    }
+    const inputToken = appSelector((s) => s.swap.inputToken);
+    if (!inputToken) {
+      return;
+    }
+    const network = await engine.getNetwork(inputToken.networkId);
+    this.setSendingAccountByNetwork(network);
+  }
+
+  @backgroundMethod()
+  async setSendingAccountByNetwork(
+    network?: Network,
+  ): Promise<Account | undefined> {
     if (!network) {
       return;
     }
@@ -242,7 +259,24 @@ export default class ServiceSwap extends ServiceBase {
       dispatch(setSendingAccount(data));
       return data;
     }
-    dispatch(setSendingAccount());
+
+    const inactiveWallets = wallets.filter(
+      (wallet) => wallet.id !== activeAccountId,
+    );
+    if (inactiveWallets.length === 0) {
+      return;
+    }
+
+    for (let i = 0; i < inactiveWallets.length; i += 1) {
+      const wallet = inactiveWallets[i];
+      const items = await engine.getAccounts(wallet.accounts, network.id);
+      if (items.length > 0) {
+        dispatch(setSendingAccount(items[0]));
+        return;
+      }
+    }
+
+    dispatch(setSendingAccount(null));
   }
 
   @backgroundMethod()
@@ -367,5 +401,18 @@ export default class ServiceSwap extends ServiceBase {
     const term = keyword.trim();
     const tokens = await engine.searchTokens(networkId, term);
     return tokens.filter((t) => enabledNetworkIds.includes(t.networkId));
+  }
+
+  @backgroundMethod()
+  async checkAccountInWallets(accountId: string) {
+    const { appSelector } = this.backgroundApi;
+    const wallets = appSelector((s) => s.runtime.wallets);
+    for (let i = 0; i < wallets.length; i += 1) {
+      const wallet = wallets[i];
+      if (wallet.accounts.includes(accountId)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

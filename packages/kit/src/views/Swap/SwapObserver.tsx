@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePrevious } from '../../hooks';
+import { useAppSelector, usePrevious } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 
 import { useEnabledSwappableNetworks } from './hooks/useSwap';
@@ -24,7 +24,7 @@ const NetworkObserver = () => {
           baseNetwork,
           nativeToken,
         );
-        backgroundApiProxy.serviceSwap.setSendingAccount(baseNetwork);
+        backgroundApiProxy.serviceSwap.setSendingAccountByNetwork(baseNetwork);
       }
       backgroundApiProxy.serviceSwap.setNetworkSelectorId(baseNetwork.id);
     }
@@ -40,6 +40,14 @@ const NetworkObserver = () => {
       refs.inputIsDirty = false;
     };
   }, [network, prevNetowrk]);
+  return null;
+};
+
+const AccountsObserver = () => {
+  const accounts = useAppSelector((s) => s.runtime.accounts);
+  useEffect(() => {
+    backgroundApiProxy.serviceSwap.refreshSendingAccount();
+  }, [accounts]);
   return null;
 };
 
@@ -73,6 +81,7 @@ const TokenUpdater = () => {
 const SwapListener = () => (
   <>
     <NetworkObserver />
+    <AccountsObserver />
     <TokenUpdater />
   </>
 );
