@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { ComponentProps, useCallback } from 'react';
+import { ComponentProps, forwardRef, useCallback } from 'react';
 
 import { TextArea as NativeBaseTextArea } from 'native-base';
 
@@ -20,9 +20,11 @@ type TextAreaProps = {
   trimValue?: boolean;
 };
 
-const TextArea = React.forwardRef<
+const TextArea = forwardRef<
   typeof NativeBaseTextArea,
-  ComponentProps<typeof NativeBaseTextArea> & TextAreaProps
+  // https://github.com/GeekyAnts/NativeBase/issues/4933
+  Omit<ComponentProps<typeof NativeBaseTextArea>, 'autoCompleteType'> &
+    TextAreaProps
 >(({ isInvalid, trimValue, actions = [], onChangeText, ...props }, ref) => {
   const small = useIsVerticalLayout();
   const textProps = small
@@ -81,6 +83,7 @@ const TextArea = React.forwardRef<
       shadow="depth.1"
       onChangeText={onChangeTrimText}
       {...props}
+      autoCompleteType={undefined}
     />
   );
 
