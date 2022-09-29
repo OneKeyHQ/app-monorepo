@@ -793,10 +793,14 @@ class Engine {
             .map((t) => ({ ...t, autoDetected: true }));
         }
       } catch (e) {
-        debugLogger.common.error(`getBalancesFromApi`, {
-          params: [networkId, accountId],
-          message: e instanceof Error ? e.message : e,
-        });
+        debugLogger.common.error(
+          `getBalancesFromApi`,
+          {
+            params: [networkId, accountId],
+            message: e instanceof Error ? e.message : e,
+          },
+          e,
+        );
       }
     }
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
