@@ -141,6 +141,8 @@
     "react-native-svg": "12.3.0",
     "react-native-qrcode-svg": "6.1.2",
     "@solana/web3.js": "1.47.3",
-    "**/buffer": "^6.0.3"
+    "**/buffer": "^6.0.3",
+    "@types/react-native": "~0.68",
+    "@types/react": "^17"
   }
 }

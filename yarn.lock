@@ -5722,19 +5722,12 @@
   dependencies:
     "@types/react" "*"
 
-"@types/react-native@^0.65":
-  version "0.65.16"
-  resolved "https://registry.yarnpkg.com/@types/react-native/-/react-native-0.65.16.tgz#9e92715f6d83c261c06d7d401256848742f932ec"
-  integrity sha512-sIOSeIbqAPVGcuryxpm4P4/EOlpWnwhp988s42cOrsI0ddyTPNL3OzaODFbMWfL5ySlAc3DQIu4rNH7TjZUCVQ==
+"@types/react-native@^0.65", "@types/react-native@~0.68":
+  version "0.68.7"
+  resolved "https://registry.yarnpkg.com/@types/react-native/-/react-native-0.68.7.tgz#24f7d56cd405831e131da3b5b323d02a53256b19"
+  integrity sha512-icGr0/iTPLsvIrUoLvu5uluDFBMZEir+DbwgrHnvazO3fJv1C/kpZZLGplQ3noYyDLjuBynwOUgoaZpGyFI4Iw==
   dependencies:
-    "@types/react" "*"
-
-"@types/react-native@~0.67.7":
-  version "0.67.7"
-  resolved "https://registry.yarnpkg.com/@types/react-native/-/react-native-0.67.7.tgz#903b7d56fb6a95ca0de897f2925c04ee0d4adee3"
-  integrity sha512-G7vi9vE226diNNXVNbIa8HH/wPxMWHTHkn9iQtQSezaWzO5WNsKZZW2/TOzCehtBDVx4MZieTs6GsdtpBBttMA==
-  dependencies:
-    "@types/react" "*"
+    "@types/react" "^17"
 
 "@types/react-redux@^7.1.20":
   version "7.1.20"
@@ -5753,10 +5746,10 @@
   dependencies:
     "@types/react" "*"
 
-"@types/react@*", "@types/react@16 || 17", "@types/react@^17.0.0", "@types/react@^17.0.33", "@types/react@~17.0.21":
-  version "17.0.48"
-  resolved "https://registry.yarnpkg.com/@types/react/-/react-17.0.48.tgz#a4532a8b91d7b27b8768b6fc0c3bccb760d15a6c"
-  integrity sha512-zJ6IYlJ8cYYxiJfUaZOQee4lh99mFihBoqkOSEGV+dFi9leROW6+PgstzQ+w3gWTnUfskALtQPGHK6dYmPj+2A==
+"@types/react@*", "@types/react@16 || 17", "@types/react@^17", "@types/react@^17.0.0", "@types/react@^17.0.33", "@types/react@~17.0.21":
+  version "17.0.50"
+  resolved "https://registry.yarnpkg.com/@types/react/-/react-17.0.50.tgz#39abb4f7098f546cfcd6b51207c90c4295ee81fc"
+  integrity sha512-ZCBHzpDb5skMnc1zFXAXnL3l1FAdi+xZvwxK+PkglMmBrwjpp9nKaWuEvrGnSifCJmBFGxZOOFuwC6KH/s0NuA==
   dependencies:
     "@types/prop-types" "*"
     "@types/scheduler" "*"
