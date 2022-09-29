@@ -1,5 +1,3 @@
-import { ListRenderItemInfo } from 'react-native';
-
 import {
   Badge,
   Box,
@@ -9,13 +7,12 @@ import {
   Image,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   VStack,
 } from '@onekeyhq/components';
 
-import { FlatList, ListItem, SectionList } from './ListView';
-import Footer from './ListView/Footer';
-import SectionHeader from './ListView/SectionHeader';
+import { GroupingList, List, ListItem } from './ListView';
 
 interface TokenListDataType {
   id: string;
@@ -48,51 +45,56 @@ const TokenListData: TokenListDataType[] = [
   },
 ];
 
-const SettingListData = [
+const GroupingListData = [
   {
-    header: {
+    headerProps: {
       title: 'group 1',
       actions: [{ label: 'Action', onPress: () => alert('clicked') }],
     },
-    footer:
+    footerText:
       'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
-    index: 0,
+
     data: [
       {
         iconName: 'ColorSwatchOutline',
         label: 'Item 1',
+        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
       },
       {
         iconName: 'CreditCardOutline',
         label: 'Item 2',
+        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
       },
       {
         iconName: 'CubeTransparentOutline',
         label: 'Item 3',
+        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
       },
     ],
   },
   {
-    header: {
+    headerProps: {
       title: 'group 2',
     },
-    index: 1,
     data: [
       {
         iconName: 'ColorSwatchOutline',
         label: 'Item 1',
+        rightContent: () => <Switch />,
       },
       {
         iconName: 'CreditCardOutline',
         label: 'Item 2',
+        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
       },
       {
         iconName: 'CubeTransparentOutline',
         label: 'Item 3',
+        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
       },
     ],
   },
-];
+] as const;
 
 const MarketData = [
   {
@@ -131,14 +133,16 @@ const ListGallery = () => (
   <ScrollView bgColor="background-default">
     <VStack space={8} w="960" maxW="100%" mx="auto">
       <Box p={4} bgColor="background-default">
-        <FlatList
+        <List
           headerProps={{
             title: 'Header',
-            actions: [{ label: 'Refresh', onPress: () => alert('clicked') }],
+            actions: [
+              { label: 'Refresh', onPress: () => alert('refresh clicked') },
+            ],
           }}
           data={TokenListData}
           renderItem={({ item }) => (
-            <ListItem onPress={() => console.log('clicked')} flex={1}>
+            <ListItem onPress={() => alert(item.label)} flex={1}>
               <ListItem.Column image={{ src: item.src }} />
               <ListItem.Column
                 text={{
@@ -159,45 +163,33 @@ const ListGallery = () => (
               />
             </ListItem>
           )}
-          footer="Lorem Ipsum is simply dummy text of the printing and typesetting industry."
-          keyExtractor={(item: any) => item.id}
+          footerText="Lorem Ipsum is simply dummy text of the printing and typesetting industry."
+          keyExtractor={(item) => item.id}
         />
       </Box>
 
       <Box p={4} bgColor="background-default">
-        <SectionList
-          header={{
+        <GroupingList
+          headerProps={{
             title: 'Header',
           }}
-          sections={SettingListData}
-          renderSectionHeader={({ section, section: { header } }) => (
-            <>
-              <SectionHeader
-                title={header.title}
-                actions={header.actions}
-                mt={section.index !== 0 ? '16px' : 0}
-              />
-            </>
-          )}
-          renderSectionFooter={({ section: { footer } }) => (
-            <>{footer ? <Footer footer={footer} /> : null}</>
-          )}
+          sections={GroupingListData}
           renderItem={({ item }) => (
-            <ListItem onPress={() => console.log('clicked')} flex={1}>
+            <ListItem onPress={() => alert(item.label)} flex={1}>
               <ListItem.Column icon={{ name: item.iconName }} />
               <ListItem.Column text={{ label: item.label }} flex={1} />
               <ListItem.Column>{item.rightContent?.()}</ListItem.Column>
             </ListItem>
           )}
-          keyExtractor={(item, index) => item + index}
+          keyExtractor={(item, index) => `${item.label}_${index}`}
         />
       </Box>
 
       <Box p={4} bgColor="background-default">
-        <FlatList
+        <List
           data={MarketData}
           showDivider
-          customHeader={
+          ListHeaderComponent={() => (
             <>
               <ListItem>
                 <ListItem.Column
@@ -283,8 +275,8 @@ const ListGallery = () => (
                 </ListItem.Column>
               </ListItem>
             </>
-          }
-          renderItem={({ item }: ListRenderItemInfo<any>) => (
+          )}
+          renderItem={({ item }) => (
             <ListItem onPress={() => console.log('clicked')} flex={1}>
               <ListItem.Column>
                 <HStack alignItems="center" w="64px" justifyContent="center">
@@ -364,7 +356,7 @@ const ListGallery = () => (
               </ListItem.Column>
             </ListItem>
           )}
-          keyExtractor={(item: any) => item.id}
+          keyExtractor={(item) => item.tokenName}
         />
       </Box>
     </VStack>

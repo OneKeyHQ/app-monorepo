@@ -1,5 +1,6 @@
+/* eslint-disable react/prop-types */
 /* eslint-disable no-nested-ternary */
-import { FC, useMemo } from 'react';
+import { ReactElement, useCallback, useMemo } from 'react';
 
 import { IFlatListProps } from 'native-base/lib/typescript/components/basic/FlatList/types';
 import { ISectionListProps } from 'native-base/lib/typescript/components/basic/SectionList/types';
@@ -13,6 +14,7 @@ import Footer from './Footer';
 import Header, { HeaderProps } from './Header';
 import ListItem from './ListItem';
 import ListItemSeparator from './ListItemSeparator';
+import SectionHeader from './SectionHeader';
 
 interface ListProps<T> extends IFlatListProps<T> {
   headerProps?: HeaderProps;
@@ -52,7 +54,21 @@ function List<T>({
   );
 }
 
-interface GroupingListProps<T = any> extends ISectionListProps<T> {
+interface GroupingListRow {
+  iconName?: string;
+  label?: string;
+}
+export interface GroupingListSection {
+  headerProps?: HeaderProps;
+  footerText?: string;
+  data: {
+    iconName?: string;
+    label?: string;
+    rightContent?: (_data: GroupingListRow) => ReactElement;
+  }[];
+}
+
+interface GroupingListProps<T> extends ISectionListProps<T> {
   headerProps?: HeaderProps;
   footerText?: string;
   showDivider?: boolean;
@@ -65,9 +81,11 @@ function GroupingList<T>({
   headerProps,
   footerText,
   showDivider,
+  renderSectionHeader,
+  sections,
   ...rest
 }: GroupingListProps<T>) {
-  const renderHeader = useMemo(() => {
+  const header = useMemo(() => {
     if (headerProps) {
       if (ListHeaderComponent) return ListHeaderComponent(headerProps);
       return <Header {...headerProps} />;
@@ -75,16 +93,31 @@ function GroupingList<T>({
     return null;
   }, [ListHeaderComponent, headerProps]);
 
+  const renderSectionHeaderInner = useCallback(
+    ({ section }: { section: GroupingListSection }) => (
+      <SectionHeader
+        title={section?.headerProps?.title}
+        actions={section?.headerProps?.actions}
+        // @ts-expect-error
+        mt={sections.indexOf(section) !== 0 ? '16px' : 0}
+      />
+    ),
+    [sections],
+  );
+
   return (
     <NBSectionList
-      ListHeaderComponent={renderHeader}
+      ListHeaderComponent={header}
       ListFooterComponent={
         footerText ? <Footer text={footerText} /> : ListFooterComponent
       }
+      // @ts-expect-error
+      renderSectionHeader={renderSectionHeader ?? renderSectionHeaderInner}
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
       m={-2}
+      sections={sections}
       {...rest}
     />
   );
