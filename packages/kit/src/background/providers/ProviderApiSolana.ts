@@ -14,7 +14,9 @@ import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
+import { getTimeDurationMs, wait } from '../../utils/helper';
 import { backgroundClass, providerApiMethod } from '../decorators';
+import { waitForDataLoaded } from '../utils';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
@@ -139,9 +141,13 @@ class ProviderApiSolana extends ProviderApiBase {
 
     debugLogger.providerApi.info('solana signAllTransactions', request, params);
 
-    const ret = [];
+    const ret: string[] = [];
     for (const tx of txsToBeSigned) {
-      ret.push(await this.signTransaction(request, { message: tx }));
+      await this.backgroundApi.serviceDapp.processBatchTransactionOneByOne({
+        run: async () => {
+          ret.push(await this.signTransaction(request, { message: tx }));
+        },
+      });
     }
     return ret;
   }

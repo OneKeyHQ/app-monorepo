@@ -169,12 +169,17 @@ class ProviderApiNear extends ProviderApiBase {
     const { transactions } = params;
     const transactionHashes: string[] = [];
     for (let i = 0; i < transactions.length; i += 1) {
-      const tx = transactions[i];
-      const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
-        request,
-        { encodedTx: tx },
-      )) as string;
-      transactionHashes.push(result);
+      await this.backgroundApi.serviceDapp.processBatchTransactionOneByOne({
+        run: async () => {
+          const tx = transactions[i];
+          const result =
+            (await this.backgroundApi.serviceDapp.openSignAndSendModal(
+              request,
+              { encodedTx: tx },
+            )) as string;
+          transactionHashes.push(result);
+        },
+      });
     }
     return { transactionHashes };
   }

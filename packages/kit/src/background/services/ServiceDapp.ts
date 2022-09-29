@@ -24,12 +24,14 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import { getTimeDurationMs, wait } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {
   ensureSerializable,
   getNetworkImplFromDappScope,
   isDappScopeMatchNetwork,
+  waitForDataLoaded,
 } from '../utils';
 
 import ServiceBase from './ServiceBase';
@@ -40,6 +42,27 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
+  isSendConfirmModalVisible = false;
+
+  @backgroundMethod()
+  setSendConfirmModalVisible({ visible }: { visible: boolean }) {
+    this.isSendConfirmModalVisible = visible;
+  }
+
+  async processBatchTransactionOneByOne({ run }: { run: () => Promise<void> }) {
+    this.isSendConfirmModalVisible = true;
+
+    await run();
+
+    // set isSendConfirmModalVisible=false in SendFeedbackReceipt.tsx
+    await waitForDataLoaded({
+      data: () => !this.isSendConfirmModalVisible,
+      timeout: getTimeDurationMs({ minute: 1 }),
+      logName: 'processBatchTransactionOneByOne wait isSendConfirmModalVisible',
+    });
+    await wait(1000);
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   @backgroundMethod()
   async getActiveConnectedAccountsAsync({
