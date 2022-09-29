@@ -29,6 +29,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
@@ -37,7 +38,7 @@ import { SendRoutes } from '../../../../routes';
 import CollectibleContent from './CollectibleContent';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
-export const NFTTransferEnable = false;
+export const NFTTransferEnable = true;
 
 function useAssetOwner({
   asset,
@@ -140,13 +141,13 @@ const NFTDetailModal: FC = () => {
       params: {
         screen: SendRoutes.PreSendAddress,
         params: {
-          // isNFT: true,
+          isNFT: true,
           from: '',
           to: '',
           amount: '1',
-          // token: asset.contractAddress,
-          // tokenId: asset.tokenId,
-          // type: asset.ercType,
+          token: asset.contractAddress ?? asset.tokenAddress,
+          tokenId: asset.tokenId ?? asset.tokenAddress,
+          type: asset.ercType,
         },
       },
     });
@@ -169,6 +170,16 @@ const NFTDetailModal: FC = () => {
             {intl.formatMessage({
               id: 'action__send',
             })}
+          </Button>
+        )}
+        {platformEnv.isDev && (
+          <Button
+            mt={4}
+            onPress={() => {
+              console.log('asset = ', asset);
+            }}
+          >
+            AssetButtonTest
           </Button>
         )}
       </Box>
