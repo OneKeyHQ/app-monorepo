@@ -70,7 +70,6 @@ const NotificationProvider: React.FC<{
 
   useEffect(() => {
     serviceNotification.init(icon);
-    serviceNotification.syncLocalEnabledAccounts();
   }, [serviceNotification]);
 
   // checkPermission and init

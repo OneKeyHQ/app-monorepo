@@ -14,7 +14,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { fetchCurrencies } from '../views/FiatPay/Service';
 
-const { serviceApp, serviceCronJob, serviceSocket } = backgroundApiProxy;
+const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
 const AppLoading: FC = ({ children }) => {
   const [initDataReady, setInitDataReady] = useState(false);
@@ -69,9 +69,7 @@ const AppLoading: FC = ({ children }) => {
         SplashScreen.hideAsync();
       }, 50);
     }
-    main().then(() => {
-      serviceSocket.initSocket();
-    });
+    main();
   }, []);
 
   const bg = useThemeValue('background-default');

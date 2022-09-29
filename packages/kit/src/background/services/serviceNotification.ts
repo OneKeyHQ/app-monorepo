@@ -41,7 +41,8 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
-  init(icon?: string) {
+  async init(icon?: string) {
+    this.syncLocalEnabledAccounts();
     setInterval(() => {
       this.syncLocalEnabledAccounts();
     }, 5 * 60 * 1000);
@@ -62,6 +63,7 @@ export default class ServiceNotification extends ServiceBase {
       );
       this.clearBadge();
     } else {
+      await this.backgroundApi.serviceSocket.initSocket();
       this.registerNotificationCallback(icon);
     }
   }
