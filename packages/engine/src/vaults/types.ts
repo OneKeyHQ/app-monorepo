@@ -163,6 +163,7 @@ export type IFeeInfo = {
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
   defaultPresetIndex: string; // '0' | '1' | '2';
+  waitingSeconds?: Array<number>; // waiting time for different prices
 
   feeSymbol?: string; // feeSymbol: GWEI
   feeDecimals?: number; // feeDecimals: 9
