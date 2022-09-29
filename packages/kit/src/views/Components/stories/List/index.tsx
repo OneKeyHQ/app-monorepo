@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/restrict-plus-operands */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import React, { ComponentProps } from 'react';
+import React from 'react';
 
 import { ListRenderItemInfo } from 'react-native';
 
@@ -14,7 +14,6 @@ import {
   Image,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   VStack,
 } from '@onekeyhq/components';

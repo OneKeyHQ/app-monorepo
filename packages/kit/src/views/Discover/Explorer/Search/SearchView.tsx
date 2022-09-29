@@ -50,7 +50,7 @@ const SearchView: FC<SearchViewProps> = ({
   const translateY = 9;
 
   const [selectItemIndex, setSelectItemIndex] = useState<number>();
-  const [tempSearchContent, setTempSearchContent] = useState<string>();
+  const [tempSearchContent] = useState<string>();
 
   const searchContentTerm = useDebounce(tempSearchContent ?? '', 150);
 
