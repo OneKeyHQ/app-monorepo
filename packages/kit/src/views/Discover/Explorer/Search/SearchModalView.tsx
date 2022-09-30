@@ -128,9 +128,11 @@ const SearchModalView: FC = () => {
       footer={null}
       flatListProps={{
         data: flatListData,
+        // @ts-expect-error
         renderItem,
         ItemSeparatorComponent: () => <Divider />,
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         keyExtractor: (item, index) => `${index}-${item?.id}`,
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (

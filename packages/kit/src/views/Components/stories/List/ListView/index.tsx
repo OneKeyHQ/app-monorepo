@@ -98,7 +98,7 @@ function GroupingList<T>({
       <SectionHeader
         title={section?.headerProps?.title}
         actions={section?.headerProps?.actions}
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        // @ts-expect-error
         mt={sections.indexOf(section) !== 0 ? '16px' : 0}
       />
     ),
@@ -117,7 +117,9 @@ function GroupingList<T>({
       ListFooterComponent={
         footerText ? <Footer text={footerText} /> : ListFooterComponent
       }
+      // @ts-expect-error
       renderSectionHeader={renderSectionHeader ?? renderSectionHeaderInner}
+      // @ts-expect-error
       renderSectionFooter={renderSectionFooter ?? renderSectionFooterInner}
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
