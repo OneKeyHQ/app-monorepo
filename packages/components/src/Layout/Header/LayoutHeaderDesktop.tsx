@@ -26,6 +26,16 @@ export function LayoutHeaderDesktop() {
               type="plain"
               circle
             />
+            <Box
+              position="absolute"
+              top="-3px"
+              right="-8px"
+              rounded="full"
+              p="2px"
+              pr="9px"
+            >
+              <Box rounded="full" bgColor="interactive-default" size="8px" />
+            </Box>
           </Box>
         </HStack>
       )}

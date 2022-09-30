@@ -1,6 +1,6 @@
 import LayoutHeader from './index';
 
-import { HStack, IconButton } from '@onekeyhq/components';
+import { Box, HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTrigger } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
@@ -21,6 +21,9 @@ export function LayoutHeaderMobile() {
             circle
             size="sm"
           />
+          <Box position="absolute" top={0} rounded="full" p="2px" pr="9px">
+            <Box rounded="full" bgColor="interactive-default" size="8px" />
+          </Box>
         </HStack>
       )}
     />

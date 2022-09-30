@@ -26,7 +26,7 @@ export interface AutoUpdaterState {
     | 'ready'
     | 'error';
   skip?: string;
-  progress?: UpdateProgress;
+  progress: number;
   latest?: VersionInfo;
   window: UpdateWindow;
 }
@@ -35,6 +35,7 @@ const initialState: AutoUpdaterState = {
   enabled: false,
   state: 'not-available',
   window: 'maximized',
+  progress: 0,
 };
 
 export const autoUpdaterSlice = createSlice({
@@ -58,7 +59,7 @@ export const autoUpdaterSlice = createSlice({
       state.state = 'not-available';
       state.latest = action.payload;
     },
-    downloading(state, action: PayloadAction<UpdateProgress>) {
+    downloading(state, action: PayloadAction<AutoUpdaterState['progress']>) {
       state.state = 'downloading';
       state.progress = action.payload;
     },

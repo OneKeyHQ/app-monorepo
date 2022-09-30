@@ -1,9 +1,10 @@
-import { FC, useMemo } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { MessageDescriptor, useIntl } from 'react-intl';
 
 import {
   Box,
+  Divider,
   ICON_NAMES,
   Icon,
   Text,
@@ -14,6 +15,8 @@ import { SelectProps } from '@onekeyhq/components/src/Select';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAutoUpdate } from '../../hooks/redux';
+import { downloading } from '../../store/reducers/autoUpdater';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
 
@@ -23,6 +26,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
 }) => {
   const intl = useIntl();
+  const { dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
   const options: (
     | {
@@ -56,6 +60,66 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
     ],
     [isVerticalLayout],
   );
+
+  const { state, progress } = useAutoUpdate();
+  let index = 0;
+  const mockDownload = useCallback(() => {
+    setInterval(() => {
+      if (progress < 100) {
+        index += 1;
+        dispatch(downloading(index));
+      }
+    }, 400);
+  }, [dispatch]);
+  const UpdateItem = useMemo(() => {
+    let formText = '';
+    let disabled = false;
+    if (state === 'available') {
+      formText = intl.formatMessage({ id: 'action__update_available' });
+    } else if (state === 'ready') {
+      formText = intl.formatMessage({ id: 'action__update_now' });
+    } else if (state === 'downloading') {
+      disabled = true;
+      formText = intl.formatMessage(
+        { id: 'form__update_downloading' },
+        { 0: `${progress ?? 0}%` },
+      );
+    }
+    if (!formText) {
+      return null;
+    }
+    return (
+      <PressableItem
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+        py={{ base: '12px', sm: '8px' }}
+        px={{ base: '16px', sm: '8px' }}
+        mt="4px"
+        bg="transparent"
+        borderRadius="12px"
+        onPress={() => {
+          mockDownload();
+          // closeOverlay();
+        }}
+        disabled={disabled}
+      >
+        <Box flexDirection="row" alignItems="center">
+          <Icon size={isVerticalLayout ? 24 : 20} name="UploadOutline" />
+          <Text
+            typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
+            ml="12px"
+          >
+            {formText}
+          </Text>
+        </Box>
+        <Box rounded="full" p="2px" pr="9px">
+          <Box rounded="full" bgColor="interactive-default" size="8px" />
+        </Box>
+      </PressableItem>
+    );
+  }, [state, progress, intl, isVerticalLayout, mockDownload]);
+
   return (
     <Box bg="surface-subdued" flexDirection="column">
       {options.filter(Boolean).map(({ onPress, icon, id }) => (
@@ -83,6 +147,8 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
           </Text>
         </PressableItem>
       ))}
+      <Divider />
+      {UpdateItem}
     </Box>
   );
 };
