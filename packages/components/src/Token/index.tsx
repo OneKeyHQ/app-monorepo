@@ -7,20 +7,20 @@ import React, {
 } from 'react';
 
 import { Box, Center } from 'native-base';
+import { ResponsiveValue } from 'native-base/lib/typescript/components/types';
 
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
 import { Body2, Text } from '../Typography';
 import { shortenAddress } from '../utils';
-
-import type { ResponsiveValue } from 'native-base/lib/typescript/components/types';
 
 export type TokenProps = {
   token?: Partial<IToken>;
@@ -45,6 +45,17 @@ export type TokenProps = {
 const defaultProps = {
   size: 10,
 } as const;
+
+const getScaleRate = (size: ResponsiveValue<string | number>) => {
+  const tokenSize = size || 8;
+  const defaultIconSize =
+    typeof tokenSize === 'number' ? tokenSize * 4 : parseInt(tokenSize as any);
+  const rate = 9 / 12;
+  if (Number.isNaN(defaultIconSize)) {
+    return rate;
+  }
+  return (defaultIconSize * rate) / 32;
+};
 
 export const TokenVerifiedIcon: React.FC<{
   token?: Partial<IToken>;
@@ -90,7 +101,23 @@ const TokenIcon = ({
           bg="background-selected"
           overflow="hidden"
         >
-          <Text fontSize="9px" color="text-default" numberOfLines={1}>
+          <Text
+            fontSize={
+              platformEnv.isRuntimeChrome
+                ? '12px'
+                : `${12 * getScaleRate(size)}px`
+            }
+            color="text-default"
+            // @ts-ignore
+            style={
+              platformEnv.isRuntimeChrome
+                ? {
+                    display: 'inline-block',
+                    '-webkit-transform': `scale(${getScaleRate(size)})`,
+                  }
+                : {}
+            }
+          >
             {letter.toUpperCase()}
           </Text>
         </Center>
