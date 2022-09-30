@@ -169,7 +169,14 @@ const Connection = () => {
           );
         });
     }
-  }, [closeModal, dispatch, intl, walletConnectUri]);
+  }, [
+    closeModal,
+    dispatch,
+    intl,
+    toast,
+    walletConnectUri,
+    walletConnectUriInfo?.v2,
+  ]);
 
   // TODO move to DappService
   const getResolveData = useCallback(() => {

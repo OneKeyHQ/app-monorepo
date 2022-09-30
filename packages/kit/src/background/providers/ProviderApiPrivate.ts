@@ -55,7 +55,7 @@ class ProviderApiPrivate extends ProviderApiBase {
         walletConnectUtils.openConnectToDappModal({ uri });
       }
     }
-    return `uri=${uri}`;
+    return Promise.resolve(`uri=${uri}`);
   }
 
   /*
