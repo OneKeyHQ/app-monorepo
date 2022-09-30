@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import JPush from 'jpush-react-native';
 import { pick } from 'lodash';
 import { Dimensions } from 'react-native';
@@ -22,6 +23,8 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   AppEventBusNames,
   appEventBus,
@@ -29,47 +32,66 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import logo from '@onekeyhq/web/public/static/images/icons/favicon/favicon.png';
 
 import { HomeRoutes, RootRoutes, TabRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setHomeTabName } from '../../store/reducers/status';
 import { WalletHomeTabEnum } from '../../views/Wallet/type';
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceNotification extends ServiceBase {
+  private interval?: ReturnType<typeof setInterval>;
+
   @backgroundMethod()
-  async init(icon?: string) {
+  async init() {
+    this.clear();
     this.syncLocalEnabledAccounts();
-    setInterval(() => {
-      this.syncLocalEnabledAccounts();
-    }, 5 * 60 * 1000);
+    this.interval = setInterval(
+      () => {
+        this.syncLocalEnabledAccounts();
+      },
+      getTimeDurationMs({
+        minute: 5,
+      }),
+    );
 
     if (platformEnv.isNative) {
       initJpush();
       debugLogger.notification.info(`init jpush`);
+      JPush.addConnectEventListener(this.handleConnectStateChangeCallback);
       // @ts-ignore
-      JPush.addConnectEventListener(
-        this.handleConnectStateChangeCallback.bind(this),
-      );
+      JPush.addNotificationListener(this.handleNotificationCallback);
       // @ts-ignore
-      JPush.addNotificationListener(this.handleNotificationCallback.bind(this));
-      // @ts-ignore
-      JPush.addLocalNotificationListener(
-        // @ts-ignore
-        this.handleNotificationCallback.bind(this),
-      );
+      JPush.addLocalNotificationListener(this.handleNotificationCallback);
       this.clearBadge();
     }
     if (platformEnv.isRuntimeBrowser) {
       try {
         await this.backgroundApi.serviceSocket.initSocket();
-        this.registerNotificationCallback(icon);
+        this.registerNotificationCallback();
       } catch (e) {
         debugLogger.notification.error(`init socket failed`, e);
       }
+    }
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  clear() {
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
+    if (platformEnv.isNative) {
+      JPush.removeListener(this.handleNotificationCallback);
+      JPush.removeListener(this.handleNotificationCallback);
+      JPush.removeListener(this.handleConnectStateChangeCallback);
+    }
+    if (platformEnv.isRuntimeBrowser) {
+      this.backgroundApi.serviceSocket.clear();
     }
   }
 
@@ -142,6 +164,7 @@ export default class ServiceNotification extends ServiceBase {
     }
   }
 
+  @bindThis()
   @backgroundMethod()
   handleConnectStateChangeCallback(result: { connectEnable: boolean }) {
     debugLogger.notification.debug('JPUSH.addConnectEventListener', result);
@@ -165,7 +188,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async switchToTokenDetailScreen(params: NotificationExtra['params']) {
-    const navigation = global.$navigationRef.current;
+    const navigation = getAppNavigation();
     const width = await this.getWindowWidthInBackground();
     const isVertical = width < SCREEN_SIZE.MEDIUM;
     const { appSelector, serviceApp } = this.backgroundApi;
@@ -219,13 +242,14 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  switchToScreen({ screen, params }: NotificationExtra) {
+  async switchToScreen({ screen, params }: NotificationExtra) {
     const navigation = global.$navigationRef.current;
     const { dispatch, serviceApp } = this.backgroundApi;
     if (!platformEnv.isExtension) {
       navigation?.navigate(RootRoutes.Tab, {
         screen: TabRoutes.Home,
       });
+      await wait(600);
     }
     switch (screen) {
       case HomeRoutes.ScreenTokenDetail:
@@ -244,6 +268,7 @@ export default class ServiceNotification extends ServiceBase {
     }
   }
 
+  @bindThis()
   @backgroundMethod()
   async handleNotificationCallback(result: NotificationType) {
     debugLogger.notification.info('notification', result);
@@ -307,7 +332,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  registerNotificationCallback(icon?: string) {
+  registerNotificationCallback() {
     // native use jpush notification
     if (!platformEnv.isRuntimeBrowser) {
       return;
@@ -329,7 +354,7 @@ export default class ServiceNotification extends ServiceBase {
         });
         new Notification(params.title, {
           body: params.content,
-          icon,
+          icon: logo,
         }).onclick = () => {
           this.handleNotificationCallback({
             messageID: '',

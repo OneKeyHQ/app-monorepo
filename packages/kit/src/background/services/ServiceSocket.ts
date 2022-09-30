@@ -2,10 +2,11 @@ import { Socket, io } from 'socket.io-client';
 
 import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appSelector } from '../../store';
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
@@ -21,8 +22,7 @@ export default class ServiceSocket extends ServiceBase {
       this.socket = io(endpoint);
       const timeout = setTimeout(() => {
         reject(new Error('socket connection failed'));
-        this.socket?.disconnect?.();
-      }, 3 * 60 * 1000);
+      }, getTimeDurationMs({ minute: 3 }));
       this.socket.on('connect', () => {
         debugLogger.notification.info('websocket connected');
         this.login();
@@ -37,6 +37,13 @@ export default class ServiceSocket extends ServiceBase {
         debugLogger.notification.info('websocket disconnected');
       });
     });
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  clear() {
+    this.socket?.removeAllListeners?.();
+    this.socket?.disconnect?.();
   }
 
   @backgroundMethod()

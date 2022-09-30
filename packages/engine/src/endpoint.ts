@@ -1,8 +1,8 @@
 const DEFAULT_ONLINE_ENDPOINT = 'https://fiat.onekeycn.com';
 const TEST_ENDPOINT = 'https://fiat.onekeytest.com';
 
-const DEFAULT_SOCKET_ENDPOINT = 'ws://fiat.onekeycn.com';
-const TEST_SOCKET_ENDPOINT = 'ws://fiat.onekeytest.com';
+const DEFAULT_SOCKET_ENDPOINT = 'wss://fiat.onekeycn.com';
+const TEST_SOCKET_ENDPOINT = 'wss://fiat.onekeytest.com';
 
 let endpoint = DEFAULT_ONLINE_ENDPOINT;
 let websocketEndpoint = DEFAULT_SOCKET_ENDPOINT;

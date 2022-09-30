@@ -23,17 +23,9 @@ const bridge = bridgeSetup.background.createHostBridge({
 
 backgroundApiProxy.connectBridge(bridge);
 
-backgroundApiProxy.serviceSocket
-  .initSocket()
-  .then(() => {
-    backgroundApiProxy.serviceNotification.init();
-  })
-  .catch((e) => {
-    debugLogger.notification.error(
-      `extension background init socket failed`,
-      e,
-    );
-  });
+backgroundApiProxy.serviceNotification.init().catch((e) => {
+  debugLogger.notification.error(`extension background init socket failed`, e);
+});
 
 // extension reload() method expose to dapp
 if (platformEnv.isDev) {
