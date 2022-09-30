@@ -56,9 +56,11 @@ function isPrivateAllowedOrigin(origin?: string) {
 function isPrivateAllowedMethod(method?: string) {
   return (
     method &&
-    ['wallet_getConnectWalletInfo', 'wallet_sendSiteMetadata'].includes(
-      method || '',
-    )
+    [
+      'wallet_connectToWalletConnect',
+      'wallet_getConnectWalletInfo',
+      'wallet_sendSiteMetadata',
+    ].includes(method || '')
   );
 }
 

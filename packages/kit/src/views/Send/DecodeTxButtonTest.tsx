@@ -18,7 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
-import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
+import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { useActiveWalletAccount } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useInteractWithInfo } from '../../hooks/useDecodedTx';

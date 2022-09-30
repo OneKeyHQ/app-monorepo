@@ -28,7 +28,7 @@ import {
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
 } from './walletConnectConsts';
 import { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
-import walletConnectUtils from './walletConnectUtils';
+import walletConnectUtils from './utils/walletConnectUtils';
 
 export type ISessionStatusPro = ISessionStatus & {
   peerId?: string | null;

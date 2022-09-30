@@ -4,6 +4,7 @@ import './shared-polyfill';
 // inject css to dapp web
 // import './content-script.css';
 
+// injected hot-reload cache update:  37824555
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

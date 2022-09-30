@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, Input, Text, useToast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import walletConnectUtils from '../../../components/WalletConnect/walletConnectUtils';
+import walletConnectUtils from '../../../components/WalletConnect/utils/walletConnectUtils';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import { AddConnectionSideDialogProps } from '../types';

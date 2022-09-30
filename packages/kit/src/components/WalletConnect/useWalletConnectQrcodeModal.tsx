@@ -33,7 +33,7 @@ import {
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
-import walletConnectUtils from './walletConnectUtils';
+import walletConnectUtils from './utils/walletConnectUtils';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;

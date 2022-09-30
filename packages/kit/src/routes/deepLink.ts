@@ -13,7 +13,7 @@ import {
   WALLET_CONNECT_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '../components/WalletConnect/walletConnectConsts';
-import walletConnectUtils from '../components/WalletConnect/walletConnectUtils';
+import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';

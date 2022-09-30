@@ -4,17 +4,13 @@ import { Linking, Platform } from 'react-native';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { waitForDataLoaded } from '../../background/utils';
-import { getAppNavigation } from '../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-import { getTimeDurationMs } from '../../utils/helper';
-import { DappConnectionModalRoutes } from '../../views/DappModals/types';
-
-import { WalletService } from './types';
-import { ONEKEY_APP_DEEP_LINK } from './walletConnectConsts';
-
-import type { WalletConnectClientForDapp } from './WalletConnectClientForDapp';
+import { waitForDataLoaded } from '../../../background/utils';
+import { getAppNavigation } from '../../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { getTimeDurationMs } from '../../../utils/helper';
+import { DappConnectionModalRoutes } from '../../../views/DappModals/types';
+import { WalletService } from '../types';
+import { ONEKEY_APP_DEEP_LINK } from '../walletConnectConsts';
 
 const connectionRedirectUrl =
   platformEnv.isNative || platformEnv.isDesktop
@@ -202,26 +198,6 @@ async function dappOpenWalletApp({
   }
 }
 
-async function terminateWcConnection({
-  client,
-  walletUrl,
-}: {
-  client?: WalletConnectClientForDapp;
-  walletUrl?: string;
-}) {
-  const { serviceWalletConnect } = backgroundApiProxy;
-  try {
-    client?.offAllEvents();
-    await serviceWalletConnect.removeWalletSession(walletUrl);
-    if (client?.connector?.peerId) {
-      client?.connector?.killSession();
-    }
-    client?.disconnect(); // seems not working
-  } catch (error) {
-    debugLogger.common.error('terminateWcConnection ERROR: ', error);
-  }
-}
-
 async function openConnectToDappModal({ uri }: { uri: string }) {
   await waitForDataLoaded({
     data: () => getAppNavigation(),
@@ -243,10 +219,48 @@ async function openConnectToDappModal({ uri }: { uri: string }) {
   });
 }
 
+// V2:
+//  wc:6b18a69c27df54b4c228e0ff60218ba460a4994aa5775963f6f0ee354b629afe@2?relay-protocol=irn&symKey=99f6e5fa2bda94c704be8d7adbc2643b861ef49dbe09e0af26d3713e219b4355
+// V1:
+//  wc:7a2eabf0-a5ab-4df5-805c-1bf50da956c7@1?bridge=https%3A%2F%2Fx.bridge.walletconnect.org&key=a1bc7b3461fc0c017288c06bbfddd4d00fa187409821b3f909f2125b33277e0d
+function getWalletConnectUriInfo({ uri }: { uri: string }) {
+  const uriInfo = new URL(uri);
+  const { searchParams } = uriInfo;
+  let v1: { bridge: string; key: string } | undefined;
+  if (uri.includes('@1')) {
+    const bridge = searchParams.get('bridge') || '';
+    const key = searchParams.get('key') || '';
+    v1 = {
+      bridge,
+      key,
+    };
+  }
+
+  let v2:
+    | {
+        relayProtocol: string;
+        symKey: string;
+      }
+    | undefined;
+  if (uri.includes('@2')) {
+    const relayProtocol = searchParams.get('relay-protocol') || '';
+    const symKey = searchParams.get('symKey') || '';
+    v2 = {
+      relayProtocol,
+      symKey,
+    };
+  }
+
+  return {
+    v1,
+    v2,
+    uriInfo,
+  };
+}
 export default {
+  getWalletConnectUriInfo,
   buildConnectWalletAppUrl,
   buildOpenWalletAppUrl,
   dappOpenWalletApp,
-  terminateWcConnection,
   openConnectToDappModal,
 };

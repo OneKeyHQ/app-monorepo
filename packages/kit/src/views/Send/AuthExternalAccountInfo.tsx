@@ -13,8 +13,8 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import ExternalAccountImg from '../../components/WalletConnect/ExternalAccountImg';
+import { terminateWcConnection } from '../../components/WalletConnect/utils/terminateWcConnection';
 import { WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY } from '../../components/WalletConnect/walletConnectConsts';
-import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { TxDetailActionBox } from '../TxDetail/components/TxDetailActionBox';
 
@@ -135,7 +135,7 @@ const AuthExternalAccountInfo = React.memo(
               onPress={async () => {
                 // TODO confirm and hint
 
-                await walletConnectUtils.terminateWcConnection({
+                await terminateWcConnection({
                   client,
                   walletUrl: accountInfo?.walletUrl,
                 });
