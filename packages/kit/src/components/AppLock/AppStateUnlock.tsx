@@ -27,9 +27,9 @@ const ForgetPasswordButton = () => {
   const intl = useIntl();
   const [input, setInput] = useState('');
   const [visible, setVisible] = useState(false);
-  const onReset = useCallback(async () => {
+  const onReset = useCallback(() => {
     showSplashScreen();
-    await backgroundApiProxy.serviceApp.resetApp();
+    return backgroundApiProxy.serviceApp.resetApp();
   }, []);
   return (
     <>
