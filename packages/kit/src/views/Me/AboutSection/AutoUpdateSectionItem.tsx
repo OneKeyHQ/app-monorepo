@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,8 +8,6 @@ import {
   Pressable,
   Spinner,
   Text,
-  Typography,
-  useTheme,
   useToast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,19 +18,16 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 
-const AutoUpdateSectionItem = () => {
+const AutoUpdateSectionItem: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const { dispatch } = backgroundApiProxy;
   const { state, progress } = useAutoUpdate();
 
-  const [checkUpdateLoading, setCheckUpdateLoading] = useState(false);
-
   const onCheckUpdate = useCallback(() => {
-    setCheckUpdateLoading(true);
     appUpdates
-      .checkAppUpdate()
-      .then((version) => {
+      .checkUpdate()
+      ?.then((version) => {
         if (!version) {
           toast.show({
             title: intl.formatMessage({
@@ -44,9 +39,7 @@ const AutoUpdateSectionItem = () => {
         }
       })
       .catch(() => {})
-      .finally(() => {
-        setCheckUpdateLoading(false);
-      });
+      .finally(() => {});
   }, [dispatch, intl, toast]);
 
   const Content = useMemo(() => {
@@ -77,7 +70,7 @@ const AutoUpdateSectionItem = () => {
               id: 'form__check_for_updates',
             })}
           </Text>
-          {checkUpdateLoading ? (
+          {state === 'checking' ? (
             <Spinner size="sm" />
           ) : (
             <Box>
@@ -158,7 +151,7 @@ const AutoUpdateSectionItem = () => {
     // TODO: web & extensions return null
     console.log(state, '=============>>>>>>>> rerender');
     return null;
-  }, [state, progress, intl, checkUpdateLoading, onCheckUpdate]);
+  }, [state, progress, intl, onCheckUpdate]);
 
   return Content;
 };

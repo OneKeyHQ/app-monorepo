@@ -20,6 +20,7 @@ import logger from 'electron-log';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isString } from 'lodash';
 
+import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
 import type { PrefType } from './preload';
@@ -343,7 +344,7 @@ function createMainWindow() {
 }
 
 function init() {
-  initProcess();
+  initProcess({ mainWindow: mainWindow as BrowserWindow, store });
 }
 
 const singleInstance = app.requestSingleInstanceLock();
@@ -386,9 +387,9 @@ if (!singleInstance && !process.mas) {
   app.name = APP_NAME;
   app.on('ready', () => {
     if (!mainWindow) {
-      init();
       mainWindow = createMainWindow();
     }
+    init();
     showMainWindow();
   });
 }

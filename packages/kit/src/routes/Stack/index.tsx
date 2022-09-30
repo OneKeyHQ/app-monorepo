@@ -177,6 +177,7 @@ function MainScreen() {
       .checkAppUpdate()
       .then((versionInfo) => {
         if (versionInfo) {
+          console.log('============>>>>>: versionInfo: ', versionInfo);
           dispatch(enable(), available(versionInfo));
         }
       })
@@ -186,6 +187,7 @@ function MainScreen() {
   };
 
   useEffect(() => {
+    appUpdates.addUpdaterListener();
     autoCheckUpdate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

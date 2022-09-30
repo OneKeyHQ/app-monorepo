@@ -1,7 +1,15 @@
-import { app, session } from 'electron';
+import { BrowserWindow, app, session } from 'electron';
 import logger from 'electron-log';
 
+import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
+
+import type { LocalStore } from '../libs/store';
+
+export type Dependencies = {
+  mainWindow: BrowserWindow;
+  store: LocalStore;
+};
 
 const filter = {
   urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
@@ -42,8 +50,9 @@ export const restartBridge = async () => {
   await bridgeInstance?.restart();
 };
 
-const init = async () => {
+const init = async ({ mainWindow, store }: Dependencies) => {
   await launchBridge();
+  autoUpdateInit({ mainWindow, store });
 };
 
 export default init;
