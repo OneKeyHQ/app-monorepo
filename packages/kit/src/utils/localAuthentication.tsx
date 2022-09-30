@@ -41,7 +41,10 @@ export const localAuthenticate: () => Promise<LocalAuthentication.LocalAuthentic
         const result = await window?.desktopApi?.promptTouchID(
           reason.toLowerCase(),
         );
-        return { success: result, error: !result ? 'no supported' : '' };
+        return {
+          success: result.success,
+          error: result.error ?? 'no supported',
+        };
       } catch {
         return { success: false, error: 'no supported' };
       }

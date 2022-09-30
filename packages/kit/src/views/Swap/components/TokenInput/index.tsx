@@ -12,21 +12,29 @@ import {
   Typography,
   useToast,
 } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { FormatCurrency } from '../../../../components/Format';
+import { useCreateAccountInWallet } from '../../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import {
-  useAccountTokensBalance,
   useActiveWalletAccount,
+  useNavigation,
+  useNetwork,
 } from '../../../../hooks';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { setSendingAccount } from '../../../../store/reducers/swap';
 import { Token as TokenType } from '../../../../store/typings';
 import { tokenReservedValues } from '../../config';
+import { useSwapQuoteCallback } from '../../hooks/useSwap';
+import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
+import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
+  account?: Account | null;
   token?: TokenType;
-  tokenNetwork?: Network | null;
   label?: string;
   inputValue?: string;
   onPress?: () => void;
@@ -35,12 +43,78 @@ type TokenInputProps = {
   isDisabled?: boolean;
 };
 
+type TokenAccountProps = {
+  account?: Account | null;
+  token?: TokenType;
+};
+
+const TokenInputSendingAccount: FC<TokenAccountProps> = ({
+  account,
+  token,
+}) => {
+  const intl = useIntl();
+  const navigation = useNavigation();
+  const onSwapQuote = useSwapQuoteCallback();
+  const { walletId } = useActiveWalletAccount();
+
+  const onPickAccount = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Swap,
+      params: {
+        screen: SwapRoutes.PickAccount,
+        params: {
+          networkId: token?.networkId,
+          onSelected: (acc) => {
+            backgroundApiProxy.dispatch(setSendingAccount(acc));
+            onSwapQuote();
+          },
+        },
+      },
+    });
+  }, [token, onSwapQuote, navigation]);
+
+  const { createAccount } = useCreateAccountInWallet({
+    networkId: token?.networkId,
+    walletId,
+  });
+
+  if (account === null) {
+    return (
+      <Pressable onPress={createAccount}>
+        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+          <Typography.CaptionStrong>
+            {intl.formatMessage({ id: 'action__create_account' })}
+          </Typography.CaptionStrong>
+        </Box>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onPickAccount}>
+      {!account ? (
+        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+          <Typography.CaptionStrong>
+            {intl.formatMessage({ id: 'title__choose_an_account' })}
+          </Typography.CaptionStrong>
+        </Box>
+      ) : (
+        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+          <Typography.Caption color="text-subdued" mr="1" numberOfLines={1}>
+            {`${account.name}(${account.address.slice(-4)})`}
+          </Typography.Caption>
+        </Box>
+      )}
+    </Pressable>
+  );
+};
+
 const TokenInput: FC<TokenInputProps> = ({
   label,
   inputValue,
   onPress,
+  account,
   token,
-  tokenNetwork,
   onChange,
   containerProps,
   type,
@@ -48,9 +122,11 @@ const TokenInput: FC<TokenInputProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { accountId } = useActiveWalletAccount();
-  const balances = useAccountTokensBalance(tokenNetwork?.id ?? '', accountId);
-  const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : '0';
+  const tokenNetwork = useNetwork(token?.networkId);
+
+  const balance = useTokenBalance(token, account?.id);
+  const price = useTokenPrice(token);
+  const value = balance ?? '0';
   const onMax = useCallback(() => {
     if (!token || !value) {
       return;
@@ -75,6 +151,7 @@ const TokenInput: FC<TokenInputProps> = ({
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';
   }
+
   return (
     <Box {...containerProps} position="relative">
       <Box position="relative">
@@ -87,24 +164,7 @@ const TokenInput: FC<TokenInputProps> = ({
           <Typography.Caption p="2" color="text-subdued" fontWeight={500}>
             {label}
           </Typography.Caption>
-          <Pressable
-            onPress={() => {
-              if (isDisabled) {
-                return;
-              }
-              onMax();
-            }}
-            rounded="xl"
-            _hover={{ bg: 'surface-hovered' }}
-            _pressed={{ bg: 'surface-pressed' }}
-            p="2"
-          >
-            <Box flexDirection="row" alignItems="center">
-              <Typography.Caption color="text-subdued" fontWeight={500}>
-                {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
-              </Typography.Caption>
-            </Box>
-          </Pressable>
+          <TokenInputSendingAccount account={account} token={token} />
         </Box>
         <Box
           display="flex"
@@ -173,6 +233,43 @@ const TokenInput: FC<TokenInputProps> = ({
               isDisabled={isDisabled}
               rightCustomElement={null}
             />
+          </Box>
+        </Box>
+        <Box
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <Pressable
+            onPress={() => {
+              if (isDisabled) {
+                return;
+              }
+              onMax();
+            }}
+            rounded="xl"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            p="2"
+          >
+            <Box flexDirection="row" alignItems="center">
+              <Typography.Caption color="text-subdued" fontWeight={500}>
+                {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
+              </Typography.Caption>
+            </Box>
+          </Pressable>
+          <Box>
+            <Typography.Caption color="text-subdued" numberOfLines={2}>
+              <FormatCurrency
+                numbers={[price ?? 0, balance ?? 0]}
+                render={(ele) => (
+                  <Typography.Caption ml={3} color="text-subdued">
+                    {price ? ele : '-'}
+                  </Typography.Caption>
+                )}
+              />
+            </Typography.Caption>
           </Box>
         </Box>
       </Box>

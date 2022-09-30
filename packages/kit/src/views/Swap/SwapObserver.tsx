@@ -3,9 +3,8 @@ import React, { useEffect } from 'react';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePrevious } from '../../hooks';
+import { useAppSelector, usePrevious } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
-import { setSendingNetworkId } from '../../store/reducers/swap';
 
 import { useEnabledSwappableNetworks } from './hooks/useSwap';
 import { refs } from './refs';
@@ -25,28 +24,13 @@ const NetworkObserver = () => {
           baseNetwork,
           nativeToken,
         );
+        backgroundApiProxy.serviceSwap.setSendingAccountByNetwork(baseNetwork);
       }
-      backgroundApiProxy.dispatch(setSendingNetworkId(baseNetwork.id));
+      backgroundApiProxy.serviceSwap.setNetworkSelectorId(baseNetwork.id);
     }
-    async function main() {
+    function main() {
       if (network && isNetworkEnabled(network)) {
         if (prevNetowrk === undefined) {
-          // initial, select default native token
-          resetNativeToken(network);
-        } else if (network.impl === 'evm' && prevNetowrk?.impl !== 'evm') {
-          backgroundApiProxy.serviceSwap.resetState();
-          resetNativeToken(network);
-        } else if (network.impl !== 'evm' && prevNetowrk?.impl === 'evm') {
-          backgroundApiProxy.serviceSwap.resetState();
-          resetNativeToken(network);
-        } else if (network.impl === 'evm' && prevNetowrk?.impl === 'evm') {
-          const inputToken =
-            await backgroundApiProxy.serviceSwap.getSwapInputToken();
-          if (!inputToken) {
-            resetNativeToken(network);
-          }
-        } else {
-          backgroundApiProxy.serviceSwap.resetState();
           resetNativeToken(network);
         }
       }
@@ -59,7 +43,15 @@ const NetworkObserver = () => {
   return null;
 };
 
-const PreWorker = () => {
+const AccountsObserver = () => {
+  const accounts = useAppSelector((s) => s.runtime.accounts);
+  useEffect(() => {
+    backgroundApiProxy.serviceSwap.refreshSendingAccount();
+  }, [accounts]);
+  return null;
+};
+
+const TokenUpdater = () => {
   const { accountId } = useActiveWalletAccount();
   const enabledNetworks = useEnabledSwappableNetworks();
   useEffect(() => {
@@ -89,7 +81,8 @@ const PreWorker = () => {
 const SwapListener = () => (
   <>
     <NetworkObserver />
-    <PreWorker />
+    <AccountsObserver />
+    <TokenUpdater />
   </>
 );
 
