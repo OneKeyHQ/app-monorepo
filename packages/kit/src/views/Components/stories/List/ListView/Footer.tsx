@@ -1,25 +1,15 @@
-import React, { FC, ReactNode } from 'react';
+import { FC } from 'react';
 
 import { Text } from '@onekeyhq/components';
 
-export type FooterProps = {
-  footer?: string | ReactNode;
-};
+interface FooterProps {
+  text: string;
+}
 
-const defaultProps = {} as const;
-
-const Footer: FC<FooterProps> = ({ footer }) => (
-  <>
-    {React.isValidElement(footer) ? (
-      footer
-    ) : (
-      <Text p={2} typography="Body2" color="text-subdued">
-        {footer}
-      </Text>
-    )}
-  </>
+const Footer: FC<FooterProps> = ({ text }) => (
+  <Text p={2} typography="Body2" color="text-subdued">
+    {text}
+  </Text>
 );
-
-Footer.defaultProps = defaultProps;
 
 export default Footer;

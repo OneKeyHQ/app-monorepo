@@ -9,7 +9,6 @@ import {
 } from 'react';
 
 import { Input as BaseInput, Stack } from 'native-base';
-import { Platform } from 'react-native';
 
 import Box from '../Box';
 import Divider from '../Divider';
@@ -20,7 +19,7 @@ import { Text, getTypographyStyleProps } from '../Typography';
 
 import type { TypographyStyle } from '../Typography';
 
-type Props = {
+interface Props extends ComponentProps<typeof BaseInput> {
   autoFocus?: boolean;
   isDisabled?: boolean;
   isReadOnly?: boolean;
@@ -39,12 +38,9 @@ type Props = {
   onPressRightIcon?: () => void;
   onPressSecondaryRightText?: () => void;
   onPressSecondaryRightIcon?: () => void;
-};
+}
 
-const Input = forwardRef<
-  typeof BaseInput,
-  ComponentProps<typeof BaseInput> & Props
->(
+const Input = forwardRef<typeof BaseInput, Props>(
   (
     {
       autoFocus,
@@ -248,9 +244,7 @@ const Input = forwardRef<
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',
-          cursor: ['ios', 'android'].includes(Platform.OS)
-            ? undefined
-            : 'not-allowed',
+          cursor: 'not-allowed',
         }}
         _ios={{
           selectionColor: 'interactive-default',

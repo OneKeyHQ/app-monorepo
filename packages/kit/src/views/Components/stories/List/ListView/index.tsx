@@ -1,47 +1,49 @@
+/* eslint-disable react/prop-types */
 /* eslint-disable no-nested-ternary */
-import React, { ComponentProps, FC } from 'react';
+import { ReactElement, useCallback, useMemo } from 'react';
 
 import {
   FlatList as NBFlatList,
   SectionList as NBSectionList,
 } from '@onekeyhq/components';
+import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { SectionListProps } from '@onekeyhq/components/src/SectionList';
 
-import Footer, { FooterProps } from './Footer';
+import Footer from './Footer';
 import Header, { HeaderProps } from './Header';
 import ListItem from './ListItem';
-import ListItemSeparator, { ListItemSeparatorProps } from './ListItemSeparator';
+import ListItemSeparator from './ListItemSeparator';
+import SectionHeader from './SectionHeader';
 
-type ListProps = {
-  header?: HeaderProps;
-  footer?: FooterProps['footer'];
-  showDivider?: ListItemSeparatorProps['showDivider'];
-};
+interface ListProps<T> extends FlatListProps<T> {
+  headerProps?: HeaderProps;
+  footerText?: string;
+  showDivider?: boolean;
+  ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
+}
 
-/* 
-  FlatList
-*/
-type FlatListProps = {
-  customHeader?: ComponentProps<typeof NBFlatList>['ListHeaderComponent'];
-} & ComponentProps<typeof NBFlatList>;
-
-const FlatList: FC<ListProps & FlatListProps> = ({
-  customHeader,
-  header,
-  footer,
+function List<T>({
+  ListHeaderComponent,
+  ListFooterComponent,
+  headerProps,
+  footerText,
   showDivider,
   ...rest
-}) => {
-  function renderHeader() {
-    if (customHeader) return customHeader;
-    if (header) return <Header title={header.title} actions={header.actions} />;
-
+}: ListProps<T>) {
+  const renderHeader = useMemo(() => {
+    if (headerProps) {
+      if (ListHeaderComponent) return ListHeaderComponent(headerProps);
+      return <Header {...headerProps} />;
+    }
     return null;
-  }
+  }, [ListHeaderComponent, headerProps]);
 
   return (
     <NBFlatList
-      ListHeaderComponent={renderHeader()}
-      ListFooterComponent={<Footer footer={footer} />}
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={
+        footerText ? <Footer text={footerText} /> : ListFooterComponent
+      }
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
@@ -49,41 +51,84 @@ const FlatList: FC<ListProps & FlatListProps> = ({
       {...rest}
     />
   );
-};
+}
 
-/* 
-  SectionList
-*/
+interface GroupingListRow {
+  iconName?: string;
+  label?: string;
+}
+export interface GroupingListSection {
+  headerProps?: HeaderProps;
+  footerText?: string;
+  data: {
+    iconName?: string;
+    label?: string;
+    rightContent?: (_data: GroupingListRow) => ReactElement;
+  }[];
+}
 
-type SectionListProps = {
-  customHeader?: ComponentProps<typeof NBSectionList>['ListHeaderComponent'];
-} & ComponentProps<typeof NBSectionList>;
+interface GroupingListProps<T> extends SectionListProps<T> {
+  headerProps?: HeaderProps;
+  footerText?: string;
+  showDivider?: boolean;
+  ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
+}
 
-const SectionList: FC<ListProps & SectionListProps> = ({
-  customHeader,
-  header,
-  footer,
+function GroupingList<T>({
+  ListHeaderComponent,
+  ListFooterComponent,
+  headerProps,
+  footerText,
   showDivider,
+  renderSectionHeader,
+  renderSectionFooter,
+  sections,
   ...rest
-}) => {
-  function renderHeader() {
-    if (customHeader) return customHeader;
-    if (header) return <Header title={header.title} actions={header.actions} />;
-
+}: GroupingListProps<T>) {
+  const header = useMemo(() => {
+    if (headerProps) {
+      if (ListHeaderComponent) return ListHeaderComponent(headerProps);
+      return <Header {...headerProps} />;
+    }
     return null;
-  }
+  }, [ListHeaderComponent, headerProps]);
+
+  const renderSectionHeaderInner = useCallback(
+    ({ section }: { section: GroupingListSection }) => (
+      <SectionHeader
+        title={section?.headerProps?.title}
+        actions={section?.headerProps?.actions}
+        // @ts-expect-error
+        mt={sections.indexOf(section) !== 0 ? '16px' : 0}
+      />
+    ),
+    [sections],
+  );
+
+  const renderSectionFooterInner = useCallback(
+    ({ section }: { section: GroupingListSection }) =>
+      section.footerText ? <Footer text={section.footerText} /> : null,
+    [],
+  );
 
   return (
     <NBSectionList
-      ListHeaderComponent={renderHeader()}
-      ListFooterComponent={footer ? <Footer footer={footer} /> : null}
+      ListHeaderComponent={header}
+      ListFooterComponent={
+        footerText ? <Footer text={footerText} /> : ListFooterComponent
+      }
+      // @ts-expect-error
+      renderSectionHeader={renderSectionHeader ?? renderSectionHeaderInner}
+      // @ts-expect-error
+      renderSectionFooter={renderSectionFooter ?? renderSectionFooterInner}
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
       m={-2}
+      sections={sections}
       {...rest}
     />
   );
-};
+}
 
-export { FlatList, SectionList, ListItem };
+export { List, GroupingList, ListItem };

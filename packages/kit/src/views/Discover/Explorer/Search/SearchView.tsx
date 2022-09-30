@@ -241,7 +241,6 @@ const SearchView: FC<SearchViewProps> = ({
           <FlatListRef
             ref={flatListRef}
             data={flatListData}
-            // @ts-expect-error
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
@@ -257,7 +256,6 @@ const SearchView: FC<SearchViewProps> = ({
                 </Box>
               ) : null
             }
-            // @ts-expect-error
             keyExtractor={(_item: MatchDAppItemType, index) =>
               `${index}-${_item.id}`
             }

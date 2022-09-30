@@ -1,9 +1,9 @@
 /* eslint-disable no-nested-ternary */
-import React, { ComponentProps, FC, ReactNode } from 'react';
+import { ComponentProps, FC, ReactNode, isValidElement } from 'react';
 
 import { Icon, Image, Text, VStack } from '@onekeyhq/components';
 
-type ColumnProps = {
+interface ColumnProps extends ComponentProps<typeof VStack> {
   text?: {
     size?: 'lg' | 'sm';
     label?: string | ReactNode;
@@ -13,9 +13,7 @@ type ColumnProps = {
   };
   image?: ComponentProps<typeof Image>;
   icon?: ComponentProps<typeof Icon>;
-} & ComponentProps<typeof VStack>;
-
-const defaultProps = {} as const;
+}
 
 const Column: FC<ColumnProps> = ({ text, image, icon, children, ...rest }) => {
   // Text column
@@ -23,7 +21,7 @@ const Column: FC<ColumnProps> = ({ text, image, icon, children, ...rest }) => {
     return (
       <VStack space={1} {...rest}>
         {text.label ? (
-          React.isValidElement(text.label) ? (
+          isValidElement(text.label) ? (
             text.label
           ) : (
             <Text
@@ -35,7 +33,7 @@ const Column: FC<ColumnProps> = ({ text, image, icon, children, ...rest }) => {
           )
         ) : null}
         {text.description ? (
-          React.isValidElement(text.description) ? (
+          isValidElement(text.description) ? (
             text.description
           ) : (
             <Text
@@ -56,7 +54,5 @@ const Column: FC<ColumnProps> = ({ text, image, icon, children, ...rest }) => {
   // Custom column
   return <>{children}</>;
 };
-
-Column.defaultProps = defaultProps;
 
 export default Column;

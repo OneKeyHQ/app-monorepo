@@ -16,11 +16,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import Button from '../Button';
-import FlatList from '../FlatList';
+import FlatList, { FlatListProps } from '../FlatList';
 import { LocaleIds } from '../locale';
 import { useIsVerticalLayout, useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
-import SectionList from '../SectionList';
+import SectionList, { SectionListProps } from '../SectionList';
 import SortableList from '../SortableList';
 
 import Desktop from './Container/Desktop';
@@ -63,8 +63,8 @@ export type ModalProps = {
   onModalClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
   scrollViewProps?: ComponentProps<typeof ScrollView>;
-  flatListProps?: ComponentProps<typeof FlatList>;
-  sectionListProps?: ComponentProps<typeof SectionList>;
+  flatListProps?: FlatListProps;
+  sectionListProps?: SectionListProps<any>;
   sortableListProps?: ComponentProps<typeof SortableList.Container>;
   staticChildrenProps?: ComponentProps<typeof Box>;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';

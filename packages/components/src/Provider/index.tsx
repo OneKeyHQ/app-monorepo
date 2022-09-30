@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from 'react';
+import { FC, createRef, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
@@ -42,7 +42,7 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   return <>{children}</>;
 }
 
-export const intlRef = React.createRef<IntlShape>();
+export const intlRef = createRef<IntlShape>();
 
 const Provider: FC<UIProviderProps> = ({
   children,
