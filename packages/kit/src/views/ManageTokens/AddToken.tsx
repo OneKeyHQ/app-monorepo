@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   HStack,
   Icon,
   Image,
@@ -68,7 +67,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   const intl = useIntl();
   const { sourceInfo } = useDappParams();
   const token = useRouteParams();
-  const { name, symbol, decimal, address, logoURI } = token;
+  const { name, symbol, decimal, address } = token;
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
