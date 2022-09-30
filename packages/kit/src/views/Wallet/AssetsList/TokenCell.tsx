@@ -89,7 +89,6 @@ const TokenCell: FC<TokenCellProps> = ({
       alignItems="center"
     >
       <Token
-        ml="12px"
         flex={1}
         size={8}
         showInfo
