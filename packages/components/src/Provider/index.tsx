@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';

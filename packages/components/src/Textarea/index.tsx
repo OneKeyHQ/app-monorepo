@@ -22,9 +22,7 @@ type TextAreaProps = {
 
 const TextArea = forwardRef<
   typeof NativeBaseTextArea,
-  // https://github.com/GeekyAnts/NativeBase/issues/4933
-  Omit<ComponentProps<typeof NativeBaseTextArea>, 'autoCompleteType'> &
-    TextAreaProps
+  ComponentProps<typeof NativeBaseTextArea> & TextAreaProps
 >(({ isInvalid, trimValue, actions = [], onChangeText, ...props }, ref) => {
   const small = useIsVerticalLayout();
   const textProps = small
@@ -83,7 +81,6 @@ const TextArea = forwardRef<
       shadow="depth.1"
       onChangeText={onChangeTrimText}
       {...props}
-      autoCompleteType={undefined}
     />
   );
 
