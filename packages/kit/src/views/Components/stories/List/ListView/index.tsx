@@ -81,6 +81,7 @@ function GroupingList<T>({
   footerText,
   showDivider,
   renderSectionHeader,
+  renderSectionFooter,
   sections,
   ...rest
 }: GroupingListProps<T>) {
@@ -104,6 +105,12 @@ function GroupingList<T>({
     [sections],
   );
 
+  const renderSectionFooterInner = useCallback(
+    ({ section }: { section: GroupingListSection }) =>
+      section.footerText ? <Footer text={section.footerText} /> : null,
+    [],
+  );
+
   return (
     <NBSectionList
       ListHeaderComponent={header}
@@ -111,6 +118,7 @@ function GroupingList<T>({
         footerText ? <Footer text={footerText} /> : ListFooterComponent
       }
       renderSectionHeader={renderSectionHeader ?? renderSectionHeaderInner}
+      renderSectionFooter={renderSectionFooter ?? renderSectionFooterInner}
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
