@@ -2,13 +2,12 @@
 /* eslint-disable no-nested-ternary */
 import { ReactElement, useCallback, useMemo } from 'react';
 
-import { IFlatListProps } from 'native-base/lib/typescript/components/basic/FlatList/types';
-import { ISectionListProps } from 'native-base/lib/typescript/components/basic/SectionList/types';
-
 import {
   FlatList as NBFlatList,
   SectionList as NBSectionList,
 } from '@onekeyhq/components';
+import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { SectionListProps } from '@onekeyhq/components/src/SectionList';
 
 import Footer from './Footer';
 import Header, { HeaderProps } from './Header';
@@ -16,7 +15,7 @@ import ListItem from './ListItem';
 import ListItemSeparator from './ListItemSeparator';
 import SectionHeader from './SectionHeader';
 
-interface ListProps<T> extends IFlatListProps<T> {
+interface ListProps<T> extends FlatListProps<T> {
   headerProps?: HeaderProps;
   footerText?: string;
   showDivider?: boolean;
@@ -68,7 +67,7 @@ export interface GroupingListSection {
   }[];
 }
 
-interface GroupingListProps<T> extends ISectionListProps<T> {
+interface GroupingListProps<T> extends SectionListProps<T> {
   headerProps?: HeaderProps;
   footerText?: string;
   showDivider?: boolean;
@@ -98,7 +97,7 @@ function GroupingList<T>({
       <SectionHeader
         title={section?.headerProps?.title}
         actions={section?.headerProps?.actions}
-        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         mt={sections.indexOf(section) !== 0 ? '16px' : 0}
       />
     ),
@@ -111,7 +110,6 @@ function GroupingList<T>({
       ListFooterComponent={
         footerText ? <Footer text={footerText} /> : ListFooterComponent
       }
-      // @ts-expect-error
       renderSectionHeader={renderSectionHeader ?? renderSectionHeaderInner}
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />

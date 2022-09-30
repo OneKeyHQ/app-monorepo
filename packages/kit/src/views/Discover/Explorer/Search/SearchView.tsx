@@ -256,7 +256,6 @@ const SearchView: FC<SearchViewProps> = ({
                 </Box>
               ) : null
             }
-            // @ts-expect-error
             keyExtractor={(_item: MatchDAppItemType, index) =>
               `${index}-${_item.id}`
             }

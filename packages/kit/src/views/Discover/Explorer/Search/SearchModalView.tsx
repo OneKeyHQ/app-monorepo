@@ -1,4 +1,4 @@
-import React, { FC, useMemo, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
@@ -128,11 +128,9 @@ const SearchModalView: FC = () => {
       footer={null}
       flatListProps={{
         data: flatListData,
-        // @ts-expect-error
         renderItem,
         ItemSeparatorComponent: () => <Divider />,
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access
         keyExtractor: (item, index) => `${index}-${item?.id}`,
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (

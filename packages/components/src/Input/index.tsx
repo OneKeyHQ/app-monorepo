@@ -244,7 +244,6 @@ const Input = forwardRef<typeof BaseInput, Props>(
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',
-          // @ts-expect-error
           cursor: 'not-allowed',
         }}
         _ios={{
