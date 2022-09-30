@@ -18,6 +18,7 @@ import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
+import type ServiceMarket from './services/ServiceMarket';
 import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
@@ -101,6 +102,8 @@ class BackgroundApiProxy
   serviceNotification = this._createProxyService(
     'serviceNotification',
   ) as ServiceNotification;
+
+  serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

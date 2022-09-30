@@ -38,6 +38,7 @@ import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
 import hardwareReducer from './reducers/hardware';
+import marketReducer from './reducers/market';
 import nftReducer from './reducers/nft';
 import reducerAccountSelector from './reducers/reducerAccountSelector';
 import refresherReducer from './reducers/refresher';
@@ -69,6 +70,7 @@ const allReducers = combineReducers({
   accountSelector: reducerAccountSelector.reducer,
   staking: stakingReducer,
   nft: nftReducer,
+  market: marketReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

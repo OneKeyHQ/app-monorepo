@@ -11,6 +11,8 @@ import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import MarketScreen from '@onekeyhq/kit/src/views/Market';
+import MarketSearch from '@onekeyhq/kit/src/views/Market/MarketSearch';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
 import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
@@ -68,6 +70,18 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.SwapHistory,
         component: SwapHistory,
+      },
+    ],
+  },
+  {
+    name: TabRoutes.Market,
+    component: MarketScreen,
+    tabBarIcon: () => 'ChartSquareLineOutline',
+    translationId: 'title__market',
+    children: [
+      {
+        name: HomeRoutes.MarketSearch,
+        component: MarketSearch,
       },
     ],
   },
@@ -141,6 +155,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
 ];
 
+console.log('tabRoutes--', tabRoutes);
 if (process.env.NODE_ENV !== 'production') {
   tabRoutes.push({
     name: TabRoutes.Developer,

@@ -4,6 +4,7 @@ import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 
+import ServiceMarket from './services/ServiceMarket';
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
@@ -69,6 +70,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePassword: ServicePassword;
   serviceCloudBackup: ServiceCloudBackup;
   serviceNotification: ServiceNotification;
+  serviceMarket: ServiceMarket;
 }
 
 export type IDappSourceInfo = {

@@ -11,6 +11,7 @@ import ServiceCronJob from './services/ServiceCronJob';
 import ServiceDapp from './services/ServiceDapp';
 import ServiceHardware from './services/ServiceHardware';
 import ServiceHistory from './services/ServiceHistory';
+import ServiceMarket from './services/ServiceMarket';
 import ServiceNameResolver from './services/ServiceNameResolver';
 import ServiceNetwork from './services/ServiceNetwork';
 import ServiceNFT from './services/ServiceNFT';
@@ -109,5 +110,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   serviceNotification = new ServiceNotification({
     backgroundApi: this,
   });
+
+  serviceMarket = new ServiceMarket({ backgroundApi: this });
 }
 export default BackgroundApi;

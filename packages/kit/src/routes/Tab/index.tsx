@@ -47,6 +47,22 @@ const TabNavigator = () => {
         hideInHorizontalLayaout: true,
       },
       {
+        name: TabRoutes.Market,
+        foldable: true,
+        component: () => null,
+        disabled: wallet?.type === 'watching',
+        onPress: () => {
+          // @ts-expect-error
+          navigationRef.current?.navigate(TabRoutes.Market);
+        },
+        tabBarLabel: intl.formatMessage({ id: 'title__market' }),
+        tabBarIcon: () => 'SwitchHorizontalOutline',
+        description: intl.formatMessage({
+          id: 'content__exchange_any_tokens',
+        }),
+        hideInHorizontalLayaout: true,
+      },
+      {
         name: TabRoutes.Send,
         foldable: true,
         component: () => null,

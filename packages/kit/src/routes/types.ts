@@ -67,6 +67,7 @@ export type TabRoutesParams = {
   [TabRoutes.Me]: undefined;
   [TabRoutes.Send]: undefined;
   [TabRoutes.Receive]: undefined;
+  [TabRoutes.Market]: undefined;
 };
 /** Tab */
 

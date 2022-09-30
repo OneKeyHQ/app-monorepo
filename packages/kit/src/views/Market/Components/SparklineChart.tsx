@@ -8,7 +8,7 @@ import Canvas, {
 } from 'react-native-canvas';
 
 type SparkLineChartProps = {
-  data: number[];
+  data?: number[];
   lineColor?: string;
   height?: number;
   width?: number;
@@ -16,31 +16,34 @@ type SparkLineChartProps = {
   lineWidth?: number;
 };
 
-const throttlenSparklinePoints = (data: number[], range = 50) => {
+const throttlenSparklinePoints = (data?: number[], range = 50) => {
   // range / data.length
-  const fillteData = data.filter((value) => value);
-  if (fillteData.length < range) {
-    return fillteData;
-  }
   const res = [];
-  const valueStep = Math.floor(data.length / range);
-  for (let i = 0; i < range; i += 1) {
-    res.push(data[i * valueStep]);
+  if (data) {
+    const fillteData = data.filter((value) => value);
+    if (fillteData.length < range) {
+      return fillteData;
+    }
+
+    const valueStep = Math.floor(data.length / range);
+    for (let i = 0; i < range; i += 1) {
+      res.push(data[i * valueStep]);
+    }
   }
-  console.log('res:', res);
+  // console.log('sparkline resArray:', res);
   return res;
 };
 
 const SparkLineChart: React.FC<SparkLineChartProps> = ({
   data,
   range = 50,
-  lineColor,
+  lineColor = 'green',
   height = 50,
   width = 100,
   lineWidth = 2,
 }) => {
   const draw = useCallback(
-    async (canvas: Canvas | HTMLCanvasElement | null) => {
+    (canvas: Canvas | HTMLCanvasElement | null) => {
       if (canvas) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         canvas.width = width;
@@ -75,12 +78,12 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
           ctx.stroke();
           ctx.closePath();
           xPoint -= xSpath;
-          console.log('xpoint', xPoint, 'lastY', lastYpoint);
+         // console.log('xpoint', xPoint, 'lastY', lastYpoint);
           ctx.clearRect(xPoint, lastYpoint, lineWidth, height - lastYpoint);
           ctx.clearRect(0, height, lineWidth, lineWidth);
 
-          const grad = await ctx.createLinearGradient(0, 0, 0, height);
-          grad.addColorStop(0, lineColor);
+          const grad = ctx.createLinearGradient(0, 0, 0, height);
+          grad.addColorStop(0, lineColor || 'green');
           grad.addColorStop(1, 'rgba(255,255,255,0)');
           ctx.fillStyle = grad;
           ctx.fill();
