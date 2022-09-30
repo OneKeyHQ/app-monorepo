@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useCallback, useMemo } from 'react';
+import { ComponentProps, FC, useCallback, useMemo } from 'react';
 
 import {
   NavigationProp,
@@ -37,7 +37,7 @@ import {
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { changeActiveNetwork } from '../../../../store/reducers/general';
-import { sleep } from '../../../../utils/promiseUtils';
+import { wait } from '../../../../utils/helper';
 import {
   SwapRoutes,
   SwapRoutesParams,
@@ -448,7 +448,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     if (from && to && fromNetwork && toNetwork) {
       if (networkId !== fromNetwork.id) {
         backgroundApiProxy.dispatch(changeActiveNetwork(fromNetwork.id));
-        await sleep(500);
+        await wait(500);
       }
       backgroundApiProxy.serviceSwap.selectToken(
         'INPUT',
