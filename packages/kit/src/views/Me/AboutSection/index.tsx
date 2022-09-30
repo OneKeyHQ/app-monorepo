@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
@@ -8,7 +8,6 @@ import {
   Box,
   Icon,
   Pressable,
-  Spinner,
   Text,
   Typography,
   useTheme,
@@ -16,16 +15,13 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAutoUpdate, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import {
-  available,
-  enable,
-} from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
-import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import AutoUpdateSectionItem from './AutoUpdateSectionItem';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -40,7 +36,6 @@ export const AboutSection = () => {
 
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-  const [checkUpdateLoading, setCheckUpdateLoading] = useState(false);
   const settings = useSettings();
 
   let lastTime: Date | undefined;
@@ -62,26 +57,6 @@ export const AboutSection = () => {
     }
   };
 
-  const onCheckUpdate = useCallback(() => {
-    setCheckUpdateLoading(true);
-    appUpdates
-      .checkAppUpdate()
-      .then((version) => {
-        if (!version) {
-          toast.show({
-            title: intl.formatMessage({
-              id: 'msg__using_latest_release',
-            }),
-          });
-        } else {
-          dispatch(enable(), available(version));
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        setCheckUpdateLoading(false);
-      });
-  }, [dispatch, intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (platformEnv.isNative) {
@@ -110,113 +85,6 @@ export const AboutSection = () => {
     },
     [toast, intl],
   );
-
-  const { state, progress } = useAutoUpdate();
-  const UpdateSectionItem = useMemo(() => {
-    if (
-      state === 'not-available' ||
-      state === 'error' ||
-      state === 'checking'
-    ) {
-      return (
-        <Pressable
-          display="flex"
-          flexDirection="row"
-          alignItems="center"
-          py={4}
-          px={{ base: 4, md: 6 }}
-          borderBottomWidth="1"
-          borderBottomColor="divider"
-          onPress={onCheckUpdate}
-        >
-          <Icon name="RefreshOutline" />
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            flex={1}
-            mx={3}
-          >
-            {intl.formatMessage({
-              id: 'form__check_for_updates',
-            })}
-          </Text>
-          {checkUpdateLoading ? (
-            <Spinner size="sm" />
-          ) : (
-            <Box>
-              <Icon name="ChevronRightSolid" size={20} />
-            </Box>
-          )}
-        </Pressable>
-      );
-    }
-
-    if (state === 'available' || state === 'ready') {
-      return (
-        <Pressable
-          display="flex"
-          flexDirection="row"
-          alignItems="center"
-          py={4}
-          px={{ base: 4, md: 6 }}
-          borderBottomWidth="1"
-          borderBottomColor="divider"
-          onPress={onCheckUpdate}
-        >
-          <Icon name="RefreshOutline" />
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            flex={1}
-            mx={3}
-          >
-            {intl.formatMessage({
-              id:
-                state === 'available'
-                  ? 'action__update_available'
-                  : 'action__update_now',
-            })}
-          </Text>
-          <Box rounded="full" p="2px" pr="9px">
-            <Box rounded="full" bgColor="interactive-default" size="8px" />
-          </Box>
-          <Box>
-            <Icon name="ChevronRightSolid" size={20} />
-          </Box>
-        </Pressable>
-      );
-    }
-
-    if (state === 'downloading') {
-      return (
-        <Pressable
-          display="flex"
-          flexDirection="row"
-          alignItems="center"
-          py={4}
-          px={{ base: 4, md: 6 }}
-          borderBottomWidth="1"
-          borderBottomColor="divider"
-          disabled
-        >
-          <Icon name="RefreshOutline" />
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            flex={1}
-            mx={3}
-          >
-            {intl.formatMessage(
-              { id: 'form__update_downloading' },
-              {
-                0: `${progress}%`,
-              },
-            )}
-          </Text>
-          <Box>
-            <Icon name="ChevronRightSolid" size={20} />
-          </Box>
-        </Pressable>
-      );
-    }
-  }, [state, progress, intl, checkUpdateLoading, onCheckUpdate]);
 
   return (
     <Box w="full" mb="6">
@@ -268,7 +136,7 @@ export const AboutSection = () => {
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
           </Text>
         </Pressable>
-        {UpdateSectionItem}
+        <AutoUpdateSectionItem />
         <Pressable
           display="flex"
           flexDirection="row"
