@@ -12,7 +12,6 @@ import {
   Spinner,
   Text,
   Token as TokenImage,
-  Typography,
 } from '@onekeyhq/components';
 import {
   TokenSource,
@@ -68,24 +67,26 @@ const VerifiedTokens: React.FC = () => {
           borderTopRadius={index === 0 ? 12 : 0}
           borderBottomRadius={index === sourceList.length - 1 ? 12 : 0}
         >
-          <TokenImage src={item.logo} size={8} />
-          <Box flex="1" ml={3}>
-            <Text
-              maxW={56}
-              numberOfLines={2}
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              color={active ? 'text-default' : 'text-disabled'}
-            >
-              {item.name}
-            </Text>
-            <Typography.Body2
-              maxW="56"
-              numberOfLines={1}
-              color={active ? 'text-subdued' : 'text-disabled'}
-            >
-              {`${item.count} tokens`}
-            </Typography.Body2>
-          </Box>
+          <TokenImage
+            flex={1}
+            showInfo
+            token={{
+              logoURI: item.logo,
+              name: item.name,
+            }}
+            description={`${item.count} tokens`}
+            size={8}
+            nameProps={{
+              maxW: 56,
+              numberOfLines: 2,
+              color: active ? 'text-default' : 'text-disabled',
+            }}
+            descProps={{
+              maxW: '56',
+              numberOfLines: 1,
+              color: active ? 'text-subdued' : 'text-disabled',
+            }}
+          />
           {active && (
             <Icon size={16} name="BadgeCheckSolid" color="icon-success" />
           )}

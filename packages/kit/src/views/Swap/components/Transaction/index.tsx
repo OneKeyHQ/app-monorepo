@@ -195,7 +195,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         justifyContent="space-between"
       >
         <Box flexDirection="row" alignItems="center">
-          <TokenIcon size="8" src={tx.tokens?.from.token.logoURI} />
+          <TokenIcon size="8" token={tx.tokens?.from.token} />
           <Box ml="3">
             <Typography.Body1>
               {formatAmount(tx.tokens?.from.amount, 4)}
@@ -225,7 +225,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         justifyContent="space-between"
       >
         <Box flexDirection="row" alignItems="center">
-          <TokenIcon size="8" src={tx.tokens?.to.token.logoURI} />
+          <TokenIcon size="8" token={tx.tokens?.to.token} />
           <Box ml="3">
             <Typography.Body1>
               {formatAmount(tx.tokens?.to.amount, 4)}
@@ -338,7 +338,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
               onPress={() => onChange?.(undefined, item)}
             >
               <Box flexDirection="row" alignItems="center">
-                <TokenIcon size="8" src={token.logoURI} />
+                <TokenIcon size="8" token={token} />
                 <Typography.Body1Strong ml={3}>
                   {token.label}
                 </Typography.Body1Strong>

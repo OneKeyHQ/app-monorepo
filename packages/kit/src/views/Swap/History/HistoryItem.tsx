@@ -121,7 +121,10 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
       >
         <Box flexDirection="row" alignItems="center" width="30%">
           <Box mr="4">
-            <TokenIcon src={tx.tokens?.from.token.logoURI} size="8" />
+            <TokenIcon
+              token={{ logoURI: tx.tokens?.from.token.logoURI }}
+              size="8"
+            />
           </Box>
           <Box>
             <Typography.Body1Strong>
@@ -141,7 +144,10 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
           </Center>
           <Box flexDirection="row" alignItems="center">
             <Box mr="4">
-              <TokenIcon src={tx.tokens?.to.token.logoURI} size="8" />
+              <TokenIcon
+                token={{ logoURI: tx.tokens?.to.token.logoURI }}
+                size="8"
+              />
             </Box>
             <Box>
               <Typography.Body1Strong>
@@ -233,7 +239,10 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
       >
         <Box flexDirection="row" width="full">
           <Box mr="4">
-            <TokenIcon src={tx.tokens?.from.token.logoURI} size="8" />
+            <TokenIcon
+              token={{ logoURI: tx.tokens?.from.token.logoURI }}
+              size="8"
+            />
           </Box>
           <Box flexDirection="row" alignItems="center" flex="1" flexWrap="wrap">
             <Typography.Body1Strong mr="2">
@@ -252,7 +261,10 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
         </Center>
         <Box flexDirection="row" width="full">
           <Box mr="4">
-            <TokenIcon src={tx.tokens?.to.token.logoURI} size="8" />
+            <TokenIcon
+              token={{ logoURI: tx.tokens?.to.token.logoURI }}
+              size="8"
+            />
           </Box>
           <Box flexDirection="row" alignItems="center" flex="1" flexWrap="wrap">
             <Typography.Body1Strong mr="2">

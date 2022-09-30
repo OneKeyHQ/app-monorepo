@@ -40,7 +40,9 @@ function ChainNetworkIcon({
     }
   }, [isLastItem, onLastItemRender]);
 
-  return <Token size={8} src={item.logoURI} />;
+  return (
+    <Token size={8} token={{ logoURI: item.logoURI, name: item.shortName }} />
+  );
 }
 
 function ChainSelector({

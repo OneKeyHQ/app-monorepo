@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   HStack,
   Icon,
   Image,
   KeyboardDismissView,
   Modal,
+  Token,
   TokenVerifiedIcon,
   Typography,
   useToast,
@@ -67,7 +67,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   const intl = useIntl();
   const { sourceInfo } = useDappParams();
   const token = useRouteParams();
-  const { name, symbol, decimal, address, logoURI } = token;
+  const { name, symbol, decimal, address } = token;
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -138,23 +138,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                 mb="8"
                 mt="6"
               >
-                <Image
-                  src={logoURI}
-                  alt="logoURI"
-                  size="56px"
-                  borderRadius="full"
-                  fallbackElement={
-                    <Center
-                      w="56px"
-                      h="56px"
-                      rounded="full"
-                      bgColor="surface-neutral-default"
-                    >
-                      <Icon size={32} name="QuestionMarkOutline" />
-                    </Center>
-                  }
-                />
-
+                <Token token={token} size="56px" />
                 <Box
                   alignItems="center"
                   flexDirection="row"

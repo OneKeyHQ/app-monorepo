@@ -144,7 +144,7 @@ const Transaction = () => {
             </>
           ),
           tokenProps: {
-            src: token?.logoURI,
+            token,
           },
         };
       }),

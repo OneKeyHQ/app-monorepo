@@ -113,6 +113,7 @@ export function TxActionSwapT0(props: ITxActionCardProps) {
       footer={statusBar}
       iconInfo={meta?.iconInfo}
       titleInfo={meta?.titleInfo}
+      symbol={swapInfo.send.tokenInfo.symbol}
       content={
         <TxActionElementAmountNormal
           textAlign="right"

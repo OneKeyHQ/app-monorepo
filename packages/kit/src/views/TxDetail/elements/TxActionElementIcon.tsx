@@ -1,15 +1,16 @@
 import React, { ComponentProps } from 'react';
 
-import { Center, Icon, Image } from '@onekeyhq/components';
+import { Center, Icon, Token } from '@onekeyhq/components';
 
 import { ITxActionMeta } from '../types';
 
 export function TxActionElementIcon(
   props: ITxActionMeta & {
     size?: number;
+    name?: string;
   },
 ) {
-  const { iconInfo, size = 16 } = props;
+  const { iconInfo, size = 16, name } = props;
   const sizePx = `${size}px`;
   const containerProps = {
     width: sizePx,
@@ -18,32 +19,16 @@ export function TxActionElementIcon(
     bg: 'background-selected',
     nativeID: 'TxActionElementIcon-Center-Container',
   };
-
+  const singleIcon = iconInfo?.icon ?? {};
   const defaultIcon = (
-    <Center {...containerProps}>
-      <Icon name="QuestionMarkOutline" />
-    </Center>
+    <Token
+      size={sizePx}
+      token={{
+        name,
+        logoURI: singleIcon.url,
+      }}
+    />
   );
-  if (!iconInfo || !iconInfo?.icon) {
-    return defaultIcon;
-  }
-  const singleIcon = iconInfo.icon;
-  if (!singleIcon) {
-    return defaultIcon;
-  }
-  if (singleIcon?.url) {
-    // packages/components/src/Token/index.tsx
-    return (
-      <Image
-        key={singleIcon.url}
-        src={singleIcon.url}
-        width={sizePx}
-        height={sizePx}
-        borderRadius="full"
-        fallbackElement={defaultIcon}
-      />
-    );
-  }
   if (singleIcon?.name) {
     return (
       <Center {...containerProps}>
