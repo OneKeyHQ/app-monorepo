@@ -1,15 +1,35 @@
 import * as Linking from 'expo-linking';
 import semver from 'semver';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import store from '@onekeyhq/kit/src/store';
+import {
+  available,
+  checking,
+  downloading,
+  error,
+  notAvailable,
+  ready,
+} from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import store from '../../store';
 import { getDefaultLocale } from '../locale';
 
 import { getChangeLog, getPreReleaseInfo, getReleaseInfo } from './server';
 import { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
 
 class AppUpdates {
+  addedListener = false;
+
+  checkUpdate() {
+    if (platformEnv.isDesktop) {
+      this.checkDesktopUpdate();
+      return;
+    }
+
+    return this.checkAppUpdate();
+  }
+
   async checkAppUpdate(): Promise<VersionInfo | undefined> {
     const { enable, preReleaseUpdate } =
       store.getState().settings.devMode || {};
@@ -24,6 +44,17 @@ class AppUpdates {
     }
 
     let packageInfo: PackageInfo | undefined;
+
+    if (platformEnv.isWeb) {
+      packageInfo = releasePackages?.desktop?.find((x) => {
+        if (platformEnv.isDesktopMacArm64) {
+          return x.os === 'macos-arm64';
+        }
+
+        return x.os === 'macos-x64';
+      });
+    }
+
     if (platformEnv.isNativeAndroid) {
       if (platformEnv.isNativeAndroidGooglePlay) {
         packageInfo = releasePackages?.android?.find(
@@ -40,49 +71,36 @@ class AppUpdates {
       packageInfo = releasePackages?.ios?.find((x) => x.os === 'ios');
     }
 
-    if (platformEnv.isDesktop) {
-      if (platformEnv.isDesktopLinux) {
-        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
-      }
-      if (platformEnv.isDesktopMac) {
-        packageInfo = releasePackages?.desktop?.find((x) => {
-          if (platformEnv.isDesktopMacArm64) {
-            return x.os === 'macos-arm64';
-          }
+    // if (platformEnv.isDesktop) {
+    //   if (platformEnv.isDesktopLinux) {
+    //     packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
+    //   }
+    //   if (platformEnv.isDesktopMac) {
+    //     packageInfo = releasePackages?.desktop?.find((x) => {
+    //       if (platformEnv.isDesktopMacArm64) {
+    //         return x.os === 'macos-arm64';
+    //       }
 
-          return x.os === 'macos-x64';
-        });
-      }
-      if (platformEnv.isDesktopWin) {
-        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
-      }
-    }
-
-    if (platformEnv.isExtension) {
-      if (platformEnv.isExtChrome) {
-        packageInfo = releasePackages?.extension?.find(
-          (x) => x.os === 'chrome',
-        );
-      }
-      if (platformEnv.isExtFirefox) {
-        packageInfo = releasePackages?.extension?.find(
-          (x) => x.os === 'firefox',
-        );
-      }
-    }
+    //       return x.os === 'macos-x64';
+    //     });
+    //   }
+    //   if (platformEnv.isDesktopWin) {
+    //     packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
+    //   }
+    // }
 
     if (packageInfo) {
-      if (
-        !packageInfo ||
-        // localVersion >= releaseVersion
-        semver.gte(
-          store.getState().settings.version ?? '0.0.0',
-          packageInfo.version,
-        )
-      ) {
-        //  没有更新
-        return undefined;
-      }
+      // if (
+      //   !packageInfo ||
+      //   // localVersion >= releaseVersion
+      //   semver.gte(
+      //     store.getState().settings.version ?? '0.0.0',
+      //     packageInfo.version,
+      //   )
+      // ) {
+      //   //  没有更新
+      //   return undefined;
+      // }
 
       return {
         package: packageInfo,
@@ -90,6 +108,10 @@ class AppUpdates {
     }
 
     return undefined;
+  }
+
+  checkDesktopUpdate(isManual = false) {
+    window.desktopApi.checkForUpdates(isManual);
   }
 
   openAppUpdate(versionInfo: VersionInfo): void {
@@ -138,6 +160,23 @@ class AppUpdates {
     } else {
       window.open(url, '_blank');
     }
+  }
+
+  addUpdaterListener() {
+    if (this.addedListener) return;
+    if (!platformEnv.isDesktop) return;
+    this.addedListener = true;
+    const { dispatch } = backgroundApiProxy;
+    window.desktopApi.on('update/checking', () => dispatch(checking()));
+    window.desktopApi.on('update/available', () => dispatch(available()));
+    window.desktopApi.on('update/not-available', () =>
+      dispatch(notAvailable()),
+    );
+    window.desktopApi.on('update/error', () => dispatch(error()));
+    window.desktopApi.on('update/downloading', (progress: number) =>
+      dispatch(downloading(progress)),
+    );
+    window.desktopApi.on('update/downloaded', () => dispatch(ready()));
   }
 }
 const appUpdates = new AppUpdates();

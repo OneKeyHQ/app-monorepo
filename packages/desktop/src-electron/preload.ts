@@ -53,6 +53,8 @@ export type DesktopAPI = {
 
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
+  downloadUpdate: () => void;
+  installUpdate: () => void;
 };
 declare global {
   interface Window {
@@ -87,6 +89,11 @@ ipcRenderer.on('OPEN_URL_DEEP_LINK_MESSAGE', (event, data) => {
 const validChannels = [
   // Update events
   'update/checking',
+  'update/available',
+  'update/not-available',
+  'update/error',
+  'update/downloading',
+  'update/downloaded',
 ];
 
 const desktopApi = {
@@ -144,6 +151,8 @@ const desktopApi = {
   // Updater
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send('update/check', isManual),
+  downloadUpdate: () => ipcRenderer.send('update/download'),
+  installUpdate: () => ipcRenderer.send('update/install'),
 };
 
 window.desktopApi = desktopApi;

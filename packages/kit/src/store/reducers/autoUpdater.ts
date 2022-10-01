@@ -51,19 +51,23 @@ export const autoUpdaterSlice = createSlice({
     checking(state) {
       state.state = 'checking';
     },
-    available(state, action: PayloadAction<VersionInfo>) {
+    available(state, action: PayloadAction<VersionInfo | undefined>) {
       state.state = 'available';
-      state.latest = action.payload;
+      if (action.payload) {
+        state.latest = action.payload;
+      }
     },
-    notAvailable(state, action: PayloadAction<VersionInfo>) {
+    notAvailable(state, action: PayloadAction<VersionInfo | undefined>) {
       state.state = 'not-available';
-      state.latest = action.payload;
+      if (action.payload) {
+        state.latest = action.payload;
+      }
     },
     downloading(state, action: PayloadAction<AutoUpdaterState['progress']>) {
       state.state = 'downloading';
       state.progress = action.payload;
     },
-    ready(state, action: PayloadAction<VersionInfo>) {
+    ready(state, action: PayloadAction<VersionInfo | undefined>) {
       state.state = 'ready';
       state.latest = action.payload;
     },
