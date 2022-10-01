@@ -1,25 +1,57 @@
 diff --git a/node_modules/metro-react-native-babel-preset/src/configs/main.js b/node_modules/metro-react-native-babel-preset/src/configs/main.js
-index 6c23f9a..b323cb5 100644
+index 6c23f9a..4562c2c 100644
 --- a/node_modules/metro-react-native-babel-preset/src/configs/main.js
 +++ b/node_modules/metro-react-native-babel-preset/src/configs/main.js
-@@ -48,7 +48,7 @@ const getPreset = (src, options) => {
-   if (!options.useTransformReactJSXExperimental) {
+@@ -22,7 +22,7 @@ function isTSXSource(fileName) {
+ 
+ const defaultPlugins = [
+   [require("@babel/plugin-syntax-flow")],
+-  [require("@babel/plugin-transform-block-scoping")],
++  // [require("@babel/plugin-transform-block-scoping")],
+   [
+     require("@babel/plugin-proposal-class-properties"), // use `this.foo = bar` instead of `this.defineProperty('foo', ...)`
+     {
+@@ -77,7 +77,7 @@ const getPreset = (src, options) => {
+   } // TODO(gaearon): put this back into '=>' indexOf bailout
+   // and patch react-refresh to not depend on this transform.
+ 
+-  extraPlugins.push([require("@babel/plugin-transform-arrow-functions")]);
++  // extraPlugins.push([require("@babel/plugin-transform-arrow-functions")]);
+ 
+   if (!isHermes) {
+     extraPlugins.push([require("@babel/plugin-transform-computed-properties")]);
+@@ -88,7 +88,7 @@ const getPreset = (src, options) => {
      extraPlugins.push([
-       require("@babel/plugin-transform-react-jsx", {
--        useBuiltIns: true,
-+        runtime: 'automatic',
-       }),
+       require("@babel/plugin-proposal-optional-catch-binding"),
+     ]);
+-    extraPlugins.push([require("@babel/plugin-transform-function-name")]);
++    // extraPlugins.push([require("@babel/plugin-transform-function-name")]);
+     extraPlugins.push([require("@babel/plugin-transform-literals")]);
+     extraPlugins.push([require("@babel/plugin-transform-sticky-regex")]);
+   }
+@@ -124,18 +124,18 @@ const getPreset = (src, options) => {
      ]);
    }
-@@ -131,11 +131,11 @@ const getPreset = (src, options) => {
-     extraPlugins.push([require("@babel/plugin-transform-async-to-generator")]);
-   }
  
+-  if (isNull || src.indexOf("async") !== -1) {
+-    extraPlugins.push([
+-      require("@babel/plugin-proposal-async-generator-functions"),
+-    ]);
+-    extraPlugins.push([require("@babel/plugin-transform-async-to-generator")]);
+-  }
+-
 -  if (!isHermes && (isNull || src.indexOf("**") !== -1)) {
 -    extraPlugins.push([
 -      require("@babel/plugin-transform-exponentiation-operator"),
 -    ]);
 -  }
++  // if (isNull || src.indexOf("async") !== -1) {
++  //   extraPlugins.push([
++  //     require("@babel/plugin-proposal-async-generator-functions"),
++  //   ]);
++  //   extraPlugins.push([require("@babel/plugin-transform-async-to-generator")]);
++  // }
++
 +  // if (!isHermes && (isNull || src.indexOf("**") !== -1)) {
 +  //   extraPlugins.push([
 +  //     require("@babel/plugin-transform-exponentiation-operator"),

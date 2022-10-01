@@ -2,7 +2,7 @@
   "compilerOptions": {
     "noImplicitOverride": true,
     "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "lib": ["dom", "esnext", "webworker"],
     "moduleResolution": "node",
     "noEmit": true,
