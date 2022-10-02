@@ -67,6 +67,7 @@ export type SettingsState = {
   hideSmallBalance?: boolean;
   includeNFTsInTotal?: boolean;
   hideBalance?: boolean;
+  autoDownloadAvailableVersion?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -111,6 +112,7 @@ const initialState: SettingsState = {
   hideSmallBalance: false,
   includeNFTsInTotal: true,
   hideBalance: false,
+  autoDownloadAvailableVersion: true,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -299,6 +301,9 @@ export const settingsSlice = createSlice({
       }
       state.pushNotification = config;
     },
+    setAutoDownloadAvailableVersion(state, action: PayloadAction<boolean>) {
+      state.autoDownloadAvailableVersion = action.payload;
+    },
   },
 });
 
@@ -328,6 +333,7 @@ export const {
   setEnableZeroNotificationThreshold,
   setIncludeNFTsInTotal,
   setHideBalance,
+  setAutoDownloadAvailableVersion,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

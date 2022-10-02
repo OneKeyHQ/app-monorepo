@@ -7,22 +7,26 @@ import {
   Icon,
   Pressable,
   Spinner,
+  Switch,
   Text,
   useToast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAutoUpdate } from '@onekeyhq/kit/src/hooks/redux';
+import { useAutoUpdate, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   available,
   enable,
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
+import { setAutoDownloadAvailableVersion } from '@onekeyhq/kit/src/store/reducers/settings';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AutoUpdateSectionItem: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const { dispatch } = backgroundApiProxy;
   const { state, progress } = useAutoUpdate();
+  const { autoDownloadAvailableVersion } = useSettings();
 
   const onCheckUpdate = useCallback(() => {
     appUpdates
@@ -153,7 +157,40 @@ const AutoUpdateSectionItem: FC = () => {
     return null;
   }, [state, progress, intl, onCheckUpdate]);
 
-  return Content;
+  return (
+    <>
+      {Content}
+      {platformEnv.isDesktop && (
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          borderBottomWidth="1"
+          borderBottomColor="divider"
+        >
+          <Icon name="DownloadOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
+            {intl.formatMessage({ id: 'form__download_when_available' })}
+          </Text>
+          <Switch
+            labelType="false"
+            isChecked={autoDownloadAvailableVersion}
+            onToggle={() =>
+              dispatch(
+                setAutoDownloadAvailableVersion(!autoDownloadAvailableVersion),
+              )
+            }
+          />
+        </Pressable>
+      )}
+    </>
+  );
 };
 
 export default AutoUpdateSectionItem;
