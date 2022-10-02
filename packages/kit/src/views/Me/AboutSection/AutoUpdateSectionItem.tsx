@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,16 +17,19 @@ import {
   available,
   enable,
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
-import { setAutoDownloadAvailableVersion } from '@onekeyhq/kit/src/store/reducers/settings';
+import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { DesktopVersion } from '../../../utils/updates/type';
 
 const AutoUpdateSectionItem: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const { dispatch } = backgroundApiProxy;
-  const { state, progress } = useAutoUpdate();
-  const { autoDownloadAvailableVersion } = useSettings();
+  const { state, progress, latest } = useAutoUpdate();
+  const { autoDownload = true } = useSettings().updateSetting ?? {};
+  const [showAvailabelBadge, setShowAvailableBadge] = useState(true);
 
   const onCheckUpdate = useCallback(() => {
     appUpdates
@@ -45,6 +48,15 @@ const AutoUpdateSectionItem: FC = () => {
       .catch(() => {})
       .finally(() => {});
   }, [dispatch, intl, toast]);
+
+  useEffect(() => {
+    if (platformEnv.isDesktop && state === 'available') {
+      const { version = '0.0.0' } = latest as DesktopVersion;
+      if (appUpdates.skipVersionCheck(version)) {
+        setShowAvailableBadge(false);
+      }
+    }
+  }, [state, latest]);
 
   const onDownloadUpdate = useCallback(
     () => window.desktopApi.downloadUpdate(),
@@ -127,9 +139,11 @@ const AutoUpdateSectionItem: FC = () => {
                   : 'action__update_now',
             })}
           </Text>
-          <Box rounded="full" p="2px" pr="9px">
-            <Box rounded="full" bgColor="interactive-default" size="8px" />
-          </Box>
+          {showAvailabelBadge && (
+            <Box rounded="full" p="2px" pr="9px">
+              <Box rounded="full" bgColor="interactive-default" size="8px" />
+            </Box>
+          )}
           <Box>
             <Icon name="ChevronRightSolid" size={20} />
           </Box>
@@ -172,7 +186,15 @@ const AutoUpdateSectionItem: FC = () => {
     // TODO: web & extensions return null
     console.log(state, '=============>>>>>>>> rerender');
     return null;
-  }, [state, progress, intl, onCheckUpdate]);
+  }, [
+    state,
+    progress,
+    intl,
+    onCheckUpdate,
+    onDownloadUpdate,
+    onInstallUpdate,
+    showAvailabelBadge,
+  ]);
 
   return (
     <>
@@ -197,11 +219,9 @@ const AutoUpdateSectionItem: FC = () => {
           </Text>
           <Switch
             labelType="false"
-            isChecked={autoDownloadAvailableVersion}
+            isChecked={autoDownload}
             onToggle={() =>
-              dispatch(
-                setAutoDownloadAvailableVersion(!autoDownloadAvailableVersion),
-              )
+              dispatch(setUpdateSetting({ autoDownload: !autoDownload }))
             }
           />
         </Pressable>

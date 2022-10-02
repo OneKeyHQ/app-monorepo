@@ -1,3 +1,4 @@
+import differenceInDays from 'date-fns/differenceInDays';
 import * as Linking from 'expo-linking';
 import semver from 'semver';
 
@@ -11,6 +12,8 @@ import {
   notAvailable,
   ready,
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
+import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
+import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getDefaultLocale } from '../locale';
@@ -150,27 +153,53 @@ class AppUpdates {
     }
   }
 
+  skipVersionCheck(version: string) {
+    const { updateLatestVersion = null, updateLatestTimeStamp = null } =
+      store.getState().settings.updateSetting ?? {};
+    if (
+      updateLatestVersion &&
+      semver.eq(updateLatestVersion, version) &&
+      updateLatestTimeStamp
+    ) {
+      if (differenceInDays(getTimeStamp(), updateLatestTimeStamp) > 7) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   addUpdaterListener() {
     if (this.addedListener) return;
     if (!platformEnv.isDesktop) return;
     this.addedListener = true;
     const { dispatch } = backgroundApiProxy;
-    const { autoDownloadAvailableVersion = true } = store.getState().settings;
+    const { autoDownload = true } =
+      store.getState().settings.updateSetting ?? {};
     window.desktopApi.on('update/checking', () => dispatch(checking()));
-    window.desktopApi.on('update/available', () => {
-      dispatch(available());
-      if (autoDownloadAvailableVersion) {
+    window.desktopApi.on('update/available', ({ version }) => {
+      dispatch(available({ version }));
+      if (autoDownload && !this.skipVersionCheck(version)) {
         window.desktopApi.downloadUpdate();
       }
     });
-    window.desktopApi.on('update/not-available', () =>
-      dispatch(notAvailable()),
+    window.desktopApi.on('update/not-available', ({ version }) =>
+      dispatch(notAvailable({ version })),
     );
-    window.desktopApi.on('update/error', () => dispatch(error()));
+    window.desktopApi.on('update/error', ({ version }) => {
+      dispatch(error());
+      dispatch(
+        setUpdateSetting({
+          updateLatestVersion: version,
+          updateLatestTimeStamp: getTimeStamp(),
+        }),
+      );
+    });
     window.desktopApi.on('update/downloading', (progress: number) =>
       dispatch(downloading(progress)),
     );
-    window.desktopApi.on('update/downloaded', () => dispatch(ready()));
+    window.desktopApi.on('update/downloaded', ({ version }) =>
+      dispatch(ready({ version })),
+    );
   }
 }
 const appUpdates = new AppUpdates();
