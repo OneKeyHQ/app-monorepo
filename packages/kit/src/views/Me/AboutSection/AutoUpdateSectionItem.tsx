@@ -46,6 +46,16 @@ const AutoUpdateSectionItem: FC = () => {
       .finally(() => {});
   }, [dispatch, intl, toast]);
 
+  const onDownloadUpdate = useCallback(
+    () => window.desktopApi.downloadUpdate(),
+    [],
+  );
+
+  const onInstallUpdate = useCallback(
+    () => window.desktopApi.installUpdate(),
+    [],
+  );
+
   const Content = useMemo(() => {
     console.log('renderrrrrr$$$$');
     if (
@@ -95,7 +105,14 @@ const AutoUpdateSectionItem: FC = () => {
           px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
-          onPress={onCheckUpdate}
+          onPress={() => {
+            if (state === 'available') {
+              onDownloadUpdate();
+            }
+            if (state === 'ready') {
+              onInstallUpdate();
+            }
+          }}
         >
           <Icon name="RefreshOutline" />
           <Text

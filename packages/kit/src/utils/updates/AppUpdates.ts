@@ -71,36 +71,24 @@ class AppUpdates {
       packageInfo = releasePackages?.ios?.find((x) => x.os === 'ios');
     }
 
-    // if (platformEnv.isDesktop) {
-    //   if (platformEnv.isDesktopLinux) {
-    //     packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
-    //   }
-    //   if (platformEnv.isDesktopMac) {
-    //     packageInfo = releasePackages?.desktop?.find((x) => {
-    //       if (platformEnv.isDesktopMacArm64) {
-    //         return x.os === 'macos-arm64';
-    //       }
-
-    //       return x.os === 'macos-x64';
-    //     });
-    //   }
-    //   if (platformEnv.isDesktopWin) {
-    //     packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
-    //   }
-    // }
+    if (platformEnv.isDesktop) {
+      if (platformEnv.isDesktopLinux) {
+        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
+      }
+    }
 
     if (packageInfo) {
-      // if (
-      //   !packageInfo ||
-      //   // localVersion >= releaseVersion
-      //   semver.gte(
-      //     store.getState().settings.version ?? '0.0.0',
-      //     packageInfo.version,
-      //   )
-      // ) {
-      //   //  没有更新
-      //   return undefined;
-      // }
+      if (
+        !packageInfo ||
+        // localVersion >= releaseVersion
+        semver.gte(
+          store.getState().settings.version ?? '0.0.0',
+          packageInfo.version,
+        )
+      ) {
+        //  没有更新
+        return undefined;
+      }
 
       return {
         package: packageInfo,
@@ -167,8 +155,14 @@ class AppUpdates {
     if (!platformEnv.isDesktop) return;
     this.addedListener = true;
     const { dispatch } = backgroundApiProxy;
+    const { autoDownloadAvailableVersion = true } = store.getState().settings;
     window.desktopApi.on('update/checking', () => dispatch(checking()));
-    window.desktopApi.on('update/available', () => dispatch(available()));
+    window.desktopApi.on('update/available', () => {
+      dispatch(available());
+      if (autoDownloadAvailableVersion) {
+        window.desktopApi.downloadUpdate();
+      }
+    });
     window.desktopApi.on('update/not-available', () =>
       dispatch(notAvailable()),
     );
