@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Box, Icon, Pressable, useTheme } from '@onekeyhq/components';
 import Typography, { Text } from '@onekeyhq/components/src/Typography';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -19,10 +18,6 @@ export const PushSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
-
-  if (!platformEnv.isNative) {
-    return null;
-  }
 
   return (
     <Box w="full" mb="6">

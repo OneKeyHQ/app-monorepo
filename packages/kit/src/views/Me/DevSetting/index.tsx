@@ -13,7 +13,10 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import {
+  getFiatEndpoint,
+  getSocketEndpoint,
+} from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -29,7 +32,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const DevSettingSection = () => {
   const toast = useToast();
   const { themeVariant } = useTheme();
-  const { devMode, pushNotification } = useSettings();
+  const { devMode, pushNotification, instanceId } = useSettings();
   const { registrationId } = pushNotification || {};
   const {
     enable: devModeEnable,
@@ -42,6 +45,12 @@ export const DevSettingSection = () => {
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
 
+  const pushId = useMemo(() => {
+    if (platformEnv.isNative) {
+      return registrationId;
+    }
+    return instanceId;
+  }, [registrationId, instanceId]);
   const onToggleTestVersionUpdate = useCallback(() => {
     dispatch(setPreReleaseUpdate(!preReleaseUpdate));
   }, [preReleaseUpdate, dispatch]);
@@ -51,9 +60,9 @@ export const DevSettingSection = () => {
   }, [devModeEnable, dispatch]);
 
   const copyRegistrationId = useCallback(() => {
-    copyToClipboard(registrationId || '');
+    copyToClipboard(pushId || '');
     toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [toast, intl, registrationId]);
+  }, [toast, intl, pushId]);
 
   const fiatEndpoint = useMemo(getFiatEndpoint, [enableTestFiatEndpoint]);
 
@@ -119,7 +128,7 @@ export const DevSettingSection = () => {
           </Container.Item>
           <Container.Item
             title="测试环境域名(需要重启App)"
-            subDescribe={`范围: \n[token、价格、余额、推送] \n ${fiatEndpoint}`}
+            subDescribe={`范围: \n[token、价格、余额、推送] \n ${fiatEndpoint}\n ${getSocketEndpoint()}`}
             titleColor="text-critical"
           >
             <Switch
@@ -151,7 +160,7 @@ export const DevSettingSection = () => {
             titleColor="text-critical"
             subDescribeCustom={
               <Pressable onPress={copyRegistrationId}>
-                <Text color="text-subdued">{registrationId}</Text>
+                <Text color="text-subdued">{pushId}</Text>
               </Pressable>
             }
           />
