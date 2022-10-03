@@ -161,7 +161,7 @@ class AppUpdates {
       semver.eq(updateLatestVersion, version) &&
       updateLatestTimeStamp
     ) {
-      if (differenceInDays(getTimeStamp(), updateLatestTimeStamp) > 7) {
+      if (differenceInDays(getTimeStamp(), updateLatestTimeStamp) < 7) {
         return true;
       }
     }

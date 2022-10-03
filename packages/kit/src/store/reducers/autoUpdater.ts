@@ -77,7 +77,7 @@ export const autoUpdaterSlice = createSlice({
       state.skip = action.payload;
     },
     error(state) {
-      state.state = 'error';
+      state.state = 'available';
     },
     setUpdateWindow(state, action: PayloadAction<UpdateWindow>) {
       state.window = action.payload;

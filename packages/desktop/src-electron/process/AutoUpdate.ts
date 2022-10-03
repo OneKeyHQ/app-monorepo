@@ -1,5 +1,3 @@
-import path from 'path';
-
 import { app, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
@@ -8,6 +6,12 @@ import { CancellationToken, autoUpdater } from 'electron-updater';
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { Dependencies } from '.';
+
+interface LatestVersion {
+  version: string;
+  releaseDate: string;
+  isManualCheck: boolean;
+}
 
 function isNetworkError(errorObject: Error) {
   return (
@@ -23,6 +27,7 @@ function isNetworkError(errorObject: Error) {
 const init = ({ mainWindow, store }: Dependencies) => {
   if (isDev) {
     console.log('isPacked: ======> defineProperty');
+    console.log('current app version: ', app.getVersion());
     Object.defineProperty(app, 'isPackaged', {
       get() {
         return true;
@@ -36,7 +41,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
   });
 
   let isManualCheck = false;
-  let latestVersion = {};
+  let latestVersion: LatestVersion = {} as LatestVersion;
   let updateCancellationToken: CancellationToken;
   const updateSettings = store.getUpdateSettings();
 
@@ -69,7 +74,10 @@ const init = ({ mainWindow, store }: Dependencies) => {
     isManualCheck = false;
   });
 
-  autoUpdater.on('update-not-available', ({ version, releaseDate }) => {
+  autoUpdater.on('update-not-available', (data) => {
+    console.log('......--->', data);
+
+    const { version, releaseDate } = data;
     logger.info('auto-updater', [
       'No new update is available:',
       `- Last version: ${version}`,
@@ -86,7 +94,10 @@ const init = ({ mainWindow, store }: Dependencies) => {
 
   autoUpdater.on('error', (err) => {
     logger.error('auto-updater', `An error happened: ${err.toString()}`);
-    mainWindow.webContents.send('update/error', err);
+    mainWindow.webContents.send('update/error', {
+      err,
+      version: latestVersion.version,
+    });
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
@@ -125,11 +136,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
-    autoUpdater.setFeedURL({
-      owner: 'OneKeyHQ',
-      repo: 'app-monorepo',
-      provider: 'github',
-    });
+    autoUpdater.setFeedURL('https://web.onekey-asset.com/app-monorepo/assets/');
     autoUpdater.checkForUpdates().catch((error) => {
       if (isNetworkError(error)) {
         logger.info('auto-updater', `Check for update network error`);
