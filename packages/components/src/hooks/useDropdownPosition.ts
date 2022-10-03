@@ -3,6 +3,7 @@ import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { isNil, isString, pick } from 'lodash';
 import { Dimensions, useWindowDimensions } from 'react-native';
 
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRefStore } from '../Modal';
@@ -57,10 +58,6 @@ const defaultPosition = {
 
 function isHTMLElement(el?: SelectProps['triggerEle']): el is HTMLElement {
   return !!platformEnv.isRuntimeBrowser;
-}
-
-function sleep(time: number) {
-  return new Promise((resolve) => setTimeout(resolve, time));
 }
 
 export const getMeasure = (
@@ -250,7 +247,7 @@ function useDropdownPosition({
       if (!autoAdjust) {
         return pos;
       }
-      await sleep(300);
+      await wait(300);
       const contentPosition = await getElementPosition({
         ele: contentRef?.current,
       });

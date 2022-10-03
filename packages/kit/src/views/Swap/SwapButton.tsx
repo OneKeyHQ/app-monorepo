@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,7 +18,7 @@ import { useActiveWalletAccount, useRuntime } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { addTransaction } from '../../store/reducers/swapTransactions';
-import { sleep } from '../../utils/promiseUtils';
+import { wait } from '../../utils/helper';
 import { SendRoutes } from '../Send/types';
 
 import {
@@ -118,7 +118,7 @@ const ExchangeButton = () => {
 
     if (network?.id !== targetNetworkId) {
       backgroundApiProxy.serviceNetwork.changeActiveNetwork(targetNetworkId);
-      await sleep(1000);
+      await wait(1000);
     }
     if (sendingAccount && sendingAccount !== currentAccount) {
       const wallet =
@@ -132,7 +132,7 @@ const ExchangeButton = () => {
             activeWalletId: wallet.id,
           }),
         );
-        await sleep(1000);
+        await wait(1000);
       }
     }
 

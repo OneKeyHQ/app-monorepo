@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getDeviceType } from '@onekeyfe/hd-core';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
@@ -17,8 +17,9 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
-import { sleep } from '@onekeyhq/kit/src/utils/promiseUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { wait } from '../../../../utils/helper';
 
 import RunningView from './RunningView';
 import StateView, { StateViewTypeInfo } from './StateView';
@@ -236,9 +237,9 @@ const UpdatingModal: FC = () => {
   const rebootBootSuccess = async () => {
     // Waiting for the device to restart
     if (device?.deviceType === 'touch') {
-      await sleep(8000);
+      await wait(8000);
     } else {
-      await sleep(2000);
+      await wait(2000);
     }
     setProgressState('done');
   };

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -34,7 +34,7 @@ import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
 import { useNetwork, useSettings } from '../../../hooks/redux';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { sleep } from '../../../utils/promiseUtils';
+import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { StakingRoutes, StakingRoutesParams } from '../typing';
 
@@ -389,7 +389,7 @@ export default function StakingAmount() {
 
         try {
           setIsLoading(true);
-          await sleep(100);
+          await wait(100);
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Staking,
             params: {

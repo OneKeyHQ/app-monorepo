@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard, NativeModules } from 'react-native';
+import { Keyboard } from 'react-native';
 
 import {
   Box,
@@ -19,23 +19,18 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../hooks';
-import { sleep } from '../../utils/promiseUtils';
+import { wait } from '../../utils/helper';
+import { showSplashScreen } from '../../views/Overlay/showSplashScreen';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 const ForgetPasswordButton = () => {
   const intl = useIntl();
   const [input, setInput] = useState('');
   const [visible, setVisible] = useState(false);
-  const { resetToWelcome } = useNavigationActions();
-  const onReset = useCallback(async () => {
-    if (platformEnv.isNativeIOS) {
-      NativeModules.SplashScreenManager.show();
-    }
-    resetToWelcome();
-    await backgroundApiProxy.serviceApp.resetApp();
-    setVisible(false);
-  }, [resetToWelcome]);
+  const onReset = useCallback(() => {
+    showSplashScreen();
+    return backgroundApiProxy.serviceApp.resetApp();
+  }, []);
   return (
     <>
       <Box justifyContent="center" alignItems="center" pb="10">
@@ -113,7 +108,7 @@ export const AppStateUnlock = () => {
       if (platformEnv.isNativeAndroid) {
         Keyboard.dismiss();
       }
-      await sleep(500);
+      await wait(500);
     } else {
       setError(
         intl.formatMessage({
