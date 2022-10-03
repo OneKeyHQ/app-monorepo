@@ -69,12 +69,11 @@ const AutoUpdateSectionItem: FC = () => {
   );
 
   const Content = useMemo(() => {
-    console.log('renderrrrrr$$$$');
-    if (
-      state === 'not-available' ||
-      state === 'error' ||
-      state === 'checking'
-    ) {
+    if (platformEnv.isWeb || platformEnv.isExtension) {
+      return null;
+    }
+
+    if (state === 'not-available' || state === 'checking') {
       return (
         <Pressable
           display="flex"
@@ -183,8 +182,6 @@ const AutoUpdateSectionItem: FC = () => {
       );
     }
 
-    // TODO: web & extensions return null
-    console.log(state, '=============>>>>>>>> rerender');
     return null;
   }, [
     state,

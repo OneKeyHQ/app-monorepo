@@ -1,6 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { Desktop } from '../../utils/updates/server/type';
 import { DesktopVersion, VersionInfo } from '../../utils/updates/type';
 
 export type UpdateError = {

@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { MessageDescriptor, useIntl } from 'react-intl';
 
@@ -12,11 +12,11 @@ import {
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { SelectProps } from '@onekeyhq/components/src/Select';
+import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAutoUpdate } from '../../hooks/redux';
-import { downloading } from '../../store/reducers/autoUpdater';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
 
@@ -26,7 +26,6 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
 }) => {
   const intl = useIntl();
-  const { dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
   const options: (
     | {
@@ -61,31 +60,17 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
     [isVerticalLayout],
   );
 
-  const { state, progress } = useAutoUpdate();
-  let index = 0;
-  const mockDownload = useCallback(() => {
-    setInterval(() => {
-      if (progress < 100) {
-        index += 1;
-        dispatch(downloading(index));
-      }
-    }, 400);
-  }, [dispatch]);
+  const { state } = useAutoUpdate();
+  const { showUpdateBadge } = useCheckUpdate();
   const UpdateItem = useMemo(() => {
     let formText = '';
-    let disabled = false;
+    const disabled = state === 'downloading';
     if (state === 'available') {
       formText = intl.formatMessage({ id: 'action__update_available' });
     } else if (state === 'ready') {
       formText = intl.formatMessage({ id: 'action__update_now' });
-    } else if (state === 'downloading') {
-      disabled = true;
-      formText = intl.formatMessage(
-        { id: 'form__update_downloading' },
-        { 0: `${progress ?? 0}%` },
-      );
     }
-    if (!formText) {
+    if (state !== 'available' && state !== 'ready') {
       return null;
     }
     return (
@@ -99,8 +84,11 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
         bg="transparent"
         borderRadius="12px"
         onPress={() => {
-          mockDownload();
-          // closeOverlay();
+          if (state === 'ready') {
+            window.desktopApi.installUpdate();
+          } else {
+            window.desktopApi.downloadUpdate();
+          }
         }}
         disabled={disabled}
       >
@@ -113,12 +101,14 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
             {formText}
           </Text>
         </Box>
-        <Box rounded="full" p="2px" pr="9px">
-          <Box rounded="full" bgColor="interactive-default" size="8px" />
-        </Box>
+        {showUpdateBadge && (
+          <Box rounded="full" p="2px" pr="9px">
+            <Box rounded="full" bgColor="interactive-default" size="8px" />
+          </Box>
+        )}
       </PressableItem>
     );
-  }, [state, progress, intl, isVerticalLayout, mockDownload]);
+  }, [state, intl, isVerticalLayout, showUpdateBadge]);
 
   return (
     <Box bg="surface-subdued" flexDirection="column">

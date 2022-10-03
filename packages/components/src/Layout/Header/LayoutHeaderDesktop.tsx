@@ -4,10 +4,12 @@ import LayoutHeader from './index';
 
 import { Box, HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTrigger } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
+import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
 import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 
 export function LayoutHeaderDesktop() {
   const moreBtnRef = useRef();
+  const { showUpdateBadge } = useCheckUpdate();
   return (
     <LayoutHeader
       showOnDesktop
@@ -26,16 +28,18 @@ export function LayoutHeaderDesktop() {
               type="plain"
               circle
             />
-            <Box
-              position="absolute"
-              top="-3px"
-              right="-8px"
-              rounded="full"
-              p="2px"
-              pr="9px"
-            >
-              <Box rounded="full" bgColor="interactive-default" size="8px" />
-            </Box>
+            {showUpdateBadge && (
+              <Box
+                position="absolute"
+                top="-3px"
+                right="-8px"
+                rounded="full"
+                p="2px"
+                pr="9px"
+              >
+                <Box rounded="full" bgColor="interactive-default" size="8px" />
+              </Box>
+            )}
           </Box>
         </HStack>
       )}
