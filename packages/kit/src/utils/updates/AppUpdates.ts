@@ -156,8 +156,11 @@ class AppUpdates {
   skipVersionCheck(version: string) {
     const { updateLatestVersion = null, updateLatestTimeStamp = null } =
       store.getState().settings.updateSetting ?? {};
+    console.log(updateLatestVersion, updateLatestTimeStamp, '=$$$$$');
     if (
       updateLatestVersion &&
+      semver.valid(updateLatestVersion) &&
+      semver.valid(version) &&
       semver.eq(updateLatestVersion, version) &&
       updateLatestTimeStamp
     ) {
@@ -187,6 +190,7 @@ class AppUpdates {
     );
     window.desktopApi.on('update/error', ({ version }) => {
       dispatch(error());
+      debugger;
       dispatch(
         setUpdateSetting({
           updateLatestVersion: version,
@@ -194,12 +198,18 @@ class AppUpdates {
         }),
       );
     });
-    window.desktopApi.on('update/downloading', (progress: number) =>
+    window.desktopApi.on('update/downloading', (progress: any) =>
       dispatch(downloading(progress)),
     );
-    window.desktopApi.on('update/downloaded', ({ version }) =>
-      dispatch(ready({ version })),
-    );
+    window.desktopApi.on('update/downloaded', ({ version }) => {
+      dispatch(ready({ version }));
+      dispatch(
+        setUpdateSetting({
+          updateLatestVersion: null,
+          updateLatestTimeStamp: null,
+        }),
+      );
+    });
   }
 }
 const appUpdates = new AppUpdates();

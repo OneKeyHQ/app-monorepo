@@ -13,12 +13,12 @@ function useCheckUpdate() {
     if (!autoDownload && state === 'available') {
       showBadge = true;
     }
+    if (autoDownload && state === 'ready') {
+      showBadge = true;
+    }
     // @ts-expect-error
     if ((latest ?? {}).version && appUpdates.skipVersionCheck(latest.version)) {
       showBadge = false;
-    }
-    if (autoDownload && state === 'ready') {
-      showBadge = true;
     }
     return showBadge;
   }, [latest, autoDownload, state]);

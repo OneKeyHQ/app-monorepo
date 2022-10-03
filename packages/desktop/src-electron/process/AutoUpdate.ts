@@ -1,3 +1,5 @@
+import path from 'path';
+
 import { app, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
@@ -33,6 +35,11 @@ const init = ({ mainWindow, store }: Dependencies) => {
         return true;
       },
     });
+
+    autoUpdater.updateConfigPath = path.join(
+      __dirname,
+      '../../dev-app-update.yml',
+    );
   }
 
   // Enable feature on FE once it's ready
@@ -94,10 +101,12 @@ const init = ({ mainWindow, store }: Dependencies) => {
 
   autoUpdater.on('error', (err) => {
     logger.error('auto-updater', `An error happened: ${err.toString()}`);
-    mainWindow.webContents.send('update/error', {
-      err,
-      version: latestVersion.version,
-    });
+    if (isNetworkError(err)) {
+      mainWindow.webContents.send('update/error', {
+        err,
+        version: latestVersion.version,
+      });
+    }
   });
 
   autoUpdater.on('download-progress', (progressObj) => {

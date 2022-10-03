@@ -70,7 +70,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
     } else if (state === 'ready') {
       formText = intl.formatMessage({ id: 'action__update_now' });
     }
-    if (state !== 'available' && state !== 'ready') {
+    if (!formText) {
       return null;
     }
     return (
@@ -101,6 +101,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
             {formText}
           </Text>
         </Box>
+
         {showUpdateBadge && (
           <Box rounded="full" p="2px" pr="9px">
             <Box rounded="full" bgColor="interactive-default" size="8px" />

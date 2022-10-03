@@ -174,10 +174,9 @@ function MainScreen() {
 
   const autoCheckUpdate = () => {
     appUpdates
-      .checkAppUpdate()
-      .then((versionInfo) => {
+      .checkUpdate()
+      ?.then((versionInfo) => {
         if (versionInfo) {
-          console.log('============>>>>>: versionInfo: ', versionInfo);
           dispatch(enable(), available(versionInfo));
         }
       })
