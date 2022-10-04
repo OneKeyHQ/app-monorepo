@@ -15,8 +15,6 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  const { dispatch } = backgroundApiProxy;
-
   const { gotoSite, openMatchDApp } = useWebController({
     id,
     navigationStateChangeEvent,
@@ -53,6 +51,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
         <WebView
           src={url}
           onWebViewRef={(ref) => {
+            const { dispatch } = backgroundApiProxy;
             if (ref && ref.innerRef) {
               webviewRefs[id] = ref;
               dispatch(setWebTabData({ id, refReady: true }));
