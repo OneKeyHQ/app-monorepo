@@ -24,6 +24,7 @@ import {
 import { wait } from '../../utils/helper';
 
 import { WalletService } from './types';
+import walletConnectUtils from './utils/walletConnectUtils';
 import {
   ISessionStatusPro,
   WalletConnectClientForDapp,
@@ -33,7 +34,6 @@ import {
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
-import walletConnectUtils from './walletConnectUtils';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;

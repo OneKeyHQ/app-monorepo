@@ -33,8 +33,8 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
-import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import { SendRoutes } from '../../routes';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import { refreshWebviewGlobalKey } from '../../store/reducers/status';
