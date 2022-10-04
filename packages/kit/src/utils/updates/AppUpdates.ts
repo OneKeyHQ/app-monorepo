@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getDefaultLocale } from '../locale';
@@ -102,6 +103,7 @@ class AppUpdates {
   }
 
   checkDesktopUpdate(isManual = false) {
+    debugLogger.autoUpdate.debug('check desktop update');
     window.desktopApi.checkForUpdates(isManual);
   }
 
@@ -156,7 +158,16 @@ class AppUpdates {
   skipVersionCheck(version: string) {
     const { updateLatestVersion = null, updateLatestTimeStamp = null } =
       store.getState().settings.updateSetting ?? {};
-    console.log(updateLatestVersion, updateLatestTimeStamp, '=$$$$$');
+
+    debugLogger.autoUpdate.debug(
+      'skipVersionCheck params updateLatestVersion: ',
+      updateLatestVersion,
+      ' , updateLatestTimeStamp: ',
+      updateLatestTimeStamp,
+      ' , version: ',
+      version,
+    );
+
     if (
       updateLatestVersion &&
       semver.valid(updateLatestVersion) &&
@@ -165,9 +176,13 @@ class AppUpdates {
       updateLatestTimeStamp
     ) {
       if (differenceInDays(getTimeStamp(), updateLatestTimeStamp) < 7) {
+        debugLogger.autoUpdate.debug(
+          'Last operation within 7 days, skip check',
+        );
         return true;
       }
     }
+    debugLogger.autoUpdate.debug('should not skip check version');
     return false;
   }
 
@@ -178,19 +193,27 @@ class AppUpdates {
     const { dispatch } = backgroundApiProxy;
     const { autoDownload = true } =
       store.getState().settings.updateSetting ?? {};
-    window.desktopApi.on('update/checking', () => dispatch(checking()));
+    window.desktopApi.on('update/checking', () => {
+      debugLogger.autoUpdate.debug('update/checking');
+      dispatch(checking());
+    });
     window.desktopApi.on('update/available', ({ version }) => {
+      debugLogger.autoUpdate.debug('update/available, version: ', version);
       dispatch(available({ version }));
       if (autoDownload && !this.skipVersionCheck(version)) {
+        debugLogger.autoUpdate.debug(
+          'update/available should download new version',
+        );
         window.desktopApi.downloadUpdate();
       }
     });
-    window.desktopApi.on('update/not-available', ({ version }) =>
-      dispatch(notAvailable({ version })),
-    );
-    window.desktopApi.on('update/error', ({ version }) => {
+    window.desktopApi.on('update/not-available', ({ version }) => {
+      debugLogger.autoUpdate.debug('update/not-available, version: ', version);
+      dispatch(notAvailable({ version }));
+    });
+    window.desktopApi.on('update/error', ({ version, err }) => {
+      debugLogger.autoUpdate.debug('update/error, err: ', err);
       dispatch(error());
-      debugger;
       dispatch(
         setUpdateSetting({
           updateLatestVersion: version,
@@ -198,10 +221,15 @@ class AppUpdates {
         }),
       );
     });
-    window.desktopApi.on('update/downloading', (progress: any) =>
-      dispatch(downloading(progress)),
-    );
+    window.desktopApi.on('update/downloading', (progress: any) => {
+      debugLogger.autoUpdate.debug(
+        'update/downloading, progress: ',
+        JSON.stringify(progress),
+      );
+      dispatch(downloading(progress));
+    });
     window.desktopApi.on('update/downloaded', ({ version }) => {
+      debugLogger.autoUpdate.debug('update/downloaded');
       dispatch(ready({ version }));
       dispatch(
         setUpdateSetting({

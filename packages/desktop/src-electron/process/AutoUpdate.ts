@@ -53,7 +53,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
   const updateSettings = store.getUpdateSettings();
 
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.logger = logger;
 
   logger.info(
@@ -82,8 +82,6 @@ const init = ({ mainWindow, store }: Dependencies) => {
   });
 
   autoUpdater.on('update-not-available', (data) => {
-    console.log('......--->', data);
-
     const { version, releaseDate } = data;
     logger.info('auto-updater', [
       'No new update is available:',

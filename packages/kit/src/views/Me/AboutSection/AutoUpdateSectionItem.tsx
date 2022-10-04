@@ -51,7 +51,6 @@ const AutoUpdateSectionItem: FC = () => {
 
   useEffect(() => {
     if (platformEnv.isDesktop && state === 'available') {
-      console.log('skipVersionCheck render: ');
       const { version = '0.0.0' } = (latest ?? {}) as DesktopVersion;
       if (appUpdates.skipVersionCheck(version)) {
         setShowAvailableBadge(false);
@@ -172,7 +171,7 @@ const AutoUpdateSectionItem: FC = () => {
             {intl.formatMessage(
               { id: 'form__update_downloading' },
               {
-                0: `${progress.percent}%`,
+                0: `${Math.floor(progress.percent)}%`,
               },
             )}
           </Text>
