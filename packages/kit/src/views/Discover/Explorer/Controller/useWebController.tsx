@@ -45,7 +45,7 @@ export const useWebController = ({
   const { firstRemindDAPP } = useAppSelector((s) => s.discover);
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
-  const innerRef = webviewRefs[curId]?.innerRef;
+  const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
 
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
   const gotoHome = useCallback(
@@ -100,13 +100,13 @@ export const useWebController = ({
         ) {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          innerRef?.loadURL(url);
+          getInnerRef()?.loadURL(url);
         }
         return true;
       }
       return false;
     },
-    [curId, dispatch, innerRef, tab?.url],
+    [curId, dispatch, getInnerRef, tab?.url],
   );
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -198,7 +198,7 @@ export const useWebController = ({
   );
   const { goBack, goForward, stopLoading } = useWebviewRef({
     // @ts-expect-error
-    ref: innerRef,
+    ref: getInnerRef(),
     onNavigation,
     navigationStateChangeEvent,
   });

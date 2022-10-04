@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -16,8 +16,7 @@ export const useWebviewRef = ({
   onNavigation: OnWebviewNavigation;
   navigationStateChangeEvent?: WebViewNavigation;
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [isDomReady, setIsDomReady] = useState(false);
+  const isDomReady = useRef(false);
   useEffect(() => {
     if (platformEnv.isDesktop) {
       try {
@@ -25,7 +24,7 @@ export const useWebviewRef = ({
         if (!ref) {
           return;
         }
-        const handleFinishLoading = () => setLoading(false);
+        const handleFinishLoading = () => onNavigation({ loading: false });
         const handleNavigation = ({
           url,
           isInPlace,
@@ -36,28 +35,33 @@ export const useWebviewRef = ({
           isMainFrame: boolean;
         }) => {
           if (isMainFrame) {
+            let canGoBack = false;
+            let canGoForward = false;
+            try {
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              canGoBack = ref.canGoBack();
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              canGoForward = ref.canGoForward();
+            } catch (e) {
+              // console.log(e)
+            }
             onNavigation({
               url,
               // @ts-ignore
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call
               title: ref.getTitle(),
               isInPlace,
-              canGoBack:
-                isDomReady && // @ts-expect-error
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-                ref?.canGoBack(),
-              canGoForward:
-                isDomReady && // @ts-expect-error
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-                ref?.canGoForward(),
-              loading,
+              canGoBack,
+              canGoForward,
             });
           }
         };
 
-        const handleDomReady = () => setIsDomReady(true);
+        const handleDomReady = () => (isDomReady.current = true);
 
-        const handleStartLoadingMessage = () => setLoading(true);
+        const handleStartLoadingMessage = () => onNavigation({ loading: true });
 
         const handleTitleMessage = ({ title }: { title: string }) => {
           if (title) {
@@ -114,40 +118,35 @@ export const useWebviewRef = ({
         console.error(error);
       }
     }
-  }, [ref, onNavigation, isDomReady, loading]);
+  }, [ref, onNavigation]);
 
   const goBack = useCallback(() => {
-    if (isDomReady) {
+    if (isDomReady.current) {
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       ref?.goBack();
     }
-  }, [isDomReady, ref]);
+  }, [ref]);
 
   const goForward = useCallback(() => {
-    if (isDomReady) {
+    if (isDomReady.current) {
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       ref?.goForward();
     }
-  }, [isDomReady, ref]);
+  }, [ref]);
 
   const stopLoading = useCallback(() => {
-    if (isDomReady) {
+    if (isDomReady.current) {
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       ref?.stop();
-      setLoading(false);
-      onNavigation({
-        loading: false,
-      });
     }
-  }, [isDomReady, onNavigation, ref]);
+  }, [ref]);
 
   return {
     goBack,
     goForward,
     stopLoading,
-    isDomReady,
   };
 };

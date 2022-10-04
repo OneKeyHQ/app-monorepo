@@ -17,15 +17,12 @@ export const useWebviewRef = ({
 }) => {
   useEffect(() => {
     if (navigationStateChangeEvent) {
-      // console.log('navigationStateChangeEvent', navigationStateChangeEvent);
-      try {
-        const { canGoBack, canGoForward, loading, title, url } =
-          navigationStateChangeEvent;
-        const urlObj = new URL(url);
-        const favicon = `${urlObj.protocol}//${urlObj.host}/favicon.ico`;
-        onNavigation({ url, title, favicon, canGoBack, canGoForward, loading });
-      } catch (e) {
-        // console.log(e);
+      const { canGoBack, canGoForward, loading, title, url } =
+        navigationStateChangeEvent;
+      if (loading) {
+        onNavigation({ url, title, canGoBack, canGoForward, loading });
+      } else {
+        onNavigation({ title, canGoBack, canGoForward, loading });
       }
     }
   }, [navigationStateChangeEvent, onNavigation]);
