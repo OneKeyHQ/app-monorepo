@@ -11,6 +11,9 @@ export interface WebTab {
   isCurrent: boolean;
   // isBookmarked?: boolean;
   // isMuted: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  loading?: boolean;
 }
 
 export interface WebTabsInitialState {

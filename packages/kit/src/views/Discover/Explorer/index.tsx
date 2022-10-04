@@ -29,13 +29,12 @@ const Explorer: FC = () => {
     gotoHome,
     incomingUrl,
     clearIncomingUrl,
-    loading,
     stopLoading,
-    canGoBack,
-    canGoForward,
     goBack,
     goForward,
   } = useWebController();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { loading, canGoBack, canGoForward } = currentTab!;
 
   const isVerticalLayout = useIsVerticalLayout();
 

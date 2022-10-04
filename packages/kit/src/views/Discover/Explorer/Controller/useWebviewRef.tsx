@@ -42,6 +42,15 @@ export const useWebviewRef = ({
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call
               title: ref.getTitle(),
               isInPlace,
+              canGoBack:
+                isDomReady && // @ts-expect-error
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+                ref?.canGoBack(),
+              canGoForward:
+                isDomReady && // @ts-expect-error
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+                ref?.canGoForward(),
+              loading,
             });
           }
         };
@@ -105,12 +114,7 @@ export const useWebviewRef = ({
         console.error(error);
       }
     }
-  }, [ref, onNavigation]);
-
-  const canGoBack =
-    isDomReady && // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-    ref?.canGoBack();
+  }, [ref, onNavigation, isDomReady, loading]);
 
   const goBack = useCallback(() => {
     if (isDomReady) {
@@ -119,11 +123,6 @@ export const useWebviewRef = ({
       ref?.goBack();
     }
   }, [isDomReady, ref]);
-
-  const canGoForward =
-    isDomReady && // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-    ref?.canGoForward();
 
   const goForward = useCallback(() => {
     if (isDomReady) {
@@ -139,16 +138,16 @@ export const useWebviewRef = ({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       ref?.stop();
       setLoading(false);
+      onNavigation({
+        loading: false,
+      });
     }
-  }, [isDomReady, ref]);
+  }, [isDomReady, onNavigation, ref]);
 
   return {
-    canGoBack,
     goBack,
-    canGoForward,
     goForward,
     stopLoading,
-    loading,
     isDomReady,
   };
 };

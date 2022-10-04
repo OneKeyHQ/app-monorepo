@@ -81,10 +81,16 @@ export type OnWebviewNavigation = ({
   favicon,
   isInPlace,
   isNewWindow,
+  canGoBack,
+  canGoForward,
+  loading,
 }: {
   url?: string;
   title?: string;
   favicon?: string;
   isInPlace?: boolean;
   isNewWindow?: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  loading?: boolean;
 }) => void;

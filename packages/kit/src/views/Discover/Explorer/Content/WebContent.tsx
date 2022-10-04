@@ -14,7 +14,6 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  const [, setIsWebviewReady] = useState(false);
   const { gotoSite, openMatchDApp } = useWebController({
     id,
     navigationStateChangeEvent,
@@ -54,8 +53,6 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
             if (ref && ref.innerRef) {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               webviewRefs[id] = ref;
-              // force update webcontroller
-              setIsWebviewReady(true);
             } else {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               delete webviewRefs[id];
