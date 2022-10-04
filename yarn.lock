@@ -18870,10 +18870,10 @@ react-native-uuid@^2.0.1:
   resolved "https://registry.yarnpkg.com/react-native-uuid/-/react-native-uuid-2.0.1.tgz#ed4e2dfb1683eddb66967eb5dca140dfe1abddb9"
   integrity sha512-cptnoIbL53GTCrWlb/+jrDC6tvb7ypIyzbXNJcpR3Vab0mkeaaVd5qnB3f0whXYzS+SMoSQLcUUB0gEWqkPC0g==
 
-react-native-v8@^1.5.1:
-  version "1.5.1"
-  resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.5.1.tgz#d6e4abe6e0da794f79e377c595eca382bd459296"
-  integrity sha512-tbiwxhJTI9svJ5PEiAGnJ2/nA7ejDVIJARDOayBMwgKWFNTw/cwlx4E7xr8cOaehgd2C7kovZWdT/kziDYvP2g==
+react-native-v8@^1.5.2:
+  version "1.5.2"
+  resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.5.2.tgz#a8c450d38182320fe2f34ae9438bd30d3259d6fd"
+  integrity sha512-SuCKkanFk/BSeohzKE2xbXw0+DkIGkx5dMZ1PnbeL60CD53AD9HLp5kRxV+nzxdaqQG6d91gUcAoM1ngyX9z6g==
 
 react-native-view-shot@^3.3.0:
   version "3.3.0"
