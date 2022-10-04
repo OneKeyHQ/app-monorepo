@@ -35,26 +35,20 @@ export const useWebviewRef = ({
           isMainFrame: boolean;
         }) => {
           if (isMainFrame) {
-            let canGoBack = false;
-            let canGoForward = false;
-            try {
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              canGoBack = ref.canGoBack();
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              canGoForward = ref.canGoForward();
-            } catch (e) {
-              // console.log(e)
-            }
             onNavigation({
               url,
               // @ts-ignore
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call
               title: ref.getTitle(),
               isInPlace,
-              canGoBack,
-              canGoForward,
+              canGoBack:
+                isDomReady.current && // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                ref.canGoBack(),
+              canGoForward:
+                isDomReady.current && // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                ref.canGoForward(),
             });
           }
         };
