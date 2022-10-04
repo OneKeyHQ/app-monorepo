@@ -11,10 +11,10 @@ function useCheckUpdate() {
   const { autoDownload } = useSettings().updateSetting ?? {};
   const showUpdateBadge = useMemo(() => {
     let showBadge = false;
-    if (!autoDownload && state === 'available') {
+    if (!autoDownload && (state === 'available' || state === 'downloading')) {
       showBadge = true;
     }
-    if (autoDownload && state === 'ready') {
+    if (state === 'ready') {
       showBadge = true;
     }
     // @ts-expect-error
