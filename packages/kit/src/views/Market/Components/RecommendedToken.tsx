@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Checkbox as BaseCheckBox, IBoxProps } from 'native-base';
 
-import { Box, Icon, Pressable, Typography } from '@onekeyhq/components/src';
+import { Box, Token, Pressable, Typography } from '@onekeyhq/components/src';
 
 type RecomendedTokenProps = {
   name: string;
@@ -18,7 +18,6 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
   icon,
   width = '173px',
   height = '64px',
-  ...props
 }) => {
   console.log('RecommendedToken');
   // token 的图标和名字组件单独抽出来
@@ -32,17 +31,7 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
         alignItems="center"
       >
         <Box ml="3" flexDirection="row" width="100px">
-          {/* <Box size="32px" overflow="hidden" rounded="full">
-                  <Image
-                    w="full"
-                    h="hull"
-                    src="https://x2y2.io/favicon.ico"
-                    key="https://x2y2.io/favicon.ico"
-                    alt="https://x2y2.io/favicon.ico"
-                    fallbackElement={<Icon name="ConnectOutline" size={32} />}
-                  />
-                </Box> */}
-          <Icon size={32} name="StarSolid" />
+          <Token size={8} src={icon} />
           <Box flexDirection="column" ml="2">
             <Typography.Body2Strong>{symbol}</Typography.Body2Strong>
             <Typography.Body2Strong color="text-subdued">

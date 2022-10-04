@@ -46,7 +46,7 @@ export default class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   toggleCategory(category: MarketCategory) {
-    this.backgroundApi.dispatch(updataCurrentCategory(category));
+    this.backgroundApi.dispatch(updateCurrentCategory(category));
     this.fetchMarketList({
       categoryId: category.categoryId,
       vsCurrency: 'usd',
@@ -80,7 +80,7 @@ export default class ServiceMarket extends ServiceBase {
     );
     console.log('data---', data);
     this.backgroundApi.dispatch(
-      updataMarketCategoryTokenMap({ categoryId, marketTokens: data }),
+      updateMarketCategoryTokenMap({ categoryId, marketTokens: data }),
     );
   }
 
@@ -99,6 +99,15 @@ export default class ServiceMarket extends ServiceBase {
       console.error(e);
       return fallback;
     }
+  }
+
+  @backgroundMethod()
+  async getTokenSupportImpl(coingeckoId: string) {
+    const path = '/market/token/impls';
+    const data = await this.fetchData(path, { coingeckoId }, []);
+    console.log('token impl data', data);
+    // todo redux
+    return data;
   }
 
   updateFavoriteTokenList() {
@@ -133,4 +142,25 @@ export default class ServiceMarket extends ServiceBase {
     this.updateFavoriteTokenList();
     return simpleDb.market.deleteFavoriteCoin(coingeckoId);
   }
+
+  async fetchMarketDetail(coingeckoId: string) {
+    return Promise.resolve({});
+  }
+
+  async fetchMarketTokenChart({
+    coingeckoId,
+    days,
+    points = '100',
+  }: {
+    coingeckoId: string;
+    days: string;
+    points?: string;
+  }): Promise<[number, number][]> {
+    return Promise.resolve([]);
+  }
+
+  //   @backgroundMethon()
+  //   async getMarketFacoriteStatus(coingeckoId:string) {
+
+  //   }
 }

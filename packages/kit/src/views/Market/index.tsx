@@ -3,18 +3,7 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Image } from 'native-base';
 import { ListRenderItem } from 'react-native';
 
-import {
-  Box,
-  Button,
-  Divider,
-  Empty,
-  FlatList,
-  Icon,
-  IconButton,
-  Pressable,
-  ScrollView,
-  Typography,
-} from '@onekeyhq/components/src';
+import { Box, Empty, FlatList, ScrollView } from '@onekeyhq/components/src';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -22,9 +11,9 @@ import { useAppSelector } from '../../hooks';
 import { MarketCategory, MarketTokenItem } from '../../store/reducers/market';
 
 import ListHeaderComponent from './Components/MarketListHeader';
+import MarketTokenCell from './Components/MarketTokenCell';
 import { MarketHeader, MarketHeaderNative } from './Components/MarketTopHeader';
 import RecommendedTokenBox from './Components/RecommendedToken';
-import SparklineChart from './Components/SparklineChart';
 
 // 判断大小屏  小屏幕
 const mokeData = [
@@ -151,111 +140,18 @@ const Market = () => {
   }, []);
 
   const renderItem: ListRenderItem<MarketTokenItem> = useCallback(
-    ({ item, index }) => (
-      <Pressable>
-        <Box height="64px" width="100%" bgColor="surface-default">
-          <Box flex={1} flexDirection="row" alignItems="center">
-            <Box
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="flex-end"
-              width="52px"
-            >
-              <IconButton
-                size="base"
-                name="StarSolid"
-                iconSize={20}
-                onPress={() => {
-                  if (currentCategory?.categoryId === 'favorites') {
-                    backgroundApiProxy.serviceMarket.cancelMarketFavoriteCoin(
-                      item.coingeckoId,
-                    );
-                  } else {
-                    backgroundApiProxy.serviceMarket.saveMarketFavoriteCoin(
-                      item.coingeckoId,
-                    );
-                  }
-                }}
-              />
-              {/* <Typography.Body2Strong>2</Typography.Body2Strong> */}
-            </Box>
-            <Box ml="6" flexDirection="row" width="100px" height="full">
-              <Box size="32px" overflow="hidden" rounded="full">
-                <Image
-                  w="full"
-                  h="hull"
-                  src={item.image}
-                  key={item.image}
-                  alt={item.image}
-                  fallbackElement={<Icon name="ConnectOutline" size={32} />}
-                />
-              </Box>
-              {/* <Icon size={32} name="StarSolid" /> */}
-              <Box flexDirection="column" ml="2">
-                <Typography.Body2Strong>{item.symbol}</Typography.Body2Strong>
-                <Typography.Body2Strong color="text-subdued">
-                  {item.name}
-                </Typography.Body2Strong>
-              </Box>
-            </Box>
-            <Box
-              flexDirection="row"
-              justifyContent="flex-end"
-              ml="6"
-              width="100px"
-            >
-              <Typography.Body2Strong textAlign="right" numberOfLines={1}>
-                {`$${item.price ? item.price : 0}`}
-              </Typography.Body2Strong>
-            </Box>
-            <Box
-              flexDirection="row"
-              justifyContent="flex-end"
-              ml="6"
-              width="100px"
-            >
-              <Typography.Body2Strong>
-                {item.priceChangePercentage24H}
-              </Typography.Body2Strong>
-            </Box>
-            <Box
-              flexDirection="row"
-              justifyContent="flex-end"
-              ml="6"
-              width="120px"
-            >
-              <Typography.Body2Strong numberOfLines={1}>
-                {item.totalVolume}
-              </Typography.Body2Strong>
-            </Box>
-            <Box
-              flexDirection="row"
-              justifyContent="flex-end"
-              ml="6"
-              width="128px"
-            >
-              <Typography.Body2Strong numberOfLines={1}>
-                {item.marketCap}
-              </Typography.Body2Strong>
-            </Box>
-            <Box flexDirection="row" justifyContent="flex-end" width="100px">
-              <SparklineChart data={item.sparkline} width={50} height={40} />
-            </Box>
-            <Box flexDirection="row" ml="6">
-              <Button type="basic" size="xs">
-                Swap
-              </Button>
-              <IconButton ml="1" name="DotsVerticalSolid" iconSize={20} />
-            </Box>
-          </Box>
-        </Box>
-        <Divider />
-      </Pressable>
+    ({ item }) => (
+      <MarketTokenCell
+        marketItem={item}
+        onPress={() => {
+          // goto detail
+        }}
+      />
     ),
     [],
   );
   return (
-    <Box>
+    <Box flex="1">
       {isVerticalLayout ? (
         <MarketHeaderNative />
       ) : (
@@ -267,16 +163,10 @@ const Market = () => {
         />
       )}
 
-      <ScrollView p="3">
+      <ScrollView p={4} bg="background-default">
         <ListHeaderComponent categorys={categorys} />
         <FlatList
           w="full"
-          //   ListHeaderComponent={
-          //     <ListHeaderComponent
-          //       categorys={categorys}
-          //       currentCategory={currentCategory}
-          //     />
-          //   }
           renderItem={renderItem}
           data={currentMarkeList}
           ListEmptyComponent={
