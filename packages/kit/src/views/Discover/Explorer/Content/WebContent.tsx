@@ -5,7 +5,8 @@ import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WebTab } from '../../../../store/reducers/webTabs';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home/DiscoverHome';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler, webviewRefs } from '../explorerUtils';
@@ -14,7 +15,6 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  const [, setIsWebviewReady] = useState(false);
   const { gotoSite, openMatchDApp } = useWebController({
     id,
     navigationStateChangeEvent,
@@ -51,14 +51,13 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
         <WebView
           src={url}
           onWebViewRef={(ref) => {
+            const { dispatch } = backgroundApiProxy;
             if (ref && ref.innerRef) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               webviewRefs[id] = ref;
-              // force update webcontroller
-              setIsWebviewReady(true);
+              dispatch(setWebTabData({ id, refReady: true }));
             } else {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               delete webviewRefs[id];
+              dispatch(setWebTabData({ id, refReady: false }));
             }
           }}
           onNavigationStateChange={setNavigationStateChangeEvent}
