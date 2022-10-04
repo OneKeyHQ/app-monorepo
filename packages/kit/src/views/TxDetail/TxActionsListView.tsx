@@ -91,6 +91,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
   const connectionLine =
     items.length > 1 && showConnectionLine ? (
       <Divider
+        testID="TxActionsListView-ConnectionLine"
         orientation="vertical"
         position="absolute"
         left={4}

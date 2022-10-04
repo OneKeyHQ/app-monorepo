@@ -40,8 +40,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
   });
 
   return (
-    <BaseRequestView {...props}>
-      {/* TODO: temporary margin-top */}
+    <BaseRequestView {...props} closeWay="now">
       <Form mt={4}>
         <Form.Item
           control={control}

@@ -11,6 +11,7 @@ import {
 
 import CustomToken from '../../views/ManageTokens/CustomToken';
 import EnterAddress from '../../views/Swap/EnterAddress';
+import PickAccount from '../../views/Swap/PickAccount';
 import PickRecipient from '../../views/Swap/PickRecipient';
 import Share from '../../views/Swap/Share';
 import SwftcHelp from '../../views/Swap/SwftcHelp';
@@ -57,6 +58,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.PickRecipient,
     component: PickRecipient,
+  },
+  {
+    name: SwapRoutes.PickAccount,
+    component: PickAccount,
   },
   {
     name: SwapRoutes.EnterAddress,

@@ -7,6 +7,7 @@ import type {
   IDecodedTx,
   IEncodedTx,
   IFeeInfoSelected,
+  INFTInfo,
   ISignedTx,
   IStakeInfo,
   ISwapInfo,
@@ -32,6 +33,7 @@ export enum SendRoutes {
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
   SendFeedbackReceipt = 'SendFeedbackReceipt',
+  HardwareSwapContinue = 'HardwareSwapContinue',
 }
 
 export type TokenApproveAmountEditParams = {
@@ -101,6 +103,7 @@ export type SendConfirmPayloadInfo = {
   transferInfo?: ITransferInfo;
   swapInfo?: ISwapInfo;
   stakeInfo?: IStakeInfo;
+  nftInfo?: INFTInfo;
 };
 export type SendConfirmSharedParams = {
   encodedTx?: IEncodedTx;
@@ -164,6 +167,10 @@ export type SendFeedbackReceiptParams = {
   onDetail?: (txid: string) => any;
 };
 
+export type HardwareSwapContinueParams = {
+  closeModal?: () => any;
+};
+
 export type SendRoutesParams = {
   [SendRoutes.SendLegacy]: SendLegacyParams;
   [SendRoutes.PreSendToken]: PreSendParams;
@@ -176,4 +183,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
   [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
+  [SendRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
 };

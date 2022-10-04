@@ -81,4 +81,9 @@ function useAccountSelectorEffects() {
   }, [activeWallet?.id, activeNetwork?.id, isCloseFromOpen]);
 }
 
+export function NetworkAccountSelectorEffectsSingleton() {
+  useAccountSelectorEffects();
+  return null;
+}
+
 export { useAccountSelectorEffects };

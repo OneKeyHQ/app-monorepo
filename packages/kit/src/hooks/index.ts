@@ -21,3 +21,4 @@ export {
 } from './useTokens';
 export { usePrevious } from './usePrevious';
 export { useAddressName } from './useAddressName';
+export { useThrottle } from './useThrottle';

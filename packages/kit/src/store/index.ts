@@ -49,6 +49,7 @@ import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
 import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
+import webTabsReducer from './reducers/webTabs';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
@@ -70,6 +71,7 @@ const allReducers = combineReducers({
   accountSelector: reducerAccountSelector.reducer,
   staking: stakingReducer,
   nft: nftReducer,
+  webTabs: webTabsReducer,
   market: marketReducer,
 });
 

@@ -73,19 +73,14 @@ const TokenInput: FC<TokenInputProps> = ({
             p="2"
           >
             {token && tokenNetwork ? (
-              <Box flexDirection="row" alignItems="center">
-                <Box mr="2">
-                  <TokenImage size={8} src={token.logoURI} />
-                </Box>
-                <Box>
-                  <Typography.DisplayMedium fontWeight={600}>
-                    {token.symbol.toUpperCase()}
-                  </Typography.DisplayMedium>
-                  <Typography.Caption color="text-subdued" fontWeight={500}>
-                    {tokenNetwork.shortName}
-                  </Typography.Caption>
-                </Box>
-              </Box>
+              <TokenImage
+                size={8}
+                token={token}
+                showInfo
+                name={token.symbol.toUpperCase()}
+                description={tokenNetwork.shortName}
+                showTokenVerifiedIcon={false}
+              />
             ) : (
               <Box>
                 <Typography.DisplayMedium fontWeight={600}>

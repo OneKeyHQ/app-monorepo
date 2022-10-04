@@ -115,18 +115,41 @@ export function FeeSpeedLabel({ index }: { index: number | string }) {
   return <>{title}</>;
 }
 
-export function FeeSpeedTime({ index }: { index: number | string }) {
+export function FeeSpeedTime({
+  index,
+  waitingSeconds,
+}: {
+  index: number | string;
+  waitingSeconds: number | undefined;
+}) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
   let title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
-  if (indexInt === 0) {
-    title = intl.formatMessage({ id: 'content__maybe_in_30s' });
-  }
-  if (indexInt === 1) {
-    title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
-  }
-  if (indexInt === 2) {
-    title = intl.formatMessage({ id: 'content__very_likely_less_than_15s' });
+
+  if (waitingSeconds) {
+    title = intl.formatMessage(
+      { id: 'content__about_int_str' },
+      {
+        time:
+          waitingSeconds > 60 ? Math.ceil(waitingSeconds / 60) : waitingSeconds,
+        unit: intl.formatMessage({
+          id:
+            waitingSeconds > 60
+              ? 'content__minutes_lowercase'
+              : 'content__seconds__lowercase',
+        }),
+      },
+    );
+  } else {
+    if (indexInt === 0) {
+      title = intl.formatMessage({ id: 'content__maybe_in_30s' });
+    }
+    if (indexInt === 1) {
+      title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
+    }
+    if (indexInt === 2) {
+      title = intl.formatMessage({ id: 'content__very_likely_less_than_15s' });
+    }
   }
   return <>{title}</>;
 }
@@ -530,10 +553,14 @@ function StandardFee({ feeInfoPayload, value, onChange }: IStandardFeeProps) {
           info: feeInfoPayload?.info,
         });
 
+        const waitingSeconds = feeInfoPayload?.info.waitingSeconds?.[index];
+
         return {
           value: index.toString(),
           title: <FeeSpeedLabel index={index} />,
-          titleSecond: <FeeSpeedTime index={index} />,
+          titleSecond: (
+            <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
+          ),
           describe: (
             <FormatCurrencyNative
               value={minFeeNative}
@@ -562,11 +589,15 @@ function StandardFee({ feeInfoPayload, value, onChange }: IStandardFeeProps) {
         amount: totalFee,
         info: feeInfoPayload?.info as IFeeInfo,
       });
+      const waitingSeconds = (feeInfoPayload?.info as IFeeInfo)
+        .waitingSeconds?.[index];
 
       return {
         value: index.toString(),
         title: <FeeSpeedLabel index={index} />,
-        titleSecond: <FeeSpeedTime index={index} />,
+        titleSecond: (
+          <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
+        ),
         describe: (
           <FormatCurrencyNative
             value={totalFeeNative}

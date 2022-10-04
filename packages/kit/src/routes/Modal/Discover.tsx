@@ -2,7 +2,8 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
-import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/useSearchHistories';
+
+import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
 
 import createStackNavigator from './createStackNavigator';
 

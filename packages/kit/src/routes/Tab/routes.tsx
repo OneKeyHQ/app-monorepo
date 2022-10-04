@@ -9,7 +9,7 @@ import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
-import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
+import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home/DiscoverHome';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MarketScreen from '@onekeyhq/kit/src/views/Market';
 import MarketSearch from '@onekeyhq/kit/src/views/Market/MarketSearch';
@@ -93,7 +93,7 @@ export const tabRoutes: TabRouteConfig[] = [
     children: [
       {
         name: HomeRoutes.ExploreScreen,
-        component: Discover,
+        component: DiscoverHome,
       },
       {
         name: HomeRoutes.DAppListScreen,

@@ -1,7 +1,6 @@
 import React, { FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { NativeModules } from 'react-native';
 
 import {
   Box,
@@ -12,11 +11,10 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../../hooks';
 import { showOverlay } from '../../../utils/overlayUtils';
+import { showSplashScreen } from '../../Overlay/showSplashScreen';
 
 export type ResetDialogProps = {
   onConfirm: () => Promise<void>;
@@ -78,21 +76,17 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
 
 const ResetButton = () => {
   const intl = useIntl();
-  const { resetToWelcome } = useNavigationActions();
-
-  const onReset = useCallback(async () => {
-    if (platformEnv.isNativeIOS) {
-      NativeModules.SplashScreenManager.show();
-    }
-    resetToWelcome();
-    return backgroundApiProxy.serviceApp.resetApp();
-  }, [resetToWelcome]);
-
   const openResetHintDialog = useCallback(() => {
     showOverlay((onClose) => (
-      <ResetDialog onConfirm={onReset} onClose={onClose} />
+      <ResetDialog
+        onConfirm={async () => {
+          showSplashScreen();
+          return backgroundApiProxy.serviceApp.resetApp();
+        }}
+        onClose={onClose}
+      />
     ));
-  }, [onReset]);
+  }, []);
 
   const openBackupModal = useCallback(() => {
     showOverlay((onClose) => (

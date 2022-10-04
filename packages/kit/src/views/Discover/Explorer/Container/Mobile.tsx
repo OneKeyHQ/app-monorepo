@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,13 +14,12 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import type { ExplorerViewProps } from '..';
-import type { MatchDAppItemType } from '../Search/useSearchHistories';
+import { useWebController } from '../Controller/useWebController';
+import { ExplorerViewProps, MatchDAppItemType } from '../explorerUtils';
 
 type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 
 const Mobile: FC<ExplorerViewProps> = ({
-  searchContent,
   onSearchSubmitEditing,
   explorerContent,
   onGoBack,
@@ -30,6 +29,14 @@ const Mobile: FC<ExplorerViewProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const { currentTab } = useWebController();
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const url: string = currentTab?.url || '';
+  const [searchText, setSearchText] = useState(url);
+
+  useEffect(() => {
+    setSearchText(url);
+  }, [url]);
 
   const onSearch = () => {
     navigation.navigate(RootRoutes.Modal, {
@@ -37,7 +44,7 @@ const Mobile: FC<ExplorerViewProps> = ({
       params: {
         screen: DiscoverModalRoutes.SearchHistoryModal,
         params: {
-          url: searchContent?.searchContent,
+          url: searchText,
           onSelectorItem: (item: MatchDAppItemType | string) =>
             onSearchSubmitEditing?.(item),
         },
@@ -83,18 +90,18 @@ const Mobile: FC<ExplorerViewProps> = ({
             >
               <Typography.Caption
                 flex={1}
-                color={searchContent ? 'text-default' : 'text-subdued'}
+                color={searchText ? 'text-default' : 'text-subdued'}
                 numberOfLines={1}
               >
-                {searchContent?.searchContent
-                  ? searchContent?.searchContent
-                  : intl.formatMessage({
-                      id: 'content__search',
-                    })}
+                {searchText ||
+                  intl.formatMessage({
+                    id: 'content__search',
+                  })}
               </Typography.Caption>
             </Box>
           </Pressable>
           <IconButton
+            // @ts-expect-error
             onPress={onMore}
             name="DotsHorizontalOutline"
             size="lg"

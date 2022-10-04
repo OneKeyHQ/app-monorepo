@@ -6,9 +6,7 @@ import {
   Box,
   Pressable,
   Skeleton,
-  Text,
   Token,
-  TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -90,35 +88,32 @@ const TokenCell: FC<TokenCellProps> = ({
       flexDirection="row"
       alignItems="center"
     >
-      <Token size={8} src={token.logoURI} />
-      <Box ml="12px" flexDirection="column" flex={1}>
-        <Box flexDirection="row" alignItems="center">
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            isTruncated
-          >
-            {token.name}
-          </Text>
-          <TokenVerifiedIcon token={token} />
-        </Box>
-        {balance ? (
-          <FormatBalance
-            balance={balance}
-            suffix={token.symbol}
-            formatOptions={{
-              fixed: decimal ?? 4,
-            }}
-            render={(ele) => (
-              <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
-            )}
-          />
-        ) : (
-          <Typography.Body2 color="text-subdued">
-            {balance}
-            {token.symbol ? ` ${token.symbol}` : null}
-          </Typography.Body2>
-        )}
-      </Box>
+      <Token
+        flex={1}
+        size={8}
+        showInfo
+        token={token}
+        showExtra={false}
+        description={
+          balance ? (
+            <FormatBalance
+              balance={balance}
+              suffix={token.symbol}
+              formatOptions={{
+                fixed: decimal ?? 4,
+              }}
+              render={(ele) => (
+                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
+              )}
+            />
+          ) : (
+            <Typography.Body2 color="text-subdued">
+              {balance}
+              {token.symbol ? ` ${token.symbol}` : null}
+            </Typography.Body2>
+          )
+        }
+      />
       {!isVerticalLayout && !hidePriceInfo && (
         <Box flexDirection="column" flex={1} alignItems="flex-end">
           {price === undefined ? (

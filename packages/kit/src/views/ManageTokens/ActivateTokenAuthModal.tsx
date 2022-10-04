@@ -35,7 +35,7 @@ const Done: FC<EnableLocalAuthenticationProps> = ({
   const navigation = useNavigation();
 
   useEffect(() => {
-    if (password) {
+    if (accountId && networkId && tokenId) {
       (async () => {
         try {
           const result = await backgroundApiProxy.engine.activateToken(
@@ -73,7 +73,7 @@ type NavigationProps = NativeStackScreenProps<
 
 const ActivateTokenAuthModal: FC<NavigationProps> = ({ route }) => {
   const intl = useIntl();
-  const { accountId, networkId, tokenId, onSuccess, onFailure } =
+  const { walletId, accountId, networkId, tokenId, onSuccess, onFailure } =
     route.params || {};
 
   return (
@@ -86,7 +86,7 @@ const ActivateTokenAuthModal: FC<NavigationProps> = ({ route }) => {
       hidePrimaryAction
     >
       <Protected
-        walletId={null}
+        walletId={walletId}
         skipSavePassword
         field={ValidationFields.Payment}
       >

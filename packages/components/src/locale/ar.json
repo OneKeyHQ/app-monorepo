@@ -53,6 +53,8 @@
   "action__confirm": "يتأكد",
   "action__connect": "الاتصال",
   "action__connect_device": "قم بتوصيل الجهاز",
+  "action__connect_onekey": "قم بتوصيل OneKey",
+  "action__connect_onekey_extension": "ربط ملحق OneKey",
   "action__connect_str": "اتصال {0}",
   "action__connect_wallet": "ربط المحفظة",
   "action__connected_sites": "المواقع المتصلة",
@@ -77,6 +79,7 @@
   "action__delete": "حذف",
   "action__delete_wallet": "حذف المحفظة",
   "action__deny": "ينكر",
+  "action__device_settings": "إعدادات الجهاز",
   "action__disable": "تعطيل",
   "action__disable_sync": "تعطيل المزامنة",
   "action__discard": "تجاهل",
@@ -160,6 +163,8 @@
   "action__sell": "يبيع",
   "action__sell_crypto": "بيع العملات المشفرة",
   "action__send": "يرسل",
+  "action__send_count_nfts": "إرسال {count} NFTs",
+  "action__send_nft": "أرسل NFT",
   "action__send_with_str": "إرسال مع {0}",
   "action__share": "شارك",
   "action__show_more": "أظهر المزيد",
@@ -239,7 +244,7 @@
   "conten__please_be_patient_as_net_work": "يرجى التحلي بالصبر لأن التذكرة الجديدة قد تستغرق بعض الوقت لتظهر على هذه الصفحة بسبب مشاكل في الشبكة.",
   "content__Insufficient_str_balance": "رصيد {0} غير كافٍ",
   "content__a_few_seconds": "بضع ثوان",
-  "content__about_int_str": "حول {0} {0}",
+  "content__about_int_str": "حول {time} {unit}",
   "content__account_and_network_not_matched": "كلا الحساب والسلسلة غير متطابقين",
   "content__account_is_not_matched": "الحساب غير مطابق",
   "content__activated": "مفعل",
@@ -533,13 +538,15 @@
   "emoji_type_travel_places": "السفر والأماكن",
   "empty__connection_failed_desc": "يُرجى تحديث رمز الاستجابة السريعة أو التحقق من اتصال الشبكة والمحاولة مرة أخرى.",
   "empty__no_account_desc": "لا يوجد حساب للشبكة المختارة.",
-  "empty__no_account_title": "لا توجد حسابات بالداخل",
+  "empty__no_account_title": "لا حسابات",
   "empty__no_connected_sites": "لا توجد مواقع متصلة",
   "empty__no_connected_sites_desc": "إنشاء اتصال جديد مع dApps.",
   "empty__no_purchasable_tokens": "لا توجد رموز قابلة للشراء",
   "empty__no_purchasable_tokens_desc": "يرجى تبديل الشبكة والمحاولة مرة أخرى.",
   "empty__no_recoverable_account_desc": "لم يتم العثور على حسابات قابلة للاسترداد.",
   "empty__no_salable_tokens": "لا توجد رموز قابلة للبيع",
+  "empty__no_tokens": "لا توجد رموز",
+  "empty__no_tokens_desc": "سيتم عرض الرموز المميزة {0} هنا.",
   "empty__no_wallet_desc": "ابدأ بإنشاء محفظة جديدة.",
   "empty__no_wallet_title": "لا توجد محفظة",
   "empty__not_supported": "غير مدعوم",
@@ -778,6 +785,7 @@
   "form__str_of_the_rewards": "{0} من المكافآت",
   "form__str_used": "{0} مستخدمة",
   "form__submit_a_request": "تقديم طلب",
+  "form__supports_multi_send_nfts_on_network_name": "يدعم الإرسال المتعدد NFTs على {network_name}",
   "form__swap_failed": "فشل المبادلة",
   "form__swap_pending": "المبادلة معلقة",
   "form__swap_success": "نجاح المبادلة",
@@ -954,6 +962,7 @@
   "model__create_passphrase_wallet": "إنشاء محفظة مخفية",
   "model__keep_device_close_desc": "تأكد من تشغيل الجهاز وتواجده في النطاق ، واستمر في الضغط عليه وانقر فوق الزر أدناه لبدء الاتصال.",
   "msg__account_created": "تم إنشاء الحساب",
+  "msg__account_deleted": "Account {0} removed",
   "msg__account_imported": "تم استيراد الحساب",
   "msg__added": "مضاف",
   "msg__address_added": "تمت إضافة العنوان!",
@@ -1029,7 +1038,7 @@
   "msg__history_deleted": "تم حذف السجل",
   "msg__image_saved": "تم حفظ الصورة",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
-  "msg__minted": "💎 مسكوكة",
+  "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
   "msg__mismatched_networks": "شبكات غير متطابقة.",
   "msg__network_added": "تمت إضافة الشبكة",
@@ -1052,13 +1061,15 @@
   "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 24 حرفًا.",
   "msg__price_alert_reached": "🔔 تنبيه السعر!",
   "msg__price_alert_reached_desc": "وصل {0} إلى القيمة المستهدفة {1}",
-  "msg__received": "استقبل",
-  "msg__received_desc": "{0} من {1}",
+  "msg__received": "🤑 تم استلام {assets}",
+  "msg__received_a_nft": "🤑 حصل على NFT",
+  "msg__received_desc": "من {address}",
   "msg__removed": "إزالة!",
   "msg__renamed": "أعيدت تسميته",
   "msg__restored_str": "تمت استعادة \" {0} \"",
-  "msg__sent": "💸 تم الإرسال",
-  "msg__sent_desc": "{0} إلى {1}",
+  "msg__sent": "💸 تم إرسال {assets}",
+  "msg__sent_a_nft": "💸 أرسل NFT",
+  "msg__sent_desc": "إلى {address}",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
   "msg__str_data_reset": "{0} إعادة تعيين البيانات",
   "msg__str_maximum_amount": "{0} الحد الأقصى للمبلغ",
@@ -1066,7 +1077,7 @@
   "msg__str_not_exist": "{0} غير موجود",
   "msg__submitted_successfully": "تم الإرسال بنجاح",
   "msg__subscription_succeeded": "نجح الاشتراك",
-  "msg__successful_trade": "💫 التجارة الناجحة",
+  "msg__successful_trade": "💫 تداول {assets1} مقابل {الأصول 2 {assets2}",
   "msg__successful_trade_desc": "{0} لـ {1}",
   "msg__swap_failed": "😵️ فشل المبادلة",
   "msg__swap_successful": "⚖️ المبادلة ناجحة",
@@ -1153,6 +1164,7 @@
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
   "title__buy_str": "شراء {0}",
   "title__channel": "قناة",
+  "title__choose_an_account": "Choose an Account",
   "title__client_download": "تحميل العميل",
   "title__connect_sites": "المواقع المتصلة",
   "title__connect_to_str": "اتصال بـ {0}",

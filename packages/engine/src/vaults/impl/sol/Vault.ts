@@ -36,7 +36,12 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
+import {
+  createOutputActionFromNFTTransaction,
+  getNFTTransactionHistory,
+} from '../../../managers/nft';
 import { extractResponseError } from '../../../proxy';
+import { NFTTransaction } from '../../../types/nft';
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -525,6 +530,44 @@ export default class Vault extends VaultBase {
     );
   }
 
+  mergeNFTTx({
+    address,
+    decodedTx,
+    nftTxs,
+  }: {
+    address: string;
+    decodedTx: IDecodedTx;
+    nftTxs?: NFTTransaction[];
+  }): IDecodedTx {
+    if (nftTxs) {
+      const nftActions = nftTxs
+        .map((tx) =>
+          createOutputActionFromNFTTransaction({
+            transaction: tx,
+            address,
+          }),
+        )
+        .filter(Boolean);
+      decodedTx.actions = nftActions;
+    }
+    return decodedTx;
+  }
+
+  async mergeDecodedTx({
+    decodedTx,
+    nftTxs,
+  }: {
+    decodedTx: IDecodedTx;
+    nftTxs?: NFTTransaction[];
+  }): Promise<IDecodedTx> {
+    const address = await this.getAccountAddress();
+    if (nftTxs && nftTxs.length > 0) {
+      const decodedTxWithNFT = this.mergeNFTTx({ address, decodedTx, nftTxs });
+      return Promise.resolve(decodedTxWithNFT);
+    }
+    return Promise.resolve(decodedTx);
+  }
+
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
@@ -555,6 +598,22 @@ export default class Vault extends VaultBase {
       ]),
     );
 
+    const nftTxList = await getNFTTransactionHistory(
+      dbAccount.address,
+      this.networkId,
+    );
+
+    const nftMap = new Map<string, NFTTransaction[]>();
+    nftTxList.forEach((tx) => {
+      const { hash } = tx;
+      let nftList = nftMap.get(hash);
+      if (!nftList) {
+        nftList = [];
+      }
+      nftList.push(tx);
+      nftMap.set(hash, nftList);
+    });
+
     const promises = onChainTxs.map(async (tx, index) => {
       const { signature: txid } = signaturesResult[index];
       const historyTxToMerge = localHistory.find(
@@ -565,6 +624,8 @@ export default class Vault extends VaultBase {
         return Promise.resolve(null);
       }
 
+      const nftTxs = nftMap.get(txid);
+
       try {
         const {
           blockTime,
@@ -572,7 +633,7 @@ export default class Vault extends VaultBase {
           meta: { fee: feeValue, err },
         } = tx;
         const updatedAt = blockTime * 1000;
-        const decodedTx: IDecodedTx = {
+        let decodedTx: IDecodedTx = {
           // Only decode if this item is not created locally as we are not
           // able to fully decoded on chain transactions now.
           ...(historyTxToMerge?.decodedTx ?? (await this.decodeTx(encodedTx))),
@@ -585,6 +646,10 @@ export default class Vault extends VaultBase {
           createdAt: historyTxToMerge?.decodedTx.createdAt ?? updatedAt,
           isFinal: true,
         };
+        decodedTx = await this.mergeDecodedTx({
+          decodedTx,
+          nftTxs,
+        });
         return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
       } catch (e) {
         debugLogger.common.error(e);

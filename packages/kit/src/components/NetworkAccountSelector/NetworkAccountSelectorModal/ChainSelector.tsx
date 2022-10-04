@@ -40,7 +40,9 @@ function ChainNetworkIcon({
     }
   }, [isLastItem, onLastItemRender]);
 
-  return <Token size={8} src={item.logoURI} />;
+  return (
+    <Token size={8} token={{ logoURI: item.logoURI, name: item.shortName }} />
+  );
 }
 
 function ChainSelector({
@@ -104,14 +106,8 @@ function ChainSelector({
         // TODO auto scroll to active item
         ref={flatListRef}
         data={enabledNetworks}
-        // @ts-expect-error
         keyExtractor={(item: INetwork) => item.id}
-        // @ts-expect-error
-        renderItem={(options: {
-          // eslint-disable-next-line react/no-unused-prop-types
-          item: INetwork;
-          index: number;
-        }) => {
+        renderItem={(options: { item: INetwork; index: number }) => {
           const { item, index } = options;
           const isLastItem = index === enabledNetworks.length - 1;
           const isActive = selectedNetworkId === item.id;

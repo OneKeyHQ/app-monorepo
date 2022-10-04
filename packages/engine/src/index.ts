@@ -793,10 +793,14 @@ class Engine {
             .map((t) => ({ ...t, autoDetected: true }));
         }
       } catch (e) {
-        debugLogger.common.error(`getBalancesFromApi`, {
-          params: [networkId, accountId],
-          message: e instanceof Error ? e.message : e,
-        });
+        debugLogger.common.error(
+          `getBalancesFromApi`,
+          {
+            params: [networkId, accountId],
+            message: e instanceof Error ? e.message : e,
+          },
+          e,
+        );
       }
     }
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
@@ -1358,6 +1362,7 @@ class Engine {
 
   async generateNativeTokenByNetworkId(networkId: string) {
     const network = await this.getNetwork(networkId);
+    const { impl, chainId } = parseNetworkId(networkId);
     return {
       id: network.id,
       name: network.symbol,
@@ -1366,6 +1371,11 @@ class Engine {
       symbol: network.symbol,
       decimals: network.decimals,
       logoURI: network.logoURI,
+      impl,
+      chainId,
+      address: '',
+      source: [],
+      isNative: true,
     };
   }
 
@@ -2503,6 +2513,16 @@ class Engine {
       networkId,
     })) as VaultSol;
     return vault.refreshRecentBlockBash(transaction);
+  }
+
+  @backgroundMethod()
+  async getEvmNextNonce(params: { networkId: string; accountId: string }) {
+    const vault = await this.getVault({
+      networkId: params.networkId,
+      accountId: params.accountId,
+    });
+    const dbAccount = await vault.getDbAccount();
+    return vault.getNextNonce(params.networkId, dbAccount);
   }
 }
 

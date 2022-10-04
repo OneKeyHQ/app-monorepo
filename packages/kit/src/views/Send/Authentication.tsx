@@ -357,7 +357,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     />
   ) : (
     <Center h="full" w="full">
-      <Spinner size="lg" />
+      <Spinner testID="SendAuth-Default-Spinner" size="lg" />
     </Center>
   );
 };

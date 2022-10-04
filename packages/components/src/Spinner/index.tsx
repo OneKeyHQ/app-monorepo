@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import { Spinner as NBSpinner } from 'native-base';
 
@@ -8,7 +8,7 @@ type SpinnerSize = 'sm' | 'lg';
 
 export type BadgeProps = {
   size?: SpinnerSize;
-};
+} & ComponentProps<typeof NBSpinner>;
 
 export const Spinner: FC<BadgeProps> = ({ ...rest }) => {
   const bgColor = useThemeValue('icon-subdued');

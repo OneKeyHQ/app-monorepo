@@ -139,9 +139,13 @@ class ProviderApiSolana extends ProviderApiBase {
 
     debugLogger.providerApi.info('solana signAllTransactions', request, params);
 
-    const ret = [];
+    const ret: string[] = [];
     for (const tx of txsToBeSigned) {
-      ret.push(await this.signTransaction(request, { message: tx }));
+      await this.backgroundApi.serviceDapp.processBatchTransactionOneByOne({
+        run: async () => {
+          ret.push(await this.signTransaction(request, { message: tx }));
+        },
+      });
     }
     return ret;
   }
@@ -205,6 +209,9 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
+    // https://docs.phantom.app/integrating/extension-and-in-app-browser-web-apps/establishing-a-connection#eagerly-connecting
+    //    onlyIfTrusted: true     Do NOT show connection Modal
+    //    onlyIfTrusted: false    show connection Modal
     const { onlyIfTrusted = false } = params || {};
 
     let publicKey = await this.getConnectedAcccountPublicKey(request);

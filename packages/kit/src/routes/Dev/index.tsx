@@ -24,6 +24,7 @@ import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons'
 import ImageViewerGallery from '@onekeyhq/kit/src/views/Components/stories/ImageViewer';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
 import KeyboardGallery from '@onekeyhq/kit/src/views/Components/stories/Keyboard';
+import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List/index';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import MarketGallery from '@onekeyhq/kit/src/views/Components/stories/Market';
@@ -49,7 +50,6 @@ import TabsGallery from '@onekeyhq/kit/src/views/Components/stories/Tabs';
 import TextareaGallery from '@onekeyhq/kit/src/views/Components/stories/Textarea';
 import ThemeGallery from '@onekeyhq/kit/src/views/Components/stories/Theme';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
-import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypeWriter from '@onekeyhq/kit/src/views/Components/stories/TypeWriter';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WalletSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/WalletSelector/index';
@@ -73,6 +73,7 @@ export enum StackRoutes {
   ComponentTheme = 'component/theme',
   ComponentIcon = 'component/icon',
   ComponentBadge = 'component/badge',
+  ComponentList = 'component/List',
   ComponentAlert = 'component/alert',
   ComponentButton = 'component/button',
   ComponentIconButton = 'component/icon-button',
@@ -173,7 +174,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentTypeWriter]: undefined;
   [StackRoutes.ComponentHomescreen]: undefined;
   [StackRoutes.ComponentNFTImage]: undefined;
-  [StackRoutes.ComponentMarkets]: undefined;
+  [StackRoutes.ComponentList]: undefined;
 };
 
 export const stackScreenList = [
@@ -186,10 +187,10 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
   { name: StackRoutes.ComponentNFTImage, component: NFTImageGallery },
-  { name: StackRoutes.ComponentToken, component: TokenGallery },
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
   { name: StackRoutes.ComponentIcon, component: IconGallery },
   { name: StackRoutes.ComponentBadge, component: BadgeGallery },
+  { name: StackRoutes.ComponentList, component: ListGallery },
   { name: StackRoutes.ComponentAlert, component: AlertGallery },
   { name: StackRoutes.ComponentButton, component: ButtonsGallery },
   { name: StackRoutes.ComponentIconButton, component: IconButtons },

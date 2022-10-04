@@ -1,5 +1,5 @@
 /* eslint-disable global-require */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';
@@ -9,6 +9,7 @@ import { Box, LottieView, Text, VStack } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useInterval } from '../../../hooks';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -24,6 +25,13 @@ export function SendFeedbackReceipt() {
   const openBlockBrowser = useOpenBlockBrowser(network);
   const [count, setCount] = useState(3);
   const isAutoClose = platformEnv.isExtensionUiStandaloneWindow;
+  const { serviceDapp } = backgroundApiProxy;
+  useEffect(
+    () => () => {
+      serviceDapp.setSendConfirmModalVisible({ visible: false });
+    },
+    [serviceDapp],
+  );
   const doClose = useCallback(() => {
     if (isFunction(route?.params?.closeModal)) {
       route?.params?.closeModal?.();

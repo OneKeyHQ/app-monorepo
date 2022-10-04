@@ -24,6 +24,8 @@ export const enabledNetworkIds: string[] = [
   OnekeyNetwork.near,
   OnekeyNetwork.etc,
   OnekeyNetwork.teth,
+  OnekeyNetwork.ethw,
+  OnekeyNetwork.etf,
 ];
 
 export const zeroXServerEndpoints: Record<string, string> = {
@@ -96,6 +98,8 @@ export const swftOnlyNetwork: string[] = [
   OnekeyNetwork.trx,
   OnekeyNetwork.near,
   OnekeyNetwork.etc,
+  OnekeyNetwork.ethw,
+  OnekeyNetwork.etf,
 ];
 
 export const networkSupportedTokens: Record<string, string[]> = {
@@ -416,6 +420,8 @@ export const networkSupportedTokens: Record<string, string[]> = {
   ],
   [OnekeyNetwork.near]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
   [OnekeyNetwork.etc]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
+  [OnekeyNetwork.etf]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
+  [OnekeyNetwork.ethw]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
 };
 
 export const tokenReservedValues: Record<string, number> = {

@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useCallback, useMemo } from 'react';
+import { ComponentProps, FC, useCallback, useMemo } from 'react';
 
 import {
   NavigationProp,
@@ -37,7 +37,7 @@ import {
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { changeActiveNetwork } from '../../../../store/reducers/general';
-import { sleep } from '../../../../utils/promiseUtils';
+import { wait } from '../../../../utils/helper';
 import {
   SwapRoutes,
   SwapRoutesParams,
@@ -195,7 +195,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         justifyContent="space-between"
       >
         <Box flexDirection="row" alignItems="center">
-          <TokenIcon size="8" src={tx.tokens?.from.token.logoURI} />
+          <TokenIcon size="8" token={tx.tokens?.from.token} />
           <Box ml="3">
             <Typography.Body1>
               {formatAmount(tx.tokens?.from.amount, 4)}
@@ -225,7 +225,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         justifyContent="space-between"
       >
         <Box flexDirection="row" alignItems="center">
-          <TokenIcon size="8" src={tx.tokens?.to.token.logoURI} />
+          <TokenIcon size="8" token={tx.tokens?.to.token} />
           <Box ml="3">
             <Typography.Body1>
               {formatAmount(tx.tokens?.to.amount, 4)}
@@ -338,7 +338,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
               onPress={() => onChange?.(undefined, item)}
             >
               <Box flexDirection="row" alignItems="center">
-                <TokenIcon size="8" src={token.logoURI} />
+                <TokenIcon size="8" token={token} />
                 <Typography.Body1Strong ml={3}>
                   {token.label}
                 </Typography.Body1Strong>
@@ -448,7 +448,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     if (from && to && fromNetwork && toNetwork) {
       if (networkId !== fromNetwork.id) {
         backgroundApiProxy.dispatch(changeActiveNetwork(fromNetwork.id));
-        await sleep(500);
+        await wait(500);
       }
       backgroundApiProxy.serviceSwap.selectToken(
         'INPUT',

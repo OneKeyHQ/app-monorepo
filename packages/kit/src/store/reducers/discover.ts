@@ -96,7 +96,7 @@ export const discoverSlice = createSlice({
     addWebSiteHistory(
       state,
       action: PayloadAction<{
-        keyUrl: string | undefined;
+        keyUrl?: string;
         webSite: WebSiteHistory;
       }>,
     ) {
@@ -145,7 +145,9 @@ export const discoverSlice = createSlice({
       }
     },
     updateSyncData(state, action: PayloadAction<InitialState['syncData']>) {
-      state.syncData = action.payload;
+      if (action.payload.timestamp > state.syncData.timestamp) {
+        state.syncData = action.payload;
+      }
     },
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;

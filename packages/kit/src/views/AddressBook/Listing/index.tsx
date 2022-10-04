@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,7 +22,7 @@ import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { Contact, remove } from '../../../store/reducers/contacts';
+import { remove } from '../../../store/reducers/contacts';
 import { AddressBookRoutes } from '../routes';
 
 import Layout from './layout';
@@ -220,7 +220,7 @@ const Listing = () => {
   ) : (
     <Layout onNew={onNew}>
       <Box bg="surface-default" borderRadius={12}>
-        <FlatList<Contact>
+        <FlatList
           data={data}
           renderItem={({ item, index }) => (
             <ListingItem

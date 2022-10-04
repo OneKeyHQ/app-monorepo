@@ -70,7 +70,4 @@ export function useLoadCustomFonts() {
   return useFonts(customFont);
 }
 
-export function useSafeAreaInsets() {
-  const safeArea = useRNSafeAreaInsets();
-  return safeArea;
-}
+export const useSafeAreaInsets = useRNSafeAreaInsets;

@@ -14,7 +14,7 @@ import {
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
-import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
+import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home/DiscoverHome';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
@@ -30,6 +30,8 @@ import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
+import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
 import SwapHistory from '../../views/Swap/History';
 import Dev from '../Dev';
@@ -57,7 +59,7 @@ export const stackScreenList = [
   },
   {
     name: HomeRoutes.ExploreScreen,
-    component: Discover,
+    component: DiscoverHome,
   },
   {
     name: HomeRoutes.DAppListScreen,
@@ -192,7 +194,8 @@ function MainScreen() {
     <RootSiblingParent>
       <Box ref={setMainScreenDom} w="full" h="full">
         <Dashboard />
-
+        <NetworkAccountSelectorEffectsSingleton />
+        <WalletSelectorEffectsSingleton />
         {/* TODO Waiting notification component */}
         <UpdateAlert />
       </Box>

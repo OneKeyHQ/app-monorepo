@@ -5,7 +5,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { cloneDeep, debounce } from 'lodash';
 
-import { SEPERATOR } from '@onekeyhq/engine/src/constants';
+import { IMPL_SOL, SEPERATOR } from '@onekeyhq/engine/src/constants';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
@@ -24,12 +24,14 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import { getTimeDurationMs, wait } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {
   ensureSerializable,
   getNetworkImplFromDappScope,
   isDappScopeMatchNetwork,
+  waitForDataLoaded,
 } from '../utils';
 
 import ServiceBase from './ServiceBase';
@@ -40,6 +42,27 @@ type CommonRequestParams = {
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
+  isSendConfirmModalVisible = false;
+
+  @backgroundMethod()
+  setSendConfirmModalVisible({ visible }: { visible: boolean }) {
+    this.isSendConfirmModalVisible = visible;
+  }
+
+  async processBatchTransactionOneByOne({ run }: { run: () => Promise<void> }) {
+    this.isSendConfirmModalVisible = true;
+
+    await run();
+
+    // set isSendConfirmModalVisible=false in SendFeedbackReceipt.tsx
+    await waitForDataLoaded({
+      data: () => !this.isSendConfirmModalVisible,
+      timeout: getTimeDurationMs({ minute: 1 }),
+      logName: 'processBatchTransactionOneByOne wait isSendConfirmModalVisible',
+    });
+    await wait(1000);
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   @backgroundMethod()
   async getActiveConnectedAccountsAsync({
@@ -268,10 +291,24 @@ class ServiceDapp extends ServiceBase {
       request.scope,
       network?.impl,
     );
+    let shouldShowNotMatchedNetworkModal = true;
+    const requestMethod = (request.data as IJsonRpcRequest)?.method || '';
+    const notMatchedErrorMessage = `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
+      request.scope || ''
+    }`;
 
     if (isAuthorizedRequired && isNotAuthorized) {
       // TODO show different modal for isNotAuthorized
       isNotMatchedNetwork = true;
+    }
+
+    if (
+      isNotMatchedNetwork &&
+      request.origin === 'https://opensea.io' &&
+      request.scope === 'solana' &&
+      network?.impl !== IMPL_SOL
+    ) {
+      shouldShowNotMatchedNetworkModal = false;
     }
 
     return new Promise((resolve, reject) => {
@@ -315,22 +352,20 @@ class ServiceDapp extends ServiceBase {
       ensureSerializable(modalParams);
 
       if (isNotMatchedNetwork) {
-        this._openModalByRouteParamsDebounced({
-          routeNames,
-          routeParams,
-          modalParams,
-        });
-        const requestMethod = (request.data as IJsonRpcRequest)?.method || '';
+        if (shouldShowNotMatchedNetworkModal) {
+          this._openModalByRouteParamsDebounced({
+            routeNames,
+            routeParams,
+            modalParams,
+          });
+        }
+
         if (requestMethod === 'eth_requestAccounts') {
           // some dapps like https://polymm.finance/ will call `eth_requestAccounts` infinitely if reject() on Mobile
           // so we should resolve([]) here
           resolve([]);
         } else {
-          let error = new Error(
-            `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
-              request.scope || ''
-            }`,
-          );
+          let error = new Error(notMatchedErrorMessage);
           if (isAuthorizedRequired && isNotAuthorized) {
             // debugLogger.dappApprove.error(web3Errors.provider.unauthorized());
             error = web3Errors.provider.unauthorized();

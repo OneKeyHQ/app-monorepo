@@ -22,6 +22,8 @@
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "m1:ios": "arch -x86_64 yarn ios",
     "m1:ios:device": "arch -x86_64 yarn ios:device",
+    "arm:ios": "arch -arm64 yarn ios",
+    "arm:ios:device": "arch -arm64 yarn ios:device",
     "ios:device": "yarn copy:inject && yarn workspace @onekeyhq/app ios:device",
     "ios-install": "cd ./packages/app/ios && pod install && cd -",
     "ios-xcode": "open ./packages/app/ios/OneKeyWallet.xcworkspace",
@@ -47,12 +49,12 @@
     "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "1.0.3",
-    "@onekeyfe/cross-inpage-provider-errors": "1.0.3",
-    "@onekeyfe/cross-inpage-provider-injected": "1.0.3",
-    "@onekeyfe/cross-inpage-provider-types": "1.0.3",
-    "@onekeyfe/extension-bridge-hosted": "1.0.3",
-    "@onekeyfe/onekey-cross-webview": "1.0.3",
+    "@onekeyfe/cross-inpage-provider-core": "1.0.5",
+    "@onekeyfe/cross-inpage-provider-errors": "1.0.5",
+    "@onekeyfe/cross-inpage-provider-injected": "1.0.5",
+    "@onekeyfe/cross-inpage-provider-types": "1.0.5",
+    "@onekeyfe/extension-bridge-hosted": "1.0.5",
+    "@onekeyfe/onekey-cross-webview": "1.0.5",
     "axios": "^0.26.0",
     "expo-device": "^4.3.0",
     "memoizee": "^0.4.15"
@@ -139,6 +141,8 @@
     "react-native-svg": "12.3.0",
     "react-native-qrcode-svg": "6.1.2",
     "@solana/web3.js": "1.47.3",
-    "**/buffer": "^6.0.3"
+    "**/buffer": "^6.0.3",
+    "@types/react-native": "~0.68",
+    "@types/react": "^17"
   }
 }

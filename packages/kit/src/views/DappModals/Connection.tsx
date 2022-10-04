@@ -19,6 +19,7 @@ import {
   Icon,
   Modal,
   Spinner,
+  Text,
   Token,
   Typography,
   VStack,
@@ -124,7 +125,19 @@ const Connection = () => {
     },
     [],
   );
+  const getWalletConnectBridge = useCallback(() => {
+    if (!walletConnectUri) {
+      return '';
+    }
+    try {
+      const uriInfo = new URL(walletConnectUri);
 
+      return uriInfo.searchParams.get('bridge');
+    } catch {
+      //
+    }
+    return '';
+  }, [walletConnectUri]);
   useEffect(() => {
     if (walletConnectUri) {
       backgroundApiProxy.walletConnect
@@ -243,7 +256,14 @@ const Connection = () => {
                   })}
                 />
               ) : (
-                <Spinner size="lg" />
+                <>
+                  <Spinner size="lg" />
+                  {platformEnv.isDev ? (
+                    <Box mt={4}>
+                      <Text>{getWalletConnectBridge()}</Text>
+                    </Box>
+                  ) : null}
+                </>
               )}
             </Center>
           ) : (

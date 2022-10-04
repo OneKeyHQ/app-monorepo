@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useMemo, useRef } from 'react';
+import { FC, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -40,7 +38,7 @@ import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
-import { showAccountValueSettings } from '../../Overlay/BottomSheetSettings';
+import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;

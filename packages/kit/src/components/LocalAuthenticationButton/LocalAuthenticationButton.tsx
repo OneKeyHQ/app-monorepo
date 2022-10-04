@@ -44,6 +44,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
     setLoading(true);
     try {
       const localAuthenticateResult = await localAuthenticate();
+
       if (localAuthenticateResult.success) {
         const password = await getPassword();
         if (password) {
@@ -55,16 +56,20 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
             return;
           }
         }
+      } else {
+        const { error } = localAuthenticateResult;
+        if (!error.includes('cancelled')) {
+          toast.show(
+            {
+              title: intl.formatMessage({ id: 'msg__verification_failure' }),
+            },
+            {
+              type: 'error',
+            },
+          );
+        }
+        onNg?.();
       }
-      toast.show(
-        {
-          title: intl.formatMessage({ id: 'msg__verification_failure' }),
-        },
-        {
-          type: 'error',
-        },
-      );
-      onNg?.();
     } finally {
       loading.current = false;
       setLoading(false);

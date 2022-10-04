@@ -27,10 +27,13 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useDebounce } from '../../../hooks';
+import { URITester } from '../CustomNetwork';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import { DiscardAlert } from './DiscardAlert';
 
+import type { NetworkRpcURLStatus } from '../CustomNetwork';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -95,7 +98,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const [resetOpened, setResetOpened] = useState(false);
   const isSmallScreen = useIsVerticalLayout();
 
-  const watchedRpcURL = watch('rpcURL');
+  const watchedRpcURL = useDebounce(watch('rpcURL'), 1000);
 
   const onButtonPress = useCallback(() => {
     setResetOpened(true);
@@ -199,6 +202,73 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   }, [onBeforeRemove, navigation]);
 
   const [isCustomRpc, setIsCustomRpc] = useState(false);
+  const [rpcStatus, setRpcStatus] = useState<NetworkRpcURLStatus>({
+    connected: false,
+  });
+
+  useEffect(() => {
+    const url = watchedRpcURL?.trim() ?? '';
+    if (!url) {
+      setRpcStatus({ connected: false });
+      return;
+    }
+    setRpcStatus({ connected: false, loading: true });
+    if (rpcUrls.includes(url)) {
+      // preset URLs
+      if (networkStatus[url]) {
+        // Already connected
+        setRpcStatus({
+          connected: true,
+          loading: false,
+          speed: networkStatus[url],
+        });
+      }
+    } else if (URITester.test(url)) {
+      // customized URL
+      serviceNetwork
+        .preAddNetwork(url)
+        .then(({ chainId: pChainId }) => {
+          if (pChainId !== chainId) {
+            setRpcStatus({
+              connected: false,
+              loading: false,
+              error: intl.formatMessage({ id: 'form__chain_id_invalid' }),
+            });
+          } else {
+            measure(url, id).then((speed) =>
+              setRpcStatus({ connected: true, loading: false, speed }),
+            );
+          }
+        })
+        .catch(() => {
+          setRpcStatus({
+            connected: false,
+            loading: false,
+            error: intl.formatMessage({ id: 'form__rpc_fetched_failed' }),
+          });
+        });
+    }
+  }, [
+    watchedRpcURL,
+    rpcUrls,
+    networkStatus,
+    serviceNetwork,
+    chainId,
+    intl,
+    id,
+  ]);
+
+  const hintText = useMemo(() => {
+    if (rpcStatus.error) return rpcStatus.error;
+    if (rpcStatus.loading)
+      return intl.formatMessage({ id: 'form__rpc_url_connecting' });
+    if (rpcStatus.connected) {
+      return intl.formatMessage(
+        { id: 'form__rpc_url_spped' },
+        { value: rpcStatus.speed },
+      );
+    }
+  }, [rpcStatus, intl]);
 
   return (
     <>
@@ -207,7 +277,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
         height="560px"
         primaryActionProps={{
           onPromise: handleSubmit(onSubmit),
-          isDisabled: watchedRpcURL === rpcURL,
+          isDisabled: watchedRpcURL === rpcURL || !rpcStatus.connected,
         }}
         primaryActionTranslationId="action__save"
         hideSecondaryAction
@@ -245,14 +315,10 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                     />
                   }
                   formControlProps={{ zIndex: 10 }}
-                  helpText={
-                    watchedRpcURL && networkStatus[watchedRpcURL]
-                      ? intl.formatMessage(
-                          { id: 'form__rpc_url_spped' },
-                          { value: networkStatus[watchedRpcURL] },
-                        )
-                      : intl.formatMessage({ id: 'form__rpc_url_connecting' })
-                  }
+                  helpText={hintText}
+                  rules={{
+                    validate: () => !rpcStatus.connected,
+                  }}
                 >
                   {isCustomRpc ? (
                     <Form.Input size={isSmallScreen ? 'xl' : 'default'} />

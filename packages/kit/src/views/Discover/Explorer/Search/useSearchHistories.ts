@@ -3,9 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Fuse from 'fuse.js';
 
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import { WebSiteHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 
-import type { DAppItemType } from '../../type';
+import { MatchDAppItemType } from '../explorerUtils';
 
 const options = {
   includeScore: true,
@@ -32,14 +31,6 @@ const options = {
       weight: 0.5,
     },
   ],
-};
-
-export type MatchDAppItemType = {
-  id: string;
-  dapp?: DAppItemType | undefined;
-  webSite?: WebSiteHistory | undefined;
-  clicks?: number | undefined;
-  timestamp?: number | undefined;
 };
 
 function searchScore(params: Fuse.FuseResult<MatchDAppItemType>) {

@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -25,8 +26,8 @@ type SwapState = {
 
   recipient?: Recipient;
 
-  receivingNetworkId?: string;
-  sendingNetworkId?: string;
+  networkSelectorId?: string;
+  sendingAccount?: Account | null;
 };
 
 const initialState: SwapState = {
@@ -122,11 +123,14 @@ export const swapSlice = createSlice({
     setRecipient(state, action: PayloadAction<Recipient | undefined>) {
       state.recipient = action.payload;
     },
-    setReceivingNetworkId(state, action: PayloadAction<string | undefined>) {
-      state.receivingNetworkId = action.payload;
+    setNetworkSelectorId(state, action: PayloadAction<string | undefined>) {
+      state.networkSelectorId = action.payload;
     },
-    setSendingNetworkId(state, action: PayloadAction<string | undefined>) {
-      state.sendingNetworkId = action.payload;
+    setSendingAccount(
+      state,
+      action: PayloadAction<Account | undefined | null>,
+    ) {
+      state.sendingAccount = action.payload;
     },
   },
 });
@@ -144,9 +148,9 @@ export const {
   resetTypedValue,
   clearState,
   resetState,
-  setReceivingNetworkId,
-  setSendingNetworkId,
+  setNetworkSelectorId,
   setRecipient,
+  setSendingAccount,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

@@ -17,12 +17,9 @@ import {
   Searchbar,
   Spinner,
   Token as TokenImage,
-  TokenVerifiedIcon,
   Typography,
   useToast,
-  utils,
 } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 
@@ -39,7 +36,7 @@ import {
 import { timeout } from '../../utils/helper';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
-import { showHomeBalanceSettings } from '../Overlay/BottomSheetSettings';
+import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -113,37 +110,20 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 _hover={{ bgColor: 'surface-hovered' }}
                 _pressed={{ bgColor: 'surface-pressed' }}
               >
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  flexDirection="row"
+                <TokenImage
+                  size={8}
+                  token={item}
+                  showInfo
                   flex={1}
-                >
-                  <TokenImage size={8} src={item.logoURI} />
-                  <Box ml="3" flex={1}>
-                    <Box flexDirection="row" alignItems="center">
-                      <Text
-                        maxW={56}
-                        numberOfLines={1}
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      >
-                        {item.name}
-                      </Text>
-                      <TokenVerifiedIcon token={item} />
-                    </Box>
-                    <Typography.Body2
-                      maxW="56"
-                      numberOfLines={1}
-                      color="text-subdued"
-                    >
-                      <FormatBalance
-                        balance={balances[item.tokenIdOnNetwork] ?? '0'}
-                        suffix={item.symbol}
-                        formatOptions={{ fixed: 6 }}
-                      />
-                    </Typography.Body2>
-                  </Box>
-                </Box>
+                  showExtra={false}
+                  description={
+                    <FormatBalance
+                      balance={balances[item.tokenIdOnNetwork] ?? '0'}
+                      suffix={item.symbol}
+                      formatOptions={{ fixed: 6 }}
+                    />
+                  }
+                />
                 <IconButton
                   name="TrashSolid"
                   type="plain"
@@ -265,7 +245,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { walletId, accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
@@ -348,6 +328,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       );
       if (vaultSettings?.activateTokenRequired) {
         navigation.navigate(ManageTokenRoutes.ActivateToken, {
+          walletId,
           accountId,
           networkId,
           tokenId: item.tokenIdOnNetwork,
@@ -359,7 +340,14 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         onAddToken();
       }
     }
-  }, [accountId, item.tokenIdOnNetwork, navigation, networkId, onAddToken]);
+  }, [
+    walletId,
+    accountId,
+    item.tokenIdOnNetwork,
+    navigation,
+    networkId,
+    onAddToken,
+  ]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned
@@ -391,32 +379,23 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       _pressed={{ bgColor: 'surface-pressed' }}
     >
       <Box display="flex" alignItems="center" flexDirection="row" flex={1}>
-        <TokenImage size={8} src={item.logoURI} />
-        <Box ml="3" flex={1}>
-          <Box alignItems="center" flexDirection="row">
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              maxW="56"
-              numberOfLines={1}
-              color={isOwned ? 'text-disabled' : 'text-default'}
-            >
-              {item.name}
-            </Text>
-            <TokenVerifiedIcon token={item} />
-          </Box>
-          <Typography.Body2
-            numberOfLines={1}
-            color={isOwned ? 'text-disabled' : 'text-subdued'}
-          >
-            {item.symbol}
-          </Typography.Body2>
-          <Typography.Body2
-            numberOfLines={1}
-            color={isOwned ? 'text-disabled' : 'text-subdued'}
-          >
-            {utils.shortenAddress(item.tokenIdOnNetwork)}
-          </Typography.Body2>
-        </Box>
+        <TokenImage
+          size={8}
+          showInfo
+          token={item}
+          showExtra
+          nameProps={{
+            color: isOwned ? 'text-disabled' : 'text-default',
+          }}
+          descProps={{
+            // @ts-ignore
+            color: isOwned ? 'text-disabled' : 'text-subdued',
+          }}
+          extraProps={{
+            // @ts-ignore
+            color: isOwned ? 'text-disabled' : 'text-subdued',
+          }}
+        />
       </Box>
       <Box>
         {isOwned ? (

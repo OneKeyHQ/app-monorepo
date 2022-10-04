@@ -47,8 +47,7 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceInterruptedFromOutside;
 
   // Don't remind
-  // @ts-expect-error
-  override key: LocaleIds = '';
+  override key: LocaleIds = 'msg__hardware_user_cancel_error';
 }
 
 export class UnknownMethod extends OneKeyHardwareError {

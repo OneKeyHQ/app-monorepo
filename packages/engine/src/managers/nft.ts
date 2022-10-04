@@ -1,8 +1,9 @@
-// import { defaultAbiCoder } from '@ethersproject/abi';
+import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 
 import {
+  Collection,
   NFTAsset,
   NFTChainMap,
   NFTGetAssetResp,
@@ -15,10 +16,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 
 import { getFiatEndpoint } from '../endpoint';
 import { OnekeyNetwork } from '../presets/networkIds';
-// import {
-//   Erc1155MethodSelectors,
-//   Erc721MethodSelectors,
-// } from '../vaults/impl/evm/decoder/abi';
+import {
+  Erc1155MethodSelectors,
+  Erc721MethodSelectors,
+} from '../vaults/impl/evm/decoder/abi';
 import { IDecodedTxActionType, IDecodedTxDirection } from '../vaults/types';
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
@@ -158,6 +159,41 @@ export const getAsset = async (params: {
   return camelcaseKeys(data, { deep: true });
 };
 
+function mergeLocalAsset({
+  transaction,
+  collectionMap,
+}: {
+  transaction: NFTTransaction;
+  collectionMap: Record<string, Collection>;
+}) {
+  const { asset: txAsset, collectionId } = transaction;
+  let localAsset;
+  let collectionName;
+  let logoUrl;
+  if (collectionId) {
+    const collection = collectionMap[collectionId];
+    if (collection) {
+      localAsset = collection.assets.find((item) => {
+        const { tokenAddress, tokenId } = item;
+        if (tokenAddress) {
+          return item.tokenAddress === transaction.tokenAddress;
+        }
+        return item.tokenId === tokenId;
+      });
+      collectionName = collection.contractName ?? '';
+      logoUrl = collection.logoUrl ?? '';
+    }
+  }
+  const asset = txAsset ?? localAsset;
+  if (asset) {
+    return {
+      ...transaction,
+      asset: { ...asset, collection: { collectionName, logoUrl } },
+    };
+  }
+  return transaction;
+}
+
 export const getNFTTransactionHistory = async (
   accountId?: string,
   networkId?: string,
@@ -170,9 +206,8 @@ export const getNFTTransactionHistory = async (
       .then((resp) => resp.data)
       .catch(() => ({ data: [] }));
     const transactions = camelcaseKeys(data, { deep: true }).data;
-
     const contractAddressList = transactions
-      .map((item) => item.contractAddress)
+      .map((tx) => tx.collectionId)
       .filter(Boolean);
     const { serviceNFT } = backgroundApiProxy;
     const collectionMap = await serviceNFT.batchLocalCollection({
@@ -180,54 +215,36 @@ export const getNFTTransactionHistory = async (
       accountId,
       contractAddressList,
     });
-    return transactions.map((tx): NFTTransaction => {
-      const { asset, contractAddress } = tx;
-      if (contractAddress) {
-        const collection = collectionMap[contractAddress];
-        if (collection) {
-          const findAsset = collection.assets.find(
-            (item) => item.tokenId === tx.tokenId,
-          );
-          if (findAsset) {
-            if (!asset) {
-              return {
-                ...tx,
-                asset: findAsset,
-              };
-            }
-            return {
-              ...tx,
-              asset: { ...asset, collection: findAsset.collection },
-            };
-          }
-        }
-      }
-      return tx;
-    });
+
+    const txList = transactions.map(
+      (transaction): NFTTransaction =>
+        mergeLocalAsset({ transaction, collectionMap }),
+    );
+    return txList;
   }
   return [];
 };
 
-// export function buildEncodeDataWithABI(param: {
-//   type: string;
-//   from: string;
-//   to: string;
-//   id: string;
-//   amount: string;
-// }) {
-//   const { type, from, to, id, amount } = param;
-//   if (type === 'erc721') {
-//     return `${Erc721MethodSelectors.safeTransferFrom}${defaultAbiCoder
-//       .encode(['address', 'address', 'uint256'], [from, to, id])
-//       .slice(2)}`;
-//   }
-//   return `${Erc1155MethodSelectors.safeTransferFrom}${defaultAbiCoder
-//     .encode(
-//       ['address', 'address', 'uint256', 'uint256', 'bytes'],
-//       [from, to, id, amount, '0x00'],
-//     )
-//     .slice(2)}`;
-// }
+export function buildEncodeDataWithABI(param: {
+  type: string;
+  from: string;
+  to: string;
+  id: string;
+  amount: string;
+}) {
+  const { type, from, to, id, amount } = param;
+  if (type === 'erc721') {
+    return `${Erc721MethodSelectors.safeTransferFrom}${defaultAbiCoder
+      .encode(['address', 'address', 'uint256'], [from, to, id])
+      .slice(2)}`;
+  }
+  return `${Erc1155MethodSelectors.safeTransferFrom}${defaultAbiCoder
+    .encode(
+      ['address', 'address', 'uint256', 'uint256', 'bytes'],
+      [from, to, id, amount, '0x00'],
+    )
+    .slice(2)}`;
+}
 
 export function createOutputActionFromNFTTransaction({
   transaction,

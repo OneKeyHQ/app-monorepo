@@ -63,11 +63,19 @@ export function TxDetailActionBoxAutoTransform(
 
   let iconView = icon;
   if (!iconView) {
-    iconView = <TxActionElementIconNormal iconInfo={iconInfo} />;
+    iconView = (
+      <TxActionElementIconNormal
+        iconInfo={iconInfo}
+        name={amountInfo?.symbol ?? ''}
+      />
+    );
     if (isSingleTransformMode) {
       iconView = (
         <Box py="6px">
-          <TxActionElementIconXLarge iconInfo={iconInfo} />
+          <TxActionElementIconXLarge
+            iconInfo={iconInfo}
+            name={amountInfo?.symbol ?? ''}
+          />
         </Box>
       );
     }

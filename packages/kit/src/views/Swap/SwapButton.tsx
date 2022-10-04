@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,15 +7,18 @@ import { Button, useToast } from '@onekeyhq/components';
 import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount, useRuntime } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
-import { changeActiveNetwork } from '../../store/reducers/general';
+import { changeActiveAccount } from '../../store/reducers/general';
 import { addTransaction } from '../../store/reducers/swapTransactions';
-import { sleep } from '../../utils/promiseUtils';
+import { wait } from '../../utils/helper';
 import { SendRoutes } from '../Send/types';
 
 import {
@@ -83,22 +86,54 @@ const ExchangeButton = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const { networks } = useRuntime();
-  const { quote } = useSwapState();
-  const { account, network } = useActiveWalletAccount();
+  const { quote, sendingAccount } = useSwapState();
+  const { account: currentAccount, network } = useActiveWalletAccount();
   const { inputAmount, outputAmount } = useDerivedSwapState();
   const recipient = useSwapRecipient();
   const params = useSwapQuoteRequestParams();
 
   const onSubmit = useCallback(async () => {
-    if (!params || !account || !quote || !inputAmount || !outputAmount) {
+    if (!params || !sendingAccount || !quote || !inputAmount || !outputAmount) {
       toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
       return;
     }
 
+    const accountInWallets =
+      await backgroundApiProxy.serviceSwap.checkAccountInWallets(
+        sendingAccount.id,
+      );
+
+    if (!accountInWallets) {
+      toast.show({
+        title: intl.formatMessage(
+          { id: 'msg__account_deleted' },
+          { '0': sendingAccount.name },
+        ),
+        type: 'error',
+      });
+      return;
+    }
+
     const targetNetworkId = inputAmount.token.networkId;
+
     if (network?.id !== targetNetworkId) {
-      backgroundApiProxy.dispatch(changeActiveNetwork(targetNetworkId));
-      await sleep(1000);
+      backgroundApiProxy.serviceNetwork.changeActiveNetwork(targetNetworkId);
+      await wait(1000);
+    }
+    if (sendingAccount && sendingAccount !== currentAccount) {
+      const wallet =
+        await backgroundApiProxy.serviceSwap.getAccountRelatedWallet(
+          sendingAccount.id,
+        );
+      if (wallet) {
+        backgroundApiProxy.dispatch(
+          changeActiveAccount({
+            activeAccountId: sendingAccount.id,
+            activeWalletId: wallet.id,
+          }),
+        );
+        await wait(1000);
+      }
     }
 
     const targetNetwork = networks.find((item) => item.id === targetNetworkId);
@@ -109,7 +144,7 @@ const ExchangeButton = () => {
 
     const res = await SwapQuoter.client.buildTransaction(quote.type, {
       ...params,
-      activeAccount: account,
+      activeAccount: sendingAccount,
       receivingAddress: recipient?.address,
       txData: quote.txData,
       additionalParams: quote.additionalParams,
@@ -127,14 +162,14 @@ const ExchangeButton = () => {
       inputAmount,
       outputAmount,
       swapQuote: quote,
-      account,
+      account: sendingAccount,
     });
 
     let encodedTx: IEncodedTx | undefined;
     if (typeof res?.data === 'object') {
       encodedTx = {
         ...res?.data,
-        from: account.address,
+        from: sendingAccount.address,
       };
     } else {
       encodedTx = res.data;
@@ -148,15 +183,15 @@ const ExchangeButton = () => {
     const addSwapTransaction = (hash: string, nonce?: number) => {
       backgroundApiProxy.dispatch(
         addTransaction({
-          accountId: account.id,
+          accountId: sendingAccount.id,
           networkId: targetNetwork.id,
           transaction: {
             hash,
-            from: account.address,
+            from: sendingAccount.address,
             addedTime: Date.now(),
             status: 'pending',
             type: 'swap',
-            accountId: account.id,
+            accountId: sendingAccount.id,
             networkId: targetNetwork.id,
             quoterType: quote.type,
             nonce,
@@ -183,14 +218,16 @@ const ExchangeButton = () => {
       backgroundApiProxy.serviceSwap.clearState();
       backgroundApiProxy.serviceToken.addAccountToken(
         inputAmount.token.networkId,
-        account.id,
+        sendingAccount.id,
         inputAmount.token.tokenIdOnNetwork,
       );
-      backgroundApiProxy.serviceToken.addAccountToken(
-        outputAmount.token.networkId,
-        account.id,
-        outputAmount.token.tokenIdOnNetwork,
-      );
+      if (inputAmount.token.networkId === outputAmount.token.networkId) {
+        backgroundApiProxy.serviceToken.addAccountToken(
+          outputAmount.token.networkId,
+          sendingAccount.id,
+          outputAmount.token.tokenIdOnNetwork,
+        );
+      }
     };
 
     if (quote.allowanceTarget && params.tokenIn.tokenIdOnNetwork) {
@@ -198,7 +235,7 @@ const ExchangeButton = () => {
         networkId: params.tokenIn.networkId,
         tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
         spender: quote.allowanceTarget,
-        accountId: account.id,
+        accountId: sendingAccount.id,
       });
       const allowanceBN = new BigNumber(allowance ?? '0');
       if (allowanceBN.lt(inputAmount.toNumber())) {
@@ -206,10 +243,14 @@ const ExchangeButton = () => {
           (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
             spender: quote.allowanceTarget,
             networkId: params.tokenIn.networkId,
-            accountId: account.id,
+            accountId: sendingAccount.id,
             token: inputAmount.token.tokenIdOnNetwork,
             amount: 'unlimited',
           })) as IEncodedTxEvm;
+        const nonce = await backgroundApiProxy.engine.getEvmNextNonce({
+          networkId: params.tokenIn.networkId,
+          accountId: sendingAccount.id,
+        });
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -217,25 +258,32 @@ const ExchangeButton = () => {
             params: {
               payloadInfo: {
                 type: 'InternalSwap',
-                swapInfo,
+                swapInfo: { ...swapInfo, isApprove: true },
               },
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
-              encodedTx: { ...encodedApproveTx, from: account?.address },
+              skipSaveHistory: true,
+              encodedTx: {
+                ...encodedApproveTx,
+                nonce,
+                from: sendingAccount?.address,
+              },
               onSuccess: async () => {
                 if (!encodedTx) {
                   return;
                 }
+                const encodedEvmTx = encodedTx as IEncodedTxEvm;
                 const { result, decodedTx } =
                   await backgroundApiProxy.serviceSwap.sendTransaction({
                     accountId: params.activeAccount.id,
                     networkId: params.tokenIn.networkId,
-                    encodedTx,
+                    encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
                     payload: {
                       type: 'InternalSwap',
                       swapInfo,
                     },
                   });
+                appEventBus.emit(AppEventBusNames.SwapCompleted);
                 addSwapTransaction(result.txid, decodedTx.nonce);
               },
             },
@@ -277,7 +325,8 @@ const ExchangeButton = () => {
   }, [
     params,
     quote,
-    account,
+    currentAccount,
+    sendingAccount,
     network,
     inputAmount,
     outputAmount,
@@ -358,42 +407,16 @@ const SwapStateButton = () => {
 const SwapButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { account, wallet, networkId, walletId } = useActiveWalletAccount();
+  const { wallet } = useActiveWalletAccount();
 
   const onCreateWallet = useCallback(() => {
     navigation.navigate(RootRoutes.Onboarding);
   }, [navigation]);
 
-  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
-    networkId,
-    walletId,
-  });
-
-  const onCreateAccount = useCallback(() => {
-    if (!wallet) {
-      return;
-    }
-    createAccount();
-  }, [wallet, createAccount]);
-
   if (!wallet) {
     return (
       <Button size="xl" type="primary" onPress={onCreateWallet} key="addWallet">
         {intl.formatMessage({ id: 'action__create_wallet' })}
-      </Button>
-    );
-  }
-
-  if (!account) {
-    return (
-      <Button
-        leftIconName={isCreateAccountSupported ? undefined : 'BanOutline'}
-        size="xl"
-        type="primary"
-        onPress={onCreateAccount}
-        key="addAccount"
-      >
-        {intl.formatMessage({ id: 'action__create_account' })}
       </Button>
     );
   }

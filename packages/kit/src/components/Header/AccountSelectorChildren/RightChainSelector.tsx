@@ -72,8 +72,10 @@ const RightChainSelector: FC<Props> = ({
       label: network.shortName,
       value: network.id,
       tokenProps: {
-        src: network.logoURI,
-        letter: network.shortName,
+        token: {
+          logoURI: network?.logoURI,
+          name: network?.shortName,
+        },
       },
       badge: network.impl === 'evm' ? 'EVM' : undefined,
     }));

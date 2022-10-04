@@ -16,13 +16,11 @@ import {
   SectionList,
   SegmentedControl,
   Typography,
-  useIsVerticalLayout,
   utils,
 } from '@onekeyhq/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import imageUrl from '../../../../assets/3d_contact.png';
@@ -148,6 +146,7 @@ type WalletAccount = {
 };
 
 const MyWallet = () => {
+  const intl = useIntl();
   const { wallets } = useRuntime();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
@@ -223,9 +222,26 @@ const MyWallet = () => {
       </Box>
     </Pressable>
   );
+
+  const renderWalletTitle = useCallback(
+    (wallet: Wallet) => {
+      if (wallet.type === 'external') {
+        return intl.formatMessage({ id: 'content__external_account' });
+      }
+      if (wallet.type === 'imported') {
+        return intl.formatMessage({ id: 'wallet__imported_accounts' });
+      }
+      if (wallet.type === 'watching') {
+        return intl.formatMessage({ id: 'wallet__watched_accounts' });
+      }
+      return wallet.name;
+    },
+    [intl],
+  );
   return (
     <SectionList
       sections={sections}
+      contentContainerStyle={{ flexGrow: 1 }}
       keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
       ItemSeparatorComponent={() => (
@@ -236,7 +252,7 @@ const MyWallet = () => {
       // eslint-disable-next-line
       renderSectionHeader={({ section }: { section: WalletAccount }) => (
         <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>
-          {section.wallet.name}
+          {renderWalletTitle(section.wallet)}
         </Typography.Subheading>
       )}
     />
@@ -245,7 +261,6 @@ const MyWallet = () => {
 
 const PickAddress = () => {
   const intl = useIntl();
-  const isSmall = useIsVerticalLayout();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const navigation = useNavigation<NavigationProps>();
   const onPrimaryPress = useCallback(() => {
@@ -264,6 +279,7 @@ const PickAddress = () => {
         type: 'basic',
         onPress: onPrimaryPress,
       }}
+      maxHeight="560px"
       hidePrimaryAction={selectedIndex !== 0}
       staticChildrenProps={{ flex: 1, py: 6 }}
     >
@@ -277,9 +293,7 @@ const PickAddress = () => {
           onChange={setSelectedIndex}
         />
       </Box>
-      <Box flex="1" maxH={!isSmall && !platformEnv.isNative ? '72' : undefined}>
-        {selectedIndex === 0 ? addressbook : wallet}
-      </Box>
+      <Box flex="1">{selectedIndex === 0 ? addressbook : wallet}</Box>
     </Modal>
   );
 };

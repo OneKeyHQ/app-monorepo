@@ -65,6 +65,9 @@ export type ITransferInfo = {
   to: string;
   amount: string;
   token?: string; // tokenIdOnNetwork
+  isNFT?: boolean;
+  tokenId?: string; // NFT token id
+  type?: string; // NFT standard: erc721/erc1155
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -87,12 +90,20 @@ export type ISwapInfo = {
   slippagePercentage: string;
   independentField: 'INPUT' | 'OUTPUT';
   swapQuote: QuoteData;
+  isApprove?: boolean;
 };
 
 export type IStakeInfo = {
   tokenInfo: Token;
   amount: string;
   accountAddress: string;
+};
+
+export type INFTInfo = {
+  asset: NFTAsset;
+  amount: string;
+  from: string;
+  to: string;
 };
 
 // EncodedTx\RawTx\SignedTx ----------------------------------------------
@@ -152,6 +163,7 @@ export type IFeeInfo = {
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
   defaultPresetIndex: string; // '0' | '1' | '2';
+  waitingSeconds?: Array<number>; // waiting time for different prices
 
   feeSymbol?: string; // feeSymbol: GWEI
   feeDecimals?: number; // feeDecimals: 9

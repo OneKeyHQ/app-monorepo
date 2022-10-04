@@ -3,7 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountTokensBalance, useNetworkTokensPrice } from '../../../hooks';
+import {
+  useAccountTokensBalance,
+  useNetworkTokensPrice,
+  useThrottle,
+} from '../../../hooks';
 
 export const useTokenSearch = (
   keyword: string,
@@ -45,29 +49,41 @@ export const useTokenSearch = (
   };
 };
 
-export const useCachedPrices = (networkId?: string): Record<string, string> => {
+export const useCachedPrices = (networkId?: string) => {
   const prices = useNetworkTokensPrice(networkId);
-  const data = JSON.stringify(prices);
-  return useMemo(() => {
-    try {
-      return JSON.parse(data) as Record<string, string>;
-    } catch {
-      return {};
-    }
-  }, [data]);
+  return useThrottle(prices, 2000);
 };
 
-export const useCachedBalances = (
-  networkId?: string,
-  accountId?: string,
-): Record<string, string> => {
+export const useCachedBalances = (networkId?: string, accountId?: string) => {
   const balances = useAccountTokensBalance(networkId, accountId);
-  const data = JSON.stringify(balances);
-  return useMemo(() => {
-    try {
-      return JSON.parse(data) as Record<string, string>;
-    } catch {
-      return {};
+  return useThrottle(balances, 2000);
+};
+
+export const useTokenBalance = (token?: Token, accountId?: string) => {
+  const balances = useCachedBalances(token?.networkId, accountId);
+  useEffect(() => {
+    if (token && accountId) {
+      backgroundApiProxy.serviceToken.fetchTokenBalance({
+        activeAccountId: accountId,
+        activeNetworkId: token.networkId,
+        tokenIds: token.tokenIdOnNetwork ? [token.tokenIdOnNetwork] : [],
+      });
     }
-  }, [data]);
+  }, [token, accountId]);
+  return useMemo(() => {
+    if (!token) {
+      return undefined;
+    }
+    return balances[token?.tokenIdOnNetwork || 'main'];
+  }, [balances, token]);
+};
+
+export const useTokenPrice = (token?: Token) => {
+  const prices = useCachedPrices(token?.networkId);
+  return useMemo(() => {
+    if (!token) {
+      return undefined;
+    }
+    return prices[token.tokenIdOnNetwork || 'main'];
+  }, [prices, token]);
 };
