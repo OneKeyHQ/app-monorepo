@@ -3,7 +3,7 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (4.1.0):
     - ExpoModulesCore
-  - EXAV (11.2.3):
+  - EXAV (12.0.4):
     - ExpoModulesCore
     - React-runtimeexecutor
     - ReactCommon
@@ -918,7 +918,7 @@ SPEC CHECKSUMS:
   boost: a7c83b31436843459a1961bfd74b96033dc77234
   DoubleConversion: 831926d9b8bf8166fd87886c4abab286c2422662
   EXApplication: d6562af1204162e0ac46d341a7d4e5dc720b33de
-  EXAV: 88f61c5af8415715b7ee51f084c1020235b85c56
+  EXAV: 596506c9bee54ad52f2f3b625cdaeb9d9f2dd6b7
   EXBarCodeScanner: b9e1b69371c233a80fc857edcf95843f14ae9e7b
   EXBlur: f594bc6b57fc241e906a29e00fb8e54b20c374a8
   EXCamera: 2cbc8206cb520562c1527fe565aa9f00df8e5e8f
