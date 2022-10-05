@@ -17,6 +17,7 @@ interface LatestVersion {
 
 function isNetworkError(errorObject: Error) {
   return (
+    errorObject.message === 'net::ERR_NETWORK_CHANGED' ||
     errorObject.message === 'net::ERR_INTERNET_DISCONNECTED' ||
     errorObject.message === 'net::ERR_PROXY_CONNECTION_FAILED' ||
     errorObject.message === 'net::ERR_CONNECTION_RESET' ||

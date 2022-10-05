@@ -75,7 +75,11 @@ export const autoUpdaterSlice = createSlice({
       state.state = 'not-available';
       state.skip = action.payload;
     },
-    error() {},
+    error(state) {
+      if (state.state === 'downloading') {
+        state.state = 'available';
+      }
+    },
     setUpdateWindow(state, action: PayloadAction<UpdateWindow>) {
       state.window = action.payload;
     },
