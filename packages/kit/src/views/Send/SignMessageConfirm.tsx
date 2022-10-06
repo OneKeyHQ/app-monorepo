@@ -33,6 +33,7 @@ import {
   SendRoutes,
   SendRoutesParams,
 } from './types';
+import { useSendConfirmRouteParamsParsed } from './useSendConfirmRouteParamsParsed';
 
 type NavigationProps = NavigationProp<
   SendRoutesParams,
@@ -46,6 +47,7 @@ const SignMessageConfirm = () => {
   const navigation = useNavigation<NavigationProps>();
   const toast = useToast();
   const route = useRoute<RouteProps>();
+  // TODO useSendConfirmRouteParamsParsed
   const { sourceInfo, unsignedMessage } = route.params;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -55,6 +57,10 @@ const SignMessageConfirm = () => {
     id: sourceInfo?.id ?? '',
     closeOnError: true,
   });
+
+  const onModalClose = useCallback(() => {
+    dappApprove?.reject();
+  }, [dappApprove]);
 
   useEffect(() => {
     debugLogger.sendTx.info(
@@ -87,6 +93,7 @@ const SignMessageConfirm = () => {
           });
           setTimeout(() => close(), 0);
         },
+        onModalClose,
       };
 
       // @ts-ignore
@@ -98,11 +105,12 @@ const SignMessageConfirm = () => {
       );
     },
     [
-      navigation,
       route.params,
       accountId,
       walletId,
       networkId,
+      onModalClose,
+      navigation,
       dappApprove,
       intl,
       toast,
@@ -115,7 +123,7 @@ const SignMessageConfirm = () => {
       dappApprove.reject();
       close();
     },
-    onModalClose: dappApprove.reject,
+    onModalClose,
     sourceInfo,
     unsignedMessage,
   };
