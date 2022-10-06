@@ -1,6 +1,6 @@
 // @ts-gnore
 import React, { useCallback } from 'react';
-
+import { Box } from '@onekeyhq/components/src';
 import { Platform } from 'react-native';
 import Canvas, {
   CanvasGradient,
@@ -14,7 +14,12 @@ type SparkLineChartProps = {
   width?: number;
   range?: number;
   lineWidth?: number;
+  smooth?: boolean;
+  scale?: number;
+  linearGradientColor?: string;
 };
+
+const offsetHeight = 10;
 
 const throttlenSparklinePoints = (data?: number[], range = 50) => {
   // range / data.length
@@ -36,27 +41,26 @@ const throttlenSparklinePoints = (data?: number[], range = 50) => {
 
 const SparkLineChart: React.FC<SparkLineChartProps> = ({
   data,
-  range = 50,
-  lineColor = 'green',
-  height = 50,
-  width = 100,
+  range = 20,
+  lineColor = 'rgba(0, 184, 18, 1)',
+  linearGradientColor = 'rgba(0, 184, 18, 0.3)',
+  height = 40,
+  width = 50,
   lineWidth = 2,
+  smooth = true,
+  scale = 0.1,
 }) => {
   const draw = useCallback(
     (canvas: Canvas | HTMLCanvasElement | null) => {
       if (canvas) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         canvas.width = width;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        canvas.height = height;
+        canvas.height = height + offsetHeight;
         const showData = throttlenSparklinePoints(data, range);
         const maxValue = Math.max(...showData);
         const minValue = Math.min(...showData);
         const yStep = height / (maxValue - minValue);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
         if (ctx) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
           ctx.beginPath();
           ctx.lineWidth = lineWidth;
           ctx.strokeStyle = lineColor;
@@ -65,35 +69,70 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
           let lastYpoint = 0;
           showData.forEach((v, i) => {
             const yPoint = height - (v - minValue) * yStep;
-            ctx.lineTo(xPoint, yPoint);
-            if (i >= showData.length - 1) {
-              if (yPoint < height) {
-                ctx.lineTo(xPoint, height);
-              }
+            if (smooth && i >= 2 && i < showData.length - 1) {
+              // draw bezier
+              const pre1X = xSpath * (i - 1);
+              const pre1Y = height - (showData[i - 1] - minValue) * yStep;
+              const pre2X = xSpath * (i - 2);
+              const pre2Y = height - (showData[i - 2] - minValue) * yStep;
+              const nextX = xSpath * (i + 1);
+              const nextY = height - (showData[i + 1] - minValue) * yStep;
+              const cp1x = pre1X + (xPoint - pre2X) * scale;
+              const cp1y = pre1Y + (yPoint - pre2Y) * scale;
+              const cp2x = xPoint - (nextX - pre1X) * scale;
+              const cp2y = yPoint - (nextY - pre1Y) * scale;
+              ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, xPoint, yPoint);
+            } else {
+              ctx.lineTo(xPoint, yPoint);
+            }
+            if (i === showData.length - 1) {
               lastYpoint = yPoint;
             }
             xPoint += xSpath;
           });
-          ctx.lineTo(0, height);
+          ctx.lineTo(xPoint, height + offsetHeight);
+          ctx.lineTo(0, height + offsetHeight);
           ctx.stroke();
           ctx.closePath();
-          xPoint -= xSpath;
-         // console.log('xpoint', xPoint, 'lastY', lastYpoint);
-          ctx.clearRect(xPoint, lastYpoint, lineWidth, height - lastYpoint);
-          ctx.clearRect(0, height, lineWidth, lineWidth);
-
           const grad = ctx.createLinearGradient(0, 0, 0, height);
-          grad.addColorStop(0, lineColor || 'green');
+          grad.addColorStop(0, linearGradientColor);
           grad.addColorStop(1, 'rgba(255,255,255,0)');
           ctx.fillStyle = grad;
           ctx.fill();
+          xPoint -= xSpath;
+          // clear last 2 line
+          ctx.clearRect(xPoint, lastYpoint, xSpath, lastYpoint + offsetHeight);
+          ctx.clearRect(
+            0,
+            height + offsetHeight - lineWidth,
+            width + xSpath,
+            lineWidth,
+          );
         }
       }
     },
-    [data, height, lineColor, lineWidth, range, width],
+    [
+      data,
+      height,
+      lineColor,
+      lineWidth,
+      range,
+      width,
+      smooth,
+      scale,
+      linearGradientColor,
+    ],
   );
 
-  return Platform.OS === 'web' ? <canvas ref={draw} /> : <Canvas ref={draw} />;
+  return Platform.OS === 'web' ? (
+    <div style={{ width, height: height + offsetHeight }}>
+      <canvas ref={draw} />
+    </div>
+  ) : (
+    <Box w={width} h={height + offsetHeight}>
+      <Canvas ref={draw} />
+    </Box>
+  );
 };
 
 export default React.memo(SparkLineChart);

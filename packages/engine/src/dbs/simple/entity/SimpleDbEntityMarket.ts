@@ -17,24 +17,32 @@ export class SimpleDbEntityMarket extends SimpleDbEntityBase<ISimpleDbEntityMark
     return (await this.getRawData()) ?? cloneDeep(dataDefault);
   }
 
-  async saveFavoriteCoin(coingeckoId: string): Promise<void> {
+  async saveFavoriteMarketTokens(coingeckoIds: string[]): Promise<void> {
     const data = await this.getRawDateWithDefault();
     const { favorites } = data;
-    if (!favorites.includes(coingeckoId)) {
-      favorites.push(coingeckoId);
-      await this.setRawData(data);
-    }
+    const newFavorites = [...new Set(favorites.concat(coingeckoIds))];
+    data.favorites = newFavorites;
+    await this.setRawData(data);
   }
 
-  async getFavoriteCoins(): Promise<string[]> {
+  async getFavoriteMarketTokens(): Promise<string[]> {
     const data = await this.getRawDateWithDefault();
     return data.favorites;
   }
 
-  async deleteFavoriteCoin(coingeckoId: string) {
+  async deleteFavoriteMarketToken(coingeckoId: string) {
     const data = await this.getRawDateWithDefault();
     const { favorites } = data;
     const newFavorites = favorites.filter((f) => f !== coingeckoId);
+    data.favorites = newFavorites;
+    await this.setRawData(data);
+  }
+
+  async unshiftFavoriteMarketToken(coingeckoId: string) {
+    const data = await this.getRawDateWithDefault();
+    const { favorites } = data;
+    const newFavorites = favorites.filter((f) => f !== coingeckoId);
+    newFavorites.unshift(coingeckoId);
     data.favorites = newFavorites;
     await this.setRawData(data);
   }

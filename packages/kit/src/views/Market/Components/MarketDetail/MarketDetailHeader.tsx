@@ -1,19 +1,25 @@
 import React, { FC } from 'react';
 
 import { Box, Token, Typography } from '@onekeyhq/components/src';
-import { MatketTokenInfo } from './MatketTokenInfo';
+import { MarketTokenInfo } from './MarketTokenInfo';
 import { DetailActions } from './MarketDetailActions';
 import MarketPriceChart from './MarketPriceChart';
 
-export const MarketDetailHeader: FC = () => {
+type MarketDetailHeader = {
+  marketTokenId: string;
+};
+
+export const MarketDetailHeader: FC<MarketDetailHeader> = ({
+  marketTokenId,
+}) => {
   console.log('MarketDetailHeader');
   return (
     <Box>
       <Box>
-        <MatketTokenInfo />
+        <MarketTokenInfo />
         <DetailActions />
       </Box>
-      <MarketPriceChart coingeckoId="ethereum" />
+      <MarketPriceChart coingeckoId={marketTokenId} />
     </Box>
   );
 };

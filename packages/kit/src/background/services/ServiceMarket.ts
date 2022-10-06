@@ -5,12 +5,17 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import {
+  MARKET_FAVORITES_CATEGORYID,
   MarketCategory,
-  saveMarketCategorys,
-  updataCurrentCategory,
-  updataMarketCategoryTokenMap,
-  saveMarketFavorite,
+  MarketListSortType,
   cancleMarketFavorite,
+  moveTopMarketFavorite,
+  saveMarketCategorys,
+  saveMarketFavorite,
+  updateMarketListSort,
+  updateMarketTokenIpmlChainId,
+  updateMarketTokens,
+  updateSelectedCategory,
 } from '../../store/reducers/market';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -18,7 +23,6 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceMarket extends ServiceBase {
-  // todo 开启定时轮询，需要当前选中的 category 和 market 页面是否激活
   @backgroundMethod()
   async fetchMarketCategorys() {
     const { appSelector, dispatch } = this.backgroundApi;
@@ -26,35 +30,36 @@ export default class ServiceMarket extends ServiceBase {
     const datas: MarketCategory[] = await this.fetchData(path, {}, []);
 
     // 填充favorite coingeckoIds
-    const favorites = datas.filter((d) => d.categoryId === 'favorites');
-    if (favorites && favorites.length > 0) {
-      const { coingeckoIds } = favorites[0];
-      favorites[0].coingeckoIds = [
-        ...new Set(coingeckoIds?.concat(await this.getMarketFavorites())),
+    const favorites = datas.find(
+      (d) => d.categoryId === MARKET_FAVORITES_CATEGORYID,
+    );
+    if (favorites) {
+      favorites.coingeckoIds = [
+        ...new Set(
+          favorites.coingeckoIds?.concat(await this.getMarketFavoriteTokens()),
+        ),
       ];
     }
     dispatch(saveMarketCategorys(datas));
 
     // 切换到默认分类
-    const currentCategory = appSelector((s) => s.market.currentCategory);
+    const selectedCategoryId = appSelector((s) => s.market.selectedCategoryId);
     const categorys = appSelector((s) => s.market.categorys);
-    const defaultCategory = categorys.find((c) => c.defaultSelected);
-    if (!currentCategory && defaultCategory) {
+    const defaultCategory = Object.values(categorys).find(
+      (c) => c.defaultSelected,
+    );
+    if (!selectedCategoryId && defaultCategory) {
       this.toggleCategory(defaultCategory);
     }
   }
 
   @backgroundMethod()
   toggleCategory(category: MarketCategory) {
-    this.backgroundApi.dispatch(updateCurrentCategory(category));
-    this.fetchMarketList({
-      categoryId: category.categoryId,
-      vsCurrency: 'usd',
-      ids: category.coingeckoIds?.join(','),
-      sparkline: true,
-    });
+    this.updateMarketListSort(null);
+    this.backgroundApi.dispatch(updateSelectedCategory(category.categoryId));
   }
 
+  @backgroundMethod()
   async fetchMarketList({
     categoryId,
     vsCurrency,
@@ -79,8 +84,11 @@ export default class ServiceMarket extends ServiceBase {
       [],
     );
     console.log('data---', data);
+    if (data.length === 0) {
+      return;
+    }
     this.backgroundApi.dispatch(
-      updateMarketCategoryTokenMap({ categoryId, marketTokens: data }),
+      updateMarketTokens({ categoryId, marketTokens: data }),
     );
   }
 
@@ -102,50 +110,65 @@ export default class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getTokenSupportImpl(coingeckoId: string) {
+  async fetchTokenSupportImpl(coingeckoId: string) {
     const path = '/market/token/impls';
     const data = await this.fetchData(path, { coingeckoId }, []);
-    console.log('token impl data', data);
-    // todo redux
+    this.backgroundApi.dispatch(
+      updateMarketTokenIpmlChainId({ coingeckoId, implChainIds: data }),
+    );
     return data;
   }
 
-  updateFavoriteTokenList() {
-    const { appSelector } = this.backgroundApi;
-    const categorys = appSelector((s) => s.market.categorys);
-    const favoriteCategory = categorys.find(
-      (c) => c.categoryId === 'favorites',
-    );
-    this.fetchMarketList({
-      categoryId: 'favorites',
-      vsCurrency: 'usd',
-      ids: favoriteCategory?.coingeckoIds?.join(','),
-      sparkline: true,
-    });
-  }
-
-  async getMarketFavorites() {
-    return simpleDb.market.getFavoriteCoins();
+  async getMarketFavoriteTokens() {
+    return simpleDb.market.getFavoriteMarketTokens();
   }
 
   @backgroundMethod()
-  async saveMarketFavoriteCoin(coingeckoId: string) {
-    this.backgroundApi.dispatch(saveMarketFavorite(coingeckoId));
-    // trigger favorites category token update
-    this.updateFavoriteTokenList();
-    return simpleDb.market.saveFavoriteCoin(coingeckoId);
+  async saveMarketFavoriteTokens(coingeckoIds: string[]) {
+    this.backgroundApi.dispatch(saveMarketFavorite(coingeckoIds));
+    return simpleDb.market.saveFavoriteMarketTokens(coingeckoIds);
   }
 
   @backgroundMethod()
-  async cancelMarketFavoriteCoin(coingeckoId: string) {
+  async clearMarketFavoriteTokens() {
+    return simpleDb.market.clearRawData();
+  }
+
+  @backgroundMethod()
+  async cancelMarketFavoriteToken(coingeckoId: string) {
     this.backgroundApi.dispatch(cancleMarketFavorite(coingeckoId));
-    this.updateFavoriteTokenList();
-    return simpleDb.market.deleteFavoriteCoin(coingeckoId);
+    return simpleDb.market.deleteFavoriteMarketToken(coingeckoId);
+  }
+
+  @backgroundMethod()
+  async moveTopMarketFavoriteToken(coingeckoId: string) {
+    this.backgroundApi.dispatch(moveTopMarketFavorite(coingeckoId));
+    return simpleDb.market.unshiftFavoriteMarketToken(coingeckoId);
+  }
+
+  @backgroundMethod()
+  updateMarketListSort(listSort: MarketListSortType | null) {
+    this.backgroundApi.dispatch(updateMarketListSort(listSort));
   }
 
   async fetchMarketDetail(coingeckoId: string) {
-    return Promise.resolve({});
+    const path = '/detail';
+    const data = await this.fetchData(
+      path,
+      {
+        id: coingeckoId,
+      },
+      null,
+    );
+    if (data) {
+      console.log('detail-data', data);
+    }
   }
+
+//   @backgroundMethod()
+//   updateMarketSelectedTokenId(coingeckoId: string) {
+//     this.backgroundApi.dispatch(this.updateMarketSelectedTokenId(coingeckoId));
+//   }
 
   async fetchMarketTokenChart({
     coingeckoId,

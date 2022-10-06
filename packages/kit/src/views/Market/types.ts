@@ -23,3 +23,11 @@ export type MarketCategoryToggleComponentProp = {
   items: MarketCategoryToggleItem[];
   onSelect: (item: MarketCategoryToggleItem) => void;
 };
+
+export type ListHeadTagType = {
+  id: number;
+  title?: string;
+  minW: string;
+  textAlign?: 'center' | 'left' | 'right';
+  isVerticalLayout: boolean;
+};

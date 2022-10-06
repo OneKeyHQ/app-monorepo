@@ -11,6 +11,7 @@ import {
 
 import { useAppSelector } from '../../../hooks/redux';
 import { MarketCategory } from '../../../store/reducers/market';
+import { useMarketSelectedCategoryId } from '../hooks/useMarketCategory';
 
 export type MarketCategoryToggleItem = MarketCategory & {
   leftIconName?: ICON_NAMES;
@@ -24,14 +25,11 @@ type MarketCategoryToggleComponentProp = {
   onSelect: (item: MarketCategoryToggleItem) => void;
 };
 
-export const MarketCategoryToggleComponent: React.FC<
+const MarketCategoryToggleComponent: React.FC<
   MarketCategoryToggleComponentProp
 > = ({ items, onSelect }) => {
-  const [selected, setSelected] = useState(() => {});
-  const currentCategory: MarketCategory | undefined = useAppSelector(
-    (s) => s.market.currentCategory,
-  );
-  console.log('MarketCategoryToggleComponent--', currentCategory);
+  const selectedCategoryId = useMarketSelectedCategoryId();
+  console.log('MarketCategoryToggleComponent--', selectedCategoryId);
   return (
     <Box width="full" flexDirection="row">
       <ScrollView>
@@ -41,7 +39,7 @@ export const MarketCategoryToggleComponent: React.FC<
               p="2"
               key={i.categoryId}
               background={
-                i.categoryId === currentCategory?.categoryId
+                i.categoryId === selectedCategoryId
                   ? 'surface-selected'
                   : 'surface-default'
               }
@@ -69,3 +67,5 @@ export const MarketCategoryToggleComponent: React.FC<
     </Box>
   );
 };
+
+export default React.memo(MarketCategoryToggleComponent);

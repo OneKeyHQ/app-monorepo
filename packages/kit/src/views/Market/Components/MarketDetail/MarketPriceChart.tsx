@@ -15,7 +15,7 @@ import TimeControl, {
   TIMEOPTIONS,
   TIMEOPTIONS_VALUE,
 } from '../../../PriceChart/TimeControl';
-import { useMarketDetail } from '../../hooks/useMarketDetail';
+import { useMarketTokenChart } from '../../hooks/useMarketToken';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 type MarketPriceChartProps = {
@@ -29,7 +29,7 @@ const MarketPriceChart: React.FC<MarketPriceChartProps> = ({
 }) => {
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
-  const { marketChart } = useMarketDetail({ coingeckoId });
+  const marketChart = useMarketTokenChart({ coingeckoId });
   const dataMap = useRef<MarketApiData[][]>([]);
   let points: string | undefined;
   const isVertical = useIsVerticalLayout();

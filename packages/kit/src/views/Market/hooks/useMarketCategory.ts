@@ -1,41 +1,57 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
-import { MarketCategory } from '../../../store/reducers/market';
+import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
 
-export const useMarketCurrentCategory = () => {
-  const currentCategory = useAppSelector((s) => s.market.currentCategory);
-  return useMemo(() => currentCategory, [currentCategory]);
+export const useMarketSelectedCategory = () => {
+  const selectedCategoryId = useAppSelector((s) => s.market.selectedCategoryId);
+  const categorys = useAppSelector((s) => s.market.categorys);
+  return useMemo(
+    () => (selectedCategoryId ? categorys[selectedCategoryId] : null),
+    [categorys, selectedCategoryId],
+  );
+};
+
+export const useMarketSelectedCategoryId = () => {
+  const selectedCategoryId = useAppSelector((s) => s.market.selectedCategoryId);
+  return useMemo(() => selectedCategoryId, [selectedCategoryId]);
 };
 
 export const useMarketCategoryList = () => {
   const categorys = useAppSelector((s) => s.market.categorys);
   return useMemo(() => {
-    if (categorys && categorys.length > 0) {
-      return categorys.filter((c) => c.type === 'tab');
+    if (categorys && Object.values(categorys).length > 0) {
+      return Object.values(categorys).filter((c) => c.type === 'tab');
     }
     backgroundApiProxy.serviceMarket.fetchMarketCategorys();
     return [];
   }, [categorys]);
 };
 
+export const useMarketFavoriteRecommentedList = () => {
+  const categorys = useAppSelector((s) => s.market.categorys);
+  const favoritesCategory = categorys[MARKET_FAVORITES_CATEGORYID];
+  return useMemo(
+    () => (favoritesCategory ? favoritesCategory.recommendedTokens : []),
+    [favoritesCategory],
+  );
+};
+
+export const useMarketFavoriteCategoryTokenIds = () => {
+  const categorys = useAppSelector((s) => s.market.categorys);
+  const favoritesCategory = categorys[MARKET_FAVORITES_CATEGORYID];
+  return useMemo(
+    () => (favoritesCategory ? favoritesCategory.coingeckoIds : []),
+    [favoritesCategory],
+  );
+};
+
 export const useMarketSearchCategoryList = () => {
   const categorys = useAppSelector((s) => s.market.categorys);
   return useMemo(() => {
-    if (categorys && categorys.length > 0) {
-      return categorys.filter((c) => c.type === 'search');
+    if (categorys && Object.values(categorys).length > 0) {
+      return Object.values(categorys).filter((c) => c.type === 'search');
     }
     return [];
   }, [categorys]);
-};
-
-export const useMarketCategoryLoading = () => {
-  const currentCategory = useMarketCurrentCategory();
-  const tokenMap = useAppSelector((s) => s.market.categoryTokenMap);
-  return useMemo(() => {
-    if (!currentCategory || !tokenMap[currentCategory.categoryId]) {
-      return true;
-    }
-    return false;
-  }, [tokenMap, currentCategory]);
 };

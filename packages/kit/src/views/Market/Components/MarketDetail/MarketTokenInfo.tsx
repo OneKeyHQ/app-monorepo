@@ -6,11 +6,11 @@ type MatketTokenInfoProps = {
   image: string;
   name: string;
 };
-export const MatketTokenInfo: FC<MatketTokenInfoProps> = ({ image, name }) => {
+export const MarketTokenInfo: FC<MatketTokenInfoProps> = ({ image, name }) => {
   console.log('22');
   return (
     <Box>
-      <Token src={image} />
+      {/* <Token src={image} /> */}
       <Typography.Heading>{name}</Typography.Heading>
     </Box>
   );

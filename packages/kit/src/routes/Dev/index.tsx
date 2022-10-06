@@ -27,7 +27,6 @@ import KeyboardGallery from '@onekeyhq/kit/src/views/Components/stories/Keyboard
 import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List/index';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
-import MarketGallery from '@onekeyhq/kit/src/views/Components/stories/Market';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
 import NFTImageGallery from '@onekeyhq/kit/src/views/Components/stories/NFTImage';
@@ -115,7 +114,6 @@ export enum StackRoutes {
   ComponentPriceChart = 'component/PriceChart',
   ComponentTypeWriter = 'component/TypeWriter',
   ComponentHomescreen = 'component/homescreen',
-  ComponentMarkets = 'component/Market',
 }
 
 export type StackBasicRoutesParams = {
@@ -256,7 +254,6 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentPriceChart, component: PriceChart },
   { name: StackRoutes.ComponentTypeWriter, component: TypeWriter },
   { name: StackRoutes.ComponentHomescreen, component: HardwareHomescreen },
-  { name: StackRoutes.ComponentMarkets, component: MarketGallery },
 ];
 
 const DevStack = createNativeStackNavigator();

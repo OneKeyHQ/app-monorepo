@@ -1,0 +1,111 @@
+import React, { FC } from 'react';
+
+import {
+  Box,
+  Divider,
+  Icon,
+  Pressable,
+  Typography,
+} from '@onekeyhq/components/src';
+
+import { ListItem } from '../../../Components/stories/List/ListView';
+import { ListHeadTagType } from '../../types';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useListSort } from '../../hooks/useMarketList';
+
+interface MarketListHeaderProps {
+  headTags: ListHeadTagType[];
+}
+
+const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
+  const listSort = useListSort();
+  return (
+    <Box mt="2" w="full" key="MarketListHeader">
+      <ListItem>
+        {headTags.map((tag) => {
+          if (tag.id === 1) {
+            return (
+              <ListItem.Column
+                text={{
+                  label: tag.title,
+                  labelProps: {
+                    typography: 'Subheading',
+                    textAlign: tag.textAlign,
+                    color: 'text-subdued',
+                  },
+                }}
+                w={tag.minW}
+              />
+            );
+          }
+          if (
+            tag.id === 2 ||
+            tag.id === 3 ||
+            tag.id === 4 ||
+            tag.id === 5 ||
+            tag.id === 6 ||
+            tag.id === 7
+          ) {
+            return (
+              <ListItem.Column>
+                <Pressable
+                  onPress={() => {
+                    let direction: 'up' | 'down' = 'down';
+                    if (
+                      listSort &&
+                      listSort.id === tag.id &&
+                      listSort.direction === 'down'
+                    ) {
+                      direction = 'up';
+                    }
+                    backgroundApiProxy.serviceMarket.updateMarketListSort({
+                      id: tag.id,
+                      direction,
+                    });
+                  }}
+                  flexDirection="row"
+                  alignItems="center"
+                  flex={1}
+                  justifyContent={tag.id === 2 ? 'flex-start' : 'flex-end'}
+                >
+                  <Typography.Subheading
+                    color="text-subdued"
+                    textAlign={tag.textAlign}
+                  >
+                    {tag.title}
+                  </Typography.Subheading>
+                  <Icon
+                    name={
+                      listSort &&
+                      listSort.id === tag.id &&
+                      listSort.direction === 'up'
+                        ? 'ChevronUpSolid'
+                        : 'ChevronDownSolid'
+                    }
+                    size={16}
+                    color={
+                      listSort && listSort.id === tag.id
+                        ? 'icon-success'
+                        : 'icon-default'
+                    }
+                  />
+                </Pressable>
+              </ListItem.Column>
+            );
+          }
+          if (tag.id === 8) {
+            return (
+              <ListItem.Column>
+                <Box flex={1} />
+              </ListItem.Column>
+            );
+          }
+          return null;
+        })}
+      </ListItem>
+      <Divider />
+    </Box>
+  );
+};
+
+export default React.memo(MarketListHeader);

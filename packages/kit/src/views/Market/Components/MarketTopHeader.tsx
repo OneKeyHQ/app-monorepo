@@ -22,8 +22,8 @@ const Header: React.FC<MarketHeaderProps> = ({ onChange, keyword }) => {
       <Searchbar
         placeholder="Search Cryptos"
         width="360px"
-        mt="2"
-        ml="3"
+        mt="3"
+        ml="6"
         value={keyword}
         onChangeText={(text) => onChange(text)}
         onClear={() => onChange('')}

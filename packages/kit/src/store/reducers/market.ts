@@ -1,15 +1,27 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import natsort from 'natsort';
 import { TokenChartData } from './tokens';
 
+export const MARKET_FAVORITES_CATEGORYID = 'favorites';
+
 type CoingeckoId = string;
+type CategoryId = string;
+
+type RecomentToken = {
+  coingeckoId: string;
+  iconUrl?: string;
+  name?: string;
+  symbol?: string;
+};
 
 export type MarketCategory = {
   name?: string;
-  categoryId: string;
+  categoryId: CategoryId;
   type: 'tab' | 'search';
   coingeckoIds?: CoingeckoId[];
   defaultSelected?: boolean;
+  recommendedTokens?: RecomentToken[];
 };
 
 export type MarketTokenItem = {
@@ -23,7 +35,8 @@ export type MarketTokenItem = {
   sparkline?: number[];
   marketCap?: number;
   totalVolume?: number;
-  implChainId?: string[];
+  favorited?: boolean;
+  implChainIds?: string[];
 };
 
 export type MarketEXplorer = {
@@ -79,7 +92,12 @@ export type MarketStats = {
   };
 };
 
-export type MarketCategoryTokenPayload = {
+export type MarketListSortType = {
+  id: number;
+  direction: 'up' | 'down';
+};
+
+type MarketCategoryTokensPayloadAction = {
   categoryId: string;
   marketTokens: MarketTokenItem[];
 };
@@ -102,68 +120,125 @@ type NewsPayloadAction = {
   news: MarketNews[];
 };
 
+type MarketTokenIpmlChainIdPayloadAction = {
+  coingeckoId: CoingeckoId;
+  implChainIds: string[];
+};
+
 export type MarketInitialState = {
-  currentCategory?: MarketCategory;
-  categorys: MarketCategory[];
-  categoryTokenMap: Record<string, MarketTokenItem[]>;
+  selectedCategoryId?: CategoryId;
+  categorys: Record<CategoryId, MarketCategory>;
+  marketTokens: Record<CoingeckoId, MarketTokenItem>;
   charts: Record<CoingeckoId, TokenChartData>;
   infos: Record<CoingeckoId, MarketInfo>;
   stats: Record<CoingeckoId, MarketStats>;
   news: Record<CoingeckoId, MarketNews[]>;
+  listSort: MarketListSortType | null;
 };
 
 const initialState: MarketInitialState = {
-  categorys: [],
-  categoryTokenMap: {},
+  categorys: {},
+  marketTokens: {},
+  listSort: null,
   charts: {},
   infos: {},
   stats: {},
   news: {},
 };
+
+function equalStringArr(arr1: string[], arr2: string[]) {
+  return (
+    arr1.length === arr2.length && arr1.every((value) => arr2.includes(value))
+  );
+}
+
 export const MarketSlicer = createSlice({
   name: 'market',
   initialState,
   reducers: {
-    // 分类列表，
     saveMarketCategorys(state, action: PayloadAction<MarketCategory[]>) {
-      state.categorys = action.payload;
+      const { payload } = action;
+      payload.forEach((c) => {
+        state.categorys[c.categoryId] = c;
+      });
     },
-    updateMarketCategoryTokenMap(
+    updateMarketTokens(
       state,
-      action: PayloadAction<MarketCategoryTokenPayload>,
+      action: PayloadAction<MarketCategoryTokensPayloadAction>,
     ) {
-      const { payload } = action;
-      const categoryTokenMap = { ...state.categoryTokenMap };
-      // categoryTokenMap
-      categoryTokenMap[payload.categoryId] = payload.marketTokens;
-      state.categoryTokenMap = categoryTokenMap;
-    },
-    updateCurrentCategory(state, action: PayloadAction<MarketCategory>) {
-      const { payload } = action;
-      if (state.categorys.find((c) => c.categoryId === payload.categoryId)) {
-        state.currentCategory = { ...payload };
+      const { categoryId, marketTokens } = action.payload;
+      // check categorys
+      const { categorys } = state;
+      const cacheCategory = categorys[categoryId];
+      if (cacheCategory) {
+        const fetchCoingeckoIds = marketTokens.map((t) => t.coingeckoId);
+        if (!cacheCategory.coingeckoIds) {
+          cacheCategory.coingeckoIds = fetchCoingeckoIds;
+        } else if (
+          // ban favorite category coingecko ids change
+          categoryId !== MARKET_FAVORITES_CATEGORYID &&
+          !equalStringArr(cacheCategory.coingeckoIds, fetchCoingeckoIds) &&
+          state.listSort === null
+        ) {
+          cacheCategory.coingeckoIds = fetchCoingeckoIds;
+        }
       }
+      // check favorites
+      const favoriteCategory = categorys[MARKET_FAVORITES_CATEGORYID];
+      marketTokens.forEach((t) => {
+        t.favorited =
+          favoriteCategory &&
+          favoriteCategory.coingeckoIds?.includes(t.coingeckoId);
+        const cacheMarketToken = state.marketTokens[t.coingeckoId];
+        if (cacheMarketToken) {
+          Object.assign(cacheMarketToken, t);
+        } else {
+          state.marketTokens[t.coingeckoId] = t;
+        }
+      });
     },
-    saveMarketFavorite(state, action: PayloadAction<string>) {
+    updateSelectedCategory(state, action: PayloadAction<CategoryId>) {
       const { payload } = action;
-      const categorys = [...state.categorys];
-      const favorite = categorys.find((f) => f.categoryId === 'favorites');
-      if (favorite && !favorite.coingeckoIds?.includes(payload)) {
-        favorite.coingeckoIds?.push(payload);
-      }
-      state.categorys = categorys;
+      state.selectedCategoryId = payload;
+    },
+    saveMarketFavorite(state, action: PayloadAction<string[]>) {
+      const { payload } = action;
+      const { categorys } = state;
+      const favoriteCategory = categorys[MARKET_FAVORITES_CATEGORYID];
+      payload.forEach((id) => {
+        if (favoriteCategory && !favoriteCategory.coingeckoIds?.includes(id)) {
+          favoriteCategory.coingeckoIds?.push(id);
+        }
+        if (state.marketTokens[id]) {
+          state.marketTokens[id].favorited = true;
+        } else {
+          state.marketTokens[id] = { favorited: true, coingeckoId: id };
+        }
+      });
     },
     cancleMarketFavorite(state, action: PayloadAction<string>) {
       const { payload } = action;
-      const categorys = [...state.categorys];
-      const favorite = categorys.find((f) => f.categoryId === 'favorites');
-      if (favorite) {
-        const index = favorite.coingeckoIds?.indexOf(payload);
-        if (index && index !== -1) {
-          favorite.coingeckoIds?.splice(index, 1);
+      const { categorys } = state;
+      const favoriteCategory = categorys[MARKET_FAVORITES_CATEGORYID];
+      if (favoriteCategory) {
+        const index = favoriteCategory.coingeckoIds?.indexOf(payload);
+        if (index !== undefined && index !== -1) {
+          favoriteCategory.coingeckoIds?.splice(index, 1);
         }
       }
-      state.categorys = categorys;
+      state.marketTokens[payload].favorited = false;
+    },
+    moveTopMarketFavorite(state, action: PayloadAction<string>) {
+      const { payload } = action;
+      const { categorys } = state;
+      const favoriteCategory = categorys[MARKET_FAVORITES_CATEGORYID];
+      if (favoriteCategory) {
+        const index = favoriteCategory.coingeckoIds?.indexOf(payload);
+        if (index !== undefined && index !== -1) {
+          favoriteCategory.coingeckoIds?.splice(index, 1);
+        }
+        favoriteCategory.coingeckoIds?.unshift(payload);
+      }
     },
     updateChats(state, action: PayloadAction<ChartsPayloadAction>) {
       const { coingeckoId, charts } = action.payload;
@@ -183,19 +258,102 @@ export const MarketSlicer = createSlice({
       const { coingeckoId, news } = action.payload;
       state.news[coingeckoId] = news;
     },
+    updateMarketListSort(
+      state,
+      action: PayloadAction<MarketListSortType | null>,
+    ) {
+      const { payload } = action;
+      state.listSort = payload;
+      if (payload) {
+        const { selectedCategoryId, marketTokens, categorys } = state;
+        if (selectedCategoryId) {
+          const categoryTokenIds = categorys[selectedCategoryId].coingeckoIds;
+          if (categoryTokenIds) {
+            let sortIds = [...categoryTokenIds];
+            sortIds = sortIds.sort((id1, id2) => {
+              switch (payload.id) {
+                case 2: {
+                  return payload.direction === 'down'
+                    ? natsort({ insensitive: true })(
+                        marketTokens[id1].symbol ?? '',
+                        marketTokens[id2].symbol ?? '',
+                      )
+                    : natsort({ insensitive: true })(
+                        marketTokens[id2].symbol ?? '',
+                        marketTokens[id1].symbol ?? '',
+                      );
+                }
+                case 3: {
+                  return payload.direction === 'down'
+                    ? (marketTokens[id1].price ?? 0) -
+                        (marketTokens[id2].price ?? 0)
+                    : (marketTokens[id2].price ?? 0) -
+                        (marketTokens[id1].price ?? 0);
+                }
+                case 4:
+                case 7: {
+                  return payload.direction === 'down'
+                    ? (marketTokens[id1].priceChangePercentage24H ?? 0) -
+                        (marketTokens[id2].priceChangePercentage24H ?? 0)
+                    : (marketTokens[id2].priceChangePercentage24H ?? 0) -
+                        (marketTokens[id1].priceChangePercentage24H ?? 0);
+                }
+                case 5: {
+                  console.log('id1Price', marketTokens[id1].totalVolume);
+                  console.log('id2Price', marketTokens[id2].totalVolume);
+                  return payload.direction === 'down'
+                    ? (marketTokens[id1].totalVolume ?? 0) -
+                        (marketTokens[id2].totalVolume ?? 0)
+                    : (marketTokens[id2].totalVolume ?? 0) -
+                        (marketTokens[id1].totalVolume ?? 0);
+                }
+                case 6: {
+                  return payload.direction === 'down'
+                    ? (marketTokens[id1].marketCap ?? 0) -
+                        (marketTokens[id2].marketCap ?? 0)
+                    : (marketTokens[id2].marketCap ?? 0) -
+                        (marketTokens[id1].marketCap ?? 0);
+                }
+                default:
+                  return 0;
+              }
+            });
+            state.categorys[selectedCategoryId].coingeckoIds = sortIds;
+          }
+        }
+      }
+    },
+    updateMarketTokenIpmlChainId(
+      state,
+      action: PayloadAction<MarketTokenIpmlChainIdPayloadAction>,
+    ) {
+      const { coingeckoId, implChainIds } = action.payload;
+      const cacheMarketToken = state.marketTokens[coingeckoId];
+      if (cacheMarketToken) {
+        if (
+          !cacheMarketToken.implChainIds ||
+          !equalStringArr(implChainIds, cacheMarketToken.implChainIds)
+        ) {
+          cacheMarketToken.implChainIds = implChainIds;
+        }
+      }
+    }
   },
 });
 
 export const {
   saveMarketCategorys,
-  updateMarketCategoryTokenMap,
-  updateCurrentCategory,
+  updateMarketTokens,
+  updateSelectedCategory,
   updateChats,
   updateMarketInfo,
   updateMarketStats,
   updateMarketNews,
   cancleMarketFavorite,
   saveMarketFavorite,
+  moveTopMarketFavorite,
+  updateMarketListSort,
+  updateMarketTokenIpmlChainId,
 } = MarketSlicer.actions;
 
 export default MarketSlicer.reducer;

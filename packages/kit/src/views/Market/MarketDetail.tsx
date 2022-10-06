@@ -7,6 +7,8 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { MarketDetailHeader } from './Components/MarketDetail/MarketDetailHeader';
 import { MarkeInfoContent } from './Components/MarketDetail/MarketInfoContent';
 import { MarketStatsContent } from './Components/MarketDetail/MarketStatsContent';
+import { HomeRoutes, HomeRoutesParams, RootRoutes } from '../../routes/types';
+import { RouteProp, useRoute } from '@react-navigation/core';
 
 const MarketDetailTabs: FC = () => {
   console.log('11');
@@ -22,11 +24,11 @@ const MarketDetailTabs: FC = () => {
   );
 };
 
-type MarketDetailProps = {
-  coingeckoId: string;
-};
-export const MarketDetail: FC<MarketDetailProps> = ({ coingeckoId }) => {
-  console.log('coingeckoId', coingeckoId);
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
+
+const MarketDetail:FC = () => {
+  const route = useRoute<RouteProps>();
+  const { marketTokenId } = route.params;
 
   return (
     <Box
@@ -36,8 +38,9 @@ export const MarketDetail: FC<MarketDetailProps> = ({ coingeckoId }) => {
       w="100%"
       maxW={MAX_PAGE_CONTAINER_WIDTH}
     >
-      <MarketDetailHeader />
+      <MarketDetailHeader marketTokenId={marketTokenId} />
       <MarketDetailTabs />
     </Box>
   );
 };
+export default MarketDetail;

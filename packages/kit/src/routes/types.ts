@@ -119,6 +119,9 @@ export type HomeRoutesParams = {
     alerts: PriceAlertItem[];
   };
   [HomeRoutes.PushNotificationManageAccountDynamic]: undefined;
+  [HomeRoutes.MarketDetail]: {
+    marketTokenId: string;
+  };
 };
 /** HomeStack */
 

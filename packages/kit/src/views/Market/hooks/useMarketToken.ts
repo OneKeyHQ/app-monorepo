@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
+
 import { useAppSelector } from '../../../hooks';
 
 export const useMarketTokenChart = ({
   coingeckoId,
 }: {
   coingeckoId: string;
+  pollingIntervall?: number;
 }) => {
   const charts = useAppSelector((s) => s.market.charts);
   return useMemo(() => charts[coingeckoId], [charts, coingeckoId]);
@@ -26,4 +28,13 @@ export const useMarketTokenStats = ({
 }) => {
   const stats = useAppSelector((s) => s.market.stats);
   return useMemo(() => stats[coingeckoId], [stats, coingeckoId]);
+};
+
+export const useMarketTokenItem = ({
+  coingeckoId,
+}: {
+  coingeckoId: string;
+}) => {
+  const marketTokens = useAppSelector((s) => s.market.marketTokens);
+  return useMemo(() => marketTokens[coingeckoId], [marketTokens, coingeckoId]);
 };

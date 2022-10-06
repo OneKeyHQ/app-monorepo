@@ -8,34 +8,19 @@ import {
   useMarketTokenStats,
 } from './useMarketToken';
 
-export const useMarketDetail = ({
-  coingeckoId,
-  pollingInterval = 60,
-}: {
-  coingeckoId: string;
-  pollingInterval?: number;
-}) => {
+export const useMarketDetail = ({ coingeckoId }: { coingeckoId: string }) => {
   const isFocused = useIsFocused();
-  const marketChart = useMarketTokenChart({ coingeckoId });
   const marketTokenInfo = useMarketTokenInfo({ coingeckoId });
   const marketTokenStats = useMarketTokenStats({ coingeckoId });
+  const selectedMarketTokenId = useAppSelector(
+    (s) => s.market.selectedMarketTokenId,
+  );
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | undefined;
-    if (isFocused) {
-      backgroundApiProxy.serviceMarket.fetchMarketDetail(coingeckoId);
-      timer = setInterval(() => {
-        backgroundApiProxy.serviceMarket.fetchMarketDetail(coingeckoId);
-      }, pollingInterval * 1000);
-    }
-    return () => {
-      if (timer) {
-        clearInterval(timer);
-      }
-    };
-  }, [coingeckoId, isFocused, pollingInterval]);
+    backgroundApiProxy.serviceMarket.fetchMarketDetail(coingeckoId);
+  }, [coingeckoId, isFocused]);
   return {
-    marketChart,
     marketTokenInfo,
     marketTokenStats,
+    selectedMarketTokenId,
   };
 };

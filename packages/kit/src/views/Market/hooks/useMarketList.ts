@@ -3,42 +3,39 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useIsFocused } from '@react-navigation/core';
 import {
   useMarketCategoryLoading,
-  useMarketCurrentCategory,
+  useMarketSelectedCategory,
 } from './useMarketCategory';
 import { useIsVerticalLayout } from '@onekeyhq/components/src';
 import { useAppSelector } from '../../../hooks';
 
-export const useManageMarket = ({
+export const useListSort = () => {
+  const listSort = useAppSelector((s) => s.market.listSort);
+  return useMemo(() => listSort, [listSort]);
+};
+
+export const useMarketList = ({
   pollingInterval = 60,
 }: {
   pollingInterval?: number;
-}) => {
+} = {}) => {
   const isFocused = useIsFocused();
-  const currentCategory = useMarketCurrentCategory();
+  const selectedCategory = useMarketSelectedCategory();
   const isVerticalLlayout = useIsVerticalLayout();
-  const markeListLoad = useMarketCategoryLoading();
-  const marketCategoryTokenMap = useAppSelector(
-    (s) => s.market.categoryTokenMap,
-  );
-  const currentMarketlist = useMemo(() => {
-    if (currentCategory) {
-      return marketCategoryTokenMap[currentCategory.categoryId];
-    }
-  }, [currentCategory, marketCategoryTokenMap]);
+
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (isFocused && currentCategory) {
+    if (isFocused && selectedCategory) {
       backgroundApiProxy.serviceMarket.fetchMarketList({
-        categoryId: currentCategory.categoryId,
+        categoryId: selectedCategory.categoryId,
         vsCurrency: 'usd',
-        ids: currentCategory.coingeckoIds?.join(','),
+        ids: selectedCategory.coingeckoIds?.join(','),
         sparkline: !isVerticalLlayout,
       });
       timer = setInterval(() => {
         backgroundApiProxy.serviceMarket.fetchMarketList({
-          categoryId: currentCategory.categoryId,
+          categoryId: selectedCategory.categoryId,
           vsCurrency: 'usd',
-          ids: currentCategory.coingeckoIds?.join(','),
+          ids: selectedCategory.coingeckoIds?.join(','),
           sparkline: !isVerticalLlayout,
         });
       }, pollingInterval * 1000);
@@ -48,10 +45,8 @@ export const useManageMarket = ({
         clearInterval(timer);
       }
     };
-  }, [currentCategory, isFocused, isVerticalLlayout, pollingInterval]);
+  }, [selectedCategory, isFocused, isVerticalLlayout, pollingInterval]);
   return {
-    isListLoading: markeListLoad,
-    currentCategory,
-    currentMarketlist,
+    selectedCategory,
   };
 };
