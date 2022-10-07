@@ -35,7 +35,7 @@ const UpdateAlert: FC = () => {
     return null;
   }
 
-  // Narrowing type for VersionInfo
+  // Narrowing type to VersionInfo
   if (!('package' in lastVersion)) {
     return null;
   }

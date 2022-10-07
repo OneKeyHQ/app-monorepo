@@ -17,8 +17,12 @@ function useCheckUpdate() {
     if (state === 'ready') {
       showBadge = true;
     }
-    // @ts-expect-error
-    if ((latest ?? {}).version && appUpdates.skipVersionCheck(latest.version)) {
+    if (
+      latest &&
+      // Narrowing type to DesktopVersion
+      'version' in latest &&
+      appUpdates.skipVersionCheck(latest.version)
+    ) {
       showBadge = false;
     }
 

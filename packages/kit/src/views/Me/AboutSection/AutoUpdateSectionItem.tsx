@@ -119,7 +119,7 @@ const AutoUpdateSectionItem: FC = () => {
           onPress={() => {
             if (state === 'available') {
               if (platformEnv.isNative) {
-                // Narrowing type for VersionInfo
+                // Narrowing type to VersionInfo
                 if (latest !== undefined && 'package' in latest) {
                   appUpdates.openAppUpdate(latest);
                 }
