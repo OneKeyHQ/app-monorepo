@@ -20,7 +20,7 @@ interface MarketListHeaderProps {
 const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
   const listSort = useListSort();
   return (
-    <Box mt="2" w="full" key="MarketListHeader">
+    <Box mt="2" w="full">
       <ListItem>
         {headTags.map((tag) => {
           if (tag.id === 1) {

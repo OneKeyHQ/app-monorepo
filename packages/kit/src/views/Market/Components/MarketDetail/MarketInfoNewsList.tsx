@@ -4,36 +4,8 @@ import { FC, useCallback } from 'react';
 import { ListRenderItem } from 'react-native';
 
 import { MarketNews } from '../../../../store/reducers/market';
-const mokeData = [
-  {
-    title: 'Miners Remain Unfazed by Crypto Sell-Off, Expect Mor...',
-    origin: 'CoinDesk',
-    date: 'Jul 06,18:22',
-    image: '',
-    url: '',
-  },
-  {
-    title: 'Miners Remain Unfazed by Crypto Sell-Off, Expect Mor...',
-    origin: 'CoinDesk',
-    date: 'Jul 06,18:22',
-    image: '',
-    url: '',
-  },
-  {
-    title: 'Miners Remain Unfazed by Crypto Sell-Off, Expect Mor...',
-    origin: 'CoinDesk',
-    date: 'Jul 06,18:22',
-    image: '',
-    url: '',
-  },
-  {
-    title: 'Miners Remain Unfazed by Crypto Sell-Off, Expect Mor...',
-    origin: 'CoinDesk',
-    date: 'Jul 06,18:22',
-    image: '',
-    url: '',
-  },
-];
+import { ListItem } from '../../../Components/stories/List/ListView';
+import { useWebController } from '../../../Discover/Explorer/Controller/useWebController';
 
 type NewsItemProps = {
   title?: string;
@@ -51,40 +23,57 @@ const NewsItem: FC<NewsItemProps> = ({
 }) => {
   console.log('NewsItem');
   return (
-    <Pressable onPress={onPress}>
-      <Box flexDirection="row">
-        <Box>
-          <Typography.Body1Strong numberOfLines={2}>
-            {title}
-          </Typography.Body1Strong>
+    <ListItem onPress={onPress}>
+      <Box my="4" flexDirection="row" justifyContent="space-between" w="full">
+        <Box flex={1} justifyContent="space-between">
+          <Typography.Body1Strong noOfLines={2}>{title}</Typography.Body1Strong>
           <Box flexDirection="row">
             <Typography.Caption>{origin}</Typography.Caption>
-            <Typography.Caption>{date}</Typography.Caption>
+            <Typography.Caption ml="2">{date}</Typography.Caption>
           </Box>
         </Box>
-        <Image src={imageUrl} width="80px" height="80px" />
+        <Box ml="4">
+          <Image
+            src={imageUrl}
+            alt={imageUrl}
+            key={imageUrl}
+            width="80px"
+            height="80px"
+            borderRadius={12}
+          />
+        </Box>
       </Box>
-    </Pressable>
+    </ListItem>
   );
 };
 
-export const MarketInfoNewsList: FC = () => {
-  console.log('MarketInfoNews');
-  const renderItem: ListRenderItem<MarketNews> = useCallback(({ item }) => {
-    console.log('item', item);
-    return (
-      <NewsItem
-        title={item.title}
-        origin={item.origin}
-        date={item.date}
-        imageUrl={item.imageUrl}
-        onPress={() => {}}
-      />
-    );
-  }, []);
+type MarketInfoNewsListProps = {
+  news?: MarketNews[];
+};
+
+export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
+  const { gotoSite } = useWebController();
+  const renderItem: ListRenderItem<MarketNews> = useCallback(
+    ({ item }) => {
+      console.log('item', item);
+      return (
+        <NewsItem
+          title={item.title}
+          origin={item.origin}
+          date={item.date}
+          imageUrl={item.imageUrl}
+          onPress={() => {
+            // to do 跳转打开webview
+            gotoSite({ url: item.url });
+          }}
+        />
+      );
+    },
+    [gotoSite],
+  );
   return (
     <Box>
-      <FlatList data={mokeData} renderItem={renderItem} />
+      <FlatList data={news} renderItem={renderItem} />
     </Box>
   );
 };

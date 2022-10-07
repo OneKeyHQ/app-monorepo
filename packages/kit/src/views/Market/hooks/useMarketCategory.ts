@@ -32,7 +32,10 @@ export const useMarketFavoriteRecommentedList = () => {
   const categorys = useAppSelector((s) => s.market.categorys);
   const favoritesCategory = categorys[MARKET_FAVORITES_CATEGORYID];
   return useMemo(
-    () => (favoritesCategory ? favoritesCategory.recommendedTokens : []),
+    () =>
+      favoritesCategory && favoritesCategory.recommendedTokens
+        ? favoritesCategory.recommendedTokens
+        : [],
     [favoritesCategory],
   );
 };
@@ -41,7 +44,10 @@ export const useMarketFavoriteCategoryTokenIds = () => {
   const categorys = useAppSelector((s) => s.market.categorys);
   const favoritesCategory = categorys[MARKET_FAVORITES_CATEGORYID];
   return useMemo(
-    () => (favoritesCategory ? favoritesCategory.coingeckoIds : []),
+    () =>
+      favoritesCategory && favoritesCategory.coingeckoIds
+        ? favoritesCategory.coingeckoIds
+        : [],
     [favoritesCategory],
   );
 };

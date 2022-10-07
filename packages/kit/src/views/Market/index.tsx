@@ -58,6 +58,7 @@ const Market = () => {
           // goto detail
           navigation.navigate(HomeRoutes.MarketDetail, { marketTokenId: item });
         }}
+        key={item}
       />
     ),
     [listHeadTags, navigation],
@@ -87,12 +88,12 @@ const Market = () => {
           <>
             <MarketCategoryToggles categorys={categorys} />
             {selectedCategory.categoryId === MARKET_FAVORITES_CATEGORYID &&
-            favoriteTokens?.length === 0 &&
-            recommendedTokens &&
+            favoriteTokens.length === 0 &&
             recommendedTokens.length > 0 ? (
               <MarketRecomment tokens={recommendedTokens} />
             ) : (
               <FlatList
+                keyExtractor={(item, index) => `${item}-${index}`}
                 data={selectedCategory.coingeckoIds}
                 renderItem={renderItem}
                 ListHeaderComponent={() => (
@@ -101,9 +102,12 @@ const Market = () => {
                 ItemSeparatorComponent={Divider}
                 ListEmptyComponent={
                   <Empty
+                    isLoading
                     emoji="⭐️"
-                    title="No Favorite Token"
-                    subTitle="Your Favorite tokens will show here."
+                    title={`No ${selectedCategory.name ?? ''} Token`}
+                    subTitle={`${
+                      selectedCategory.name ?? ''
+                    }Favorite tokens will show here.`}
                   />
                 }
               />

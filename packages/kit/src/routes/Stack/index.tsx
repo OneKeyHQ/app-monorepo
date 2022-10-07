@@ -39,6 +39,7 @@ import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
 
 import renderCustomSubStackHeader from './Header';
+import MarketDetail from '../../views/Market/MarketDetail';
 
 export const stackScreenList = [
   {
@@ -108,6 +109,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.PushNotificationManageAccountDynamic,
     component: PushNotificationManageAccountDynamic,
+  },
+  {
+    name: HomeRoutes.MarketDetail,
+    component: MarketDetail,
   },
 ];
 

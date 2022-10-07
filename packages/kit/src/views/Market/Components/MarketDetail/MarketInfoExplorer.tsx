@@ -1,48 +1,51 @@
 import { FC } from 'react';
 
-import {
-  Box,
-  Icon,
-  Pressable,
-  Token,
-  Typography,
-} from '@onekeyhq/components/src';
+import { Box, Icon, Pressable, Typography } from '@onekeyhq/components/src';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { useGridBoxStyle } from '../../hooks/useMarketLayout';
+import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
 type MarketInfoExplorerProps = {
   name?: string;
-  iconUrl?: string;
-  address?: string;
+  contractAddress?: string;
+  onPress?: () => void;
   width?: string;
   height?: string;
+  index: number;
 };
 
 export const MarketInfoExplorer: FC<MarketInfoExplorerProps> = ({
   name,
-  iconUrl,
-  address,
-  width = '173px',
+  contractAddress,
   height = '48px',
+  onPress,
+  index,
 }) => {
   console.log('MarketInfoExplorer');
+  const boxStyle = useGridBoxStyle({
+    index,
+    maxW: SCREEN_SIZE.LARGE,
+    outPadding: 32,
+  });
   return (
-    <Pressable width={width} height={height}>
-      <Box
-        borderWidth={1}
-        borderRadius="12px"
-        borderColor="border-default"
-        flexDirection="row"
-        alignItems="center"
-      >
-        <Box ml="3" flexDirection="row" width="100px">
-          <Token size={8} src={iconUrl} />
-          <Box flexDirection="column" ml="2">
-            <Typography.Body2Strong>{name}</Typography.Body2Strong>
-            <Typography.Caption color="text-subdued">
-              {shortenAddress(address ?? '')}
-            </Typography.Caption>
-          </Box>
-        </Box>
+    <Pressable
+      height={height}
+      borderWidth={1}
+      borderRadius="12px"
+      borderColor="border-default"
+      flexDirection="row"
+      alignItems="center"
+      justifyContent="space-between"
+      {...boxStyle}
+      onPress={onPress}
+    >
+      <Box ml="2">
+        <Typography.Body2Strong>{name}</Typography.Body2Strong>
+        <Typography.Caption color="text-subdued">
+          {shortenAddress(contractAddress ?? '')}
+        </Typography.Caption>
+      </Box>
+      <Box mr="2">
         <Icon name="ExternalLinkSolid" size={20} />
       </Box>
     </Pressable>

@@ -1,18 +1,18 @@
 // @ts-gnore
 import React, { useCallback } from 'react';
-import { Box } from '@onekeyhq/components/src';
+
 import { Platform } from 'react-native';
-import Canvas, {
-  CanvasGradient,
-  CanvasRenderingContext2D,
-} from 'react-native-canvas';
+import Canvas, { CanvasRenderingContext2D } from 'react-native-canvas';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { Box } from '@onekeyhq/components/src';
 
 type SparkLineChartProps = {
   data?: number[];
   lineColor?: string;
   height?: number;
   width?: number;
-  range?: number;
   lineWidth?: number;
   smooth?: boolean;
   scale?: number;
@@ -21,27 +21,8 @@ type SparkLineChartProps = {
 
 const offsetHeight = 10;
 
-const throttlenSparklinePoints = (data?: number[], range = 50) => {
-  // range / data.length
-  const res = [];
-  if (data) {
-    const fillteData = data.filter((value) => value);
-    if (fillteData.length < range) {
-      return fillteData;
-    }
-
-    const valueStep = Math.floor(data.length / range);
-    for (let i = 0; i < range; i += 1) {
-      res.push(data[i * valueStep]);
-    }
-  }
-  // console.log('sparkline resArray:', res);
-  return res;
-};
-
 const SparkLineChart: React.FC<SparkLineChartProps> = ({
   data,
-  range = 20,
   lineColor = 'rgba(0, 184, 18, 1)',
   linearGradientColor = 'rgba(0, 184, 18, 0.3)',
   height = 40,
@@ -55,7 +36,7 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
       if (canvas) {
         canvas.width = width;
         canvas.height = height + offsetHeight;
-        const showData = throttlenSparklinePoints(data, range);
+        const showData = data || [];
         const maxValue = Math.max(...showData);
         const minValue = Math.min(...showData);
         const yStep = height / (maxValue - minValue);
@@ -66,7 +47,6 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
           ctx.strokeStyle = lineColor;
           const xSpath = width / (showData.length - 1);
           let xPoint = 0;
-          let lastYpoint = 0;
           showData.forEach((v, i) => {
             const yPoint = height - (v - minValue) * yStep;
             if (smooth && i >= 2 && i < showData.length - 1) {
@@ -85,9 +65,6 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
             } else {
               ctx.lineTo(xPoint, yPoint);
             }
-            if (i === showData.length - 1) {
-              lastYpoint = yPoint;
-            }
             xPoint += xSpath;
           });
           ctx.lineTo(xPoint, height + offsetHeight);
@@ -101,7 +78,7 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
           ctx.fill();
           xPoint -= xSpath;
           // clear last 2 line
-          ctx.clearRect(xPoint, lastYpoint, xSpath, lastYpoint + offsetHeight);
+          ctx.clearRect(xPoint - xSpath, 0, xSpath, height + offsetHeight);
           ctx.clearRect(
             0,
             height + offsetHeight - lineWidth,
@@ -116,7 +93,6 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
       height,
       lineColor,
       lineWidth,
-      range,
       width,
       smooth,
       scale,
@@ -124,7 +100,7 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
     ],
   );
 
-  return Platform.OS === 'web' ? (
+  return platformEnv.isWeb || platformEnv.isExtension ? (
     <div style={{ width, height: height + offsetHeight }}>
       <canvas ref={draw} />
     </div>

@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useIsFocused } from '@react-navigation/core';
 import {
-  useMarketCategoryLoading,
   useMarketSelectedCategory,
 } from './useMarketCategory';
 import { useIsVerticalLayout } from '@onekeyhq/components/src';

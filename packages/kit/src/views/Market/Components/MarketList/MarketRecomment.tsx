@@ -1,9 +1,16 @@
 import React, { FC, useState } from 'react';
 
-import { Box, Button, CheckBox, Typography } from '@onekeyhq/components/src';
+import {
+  Box,
+  Button,
+  CheckBox,
+  Typography,
+  useIsVerticalLayout,
+} from '@onekeyhq/components/src';
 
 import RecommendedTokenBox from './RecommendedToken';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { GRID_MAX_WIDTH } from '../../hooks/useMarketLayout';
 
 type RecomentTokenType = {
   iconUrl?: string;
@@ -19,10 +26,11 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
   const [groupValue, setGroupValue] = useState(() =>
     tokens?.map((t) => t.coingeckoId),
   );
+  const isVertical = useIsVerticalLayout();
   return (
     <Box flex={1} alignItems="center" justifyContent="center">
-      <Box mt="6" maxW="700px">
-        <Typography.Heading ml="4">Hot Tokens</Typography.Heading>
+      <Box mt={isVertical ? '6' : '14'} maxW={GRID_MAX_WIDTH}>
+        <Typography.Heading>Hot Tokens</Typography.Heading>
         <CheckBox.Group
           defaultValue={groupValue}
           onChange={(values) => {
@@ -34,20 +42,19 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
           flexWrap="wrap"
           width="full"
         >
-          {tokens?.map((t) => (
-            <Box m="4">
-              <RecommendedTokenBox
-                name={t.name ?? ''}
-                icon={t.iconUrl ?? ''}
-                symbol={t.symbol ?? ''}
-                coingeckoId={t.coingeckoId ?? ''}
-              />
-            </Box>
+          {tokens?.map((t, i) => (
+            <RecommendedTokenBox
+              name={t.name ?? ''}
+              icon={t.iconUrl ?? ''}
+              symbol={t.symbol ?? ''}
+              coingeckoId={t.coingeckoId ?? ''}
+              index={i}
+            />
           ))}
         </CheckBox.Group>
         <Button
           size="xl"
-          mx="4"
+          mt="5"
           type="primary"
           isDisabled={!(groupValue && groupValue.length > 0)}
           onPress={() => {

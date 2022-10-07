@@ -1,18 +1,16 @@
 import React from 'react';
 
-import {
-  Box,
-  CheckBox,
-  Image,
-  Typography,
-  useIsVerticalLayout,
-} from '@onekeyhq/components/src';
+import { useWindowDimensions } from 'react-native';
+
+import { Box, CheckBox, Image, Typography } from '@onekeyhq/components/src';
+import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 
 type RecomendedTokenProps = {
-  name: string;
-  symbol: string;
+  name?: string;
+  symbol?: string;
   icon: string;
   coingeckoId: string;
+  index: number;
 };
 
 const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
@@ -20,12 +18,11 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
   symbol,
   icon,
   coingeckoId,
+  index,
 }) => {
-  const isVerticalLayout = useIsVerticalLayout();
-  const width = isVerticalLayout ? '173px' : '200px';
+  const boxStyle = useGridBoxStyle({ index, outPadding: 32 });
   return (
     <Box
-      width={width}
       height="64px"
       borderWidth={1}
       borderRadius="12px"
@@ -33,8 +30,9 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
+      {...boxStyle}
     >
-      <Box ml="3" flexDirection="row" width="100px">
+      <Box ml="3" alignItems="center" flexDirection="row" width="100px">
         <Image borderRadius={16} src={icon} size={8} />
         <Box flexDirection="column" ml="2">
           <Typography.Body2Strong>{symbol}</Typography.Body2Strong>
@@ -43,7 +41,7 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
           </Typography.Body2Strong>
         </Box>
       </Box>
-      <CheckBox mr="3" value={coingeckoId} />
+      <CheckBox mr="1" value={coingeckoId} />
     </Box>
   );
 };

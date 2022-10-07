@@ -39,9 +39,16 @@ export type MarketTokenItem = {
   implChainIds?: string[];
 };
 
+export type MarketTokenDetail = {
+  stats?: MarketStats;
+  about?: Record<string, string>;
+  explorers?: MarketEXplorer[];
+  news?: MarketNews[];
+};
+
 export type MarketEXplorer = {
   iconUrl?: string;
-  contractAdrrss?: string;
+  contractAddress?: string;
   name?: string;
   url?: string;
 };
@@ -52,14 +59,6 @@ export type MarketNews = {
   origin?: string;
   date?: string;
   imageUrl?: string;
-};
-
-export type MarketInfo = {
-  name?: string;
-  symbol?: string;
-  iconUrl?: string;
-  about?: Record<string, string>;
-  explorers?: MarketEXplorer[];
 };
 
 export type MarketPerformance = {
@@ -82,7 +81,7 @@ export type MarketStats = {
   high7d?: string;
   low24h?: number;
   high24h?: number;
-  lat?: {
+  atl?: {
     time?: string;
     value?: number;
   };
@@ -104,20 +103,13 @@ type MarketCategoryTokensPayloadAction = {
 
 type ChartsPayloadAction = {
   coingeckoId: CoingeckoId;
-  charts: TokenChartData;
+  days: string;
+  chart: TokenChartData;
 };
 
-type InfoPayloadAction = {
+type MarketTokenDetailPayloadAction = {
   coingeckoId: CoingeckoId;
-  info: MarketInfo;
-};
-type StatsPayloadAction = {
-  coingeckoId: CoingeckoId;
-  stats: MarketStats;
-};
-type NewsPayloadAction = {
-  coingeckoId: CoingeckoId;
-  news: MarketNews[];
+  data: MarketTokenDetail;
 };
 
 type MarketTokenIpmlChainIdPayloadAction = {
@@ -129,10 +121,8 @@ export type MarketInitialState = {
   selectedCategoryId?: CategoryId;
   categorys: Record<CategoryId, MarketCategory>;
   marketTokens: Record<CoingeckoId, MarketTokenItem>;
-  charts: Record<CoingeckoId, TokenChartData>;
-  infos: Record<CoingeckoId, MarketInfo>;
-  stats: Record<CoingeckoId, MarketStats>;
-  news: Record<CoingeckoId, MarketNews[]>;
+  charts: Record<CoingeckoId, Record<string, TokenChartData>>;
+  detail: Record<CoingeckoId, MarketTokenDetail>;
   listSort: MarketListSortType | null;
 };
 
@@ -141,9 +131,7 @@ const initialState: MarketInitialState = {
   marketTokens: {},
   listSort: null,
   charts: {},
-  infos: {},
-  stats: {},
-  news: {},
+  detail: {},
 };
 
 function equalStringArr(arr1: string[], arr2: string[]) {
@@ -240,24 +228,32 @@ export const MarketSlicer = createSlice({
         favoriteCategory.coingeckoIds?.unshift(payload);
       }
     },
-    updateChats(state, action: PayloadAction<ChartsPayloadAction>) {
-      const { coingeckoId, charts } = action.payload;
-      state.charts[coingeckoId] = charts;
+    updateMarketChats(state, action: PayloadAction<ChartsPayloadAction>) {
+      const { coingeckoId, chart, days } = action.payload;
+      state.charts[coingeckoId] = state.charts[coingeckoId] || {};
+      state.charts[coingeckoId][days] = chart;
     },
-    updateMarketInfo(state, action: PayloadAction<InfoPayloadAction>) {
-      const { coingeckoId, info } = action.payload;
-      const oldInfo = state.infos[coingeckoId] || {};
-      state.infos[coingeckoId] = { ...oldInfo, ...info };
+    updateMarketTokenDetail(
+      state,
+      action: PayloadAction<MarketTokenDetailPayloadAction>,
+    ) {
+      const { coingeckoId, data } = action.payload;
+      state.detail[coingeckoId] = data;
     },
-    updateMarketStats(state, action: PayloadAction<StatsPayloadAction>) {
-      const { coingeckoId, stats } = action.payload;
-      const oldStats = state.infos[coingeckoId] || {};
-      state.stats[coingeckoId] = { ...oldStats, ...stats };
-    },
-    updateMarketNews(state, action: PayloadAction<NewsPayloadAction>) {
-      const { coingeckoId, news } = action.payload;
-      state.news[coingeckoId] = news;
-    },
+    // updateMarketInfo(state, action: PayloadAction<InfoPayloadAction>) {
+    //   const { coingeckoId, info } = action.payload;
+    //   const oldInfo = state.infos[coingeckoId] || {};
+    //   state.infos[coingeckoId] = { ...oldInfo, ...info };
+    // },
+    // updateMarketStats(state, action: PayloadAction<StatsPayloadAction>) {
+    //   const { coingeckoId, stats } = action.payload;
+    //   const oldStats = state.infos[coingeckoId] || {};
+    //   state.stats[coingeckoId] = { ...oldStats, ...stats };
+    // },
+    // updateMarketNews(state, action: PayloadAction<NewsPayloadAction>) {
+    //   const { coingeckoId, news } = action.payload;
+    //   state.news[coingeckoId] = news;
+    // },
     updateMarketListSort(
       state,
       action: PayloadAction<MarketListSortType | null>,
@@ -337,7 +333,7 @@ export const MarketSlicer = createSlice({
           cacheMarketToken.implChainIds = implChainIds;
         }
       }
-    }
+    },
   },
 });
 
@@ -345,10 +341,8 @@ export const {
   saveMarketCategorys,
   updateMarketTokens,
   updateSelectedCategory,
-  updateChats,
-  updateMarketInfo,
-  updateMarketStats,
-  updateMarketNews,
+  updateMarketChats,
+  updateMarketTokenDetail,
   cancleMarketFavorite,
   saveMarketFavorite,
   moveTopMarketFavorite,

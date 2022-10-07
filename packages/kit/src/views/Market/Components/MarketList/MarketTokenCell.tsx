@@ -6,9 +6,9 @@ import {
   HStack,
   Icon,
   IconButton,
-  Skeleton,
   Image,
   Pressable,
+  Skeleton,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
@@ -76,8 +76,11 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
         if (isVerticalLayout && marketTokenItem)
           showMarketCellMoreMenu(marketTokenItem);
       }}
-      onPress={onPress}
-      key={marketTokenId}
+      onPress={() => {
+        if (marketTokenItem && onPress) {
+          onPress();
+        }
+      }}
     >
       {headTags.map((tag) => {
         switch (tag.id) {
@@ -191,7 +194,12 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             if (marketTokenItem && marketTokenItem.priceChangePercentage24H) {
               return isVerticalLayout ? (
                 <ListItem.Column>
-                  <Box flex={1} alignItems="center" justifyContent="flex-end">
+                  <Box
+                    flex={1}
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="flex-end"
+                  >
                     <Box
                       width="72px"
                       height="32px"
@@ -313,7 +321,6 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       data={marketTokenItem.sparkline}
                       width={50}
                       height={40}
-                      range={20}
                       lineColor={
                         marketTokenItem.priceChangePercentage24H &&
                         marketTokenItem.priceChangePercentage24H >= 0
@@ -347,6 +354,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                     <Skeleton shape="Caption" />
                   )}
                   <IconButton
+                    isDisabled={Boolean(!marketTokenItem)}
                     size="xs"
                     name="DotsVerticalSolid"
                     type="plain"

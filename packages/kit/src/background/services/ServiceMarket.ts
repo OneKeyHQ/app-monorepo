@@ -15,7 +15,9 @@ import {
   updateMarketListSort,
   updateMarketTokenIpmlChainId,
   updateMarketTokens,
+  updateMarketChats,
   updateSelectedCategory,
+  updateMarketTokenDetail,
 } from '../../store/reducers/market';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -151,8 +153,9 @@ export default class ServiceMarket extends ServiceBase {
     this.backgroundApi.dispatch(updateMarketListSort(listSort));
   }
 
+  @backgroundMethod()
   async fetchMarketDetail(coingeckoId: string) {
-    const path = '/detail';
+    const path = '/market/detail';
     const data = await this.fetchData(
       path,
       {
@@ -162,28 +165,38 @@ export default class ServiceMarket extends ServiceBase {
     );
     if (data) {
       console.log('detail-data', data);
+      this.backgroundApi.dispatch(
+        updateMarketTokenDetail({ coingeckoId, data }),
+      );
     }
   }
 
-//   @backgroundMethod()
-//   updateMarketSelectedTokenId(coingeckoId: string) {
-//     this.backgroundApi.dispatch(this.updateMarketSelectedTokenId(coingeckoId));
-//   }
-
+  @backgroundMethod()
   async fetchMarketTokenChart({
     coingeckoId,
-    days,
+    days = '1',
     points = '100',
   }: {
     coingeckoId: string;
     days: string;
     points?: string;
   }): Promise<[number, number][]> {
+    const path = '/market/token/chart';
+    const data = await this.fetchData(
+      path,
+      {
+        coingeckoId,
+        days,
+        points,
+      },
+      [],
+    );
+    if (data.length > 0) {
+      console.log('data', data);
+      this.backgroundApi.dispatch(
+        updateMarketChats({ coingeckoId, chart: data, days }),
+      );
+    }
     return Promise.resolve([]);
   }
-
-  //   @backgroundMethon()
-  //   async getMarketFacoriteStatus(coingeckoId:string) {
-
-  //   }
 }

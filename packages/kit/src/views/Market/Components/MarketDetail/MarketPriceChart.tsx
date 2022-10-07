@@ -1,22 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { StyleProp, ViewStyle } from 'react-native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  MarketApiData,
-  PriceApiProps,
-  fetchChartData,
-} from '../../../PriceChart/chartService';
 import ChartWithLabel from '../../../PriceChart/ChartWithLabel';
 import TimeControl, {
   TIMEOPTIONS,
   TIMEOPTIONS_VALUE,
 } from '../../../PriceChart/TimeControl';
 import { useMarketTokenChart } from '../../hooks/useMarketToken';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 type MarketPriceChartProps = {
   coingeckoId: string;
@@ -27,10 +27,7 @@ const MarketPriceChart: React.FC<MarketPriceChartProps> = ({
   coingeckoId,
   style,
 }) => {
-  const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
-  const marketChart = useMarketTokenChart({ coingeckoId });
-  const dataMap = useRef<MarketApiData[][]>([]);
   let points: string | undefined;
   const isVertical = useIsVerticalLayout();
   if (isVertical) {
@@ -39,42 +36,20 @@ const MarketPriceChart: React.FC<MarketPriceChartProps> = ({
     points = '300';
   }
 
-  const refreshDataOnTimeChange = useCallback(
-    async (newTimeValue: string) => {
-      const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
-      let latestPriceData: MarketApiData;
-      const cacheData = dataMap.current[newTimeIndex];
-      if (!cacheData) {
-        setIsFetching(true);
-        let newData =
-          await backgroundApiProxy.serviceMarket.fetchMarketTokenChart({
-            coingeckoId,
-            days: TIMEOPTIONS_VALUE[newTimeIndex],
-            points,
-          });
-        if (marketChart?.length && newData?.length) {
-          latestPriceData = marketChart[marketChart.length - 1];
-          newData = newData.filter((d) => d[0] < latestPriceData[0]);
-          newData.push(latestPriceData);
-          dataMap.current[newTimeIndex] = newData;
-        }
-      }
-      setSelectedTimeIndex(newTimeIndex);
-      setIsFetching(false);
-    },
-    [marketChart, coingeckoId],
-  );
+  const { chart } = useMarketTokenChart({
+    coingeckoId,
+    days: TIMEOPTIONS_VALUE[selectedTimeIndex],
+    points,
+  });
 
-  useEffect(() => {
-    refreshDataOnTimeChange(TIMEOPTIONS[0]);
-  }, [refreshDataOnTimeChange]);
-
+  const refreshDataOnTimeChange = useCallback((newTimeValue: string) => {
+    const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
+    setSelectedTimeIndex(newTimeIndex);
+  }, []);
+  const isFetching = useMemo(() => !(chart && chart.length > 0), [chart]);
   return (
     <Box style={style}>
-      <ChartWithLabel
-        isFetching={isFetching}
-        data={dataMap.current?.[selectedTimeIndex] || []}
-      >
+      <ChartWithLabel isFetching={isFetching} data={chart || []}>
         <TimeControl
           enabled={!isFetching}
           selectedIndex={selectedTimeIndex}
