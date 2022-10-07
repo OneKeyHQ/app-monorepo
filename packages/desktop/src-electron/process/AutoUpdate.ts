@@ -28,21 +28,6 @@ function isNetworkError(errorObject: Error) {
 }
 
 const init = ({ mainWindow }: Dependencies) => {
-  if (isDev) {
-    console.log('isPacked: ======> defineProperty');
-    console.log('current app version: ', app.getVersion());
-    Object.defineProperty(app, 'isPackaged', {
-      get() {
-        return true;
-      },
-    });
-
-    autoUpdater.updateConfigPath = path.join(
-      __dirname,
-      '../../dev-app-update.yml',
-    );
-  }
-
   // Enable feature on FE once it's ready
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('update/enable');
