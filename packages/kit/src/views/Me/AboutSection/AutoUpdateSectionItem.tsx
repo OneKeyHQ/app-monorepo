@@ -118,7 +118,13 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomColor="divider"
           onPress={() => {
             if (state === 'available') {
-              onDownloadUpdate();
+              if (platformEnv.isNative) {
+                if (latest !== undefined && 'package' in latest) {
+                  appUpdates.openAppUpdate(latest);
+                }
+              } else {
+                onDownloadUpdate();
+              }
             }
             if (state === 'ready') {
               onInstallUpdate();
@@ -191,6 +197,7 @@ const AutoUpdateSectionItem: FC = () => {
     onDownloadUpdate,
     onInstallUpdate,
     showAvailabelBadge,
+    latest,
   ]);
 
   return (

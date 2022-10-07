@@ -29,8 +29,19 @@ function useCheckUpdate() {
     return showBadge;
   }, [latest, autoDownload, state]);
 
+  const showMobileUpdateBadge = useMemo(() => {
+    if (state === 'available') {
+      debugLogger.autoUpdate.debug(
+        'useCheckUpdate render, showMobileBadge: true',
+      );
+      return true;
+    }
+    return false;
+  }, [state]);
+
   return {
     showUpdateBadge,
+    showMobileUpdateBadge,
   };
 }
 

@@ -63,6 +63,8 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
   const { state } = useAutoUpdate();
   const { showUpdateBadge } = useCheckUpdate();
   const UpdateItem = useMemo(() => {
+    if (!platformEnv.isDesktop) return null;
+
     let formText = '';
     const disabled = state === 'downloading';
     if (state === 'available') {
