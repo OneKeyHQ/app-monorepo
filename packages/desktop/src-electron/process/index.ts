@@ -4,11 +4,8 @@ import logger from 'electron-log';
 import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
 
-import type { LocalStore } from '../libs/store';
-
 export type Dependencies = {
   mainWindow: BrowserWindow;
-  store: LocalStore;
 };
 
 const filter = {
@@ -50,9 +47,9 @@ export const restartBridge = async () => {
   await bridgeInstance?.restart();
 };
 
-const init = async ({ mainWindow, store }: Dependencies) => {
+const init = async ({ mainWindow }: Dependencies) => {
   await launchBridge();
-  autoUpdateInit({ mainWindow, store });
+  autoUpdateInit({ mainWindow });
 };
 
 export default init;

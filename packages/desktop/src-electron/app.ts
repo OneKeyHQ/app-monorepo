@@ -20,7 +20,6 @@ import logger from 'electron-log';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isString } from 'lodash';
 
-import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
 import type { PrefType } from './preload';
@@ -344,7 +343,7 @@ function createMainWindow() {
 }
 
 function init() {
-  initProcess({ mainWindow: mainWindow as BrowserWindow, store });
+  initProcess({ mainWindow: mainWindow as BrowserWindow });
 }
 
 const singleInstance = app.requestSingleInstanceLock();

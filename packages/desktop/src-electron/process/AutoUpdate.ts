@@ -27,7 +27,7 @@ function isNetworkError(errorObject: Error) {
   );
 }
 
-const init = ({ mainWindow, store }: Dependencies) => {
+const init = ({ mainWindow }: Dependencies) => {
   if (isDev) {
     console.log('isPacked: ======> defineProperty');
     console.log('current app version: ', app.getVersion());
@@ -51,16 +51,12 @@ const init = ({ mainWindow, store }: Dependencies) => {
   let isManualCheck = false;
   let latestVersion: LatestVersion = {} as LatestVersion;
   let updateCancellationToken: CancellationToken;
-  const updateSettings = store.getUpdateSettings();
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.logger = logger;
 
-  logger.info(
-    'auto-updater',
-    `updateSettings: ${JSON.stringify(updateSettings)}`,
-  );
+  logger.info('auto-updater', `updateSettings: empty`);
 
   autoUpdater.on('checking-for-update', () => {
     logger.info('auto-updater', 'Checking for update');
