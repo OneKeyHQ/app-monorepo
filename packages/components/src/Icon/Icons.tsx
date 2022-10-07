@@ -527,1059 +527,533 @@ import WifiSolid from "./react/solid/Wifi";
 import ZoomInSolid from "./react/solid/ZoomIn";
 import ZoomOutSolid from "./react/solid/ZoomOut";
 
-export type ICON_NAMES =
-  | "ArrowBottomLeftIllus"
-  | "ArrowTopRightIllus"
-  | "BrandLogoIllus"
-  | "CrownBadgeIllus"
-  | "DiamondBadgeIllus"
-  | "EmptyNftIllus"
-  | "FaceIdIllus"
-  | "FingerPrintIllus"
-  | "LogoIllus"
-  | "LogoPrimaryIllus"
-  | "MetamaskIllus"
-  | "NftPegIllus"
-  | "StarBadgeIllus"
-  | "TxStatusFailureCircleIllus"
-  | "TxStatusSuccessCircleIllus"
-  | "TxStatusWarningCircleIllus"
-  | "WalletconnectLogoIllus"
-  | "AcademicCapOutline"
-  | "ActivityOutline"
-  | "AdjustmentsOutline"
-  | "AnnotationOutline"
-  | "ArchiveOutline"
-  | "ArrowCircleDownOutline"
-  | "ArrowCircleLeftOutline"
-  | "ArrowCircleRightOutline"
-  | "ArrowCircleUpOutline"
-  | "ArrowDownOutline"
-  | "ArrowLeftOutline"
-  | "ArrowNarrowDownOutline"
-  | "ArrowNarrowLeftOutline"
-  | "ArrowNarrowRightOutline"
-  | "ArrowNarrowUpOutline"
-  | "ArrowRightOutline"
-  | "ArrowSmDownOutline"
-  | "ArrowSmLeftOutline"
-  | "ArrowSmRightOutline"
-  | "ArrowSmUpOutline"
-  | "ArrowUpOutline"
-  | "ArrowsExpandOutline"
-  | "AtSymbolOutline"
-  | "BackspaceOutline"
-  | "BadgeCheckOutline"
-  | "BanOutline"
-  | "BeakerOutline"
-  | "BellOutline"
-  | "BellOffOutline"
-  | "BookOpenOutline"
-  | "BookmarkOutline"
-  | "BookmarkAltOutline"
-  | "BriefcaseOutline"
-  | "CakeOutline"
-  | "CalculatorOutline"
-  | "CalendarOutline"
-  | "CameraOutline"
-  | "CashOutline"
-  | "ChartBarOutline"
-  | "ChartPieOutline"
-  | "ChartSquareBarOutline"
-  | "ChartSquareLineOutline"
-  | "ChatOutline"
-  | "ChatAltOutline"
-  | "ChatAlt2Outline"
-  | "CheckOutline"
-  | "CheckCircleOutline"
-  | "ChevronDoubleDownOutline"
-  | "ChevronDoubleLeftOutline"
-  | "ChevronDoubleRightOutline"
-  | "ChevronDoubleUpOutline"
-  | "ChevronDownOutline"
-  | "ChevronLeftOutline"
-  | "ChevronRightOutline"
-  | "ChevronUpOutline"
-  | "ChipOutline"
-  | "ClipboardOutline"
-  | "ClipboardCheckOutline"
-  | "ClipboardCopyOutline"
-  | "ClipboardListOutline"
-  | "ClockOutline"
-  | "CloseOutline"
-  | "CloseCircleOutline"
-  | "CloudOutline"
-  | "CloudDownloadOutline"
-  | "CloudUploadOutline"
-  | "CodeOutline"
-  | "CogOutline"
-  | "CollectionOutline"
-  | "ColorSwatchOutline"
-  | "CompassOutline"
-  | "ConnectOutline"
-  | "ConnectOffOutline"
-  | "CreditCardOutline"
-  | "CubeOutline"
-  | "CubeTransparentOutline"
-  | "CurrencyBangladeshiOutline"
-  | "CurrencyDollarOutline"
-  | "CurrencyEuroOutline"
-  | "CurrencyPoundOutline"
-  | "CurrencyRupeeOutline"
-  | "CurrencyYenOutline"
-  | "CursorClickOutline"
-  | "CustomerSupportOutline"
-  | "DatabaseOutline"
-  | "DesktopComputerOutline"
-  | "DeviceMobileOutline"
-  | "DeviceTabletOutline"
-  | "DiscordOutline"
-  | "DocumentOutline"
-  | "DocumentAddOutline"
-  | "DocumentDownloadOutline"
-  | "DocumentDuplicateOutline"
-  | "DocumentRemoveOutline"
-  | "DocumentReportOutline"
-  | "DocumentSearchOutline"
-  | "DocumentTextOutline"
-  | "DotsCircleHorizontalOutline"
-  | "DotsHorizontalOutline"
-  | "DotsVerticalOutline"
-  | "DownloadOutline"
-  | "DuplicateOutline"
-  | "EmojiHappyOutline"
-  | "EmojiSadOutline"
-  | "ExclamationOutline"
-  | "ExclamationCircleOutline"
-  | "ExpandOutline"
-  | "ExternalLinkOutline"
-  | "EyeOutline"
-  | "EyeOffOutline"
-  | "FaceIdOutline"
-  | "FastForwardOutline"
-  | "FilmOutline"
-  | "FilterOutline"
-  | "FingerPrintOutline"
-  | "FireOutline"
-  | "FlagOutline"
-  | "FolderOutline"
-  | "FolderAddOutline"
-  | "FolderDownloadOutline"
-  | "FolderOpenOutline"
-  | "FolderRemoveOutline"
-  | "GiftOutline"
-  | "GlobeOutline"
-  | "GlobeAltOutline"
-  | "HandOutline"
-  | "HashtagOutline"
-  | "HeartOutline"
-  | "HomeOutline"
-  | "IdentificationOutline"
-  | "ImportOutline"
-  | "InboxOutline"
-  | "InboxInOutline"
-  | "InformationCircleOutline"
-  | "KeyOutline"
-  | "LibraryOutline"
-  | "LightBulbOutline"
-  | "LightningBoltOutline"
-  | "LinkOutline"
-  | "LoadingIndicatorOutline"
-  | "LocationMarkerOutline"
-  | "LockOutline"
-  | "LockClosedOutline"
-  | "LockOpenOutline"
-  | "LoginOutline"
-  | "LogoutOutline"
-  | "MailOutline"
-  | "MailOpenOutline"
-  | "MapOutline"
-  | "MenuOutline"
-  | "MenuAlt1Outline"
-  | "MenuAlt2Outline"
-  | "MenuAlt3Outline"
-  | "MenuAlt4Outline"
-  | "MicrophoneOutline"
-  | "MinusOutline"
-  | "MinusCircleOutline"
-  | "MinusSmOutline"
-  | "MoonOutline"
-  | "MusicNoteOutline"
-  | "NewspaperOutline"
-  | "OfficeBuildingOutline"
-  | "OnekeyLiteOutline"
-  | "PackupOutline"
-  | "PaperAirplaneOutline"
-  | "PaperClipOutline"
-  | "PauseOutline"
-  | "PencilOutline"
-  | "PencilAltOutline"
-  | "PhoneOutline"
-  | "PhoneIncomingOutline"
-  | "PhoneMissedCallOutline"
-  | "PhoneOutgoingOutline"
-  | "PhotographOutline"
-  | "PlayOutline"
-  | "PlusOutline"
-  | "PlusCircleOutline"
-  | "PlusSmOutline"
-  | "PresentationChartBarOutline"
-  | "PresentationChartLineOutline"
-  | "PrinterOutline"
-  | "PuzzleOutline"
-  | "QrcodeOutline"
-  | "QuestionMarkOutline"
-  | "QuestionMarkCircleOutline"
-  | "ReceiptRefundOutline"
-  | "ReceiptTaxOutline"
-  | "RefreshOutline"
-  | "ReplyOutline"
-  | "RestoreOutline"
-  | "RewindOutline"
-  | "RssOutline"
-  | "SaveOutline"
-  | "SaveAsOutline"
-  | "ScaleOutline"
-  | "ScanOutline"
-  | "ScissorsOutline"
-  | "SearchOutline"
-  | "SearchCircleOutline"
-  | "SelectorOutline"
-  | "ServerOutline"
-  | "ShareOutline"
-  | "ShieldCheckOutline"
-  | "ShieldExclamationOutline"
-  | "ShoppingBagOutline"
-  | "ShoppingCartOutline"
-  | "ShrinkOutline"
-  | "SortAscendingOutline"
-  | "SortDescendingOutline"
-  | "SparklesOutline"
-  | "SpeakerphoneOutline"
-  | "StarOutline"
-  | "StatusOfflineOutline"
-  | "StatusOnlineOutline"
-  | "StopOutline"
-  | "SunOutline"
-  | "SupportOutline"
-  | "SwitchHorizontalOutline"
-  | "SwitchVerticalOutline"
-  | "TableOutline"
-  | "TagOutline"
-  | "TemplateOutline"
-  | "TerminalOutline"
-  | "ThumbDownOutline"
-  | "ThumbUpOutline"
-  | "TicketOutline"
-  | "TranslateOutline"
-  | "TrashOutline"
-  | "TrendingDownOutline"
-  | "TrendingUpOutline"
-  | "TruckOutline"
-  | "TwitterOutline"
-  | "UmbrellaOutline"
-  | "UploadOutline"
-  | "UserOutline"
-  | "UserAddOutline"
-  | "UserCircleOutline"
-  | "UserGroupOutline"
-  | "UserRemoveOutline"
-  | "UsersOutline"
-  | "VariableOutline"
-  | "VideoCameraOutline"
-  | "ViewBoardsOutline"
-  | "ViewGridOutline"
-  | "ViewGridAddOutline"
-  | "ViewListOutline"
-  | "VolumeOffOutline"
-  | "VolumeUpOutline"
-  | "WalletOutline"
-  | "WalletAddOutline"
-  | "WifiOutline"
-  | "ZoomInOutline"
-  | "ZoomOutOutline"
-  | "AcademicCapSolid"
-  | "AdjustmentsSolid"
-  | "AndroidSolid"
-  | "AnnotationSolid"
-  | "AppStoreSolid"
-  | "ArchiveSolid"
-  | "ArrowCircleDownSolid"
-  | "ArrowCircleLeftSolid"
-  | "ArrowCircleRightSolid"
-  | "ArrowCircleUpSolid"
-  | "ArrowDownSolid"
-  | "ArrowLeftSolid"
-  | "ArrowNarrowDownSolid"
-  | "ArrowNarrowLeftSolid"
-  | "ArrowNarrowRightSolid"
-  | "ArrowNarrowUpSolid"
-  | "ArrowRightSolid"
-  | "ArrowSmDownSolid"
-  | "ArrowSmLeftSolid"
-  | "ArrowSmRightSolid"
-  | "ArrowSmUpSolid"
-  | "ArrowUpSolid"
-  | "ArrowsExpandSolid"
-  | "AtSymbolSolid"
-  | "BackspaceSolid"
-  | "BadgeCheckSolid"
-  | "BanSolid"
-  | "BeakerSolid"
-  | "BellSolid"
-  | "BellOffSolid"
-  | "BookOpenSolid"
-  | "BookmarkSolid"
-  | "BookmarkAltSolid"
-  | "BriefcaseSolid"
-  | "CakeSolid"
-  | "CalculatorSolid"
-  | "CalendarSolid"
-  | "CameraSolid"
-  | "CashSolid"
-  | "ChartBarSolid"
-  | "ChartPieSolid"
-  | "ChartSquareBarSolid"
-  | "ChatSolid"
-  | "ChatAltSolid"
-  | "ChatAlt2Solid"
-  | "CheckSolid"
-  | "CheckBoxIconCheckedSolid"
-  | "CheckBoxIconCheckedDisableSolid"
-  | "CheckBoxIconDefaultSolid"
-  | "CheckBoxIconDefaultDisableSolid"
-  | "CheckCircleSolid"
-  | "ChevronDoubleDownSolid"
-  | "ChevronDoubleLeftSolid"
-  | "ChevronDoubleRightSolid"
-  | "ChevronDoubleUpSolid"
-  | "ChevronDownSolid"
-  | "ChevronLeftSolid"
-  | "ChevronRightSolid"
-  | "ChevronUpSolid"
-  | "ChipSolid"
-  | "ClipboardSolid"
-  | "ClipboardCheckSolid"
-  | "ClipboardCopySolid"
-  | "ClipboardListSolid"
-  | "ClockSolid"
-  | "CloseSolid"
-  | "CloseCircleSolid"
-  | "CloudSolid"
-  | "CloudDownloadSolid"
-  | "CloudUploadSolid"
-  | "CodeSolid"
-  | "CogSolid"
-  | "CollectionSolid"
-  | "ColorSwatchSolid"
-  | "CreditCardSolid"
-  | "CubeSolid"
-  | "CubeTransparentSolid"
-  | "CurrencyBangladeshiSolid"
-  | "CurrencyDollarSolid"
-  | "CurrencyEuroSolid"
-  | "CurrencyPoundSolid"
-  | "CurrencyRupeeSolid"
-  | "CurrencyYenSolid"
-  | "CursorClickSolid"
-  | "DatabaseSolid"
-  | "DesktopComputerSolid"
-  | "DeviceMobileSolid"
-  | "DeviceTabletSolid"
-  | "DialogIconTypeDangerSolid"
-  | "DialogIconTypeInfoSolid"
-  | "DocumentSolid"
-  | "DocumentAddSolid"
-  | "DocumentDownloadSolid"
-  | "DocumentDuplicateSolid"
-  | "DocumentRemoveSolid"
-  | "DocumentReportSolid"
-  | "DocumentSearchSolid"
-  | "DocumentTextSolid"
-  | "DotsCircleHorizontalSolid"
-  | "DotsHorizontalSolid"
-  | "DotsVerticalSolid"
-  | "DownloadSolid"
-  | "DuplicateSolid"
-  | "EmojiHappySolid"
-  | "EmojiSadSolid"
-  | "ExclamationSolid"
-  | "ExclamationCircleSolid"
-  | "ExtensionsSolid"
-  | "ExternalLinkSolid"
-  | "EyeSolid"
-  | "EyeOffSolid"
-  | "FastForwardSolid"
-  | "FilmSolid"
-  | "FilterSolid"
-  | "FingerPrintSolid"
-  | "FireSolid"
-  | "FlagSolid"
-  | "FolderSolid"
-  | "FolderAddSolid"
-  | "FolderDownloadSolid"
-  | "FolderOpenSolid"
-  | "FolderRemoveSolid"
-  | "GiftSolid"
-  | "GlobeSolid"
-  | "GlobeAltSolid"
-  | "HandSolid"
-  | "HashtagSolid"
-  | "HeartSolid"
-  | "HomeSolid"
-  | "IdentificationSolid"
-  | "InboxSolid"
-  | "InboxInSolid"
-  | "InformationCircleSolid"
-  | "KeySolid"
-  | "LibrarySolid"
-  | "LightBulbSolid"
-  | "LightningBoltSolid"
-  | "LinkSolid"
-  | "LocationMarkerSolid"
-  | "LockClosedSolid"
-  | "LockOpenSolid"
-  | "LoginSolid"
-  | "LogoutSolid"
-  | "MailSolid"
-  | "MailOpenSolid"
-  | "MapSolid"
-  | "MenuSolid"
-  | "MenuAlt1Solid"
-  | "MenuAlt2Solid"
-  | "MenuAlt3Solid"
-  | "MenuAlt4Solid"
-  | "MicrophoneSolid"
-  | "MinusSolid"
-  | "MinusCircleSolid"
-  | "MinusSmSolid"
-  | "MoonSolid"
-  | "MusicNoteSolid"
-  | "NavActivitySolid"
-  | "NavBankCardSolid"
-  | "NavBuySolid"
-  | "NavDiscoverySolid"
-  | "NavHomeSolid"
-  | "NavMenuSolid"
-  | "NavReceiveSolid"
-  | "NavSellSolid"
-  | "NavSendSolid"
-  | "NavSettingsSolid"
-  | "NavSwapSolid"
-  | "NewspaperSolid"
-  | "OfficeBuildingSolid"
-  | "OfflineSolid"
-  | "OptionListAllSolid"
-  | "PaperAirplaneSolid"
-  | "PaperClipSolid"
-  | "PauseSolid"
-  | "PencilSolid"
-  | "PencilAltSolid"
-  | "PhoneSolid"
-  | "PhoneIncomingSolid"
-  | "PhoneMissedCallSolid"
-  | "PhoneOutgoingSolid"
-  | "PhotographSolid"
-  | "PinSolid"
-  | "PlaySolid"
-  | "PlusSolid"
-  | "PlusCircleSolid"
-  | "PlusSmSolid"
-  | "PresentationChartBarSolid"
-  | "PresentationChartLineSolid"
-  | "PrinterSolid"
-  | "PuzzleSolid"
-  | "QrcodeSolid"
-  | "QuestionMarkCircleSolid"
-  | "ReceiptRefundSolid"
-  | "ReceiptTaxSolid"
-  | "RefreshSolid"
-  | "ReplySolid"
-  | "RestoreSolid"
-  | "RewindSolid"
-  | "RssSolid"
-  | "SaveSolid"
-  | "SaveAsSolid"
-  | "ScaleSolid"
-  | "ScanSolid"
-  | "ScissorsSolid"
-  | "SearchSolid"
-  | "SearchCircleSolid"
-  | "SelectorSolid"
-  | "ServerSolid"
-  | "ShareSolid"
-  | "ShieldCheckSolid"
-  | "ShieldExclamationSolid"
-  | "ShoppingBagSolid"
-  | "ShoppingCartSolid"
-  | "SortAscendingSolid"
-  | "SortDescendingSolid"
-  | "SparklesSolid"
-  | "SpeakerphoneSolid"
-  | "StarSolid"
-  | "StatusOfflineSolid"
-  | "StatusOnlineSolid"
-  | "StopSolid"
-  | "SunSolid"
-  | "SupportSolid"
-  | "SwitchHorizontalSolid"
-  | "SwitchVerticalSolid"
-  | "TableSolid"
-  | "TagSolid"
-  | "TemplateSolid"
-  | "TerminalSolid"
-  | "ThumbDownSolid"
-  | "ThumbUpSolid"
-  | "TicketSolid"
-  | "TranslateSolid"
-  | "TrashSolid"
-  | "TrendingDownSolid"
-  | "TrendingUpSolid"
-  | "TruckSolid"
-  | "UploadSolid"
-  | "UserSolid"
-  | "UserAddSolid"
-  | "UserCircleSolid"
-  | "UserGroupSolid"
-  | "UserRemoveSolid"
-  | "UsersSolid"
-  | "VariableSolid"
-  | "VideoCameraSolid"
-  | "ViewBoardsSolid"
-  | "ViewGridSolid"
-  | "ViewGridAddSolid"
-  | "ViewListSolid"
-  | "VolumeOffSolid"
-  | "VolumeUpSolid"
-  | "WifiSolid"
-  | "ZoomInSolid"
-  | "ZoomOutSolid";
-
-export default {
-  ArrowBottomLeftIllus: ArrowBottomLeftIllus,
-  ArrowTopRightIllus: ArrowTopRightIllus,
-  BrandLogoIllus: BrandLogoIllus,
-  CrownBadgeIllus: CrownBadgeIllus,
-  DiamondBadgeIllus: DiamondBadgeIllus,
-  EmptyNftIllus: EmptyNftIllus,
-  FaceIdIllus: FaceIdIllus,
-  FingerPrintIllus: FingerPrintIllus,
-  LogoIllus: LogoIllus,
-  LogoPrimaryIllus: LogoPrimaryIllus,
-  MetamaskIllus: MetamaskIllus,
-  NftPegIllus: NftPegIllus,
-  StarBadgeIllus: StarBadgeIllus,
-  TxStatusFailureCircleIllus: TxStatusFailureCircleIllus,
-  TxStatusSuccessCircleIllus: TxStatusSuccessCircleIllus,
-  TxStatusWarningCircleIllus: TxStatusWarningCircleIllus,
-  WalletconnectLogoIllus: WalletconnectLogoIllus,
-  AcademicCapOutline: AcademicCapOutline,
-  ActivityOutline: ActivityOutline,
-  AdjustmentsOutline: AdjustmentsOutline,
-  AnnotationOutline: AnnotationOutline,
-  ArchiveOutline: ArchiveOutline,
-  ArrowCircleDownOutline: ArrowCircleDownOutline,
-  ArrowCircleLeftOutline: ArrowCircleLeftOutline,
-  ArrowCircleRightOutline: ArrowCircleRightOutline,
-  ArrowCircleUpOutline: ArrowCircleUpOutline,
-  ArrowDownOutline: ArrowDownOutline,
-  ArrowLeftOutline: ArrowLeftOutline,
-  ArrowNarrowDownOutline: ArrowNarrowDownOutline,
-  ArrowNarrowLeftOutline: ArrowNarrowLeftOutline,
-  ArrowNarrowRightOutline: ArrowNarrowRightOutline,
-  ArrowNarrowUpOutline: ArrowNarrowUpOutline,
-  ArrowRightOutline: ArrowRightOutline,
-  ArrowSmDownOutline: ArrowSmDownOutline,
-  ArrowSmLeftOutline: ArrowSmLeftOutline,
-  ArrowSmRightOutline: ArrowSmRightOutline,
-  ArrowSmUpOutline: ArrowSmUpOutline,
-  ArrowUpOutline: ArrowUpOutline,
-  ArrowsExpandOutline: ArrowsExpandOutline,
-  AtSymbolOutline: AtSymbolOutline,
-  BackspaceOutline: BackspaceOutline,
-  BadgeCheckOutline: BadgeCheckOutline,
-  BanOutline: BanOutline,
-  BeakerOutline: BeakerOutline,
-  BellOutline: BellOutline,
-  BellOffOutline: BellOffOutline,
-  BookOpenOutline: BookOpenOutline,
-  BookmarkOutline: BookmarkOutline,
-  BookmarkAltOutline: BookmarkAltOutline,
-  BriefcaseOutline: BriefcaseOutline,
-  CakeOutline: CakeOutline,
-  CalculatorOutline: CalculatorOutline,
-  CalendarOutline: CalendarOutline,
-  CameraOutline: CameraOutline,
-  CashOutline: CashOutline,
-  ChartBarOutline: ChartBarOutline,
-  ChartPieOutline: ChartPieOutline,
-  ChartSquareBarOutline: ChartSquareBarOutline,
-  ChartSquareLineOutline: ChartSquareLineOutline,
-  ChatOutline: ChatOutline,
-  ChatAltOutline: ChatAltOutline,
-  ChatAlt2Outline: ChatAlt2Outline,
-  CheckOutline: CheckOutline,
-  CheckCircleOutline: CheckCircleOutline,
-  ChevronDoubleDownOutline: ChevronDoubleDownOutline,
-  ChevronDoubleLeftOutline: ChevronDoubleLeftOutline,
-  ChevronDoubleRightOutline: ChevronDoubleRightOutline,
-  ChevronDoubleUpOutline: ChevronDoubleUpOutline,
-  ChevronDownOutline: ChevronDownOutline,
-  ChevronLeftOutline: ChevronLeftOutline,
-  ChevronRightOutline: ChevronRightOutline,
-  ChevronUpOutline: ChevronUpOutline,
-  ChipOutline: ChipOutline,
-  ClipboardOutline: ClipboardOutline,
-  ClipboardCheckOutline: ClipboardCheckOutline,
-  ClipboardCopyOutline: ClipboardCopyOutline,
-  ClipboardListOutline: ClipboardListOutline,
-  ClockOutline: ClockOutline,
-  CloseOutline: CloseOutline,
-  CloseCircleOutline: CloseCircleOutline,
-  CloudOutline: CloudOutline,
-  CloudDownloadOutline: CloudDownloadOutline,
-  CloudUploadOutline: CloudUploadOutline,
-  CodeOutline: CodeOutline,
-  CogOutline: CogOutline,
-  CollectionOutline: CollectionOutline,
-  ColorSwatchOutline: ColorSwatchOutline,
-  CompassOutline: CompassOutline,
-  ConnectOutline: ConnectOutline,
-  ConnectOffOutline: ConnectOffOutline,
-  CreditCardOutline: CreditCardOutline,
-  CubeOutline: CubeOutline,
-  CubeTransparentOutline: CubeTransparentOutline,
-  CurrencyBangladeshiOutline: CurrencyBangladeshiOutline,
-  CurrencyDollarOutline: CurrencyDollarOutline,
-  CurrencyEuroOutline: CurrencyEuroOutline,
-  CurrencyPoundOutline: CurrencyPoundOutline,
-  CurrencyRupeeOutline: CurrencyRupeeOutline,
-  CurrencyYenOutline: CurrencyYenOutline,
-  CursorClickOutline: CursorClickOutline,
-  CustomerSupportOutline: CustomerSupportOutline,
-  DatabaseOutline: DatabaseOutline,
-  DesktopComputerOutline: DesktopComputerOutline,
-  DeviceMobileOutline: DeviceMobileOutline,
-  DeviceTabletOutline: DeviceTabletOutline,
-  DiscordOutline: DiscordOutline,
-  DocumentOutline: DocumentOutline,
-  DocumentAddOutline: DocumentAddOutline,
-  DocumentDownloadOutline: DocumentDownloadOutline,
-  DocumentDuplicateOutline: DocumentDuplicateOutline,
-  DocumentRemoveOutline: DocumentRemoveOutline,
-  DocumentReportOutline: DocumentReportOutline,
-  DocumentSearchOutline: DocumentSearchOutline,
-  DocumentTextOutline: DocumentTextOutline,
-  DotsCircleHorizontalOutline: DotsCircleHorizontalOutline,
-  DotsHorizontalOutline: DotsHorizontalOutline,
-  DotsVerticalOutline: DotsVerticalOutline,
-  DownloadOutline: DownloadOutline,
-  DuplicateOutline: DuplicateOutline,
-  EmojiHappyOutline: EmojiHappyOutline,
-  EmojiSadOutline: EmojiSadOutline,
-  ExclamationOutline: ExclamationOutline,
-  ExclamationCircleOutline: ExclamationCircleOutline,
-  ExpandOutline: ExpandOutline,
-  ExternalLinkOutline: ExternalLinkOutline,
-  EyeOutline: EyeOutline,
-  EyeOffOutline: EyeOffOutline,
-  FaceIdOutline: FaceIdOutline,
-  FastForwardOutline: FastForwardOutline,
-  FilmOutline: FilmOutline,
-  FilterOutline: FilterOutline,
-  FingerPrintOutline: FingerPrintOutline,
-  FireOutline: FireOutline,
-  FlagOutline: FlagOutline,
-  FolderOutline: FolderOutline,
-  FolderAddOutline: FolderAddOutline,
-  FolderDownloadOutline: FolderDownloadOutline,
-  FolderOpenOutline: FolderOpenOutline,
-  FolderRemoveOutline: FolderRemoveOutline,
-  GiftOutline: GiftOutline,
-  GlobeOutline: GlobeOutline,
-  GlobeAltOutline: GlobeAltOutline,
-  HandOutline: HandOutline,
-  HashtagOutline: HashtagOutline,
-  HeartOutline: HeartOutline,
-  HomeOutline: HomeOutline,
-  IdentificationOutline: IdentificationOutline,
-  ImportOutline: ImportOutline,
-  InboxOutline: InboxOutline,
-  InboxInOutline: InboxInOutline,
-  InformationCircleOutline: InformationCircleOutline,
-  KeyOutline: KeyOutline,
-  LibraryOutline: LibraryOutline,
-  LightBulbOutline: LightBulbOutline,
-  LightningBoltOutline: LightningBoltOutline,
-  LinkOutline: LinkOutline,
-  LoadingIndicatorOutline: LoadingIndicatorOutline,
-  LocationMarkerOutline: LocationMarkerOutline,
-  LockOutline: LockOutline,
-  LockClosedOutline: LockClosedOutline,
-  LockOpenOutline: LockOpenOutline,
-  LoginOutline: LoginOutline,
-  LogoutOutline: LogoutOutline,
-  MailOutline: MailOutline,
-  MailOpenOutline: MailOpenOutline,
-  MapOutline: MapOutline,
-  MenuOutline: MenuOutline,
-  MenuAlt1Outline: MenuAlt1Outline,
-  MenuAlt2Outline: MenuAlt2Outline,
-  MenuAlt3Outline: MenuAlt3Outline,
-  MenuAlt4Outline: MenuAlt4Outline,
-  MicrophoneOutline: MicrophoneOutline,
-  MinusOutline: MinusOutline,
-  MinusCircleOutline: MinusCircleOutline,
-  MinusSmOutline: MinusSmOutline,
-  MoonOutline: MoonOutline,
-  MusicNoteOutline: MusicNoteOutline,
-  NewspaperOutline: NewspaperOutline,
-  OfficeBuildingOutline: OfficeBuildingOutline,
-  OnekeyLiteOutline: OnekeyLiteOutline,
-  PackupOutline: PackupOutline,
-  PaperAirplaneOutline: PaperAirplaneOutline,
-  PaperClipOutline: PaperClipOutline,
-  PauseOutline: PauseOutline,
-  PencilOutline: PencilOutline,
-  PencilAltOutline: PencilAltOutline,
-  PhoneOutline: PhoneOutline,
-  PhoneIncomingOutline: PhoneIncomingOutline,
-  PhoneMissedCallOutline: PhoneMissedCallOutline,
-  PhoneOutgoingOutline: PhoneOutgoingOutline,
-  PhotographOutline: PhotographOutline,
-  PlayOutline: PlayOutline,
-  PlusOutline: PlusOutline,
-  PlusCircleOutline: PlusCircleOutline,
-  PlusSmOutline: PlusSmOutline,
-  PresentationChartBarOutline: PresentationChartBarOutline,
-  PresentationChartLineOutline: PresentationChartLineOutline,
-  PrinterOutline: PrinterOutline,
-  PuzzleOutline: PuzzleOutline,
-  QrcodeOutline: QrcodeOutline,
-  QuestionMarkOutline: QuestionMarkOutline,
-  QuestionMarkCircleOutline: QuestionMarkCircleOutline,
-  ReceiptRefundOutline: ReceiptRefundOutline,
-  ReceiptTaxOutline: ReceiptTaxOutline,
-  RefreshOutline: RefreshOutline,
-  ReplyOutline: ReplyOutline,
-  RestoreOutline: RestoreOutline,
-  RewindOutline: RewindOutline,
-  RssOutline: RssOutline,
-  SaveOutline: SaveOutline,
-  SaveAsOutline: SaveAsOutline,
-  ScaleOutline: ScaleOutline,
-  ScanOutline: ScanOutline,
-  ScissorsOutline: ScissorsOutline,
-  SearchOutline: SearchOutline,
-  SearchCircleOutline: SearchCircleOutline,
-  SelectorOutline: SelectorOutline,
-  ServerOutline: ServerOutline,
-  ShareOutline: ShareOutline,
-  ShieldCheckOutline: ShieldCheckOutline,
-  ShieldExclamationOutline: ShieldExclamationOutline,
-  ShoppingBagOutline: ShoppingBagOutline,
-  ShoppingCartOutline: ShoppingCartOutline,
-  ShrinkOutline: ShrinkOutline,
-  SortAscendingOutline: SortAscendingOutline,
-  SortDescendingOutline: SortDescendingOutline,
-  SparklesOutline: SparklesOutline,
-  SpeakerphoneOutline: SpeakerphoneOutline,
-  StarOutline: StarOutline,
-  StatusOfflineOutline: StatusOfflineOutline,
-  StatusOnlineOutline: StatusOnlineOutline,
-  StopOutline: StopOutline,
-  SunOutline: SunOutline,
-  SupportOutline: SupportOutline,
-  SwitchHorizontalOutline: SwitchHorizontalOutline,
-  SwitchVerticalOutline: SwitchVerticalOutline,
-  TableOutline: TableOutline,
-  TagOutline: TagOutline,
-  TemplateOutline: TemplateOutline,
-  TerminalOutline: TerminalOutline,
-  ThumbDownOutline: ThumbDownOutline,
-  ThumbUpOutline: ThumbUpOutline,
-  TicketOutline: TicketOutline,
-  TranslateOutline: TranslateOutline,
-  TrashOutline: TrashOutline,
-  TrendingDownOutline: TrendingDownOutline,
-  TrendingUpOutline: TrendingUpOutline,
-  TruckOutline: TruckOutline,
-  TwitterOutline: TwitterOutline,
-  UmbrellaOutline: UmbrellaOutline,
-  UploadOutline: UploadOutline,
-  UserOutline: UserOutline,
-  UserAddOutline: UserAddOutline,
-  UserCircleOutline: UserCircleOutline,
-  UserGroupOutline: UserGroupOutline,
-  UserRemoveOutline: UserRemoveOutline,
-  UsersOutline: UsersOutline,
-  VariableOutline: VariableOutline,
-  VideoCameraOutline: VideoCameraOutline,
-  ViewBoardsOutline: ViewBoardsOutline,
-  ViewGridOutline: ViewGridOutline,
-  ViewGridAddOutline: ViewGridAddOutline,
-  ViewListOutline: ViewListOutline,
-  VolumeOffOutline: VolumeOffOutline,
-  VolumeUpOutline: VolumeUpOutline,
-  WalletOutline: WalletOutline,
-  WalletAddOutline: WalletAddOutline,
-  WifiOutline: WifiOutline,
-  ZoomInOutline: ZoomInOutline,
-  ZoomOutOutline: ZoomOutOutline,
-  AcademicCapSolid: AcademicCapSolid,
-  AdjustmentsSolid: AdjustmentsSolid,
-  AndroidSolid: AndroidSolid,
-  AnnotationSolid: AnnotationSolid,
-  AppStoreSolid: AppStoreSolid,
-  ArchiveSolid: ArchiveSolid,
-  ArrowCircleDownSolid: ArrowCircleDownSolid,
-  ArrowCircleLeftSolid: ArrowCircleLeftSolid,
-  ArrowCircleRightSolid: ArrowCircleRightSolid,
-  ArrowCircleUpSolid: ArrowCircleUpSolid,
-  ArrowDownSolid: ArrowDownSolid,
-  ArrowLeftSolid: ArrowLeftSolid,
-  ArrowNarrowDownSolid: ArrowNarrowDownSolid,
-  ArrowNarrowLeftSolid: ArrowNarrowLeftSolid,
-  ArrowNarrowRightSolid: ArrowNarrowRightSolid,
-  ArrowNarrowUpSolid: ArrowNarrowUpSolid,
-  ArrowRightSolid: ArrowRightSolid,
-  ArrowSmDownSolid: ArrowSmDownSolid,
-  ArrowSmLeftSolid: ArrowSmLeftSolid,
-  ArrowSmRightSolid: ArrowSmRightSolid,
-  ArrowSmUpSolid: ArrowSmUpSolid,
-  ArrowUpSolid: ArrowUpSolid,
-  ArrowsExpandSolid: ArrowsExpandSolid,
-  AtSymbolSolid: AtSymbolSolid,
-  BackspaceSolid: BackspaceSolid,
-  BadgeCheckSolid: BadgeCheckSolid,
-  BanSolid: BanSolid,
-  BeakerSolid: BeakerSolid,
-  BellSolid: BellSolid,
-  BellOffSolid: BellOffSolid,
-  BookOpenSolid: BookOpenSolid,
-  BookmarkSolid: BookmarkSolid,
-  BookmarkAltSolid: BookmarkAltSolid,
-  BriefcaseSolid: BriefcaseSolid,
-  CakeSolid: CakeSolid,
-  CalculatorSolid: CalculatorSolid,
-  CalendarSolid: CalendarSolid,
-  CameraSolid: CameraSolid,
-  CashSolid: CashSolid,
-  ChartBarSolid: ChartBarSolid,
-  ChartPieSolid: ChartPieSolid,
-  ChartSquareBarSolid: ChartSquareBarSolid,
-  ChatSolid: ChatSolid,
-  ChatAltSolid: ChatAltSolid,
-  ChatAlt2Solid: ChatAlt2Solid,
-  CheckSolid: CheckSolid,
-  CheckBoxIconCheckedSolid: CheckBoxIconCheckedSolid,
-  CheckBoxIconCheckedDisableSolid: CheckBoxIconCheckedDisableSolid,
-  CheckBoxIconDefaultSolid: CheckBoxIconDefaultSolid,
-  CheckBoxIconDefaultDisableSolid: CheckBoxIconDefaultDisableSolid,
-  CheckCircleSolid: CheckCircleSolid,
-  ChevronDoubleDownSolid: ChevronDoubleDownSolid,
-  ChevronDoubleLeftSolid: ChevronDoubleLeftSolid,
-  ChevronDoubleRightSolid: ChevronDoubleRightSolid,
-  ChevronDoubleUpSolid: ChevronDoubleUpSolid,
-  ChevronDownSolid: ChevronDownSolid,
-  ChevronLeftSolid: ChevronLeftSolid,
-  ChevronRightSolid: ChevronRightSolid,
-  ChevronUpSolid: ChevronUpSolid,
-  ChipSolid: ChipSolid,
-  ClipboardSolid: ClipboardSolid,
-  ClipboardCheckSolid: ClipboardCheckSolid,
-  ClipboardCopySolid: ClipboardCopySolid,
-  ClipboardListSolid: ClipboardListSolid,
-  ClockSolid: ClockSolid,
-  CloseSolid: CloseSolid,
-  CloseCircleSolid: CloseCircleSolid,
-  CloudSolid: CloudSolid,
-  CloudDownloadSolid: CloudDownloadSolid,
-  CloudUploadSolid: CloudUploadSolid,
-  CodeSolid: CodeSolid,
-  CogSolid: CogSolid,
-  CollectionSolid: CollectionSolid,
-  ColorSwatchSolid: ColorSwatchSolid,
-  CreditCardSolid: CreditCardSolid,
-  CubeSolid: CubeSolid,
-  CubeTransparentSolid: CubeTransparentSolid,
-  CurrencyBangladeshiSolid: CurrencyBangladeshiSolid,
-  CurrencyDollarSolid: CurrencyDollarSolid,
-  CurrencyEuroSolid: CurrencyEuroSolid,
-  CurrencyPoundSolid: CurrencyPoundSolid,
-  CurrencyRupeeSolid: CurrencyRupeeSolid,
-  CurrencyYenSolid: CurrencyYenSolid,
-  CursorClickSolid: CursorClickSolid,
-  DatabaseSolid: DatabaseSolid,
-  DesktopComputerSolid: DesktopComputerSolid,
-  DeviceMobileSolid: DeviceMobileSolid,
-  DeviceTabletSolid: DeviceTabletSolid,
-  DialogIconTypeDangerSolid: DialogIconTypeDangerSolid,
-  DialogIconTypeInfoSolid: DialogIconTypeInfoSolid,
-  DocumentSolid: DocumentSolid,
-  DocumentAddSolid: DocumentAddSolid,
-  DocumentDownloadSolid: DocumentDownloadSolid,
-  DocumentDuplicateSolid: DocumentDuplicateSolid,
-  DocumentRemoveSolid: DocumentRemoveSolid,
-  DocumentReportSolid: DocumentReportSolid,
-  DocumentSearchSolid: DocumentSearchSolid,
-  DocumentTextSolid: DocumentTextSolid,
-  DotsCircleHorizontalSolid: DotsCircleHorizontalSolid,
-  DotsHorizontalSolid: DotsHorizontalSolid,
-  DotsVerticalSolid: DotsVerticalSolid,
-  DownloadSolid: DownloadSolid,
-  DuplicateSolid: DuplicateSolid,
-  EmojiHappySolid: EmojiHappySolid,
-  EmojiSadSolid: EmojiSadSolid,
-  ExclamationSolid: ExclamationSolid,
-  ExclamationCircleSolid: ExclamationCircleSolid,
-  ExtensionsSolid: ExtensionsSolid,
-  ExternalLinkSolid: ExternalLinkSolid,
-  EyeSolid: EyeSolid,
-  EyeOffSolid: EyeOffSolid,
-  FastForwardSolid: FastForwardSolid,
-  FilmSolid: FilmSolid,
-  FilterSolid: FilterSolid,
-  FingerPrintSolid: FingerPrintSolid,
-  FireSolid: FireSolid,
-  FlagSolid: FlagSolid,
-  FolderSolid: FolderSolid,
-  FolderAddSolid: FolderAddSolid,
-  FolderDownloadSolid: FolderDownloadSolid,
-  FolderOpenSolid: FolderOpenSolid,
-  FolderRemoveSolid: FolderRemoveSolid,
-  GiftSolid: GiftSolid,
-  GlobeSolid: GlobeSolid,
-  GlobeAltSolid: GlobeAltSolid,
-  HandSolid: HandSolid,
-  HashtagSolid: HashtagSolid,
-  HeartSolid: HeartSolid,
-  HomeSolid: HomeSolid,
-  IdentificationSolid: IdentificationSolid,
-  InboxSolid: InboxSolid,
-  InboxInSolid: InboxInSolid,
-  InformationCircleSolid: InformationCircleSolid,
-  KeySolid: KeySolid,
-  LibrarySolid: LibrarySolid,
-  LightBulbSolid: LightBulbSolid,
-  LightningBoltSolid: LightningBoltSolid,
-  LinkSolid: LinkSolid,
-  LocationMarkerSolid: LocationMarkerSolid,
-  LockClosedSolid: LockClosedSolid,
-  LockOpenSolid: LockOpenSolid,
-  LoginSolid: LoginSolid,
-  LogoutSolid: LogoutSolid,
-  MailSolid: MailSolid,
-  MailOpenSolid: MailOpenSolid,
-  MapSolid: MapSolid,
-  MenuSolid: MenuSolid,
-  MenuAlt1Solid: MenuAlt1Solid,
-  MenuAlt2Solid: MenuAlt2Solid,
-  MenuAlt3Solid: MenuAlt3Solid,
-  MenuAlt4Solid: MenuAlt4Solid,
-  MicrophoneSolid: MicrophoneSolid,
-  MinusSolid: MinusSolid,
-  MinusCircleSolid: MinusCircleSolid,
-  MinusSmSolid: MinusSmSolid,
-  MoonSolid: MoonSolid,
-  MusicNoteSolid: MusicNoteSolid,
-  NavActivitySolid: NavActivitySolid,
-  NavBankCardSolid: NavBankCardSolid,
-  NavBuySolid: NavBuySolid,
-  NavDiscoverySolid: NavDiscoverySolid,
-  NavHomeSolid: NavHomeSolid,
-  NavMenuSolid: NavMenuSolid,
-  NavReceiveSolid: NavReceiveSolid,
-  NavSellSolid: NavSellSolid,
-  NavSendSolid: NavSendSolid,
-  NavSettingsSolid: NavSettingsSolid,
-  NavSwapSolid: NavSwapSolid,
-  NewspaperSolid: NewspaperSolid,
-  OfficeBuildingSolid: OfficeBuildingSolid,
-  OfflineSolid: OfflineSolid,
-  OptionListAllSolid: OptionListAllSolid,
-  PaperAirplaneSolid: PaperAirplaneSolid,
-  PaperClipSolid: PaperClipSolid,
-  PauseSolid: PauseSolid,
-  PencilSolid: PencilSolid,
-  PencilAltSolid: PencilAltSolid,
-  PhoneSolid: PhoneSolid,
-  PhoneIncomingSolid: PhoneIncomingSolid,
-  PhoneMissedCallSolid: PhoneMissedCallSolid,
-  PhoneOutgoingSolid: PhoneOutgoingSolid,
-  PhotographSolid: PhotographSolid,
-  PinSolid: PinSolid,
-  PlaySolid: PlaySolid,
-  PlusSolid: PlusSolid,
-  PlusCircleSolid: PlusCircleSolid,
-  PlusSmSolid: PlusSmSolid,
-  PresentationChartBarSolid: PresentationChartBarSolid,
-  PresentationChartLineSolid: PresentationChartLineSolid,
-  PrinterSolid: PrinterSolid,
-  PuzzleSolid: PuzzleSolid,
-  QrcodeSolid: QrcodeSolid,
-  QuestionMarkCircleSolid: QuestionMarkCircleSolid,
-  ReceiptRefundSolid: ReceiptRefundSolid,
-  ReceiptTaxSolid: ReceiptTaxSolid,
-  RefreshSolid: RefreshSolid,
-  ReplySolid: ReplySolid,
-  RestoreSolid: RestoreSolid,
-  RewindSolid: RewindSolid,
-  RssSolid: RssSolid,
-  SaveSolid: SaveSolid,
-  SaveAsSolid: SaveAsSolid,
-  ScaleSolid: ScaleSolid,
-  ScanSolid: ScanSolid,
-  ScissorsSolid: ScissorsSolid,
-  SearchSolid: SearchSolid,
-  SearchCircleSolid: SearchCircleSolid,
-  SelectorSolid: SelectorSolid,
-  ServerSolid: ServerSolid,
-  ShareSolid: ShareSolid,
-  ShieldCheckSolid: ShieldCheckSolid,
-  ShieldExclamationSolid: ShieldExclamationSolid,
-  ShoppingBagSolid: ShoppingBagSolid,
-  ShoppingCartSolid: ShoppingCartSolid,
-  SortAscendingSolid: SortAscendingSolid,
-  SortDescendingSolid: SortDescendingSolid,
-  SparklesSolid: SparklesSolid,
-  SpeakerphoneSolid: SpeakerphoneSolid,
-  StarSolid: StarSolid,
-  StatusOfflineSolid: StatusOfflineSolid,
-  StatusOnlineSolid: StatusOnlineSolid,
-  StopSolid: StopSolid,
-  SunSolid: SunSolid,
-  SupportSolid: SupportSolid,
-  SwitchHorizontalSolid: SwitchHorizontalSolid,
-  SwitchVerticalSolid: SwitchVerticalSolid,
-  TableSolid: TableSolid,
-  TagSolid: TagSolid,
-  TemplateSolid: TemplateSolid,
-  TerminalSolid: TerminalSolid,
-  ThumbDownSolid: ThumbDownSolid,
-  ThumbUpSolid: ThumbUpSolid,
-  TicketSolid: TicketSolid,
-  TranslateSolid: TranslateSolid,
-  TrashSolid: TrashSolid,
-  TrendingDownSolid: TrendingDownSolid,
-  TrendingUpSolid: TrendingUpSolid,
-  TruckSolid: TruckSolid,
-  UploadSolid: UploadSolid,
-  UserSolid: UserSolid,
-  UserAddSolid: UserAddSolid,
-  UserCircleSolid: UserCircleSolid,
-  UserGroupSolid: UserGroupSolid,
-  UserRemoveSolid: UserRemoveSolid,
-  UsersSolid: UsersSolid,
-  VariableSolid: VariableSolid,
-  VideoCameraSolid: VideoCameraSolid,
-  ViewBoardsSolid: ViewBoardsSolid,
-  ViewGridSolid: ViewGridSolid,
-  ViewGridAddSolid: ViewGridAddSolid,
-  ViewListSolid: ViewListSolid,
-  VolumeOffSolid: VolumeOffSolid,
-  VolumeUpSolid: VolumeUpSolid,
-  WifiSolid: WifiSolid,
-  ZoomInSolid: ZoomInSolid,
-  ZoomOutSolid: ZoomOutSolid,
+const icons = {
+  ArrowBottomLeftIllus,
+  ArrowTopRightIllus,
+  BrandLogoIllus,
+  CrownBadgeIllus,
+  DiamondBadgeIllus,
+  EmptyNftIllus,
+  FaceIdIllus,
+  FingerPrintIllus,
+  LogoIllus,
+  LogoPrimaryIllus,
+  MetamaskIllus,
+  NftPegIllus,
+  StarBadgeIllus,
+  TxStatusFailureCircleIllus,
+  TxStatusSuccessCircleIllus,
+  TxStatusWarningCircleIllus,
+  WalletconnectLogoIllus,
+  AcademicCapOutline,
+  ActivityOutline,
+  AdjustmentsOutline,
+  AnnotationOutline,
+  ArchiveOutline,
+  ArrowCircleDownOutline,
+  ArrowCircleLeftOutline,
+  ArrowCircleRightOutline,
+  ArrowCircleUpOutline,
+  ArrowDownOutline,
+  ArrowLeftOutline,
+  ArrowNarrowDownOutline,
+  ArrowNarrowLeftOutline,
+  ArrowNarrowRightOutline,
+  ArrowNarrowUpOutline,
+  ArrowRightOutline,
+  ArrowSmDownOutline,
+  ArrowSmLeftOutline,
+  ArrowSmRightOutline,
+  ArrowSmUpOutline,
+  ArrowUpOutline,
+  ArrowsExpandOutline,
+  AtSymbolOutline,
+  BackspaceOutline,
+  BadgeCheckOutline,
+  BanOutline,
+  BeakerOutline,
+  BellOutline,
+  BellOffOutline,
+  BookOpenOutline,
+  BookmarkOutline,
+  BookmarkAltOutline,
+  BriefcaseOutline,
+  CakeOutline,
+  CalculatorOutline,
+  CalendarOutline,
+  CameraOutline,
+  CashOutline,
+  ChartBarOutline,
+  ChartPieOutline,
+  ChartSquareBarOutline,
+  ChartSquareLineOutline,
+  ChatOutline,
+  ChatAltOutline,
+  ChatAlt2Outline,
+  CheckOutline,
+  CheckCircleOutline,
+  ChevronDoubleDownOutline,
+  ChevronDoubleLeftOutline,
+  ChevronDoubleRightOutline,
+  ChevronDoubleUpOutline,
+  ChevronDownOutline,
+  ChevronLeftOutline,
+  ChevronRightOutline,
+  ChevronUpOutline,
+  ChipOutline,
+  ClipboardOutline,
+  ClipboardCheckOutline,
+  ClipboardCopyOutline,
+  ClipboardListOutline,
+  ClockOutline,
+  CloseOutline,
+  CloseCircleOutline,
+  CloudOutline,
+  CloudDownloadOutline,
+  CloudUploadOutline,
+  CodeOutline,
+  CogOutline,
+  CollectionOutline,
+  ColorSwatchOutline,
+  CompassOutline,
+  ConnectOutline,
+  ConnectOffOutline,
+  CreditCardOutline,
+  CubeOutline,
+  CubeTransparentOutline,
+  CurrencyBangladeshiOutline,
+  CurrencyDollarOutline,
+  CurrencyEuroOutline,
+  CurrencyPoundOutline,
+  CurrencyRupeeOutline,
+  CurrencyYenOutline,
+  CursorClickOutline,
+  CustomerSupportOutline,
+  DatabaseOutline,
+  DesktopComputerOutline,
+  DeviceMobileOutline,
+  DeviceTabletOutline,
+  DiscordOutline,
+  DocumentOutline,
+  DocumentAddOutline,
+  DocumentDownloadOutline,
+  DocumentDuplicateOutline,
+  DocumentRemoveOutline,
+  DocumentReportOutline,
+  DocumentSearchOutline,
+  DocumentTextOutline,
+  DotsCircleHorizontalOutline,
+  DotsHorizontalOutline,
+  DotsVerticalOutline,
+  DownloadOutline,
+  DuplicateOutline,
+  EmojiHappyOutline,
+  EmojiSadOutline,
+  ExclamationOutline,
+  ExclamationCircleOutline,
+  ExpandOutline,
+  ExternalLinkOutline,
+  EyeOutline,
+  EyeOffOutline,
+  FaceIdOutline,
+  FastForwardOutline,
+  FilmOutline,
+  FilterOutline,
+  FingerPrintOutline,
+  FireOutline,
+  FlagOutline,
+  FolderOutline,
+  FolderAddOutline,
+  FolderDownloadOutline,
+  FolderOpenOutline,
+  FolderRemoveOutline,
+  GiftOutline,
+  GlobeOutline,
+  GlobeAltOutline,
+  HandOutline,
+  HashtagOutline,
+  HeartOutline,
+  HomeOutline,
+  IdentificationOutline,
+  ImportOutline,
+  InboxOutline,
+  InboxInOutline,
+  InformationCircleOutline,
+  KeyOutline,
+  LibraryOutline,
+  LightBulbOutline,
+  LightningBoltOutline,
+  LinkOutline,
+  LoadingIndicatorOutline,
+  LocationMarkerOutline,
+  LockOutline,
+  LockClosedOutline,
+  LockOpenOutline,
+  LoginOutline,
+  LogoutOutline,
+  MailOutline,
+  MailOpenOutline,
+  MapOutline,
+  MenuOutline,
+  MenuAlt1Outline,
+  MenuAlt2Outline,
+  MenuAlt3Outline,
+  MenuAlt4Outline,
+  MicrophoneOutline,
+  MinusOutline,
+  MinusCircleOutline,
+  MinusSmOutline,
+  MoonOutline,
+  MusicNoteOutline,
+  NewspaperOutline,
+  OfficeBuildingOutline,
+  OnekeyLiteOutline,
+  PackupOutline,
+  PaperAirplaneOutline,
+  PaperClipOutline,
+  PauseOutline,
+  PencilOutline,
+  PencilAltOutline,
+  PhoneOutline,
+  PhoneIncomingOutline,
+  PhoneMissedCallOutline,
+  PhoneOutgoingOutline,
+  PhotographOutline,
+  PlayOutline,
+  PlusOutline,
+  PlusCircleOutline,
+  PlusSmOutline,
+  PresentationChartBarOutline,
+  PresentationChartLineOutline,
+  PrinterOutline,
+  PuzzleOutline,
+  QrcodeOutline,
+  QuestionMarkOutline,
+  QuestionMarkCircleOutline,
+  ReceiptRefundOutline,
+  ReceiptTaxOutline,
+  RefreshOutline,
+  ReplyOutline,
+  RestoreOutline,
+  RewindOutline,
+  RssOutline,
+  SaveOutline,
+  SaveAsOutline,
+  ScaleOutline,
+  ScanOutline,
+  ScissorsOutline,
+  SearchOutline,
+  SearchCircleOutline,
+  SelectorOutline,
+  ServerOutline,
+  ShareOutline,
+  ShieldCheckOutline,
+  ShieldExclamationOutline,
+  ShoppingBagOutline,
+  ShoppingCartOutline,
+  ShrinkOutline,
+  SortAscendingOutline,
+  SortDescendingOutline,
+  SparklesOutline,
+  SpeakerphoneOutline,
+  StarOutline,
+  StatusOfflineOutline,
+  StatusOnlineOutline,
+  StopOutline,
+  SunOutline,
+  SupportOutline,
+  SwitchHorizontalOutline,
+  SwitchVerticalOutline,
+  TableOutline,
+  TagOutline,
+  TemplateOutline,
+  TerminalOutline,
+  ThumbDownOutline,
+  ThumbUpOutline,
+  TicketOutline,
+  TranslateOutline,
+  TrashOutline,
+  TrendingDownOutline,
+  TrendingUpOutline,
+  TruckOutline,
+  TwitterOutline,
+  UmbrellaOutline,
+  UploadOutline,
+  UserOutline,
+  UserAddOutline,
+  UserCircleOutline,
+  UserGroupOutline,
+  UserRemoveOutline,
+  UsersOutline,
+  VariableOutline,
+  VideoCameraOutline,
+  ViewBoardsOutline,
+  ViewGridOutline,
+  ViewGridAddOutline,
+  ViewListOutline,
+  VolumeOffOutline,
+  VolumeUpOutline,
+  WalletOutline,
+  WalletAddOutline,
+  WifiOutline,
+  ZoomInOutline,
+  ZoomOutOutline,
+  AcademicCapSolid,
+  AdjustmentsSolid,
+  AndroidSolid,
+  AnnotationSolid,
+  AppStoreSolid,
+  ArchiveSolid,
+  ArrowCircleDownSolid,
+  ArrowCircleLeftSolid,
+  ArrowCircleRightSolid,
+  ArrowCircleUpSolid,
+  ArrowDownSolid,
+  ArrowLeftSolid,
+  ArrowNarrowDownSolid,
+  ArrowNarrowLeftSolid,
+  ArrowNarrowRightSolid,
+  ArrowNarrowUpSolid,
+  ArrowRightSolid,
+  ArrowSmDownSolid,
+  ArrowSmLeftSolid,
+  ArrowSmRightSolid,
+  ArrowSmUpSolid,
+  ArrowUpSolid,
+  ArrowsExpandSolid,
+  AtSymbolSolid,
+  BackspaceSolid,
+  BadgeCheckSolid,
+  BanSolid,
+  BeakerSolid,
+  BellSolid,
+  BellOffSolid,
+  BookOpenSolid,
+  BookmarkSolid,
+  BookmarkAltSolid,
+  BriefcaseSolid,
+  CakeSolid,
+  CalculatorSolid,
+  CalendarSolid,
+  CameraSolid,
+  CashSolid,
+  ChartBarSolid,
+  ChartPieSolid,
+  ChartSquareBarSolid,
+  ChatSolid,
+  ChatAltSolid,
+  ChatAlt2Solid,
+  CheckSolid,
+  CheckBoxIconCheckedSolid,
+  CheckBoxIconCheckedDisableSolid,
+  CheckBoxIconDefaultSolid,
+  CheckBoxIconDefaultDisableSolid,
+  CheckCircleSolid,
+  ChevronDoubleDownSolid,
+  ChevronDoubleLeftSolid,
+  ChevronDoubleRightSolid,
+  ChevronDoubleUpSolid,
+  ChevronDownSolid,
+  ChevronLeftSolid,
+  ChevronRightSolid,
+  ChevronUpSolid,
+  ChipSolid,
+  ClipboardSolid,
+  ClipboardCheckSolid,
+  ClipboardCopySolid,
+  ClipboardListSolid,
+  ClockSolid,
+  CloseSolid,
+  CloseCircleSolid,
+  CloudSolid,
+  CloudDownloadSolid,
+  CloudUploadSolid,
+  CodeSolid,
+  CogSolid,
+  CollectionSolid,
+  ColorSwatchSolid,
+  CreditCardSolid,
+  CubeSolid,
+  CubeTransparentSolid,
+  CurrencyBangladeshiSolid,
+  CurrencyDollarSolid,
+  CurrencyEuroSolid,
+  CurrencyPoundSolid,
+  CurrencyRupeeSolid,
+  CurrencyYenSolid,
+  CursorClickSolid,
+  DatabaseSolid,
+  DesktopComputerSolid,
+  DeviceMobileSolid,
+  DeviceTabletSolid,
+  DialogIconTypeDangerSolid,
+  DialogIconTypeInfoSolid,
+  DocumentSolid,
+  DocumentAddSolid,
+  DocumentDownloadSolid,
+  DocumentDuplicateSolid,
+  DocumentRemoveSolid,
+  DocumentReportSolid,
+  DocumentSearchSolid,
+  DocumentTextSolid,
+  DotsCircleHorizontalSolid,
+  DotsHorizontalSolid,
+  DotsVerticalSolid,
+  DownloadSolid,
+  DuplicateSolid,
+  EmojiHappySolid,
+  EmojiSadSolid,
+  ExclamationSolid,
+  ExclamationCircleSolid,
+  ExtensionsSolid,
+  ExternalLinkSolid,
+  EyeSolid,
+  EyeOffSolid,
+  FastForwardSolid,
+  FilmSolid,
+  FilterSolid,
+  FingerPrintSolid,
+  FireSolid,
+  FlagSolid,
+  FolderSolid,
+  FolderAddSolid,
+  FolderDownloadSolid,
+  FolderOpenSolid,
+  FolderRemoveSolid,
+  GiftSolid,
+  GlobeSolid,
+  GlobeAltSolid,
+  HandSolid,
+  HashtagSolid,
+  HeartSolid,
+  HomeSolid,
+  IdentificationSolid,
+  InboxSolid,
+  InboxInSolid,
+  InformationCircleSolid,
+  KeySolid,
+  LibrarySolid,
+  LightBulbSolid,
+  LightningBoltSolid,
+  LinkSolid,
+  LocationMarkerSolid,
+  LockClosedSolid,
+  LockOpenSolid,
+  LoginSolid,
+  LogoutSolid,
+  MailSolid,
+  MailOpenSolid,
+  MapSolid,
+  MenuSolid,
+  MenuAlt1Solid,
+  MenuAlt2Solid,
+  MenuAlt3Solid,
+  MenuAlt4Solid,
+  MicrophoneSolid,
+  MinusSolid,
+  MinusCircleSolid,
+  MinusSmSolid,
+  MoonSolid,
+  MusicNoteSolid,
+  NavActivitySolid,
+  NavBankCardSolid,
+  NavBuySolid,
+  NavDiscoverySolid,
+  NavHomeSolid,
+  NavMenuSolid,
+  NavReceiveSolid,
+  NavSellSolid,
+  NavSendSolid,
+  NavSettingsSolid,
+  NavSwapSolid,
+  NewspaperSolid,
+  OfficeBuildingSolid,
+  OfflineSolid,
+  OptionListAllSolid,
+  PaperAirplaneSolid,
+  PaperClipSolid,
+  PauseSolid,
+  PencilSolid,
+  PencilAltSolid,
+  PhoneSolid,
+  PhoneIncomingSolid,
+  PhoneMissedCallSolid,
+  PhoneOutgoingSolid,
+  PhotographSolid,
+  PinSolid,
+  PlaySolid,
+  PlusSolid,
+  PlusCircleSolid,
+  PlusSmSolid,
+  PresentationChartBarSolid,
+  PresentationChartLineSolid,
+  PrinterSolid,
+  PuzzleSolid,
+  QrcodeSolid,
+  QuestionMarkCircleSolid,
+  ReceiptRefundSolid,
+  ReceiptTaxSolid,
+  RefreshSolid,
+  ReplySolid,
+  RestoreSolid,
+  RewindSolid,
+  RssSolid,
+  SaveSolid,
+  SaveAsSolid,
+  ScaleSolid,
+  ScanSolid,
+  ScissorsSolid,
+  SearchSolid,
+  SearchCircleSolid,
+  SelectorSolid,
+  ServerSolid,
+  ShareSolid,
+  ShieldCheckSolid,
+  ShieldExclamationSolid,
+  ShoppingBagSolid,
+  ShoppingCartSolid,
+  SortAscendingSolid,
+  SortDescendingSolid,
+  SparklesSolid,
+  SpeakerphoneSolid,
+  StarSolid,
+  StatusOfflineSolid,
+  StatusOnlineSolid,
+  StopSolid,
+  SunSolid,
+  SupportSolid,
+  SwitchHorizontalSolid,
+  SwitchVerticalSolid,
+  TableSolid,
+  TagSolid,
+  TemplateSolid,
+  TerminalSolid,
+  ThumbDownSolid,
+  ThumbUpSolid,
+  TicketSolid,
+  TranslateSolid,
+  TrashSolid,
+  TrendingDownSolid,
+  TrendingUpSolid,
+  TruckSolid,
+  UploadSolid,
+  UserSolid,
+  UserAddSolid,
+  UserCircleSolid,
+  UserGroupSolid,
+  UserRemoveSolid,
+  UsersSolid,
+  VariableSolid,
+  VideoCameraSolid,
+  ViewBoardsSolid,
+  ViewGridSolid,
+  ViewGridAddSolid,
+  ViewListSolid,
+  VolumeOffSolid,
+  VolumeUpSolid,
+  WifiSolid,
+  ZoomInSolid,
+  ZoomOutSolid,
 };
+export type ICON_NAMES = keyof typeof icons;
+export default icons;

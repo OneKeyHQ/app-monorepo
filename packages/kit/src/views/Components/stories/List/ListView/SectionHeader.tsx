@@ -13,7 +13,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
     <Typography.Subheading color="text-subdued" flex={1} mr={3}>
       {title}
     </Typography.Subheading>
-    {!!actions?.length && (
+    {actions?.length ? (
       <HStack space={6}>
         {actions.map((item) => (
           <Pressable onPress={item.onPress} hitSlop={8}>
@@ -39,7 +39,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
           </Pressable>
         ))}
       </HStack>
-    )}
+    ) : null}
   </HStack>
 );
 
