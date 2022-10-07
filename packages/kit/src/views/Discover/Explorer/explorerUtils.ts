@@ -4,8 +4,9 @@ import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WebSiteHistory } from '../../../store/reducers/discover';
 import { DAppItemType } from '../type';
+
+import type { WebSiteHistory } from '../type';
 
 export interface WebSiteType {
   url?: string;

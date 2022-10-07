@@ -2,7 +2,11 @@ import React, { FC, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Select } from '@onekeyhq/components';
+import { Box, Select, useToast } from '@onekeyhq/components';
+import type { SelectItem } from '@onekeyhq/components/src/Select';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useWebController } from '../Controller/useWebController';
 
 export type MoreViewProps = {
   visible: boolean;
@@ -24,10 +28,13 @@ const MoreView: FC<MoreViewProps> = ({
   onGoHomePage,
 }) => {
   const intl = useIntl();
+  const toast = useToast();
 
   const [currentOptionType, setCurrentOptionType] = useState<string | null>(
     null,
   );
+
+  const { currentTab } = useWebController();
 
   useEffect(() => {
     function main() {
@@ -52,6 +59,18 @@ const MoreView: FC<MoreViewProps> = ({
           onGoHomePage();
           setCurrentOptionType(null);
           break;
+        case 'unfavorites':
+          if (currentTab) {
+            backgroundApiProxy.serviceDiscover.removeBookmark(currentTab);
+          }
+          toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
+          break;
+        case 'favorites':
+          if (currentTab) {
+            backgroundApiProxy.serviceDiscover.addBookmark(currentTab);
+          }
+          toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
+          break;
         default:
           break;
       }
@@ -60,6 +79,55 @@ const MoreView: FC<MoreViewProps> = ({
     setTimeout(() => main(), 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentOptionType]);
+
+  const options: SelectItem<string>[] = [
+    {
+      label: intl.formatMessage({
+        id: 'action__refresh',
+      }),
+      value: 'refresh',
+      iconProps: { name: 'RefreshOutline' },
+    },
+    {
+      label: intl.formatMessage({
+        id: 'action__share',
+      }),
+      value: 'share',
+      iconProps: { name: 'ShareOutline' },
+    },
+    {
+      label: currentTab?.isBookmarked
+        ? intl.formatMessage({
+            id: 'action__remove_from_favorites',
+          })
+        : intl.formatMessage({
+            id: 'action__add_to_favorites',
+          }),
+      value: currentTab?.isBookmarked ? 'unfavorites' : 'favorites',
+      iconProps: { name: 'StarSolid' },
+    },
+    {
+      label: intl.formatMessage({
+        id: 'action__copy_url',
+      }),
+      value: 'copyUrl',
+      iconProps: { name: 'LinkOutline' },
+    },
+    {
+      label: intl.formatMessage({
+        id: 'action__open_in_browser',
+      }),
+      value: 'openInBrowser',
+      iconProps: { name: 'GlobeAltOutline' },
+    },
+    {
+      label: intl.formatMessage({
+        id: 'action__back_to_home_page',
+      }),
+      value: 'goHome',
+      iconProps: { name: 'HomeOutline' },
+    },
+  ];
 
   return (
     <Select
@@ -79,43 +147,7 @@ const MoreView: FC<MoreViewProps> = ({
         width: 248,
       }}
       renderTrigger={() => <Box />}
-      options={[
-        {
-          label: intl.formatMessage({
-            id: 'action__refresh',
-          }),
-          value: 'refresh',
-          iconProps: { name: 'RefreshOutline' },
-        },
-        {
-          label: intl.formatMessage({
-            id: 'action__share',
-          }),
-          value: 'share',
-          iconProps: { name: 'ShareOutline' },
-        },
-        {
-          label: intl.formatMessage({
-            id: 'action__copy_url',
-          }),
-          value: 'copyUrl',
-          iconProps: { name: 'LinkOutline' },
-        },
-        {
-          label: intl.formatMessage({
-            id: 'action__open_in_browser',
-          }),
-          value: 'openInBrowser',
-          iconProps: { name: 'GlobeAltOutline' },
-        },
-        {
-          label: intl.formatMessage({
-            id: 'action__back_to_home_page',
-          }),
-          value: 'goHome',
-          iconProps: { name: 'HomeOutline' },
-        },
-      ]}
+      options={options}
     />
   );
 };

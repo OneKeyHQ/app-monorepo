@@ -1,20 +1,16 @@
 import React, { ComponentProps, FC } from 'react';
 
-import { Box, Image, NetImage } from '@onekeyhq/components';
-import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
+import { Box, Icon, Image, NetImage } from '@onekeyhq/components';
 import DAppIconBG from '@onekeyhq/kit/assets/DAppIcon_bg.png';
+import multichainPNG from '@onekeyhq/kit/assets/dappIcon_multichain.png';
 
-import { imageUrl } from '../Service';
+import { useNetwork } from '../../../hooks';
 
-const chainUrl = (id: string) => {
-  const chain = id.toLocaleLowerCase();
-  return `${CDN_PREFIX}assets/${chain}/${chain}.png`;
-};
 type DAppSize = 24 | 28 | 38 | 48 | 40;
 type DAppIconProps = {
-  favicon: string;
-  chain?: string;
+  url?: string;
   size: DAppSize;
+  networkIds?: string[];
 } & ComponentProps<typeof Box>;
 
 export type InnerProps = {
@@ -60,10 +56,70 @@ function sizeWithProps(size: DAppSize): InnerProps {
   return propsMap[size];
 }
 
-const DAppIcon: FC<DAppIconProps> = ({ favicon, chain, size, ...rest }) => {
+type DAppNetworkIconProps = {
+  networkIds: string[];
+  size: DAppSize;
+};
+
+const DAppNetworkIcon: FC<DAppNetworkIconProps> = ({ networkIds, size }) => {
   const innerProps = sizeWithProps(size);
-  const { innerSize, innerRadius, borderRadius, chainIconPadding } = innerProps;
-  const url = imageUrl(favicon);
+  const { chainIconPadding } = innerProps;
+  const network = useNetwork(networkIds[0]);
+  if (networkIds.length > 1) {
+    return (
+      <Box>
+        <Image
+          position="absolute"
+          bottom="0.1px"
+          right="0.1px"
+          width={`${size * 0.625}px`}
+          height={`${size * 0.4375}px`}
+          source={DAppIconBG}
+        />
+        <Box
+          position="absolute"
+          bottom={`${chainIconPadding ?? 0}px`}
+          right={`${chainIconPadding ?? 0}px`}
+          borderRadius="full"
+        >
+          <Image
+            width={`${size * 0.2}px`}
+            height={`${size * 0.2}px`}
+            source={multichainPNG}
+          />
+        </Box>
+      </Box>
+    );
+  }
+  return (
+    <Box>
+      <Image
+        position="absolute"
+        bottom="0.1px"
+        right="0.1px"
+        width={`${size * 0.625}px`}
+        height={`${size * 0.4375}px`}
+        source={DAppIconBG}
+      />
+      <Box
+        position="absolute"
+        bottom={`${chainIconPadding ?? 0}px`}
+        right={`${chainIconPadding ?? 0}px`}
+      >
+        <NetImage
+          width={`${size * 0.2}px`}
+          height={`${size * 0.2}px`}
+          src={network?.logoURI}
+          borderRadius="full"
+        />
+      </Box>
+    </Box>
+  );
+};
+
+const DAppIcon: FC<DAppIconProps> = ({ url, size, networkIds, ...rest }) => {
+  const innerProps = sizeWithProps(size);
+  const { innerSize, innerRadius, borderRadius } = innerProps;
 
   return (
     <Box
@@ -77,34 +133,37 @@ const DAppIcon: FC<DAppIconProps> = ({ favicon, chain, size, ...rest }) => {
       {...rest}
     >
       <Box width={`${innerSize}px`} height={`${innerSize}px`}>
-        <NetImage
-          src={url}
-          width={`${innerSize}px`}
-          height={`${innerSize}px`}
-          borderRadius={`${innerRadius}px`}
-        />
-        {chain && chain.length > 0 ? (
-          <Box>
-            <Image
-              position="absolute"
-              bottom="0.1px"
-              right="0.1px"
-              width={`${size * 0.625}px`}
-              height={`${size * 0.4375}px`}
-              source={DAppIconBG}
-            />
-            <Box
-              position="absolute"
-              bottom={`${chainIconPadding ?? 0}px`}
-              right={`${chainIconPadding ?? 0}px`}
-            >
-              <NetImage
-                width={`${size * 0.2}px`}
-                height={`${size * 0.2}px`}
-                src={chainUrl(chain)}
-              />
-            </Box>
+        {url ? (
+          <Image
+            src={url}
+            width={`${innerSize}px`}
+            height={`${innerSize}px`}
+            borderRadius={`${innerRadius}px`}
+            fallbackElement={
+              <Box
+                borderRadius={12}
+                justifyContent="center"
+                alignItems="center"
+                width={`${innerSize}px`}
+                height={`${innerSize}px`}
+              >
+                <Icon size={16} name="GlobeSolid" />
+              </Box>
+            }
+          />
+        ) : (
+          <Box
+            borderRadius={12}
+            justifyContent="center"
+            alignItems="center"
+            width={`${innerSize}px`}
+            height={`${innerSize}px`}
+          >
+            <Icon size={16} name="GlobeSolid" />
           </Box>
+        )}
+        {networkIds && networkIds.length > 0 ? (
+          <DAppNetworkIcon size={size} networkIds={networkIds} />
         ) : null}
       </Box>
     </Box>

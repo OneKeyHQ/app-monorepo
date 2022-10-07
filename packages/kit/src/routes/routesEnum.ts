@@ -64,6 +64,7 @@ export enum HomeRoutes {
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
   ExploreScreen = 'ExploreScreen',
   DAppListScreen = 'DAppListScreen',
+  MyDAppListScreen = 'MyDAppListScreen',
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   Protected = 'Protected',
   AddressBook = 'AddressBook',

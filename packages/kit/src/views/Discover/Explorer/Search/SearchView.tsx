@@ -12,10 +12,7 @@ import { FlatListProps, useWindowDimensions } from 'react-native';
 
 import {
   Box,
-  Center,
   HStack,
-  Icon,
-  Image,
   OverlayContainer,
   PresenceTransition,
   Pressable,
@@ -28,15 +25,14 @@ import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownP
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
 import DAppIcon from '../../DAppIcon';
+import { useDiscoverHistory } from '../../hooks';
+import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
+import { DAppItemType } from '../../type';
 import {
-  MatchDAppItemType,
   SearchViewKeyEventType,
   SearchViewProps,
   SearchViewRef,
 } from '../explorerUtils';
-
-import { useLimitHistories } from './useLimitHistories';
-import { useSearchLocalDapp } from './useSearchLocalDapp';
 
 const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
   (
@@ -64,32 +60,26 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
       searchContent,
     );
 
-    const { limitHistories: allHistories } = useLimitHistories();
+    const discoverHistory = useDiscoverHistory();
 
-    const flatListData = useMemo(
-      () => (searchContentTerm ? searchedDapps : allHistories),
-      [searchContentTerm, allHistories, searchedDapps],
+    const data = useMemo(
+      () => (searchContentTerm ? searchedDapps : discoverHistory),
+      [searchContentTerm, discoverHistory, searchedDapps],
     );
 
-    const renderItem: FlatListProps<MatchDAppItemType>['renderItem'] = ({
+    const flatListData = useMemo(
+      () => data.map((item) => item.dapp).filter(Boolean),
+      [data],
+    );
+
+    const renderItem: FlatListProps<DAppItemType>['renderItem'] = ({
       item,
       index,
     }) => {
-      const {
-        favicon: dappFavicon,
-        chain,
-        name,
-        url: dappUrl,
-      } = item.dapp || {};
-
-      const {
-        favicon: webSiteFavicon,
-        title,
-        url: webSiteUrl,
-      } = item.webSite || {};
+      const { name, url: dappUrl, logoURL } = item || {};
 
       const itemTitle = () => {
-        const itemName = name ?? title ?? 'Unknown';
+        const itemName = name ?? 'Unknown';
         if (itemName.length > 24) {
           return `${itemName.slice(0, 24)}...`;
         }
@@ -109,38 +99,11 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
           borderWidth={1}
           borderRadius={12}
           onPress={() => {
-            onSelectorItem?.(item);
+            onSelectorItem?.({ id: item._id, dapp: item });
           }}
         >
           <HStack space={3} w="100%" alignItems="center">
-            {(!!dappFavicon || item.dapp) && (
-              <DAppIcon size={24} favicon={dappFavicon ?? ''} chain={chain} />
-            )}
-            {(!!webSiteFavicon || item.webSite) && (
-              <Box
-                width="24px"
-                height="24px"
-                borderRadius="8px"
-                borderWidth="1px"
-                borderColor="border-subdued"
-              >
-                <Image
-                  width="24px"
-                  height="24px"
-                  src={webSiteFavicon ?? ''}
-                  source={{ uri: webSiteFavicon }}
-                  borderRadius="8px"
-                  borderWidth="1px"
-                  borderColor="border-subdued"
-                  fallbackElement={
-                    <Center w="24px" h="24px">
-                      <Icon size={18} name="GlobeSolid" />
-                    </Center>
-                  }
-                />
-              </Box>
-            )}
-
+            {logoURL ? <DAppIcon size={24} url={logoURL} /> : null}
             <Text
               flexWrap="wrap"
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
@@ -148,7 +111,7 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
               {itemTitle()}
             </Text>
             <Typography.Body2 flex={1} numberOfLines={1} color="text-subdued">
-              {dappUrl ?? webSiteUrl}
+              {dappUrl}
             </Typography.Body2>
           </HStack>
         </Pressable.Item>
@@ -192,7 +155,8 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
         }
       } else if (keyEvent === 'Enter') {
         if (selectItemIndex !== undefined && flatListData.length) {
-          onSelectorItem?.(flatListData[selectItemIndex]);
+          const item = flatListData[selectItemIndex];
+          onSelectorItem?.({ id: item._id, dapp: item });
         } else {
           return false;
         }
@@ -208,7 +172,8 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
 
     useEffect(() => {
       if (selectItemIndex !== undefined) {
-        onHoverItem?.(flatListData[selectItemIndex]);
+        const item = flatListData[selectItemIndex];
+        onHoverItem?.({ id: item._id, dapp: item });
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call
         flatListRef?.current?.scrollToIndex({
@@ -270,9 +235,7 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
                   </Box>
                 ) : null
               }
-              keyExtractor={(_item: MatchDAppItemType, index) =>
-                `${index}-${_item.id}`
-              }
+              keyExtractor={(item) => item._id}
               // extraData={selectItemIndex}
               showsVerticalScrollIndicator={false}
             />

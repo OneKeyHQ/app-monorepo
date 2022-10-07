@@ -35,7 +35,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
         // TODO avoid rerender, maybe singleton
         <DiscoverHome
           onItemSelect={(dapp) => {
-            openMatchDApp({ id: dapp.id, dapp });
+            openMatchDApp({ id: dapp._id, dapp });
           }}
           onItemSelectHistory={openMatchDApp}
         />
