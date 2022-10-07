@@ -76,40 +76,43 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
       return null;
     }
     return (
-      <PressableItem
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
-        py={{ base: '12px', sm: '8px' }}
-        px={{ base: '16px', sm: '8px' }}
-        mt="4px"
-        bg="transparent"
-        borderRadius="12px"
-        onPress={() => {
-          if (state === 'ready') {
-            window.desktopApi.installUpdate();
-          } else {
-            window.desktopApi.downloadUpdate();
-          }
-        }}
-        disabled={disabled}
-      >
-        <Box flexDirection="row" alignItems="center">
-          <Icon size={isVerticalLayout ? 24 : 20} name="UploadOutline" />
-          <Text
-            typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
-            ml="12px"
-          >
-            {formText}
-          </Text>
-        </Box>
-
-        {showUpdateBadge && (
-          <Box rounded="full" p="2px" pr="9px">
-            <Box rounded="full" bgColor="interactive-default" size="8px" />
+      <>
+        <Divider />
+        <PressableItem
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+          py={{ base: '12px', sm: '8px' }}
+          px={{ base: '16px', sm: '8px' }}
+          mt="4px"
+          bg="transparent"
+          borderRadius="12px"
+          onPress={() => {
+            if (state === 'ready') {
+              window.desktopApi.installUpdate();
+            } else {
+              window.desktopApi.downloadUpdate();
+            }
+          }}
+          disabled={disabled}
+        >
+          <Box flexDirection="row" alignItems="center">
+            <Icon size={isVerticalLayout ? 24 : 20} name="UploadOutline" />
+            <Text
+              typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
+              ml="12px"
+            >
+              {formText}
+            </Text>
           </Box>
-        )}
-      </PressableItem>
+
+          {showUpdateBadge && (
+            <Box rounded="full" p="2px" pr="9px">
+              <Box rounded="full" bgColor="interactive-default" size="8px" />
+            </Box>
+          )}
+        </PressableItem>
+      </>
     );
   }, [state, intl, isVerticalLayout, showUpdateBadge]);
 
@@ -140,7 +143,6 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
           </Text>
         </PressableItem>
       ))}
-      <Divider />
       {UpdateItem}
     </Box>
   );
