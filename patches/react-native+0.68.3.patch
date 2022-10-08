@@ -1,11 +1,11 @@
 diff --git a/node_modules/react-native/React/Base/RCTUtils.h b/node_modules/react-native/React/Base/RCTUtils.h
-index 135ff2f..8879a8d 100644
+index 135ff2f..a9502dd 100644
 --- a/node_modules/react-native/React/Base/RCTUtils.h
 +++ b/node_modules/react-native/React/Base/RCTUtils.h
 @@ -186,4 +186,6 @@ RCT_EXTERN BOOL RCTValidateTypeOfViewCommandArgument(
      NSString const *commandName,
      NSString const *argPos);
-     
+ 
 +RCT_EXTERN BOOL RCTIsAppActive(void);
 +
  NS_ASSUME_NONNULL_END
@@ -24,7 +24,7 @@ index 961cc36..1c04a85 100644
 +}
 \ No newline at end of file
 diff --git a/node_modules/react-native/React/CoreModules/RCTDeviceInfo.mm b/node_modules/react-native/React/CoreModules/RCTDeviceInfo.mm
-index b948e8e..298a6a5 100644
+index b948e8e..78e5389 100644
 --- a/node_modules/react-native/React/CoreModules/RCTDeviceInfo.mm
 +++ b/node_modules/react-native/React/CoreModules/RCTDeviceInfo.mm
 @@ -26,8 +26,10 @@ using namespace facebook::react;
@@ -171,3 +171,36 @@ index b948e8e..298a6a5 100644
  }
  
  - (std::shared_ptr<TurboModule>)getTurboModule:(const ObjCTurboModule::InitParams &)params
+diff --git a/node_modules/react-native/scripts/react_native_pods.rb b/node_modules/react-native/scripts/react_native_pods.rb
+index f2ceeda..5349ade 100644
+--- a/node_modules/react-native/scripts/react_native_pods.rb
++++ b/node_modules/react-native/scripts/react_native_pods.rb
+@@ -242,6 +242,8 @@ def fix_library_search_paths(installer)
+ end
+ 
+ def react_native_post_install(installer)
++  turn_off_resource_bundle_react_core(installer)
++
+   if has_pod(installer, 'Flipper')
+     flipper_post_install(installer)
+   end
+@@ -661,3 +663,18 @@ def __apply_Xcode_12_5_M1_post_install_workaround(installer)
+   time_header = "#{Pod::Config.instance.installation_root.to_s}/Pods/RCT-Folly/folly/portability/Time.h"
+   `sed -i -e  $'s/ && (__IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0)//' #{time_header}`
+ end
++
++
++def turn_off_resource_bundle_react_core(installer)
++  # this is needed for Xcode 14, see more details here https://github.com/facebook/react-native/issues/34673
++  # we should be able to remove this once CocoaPods catches up to it, see more details here https://github.com/CocoaPods/CocoaPods/issues/11402
++  installer.target_installation_results.pod_target_installation_results.each do |pod_name, target_installation_result|
++      if ['React-Core', 'IQKeyboardManagerSwift', 'EXConstants'].include? pod_name.to_s
++          target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
++              resource_bundle_target.build_configurations.each do |config|
++                  config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
++              end
++          end
++      end
++  end
++end
+\ No newline at end of file
