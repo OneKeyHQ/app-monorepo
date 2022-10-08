@@ -33,7 +33,7 @@ const AutoUpdateSectionItem: FC = () => {
 
   const onCheckUpdate = useCallback(() => {
     appUpdates
-      .checkUpdate()
+      .checkUpdate(true)
       ?.then((version) => {
         if (!version) {
           toast.show({

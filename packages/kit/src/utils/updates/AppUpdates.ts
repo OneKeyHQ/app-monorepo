@@ -2,6 +2,8 @@ import differenceInDays from 'date-fns/differenceInDays';
 import * as Linking from 'expo-linking';
 import semver from 'semver';
 
+import { ToastManager } from '@onekeyhq/components';
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
 import {
@@ -25,9 +27,9 @@ import { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
 class AppUpdates {
   addedListener = false;
 
-  checkUpdate() {
+  checkUpdate(isManual = false) {
     if (platformEnv.isDesktop) {
-      this.checkDesktopUpdate();
+      this.checkDesktopUpdate(isManual);
       return;
     }
 
@@ -197,10 +199,21 @@ class AppUpdates {
         window.desktopApi.downloadUpdate();
       }
     });
-    window.desktopApi.on('update/not-available', ({ version }) => {
-      debugLogger.autoUpdate.debug('update/not-available, version: ', version);
-      dispatch(notAvailable({ version }));
-    });
+    window.desktopApi.on(
+      'update/not-available',
+      ({ version, isManualCheck }) => {
+        debugLogger.autoUpdate.debug(
+          'update/not-available, version: ',
+          version,
+        );
+        dispatch(notAvailable({ version }));
+        if (isManualCheck) {
+          ToastManager.show({
+            title: formatMessage({ id: 'msg__using_latest_release' }),
+          });
+        }
+      },
+    );
     window.desktopApi.on('update/error', ({ version, err }) => {
       debugLogger.autoUpdate.debug('update/error, err: ', err);
       dispatch(error());
