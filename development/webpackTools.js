@@ -88,10 +88,18 @@ function normalizeConfig({ platform, config, env }) {
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
     ].filter(Boolean);
+
+    // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
+    resolveExtensions.unshift(
+      ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
+    );
   }
-  config.resolve.extensions = lodash.uniq(
-    config.resolve.extensions.concat(resolveExtensions),
-  );
+  config.resolve.extensions = lodash
+    .uniq(config.resolve.extensions.concat(resolveExtensions))
+    // sort platform specific extensions to the beginning
+    .sort((a, b) => {
+      return a.includes(platform) ? -1 : 0;
+    });
   config.resolve.alias = {
     ...config.resolve.alias,
     '@solana/buffer-layout-utils':
