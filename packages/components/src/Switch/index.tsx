@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
 import { ISizes } from 'native-base/lib/typescript/theme/base/sizes';

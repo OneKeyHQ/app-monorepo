@@ -58,7 +58,7 @@ const ChainSelector: FC<ChainSelectorProps> = () => {
                   }
                   rounded="full"
                 >
-                  <Token size={8} src={item.logoURL} />
+                  <Token size={8} token={{ logoURI: item.logoURL }} />
                 </Box>
               )}
             </Pressable>

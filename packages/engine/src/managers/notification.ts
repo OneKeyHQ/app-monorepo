@@ -2,6 +2,7 @@ import axios, { Method } from 'axios';
 import { debounce } from 'lodash';
 import qs from 'qs';
 
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
 import { Token } from '@onekeyhq/kit/src/store/typings';
@@ -15,11 +16,21 @@ type PartialNotificationType = Partial<SettingsState['pushNotification']> & {
   instanceId?: string;
 };
 
+export type NotificationExtra = {
+  screen: HomeRoutes.ScreenTokenDetail | HomeRoutes.InitialTab;
+  params: {
+    accountId?: string;
+    networkId?: string;
+    tokenId?: string;
+    initialTabName?: string;
+  };
+};
+
 export type NotificationType = {
   messageID: string;
   title: string;
   content: string;
-  extras: Record<string, unknown>;
+  extras: NotificationExtra;
   notificationEventType: 'notificationArrived' | 'notificationOpened';
   badge?: string;
   ring?: string;
@@ -77,9 +88,6 @@ async function fetchData<T>(
   if (isQuery) {
     apiUrl = `${apiUrl}?${qs.stringify(body)}`;
   }
-  if (!platformEnv.isNative) {
-    return fallback;
-  }
   try {
     debugLogger.notification.debug(`syncPushNotificationConfig`, {
       method,
@@ -115,6 +123,12 @@ const sync = async (
   if (type === 'reset') {
     Object.assign(config, {
       pushEnable: false,
+    });
+  }
+  if (platformEnv.isRuntimeBrowser) {
+    const instanceId = appSelector((state) => state?.settings?.instanceId);
+    Object.assign(config, {
+      registrationId: instanceId,
     });
   }
   if (!config.registrationId) {

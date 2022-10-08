@@ -20,6 +20,8 @@ export const DataUpdaters = () => {
           activeAccountId: accountId,
           activeNetworkId,
         });
+      } else {
+        backgroundApiProxy.serviceToken.getEnabledNativeTokens();
       }
     },
     [accountId],

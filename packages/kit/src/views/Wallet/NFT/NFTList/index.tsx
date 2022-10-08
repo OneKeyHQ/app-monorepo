@@ -126,6 +126,7 @@ const NFTList: FC<NFTListProps> = ({
   >(
     ({ item }) => (
       <NFTListAssetCard
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         key={stringAppend(item.contractAddress, item.tokenId)}
         marginRight="16px"
         asset={item}

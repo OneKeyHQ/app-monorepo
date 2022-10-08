@@ -50,9 +50,8 @@ const SearchView: FC<SearchViewProps> = ({
   const translateY = 9;
 
   const [selectItemIndex, setSelectItemIndex] = useState<number>();
-  const [tempSearchContent] = useState<string>();
 
-  const searchContentTerm = useDebounce(tempSearchContent ?? '', 150);
+  const searchContentTerm = useDebounce(searchContent ?? '', 150);
 
   const ele = useRef<HTMLDivElement>(null);
   const flatListRef = useRef<any>(null);
@@ -190,7 +189,7 @@ const SearchView: FC<SearchViewProps> = ({
 
   useEffect(() => {
     setSelectItemIndex(undefined);
-  }, [tempSearchContent]);
+  }, [searchContent]);
 
   useEffect(() => {
     if (selectItemIndex !== undefined) {
@@ -241,7 +240,6 @@ const SearchView: FC<SearchViewProps> = ({
           <FlatListRef
             ref={flatListRef}
             data={flatListData}
-            // @ts-expect-error
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
@@ -257,7 +255,6 @@ const SearchView: FC<SearchViewProps> = ({
                 </Box>
               ) : null
             }
-            // @ts-expect-error
             keyExtractor={(_item: MatchDAppItemType, index) =>
               `${index}-${_item.id}`
             }

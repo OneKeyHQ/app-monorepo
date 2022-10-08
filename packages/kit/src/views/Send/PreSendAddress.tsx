@@ -209,13 +209,12 @@ function PreSendAddress() {
                 <NFTView asset={nftInfo} />
               ) : (
                 <Box flexDirection="row" alignItems="center">
-                  <Token size={8} src={tokenInfo?.logoURI} />
+                  <Token size={8} token={tokenInfo} />
                   <Typography.Body1Strong ml={3}>
                     {tokenInfo?.symbol}
                   </Typography.Body1Strong>
                 </Box>
               )}
-
               <Form.Item
                 control={control}
                 warningMessage={warningMessage}

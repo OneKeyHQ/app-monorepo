@@ -31,20 +31,20 @@ const SwapContent = () => {
   const navigation = useNavigation();
   const {
     inputToken,
-    inputTokenNetwork,
     outputToken,
     outputTokenNetwork,
     typedValue,
     independentField,
     loading,
+    sendingAccount,
   } = useSwapState();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
-  const { account, wallet, network } = useActiveWalletAccount();
+  const { wallet, network } = useActiveWalletAccount();
 
   const { formattedAmounts } = useDerivedSwapState();
 
   const isDisabled =
-    !wallet || !account || !network || !enabledNetworkIds.includes(network.id);
+    !wallet || !network || !enabledNetworkIds.includes(network.id);
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -70,15 +70,8 @@ const SwapContent = () => {
   }, []);
 
   const onSwitchTokens = useCallback(() => {
-    if (
-      outputTokenNetwork &&
-      inputTokenNetwork &&
-      outputTokenNetwork?.impl !== inputTokenNetwork?.impl
-    ) {
-      return;
-    }
     backgroundApiProxy.serviceSwap.switchTokens();
-  }, [outputTokenNetwork, inputTokenNetwork]);
+  }, []);
 
   useEffect(() => {
     backgroundApiProxy.serviceSwap.setQuote(undefined);
@@ -109,7 +102,7 @@ const SwapContent = () => {
           type="INPUT"
           label={intl.formatMessage({ id: 'form__pay' })}
           token={inputToken}
-          tokenNetwork={inputTokenNetwork}
+          account={sendingAccount}
           inputValue={formattedAmounts.INPUT}
           onChange={onChangeInput}
           onPress={onSelectInput}
@@ -126,6 +119,7 @@ const SwapContent = () => {
             <IconButton
               w="10"
               h="10"
+              isDisabled={loading}
               name="SwitchVerticalOutline"
               borderRadius="full"
               borderColor="border-disabled"

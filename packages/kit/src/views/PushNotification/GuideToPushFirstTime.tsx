@@ -17,7 +17,7 @@ import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl
 import imageUrl from '@onekeyhq/kit/assets/alert.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigationGoHomeForceReload } from '../../hooks/useAppNavigation';
+import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
@@ -26,7 +26,7 @@ const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
 
-  const reload = useNavigationGoHomeForceReload();
+  const goBack = useNavigationBack();
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
 
@@ -63,10 +63,9 @@ const GuideToPushFirstTime: FC = () => {
     );
     serviceNotification
       .syncPushNotificationConfig()
-      .finally(addAccountDynamics);
-
-    reload();
-  }, [reload, dispatch, addAccountDynamics, serviceNotification]);
+      .finally(addAccountDynamics)
+      .finally(goBack);
+  }, [goBack, dispatch, addAccountDynamics, serviceNotification]);
 
   const configs = useMemo(
     () => [

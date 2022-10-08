@@ -2,13 +2,12 @@ import { createContext } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-type TokenSelectorContextValues = {
+type TokenSelectorValues = {
   selectedToken?: Token;
   networkId?: string;
   setNetworkId?: (networkId?: string) => void;
-  impl?: string;
 };
 
-export const TokenSelectorContext = createContext<TokenSelectorContextValues>({
+export const TokenSelectorContext = createContext<TokenSelectorValues>({
   networkId: '',
 });

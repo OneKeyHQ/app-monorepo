@@ -12,6 +12,7 @@ function useFormOnChangeDebounced<T>({
   clearErrorIfEmpty = false,
   onChange,
 }: {
+  // @ts-expect-error
   useFormReturn: UseFormReturn<T, any>;
   wait?: number;
   revalidate?: boolean;

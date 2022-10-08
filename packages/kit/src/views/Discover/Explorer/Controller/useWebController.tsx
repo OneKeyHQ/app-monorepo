@@ -22,7 +22,12 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import DappOpenHintDialog from '../DappOpenHintDialog';
-import { MatchDAppItemType, webHandler, webviewRefs } from '../explorerUtils';
+import {
+  MatchDAppItemType,
+  OnWebviewNavigation,
+  webHandler,
+  webviewRefs,
+} from '../explorerUtils';
 
 import { useWebviewRef } from './useWebviewRef';
 
@@ -40,7 +45,7 @@ export const useWebController = ({
   const { firstRemindDAPP } = useAppSelector((s) => s.discover);
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
-  const innerRef = webviewRefs[curId]?.innerRef;
+  const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
 
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
   const gotoHome = useCallback(
@@ -95,13 +100,13 @@ export const useWebController = ({
         ) {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          innerRef?.loadURL(url);
+          getInnerRef()?.loadURL(url);
         }
         return true;
       }
       return false;
     },
-    [curId, dispatch, innerRef, tab?.url],
+    [curId, dispatch, getInnerRef, tab?.url],
   );
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -150,8 +155,17 @@ export const useWebController = ({
     },
     [firstRemindDAPP, dispatch, gotoSite, tab?.url],
   );
-  const onNavigation = useCallback(
-    ({ url, title, favicon, isNewWindow, isInPlace }) => {
+  const onNavigation: OnWebviewNavigation = useCallback(
+    ({
+      url,
+      isNewWindow,
+      isInPlace,
+      title,
+      favicon,
+      canGoBack,
+      canGoForward,
+      loading,
+    }) => {
       let isValidNewUrl = typeof url === 'string' && url !== '';
       // tab url changes *AFTER* `gotoSite` on desktop
       // but *BEFORE* `gotoSite` on native
@@ -167,21 +181,27 @@ export const useWebController = ({
         }
         lastNewUrlTimestamp = Date.now();
         gotoSite({ url, title, favicon, isNewWindow, isInPlace });
-      } else if (title) {
-        dispatch(setWebTabData({ id: curId, title }));
-      } else if (favicon) {
-        dispatch(setWebTabData({ id: curId, favicon }));
       }
+
+      dispatch(
+        setWebTabData({
+          id: curId,
+          title,
+          favicon,
+          canGoBack,
+          canGoForward,
+          loading,
+        }),
+      );
     },
     [curId, dispatch, gotoSite, tab?.url],
   );
-  const { canGoBack, canGoForward, goBack, goForward, stopLoading, loading } =
-    useWebviewRef({
-      // @ts-expect-error
-      ref: innerRef,
-      onNavigation,
-      navigationStateChangeEvent,
-    });
+  const { goBack, goForward, stopLoading } = useWebviewRef({
+    // @ts-expect-error
+    ref: getInnerRef(),
+    onNavigation,
+    navigationStateChangeEvent,
+  });
 
   return {
     tabs,
@@ -190,13 +210,10 @@ export const useWebController = ({
     gotoHome,
     gotoSite,
     openMatchDApp,
-    canGoBack,
-    canGoForward,
     goBack,
     goForward,
     stopLoading,
     incomingUrl,
     clearIncomingUrl,
-    loading,
   };
 };

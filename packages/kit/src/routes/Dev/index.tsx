@@ -49,7 +49,6 @@ import TabsGallery from '@onekeyhq/kit/src/views/Components/stories/Tabs';
 import TextareaGallery from '@onekeyhq/kit/src/views/Components/stories/Textarea';
 import ThemeGallery from '@onekeyhq/kit/src/views/Components/stories/Theme';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
-import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypeWriter from '@onekeyhq/kit/src/views/Components/stories/TypeWriter';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WalletSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/WalletSelector/index';
@@ -186,7 +185,6 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
   { name: StackRoutes.ComponentNFTImage, component: NFTImageGallery },
-  { name: StackRoutes.ComponentToken, component: TokenGallery },
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
   { name: StackRoutes.ComponentIcon, component: IconGallery },
   { name: StackRoutes.ComponentBadge, component: BadgeGallery },

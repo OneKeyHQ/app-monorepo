@@ -18,6 +18,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { wait } from '../../utils/helper';
 
 import { WalletService } from './types';
+import walletConnectUtils from './utils/walletConnectUtils';
 import {
   IWalletConnectClientEventRpc,
   IWalletConnectClientOptions,
@@ -28,7 +29,6 @@ import {
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
 } from './walletConnectConsts';
 import { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
-import walletConnectUtils from './walletConnectUtils';
 
 export type ISessionStatusPro = ISessionStatus & {
   peerId?: string | null;

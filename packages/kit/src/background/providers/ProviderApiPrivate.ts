@@ -12,6 +12,7 @@ import {
 import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import extUtils from '../../utils/extUtils';
 import { backgroundClass, providerApiMethod } from '../decorators';
 
@@ -41,6 +42,21 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // ----------------------------------------------
+  @providerApiMethod()
+  async wallet_connectToWalletConnect(
+    request: IJsonRpcRequest,
+    { uri }: { uri: string },
+  ): Promise<any> {
+    if (uri) {
+      if (platformEnv.isExtension) {
+        // extension can not show Modal directly from background
+        this.backgroundApi.walletConnect.connect({ uri });
+      } else {
+        walletConnectUtils.openConnectToDappModal({ uri });
+      }
+    }
+    return Promise.resolve(`uri=${uri}`);
+  }
 
   /*
     window.$onekey.$private.request({

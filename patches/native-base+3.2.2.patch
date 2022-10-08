@@ -1,0 +1,61 @@
+diff --git a/node_modules/native-base/lib/typescript/components/basic/FlatList/FlatList.d.ts b/node_modules/native-base/lib/typescript/components/basic/FlatList/FlatList.d.ts
+index ed000aa..b1ade34 100644
+--- a/node_modules/native-base/lib/typescript/components/basic/FlatList/FlatList.d.ts
++++ b/node_modules/native-base/lib/typescript/components/basic/FlatList/FlatList.d.ts
+@@ -1,3 +1,2 @@
+-import React from 'react';
+ import type { IFlatListProps } from './types';
+-export declare const FlatList: React.ForwardRefExoticComponent<IFlatListProps & React.RefAttributes<unknown>>;
++export declare const FlatList: <ItemT>(props: IFlatListProps<ItemT>, ref: any) => any;
+diff --git a/node_modules/native-base/lib/typescript/components/basic/FlatList/index.d.ts b/node_modules/native-base/lib/typescript/components/basic/FlatList/index.d.ts
+index 90a1e9e..51f5901 100644
+--- a/node_modules/native-base/lib/typescript/components/basic/FlatList/index.d.ts
++++ b/node_modules/native-base/lib/typescript/components/basic/FlatList/index.d.ts
+@@ -1 +1,2 @@
+ export { FlatList } from './FlatList';
++export type { IFlatListProps } from './types';
+diff --git a/node_modules/native-base/lib/typescript/components/basic/FlatList/types.d.ts b/node_modules/native-base/lib/typescript/components/basic/FlatList/types.d.ts
+index a3a7289..4f9a789 100644
+--- a/node_modules/native-base/lib/typescript/components/basic/FlatList/types.d.ts
++++ b/node_modules/native-base/lib/typescript/components/basic/FlatList/types.d.ts
+@@ -1,5 +1,12 @@
+ import type { StyledProps } from '../../../theme/types';
+ import type { FlatListProps } from 'react-native';
+ import type { PlatformProps } from '../../types';
+-export interface IFlatListProps extends FlatListProps<any>, StyledProps, PlatformProps<IFlatListProps> {
++import type { MutableRefObject } from 'react';
++export interface InterfaceFlatListProps<ItemT> extends FlatListProps<ItemT>, StyledProps, PlatformProps<IFlatListProps<ItemT>> {
++    /**
++     * pass props to contentContainerStyle, and this also resolved NB tokens.
++     */
++    _contentContainerStyle?: Partial<IFlatListProps<ItemT>>;
++    ref?: MutableRefObject<any>;
+ }
++export declare type IFlatListProps<ItemT> = InterfaceFlatListProps<ItemT>;
+diff --git a/node_modules/native-base/lib/typescript/components/basic/SectionList/SectionList.d.ts b/node_modules/native-base/lib/typescript/components/basic/SectionList/SectionList.d.ts
+index bb9041f..f872de5 100644
+--- a/node_modules/native-base/lib/typescript/components/basic/SectionList/SectionList.d.ts
++++ b/node_modules/native-base/lib/typescript/components/basic/SectionList/SectionList.d.ts
+@@ -1,3 +1,2 @@
+-import React from 'react';
+ import type { ISectionListProps } from './types';
+-export declare const SectionList: React.ForwardRefExoticComponent<ISectionListProps & React.RefAttributes<unknown>>;
++export declare const SectionList: <ItemT, sectionT>(props: ISectionListProps<ItemT, sectionT>, ref: any) => any;
+diff --git a/node_modules/native-base/lib/typescript/components/basic/SectionList/types.d.ts b/node_modules/native-base/lib/typescript/components/basic/SectionList/types.d.ts
+index 30aada8..3783b0b 100644
+--- a/node_modules/native-base/lib/typescript/components/basic/SectionList/types.d.ts
++++ b/node_modules/native-base/lib/typescript/components/basic/SectionList/types.d.ts
+@@ -1,5 +1,12 @@
+ import type { StyledProps } from '../../../theme/types';
+ import type { SectionListProps } from 'react-native';
+ import type { PlatformProps } from '../../types';
+-export interface ISectionListProps extends SectionListProps<any, any>, StyledProps, PlatformProps<ISectionListProps> {
++import type { MutableRefObject } from 'react';
++declare type DefaultSectionT = {
++    [key: string]: any;
++};
++export interface InterfaceSectionListProps<ItemT, sectionT = DefaultSectionT> extends SectionListProps<ItemT, sectionT>, StyledProps, PlatformProps<ISectionListProps<ItemT, sectionT>> {
++    ref?: MutableRefObject<any>;
+ }
++export declare type ISectionListProps<ItemT, sectionT = DefaultSectionT> = InterfaceSectionListProps<ItemT, sectionT>;
++export {};

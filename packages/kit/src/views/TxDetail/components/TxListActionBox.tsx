@@ -17,6 +17,9 @@ export type ITxListActionBoxProps = {
   content?: JSX.Element | string;
   extra?: JSX.Element | string;
   footer?: JSX.Element | string;
+
+  // v3.13 for defualt token icon
+  symbol?: string;
 };
 export function TxListActionBoxTitleText(props: ComponentProps<typeof Text>) {
   return <Text typography="Body1Strong" {...props} />;
@@ -40,12 +43,23 @@ export function TxListActionBoxExtraText(props: ComponentProps<typeof Text>) {
   );
 }
 export function TxListActionBox(props: ITxListActionBoxProps) {
-  const { icon, iconInfo, title, titleInfo, content, extra, subTitle, footer } =
-    props;
+  const {
+    icon,
+    iconInfo,
+    title,
+    titleInfo,
+    content,
+    extra,
+    subTitle,
+    footer,
+    symbol,
+  } = props;
   const titleView = fallbackTextComponent(title, TxListActionBoxTitleText) ?? (
     <TxActionElementTitleNormal titleInfo={titleInfo} />
   );
-  const iconView = icon ?? <TxActionElementIconLarge iconInfo={iconInfo} />;
+  const iconView = icon ?? (
+    <TxActionElementIconLarge iconInfo={iconInfo} name={symbol} />
+  );
   const contentView = fallbackTextComponent(
     content,
     TxListActionBoxContentText,

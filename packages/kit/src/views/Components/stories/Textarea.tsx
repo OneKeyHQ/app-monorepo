@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, Center, Icon, Stack, Textarea } from '@onekeyhq/components';
 
 const TextareaGallery = () => (

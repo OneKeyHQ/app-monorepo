@@ -21,6 +21,7 @@ const tsRules = {
   '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
   '@typescript-eslint/no-unsafe-assignment': 'off',
+  '@typescript-eslint/no-unsafe-argument': 'off',
   'sort-imports': [
     'error',
     {
@@ -62,6 +63,14 @@ const tsRules = {
       'warnOnUnassignedImports': true,
     },
   ],
+  // 'no-restricted-syntax': [
+  //   'error',
+  //   {
+  //     selector:
+  //       "ImportDeclaration[source.value='react'][specifiers.0.type='ImportDefaultSpecifier']",
+  //     message: 'Default React import not allowed',
+  //   },
+  // ],
 };
 module.exports = {
   env: {

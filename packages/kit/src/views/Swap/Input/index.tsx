@@ -18,7 +18,7 @@ const Input = () => {
   const { network } = useActiveWalletAccount();
   const { outputToken } = useSwapState();
 
-  const sendingNetworkId = useAppSelector((s) => s.swap.sendingNetworkId);
+  const networkSelectorId = useAppSelector((s) => s.swap.networkSelectorId);
   const onSelect = useCallback(
     (token: Token) => {
       backgroundApiProxy.serviceSwap.setInputToken(token);
@@ -30,29 +30,29 @@ const Input = () => {
   const included = useMemo(() => {
     if (
       outputToken &&
-      sendingNetworkId &&
-      sendingNetworkId !== outputToken.networkId
+      networkSelectorId &&
+      networkSelectorId !== outputToken.networkId
     ) {
-      return networkSupportedTokens[sendingNetworkId];
+      return networkSupportedTokens[networkSelectorId];
     }
-    if (sendingNetworkId && swftOnlyNetwork.includes(sendingNetworkId)) {
-      return networkSupportedTokens[sendingNetworkId];
+    if (networkSelectorId && swftOnlyNetwork.includes(networkSelectorId)) {
+      return networkSupportedTokens[networkSelectorId];
     }
     return undefined;
-  }, [sendingNetworkId, outputToken]);
+  }, [networkSelectorId, outputToken]);
 
   const onSelectNetworkId = useCallback((networkid?: string) => {
-    backgroundApiProxy.serviceSwap.setSendingNetworkId(networkid);
+    backgroundApiProxy.serviceSwap.setNetworkSelectorId(networkid);
   }, []);
 
   const value = useMemo(
     () => ({
       impl: network?.impl,
-      networkId: sendingNetworkId,
+      networkId: networkSelectorId,
       setNetworkId: onSelectNetworkId,
       selectedToken: outputToken,
     }),
-    [outputToken, sendingNetworkId, onSelectNetworkId, network?.impl],
+    [outputToken, networkSelectorId, onSelectNetworkId, network?.impl],
   );
 
   return (

@@ -4,7 +4,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import walletConnectUtils from '../components/WalletConnect/walletConnectUtils';
+import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
 import { scanFromURLAsync } from '../views/ScanQrcode/scanFromURLAsync';

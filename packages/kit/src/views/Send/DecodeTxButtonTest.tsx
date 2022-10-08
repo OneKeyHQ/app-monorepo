@@ -17,8 +17,8 @@ import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
-import walletConnectUtils from '../../components/WalletConnect/walletConnectUtils';
 import { useActiveWalletAccount } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useInteractWithInfo } from '../../hooks/useDecodedTx';

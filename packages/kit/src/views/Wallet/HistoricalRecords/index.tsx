@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -250,7 +250,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         paddingHorizontal: responsivePadding,
         marginTop: 24,
       }}
+      // @ts-expect-error
       sections={transactionRecords}
+      // @ts-expect-error
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListHeaderComponent={renderListHeader}

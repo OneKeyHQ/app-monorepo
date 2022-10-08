@@ -74,7 +74,7 @@ const PriceItem: FC<{
       borderBottomRadius={divider ? undefined : '12px'}
     >
       <Box flex="1" flexDirection="row" alignItems="center">
-        <Token src={token.logoURI} size={8} networkId={token.networkId} />
+        <Token size={8} token={token} showNetworkIcon />
         <Text typography="Body1Strong" numberOfLines={1} ml={3} flex="1">
           {`1 ${token.symbol} = `}
           <FormatCurrencyNumber value={+(price || 0)} currency={currency} />

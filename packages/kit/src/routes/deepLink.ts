@@ -7,13 +7,13 @@ import type { DesktopAPI } from '@onekeyhq/desktop/src-electron/preload';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import {
   ONEKEY_APP_DEEP_LINK,
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '../components/WalletConnect/walletConnectConsts';
-import walletConnectUtils from '../components/WalletConnect/walletConnectUtils';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';

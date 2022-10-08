@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
@@ -483,6 +483,7 @@ export const SubmitRequest: FC = () => {
                 formControlProps={{ width: 'full' }}
                 defaultValue=""
               >
+                {/* @ts-ignore */}
                 <Form.Textarea
                   placeholder={intl.formatMessage({
                     id: 'form__your_question_is',

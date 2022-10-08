@@ -11,6 +11,10 @@ export interface WebTab {
   isCurrent: boolean;
   // isBookmarked?: boolean;
   // isMuted: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  loading?: boolean;
+  refReady?: boolean;
 }
 
 export interface WebTabsInitialState {
@@ -32,32 +36,41 @@ const initialState: WebTabsInitialState = {
   incomingUrl: '',
 };
 
-export const tokensSlice = createSlice({
+export const webtabsSlice = createSlice({
   name: 'webTabs',
   initialState,
   reducers: {
-    addWebTab: (state, action: PayloadAction<WebTab>) => {
-      if (action.payload.isCurrent) {
+    addWebTab: (state, { payload }: PayloadAction<WebTab>) => {
+      if (payload.isCurrent) {
         for (const tab of state.tabs) {
           tab.isCurrent = false;
         }
-        state.currentTabId = action.payload.id;
+        state.currentTabId = payload.id;
       }
-      state.tabs.push(action.payload);
+      state.tabs.push(payload);
     },
     setWebTabData: (
       state,
-      action: PayloadAction<Partial<Omit<WebTab, 'isCurrent'>>>,
+      { payload }: PayloadAction<Partial<Omit<WebTab, 'isCurrent'>>>,
     ) => {
-      const tab = state.tabs.find((t) => t.id === action.payload.id);
+      const tab = state.tabs.find((t) => t.id === payload.id);
       if (tab) {
-        Object.assign(tab, action.payload);
+        Object.keys(payload).forEach((key) => {
+          if (key === 'title' && !payload.title) {
+            delete payload.title;
+            // @ts-ignore
+          } else if (payload[key] === undefined) {
+            // @ts-ignore
+            delete payload[key];
+          }
+        });
+        Object.assign(tab, payload);
       }
     },
-    closeWebTab: (state, action: PayloadAction<string>) => {
-      delete webviewRefs[action.payload];
+    closeWebTab: (state, { payload }: PayloadAction<string>) => {
+      delete webviewRefs[payload];
       state.tabs = state.tabs.filter((tab, index) => {
-        if (tab.id === action.payload) {
+        if (tab.id === payload) {
           const prev = state.tabs[index - 1];
           prev.isCurrent = true;
           state.currentTabId = prev.id;
@@ -66,16 +79,16 @@ export const tokensSlice = createSlice({
         return true;
       });
     },
-    setCurrentWebTab: (state, action: PayloadAction<string>) => {
-      if (state.currentTabId !== action.payload) {
+    setCurrentWebTab: (state, { payload }: PayloadAction<string>) => {
+      if (state.currentTabId !== payload) {
         for (const tab of state.tabs) {
-          tab.isCurrent = tab.id === action.payload;
+          tab.isCurrent = tab.id === payload;
         }
-        state.currentTabId = action.payload;
+        state.currentTabId = payload;
       }
     },
-    setIncomingUrl: (state, action: PayloadAction<string>) => {
-      state.incomingUrl = action.payload;
+    setIncomingUrl: (state, { payload }: PayloadAction<string>) => {
+      state.incomingUrl = payload;
     },
   },
 });
@@ -86,5 +99,5 @@ export const {
   closeWebTab,
   setCurrentWebTab,
   setIncomingUrl,
-} = tokensSlice.actions;
-export default tokensSlice.reducer;
+} = webtabsSlice.actions;
+export default webtabsSlice.reducer;

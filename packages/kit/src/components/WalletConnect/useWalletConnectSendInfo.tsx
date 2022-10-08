@@ -35,12 +35,12 @@ import { IWalletConnectExternalAccountInfo } from '../../views/Send/types';
 import ExternalAccountImg from './ExternalAccountImg';
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';
+import { terminateWcConnection } from './utils/terminateWcConnection';
 import { WalletConnectClientForDapp } from './WalletConnectClientForDapp';
 import {
   WALLET_CONNECT_SEND_SHOW_MISMATCH_CONFIRM_DELAY,
   WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY,
 } from './walletConnectConsts';
-import walletConnectUtils from './walletConnectUtils';
 
 type IDialogConfirmMismatchContinueInfo = {
   myAddress: string;
@@ -243,7 +243,7 @@ export function useWalletConnectSendInfo({
               }}
               onCancel={async () => {
                 if (shouldTerminateConnection) {
-                  await walletConnectUtils.terminateWcConnection({
+                  await terminateWcConnection({
                     client,
                     walletUrl,
                   });

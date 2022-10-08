@@ -121,6 +121,7 @@ export function TxActionTransferT0(props: ITxActionCardProps) {
   return (
     <TxListActionBox
       footer={statusBar}
+      symbol={symbol}
       iconInfo={meta?.iconInfo}
       titleInfo={meta?.titleInfo}
       content={

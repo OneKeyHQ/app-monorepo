@@ -1,12 +1,12 @@
 /* eslint-disable no-nested-ternary */
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { Box, HStack, Pressable, Typography } from '@onekeyhq/components';
 
-export type SectionHeaderProps = {
+export interface SectionHeaderProps extends ComponentProps<typeof HStack> {
   title?: string;
   actions?: [{ label?: string; onPress: () => void }];
-} & ComponentProps<typeof HStack>;
+}
 
 const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
   <HStack alignItems="center" p={2} {...rest}>

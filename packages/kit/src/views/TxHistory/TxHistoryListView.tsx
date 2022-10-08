@@ -1,11 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, {
-  ComponentProps,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -193,7 +187,7 @@ function TxHistoryListSectionList(props: {
       [],
     );
 
-  const sectionListProps: ComponentProps<typeof SectionList> = {
+  const sectionListProps = {
     renderItem,
     renderSectionHeader,
     contentContainerStyle: {
@@ -215,7 +209,7 @@ function TxHistoryListSectionList(props: {
 
   return <SectionListComponent {...sectionListProps} />;
 }
-const TxHistoryListSectionsMemo = React.memo(TxHistoryListSectionList);
+const TxHistoryListSectionsMemo = memo(TxHistoryListSectionList);
 
 export type ITxHistoryListViewProps = {
   accountId: string | null | undefined;

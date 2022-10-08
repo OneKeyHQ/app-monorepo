@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,11 +6,7 @@ import { useIntl } from 'react-intl';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useDebounce,
-} from '../../../hooks';
+import { useAppSelector, useDebounce } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
 import {
   setError,
@@ -23,7 +19,7 @@ import { SwapQuoter } from '../quoter';
 import { FetchQuoteParams, SwapError } from '../typings';
 import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
 
-import { useCachedBalances } from './useSwapTokenUtils';
+import { useTokenBalance } from './useSwapTokenUtils';
 
 class TokenAmount {
   amount: BigNumber;
@@ -66,44 +62,6 @@ export function useSwapState() {
   return useAppSelector((s) => s.swap);
 }
 
-export function useTokenBalance(
-  token?: Token,
-  networkId?: string,
-  accountId?: string,
-): BigNumber | undefined {
-  const balances = useCachedBalances(networkId, accountId);
-  useEffect(() => {
-    async function main() {
-      if (
-        token &&
-        networkId &&
-        accountId &&
-        balances[token.tokenIdOnNetwork || 'main'] === undefined
-      ) {
-        debugLogger.swap.info(
-          'useTokenBalance',
-          token.tokenIdOnNetwork,
-          balances[token.tokenIdOnNetwork || 'main'],
-        );
-        const result = await backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          tokenIds: [token.tokenIdOnNetwork],
-        });
-        debugLogger.swap.info('useTokenBalance result', result);
-      }
-    }
-    main();
-  }, [token, balances, networkId, accountId]);
-  const balance = balances[token?.tokenIdOnNetwork || 'main'];
-  return useMemo(() => {
-    if (!token || !balance || !networkId || !accountId) {
-      return;
-    }
-    return new TokenAmount(token, balance).toNumber();
-  }, [token, networkId, accountId, balance]);
-}
-
 export function useSwapRecipient() {
   return useAppSelector((s) => s.swap.recipient);
 }
@@ -112,7 +70,6 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
-  const { account } = useActiveWalletAccount();
   const {
     inputToken,
     outputToken,
@@ -120,6 +77,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     typedValue,
     inputTokenNetwork,
     outputTokenNetwork,
+    sendingAccount,
   } = useSwapState();
 
   return useMemo(() => {
@@ -129,7 +87,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       !typedValue ||
       !inputTokenNetwork ||
       !outputTokenNetwork ||
-      !account ||
+      !sendingAccount ||
       new BigNumber(typedValue).lte(0)
     ) {
       return;
@@ -142,7 +100,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       tokenOut: outputToken,
       tokenIn: inputToken,
       slippagePercentage: swapSlippagePercent,
-      activeAccount: account,
+      activeAccount: sendingAccount,
     };
   }, [
     typedValue,
@@ -152,7 +110,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     inputTokenNetwork,
     outputTokenNetwork,
     swapSlippagePercent,
-    account,
+    sendingAccount,
   ]);
 }
 
@@ -222,63 +180,24 @@ export const useSwapQuoteCallback = function (
   return onSwapQuote;
 };
 
-export function useTokenAllowance(token?: Token, spender?: string) {
-  const { accountId, networkId } = useActiveWalletAccount();
-  const [allowance, setAllowance] = useState<string>();
-  const onQuery = useCallback(async () => {
-    if (accountId && networkId && token && token.tokenIdOnNetwork && spender) {
-      const allowanceData = await backgroundApiProxy.engine.getTokenAllowance({
-        spender,
-        networkId,
-        accountId,
-        tokenIdOnNetwork: token?.tokenIdOnNetwork,
-      });
-      if (allowanceData !== undefined) {
-        setAllowance(allowanceData);
-      } else {
-        setAllowance(undefined);
-      }
-    }
-  }, [accountId, networkId, token, spender]);
-  useEffect(() => {
-    onQuery();
-    const timer = setInterval(onQuery, 1000 * 10);
-    return () => {
-      setAllowance(undefined);
-      clearInterval(timer);
-    };
-  }, [onQuery]);
-  return useMemo(
-    () =>
-      token && allowance
-        ? new TokenAmount(token, allowance).toNumber()
-        : undefined,
-    [token, allowance],
-  );
-}
-
 export function useDerivedSwapState() {
   const {
     independentField,
     typedValue,
     inputToken,
     outputToken,
-    inputTokenNetwork,
-    outputTokenNetwork,
     quote: swapQuote,
     error: swapError,
+    sendingAccount,
   } = useSwapState();
-  const { accountId } = useActiveWalletAccount();
-  const inputBalance = useTokenBalance(
-    inputToken,
-    inputTokenNetwork?.id,
-    accountId,
-  );
-  const outputBalance = useTokenBalance(
-    outputToken,
-    outputTokenNetwork?.id,
-    accountId,
-  );
+
+  const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
+
+  const inputBalanceBN = useMemo(() => {
+    if (!inputBalance || !inputToken) return;
+    return new TokenAmount(inputToken, inputBalance).toNumber();
+  }, [inputToken, inputBalance]);
+
   const inputAmount = useTokenAmount(
     inputToken,
     greaterThanZeroOrUndefined(swapQuote?.sellAmount),
@@ -300,7 +219,7 @@ export function useDerivedSwapState() {
   }, [independentField, inputAmount, outputAmount, typedValue]);
 
   const balanceError =
-    inputAmount && inputBalance && inputBalance.lt(inputAmount.toNumber())
+    inputAmount && inputBalanceBN && inputBalanceBN.lt(inputAmount.toNumber())
       ? SwapError.InsufficientBalance
       : undefined;
   const error = swapError || balanceError;
@@ -310,7 +229,6 @@ export function useDerivedSwapState() {
     inputAmount,
     outputAmount,
     inputBalance,
-    outputBalance,
     formattedAmounts,
   };
 }
