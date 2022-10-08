@@ -1,70 +1,16 @@
 diff --git a/node_modules/metro-react-native-babel-preset/src/configs/main.js b/node_modules/metro-react-native-babel-preset/src/configs/main.js
-index 6c23f9a..3ddcbee 100644
+index 6c23f9a..058b094 100644
 --- a/node_modules/metro-react-native-babel-preset/src/configs/main.js
 +++ b/node_modules/metro-react-native-babel-preset/src/configs/main.js
-@@ -22,7 +22,7 @@ function isTSXSource(fileName) {
- 
- const defaultPlugins = [
-   [require("@babel/plugin-syntax-flow")],
--  [require("@babel/plugin-transform-block-scoping")],
-+  // [require("@babel/plugin-transform-block-scoping")],
-   [
-     require("@babel/plugin-proposal-class-properties"), // use `this.foo = bar` instead of `this.defineProperty('foo', ...)`
-     {
-@@ -102,18 +102,18 @@ const getPreset = (src, options) => {
-     ]);
+@@ -131,11 +131,11 @@ const getPreset = (src, options) => {
+     extraPlugins.push([require("@babel/plugin-transform-async-to-generator")]);
    }
  
--  if (!isHermes && (isNull || hasClass || src.indexOf("...") !== -1)) {
--    extraPlugins.push(
--      [require("@babel/plugin-transform-spread")],
--      [
--        require("@babel/plugin-proposal-object-rest-spread"), // Assume no dependence on getters or evaluation order. See https://github.com/babel/babel/pull/11520
--        {
--          loose: true,
--          useBuiltIns: true,
--        },
--      ]
--    );
--  }
-+  // if (!isHermes && (isNull || hasClass || src.indexOf("...") !== -1)) {
-+  //   extraPlugins.push(
-+  //     [require("@babel/plugin-transform-spread")],
-+  //     [
-+  //       require("@babel/plugin-proposal-object-rest-spread"), // Assume no dependence on getters or evaluation order. See https://github.com/babel/babel/pull/11520
-+  //       {
-+  //         loose: true,
-+  //         useBuiltIns: true,
-+  //       },
-+  //     ]
-+  //   );
-+  // }
- 
-   if (!isHermes && (isNull || src.indexOf("`") !== -1)) {
-     extraPlugins.push([
-@@ -124,18 +124,18 @@ const getPreset = (src, options) => {
-     ]);
-   }
- 
--  if (isNull || src.indexOf("async") !== -1) {
--    extraPlugins.push([
--      require("@babel/plugin-proposal-async-generator-functions"),
--    ]);
--    extraPlugins.push([require("@babel/plugin-transform-async-to-generator")]);
--  }
--
 -  if (!isHermes && (isNull || src.indexOf("**") !== -1)) {
 -    extraPlugins.push([
 -      require("@babel/plugin-transform-exponentiation-operator"),
 -    ]);
 -  }
-+  // if (isNull || src.indexOf("async") !== -1) {
-+  //   extraPlugins.push([
-+  //     require("@babel/plugin-proposal-async-generator-functions"),
-+  //   ]);
-+  //   extraPlugins.push([require("@babel/plugin-transform-async-to-generator")]);
-+  // }
-+
 +  // if (!isHermes && (isNull || src.indexOf("**") !== -1)) {
 +  //   extraPlugins.push([
 +  //     require("@babel/plugin-transform-exponentiation-operator"),
