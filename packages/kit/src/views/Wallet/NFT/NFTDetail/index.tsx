@@ -1,8 +1,7 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import useSWR from 'swr';
 
 import {
   Box,
@@ -15,10 +14,9 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CollectiblesModalRoutes,
@@ -31,66 +29,12 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { SendRoutes } from '../../../../routes';
 
 import CollectibleContent from './CollectibleContent';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 export const NFTTransferEnable = true;
-
-function useAssetOwner({
-  asset,
-  accountId,
-  networkId,
-}: {
-  asset: NFTAsset;
-  accountId?: string;
-  networkId: string;
-}) {
-  const isMountedRef = useIsMounted();
-  const { serviceNFT } = backgroundApiProxy;
-  const tokenId = useMemo(() => {
-    if (networkId === OnekeyNetwork.sol) {
-      return asset.tokenAddress;
-    }
-    return asset.tokenId;
-  }, [asset.tokenAddress, asset.tokenId, networkId]);
-  const [isOwner, updateIsOwner] = useState(asset.owner === accountId);
-  const swrKey = 'fetchNFTList';
-  const fetchData = useCallback(
-    async () =>
-      serviceNFT.getAsset({
-        accountId,
-        networkId,
-        contractAddress: asset.contractAddress,
-        tokenId: tokenId ?? '',
-        local: false,
-      }),
-    [serviceNFT, accountId, networkId, asset.contractAddress, tokenId],
-  );
-
-  useSWR(swrKey, fetchData, {
-    refreshInterval: 20 * 1000,
-    revalidateOnMount: true,
-    revalidateOnFocus: true,
-    shouldRetryOnError: false,
-    onSuccess(data) {
-      if (data && isMountedRef.current) {
-        const newIsowner = data.owner === accountId;
-        updateIsOwner(newIsowner);
-      }
-    },
-  });
-
-  return useMemo(
-    () => ({
-      isOwner,
-    }),
-    [isOwner],
-  );
-}
 
 type Props = {
   imageContent: JSX.Element;
@@ -116,7 +60,9 @@ const Mobile: FC<Props> = ({ imageContent, content }) => (
 const NFTDetailModal: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const { wallet, networkId, account } = useActiveWalletAccount();
+  const modalClose = useModalClose();
+
+  const { wallet } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isSmallScreen = useIsVerticalLayout();
   const route =
@@ -127,14 +73,8 @@ const NFTDetailModal: FC = () => {
       >
     >();
   const { network, asset } = route.params;
-  const { isOwner } = useAssetOwner({
-    asset,
-    networkId,
-    accountId: account?.address,
-  });
 
-  const transferEnable =
-    isOwner && network.id !== OnekeyNetwork.sol && wallet?.type !== 'watching';
+  const transferEnable = wallet?.type !== 'watching';
   const sendAction = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
@@ -144,10 +84,11 @@ const NFTDetailModal: FC = () => {
           isNFT: true,
           from: '',
           to: '',
-          amount: '1',
+          amount: asset.amount ?? '1',
           token: asset.contractAddress ?? asset.tokenAddress,
           tokenId: asset.tokenId ?? asset.tokenAddress,
           type: asset.ercType,
+          closeModal: modalClose,
         },
       },
     });
