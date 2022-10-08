@@ -68,8 +68,11 @@ const NotificationProvider: React.FC<{
   }, [checkPermission]);
 
   useEffect(() => {
-    serviceNotification.init();
-    return () => serviceNotification.clear();
+    // init in background if platform is ext
+    if (!platformEnv.isExtension) {
+      serviceNotification.init();
+      return () => serviceNotification.clear();
+    }
   }, [serviceNotification]);
 
   // checkPermission and init
