@@ -8,6 +8,7 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { Conflux, address as confluxAddress } from 'js-conflux-sdk';
 import { isNil } from 'lodash';
@@ -36,6 +37,7 @@ import {
   IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
+  IHistoryTx,
   ISignCredentialOptions,
   ITransferInfo,
   IUnsignedTxPro,
@@ -47,13 +49,23 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IEncodedTxCfx } from './types';
-import { parseTransaction } from './utils';
+import { IEncodedTxCfx, OnChainHistoryResp } from './types';
+import { isCfxNativeTransferType, parseTransaction } from './utils';
 
 const TOKEN_TRANSFER_FUNCTION_SIGNATURE = '0xa9059cbb';
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
   settings = settings;
+
+  keyringMap = {
+    hd: KeyringHd,
+    hw: KeyringHardware,
+    imported: KeyringImported,
+    watching: KeyringWatching,
+    external: KeyringWatching,
+  };
+
+  getApiExplorerCache = memoizee(async (baseURL) => axios.create({ baseURL }));
 
   getClientCache = memoizee(
     async (rpcUrl, chainId) => this.getConfluxClient(rpcUrl, chainId),
@@ -62,6 +74,15 @@ export default class Vault extends VaultBase {
       max: 1,
     },
   );
+
+  async getApiExplorer() {
+    const network = await this.engine.getNetwork(this.networkId);
+    const baseURL = network.blockExplorerURL.name.replace(
+      /(https:\/\/)/,
+      `$1${network.isTestnet ? 'api-' : 'api.'}`,
+    );
+    return this.getApiExplorerCache(baseURL);
+  }
 
   async getClient() {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
@@ -252,14 +273,6 @@ export default class Vault extends VaultBase {
     };
   }
 
-  keyringMap = {
-    hd: KeyringHd,
-    hw: KeyringHardware,
-    imported: KeyringImported,
-    watching: KeyringWatching,
-    external: KeyringWatching,
-  };
-
   async updateEncodedTx(
     encodedTx: IEncodedTxCfx,
     payload: IEncodedTxUpdatePayloadTransfer,
@@ -272,6 +285,20 @@ export default class Vault extends VaultBase {
         .toFixed();
     }
     return Promise.resolve(encodedTx);
+  }
+
+  async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const [encryptedPrivateKey] = Object.values(
+        await keyring.getPrivateKeys(password),
+      );
+      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
+    }
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
   }
 
   override async getOutputAccount(): Promise<Account> {
@@ -303,18 +330,9 @@ export default class Vault extends VaultBase {
     return ret;
   }
 
-  async getExportedCredential(password: string): Promise<string> {
-    const dbAccount = await this.getDbAccount();
-    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
-      const keyring = this.keyring as KeyringSoftwareBase;
-      const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
-      );
-      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
-    }
-    throw new OneKeyInternalError(
-      'Only credential of HD or imported accounts can be exported',
-    );
+  override async getAccountAddress() {
+    const { address } = await this.getOutputAccount();
+    return address;
   }
 
   override async getAccountBalance(tokenIds: Array<string>, withMain = true) {
@@ -334,6 +352,86 @@ export default class Vault extends VaultBase {
       throw new InvalidAddress();
     }
     return Promise.resolve(normalizedAddress);
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory?: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const { tokenIdOnNetwork, localHistory = [] } = options;
+
+    if (tokenIdOnNetwork) {
+      return Promise.resolve([]);
+    }
+
+    const network = await this.getNetwork();
+    const apiExplorer = await this.getApiExplorer();
+    const { address } = await this.getOutputAccount();
+
+    try {
+      const resp = await apiExplorer.get<OnChainHistoryResp>(
+        '/account/transfers',
+        {
+          params: {
+            account: address,
+            limit: 50,
+            transferType: 'transaction',
+          },
+        },
+      );
+      if (resp.data.code !== 0) return await Promise.resolve([]);
+
+      const explorerTxs = resp.data.data.list;
+
+      const promises = explorerTxs.map(async (tx) => {
+        const historyTxToMerge = localHistory.find(
+          (item) => item.decodedTx.txid === tx.transactionHash,
+        );
+
+        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+          return Promise.resolve(null);
+        }
+
+        const encodedTx: IEncodedTxCfx = {
+          ...tx,
+          value: toBigIntHex(new BigNumber(tx.amount)),
+          data: tx.input,
+        };
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.transactionHash,
+          owner: address,
+          signer: tx.from,
+          nonce: tx.nonce || 0,
+          actions: (await this.buildEncodedTxAction(encodedTx)).filter(Boolean),
+          status:
+            tx.status === 0
+              ? IDecodedTxStatus.Confirmed
+              : IDecodedTxStatus.Pending,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          encodedTx,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(tx.gasFee)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+        };
+
+        decodedTx.updatedAt = tx.timestamp * 1000;
+        decodedTx.createdAt =
+          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+
+        return this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge: {} as IHistoryTx,
+        });
+      });
+
+      return (await Promise.all(promises)).filter(Boolean);
+    } catch (e) {
+      return Promise.resolve([]);
+    }
   }
 
   // Chain only functionalities below.

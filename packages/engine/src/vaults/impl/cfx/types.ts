@@ -3,7 +3,7 @@ export type IEncodedTxCfx = {
   to: string;
   value: string;
   data: string;
-  nonce?: string | number;
+  nonce?: number;
   gas?: string;
   gasPrice?: string;
   gasLimit?: string;
@@ -20,5 +20,25 @@ export type ITxDescCfx = {
   array: any[];
   object: {
     [index: string]: any;
+  };
+};
+
+export type OnChainHistoryItem = {
+  method: string;
+  type: string;
+  status: number;
+  input: string;
+  gasFee: string;
+  timestamp: number;
+  amount: string;
+  transactionHash: string;
+} & IEncodedTxCfx;
+
+export type OnChainHistoryResp = {
+  code: number;
+  message: string;
+  data: {
+    total: number;
+    list: OnChainHistoryItem[];
   };
 };
