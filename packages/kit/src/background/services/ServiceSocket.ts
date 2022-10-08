@@ -4,6 +4,7 @@ import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { appSelector } from '../../store';
 import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
@@ -14,12 +15,19 @@ import ServiceBase from './ServiceBase';
 export default class ServiceSocket extends ServiceBase {
   private socket: Socket | null = null;
 
+  private interval?: any;
+
   @backgroundMethod()
   initSocket() {
     const endpoint = getSocketEndpoint();
     debugLogger.notification.info('init websocket', endpoint);
+    this.interval = setInterval(() => {
+      this.login();
+    }, getTimeDurationMs({ minute: 5 }));
     return new Promise((resolve, reject) => {
-      this.socket = io(endpoint);
+      this.socket = io(endpoint, {
+        transports: ['websocket'],
+      });
       const timeout = setTimeout(() => {
         reject(new Error('socket connection failed'));
       }, getTimeDurationMs({ minute: 3 }));
@@ -44,6 +52,9 @@ export default class ServiceSocket extends ServiceBase {
   clear() {
     this.socket?.removeAllListeners?.();
     this.socket?.disconnect?.();
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
   }
 
   @backgroundMethod()
@@ -58,7 +69,14 @@ export default class ServiceSocket extends ServiceBase {
 
   @backgroundMethod()
   login() {
+    if (platformEnv.isNative) {
+      return;
+    }
     const instanceId = appSelector((s) => s.settings.instanceId);
-    this.socket?.emit('login', instanceId);
+    if (!instanceId) {
+      return;
+    }
+    debugLogger.notification.info('websocket login', instanceId);
+    this.socket?.emit?.('login', instanceId);
   }
 }
