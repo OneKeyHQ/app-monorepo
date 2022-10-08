@@ -4,7 +4,6 @@ import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { appSelector } from '../../store';
 import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
@@ -69,9 +68,6 @@ export default class ServiceSocket extends ServiceBase {
 
   @backgroundMethod()
   login() {
-    if (platformEnv.isNative) {
-      return;
-    }
     const instanceId = appSelector((s) => s.settings.instanceId);
     if (!instanceId) {
       return;
