@@ -370,7 +370,7 @@ export type ISendAuthenticationModalTitleInfo = {
 export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
-  const { walletId } = params;
+  const { walletId, onModalClose } = params;
   const [titleInfo, setTitleInfo] = useState<
     ISendAuthenticationModalTitleInfo | undefined
   >();
@@ -382,6 +382,7 @@ export const HDAccountAuthentication = () => {
       headerDescription={titleInfo?.subTitle}
       footer={null}
       onModalClose={() => {
+        onModalClose?.();
         closeExtensionWindowIfOnboardingFinished();
       }}
     >

@@ -283,6 +283,7 @@ function SendConfirm() {
         networkId,
         onSuccess,
         onFail,
+        onModalClose,
       };
       // @ts-ignore
       delete nextRouteParams._disabledAnimationOfNavigate;
@@ -298,20 +299,21 @@ function SendConfirm() {
       );
     },
     [
-      accountId,
-      dappApprove,
-      engine,
       feeInfoEditable,
       feeInfoPayload,
-      navigation,
-      networkId,
-      resendActionInfo,
       routeParams,
-      serviceHistory,
-      serviceToken,
+      accountId,
       walletId,
-      wallet,
+      networkId,
+      onModalClose,
+      navigation,
+      engine,
+      dappApprove,
+      serviceToken,
       payloadInfo?.swapInfo,
+      wallet?.type,
+      serviceHistory,
+      resendActionInfo,
     ],
   );
 
