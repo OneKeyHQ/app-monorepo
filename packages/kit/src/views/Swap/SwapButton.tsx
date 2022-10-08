@@ -8,9 +8,9 @@ import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
@@ -283,7 +283,7 @@ const ExchangeButton = () => {
                       swapInfo,
                     },
                   });
-                appEventBus.emit(AppEventBusNames.SwapCompleted);
+                appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
                 addSwapTransaction(result.txid, decodedTx.nonce);
               },
             },

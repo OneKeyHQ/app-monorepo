@@ -17,9 +17,9 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes, SendRoutesParams } from '../types';
@@ -40,9 +40,9 @@ export function HardwareSwapContinue() {
   }, [closeModal, route?.params]);
 
   useEffect(() => {
-    appEventBus.on(AppEventBusNames.SwapCompleted, doClose);
+    appUIEventBus.on(AppUIEventBusNames.SwapCompleted, doClose);
     return () => {
-      appEventBus.off(AppEventBusNames.SwapCompleted, doClose);
+      appUIEventBus.off(AppUIEventBusNames.SwapCompleted, doClose);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
