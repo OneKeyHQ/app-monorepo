@@ -40,6 +40,14 @@ import injectedNativeCode from './injectedNative.text-js';
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const USER_AGENT_IOS =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const USER_AGENT_ANDROID =
+  'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36';
+const DESKTOP_USER_AGENT_MOCK = USER_AGENT_ANDROID;
+
 export type InpageProviderWebViewProps = InpageWebViewProps & {
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
@@ -237,7 +245,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
                   // we can resize desktop to vertical only in DEV env currently
                   platformEnv.isDev && isVertical
                     ? // sim mobile app UA
-                      'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+                      DESKTOP_USER_AGENT_MOCK
                     : undefined
                 }
               />

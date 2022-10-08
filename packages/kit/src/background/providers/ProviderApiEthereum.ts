@@ -562,11 +562,17 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async metamask_getProviderState(request: IJsBridgeMessagePayload) {
+    const [accounts, chainId, networkVersion, isUnlocked] = await Promise.all([
+      this.eth_accounts(request),
+      this.eth_chainId(),
+      this.net_version(),
+      this._getCurrentUnlockState(),
+    ]);
     return {
-      accounts: await this.eth_accounts(request),
-      chainId: await this.eth_chainId(),
-      networkVersion: await this.net_version(),
-      isUnlocked: await this._getCurrentUnlockState(),
+      accounts,
+      chainId,
+      networkVersion,
+      isUnlocked,
     };
   }
 
