@@ -48,9 +48,9 @@ const UpdateItem: FC = () => {
         borderRadius="12px"
         onPress={() => {
           if (state === 'ready') {
-            window.desktopApi.installUpdate();
+            window.desktopApi?.installUpdate?.();
           } else {
-            window.desktopApi.downloadUpdate();
+            window.desktopApi?.downloadUpdate?.();
           }
         }}
         disabled={disabled}
