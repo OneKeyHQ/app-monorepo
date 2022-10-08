@@ -32,14 +32,17 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
       if (!enableLocalAuthentication && !isLocalAuthentication) {
         const result = await localAuthenticate();
         if (!result.success) {
-          toast.show(
-            {
-              title: intl.formatMessage({ id: 'msg__verification_failure' }),
-            },
-            {
-              type: 'error',
-            },
-          );
+          const { error } = result;
+          if (!error.includes('cancelled')) {
+            toast.show(
+              {
+                title: intl.formatMessage({ id: 'msg__verification_failure' }),
+              },
+              {
+                type: 'error',
+              },
+            );
+          }
           setTimeout(() => {
             // delay 1000ms goBack, otherwise the keyboard will be showup
             navigation?.goBack?.();
