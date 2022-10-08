@@ -18,6 +18,7 @@ import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
 
 import { OverlayPanel } from './OverlayPanel';
+import UpdateItem from './UpdateItem';
 
 const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
@@ -56,6 +57,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
     ],
     [isVerticalLayout],
   );
+
   return (
     <Box bg="surface-subdued" flexDirection="column">
       {options.filter(Boolean).map(({ onPress, icon, id }) => (
@@ -83,6 +85,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
           </Text>
         </PressableItem>
       ))}
+      <UpdateItem />
     </Box>
   );
 };

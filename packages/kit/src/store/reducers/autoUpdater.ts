@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { VersionInfo } from '../../utils/updates/type';
+import { DesktopVersion, VersionInfo } from '../../utils/updates/type';
 
 export type UpdateError = {
   error: Error;
@@ -26,8 +26,8 @@ export interface AutoUpdaterState {
     | 'ready'
     | 'error';
   skip?: string;
-  progress?: UpdateProgress;
-  latest?: VersionInfo;
+  progress: UpdateProgress;
+  latest?: VersionInfo | DesktopVersion;
   window: UpdateWindow;
 }
 
@@ -35,6 +35,7 @@ const initialState: AutoUpdaterState = {
   enabled: false,
   state: 'not-available',
   window: 'maximized',
+  progress: {} as UpdateProgress,
 };
 
 export const autoUpdaterSlice = createSlice({
@@ -50,19 +51,23 @@ export const autoUpdaterSlice = createSlice({
     checking(state) {
       state.state = 'checking';
     },
-    available(state, action: PayloadAction<VersionInfo>) {
+    available(state, action: PayloadAction<VersionInfo | DesktopVersion>) {
       state.state = 'available';
-      state.latest = action.payload;
+      if (action.payload) {
+        state.latest = action.payload;
+      }
     },
-    notAvailable(state, action: PayloadAction<VersionInfo>) {
+    notAvailable(state, action: PayloadAction<VersionInfo | DesktopVersion>) {
       state.state = 'not-available';
-      state.latest = action.payload;
+      if (action.payload) {
+        state.latest = action.payload;
+      }
     },
     downloading(state, action: PayloadAction<UpdateProgress>) {
       state.state = 'downloading';
       state.progress = action.payload;
     },
-    ready(state, action: PayloadAction<VersionInfo>) {
+    ready(state, action: PayloadAction<VersionInfo | DesktopVersion>) {
       state.state = 'ready';
       state.latest = action.payload;
     },
@@ -71,7 +76,9 @@ export const autoUpdaterSlice = createSlice({
       state.skip = action.payload;
     },
     error(state) {
-      state.state = 'error';
+      if (state.state === 'downloading') {
+        state.state = 'available';
+      }
     },
     setUpdateWindow(state, action: PayloadAction<UpdateWindow>) {
       state.window = action.payload;

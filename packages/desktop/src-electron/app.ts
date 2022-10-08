@@ -346,7 +346,7 @@ function createMainWindow() {
 }
 
 function init() {
-  initProcess();
+  initProcess({ mainWindow: mainWindow as BrowserWindow });
 }
 
 const singleInstance = app.requestSingleInstanceLock();
@@ -389,9 +389,9 @@ if (!singleInstance && !process.mas) {
   app.name = APP_NAME;
   app.on('ready', () => {
     if (!mainWindow) {
-      init();
       mainWindow = createMainWindow();
     }
+    init();
     showMainWindow();
   });
 }

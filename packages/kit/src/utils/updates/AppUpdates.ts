@@ -1,15 +1,39 @@
+import differenceInDays from 'date-fns/differenceInDays';
 import * as Linking from 'expo-linking';
 import semver from 'semver';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import store from '@onekeyhq/kit/src/store';
+import {
+  available,
+  checking,
+  downloading,
+  error,
+  notAvailable,
+  ready,
+} from '@onekeyhq/kit/src/store/reducers/autoUpdater';
+import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
+import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import store from '../../store';
 import { getDefaultLocale } from '../locale';
 
 import { getChangeLog, getPreReleaseInfo, getReleaseInfo } from './server';
 import { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
 
 class AppUpdates {
+  addedListener = false;
+
+  checkUpdate() {
+    if (platformEnv.isDesktop) {
+      this.checkDesktopUpdate();
+      return;
+    }
+
+    return this.checkAppUpdate();
+  }
+
   async checkAppUpdate(): Promise<VersionInfo | undefined> {
     const { enable, preReleaseUpdate } =
       store.getState().settings.devMode || {};
@@ -24,6 +48,7 @@ class AppUpdates {
     }
 
     let packageInfo: PackageInfo | undefined;
+
     if (platformEnv.isNativeAndroid) {
       if (platformEnv.isNativeAndroidGooglePlay) {
         packageInfo = releasePackages?.android?.find(
@@ -43,31 +68,6 @@ class AppUpdates {
     if (platformEnv.isDesktop) {
       if (platformEnv.isDesktopLinux) {
         packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
-      }
-      if (platformEnv.isDesktopMac) {
-        packageInfo = releasePackages?.desktop?.find((x) => {
-          if (platformEnv.isDesktopMacArm64) {
-            return x.os === 'macos-arm64';
-          }
-
-          return x.os === 'macos-x64';
-        });
-      }
-      if (platformEnv.isDesktopWin) {
-        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
-      }
-    }
-
-    if (platformEnv.isExtension) {
-      if (platformEnv.isExtChrome) {
-        packageInfo = releasePackages?.extension?.find(
-          (x) => x.os === 'chrome',
-        );
-      }
-      if (platformEnv.isExtFirefox) {
-        packageInfo = releasePackages?.extension?.find(
-          (x) => x.os === 'firefox',
-        );
       }
     }
 
@@ -90,6 +90,11 @@ class AppUpdates {
     }
 
     return undefined;
+  }
+
+  checkDesktopUpdate(isManual = false) {
+    debugLogger.autoUpdate.debug('check desktop update');
+    window.desktopApi.checkForUpdates(isManual);
   }
 
   openAppUpdate(versionInfo: VersionInfo): void {
@@ -138,6 +143,91 @@ class AppUpdates {
     } else {
       window.open(url, '_blank');
     }
+  }
+
+  skipVersionCheck(version: string) {
+    const { updateLatestVersion = null, updateLatestTimeStamp = null } =
+      store.getState().settings.updateSetting ?? {};
+
+    debugLogger.autoUpdate.debug(
+      'skipVersionCheck params updateLatestVersion: ',
+      updateLatestVersion,
+      ' , updateLatestTimeStamp: ',
+      updateLatestTimeStamp,
+      ' , version: ',
+      version,
+    );
+
+    if (
+      updateLatestVersion &&
+      semver.valid(updateLatestVersion) &&
+      semver.valid(version) &&
+      semver.eq(updateLatestVersion, version) &&
+      updateLatestTimeStamp
+    ) {
+      if (differenceInDays(getTimeStamp(), updateLatestTimeStamp) < 7) {
+        debugLogger.autoUpdate.debug(
+          'Last operation within 7 days, skip check',
+        );
+        return true;
+      }
+    }
+    debugLogger.autoUpdate.debug('should not skip check version');
+    return false;
+  }
+
+  addUpdaterListener() {
+    if (this.addedListener) return;
+    if (!platformEnv.isDesktop) return;
+    this.addedListener = true;
+    const { dispatch } = backgroundApiProxy;
+    const { autoDownload = true } =
+      store.getState().settings.updateSetting ?? {};
+    window.desktopApi.on('update/checking', () => {
+      debugLogger.autoUpdate.debug('update/checking');
+      dispatch(checking());
+    });
+    window.desktopApi.on('update/available', ({ version }) => {
+      debugLogger.autoUpdate.debug('update/available, version: ', version);
+      dispatch(available({ version }));
+      if (autoDownload && !this.skipVersionCheck(version)) {
+        debugLogger.autoUpdate.debug(
+          'update/available should download new version',
+        );
+        window.desktopApi.downloadUpdate();
+      }
+    });
+    window.desktopApi.on('update/not-available', ({ version }) => {
+      debugLogger.autoUpdate.debug('update/not-available, version: ', version);
+      dispatch(notAvailable({ version }));
+    });
+    window.desktopApi.on('update/error', ({ version, err }) => {
+      debugLogger.autoUpdate.debug('update/error, err: ', err);
+      dispatch(error());
+      dispatch(
+        setUpdateSetting({
+          updateLatestVersion: version,
+          updateLatestTimeStamp: getTimeStamp(),
+        }),
+      );
+    });
+    window.desktopApi.on('update/downloading', (progress: any) => {
+      debugLogger.autoUpdate.debug(
+        'update/downloading, progress: ',
+        JSON.stringify(progress),
+      );
+      dispatch(downloading(progress));
+    });
+    window.desktopApi.on('update/downloaded', ({ version }) => {
+      debugLogger.autoUpdate.debug('update/downloaded');
+      dispatch(ready({ version }));
+      dispatch(
+        setUpdateSetting({
+          updateLatestVersion: null,
+          updateLatestTimeStamp: null,
+        }),
+      );
+    });
   }
 }
 const appUpdates = new AppUpdates();

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
@@ -8,7 +8,6 @@ import {
   Box,
   Icon,
   Pressable,
-  Spinner,
   Text,
   Typography,
   useTheme,
@@ -19,13 +18,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import {
-  available,
-  enable,
-} from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
-import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import AutoUpdateSectionItem from './AutoUpdateSectionItem';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -40,7 +36,6 @@ export const AboutSection = () => {
 
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-  const [checkUpdateLoading, setCheckUpdateLoading] = useState(false);
   const settings = useSettings();
 
   let lastTime: Date | undefined;
@@ -62,26 +57,6 @@ export const AboutSection = () => {
     }
   };
 
-  const onCheckUpdate = useCallback(() => {
-    setCheckUpdateLoading(true);
-    appUpdates
-      .checkAppUpdate()
-      .then((version) => {
-        if (!version) {
-          toast.show({
-            title: intl.formatMessage({
-              id: 'msg__the_current_version_is_the_latest',
-            }),
-          });
-        } else {
-          dispatch(enable(), available(version));
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        setCheckUpdateLoading(false);
-      });
-  }, [dispatch, intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (platformEnv.isNative) {
@@ -161,34 +136,7 @@ export const AboutSection = () => {
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
           </Text>
         </Pressable>
-        {!platformEnv.isWeb && !platformEnv.isExtension && (
-          <Pressable
-            display="flex"
-            flexDirection="row"
-            alignItems="center"
-            py={4}
-            px={{ base: 4, md: 6 }}
-            borderBottomWidth="1"
-            borderBottomColor="divider"
-            onPress={onCheckUpdate}
-          >
-            <Icon name="RefreshOutline" />
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              flex={1}
-              mx={3}
-            >
-              {intl.formatMessage({
-                id: 'form__check_for_updates',
-              })}
-            </Text>
-            {checkUpdateLoading ? <Spinner size="sm" /> : undefined}
-            <Box>
-              <Icon name="ChevronRightSolid" size={20} />
-            </Box>
-          </Pressable>
-        )}
-
+        <AutoUpdateSectionItem />
         <Pressable
           display="flex"
           flexDirection="row"

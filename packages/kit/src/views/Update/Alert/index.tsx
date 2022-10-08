@@ -22,7 +22,23 @@ const UpdateAlert: FC = () => {
 
   const isSmallScreen = useIsVerticalLayout();
 
-  if (platformEnv.isWeb || platformEnv.isExtension) return null;
+  if (
+    platformEnv.isWeb ||
+    platformEnv.isExtension ||
+    platformEnv.isDesktopMac ||
+    platformEnv.isDesktopWin
+  ) {
+    return null;
+  }
+
+  if (!lastVersion) {
+    return null;
+  }
+
+  // Narrowing type to VersionInfo
+  if (!('package' in lastVersion)) {
+    return null;
+  }
 
   return enabled ? (
     <Box

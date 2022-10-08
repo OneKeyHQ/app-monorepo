@@ -41,6 +41,10 @@ export interface VersionInfo {
   package: PackageInfo;
 }
 
+export interface DesktopVersion {
+  version: string;
+}
+
 export type Changelog = {
   [key in LocaleSymbol]?: string;
 };

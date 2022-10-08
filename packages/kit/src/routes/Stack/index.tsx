@@ -174,8 +174,8 @@ function MainScreen() {
 
   const autoCheckUpdate = () => {
     appUpdates
-      .checkAppUpdate()
-      .then((versionInfo) => {
+      .checkUpdate()
+      ?.then((versionInfo) => {
         if (versionInfo) {
           dispatch(enable(), available(versionInfo));
         }
@@ -186,6 +186,7 @@ function MainScreen() {
   };
 
   useEffect(() => {
+    appUpdates.addUpdaterListener();
     autoCheckUpdate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
