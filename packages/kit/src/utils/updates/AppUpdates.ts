@@ -185,11 +185,11 @@ class AppUpdates {
     const { dispatch } = backgroundApiProxy;
     const { autoDownload = true } =
       store.getState().settings.updateSetting ?? {};
-    window.desktopApi.on('update/checking', () => {
+    window.desktopApi?.on?.('update/checking', () => {
       debugLogger.autoUpdate.debug('update/checking');
       dispatch(checking());
     });
-    window.desktopApi.on('update/available', ({ version }) => {
+    window.desktopApi?.on?.('update/available', ({ version }) => {
       debugLogger.autoUpdate.debug('update/available, version: ', version);
       dispatch(available({ version }));
       if (autoDownload && !this.skipVersionCheck(version)) {
@@ -199,7 +199,7 @@ class AppUpdates {
         window.desktopApi.downloadUpdate();
       }
     });
-    window.desktopApi.on(
+    window.desktopApi?.on?.(
       'update/not-available',
       ({ version, isManualCheck }) => {
         debugLogger.autoUpdate.debug(
@@ -214,7 +214,7 @@ class AppUpdates {
         }
       },
     );
-    window.desktopApi.on('update/error', ({ version, err }) => {
+    window.desktopApi?.on?.('update/error', ({ version, err }) => {
       debugLogger.autoUpdate.debug('update/error, err: ', err);
       dispatch(error());
       dispatch(
@@ -224,7 +224,7 @@ class AppUpdates {
         }),
       );
     });
-    window.desktopApi.on('update/downloading', (progress: any) => {
+    window.desktopApi?.on?.('update/downloading', (progress: any) => {
       debugLogger.autoUpdate.debug(
         'update/downloading, progress: ',
         JSON.stringify(progress),
