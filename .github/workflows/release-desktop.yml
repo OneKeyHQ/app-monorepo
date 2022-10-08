@@ -147,6 +147,13 @@ jobs:
           path: |
             ./packages/desktop/build-electron/*.AppImage
 
+      - name: Upload Artifacts Release
+        uses: actions/upload-artifact@v2
+        with:
+          name: release
+          path: |
+            ./packages/desktop/build-electron/*
+
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main
         with:
