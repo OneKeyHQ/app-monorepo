@@ -140,14 +140,14 @@ function PreSendAddress() {
         return;
       }
       if (transferInfo) {
-        transferInfo.amount = '1';
         transferInfo.from = account.address;
         transferInfo.to = toVal;
       }
+      const { closeModal, ...info } = transferInfo;
       const encodedTx = await engine.buildEncodedTxFromTransfer({
         networkId,
         accountId,
-        transferInfo,
+        transferInfo: info,
       });
       navigation.navigate(SendRoutes.SendConfirm, {
         ...transferInfo,
@@ -159,11 +159,12 @@ function PreSendAddress() {
           type: 'Transfer',
           nftInfo: {
             asset: nftInfo,
-            amount: '1',
+            amount: transferInfo.amount,
             from: account.address,
             to: toVal,
           },
         },
+        onModalClose: closeModal,
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

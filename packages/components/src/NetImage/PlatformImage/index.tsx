@@ -2,6 +2,7 @@ import React, { FC } from 'react';
 
 import FastImage from 'react-native-fast-image';
 
+import { useThemeValue } from '../../Provider/hooks';
 import { InnerImageProps } from '../type';
 
 function NBPropToFastImageProp(str?: number | string): number {
@@ -17,7 +18,7 @@ function NBPropToFastImageProp(str?: number | string): number {
 export const PlatformImage: FC<InnerImageProps> = ({
   src,
   priority,
-  bgColor,
+  bgColor = 'surface-neutral-default',
   resizeMode,
   onLoad,
   onLoadStart,
@@ -26,6 +27,7 @@ export const PlatformImage: FC<InnerImageProps> = ({
 }) => {
   const width = NBPropToFastImageProp(rest.width);
   const height = NBPropToFastImageProp(rest.height);
+  const backgroundColor = useThemeValue(bgColor);
   let borderRadius = 0;
   if (rest.borderRadius === 'full') {
     borderRadius = Math.min(width, height) / 2;
@@ -38,7 +40,7 @@ export const PlatformImage: FC<InnerImageProps> = ({
         width,
         height,
         borderRadius,
-        backgroundColor: bgColor,
+        backgroundColor,
       }}
       onLoadStart={onLoadStart}
       onLoad={onLoad}

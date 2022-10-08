@@ -49,7 +49,7 @@ export type EditFeeParams = SendConfirmSharedParams & {
   sendConfirmParams: SendConfirmParams;
 };
 
-export type PreSendParams = ITransferInfo;
+export type PreSendParams = ITransferInfo & { closeModal?: () => any };
 
 export type SendLegacyParams = SendConfirmSharedParams & {
   token?: Token;
