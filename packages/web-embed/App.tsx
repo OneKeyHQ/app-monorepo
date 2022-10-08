@@ -34,6 +34,7 @@ function RootLayout(props: any) {
   return <div {...props} />;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Home() {
   return (
     <div>
@@ -145,6 +146,7 @@ const App: FC = function () {
     >
       <HashRouter>
         <Routes>
+          {/* TODO jian guo pro3 NOT support hash route init */}
           {/* <Route path="/" element={<Home />} /> */}
           <Route path="/" element={<OnboardingAutoTyping />} />
           <Route path="/abc" element={<HomeAbc />} />
