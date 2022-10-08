@@ -21,6 +21,7 @@ type ResolverNames = {
   value: string;
   type: string;
   key: string;
+  label?: string;
 };
 
 type ResolverNameList = ResolverNames[];
@@ -131,6 +132,7 @@ export default class ServiceNameResolver extends ServiceBase {
         options: map(items, (item) => ({
           value: `${item.key}-${item.value}`,
           label: shortenAddress(item.value),
+          badge: item.label,
         })),
       }),
     );

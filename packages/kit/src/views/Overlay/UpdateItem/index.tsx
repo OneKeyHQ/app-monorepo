@@ -1,4 +1,4 @@
 /**
- * UpdateItem component is not needed for native.
+ * UpdateItem component is only needed for desktop client.
  */
 export default () => null;

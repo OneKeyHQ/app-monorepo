@@ -33,7 +33,7 @@ const AutoUpdateSectionItem: FC = () => {
 
   const onCheckUpdate = useCallback(() => {
     appUpdates
-      .checkUpdate()
+      .checkUpdate(true)
       ?.then((version) => {
         if (!version) {
           toast.show({
@@ -59,12 +59,12 @@ const AutoUpdateSectionItem: FC = () => {
   }, [state, latest]);
 
   const onDownloadUpdate = useCallback(
-    () => window.desktopApi.downloadUpdate(),
+    () => window.desktopApi?.downloadUpdate?.(),
     [],
   );
 
   const onInstallUpdate = useCallback(
-    () => window.desktopApi.installUpdate(),
+    () => window.desktopApi?.installUpdate?.(),
     [],
   );
 
