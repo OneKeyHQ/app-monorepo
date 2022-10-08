@@ -2,7 +2,9 @@ import * as Clipboard from 'expo-clipboard';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const copyToClipboard = Clipboard.setStringAsync;
+export const copyToClipboard = (msg: string) => {
+  Clipboard.setString(msg);
+};
 
 export const getClipboard = async () => {
   if (!platformEnv.canGetClipboard) {
