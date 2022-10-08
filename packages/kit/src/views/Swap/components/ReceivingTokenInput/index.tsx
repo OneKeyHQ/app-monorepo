@@ -78,7 +78,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 token={token}
                 showInfo
                 name={token.symbol.toUpperCase()}
-                description={tokenNetwork.shortName}
+                description={tokenNetwork.name}
                 showTokenVerifiedIcon={false}
               />
             ) : (
