@@ -96,7 +96,7 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
                 maxW="48"
                 isTruncated
               >
-                {network.shortName}
+                {network.name}
               </Text>
               <Badge size="sm" title={network.impl.toUpperCase()} />
             </Box>
