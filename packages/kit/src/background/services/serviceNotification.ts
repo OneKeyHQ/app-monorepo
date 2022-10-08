@@ -23,6 +23,7 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import logo from '@onekeyhq/kit/assets/logo.png';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -32,7 +33,6 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import logo from '@onekeyhq/web/public/static/images/icons/favicon/favicon.png';
 
 import { HomeRoutes, RootRoutes, TabRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
@@ -48,8 +48,8 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async init() {
+    await this.waitForAppInited();
     this.clear();
-    this.syncLocalEnabledAccounts();
     this.interval = setInterval(
       () => {
         this.syncLocalEnabledAccounts();
@@ -76,6 +76,19 @@ export default class ServiceNotification extends ServiceBase {
       } catch (e) {
         debugLogger.notification.error(`init socket failed`, e);
       }
+    }
+    this.syncLocalEnabledAccounts();
+    this.syncPushNotificationConfig();
+  }
+
+  @backgroundMethod()
+  async waitForAppInited() {
+    const { serviceApp } = this.backgroundApi;
+    for (let count = 0; count < 100; count += 1) {
+      if (serviceApp.appInited) {
+        return;
+      }
+      await wait(1000);
     }
   }
 

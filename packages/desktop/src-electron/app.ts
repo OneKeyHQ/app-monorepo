@@ -450,6 +450,10 @@ if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
   app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }
 
+if (isWin) {
+  app.setAppUserModelId(APP_NAME);
+}
+
 // https://github.com/oikonomopo/electron-deep-linking-mac-win/blob/master/main.js
 app.on('will-finish-launching', () => {
   // app.off('open-url', handleDeepLinkUrl);

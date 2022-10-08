@@ -1,18 +1,26 @@
-const DEFAULT_ONLINE_ENDPOINT = 'https://fiat.onekeycn.com';
-const TEST_ENDPOINT = 'https://fiat.onekeytest.com';
+import { appSelector } from '@onekeyhq/kit/src/store';
 
+const DEFAULT_ONLINE_ENDPOINT = 'https://fiat.onekeycn.com';
 const DEFAULT_SOCKET_ENDPOINT = 'wss://fiat.onekeycn.com';
+
+const TEST_ENDPOINT = 'https://fiat.onekeytest.com';
 const TEST_SOCKET_ENDPOINT = 'wss://fiat.onekeytest.com';
 
-let endpoint = DEFAULT_ONLINE_ENDPOINT;
-let websocketEndpoint = DEFAULT_SOCKET_ENDPOINT;
+const isTestEnable = () => {
+  try {
+    const enableTestFiatEndpoint =
+      appSelector(
+        (s) => s?.settings?.devMode?.enableTestFiatEndpoint ?? false,
+      ) ?? false;
 
-export const switchTestEndpoint = (isTestEnable?: boolean) => {
-  endpoint = isTestEnable ? TEST_ENDPOINT : DEFAULT_ONLINE_ENDPOINT;
-  websocketEndpoint = isTestEnable
-    ? TEST_SOCKET_ENDPOINT
-    : DEFAULT_SOCKET_ENDPOINT;
+    return enableTestFiatEndpoint;
+  } catch (error) {
+    // pass
+  }
+  return false;
 };
 
-export const getFiatEndpoint = () => endpoint;
-export const getSocketEndpoint = () => websocketEndpoint;
+export const getFiatEndpoint = () =>
+  isTestEnable() ? TEST_ENDPOINT : DEFAULT_ONLINE_ENDPOINT;
+export const getSocketEndpoint = () =>
+  isTestEnable() ? TEST_SOCKET_ENDPOINT : DEFAULT_SOCKET_ENDPOINT;
