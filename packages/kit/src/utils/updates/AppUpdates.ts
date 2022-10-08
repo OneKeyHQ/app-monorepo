@@ -49,16 +49,6 @@ class AppUpdates {
 
     let packageInfo: PackageInfo | undefined;
 
-    if (platformEnv.isWeb) {
-      packageInfo = releasePackages?.desktop?.find((x) => {
-        if (platformEnv.isDesktopMacArm64) {
-          return x.os === 'macos-arm64';
-        }
-
-        return x.os === 'macos-x64';
-      });
-    }
-
     if (platformEnv.isNativeAndroid) {
       if (platformEnv.isNativeAndroidGooglePlay) {
         packageInfo = releasePackages?.android?.find(
