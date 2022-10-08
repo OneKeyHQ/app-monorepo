@@ -145,7 +145,8 @@ const App: FC = function () {
     >
       <HashRouter>
         <Routes>
-          <Route path="/" element={<Home />} />
+          {/* <Route path="/" element={<Home />} /> */}
+          <Route path="/" element={<OnboardingAutoTyping />} />
           <Route path="/abc" element={<HomeAbc />} />
           <Route
             path="/onboarding/auto_typing"

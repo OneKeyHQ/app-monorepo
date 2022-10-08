@@ -45,6 +45,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         if (error || !payload || !connector) {
           return;
         }
+        // TODO active and focus desktop window
         return this.responseCallRequest(
           connector,
           this.ethereumRequest(connector, payload),
