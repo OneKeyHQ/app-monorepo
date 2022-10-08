@@ -6,7 +6,6 @@ import urlParse from 'url-parse';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getExtensionIndexHtml } from '@onekeyhq/kit/src/routes/linking';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import serviceWorker from '../background/serviceWorker';
@@ -22,10 +21,6 @@ const bridge = bridgeSetup.background.createHostBridge({
 });
 
 backgroundApiProxy.connectBridge(bridge);
-
-backgroundApiProxy.serviceNotification.init().catch((e) => {
-  debugLogger.notification.error(`extension background init socket failed`, e);
-});
 
 // extension reload() method expose to dapp
 if (platformEnv.isDev) {

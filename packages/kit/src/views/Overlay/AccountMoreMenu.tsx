@@ -20,6 +20,7 @@ import {
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
@@ -67,6 +68,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
 
   const showSubscriptionIcon =
     !!account &&
+    platformEnv.isNative &&
     !loading &&
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);

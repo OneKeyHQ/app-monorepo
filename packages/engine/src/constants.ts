@@ -60,10 +60,6 @@ export const HISTORY_CONSTS = {
   PENDING_QUEUE_MAX_LENGTH: 10,
 };
 
-export enum SocketEvents {
-  'Notification' = 'notification',
-}
-
 export const enabledAccountDynamicNetworkIds: string[] = [
   OnekeyNetwork.eth,
   OnekeyNetwork.polygon,

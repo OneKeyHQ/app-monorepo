@@ -9,9 +9,10 @@ import React, {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Select, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Icon, Select } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
@@ -43,9 +44,8 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const firstUpdate = useRef(true);
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const isVertical = useIsVerticalLayout();
-  const { charts, prices } = useManageTokens();
   const { accountId, networkId, tokenId } = route.params;
+  const { charts, prices } = useManageTokens();
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
@@ -53,6 +53,9 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const priceReady = useMemo(() => {
     const id = tokenId || 'main';
     if (!token) {
+      return false;
+    }
+    if (!platformEnv.isNative) {
       return false;
     }
     return !!(charts?.[id] && prices?.[id]);
@@ -94,9 +97,6 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     if (!priceReady) {
       return;
     }
-    if (!isVertical) {
-      return;
-    }
     navigation.setOptions({
       headerRight: () => (
         <Select
@@ -124,7 +124,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
         />
       ),
     });
-  }, [navigation, intl, onHeaderRightPress, priceReady, token, isVertical]);
+  }, [navigation, intl, onHeaderRightPress, priceReady, token]);
 
   const headerView = (
     <>

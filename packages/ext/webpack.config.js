@@ -109,7 +109,7 @@ function createConfig() {
           ],
         },
         {
-          test: /\.(bin|png)$/i,
+          test: /\.bin$/i,
           use: [
             {
               loader: 'file-loader',

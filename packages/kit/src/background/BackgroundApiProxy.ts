@@ -24,7 +24,6 @@ import type ServiceNFT from './services/ServiceNFT';
 import type ServiceNotification from './services/serviceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
-import type ServiceSocket from './services/ServiceSocket';
 import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
@@ -102,8 +101,6 @@ class BackgroundApiProxy
   serviceNotification = this._createProxyService(
     'serviceNotification',
   ) as ServiceNotification;
-
-  serviceSocket = this._createProxyService('serviceSocket') as ServiceSocket;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

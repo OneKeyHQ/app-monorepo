@@ -19,6 +19,7 @@ import {
   useStatus,
 } from '@onekeyhq/kit/src/hooks/redux';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
@@ -77,6 +78,9 @@ const WalletTabs: FC = () => {
   }, [wallet?.id, wallet?.backuped]);
 
   useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
     if (!account?.id) {
       return;
     }
