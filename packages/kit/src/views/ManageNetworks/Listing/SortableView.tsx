@@ -70,9 +70,7 @@ const ItemRow: FC<ItemRowProps> = ({
         />
         <Box display="flex" flexDirection="row" alignItems="center">
           <NetworkIcon network={network} />
-          <Typography.Body1Strong mr="3">
-            {network.shortName}
-          </Typography.Body1Strong>
+          <Typography.Body1Strong mr="3">{network.name}</Typography.Body1Strong>
         </Box>
       </Box>
       <Switch
