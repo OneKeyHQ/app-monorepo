@@ -99,6 +99,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     const debugLoggerSettings: string = (await getDebugLoggerSettings()) || '';
     const ethereum = this.backgroundApi.providers
       .ethereum as ProviderApiEthereum;
+    const providerState = await ethereum.metamask_getProviderState(req);
     return {
       pong: true,
       time: Date.now(),
@@ -126,8 +127,28 @@ class ProviderApiPrivate extends ProviderApiBase {
         version: process.env.VERSION,
         buildNumber: process.env.BUILD_NUMBER,
         isLegacy: false,
+        platformEnv: {
+          isRuntimeBrowser: platformEnv.isRuntimeBrowser,
+          isRuntimeChrome: platformEnv.isRuntimeChrome,
+          isRuntimeFirefox: platformEnv.isRuntimeFirefox,
+
+          isWeb: platformEnv.isWeb,
+
+          isNative: platformEnv.isNative,
+          isNativeIOS: platformEnv.isNativeIOS,
+          isNativeAndroid: platformEnv.isNativeAndroid,
+
+          isExtension: platformEnv.isExtension,
+          isExtChrome: platformEnv.isExtChrome,
+          isExtFirefox: platformEnv.isExtFirefox,
+
+          isDesktop: platformEnv.isDesktop,
+          isDesktopWin: platformEnv.isDesktopWin,
+          isDesktopLinux: platformEnv.isDesktopLinux,
+          isDesktopMac: platformEnv.isDesktopMac,
+        },
       },
-      providerState: await ethereum.metamask_getProviderState(req),
+      providerState,
     };
   }
 }
