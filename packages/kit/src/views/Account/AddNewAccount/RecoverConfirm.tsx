@@ -82,9 +82,16 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
         (i) => !i.isDisabled && i.selected,
       );
 
-      const isBatch = selectedAll && config.generateCount > 0;
+      const isBatch =
+        selectedAll && config.generateCount && config.generateCount > 0;
 
-      setTotalAccounts(isBatch ? config.generateCount : selectedAccount.length);
+      const givenExistsSize = restoreAccounts.length - selectedAccount.length;
+      if (isBatch) {
+        const size = (config.generateCount ?? 0) - givenExistsSize;
+        setTotalAccounts(size);
+      } else {
+        setTotalAccounts(selectedAccount.length);
+      }
 
       const selectedIndexes = selectedAccount
         .filter((i) => i.selected)
@@ -93,14 +100,20 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
       const addedAccounts = await recoverAccountIndex(selectedIndexes);
       addedAccount = addedAccounts?.[0];
 
-      setImportedAccounts(addedAccounts?.length ?? 0);
+      setImportedAccounts(() => {
+        let size = addedAccounts?.length ?? 0;
+        if (isBatch && size >= givenExistsSize) {
+          size -= givenExistsSize;
+        }
+        return size;
+      });
 
       if (isBatch) {
         const addedMap = new Map<number, boolean>();
         selectedIndexes?.forEach((i) => addedMap.set(i, true));
 
         const unAddedIndexes = Array.from(
-          Array(config.generateCount - 1).keys(),
+          Array((config.generateCount ?? 1) - 1).keys(),
         )
           .map((index) => {
             const i = config.fromIndex + index;
