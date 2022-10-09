@@ -87,7 +87,8 @@ export default class ServiceNotification extends ServiceBase {
     const { serviceApp } = this.backgroundApi;
     await waitForDataLoaded({
       logName: 'WaitAppInited',
-      data: () => !!serviceApp.isAppInited,
+      data: () => serviceApp.isAppInited,
+      timeout: getTimeDurationMs({ minute: 1 }),
     });
   }
 

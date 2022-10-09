@@ -44,15 +44,15 @@ class ServiceApp extends ServiceBase {
 
   constructor(props: IServiceBaseProps) {
     super(props);
+    appEventBus.once(AppEventBusNames.StatePersisted, () => {
+      this.initApp().finally(() => {
+        this._appInited = true;
+      });
+    });
     if (platformEnv.isExtensionBackground) {
       this.autoOpenOnboardingIfExtensionInstalled();
       this.initApp();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
-      appEventBus.once(AppEventBusNames.StatePersisted, () => {
-        this.initApp().finally(() => {
-          this._appInited = true;
-        });
-      });
     }
     // TODO recheck last reset status and resetApp here
   }

@@ -123,7 +123,9 @@ export function makeStore() {
   });
   const persistor = persistStore(store, null, () => {
     debugLogger.common.info(`receive: store persisted`);
-    appEventBus.emit(AppEventBusNames.StatePersisted);
+    setTimeout(() => {
+      appEventBus.emit(AppEventBusNames.StatePersisted);
+    }, 1000);
   });
   return { store, persistor };
 }
