@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { AppState, AppStateStatus } from 'react-native';
-
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 
 import { AppLockBypass } from './AppLockBypass';
 
-const NativeUpdator = () => {
-  const appState = useRef(AppState.currentState);
-  const onChange = useCallback((nextState: AppStateStatus) => {
+type Status = 'active' | 'background';
+
+const DesktopUpdator = () => {
+  const appState = useRef<Status>();
+  const onChange = useCallback((nextState: Status) => {
     if (AppLockBypass.Singleton.isOK()) {
       return;
     }
@@ -18,17 +18,7 @@ const NativeUpdator = () => {
     }
     appState.current = nextState;
   }, []);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', onChange);
-    return () => {
-      // AppState.addEventListener return subscription object in native, but return empty in web
-      if (subscription) {
-        subscription.remove();
-      } else {
-        AppState.removeEventListener('change', onChange);
-      }
-    };
-  }, [onChange]);
+  useEffect(() => window.desktopApi.onAppState(onChange), [onChange]);
   return null;
 };
 
@@ -38,5 +28,5 @@ export const AppStateUpdater = () => {
   if (!enableAppLock || !isPasswordSet) {
     return null;
   }
-  return <NativeUpdator />;
+  return <DesktopUpdator />;
 };

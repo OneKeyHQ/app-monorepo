@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { FC } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -13,7 +12,6 @@ import {
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { useAutoUpdate } from '@onekeyhq/kit/src/hooks/redux';
 import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const UpdateItem: FC = () => {
   const intl = useIntl();
@@ -32,8 +30,6 @@ const UpdateItem: FC = () => {
   if (!formText) {
     return null;
   }
-
-  if (!platformEnv.isDesktop) return null;
 
   return (
     <>
