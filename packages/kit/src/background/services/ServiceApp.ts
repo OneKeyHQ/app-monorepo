@@ -1,7 +1,12 @@
 import RNRestart from 'react-native-restart';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { switchTestEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -43,11 +48,16 @@ class ServiceApp extends ServiceBase {
       this.autoOpenOnboardingIfExtensionInstalled();
       this.initApp();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
+      appEventBus.once(AppEventBusNames.StatePersisted, () => {
+        this.initApp().finally(() => {
+          this._appInited = true;
+        });
+      });
     }
     // TODO recheck last reset status and resetApp here
   }
 
-  get appInited() {
+  get isAppInited() {
     return this._appInited;
   }
 
@@ -195,8 +205,15 @@ class ServiceApp extends ServiceBase {
    */
   @backgroundMethod()
   async initApp() {
-    const { dispatch, engine, serviceAccount, serviceNetwork } =
+    const { dispatch, engine, serviceAccount, serviceNetwork, appSelector } =
       this.backgroundApi;
+
+    const enableTestFiatEndpoint =
+      appSelector(
+        (s) => s?.settings?.devMode?.enableTestFiatEndpoint ?? false,
+      ) ?? false;
+
+    switchTestEndpoint(enableTestFiatEndpoint);
 
     await engine.cleanupDBOnStart();
 
@@ -222,8 +239,6 @@ class ServiceApp extends ServiceBase {
         activeNetworkId,
       }),
     );
-
-    this._appInited = true;
   }
 
   @backgroundMethod()

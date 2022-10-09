@@ -4,7 +4,6 @@ import { pick } from 'lodash';
 import { Dimensions } from 'react-native';
 
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import type { DesktopAPI } from '@onekeyhq/desktop/src-electron/preload';
 import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import {
   AddPriceAlertConfig,
@@ -40,6 +39,7 @@ import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setHomeTabName } from '../../store/reducers/status';
 import { WalletHomeTabEnum } from '../../views/Wallet/type';
 import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
+import { waitForDataLoaded } from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -85,12 +85,10 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async waitForAppInited() {
     const { serviceApp } = this.backgroundApi;
-    for (let count = 0; count < 100; count += 1) {
-      if (serviceApp.appInited) {
-        return;
-      }
-      await wait(1000);
-    }
+    await waitForDataLoaded({
+      logName: 'WaitAppInited',
+      data: () => !!serviceApp.isAppInited,
+    });
   }
 
   @bindThis()

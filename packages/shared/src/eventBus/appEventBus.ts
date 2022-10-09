@@ -11,6 +11,7 @@ enum AppEventBusNames {
   AccountChanged = 'AccountChanged',
   BackupRequired = 'BackupRequired',
   NotificationStatusChanged = 'NotificationStatusChanged',
+  StatePersisted = 'StatePersisted',
 }
 
 if (isExtensionUi) {
