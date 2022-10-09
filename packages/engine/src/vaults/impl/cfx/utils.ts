@@ -12,7 +12,11 @@ import {
   IUnsignedTxPro,
 } from '../../types';
 
-import { IEncodedTxCfx, ITxAbiDecodeResult } from './types';
+import {
+  IEncodedTxCfx,
+  IOnChainTransferType,
+  ITxAbiDecodeResult,
+} from './types';
 
 const getCodeCache = memoizee(
   async (to: string, client: Conflux) => client.getCode(to),
@@ -125,4 +129,14 @@ export function getTransactionStatus(status: number | null | undefined) {
     default:
       return IDecodedTxStatus.Confirmed;
   }
+}
+
+export function getApiExplorerTransferType(
+  tokenIdOnNetwork: string | undefined,
+) {
+  if (tokenIdOnNetwork) return IOnChainTransferType.Transfer20;
+
+  if (tokenIdOnNetwork === '') return IOnChainTransferType.Call;
+
+  return IOnChainTransferType.Transaction;
 }

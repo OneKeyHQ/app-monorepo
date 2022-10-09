@@ -6,6 +6,7 @@ export type IEncodedTxCfx = {
   hash?: string;
   nonce?: number;
   gas?: string;
+  gasFee?: string;
   gasPrice?: string;
   gasLimit?: string;
   storageLimit?: number;
@@ -24,7 +25,7 @@ export type ITxAbiDecodeResult = {
   };
 };
 
-export type OnChainHistoryItem = {
+export type ITxOnChainHistoryItem = {
   method: string;
   type: string;
   status: number;
@@ -33,13 +34,20 @@ export type OnChainHistoryItem = {
   timestamp: number;
   amount: string;
   transactionHash: string;
+  contract?: string;
 } & IEncodedTxCfx;
 
-export type OnChainHistoryResp = {
+export type ITxOnChainHistoryResp = {
   code: number;
   message: string;
   data: {
     total: number;
-    list: OnChainHistoryItem[];
+    list: ITxOnChainHistoryItem[];
   };
 };
+
+export enum IOnChainTransferType {
+  Transaction = 'transaction',
+  Call = 'call',
+  Transfer20 = 'transfer_20',
+}

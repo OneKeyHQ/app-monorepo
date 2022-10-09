@@ -11,7 +11,7 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { Conflux, address as confluxAddress } from 'js-conflux-sdk';
-import { isNil } from 'lodash';
+import { isEmpty, isNil, omitBy } from 'lodash';
 import memoizee from 'memoizee';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -53,8 +53,16 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IEncodedTxCfx, OnChainHistoryResp } from './types';
-import { getTransactionStatus, parseTransaction } from './utils';
+import {
+  IEncodedTxCfx,
+  IOnChainTransferType,
+  ITxOnChainHistoryResp,
+} from './types';
+import {
+  getApiExplorerTransferType,
+  getTransactionStatus,
+  parseTransaction,
+} from './utils';
 
 const TOKEN_TRANSFER_FUNCTION_SIGNATURE = '0xa9059cbb';
 // TODO extends evm/Vault
@@ -378,25 +386,28 @@ export default class Vault extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { tokenIdOnNetwork, localHistory = [] } = options;
-
-    if (tokenIdOnNetwork) {
-      return Promise.resolve([]);
-    }
-
     const network = await this.getNetwork();
     const apiExplorer = await this.getApiExplorer();
     const client = await this.getClient();
     const address = await this.getAccountAddress();
 
+    const transferType = getApiExplorerTransferType(tokenIdOnNetwork);
+
+    const params = omitBy(
+      {
+        account: address,
+        limit: 50,
+        transferType,
+        contract: tokenIdOnNetwork,
+      },
+      (value) => isNil(value) || isEmpty(value),
+    );
+
     try {
-      const resp = await apiExplorer.get<OnChainHistoryResp>(
+      const resp = await apiExplorer.get<ITxOnChainHistoryResp>(
         '/account/transfers',
         {
-          params: {
-            account: address,
-            limit: 50,
-            transferType: tokenIdOnNetwork === '' ? 'call' : 'transaction',
-          },
+          params,
         },
       );
       if (resp.data.code !== 0) return await Promise.resolve([]);
@@ -414,36 +425,44 @@ export default class Vault extends VaultBase {
 
         const encodedTx: IEncodedTxCfx = {
           ...tx,
-          value: toBigIntHex(new BigNumber(tx.amount)),
+          hash: tx.transactionHash,
+          value:
+            transferType === IOnChainTransferType.Transfer20
+              ? '0x'
+              : toBigIntHex(new BigNumber(tx.amount)),
           data: tx.input,
         };
 
-        // If there is no gasfee attribute, it means that the data is obtained through the transfer type
-        // Need to fill other attributes by fetching transaction details
-        if (!tx.gasFee) {
+        // If the history record is not requested through the 'transaction' type,
+        // additional transaction information needs to be requested
+        if (transferType !== IOnChainTransferType.Transaction) {
           const txDetail = await client.getTransactionByHash(
             tx.transactionHash,
           );
           if (txDetail) {
-            tx.gasFee = new BigNumber(txDetail.gas)
+            encodedTx.gasFee = new BigNumber(txDetail.gas)
               .multipliedBy(txDetail.gasPrice)
               .toFixed();
-            tx.nonce = txDetail.nonce;
+            encodedTx.nonce = new BigNumber(txDetail.nonce).toNumber();
+            encodedTx.data = txDetail.data;
+            if (transferType === IOnChainTransferType.Transfer20) {
+              encodedTx.to = tx.contract || txDetail.to || encodedTx.to;
+            }
           }
         }
 
         const decodedTx: IDecodedTx = {
-          txid: tx.transactionHash,
+          txid: encodedTx.hash || '',
           owner: address,
-          signer: tx.from || address,
-          nonce: tx.nonce || 0,
+          signer: encodedTx.from || address,
+          nonce: encodedTx.nonce || 0,
           actions: await this.buildEncodedTxActions(encodedTx),
           status: getTransactionStatus(tx.status),
           networkId: this.networkId,
           accountId: this.accountId,
           encodedTx,
           extraInfo: null,
-          totalFeeInNative: new BigNumber(tx.gasFee)
+          totalFeeInNative: new BigNumber(encodedTx.gasFee as string)
             .shiftedBy(-network.decimals)
             .toFixed(),
         };
