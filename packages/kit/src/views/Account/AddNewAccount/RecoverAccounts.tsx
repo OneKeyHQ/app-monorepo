@@ -101,13 +101,25 @@ const AccountCell: FC<CellProps> = ({
             isChecked={isChecked}
             isDisabled={item.isDisabled}
             onChange={onToggle}
+            pointerEvents="box-only"
           />
-          <Text typography="Body2Strong" color="text-subdued">
+          <Text
+            style={{
+              // @ts-ignore
+              userSelect: 'none',
+            }}
+            typography="Body2Strong"
+            color="text-subdued"
+          >
             {item.index + 1}
           </Text>
         </Box>
       </ListItem.Column>
       <ListItem.Column
+        style={{
+          // @ts-ignore
+          userSelect: 'none',
+        }}
         text={{
           label: shortenAddress(item.displayAddress),
           description: showPathAndLink ? item.path : undefined,
@@ -120,7 +132,16 @@ const AccountCell: FC<CellProps> = ({
           formatOptions={{
             fixed: decimal ?? 4,
           }}
-          render={(ele) => <Typography.Body2>{ele}</Typography.Body2>}
+          render={(ele) => (
+            <Typography.Body2
+              style={{
+                // @ts-ignore
+                userSelect: 'none',
+              }}
+            >
+              {ele}
+            </Typography.Body2>
+          )}
         />
       </ListItem.Column>
       {showPathAndLink && (
@@ -266,6 +287,12 @@ const RecoverAccounts: FC = () => {
     generateCount: 0,
     showPathAndLink: false,
   });
+  const [realGenerateCount, setRealGenerateCount] = useState(Number.MAX_VALUE);
+
+  const isBatchMode = useMemo(
+    () => config.generateCount && config.generateCount > 0,
+    [config.generateCount],
+  );
 
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
 
@@ -317,7 +344,7 @@ const RecoverAccounts: FC = () => {
 
       const start = page * pageSize + pathFromIndex - 1;
       let limit = pageSize;
-      if (pageIndex === 0 && generateCount > 0 && generateCount < pageSize) {
+      if (pageIndex === 0 && isBatchMode && generateCount < pageSize) {
         limit = generateCount;
       } else if (isLastPage) {
         limit = generateCount - page * pageSize;
@@ -342,6 +369,11 @@ const RecoverAccounts: FC = () => {
         await backgroundApiProxy.engine
           .searchHDAccounts(walletId, network, password, start, limit, purpose)
           .then((accounts) => {
+            if (accounts.length !== limit || accounts.length !== pageSize) {
+              limit = accounts.length;
+              setRealGenerateCount(start + accounts.length - pathFromIndex + 1);
+            }
+
             if (pageIndex === 0) {
               setInitLoading(false);
             }
@@ -381,7 +413,7 @@ const RecoverAccounts: FC = () => {
         navigation?.goBack?.();
       }
     },
-    [navigation, network, password, purpose, walletId],
+    [isBatchMode, navigation, network, password, purpose, walletId],
   );
 
   const checkBoxOnChange = useCallback(
@@ -520,7 +552,13 @@ const RecoverAccounts: FC = () => {
           network,
           purpose,
           existingAccounts: activeAccounts.current,
-          config,
+          config: {
+            ...config,
+            generateCount: Math.min(
+              realGenerateCount,
+              config.generateCount ?? 0,
+            ),
+          },
           selectedAll: isAllSelected,
         });
       }}
@@ -632,6 +670,7 @@ const RecoverAccounts: FC = () => {
 
                       setConfig(newConfig);
                       setCurrentPage(newConfig.currentPage);
+                      setRealGenerateCount(Number.MAX_VALUE);
                       if (selectedAll) setAllSelected(selectedAll);
                       getData(
                         newConfig.currentPage,
