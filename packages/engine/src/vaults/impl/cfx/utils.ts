@@ -1,7 +1,8 @@
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
-import { Transaction, address as confluxAddress } from 'js-conflux-sdk';
-import Contract from 'js-conflux-sdk/dist/types/contract';
+import { Transaction } from 'js-conflux-sdk';
+import { Conflux, Contract } from 'js-conflux-sdk/dist/types/index';
+import memoizee from 'memoizee';
 
 import { Signer } from '../../../proxy';
 import {
@@ -13,12 +14,20 @@ import {
 
 import { IEncodedTxCfx, ITxAbiDecodeResult } from './types';
 
-export function isCfxNativeTransferType(options: { data: string; to: string }) {
+const getCodeCache = memoizee(
+  async (to: string, client: Conflux) => client.getCode(to),
+  { promise: true },
+);
+
+export async function isCfxNativeTransferType(
+  options: { data: string; to: string },
+  client: Conflux,
+) {
   const { data, to } = options;
-  const hexCfxAddress = confluxAddress.isValidHexAddress(to)
-    ? to
-    : `0x${confluxAddress.decodeCfxAddress(to).hexAddress.toString('hex')}`;
-  if (confluxAddress.isInternalContractAddress(hexCfxAddress)) return false;
+
+  const code = await getCodeCache(to, client);
+  if (code === '0x') return true;
+
   return !data || data === '0x' || data === '0x0' || data === '0';
 }
 
@@ -50,14 +59,19 @@ export async function signTransaction(
   };
 }
 
-export function parseTransaction(
+export async function parseTransaction(
   encodedTx: IEncodedTxCfx,
-  crc20Interface: Contract,
-): {
+  client: Conflux,
+): Promise<{
   actionType: IDecodedTxActionType;
   abiDecodeResult: ITxAbiDecodeResult | null;
-} {
-  if (isCfxNativeTransferType({ data: encodedTx.data, to: encodedTx.to })) {
+}> {
+  if (
+    await isCfxNativeTransferType(
+      { data: encodedTx.data, to: encodedTx.to },
+      client,
+    )
+  ) {
     return {
       actionType: IDecodedTxActionType.NATIVE_TRANSFER,
       abiDecodeResult: null,
@@ -65,8 +79,9 @@ export function parseTransaction(
   }
 
   try {
+    const crc20: Contract = client.CRC20(encodedTx.to);
     let txType = IDecodedTxActionType.UNKNOWN;
-    const abiDecodeResult = crc20Interface.abi.decodeData(encodedTx.data);
+    const abiDecodeResult = crc20.abi.decodeData(encodedTx.data);
     if (abiDecodeResult) {
       switch (abiDecodeResult.name) {
         case 'transfer': {

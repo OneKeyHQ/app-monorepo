@@ -69,7 +69,10 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
-  getApiExplorerCache = memoizee(async (baseURL) => axios.create({ baseURL }));
+  getApiExplorerCache = memoizee(async (baseURL) => axios.create({ baseURL }), {
+    promise: true,
+    max: 1,
+  });
 
   getClientCache = memoizee(
     async (rpcUrl, chainId) => this.getConfluxClient(rpcUrl, chainId),
@@ -467,8 +470,10 @@ export default class Vault extends VaultBase {
   async buildEncodedTxActions(encodedTx: IEncodedTxCfx) {
     const address = await this.getAccountAddress();
     const client = await this.getClient();
-    const crc20 = client.CRC20(encodedTx.to);
-    const { actionType, abiDecodeResult } = parseTransaction(encodedTx, crc20);
+    const { actionType, abiDecodeResult } = await parseTransaction(
+      encodedTx,
+      client,
+    );
     const action: IDecodedTxAction = {
       type: IDecodedTxActionType.UNKNOWN,
       direction: await this.buildTxActionDirection({
