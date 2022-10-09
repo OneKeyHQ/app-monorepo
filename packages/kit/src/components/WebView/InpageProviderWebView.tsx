@@ -33,7 +33,7 @@ import {
 import IconNoConnect from '@onekeyhq/kit/assets/ic_3d_no_connect.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// injected hot-reload cache update: 213344
+// injected hot-reload cache update: 213344000
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
 
