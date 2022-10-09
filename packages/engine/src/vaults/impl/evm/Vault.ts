@@ -408,7 +408,7 @@ export default class Vault extends VaultBase {
           from: transferInfo.from,
           to: transferInfo.to,
           id: tokenId,
-          amount: '1',
+          amount,
         });
         return {
           from: transferInfo.from,
