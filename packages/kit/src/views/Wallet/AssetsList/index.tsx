@@ -32,6 +32,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
+import { wait } from '../../../utils/helper';
 import { getTokenValues } from '../../../utils/priceUtils';
 import { PushNotificationRoutes } from '../../PushNotification/types';
 
@@ -41,7 +42,6 @@ import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { wait } from '../../../utils/helper';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
