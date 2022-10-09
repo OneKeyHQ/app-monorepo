@@ -70,7 +70,7 @@ const ToggleButton: FC<
       onPress={onPress}
       onLayout={onLayout}
     >
-      <Center borderRadius="50%" w={iconSize} h={iconSize} mr="8px">
+      <Center borderRadius="9999px" w={iconSize} h={iconSize} mr="8px">
         {!!leftIcon && (
           <Icon
             name={leftIcon}
@@ -101,34 +101,30 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   const scrollRef = useRef<ScrollView>(null);
   const [showRightArrow, setShowRightArrow] = useState(false);
   const buttonLayouts = useRef<{ x: number; width: number }[]>([]);
-  const scollToEnd = useCallback(
-    () => setTimeout(() => scrollRef.current?.scrollToEnd(), 30),
-    [],
-  );
+  const scrollTo = useCallback((index: number) => {
+    scrollRef.current?.scrollTo({
+      x: buttonLayouts.current[index - 1 < 0 ? 0 : index - 1].x,
+      animated: true,
+    });
+  }, []);
   useEffect(() => {
-    //     if (tabs.length > lastTabsLength.current) {
-    //     }
-    //     lastTabsLength.current = tabs.length;
-  }, [selectedIndex]);
-  const getButtonOffset = useCallback((index: number) => {
-    const { x, width } = buttonLayouts.current[index];
-    return x + width;
-  });
+    setTimeout(() => {
+      scrollTo(selectedIndex);
+    }, 50);
+  }, [scrollTo, selectedIndex]);
+
   return (
     <Box
       w="full"
       flexDirection="row"
+      alignItems="center"
       onLayout={({
         nativeEvent: {
           layout: { width },
         },
       }) => {
         const allButtonsWidth = buttonLayouts.current.reduce(
-          (acc, cur) =>
-            acc +
-            cur.width +
-            // 8px margin
-            8,
+          (acc, cur) => acc + cur.width + 8, // 8px margin
           0,
         );
         setShowRightArrow(width < allButtonsWidth);
@@ -148,6 +144,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
             isCurrent={selectedIndex === index}
             {...btn}
             onPress={() => {
+              scrollTo(index);
               onButtonPress(index);
             }}
             onLayout={({
@@ -158,7 +155,16 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
           />
         ))}
       </ScrollView>
-      {showRightArrow && <IconButton size="sm" name="ChevronRightSolid" />}
+      {showRightArrow && (
+        <IconButton
+          onPress={() => {
+            scrollRef.current?.scrollToEnd({ animated: true });
+          }}
+          type="plain"
+          size="sm"
+          name="ChevronRightSolid"
+        />
+      )}
     </Box>
   );
 };
