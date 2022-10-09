@@ -2,19 +2,21 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box } from '@onekeyhq/components';
+import { Box, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
+import CollectibleListImage from '../../Wallet/NFT/NFTList/CollectibleListImage';
+import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import { TxActionElementNFT } from '../elements/TxActionElementNFT';
+import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,
@@ -79,7 +81,7 @@ export function getTxActionNFTTransferInfo(props: ITxActionCardProps) {
 
   const amount = nftTransfer?.amount ?? '0';
   const symbol =
-    nftTransfer?.asset.contractName ?? nftTransfer?.asset.name ?? '';
+    nftTransfer?.asset.name ?? nftTransfer?.asset.contractName ?? '';
   const send = nftTransfer?.send ?? '';
   const receive = nftTransfer?.receive ?? '';
   const displayDecimals: number | undefined = 100;
@@ -121,14 +123,15 @@ export function getTxActionNFTTransferInfo(props: ITxActionCardProps) {
     send,
     receive,
     isOut,
+    action,
   };
 }
 
 export function TxActionNFTTransfer(props: ITxActionCardProps) {
-  const { action, meta, decodedTx } = props;
+  const { action, meta } = props;
   const intl = useIntl();
-
-  const { amount, symbol, send, receive } = getTxActionNFTTransferInfo(props);
+  const { nftTransfer } = action;
+  const { symbol, send, receive } = getTxActionNFTTransferInfo(props);
 
   const details: ITxActionElementDetail[] = [
     {
@@ -142,15 +145,23 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
   ];
 
   return (
-    <TxDetailActionBoxAutoTransform
-      decodedTx={decodedTx}
-      iconInfo={meta?.iconInfo}
-      titleInfo={meta?.titleInfo}
-      amountInfo={{
-        direction: action.direction,
-        amount,
-        symbol,
-      }}
+    <TxDetailActionBox
+      icon={
+        nftTransfer ? (
+          <CollectibleListImage
+            asset={nftTransfer.asset}
+            borderRadius="6px"
+            size={32}
+          />
+        ) : undefined
+      }
+      title={<TxActionElementTitleHeading titleInfo={meta?.titleInfo} />}
+      content={
+        <Text typography="DisplayXLarge" mb="24px">
+          {symbol}
+        </Text>
+      }
+      showTitleDivider
       details={details}
     />
   );

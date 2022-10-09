@@ -37,7 +37,9 @@ function NFTView({ asset }: { asset?: NFTAsset }) {
     return (
       <Box flexDirection="row" alignItems="center">
         <CollectibleListImage asset={asset} borderRadius="6px" size={40} />
-        <Typography.Body1Strong ml={3}>{asset.name}</Typography.Body1Strong>
+        <Typography.Body1Strong ml={3} numberOfLines={2} flex={1}>
+          {asset.name ?? asset.contractName}
+        </Typography.Body1Strong>
       </Box>
     );
   }
