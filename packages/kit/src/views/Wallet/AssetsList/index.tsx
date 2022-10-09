@@ -25,6 +25,7 @@ import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import {
   HomeRoutes,
   HomeRoutesParams,
+  ModalRoutes,
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
@@ -32,6 +33,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
 import { getTokenValues } from '../../../utils/priceUtils';
+import { PushNotificationRoutes } from '../../PushNotification/types';
 
 import AssetsListHeader from './AssetsListHeader';
 import EmptyList from './EmptyList';
@@ -39,6 +41,7 @@ import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { wait } from '../../../utils/helper';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -131,6 +134,32 @@ function AssetsList({
         });
       }
     }, [account, network]),
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      const func = async () => {
+        const { serviceBootstrap } = backgroundApiProxy;
+        const res = await serviceBootstrap.checkShouldShowNotificationGuide();
+        await wait(3000);
+        if (!isActive) {
+          return;
+        }
+        if (res) {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.PushNotification,
+            params: {
+              screen: PushNotificationRoutes.GuideToPushFirstTime,
+            },
+          });
+        }
+      };
+      func();
+      return () => {
+        isActive = false;
+      };
+    }, [navigation]),
   );
 
   const renderListItem: FlatListProps<TokenType>['renderItem'] = ({

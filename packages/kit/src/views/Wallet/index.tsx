@@ -1,7 +1,5 @@
 import React, { FC, useCallback, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
-import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -20,10 +18,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
-import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
-import { PushNotificationRoutes } from '../PushNotification/types';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AccountInfo, {
@@ -37,7 +33,6 @@ import { WalletHomeTabEnum } from './type';
 
 const WalletTabs: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
   const { screenWidth } = useUserDevice();
   const [tabbarBgColor, borderDefault] = useThemeValue([
     'background-default',
@@ -67,31 +62,6 @@ const WalletTabs: FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet?.id, wallet?.backuped]);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      let isActive = true;
-      const func = async () => {
-        if (!isActive) {
-          return;
-        }
-        const { serviceBootstrap } = backgroundApiProxy;
-        const res = await serviceBootstrap.checkShouldShowNotificationGuide();
-        if (res) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.PushNotification,
-            params: {
-              screen: PushNotificationRoutes.GuideToPushFirstTime,
-            },
-          });
-        }
-      };
-      func();
-      return () => {
-        isActive = false;
-      };
-    }, [navigation]),
-  );
 
   return (
     <>
