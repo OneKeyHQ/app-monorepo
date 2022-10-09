@@ -10,14 +10,15 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { useAutoUpdate } from '@onekeyhq/kit/src/hooks/redux';
+import { useAutoUpdate, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
 
 const UpdateItem: FC = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { state } = useAutoUpdate();
+  const { state, progress } = useAutoUpdate();
   const { showUpdateBadge } = useCheckUpdate();
+  const { autoDownload = true } = useSettings().updateSetting ?? {};
 
   let formText = '';
   const disabled = state === 'downloading';
@@ -25,6 +26,13 @@ const UpdateItem: FC = () => {
     formText = intl.formatMessage({ id: 'action__update_available' });
   } else if (state === 'ready') {
     formText = intl.formatMessage({ id: 'action__update_now' });
+  } else if (!autoDownload && state === 'downloading') {
+    formText = intl.formatMessage(
+      { id: 'form__update_downloading' },
+      {
+        0: `${Math.floor(progress.percent)}%`,
+      },
+    );
   }
 
   if (!formText) {
