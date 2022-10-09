@@ -123,9 +123,9 @@ export function makeStore() {
   });
   const persistor = persistStore(store, null, () => {
     debugLogger.common.info(`receive: store persisted`);
-    setTimeout(() => {
-      appEventBus.emit(AppEventBusNames.StatePersisted);
-    }, 1000);
+    if (platformEnv.isExtensionBackground) {
+      appEventBus.emit(AppEventBusNames.InitReduxStateFromPersitor);
+    }
   });
   return { store, persistor };
 }

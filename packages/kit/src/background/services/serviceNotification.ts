@@ -371,7 +371,7 @@ export default class ServiceNotification extends ServiceBase {
         });
         new Notification(params.title, {
           body: params.content,
-          icon: logo,
+          icon: platformEnv.isDesktopMac ? undefined : logo,
         }).onclick = () => {
           this.handleNotificationCallback({
             messageID: '',
