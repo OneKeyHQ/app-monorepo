@@ -323,6 +323,21 @@ export default class Vault extends VaultBase {
         },
       ];
     }
+    if (payload?.type === 'Transfer' && payload?.nftInfo) {
+      actions = [
+        {
+          type: IDecodedTxActionType.NFT_TRANSFER,
+          nftTransfer: {
+            asset: payload.nftInfo.asset,
+            amount: payload.nftInfo.amount,
+            send: payload.nftInfo.from,
+            receive: payload.nftInfo.to,
+            extraInfo: null,
+          },
+        },
+      ];
+    }
+
     const owner = await this.getAccountAddress();
     const decodedTx: IDecodedTx = {
       txid: nativeTx.signature ? bs58.encode(nativeTx.signature) : '',
