@@ -260,6 +260,11 @@ function createMainWindow() {
     event.reply('app/reloadBridgeProcess', true);
   });
 
+  ipcMain.on('app/restoreMainWindow', (event) => {
+    logger.debug('restoreMainWindow receive');
+    browserWindow.show();
+  });
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send('appState', undefined);

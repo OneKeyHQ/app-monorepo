@@ -4,6 +4,7 @@ import { pick } from 'lodash';
 import { Dimensions } from 'react-native';
 
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+import type { DesktopAPI } from '@onekeyhq/desktop/src-electron/preload';
 import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import {
   AddPriceAlertConfig,
@@ -297,6 +298,10 @@ export default class ServiceNotification extends ServiceBase {
       !result.extras
     ) {
       return;
+    }
+    if (platformEnv.isDesktop) {
+      const { desktopApi } = window;
+      desktopApi?.restore?.();
     }
     // focus browser tab
     if (platformEnv.isWeb) {
