@@ -2,8 +2,6 @@ import { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
 
 import { Pressable } from 'react-native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import Box from '../Box';
 
 let lastTime: Date | undefined;
@@ -26,10 +24,7 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
       num += 1;
     }
     if (num === 1) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      if (platformEnv.isDesktop) {
-        window?.desktopApi?.toggleMaximizeWindow();
-      }
+      window.desktopApi.toggleMaximizeWindow();
     }
   };
 
