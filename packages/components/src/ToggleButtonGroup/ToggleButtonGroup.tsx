@@ -1,11 +1,20 @@
-import { FC, ReactElement, useCallback, useEffect, useRef } from 'react';
+import {
+  FC,
+  ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
-import { ScrollView } from 'react-native';
+import { LayoutChangeEvent, ScrollView } from 'react-native';
 
 import {
+  Box,
   Center,
   ICON_NAMES,
   Icon,
+  IconButton,
   NetImage,
   Pressable,
   Typography,
@@ -29,7 +38,8 @@ const ToggleButton: FC<
   ToggleButtonProps & {
     isCurrent?: boolean;
     onPress: () => void;
-    leftIconSize?: number;
+    leftIconSize?: number | string;
+    onLayout: (e: LayoutChangeEvent) => void;
   }
 > = ({
   text,
@@ -39,30 +49,31 @@ const ToggleButton: FC<
   isCurrent,
   onPress,
   leftIconSize,
+  onLayout,
 }) => {
   const isVertical = useIsVerticalLayout();
   const iconSize = leftIconSize || (isVertical ? '16px' : '20px');
   return (
     <Pressable
       _hover={{
-        bg: 'action-secondary-hovered',
+        bg: 'surface-selected',
       }}
       h={isVertical ? '32px' : '36px'}
       px={isVertical ? '8px' : '12px'}
       py={isVertical ? '6px' : '8px'}
       mr="8px"
-      bg={isCurrent ? 'surface-selected' : 'background-default'}
-      borderRadius={isCurrent ? '9999px' : undefined}
+      bg={isCurrent ? 'surface-selected' : 'transparent'}
+      borderRadius="9999px"
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
       onPress={onPress}
+      onLayout={onLayout}
     >
       <Center borderRadius="50%" w={iconSize} h={iconSize} mr="8px">
         {!!leftIcon && (
           <Icon
             name={leftIcon}
-            size={iconSize}
             color={isCurrent ? 'icon-hovered' : 'icon-default'}
           />
         )}
@@ -88,6 +99,8 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   onButtonPress,
 }) => {
   const scrollRef = useRef<ScrollView>(null);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const buttonLayouts = useRef<{ x: number; width: number }[]>([]);
   const scollToEnd = useCallback(
     () => setTimeout(() => scrollRef.current?.scrollToEnd(), 30),
     [],
@@ -97,24 +110,56 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
     //     }
     //     lastTabsLength.current = tabs.length;
   }, [selectedIndex]);
+  const getButtonOffset = useCallback((index: number) => {
+    const { x, width } = buttonLayouts.current[index];
+    return x + width;
+  });
   return (
-    <ScrollView
-      ref={scrollRef}
-      style={{
-        width: '100%',
+    <Box
+      w="full"
+      flexDirection="row"
+      onLayout={({
+        nativeEvent: {
+          layout: { width },
+        },
+      }) => {
+        const allButtonsWidth = buttonLayouts.current.reduce(
+          (acc, cur) =>
+            acc +
+            cur.width +
+            // 8px margin
+            8,
+          0,
+        );
+        setShowRightArrow(width < allButtonsWidth);
       }}
-      horizontal
-      showsHorizontalScrollIndicator={false}
     >
-      {buttons.map((btn, index) => (
-        <ToggleButton
-          key={index}
-          isCurrent={selectedIndex === index}
-          {...btn}
-          onPress={() => onButtonPress(index)}
-        />
-      ))}
-    </ScrollView>
+      <ScrollView
+        ref={scrollRef}
+        style={{
+          flex: 1,
+        }}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+      >
+        {buttons.map((btn, index) => (
+          <ToggleButton
+            key={index}
+            isCurrent={selectedIndex === index}
+            {...btn}
+            onPress={() => {
+              onButtonPress(index);
+            }}
+            onLayout={({
+              nativeEvent: {
+                layout: { width, x },
+              },
+            }) => (buttonLayouts.current[index] = { x, width })}
+          />
+        ))}
+      </ScrollView>
+      {showRightArrow && <IconButton size="sm" name="ChevronRightSolid" />}
+    </Box>
   );
 };
 ToggleButtonGroup.displayName = 'ToggleButtonGroup';
