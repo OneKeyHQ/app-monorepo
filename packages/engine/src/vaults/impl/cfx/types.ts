@@ -3,6 +3,7 @@ export type IEncodedTxCfx = {
   to: string;
   value: string;
   data: string;
+  hash?: string;
   nonce?: number;
   gas?: string;
   gasPrice?: string;
@@ -12,7 +13,7 @@ export type IEncodedTxCfx = {
   epochHeight?: number;
 };
 
-export type ITxDescCfx = {
+export type ITxAbiDecodeResult = {
   name: string;
   fullName: string;
   type: string;

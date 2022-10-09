@@ -42,6 +42,10 @@ import {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import {
+  convertFeeGweiToValue,
+  convertFeeValueToGwei,
+} from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -114,9 +118,10 @@ export default class Vault extends VaultBase {
     }
 
     if (!isNil(price)) {
-      encodedTxWithFee.gasPrice = toBigIntHex(
-        new BigNumber(price as string).shiftedBy(network.feeDecimals),
-      );
+      encodedTxWithFee.gasPrice = convertFeeGweiToValue({
+        value: (price as string) || '0.000000001',
+        network,
+      });
     }
 
     return Promise.resolve(encodedTxWithFee);
@@ -128,17 +133,27 @@ export default class Vault extends VaultBase {
 
   async decodeTx(encodedTx: IEncodedTxCfx, payload?: any): Promise<IDecodedTx> {
     const address = await this.getAccountAddress();
+    const network = await this.getNetwork();
 
     const decodedTx: IDecodedTx = {
-      txid: '',
+      txid: encodedTx.hash || '',
       owner: address,
-      signer: address,
-      nonce: 0,
-      actions: (await this.buildEncodedTxAction(encodedTx)).filter(Boolean),
+      signer: encodedTx.from || address,
+      nonce: encodedTx.nonce || 0,
+      actions: await this.buildEncodedTxActions(encodedTx),
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       encodedTx,
+      feeInfo: {
+        limit: encodedTx.gasLimit,
+        price: convertFeeValueToGwei({
+          value: encodedTx.gasPrice ?? '1',
+          network,
+        }),
+        priceValue: encodedTx.gasPrice,
+      },
+      payload,
       extraInfo: null,
     };
 
@@ -156,8 +171,6 @@ export default class Vault extends VaultBase {
       amountBN = new BigNumber('0');
     }
 
-    const amountHex = toBigIntHex(amountBN.shiftedBy(network.decimals));
-
     if (isTransferToken) {
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
@@ -166,6 +179,8 @@ export default class Vault extends VaultBase {
       if (!token) {
         throw new Error(`Token not found: ${transferInfo.token as string}`);
       }
+
+      const amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
 
       const toAddress = `0x${confluxAddress
         .decodeCfxAddress(transferInfo.to)
@@ -182,7 +197,8 @@ export default class Vault extends VaultBase {
         data,
       };
     }
-
+    // native token transfer
+    const amountHex = toBigIntHex(amountBN.shiftedBy(network.decimals));
     return {
       from: transferInfo.from,
       to: transferInfo.to,
@@ -400,7 +416,7 @@ export default class Vault extends VaultBase {
         };
 
         // If there is no gasfee attribute, it means that the data is obtained through the transfer type
-        // Need to complete other attributes by fetching transaction details
+        // Need to fill other attributes by fetching transaction details
         if (!tx.gasFee) {
           const txDetail = await client.getTransactionByHash(
             tx.transactionHash,
@@ -416,17 +432,17 @@ export default class Vault extends VaultBase {
         const decodedTx: IDecodedTx = {
           txid: tx.transactionHash,
           owner: address,
-          signer: tx.from,
+          signer: tx.from || address,
           nonce: tx.nonce || 0,
-          actions: (await this.buildEncodedTxAction(encodedTx)).filter(Boolean),
+          actions: await this.buildEncodedTxActions(encodedTx),
           status: getTransactionStatus(tx.status),
           networkId: this.networkId,
           accountId: this.accountId,
           encodedTx,
           extraInfo: null,
-          totalFeeInNative: tx.gasFee
-            ? new BigNumber(tx.gasFee).shiftedBy(-network.decimals).toFixed()
-            : tx.gasFee,
+          totalFeeInNative: new BigNumber(tx.gasFee)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
         };
 
         decodedTx.updatedAt = tx.timestamp * 1000;
@@ -448,11 +464,11 @@ export default class Vault extends VaultBase {
 
   // Chain only functionalities below.
 
-  async buildEncodedTxAction(encodedTx: IEncodedTxCfx) {
+  async buildEncodedTxActions(encodedTx: IEncodedTxCfx) {
     const address = await this.getAccountAddress();
     const client = await this.getClient();
     const crc20 = client.CRC20(encodedTx.to);
-    const [actionType, actionDesc] = parseTransaction(encodedTx, crc20);
+    const { actionType, abiDecodeResult } = parseTransaction(encodedTx, crc20);
     const action: IDecodedTxAction = {
       type: IDecodedTxActionType.UNKNOWN,
       direction: await this.buildTxActionDirection({
@@ -488,8 +504,8 @@ export default class Vault extends VaultBase {
         tokenIdOnNetwork: encodedTx.to,
       });
 
-      if (token && actionDesc) {
-        const { to, amount } = actionDesc.object;
+      if (token && abiDecodeResult) {
+        const { to, amount } = abiDecodeResult.object;
         const amountBn = new BigNumber(amount);
         action.type = IDecodedTxActionType.TOKEN_TRANSFER;
         action.tokenTransfer = {
@@ -503,7 +519,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    return [action, extraNativeTransferAction];
+    return [action, extraNativeTransferAction].filter(Boolean);
   }
 
   async buildNativeTransfer(encodedTx: IEncodedTxCfx) {

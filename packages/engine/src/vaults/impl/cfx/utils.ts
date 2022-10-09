@@ -11,7 +11,7 @@ import {
   IUnsignedTxPro,
 } from '../../types';
 
-import { IEncodedTxCfx, ITxDescCfx } from './types';
+import { IEncodedTxCfx, ITxAbiDecodeResult } from './types';
 
 export function isCfxNativeTransferType(options: { data: string; to: string }) {
   const { data, to } = options;
@@ -53,16 +53,22 @@ export async function signTransaction(
 export function parseTransaction(
   encodedTx: IEncodedTxCfx,
   crc20Interface: Contract,
-): [IDecodedTxActionType, ITxDescCfx | null] {
+): {
+  actionType: IDecodedTxActionType;
+  abiDecodeResult: ITxAbiDecodeResult | null;
+} {
   if (isCfxNativeTransferType({ data: encodedTx.data, to: encodedTx.to })) {
-    return [IDecodedTxActionType.NATIVE_TRANSFER, null];
+    return {
+      actionType: IDecodedTxActionType.NATIVE_TRANSFER,
+      abiDecodeResult: null,
+    };
   }
 
   try {
     let txType = IDecodedTxActionType.UNKNOWN;
-    const txDesc = crc20Interface.abi.decodeData(encodedTx.data);
-    if (txDesc) {
-      switch (txDesc.name) {
+    const abiDecodeResult = crc20Interface.abi.decodeData(encodedTx.data);
+    if (abiDecodeResult) {
+      switch (abiDecodeResult.name) {
         case 'transfer': {
           txType = IDecodedTxActionType.TOKEN_TRANSFER;
           break;
@@ -76,13 +82,19 @@ export function parseTransaction(
           break;
         }
         default: {
-          txType = IDecodedTxActionType.FUNCTION_CALL;
+          txType = IDecodedTxActionType.UNKNOWN;
         }
       }
     }
-    return [txType, txDesc];
+    return {
+      actionType: txType,
+      abiDecodeResult,
+    };
   } catch (error) {
-    return [IDecodedTxActionType.UNKNOWN, null];
+    return {
+      actionType: IDecodedTxActionType.UNKNOWN,
+      abiDecodeResult: null,
+    };
   }
 }
 
