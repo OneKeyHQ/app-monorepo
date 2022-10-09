@@ -41,7 +41,6 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
 import { deviceUtils } from '../../../utils/hardware';
@@ -83,12 +82,13 @@ const AccountCell: FC<CellProps> = ({
   }, [item.selected]);
 
   const onToggle = useCallback(() => {
+    if (item.isDisabled) return;
     setChecked(!isChecked);
     onChange?.(!isChecked);
-  }, [onChange, isChecked]);
+  }, [isChecked, item.isDisabled, onChange]);
 
   return (
-    <ListItem onPress={platformEnv.isNative ? onToggle : undefined} flex={1}>
+    <ListItem onPress={onToggle} flex={1}>
       <ListItem.Column>
         <Box
           flexDirection="row"
