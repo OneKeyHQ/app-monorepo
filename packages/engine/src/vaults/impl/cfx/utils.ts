@@ -4,7 +4,12 @@ import { Transaction, address as confluxAddress } from 'js-conflux-sdk';
 import Contract from 'js-conflux-sdk/dist/types/contract';
 
 import { Signer } from '../../../proxy';
-import { IDecodedTxActionType, ISignedTx, IUnsignedTxPro } from '../../types';
+import {
+  IDecodedTxActionType,
+  IDecodedTxStatus,
+  ISignedTx,
+  IUnsignedTxPro,
+} from '../../types';
 
 import { IEncodedTxCfx, ITxDescCfx } from './types';
 
@@ -78,5 +83,19 @@ export function parseTransaction(
     return [txType, txDesc];
   } catch (error) {
     return [IDecodedTxActionType.UNKNOWN, null];
+  }
+}
+
+export function getTransactionStatus(status: number | null | undefined) {
+  switch (status) {
+    case 0:
+      return IDecodedTxStatus.Confirmed;
+    case 1:
+      return IDecodedTxStatus.Failed;
+    case 2:
+    case null:
+      return IDecodedTxStatus.Dropped;
+    default:
+      return IDecodedTxStatus.Confirmed;
   }
 }

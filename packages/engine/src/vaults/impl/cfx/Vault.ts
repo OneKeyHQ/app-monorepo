@@ -50,7 +50,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { IEncodedTxCfx, OnChainHistoryResp } from './types';
-import { isCfxNativeTransferType, parseTransaction } from './utils';
+import { getTransactionStatus, parseTransaction } from './utils';
 
 const TOKEN_TRANSFER_FUNCTION_SIGNATURE = '0xa9059cbb';
 // TODO extends evm/Vault
@@ -127,7 +127,7 @@ export default class Vault extends VaultBase {
   }
 
   async decodeTx(encodedTx: IEncodedTxCfx, payload?: any): Promise<IDecodedTx> {
-    const { address } = await this.getOutputAccount();
+    const address = await this.getAccountAddress();
 
     const decodedTx: IDecodedTx = {
       txid: '',
@@ -336,7 +336,7 @@ export default class Vault extends VaultBase {
   }
 
   override async getAccountBalance(tokenIds: Array<string>, withMain = true) {
-    const { address } = await this.getOutputAccount();
+    const address = await this.getAccountAddress();
     return this.getBalances(
       (withMain ? [{ address }] : []).concat(
         tokenIds.map((tokenAddress) => ({ address, tokenAddress })),
@@ -366,7 +366,8 @@ export default class Vault extends VaultBase {
 
     const network = await this.getNetwork();
     const apiExplorer = await this.getApiExplorer();
-    const { address } = await this.getOutputAccount();
+    const client = await this.getClient();
+    const address = await this.getAccountAddress();
 
     try {
       const resp = await apiExplorer.get<OnChainHistoryResp>(
@@ -375,7 +376,7 @@ export default class Vault extends VaultBase {
           params: {
             account: address,
             limit: 50,
-            transferType: 'transaction',
+            transferType: tokenIdOnNetwork === '' ? 'call' : 'transaction',
           },
         },
       );
@@ -398,23 +399,34 @@ export default class Vault extends VaultBase {
           data: tx.input,
         };
 
+        // If there is no gasfee attribute, it means that the data is obtained through the transfer type
+        // Need to complete other attributes by fetching transaction details
+        if (!tx.gasFee) {
+          const txDetail = await client.getTransactionByHash(
+            tx.transactionHash,
+          );
+          if (txDetail) {
+            tx.gasFee = new BigNumber(txDetail.gas)
+              .multipliedBy(txDetail.gasPrice)
+              .toFixed();
+            tx.nonce = txDetail.nonce;
+          }
+        }
+
         const decodedTx: IDecodedTx = {
           txid: tx.transactionHash,
           owner: address,
           signer: tx.from,
           nonce: tx.nonce || 0,
           actions: (await this.buildEncodedTxAction(encodedTx)).filter(Boolean),
-          status:
-            tx.status === 0
-              ? IDecodedTxStatus.Confirmed
-              : IDecodedTxStatus.Pending,
+          status: getTransactionStatus(tx.status),
           networkId: this.networkId,
           accountId: this.accountId,
           encodedTx,
           extraInfo: null,
-          totalFeeInNative: new BigNumber(tx.gasFee)
-            .shiftedBy(-network.decimals)
-            .toFixed(),
+          totalFeeInNative: tx.gasFee
+            ? new BigNumber(tx.gasFee).shiftedBy(-network.decimals).toFixed()
+            : tx.gasFee,
         };
 
         decodedTx.updatedAt = tx.timestamp * 1000;
@@ -437,7 +449,7 @@ export default class Vault extends VaultBase {
   // Chain only functionalities below.
 
   async buildEncodedTxAction(encodedTx: IEncodedTxCfx) {
-    const { address } = await this.getOutputAccount();
+    const address = await this.getAccountAddress();
     const client = await this.getClient();
     const crc20 = client.CRC20(encodedTx.to);
     const [actionType, actionDesc] = parseTransaction(encodedTx, crc20);
