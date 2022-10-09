@@ -145,7 +145,9 @@ const RecoverAccountsAdvanced: FC = () => {
               size="sm"
               value="true"
               onPress={() => {
-                setValue('generateCount', `${item}`);
+                setValue('generateCount', `${item}`, {
+                  shouldValidate: true,
+                });
               }}
               title={item.toString()}
             />
@@ -284,10 +286,10 @@ const RecoverAccountsAdvanced: FC = () => {
             />
           </Form.Item>
           <Form.Item name="showPathAndLink" control={control}>
-            <Form.CheckBox
-              w="full"
-              size="xl"
-              title={intl.formatMessage({
+            <Form.Switch
+              isFullMode
+              labelType="before"
+              label={intl.formatMessage({
                 id: 'form__show_path_and_link',
                 defaultMessage: 'Show Path and Link',
               })}
