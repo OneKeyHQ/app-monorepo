@@ -1,4 +1,4 @@
-import { BrowserWindow, app, session } from 'electron';
+import { BrowserWindow, app } from 'electron';
 import logger from 'electron-log';
 
 import autoUpdateInit from './AutoUpdate';
@@ -8,22 +8,9 @@ export type Dependencies = {
   mainWindow: BrowserWindow;
 };
 
-const filter = {
-  urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
-};
-
 let bridgeInstance: BridgeProcess;
 export const launchBridge = async () => {
   const bridge = new BridgeProcess();
-  session.defaultSession.webRequest.onBeforeSendHeaders(
-    filter,
-    (details, callback) => {
-      // @ts-ignore electron declares requestHeaders as an empty interface
-      details.requestHeaders.Origin = 'https://electron.onekey.so';
-      logger.debug('bridge', `Setting header for ${details.url}`);
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
-    },
-  );
 
   try {
     logger.info('bridge: Staring');
