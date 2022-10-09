@@ -49,7 +49,11 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async init() {
-    await this.waitForAppInited();
+    try {
+      await this.waitForAppInited();
+    } catch (error) {
+      debugLogger.notification.error(error);
+    }
     this.clear();
     this.interval = setInterval(
       () => {
