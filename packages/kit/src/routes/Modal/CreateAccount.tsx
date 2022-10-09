@@ -21,7 +21,7 @@ export { CreateAccountModalRoutes };
 
 type RecoverAccountsAdvancedParams = {
   fromIndex: number;
-  generateCount: number;
+  generateCount?: number;
   showPathAndLink: boolean;
 };
 

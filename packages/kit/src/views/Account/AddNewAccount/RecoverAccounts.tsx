@@ -41,13 +41,12 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
 import { deviceUtils } from '../../../utils/hardware';
 import { List, ListItem } from '../../Components/stories/List/ListView';
 
-import type { AdvancedValues } from './RecoverAccountsAdvanced';
+import { AdvancedValues, FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -83,12 +82,13 @@ const AccountCell: FC<CellProps> = ({
   }, [item.selected]);
 
   const onToggle = useCallback(() => {
+    if (item.isDisabled) return;
     setChecked(!isChecked);
     onChange?.(!isChecked);
-  }, [onChange, isChecked]);
+  }, [isChecked, item.isDisabled, onChange]);
 
   return (
-    <ListItem onPress={platformEnv.isNative ? onToggle : undefined} flex={1}>
+    <ListItem onPress={onToggle} flex={1}>
       <ListItem.Column>
         <Box
           flexDirection="row"
@@ -322,6 +322,9 @@ const RecoverAccounts: FC = () => {
       } else if (isLastPage) {
         limit = generateCount - page * pageSize;
       }
+      if (start + limit > FROM_INDEX_MAX) {
+        limit = FROM_INDEX_MAX - start;
+      }
 
       const allCacheStart = page * pageSize;
       const targetNumber = page * pageSize + limit;
@@ -454,7 +457,7 @@ const RecoverAccounts: FC = () => {
       currentPage,
       PAGE_SIZE,
       config.fromIndex,
-      config.generateCount,
+      config.generateCount ?? 0,
       allCacheData,
       isAllSelected,
     );
@@ -492,10 +495,16 @@ const RecoverAccounts: FC = () => {
 
   const isMaxPage = useMemo(() => {
     if (currentPageData.length < PAGE_SIZE) return true;
+    if (config.fromIndex >= FROM_INDEX_MAX) return true;
     if (!config.generateCount) return false;
 
     return currentPage === Math.ceil(config.generateCount / PAGE_SIZE) - 1;
-  }, [config.generateCount, currentPage, currentPageData.length]);
+  }, [
+    config.fromIndex,
+    config.generateCount,
+    currentPage,
+    currentPageData.length,
+  ]);
 
   return (
     <Modal
@@ -563,7 +572,7 @@ const RecoverAccounts: FC = () => {
                     currentPage,
                     PAGE_SIZE,
                     config.fromIndex,
-                    config.generateCount,
+                    config.generateCount ?? 0,
                     allCacheData,
                     isAllSelected,
                   );
@@ -613,22 +622,24 @@ const RecoverAccounts: FC = () => {
                         config.fromIndex !== fromIndex ||
                         config.generateCount !== count;
 
+                      const selectedAll = (count ?? 0) > 0;
                       const newConfig = {
                         currentPage: isForceRefresh ? 0 : currentPage,
                         fromIndex,
                         generateCount: count,
                         showPathAndLink: showPath,
                       };
+
                       setConfig(newConfig);
                       setCurrentPage(newConfig.currentPage);
-                      setAllSelected(true);
+                      if (selectedAll) setAllSelected(selectedAll);
                       getData(
                         newConfig.currentPage,
                         PAGE_SIZE,
                         newConfig.fromIndex,
-                        newConfig.generateCount,
+                        newConfig.generateCount ?? 0,
                         isForceRefresh ? [] : allCacheData,
-                        true,
+                        selectedAll ? true : isAllSelected,
                       );
                     });
                   },

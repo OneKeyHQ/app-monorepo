@@ -33,18 +33,18 @@ type NavigationProps = NativeStackNavigationProp<
 
 export type AdvancedValues = {
   fromIndex: number;
-  generateCount: number;
+  generateCount?: number;
   showPathAndLink: boolean;
 };
 
 // type number does not work properly on Android
 type FromValues = {
   fromIndex: string;
-  generateCount: string;
+  generateCount?: string;
   showPathAndLink: boolean;
 };
 
-const FROM_INDEX_MAX = 2 ** 31;
+export const FROM_INDEX_MAX = 2 ** 31;
 
 const RecoverAccountsAdvanced: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
@@ -66,7 +66,7 @@ const RecoverAccountsAdvanced: FC = () => {
   } = useForm<FromValues>({
     defaultValues: {
       fromIndex: `${fromIndex}`,
-      generateCount: `${generateCount || 10}`,
+      generateCount: generateCount ? `${generateCount}` : undefined,
       showPathAndLink,
     },
     mode: 'onChange',
@@ -94,8 +94,10 @@ const RecoverAccountsAdvanced: FC = () => {
       const { generateCount: count } = getValues();
       if (isInteger(value) && isInteger(count)) {
         return {
-          max: FROM_INDEX_MAX - parseInt(count),
-          error: new BigNumber(value).plus(count).isGreaterThan(FROM_INDEX_MAX),
+          max: FROM_INDEX_MAX - parseInt(count ?? '10'),
+          error: new BigNumber(value)
+            .plus(count ?? '10')
+            .isGreaterThan(FROM_INDEX_MAX),
         };
       }
     },
@@ -129,7 +131,9 @@ const RecoverAccountsAdvanced: FC = () => {
       }
       onApply?.({
         fromIndex: parseInt(`${data.fromIndex}`),
-        generateCount: parseInt(`${data.generateCount}`),
+        generateCount: data.generateCount
+          ? parseInt(`${data.generateCount}`)
+          : undefined,
         showPathAndLink: data.showPathAndLink,
       });
     },
@@ -145,7 +149,9 @@ const RecoverAccountsAdvanced: FC = () => {
               size="sm"
               value="true"
               onPress={() => {
-                setValue('generateCount', `${item}`);
+                setValue('generateCount', `${item}`, {
+                  shouldValidate: true,
+                });
               }}
               title={item.toString()}
             />
@@ -241,12 +247,6 @@ const RecoverAccountsAdvanced: FC = () => {
               defaultMessage: 'Generate Amount',
             })}
             rules={{
-              required: {
-                value: true,
-                message: intl.formatMessage({
-                  id: 'form__field_is_required',
-                }),
-              },
               min: {
                 value: 1,
                 message: intl.formatMessage(
@@ -284,10 +284,10 @@ const RecoverAccountsAdvanced: FC = () => {
             />
           </Form.Item>
           <Form.Item name="showPathAndLink" control={control}>
-            <Form.CheckBox
-              w="full"
-              size="xl"
-              title={intl.formatMessage({
+            <Form.Switch
+              isFullMode
+              labelType="before"
+              label={intl.formatMessage({
                 id: 'form__show_path_and_link',
                 defaultMessage: 'Show Path and Link',
               })}

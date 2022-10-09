@@ -34,6 +34,8 @@ export type SwitchProps = {
    * 点击监听
    */
   onToggle?: () => void;
+
+  isFullMode?: boolean;
 } & ComponentProps<typeof BaseSwitch>;
 
 const defaultProps = {
@@ -58,6 +60,7 @@ const Switch: FC<SwitchProps> = ({
   label,
   isDisabled,
   onToggle,
+  isFullMode,
   ...props
 }) => {
   const iSize = getRectSize(size);
@@ -66,12 +69,14 @@ const Switch: FC<SwitchProps> = ({
     <Box
       alignItems="center"
       flexDirection={labelType === 'after' ? 'row-reverse' : 'row'}
+      w={isFullMode ? 'full' : undefined}
+      justifyContent={isFullMode ? 'space-between' : 'flex-start'}
     >
       {labelType !== 'false' && (
         <Typography.Body2Strong
           fontWeight="bold"
           mr={3}
-          ml={3}
+          ml={isFullMode ? 0 : 3}
           color={isDisabled ? 'text-disabled' : 'text-default'}
         >
           {label}

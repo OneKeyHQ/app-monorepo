@@ -11,7 +11,7 @@ type ListItemProps = {
 
 const ListItem: FC<ListItemProps> = ({ onPress, children, ...rest }) =>
   onPress ? (
-    <Pressable>
+    <Pressable onPress={onPress}>
       {({ isHovered, isPressed }) => (
         <HStack
           p={2}
