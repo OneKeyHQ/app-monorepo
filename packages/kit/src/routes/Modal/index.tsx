@@ -43,6 +43,7 @@ import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
 import TransactionDetailModal from './TransactionDetail';
 import UpdateFeatureModal from './UpdateFeature';
+import WebviewModal from './WebView';
 
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',
@@ -169,6 +170,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.PushNotification,
     component: PushNotification,
+  },
+  {
+    name: ModalRoutes.Webview,
+    component: WebviewModal,
   },
 ];
 
