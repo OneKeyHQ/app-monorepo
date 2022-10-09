@@ -60,7 +60,7 @@ const ItemRow: FC<ItemRowProps> = ({
       borderTopRadius={index === 0 ? '12' : 0}
       borderBottomRadius={total - 1 === index ? '12' : 0}
     >
-      <Box display="flex" flexDirection="row" alignItems="center">
+      <Box flex="1" display="flex" flexDirection="row" alignItems="center">
         <IconButton
           mr="2"
           type="plain"
@@ -68,10 +68,10 @@ const ItemRow: FC<ItemRowProps> = ({
           iconSize={16}
           onPressIn={() => onDrag()}
         />
-        <Box display="flex" flexDirection="row" alignItems="center">
-          <NetworkIcon network={network} />
-          <Typography.Body1Strong mr="3">{network.name}</Typography.Body1Strong>
-        </Box>
+        <NetworkIcon network={network} />
+        <Typography.Body1Strong flex="1" mr="3" numberOfLines={2} isTruncated>
+          {network.name}
+        </Typography.Body1Strong>
       </Box>
       <Switch
         isDisabled={network.id === activeNetwork?.id}
