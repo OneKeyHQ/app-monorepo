@@ -1,7 +1,4 @@
-import path from 'path';
-
 import { app, ipcMain } from 'electron';
-import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 
@@ -23,7 +20,8 @@ function isNetworkError(errorObject: Error) {
     errorObject.message === 'net::ERR_CONNECTION_RESET' ||
     errorObject.message === 'net::ERR_CONNECTION_CLOSE' ||
     errorObject.message === 'net::ERR_NAME_NOT_RESOLVED' ||
-    errorObject.message === 'net::ERR_CONNECTION_TIMED_OUT'
+    errorObject.message === 'net::ERR_CONNECTION_TIMED_OUT' ||
+    errorObject.message === 'net::ERR_CONNECTION_CLOSED'
   );
 }
 
