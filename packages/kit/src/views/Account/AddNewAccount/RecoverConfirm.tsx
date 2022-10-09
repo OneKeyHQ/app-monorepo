@@ -1,73 +1,128 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
-import {
-  Address,
-  Box,
-  CheckBox,
-  Divider,
-  Modal,
-  Typography,
-} from '@onekeyhq/components';
+import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
 import { IAccount } from '@onekeyhq/engine/src/types';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import Protected, {
+  ValidationFields,
+} from '@onekeyhq/kit/src/components/Protected';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
 import { deviceUtils } from '../../../utils/hardware';
 
-type RouteProps = RouteProp<
-  CreateAccountRoutesParams,
-  CreateAccountModalRoutes.RecoverAccountsConfirm
->;
+import type { AdvancedValues } from './RecoverAccountsAdvanced';
 
 type FlatDataType = ImportableHDAccount & {
   selected: boolean;
   isDisabled: boolean;
 };
-type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
-const RecoverConfirm: FC = () => {
+type RecoverConfirmDoneProps = {
+  password: string;
+  accounts: FlatDataType[];
+  walletId: string;
+  network: string;
+  purpose: number;
+  config: AdvancedValues;
+  selectedAll: boolean;
+  onDone: () => void;
+};
+const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
+  password,
+  accounts,
+  walletId,
+  network,
+  purpose,
+  config,
+  selectedAll,
+  onDone,
+}) => {
   const intl = useIntl();
+  const [totalAccounts, setTotalAccounts] = useState(0);
+  const [importedAccounts, setImportedAccounts] = useState(0);
+
   const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
 
-  const route = useRoute<RouteProps>();
-  const { accounts, walletId, network, purpose } = route.params;
-  const [flatListData, updateFlatListData] = useState<FlatDataType[]>(accounts);
-  const [isVaild, setIsVaild] = useState(true);
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  const recoverAccountIndex = async (index: number[]) => {
+    debugLogger.common.info('recoverAccountIndex', JSON.stringify(index));
 
-  const authenticationDone = async (password: string) => {
+    await serviceAccountSelector.preloadingCreateAccount({
+      walletId,
+      networkId: network,
+    });
+    return serviceAccount.addHDAccounts(
+      password,
+      walletId,
+      network,
+      index,
+      undefined,
+      purpose,
+      true,
+    );
+  };
+
+  function filterUndefined(value: any): value is number {
+    return value !== undefined;
+  }
+
+  const authenticationDone = async (restoreAccounts: FlatDataType[]) => {
     let addedAccount: IAccount | undefined;
     try {
-      const selectedIndexes = flatListData
+      const selectedAccount = restoreAccounts.filter(
+        (i) => !i.isDisabled && i.selected,
+      );
+
+      const isBatch = selectedAll && config.generateCount > 0;
+
+      setTotalAccounts(isBatch ? config.generateCount : selectedAccount.length);
+
+      const selectedIndexes = selectedAccount
         .filter((i) => i.selected)
         .map((i) => i.index);
-      await serviceAccountSelector.preloadingCreateAccount({
-        walletId,
-        networkId: network,
-      });
-      const addedAccounts = await serviceAccount.addHDAccounts(
-        password,
-        walletId,
-        network,
-        selectedIndexes,
-        undefined,
-        purpose,
-      );
+
+      const addedAccounts = await recoverAccountIndex(selectedIndexes);
       addedAccount = addedAccounts?.[0];
+
+      setImportedAccounts(addedAccounts?.length ?? 0);
+
+      if (isBatch) {
+        const addedMap = new Map<number, boolean>();
+        selectedIndexes?.forEach((i) => addedMap.set(i, true));
+
+        const unAddedIndexes = Array.from(
+          Array(config.generateCount - 1).keys(),
+        )
+          .map((index) => {
+            const i = config.fromIndex + index;
+            if (addedMap.has(i)) {
+              return undefined;
+            }
+            return i;
+          })
+          .filter(filterUndefined);
+
+        // Add every 20 accounts at a time
+        while (unAddedIndexes.length > 0) {
+          const indexes = unAddedIndexes.splice(
+            0,
+            Math.min(unAddedIndexes.length, 20),
+          );
+          await recoverAccountIndex(indexes);
+          setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
+        }
+      }
     } catch (e: any) {
+      debugLogger.common.error('recover error:', toPlainErrorObject(e));
       deviceUtils.showErrorToast(e, 'action__connection_timeout');
     } finally {
       await serviceAccountSelector.preloadingCreateAccountDone({
@@ -77,133 +132,77 @@ const RecoverConfirm: FC = () => {
       });
     }
 
-    if (navigation?.canGoBack?.()) {
-      navigation?.getParent?.()?.goBack?.();
-    }
-  };
-  const selectAllHandle = () => {
-    const selectCount = flatListData.filter((i) => i.selected).length;
-    updateFlatListData((prev) =>
-      prev.map((i) => {
-        i.selected = !(selectCount === flatListData.length);
-        return i;
-      }),
-    );
-    setIsVaild(!(selectCount === flatListData.length));
-  };
-  const header = () => {
-    const selectCount = flatListData.filter((i) => i.selected).length;
-    return (
-      <Box flexDirection="column" height="76px">
-        <Box
-          flexDirection="row"
-          pl="16px"
-          alignItems="center"
-          bgColor="surface-default"
-          borderTopRadius="12px"
-          flex={1}
-        >
-          <Box>
-            <CheckBox
-              isChecked={selectCount > 0}
-              defaultIsChecked={
-                selectCount > 0 && selectCount < flatListData.length
-              }
-              onChange={selectAllHandle}
-            />
-          </Box>
-          <Typography.Body1Strong>
-            {intl.formatMessage({ id: 'form__select_all' })}
-          </Typography.Body1Strong>
-        </Box>
-        <Divider />
-      </Box>
-    );
+    onDone();
   };
 
-  const checkBoxOnChange = (isSelected: boolean, item: FlatDataType) => {
-    updateFlatListData((prev) =>
-      prev.map((i) => {
-        if (i.path === item.path) {
-          i.selected = isSelected;
-        }
-        return i;
-      }),
-    );
-    setIsVaild(flatListData.filter((i) => i.selected).length > 0);
-  };
-
-  const renderItem: ListRenderItem<FlatDataType> = useCallback(
-    ({ item, index }) => (
-      <Box
-        flexDirection="row"
-        paddingX="16px"
-        bgColor="surface-default"
-        alignItems="center"
-        height="52px"
-        borderBottomRadius={index === flatListData.length - 1 ? '12px' : 0}
-      >
-        <Box>
-          <CheckBox
-            isChecked={item.selected}
-            isDisabled={item.isDisabled}
-            onChange={(isSelected) => {
-              checkBoxOnChange(isSelected, item);
-            }}
-          />
-        </Box>
-        <Box flexDirection="row" flex={1} justifyContent="space-between">
-          <Typography.Body2Strong>
-            {`${item.defaultName}`}
-          </Typography.Body2Strong>
-          <Address
-            typography="Body2"
-            color="text-subdued"
-            text={item.displayAddress}
-            short
-          />
-        </Box>
-      </Box>
-    ),
+  useEffect(() => {
+    authenticationDone(accounts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flatListData],
+  }, []);
+
+  return (
+    <Center w="full" h="full">
+      <Spinner size="lg" />
+      <Typography.DisplayMedium mt={3}>
+        {intl.formatMessage({ id: 'action__recover_accounts' })}
+      </Typography.DisplayMedium>
+      <Typography.Body1 mt={2} color="text-subdued">
+        {intl.formatMessage(
+          { id: 'msg__recover_account_progress' },
+          {
+            0: importedAccounts,
+            1: totalAccounts,
+          },
+        )}
+      </Typography.Body1>
+    </Center>
   );
+};
+
+type RouteProps = RouteProp<
+  CreateAccountRoutesParams,
+  CreateAccountModalRoutes.RecoverAccountsConfirm
+>;
+
+type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
+
+const RecoverConfirm: FC = () => {
+  const route = useRoute<RouteProps>();
+  const { accounts, walletId, network, purpose, config, selectedAll } =
+    route.params;
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   return (
     <Modal
       height="640px"
-      header={intl.formatMessage({ id: 'action__recover_accounts' })}
-      headerDescription={`${intl.formatMessage({
-        id: 'account__recover_2_of_2',
-      })}`}
-      primaryActionTranslationId="action__recover"
-      onPrimaryActionPress={() => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateAccount,
-          params: {
-            screen:
-              CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication,
-            params: {
-              walletId,
-              onDone: authenticationDone,
-            },
-          },
-        });
-      }}
-      primaryActionProps={{
-        isDisabled: !isVaild,
-      }}
+      headerShown={false}
+      footer={null}
+      hidePrimaryAction
       hideSecondaryAction
-      flatListProps={{
-        height: '640px',
-        data: flatListData,
-        // @ts-ignore
-        renderItem,
-        ItemSeparatorComponent: () => <Divider />,
-        keyExtractor: (item) => (item as ImportableHDAccount).path,
-        ListHeaderComponent: header,
-      }}
-    />
+    >
+      <Protected
+        walletId={walletId}
+        skipSavePassword
+        field={ValidationFields.Wallet}
+      >
+        {(password) => (
+          <RecoverConfirmDone
+            password={password}
+            accounts={accounts}
+            walletId={walletId}
+            network={network}
+            purpose={purpose}
+            config={config}
+            selectedAll={selectedAll}
+            onDone={() => {
+              if (navigation?.canGoBack?.()) {
+                navigation?.getParent?.()?.goBack?.();
+              }
+            }}
+          />
+        )}
+      </Protected>
+    </Modal>
   );
 };
 

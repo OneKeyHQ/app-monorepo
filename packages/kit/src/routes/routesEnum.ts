@@ -91,6 +91,7 @@ export enum CreateAccountModalRoutes {
   CreateAccountAuthentication = 'CreateAccountAuthentication',
   RecoverySelectChainList = 'RecoverySelectChainList',
   RecoverAccountsList = 'RecoverAccountList',
+  RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
   RecoverAccountsConfirm = 'RecoverAccountsConfirm',
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
 }

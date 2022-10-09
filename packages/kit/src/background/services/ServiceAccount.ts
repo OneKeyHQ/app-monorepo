@@ -290,6 +290,7 @@ class ServiceAccount extends ServiceBase {
     index?: number[],
     names?: string[],
     purpose?: number,
+    skipRepeat = false,
   ) {
     const { engine } = this.backgroundApi;
     const accounts = await engine.addHdOrHwAccounts(
@@ -299,6 +300,7 @@ class ServiceAccount extends ServiceBase {
       index,
       names,
       purpose,
+      skipRepeat,
     );
 
     if (!accounts.length) return;
