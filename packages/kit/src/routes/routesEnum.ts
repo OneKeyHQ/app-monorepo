@@ -38,6 +38,7 @@ export enum ModalRoutes {
   ImportBackupPassword = 'ImportBackupPassword',
   Staking = 'Staking',
   PushNotification = 'PushNotification',
+  Webview = 'Webview',
 }
 
 export enum RootRoutes {

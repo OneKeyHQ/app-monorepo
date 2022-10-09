@@ -28,3 +28,4 @@ export type { ImportBackupPasswordRoutesParams } from './ImportBackupPassword';
 export type { StakingRoutesParams } from '../../views/Staking/typing';
 export type { ManageConnectedSitesRoutesParams } from '../../views/ManageConnectedSites/types';
 export type { PushNotificationRoutesParams } from '../../views/PushNotification/types';
+export type { WebviewRoutesParams } from './WebView';

@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { URL } from 'react-native-url-polyfill';
 
-import { Box, Icon, Select, useToast } from '@onekeyhq/components';
+import { Box, Icon, IconButton, Select, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
@@ -145,6 +145,16 @@ export const SettingsWebViews: FC = () => {
               <Icon name="DotsHorizontalOutline" />
             </Box>
           )}
+        />
+      ),
+
+      headerLeft: () => (
+        <IconButton
+          type="plain"
+          name="ArrowSmLeftOutline"
+          size="lg"
+          circle
+          onPress={() => navigation.goBack?.()}
         />
       ),
     });

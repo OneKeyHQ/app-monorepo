@@ -52,6 +52,9 @@ export default function useOpenBlockBrowser(
       openUrl(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
+        {
+          modalMode: true,
+        },
       );
     },
     [intl, network],
@@ -64,6 +67,9 @@ export default function useOpenBlockBrowser(
       openUrl(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
+        {
+          modalMode: true,
+        },
       );
     },
     [intl, network],
@@ -76,6 +82,9 @@ export default function useOpenBlockBrowser(
       openUrl(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
+        {
+          modalMode: true,
+        },
       );
     },
     [intl, network],
