@@ -32,7 +32,6 @@ module.exports = async function (env, argv) {
     config,
     env,
   });
-  config.resolve.alias['framer-motion'] = 'framer-motion/dist/framer-motion';
   // const htmlWebpackPlugin = config.plugins.find(
   //   (p) => p.constructor.name === 'HtmlWebpackPlugin',
   // );

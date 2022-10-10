@@ -106,7 +106,9 @@ function normalizeConfig({ platform, config, env }) {
       '@solana/buffer-layout-utils/lib/cjs/index.js',
     '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
     'aptos': 'aptos/dist/index.js',
+    'framer-motion': 'framer-motion/dist/framer-motion',
   };
+
   return config;
 }
 

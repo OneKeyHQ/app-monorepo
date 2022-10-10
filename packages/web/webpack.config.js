@@ -23,7 +23,6 @@ module.exports = async function (env, argv) {
     config,
     env,
   });
-  config.resolve.alias['framer-motion'] = 'framer-motion/dist/framer-motion';
   if (process.env.ENABLE_ANALYZER) {
     const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
     config.plugins.push(

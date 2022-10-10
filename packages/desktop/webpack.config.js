@@ -23,6 +23,5 @@ module.exports = async function (env, argv) {
   if (process.env.NODE_ENV === 'production') {
     config.devtool = false;
   }
-  config.resolve.alias['framer-motion'] = 'framer-motion/dist/framer-motion';
   return config;
 };
