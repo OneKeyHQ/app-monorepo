@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import useSWR from 'swr';
 
 import {
   Box,
@@ -177,7 +176,7 @@ function SendButton() {
 }
 
 function SendNFTList() {
-  const { account, networkId, accountId } = useActiveWalletAccount();
+  const { account, networkId } = useActiveWalletAccount();
   const [collectibles, updateListData] = useState<Collection[]>([]);
 
   const allAssets = useMemo(
@@ -190,9 +189,7 @@ function SendNFTList() {
   );
   const { serviceNFT } = backgroundApiProxy;
   const isMountedRef = useIsMounted();
-  const isFocused = useIsFocused();
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (account && networkId) {
       const result = await serviceNFT.fetchNFT({
         accountId: account.address,
@@ -201,39 +198,7 @@ function SendNFTList() {
       return result;
     }
     return [];
-  };
-
-  const shouldDoRefresh = useMemo((): boolean => {
-    if (!accountId || !networkId) {
-      return false;
-    }
-    if (!isFocused) {
-      return false;
-    }
-    return true;
-  }, [accountId, isFocused, networkId]);
-
-  const swrKey = 'fetchNFTList';
-  const { mutate } = useSWR(swrKey, fetchData, {
-    refreshInterval: 30 * 1000,
-    revalidateOnMount: false,
-    revalidateOnFocus: false,
-    shouldRetryOnError: false,
-    isPaused() {
-      return !shouldDoRefresh;
-    },
-    onSuccess(data) {
-      if (isMountedRef.current) {
-        updateListData(data);
-      }
-    },
-  });
-
-  useEffect(() => {
-    if (shouldDoRefresh) {
-      mutate();
-    }
-  }, [mutate, shouldDoRefresh, account, networkId]);
+  }, [account, networkId, serviceNFT]);
 
   useEffect(() => {
     (async () => {
@@ -245,9 +210,13 @@ function SendNFTList() {
         if (isMountedRef.current) {
           updateListData(localData);
         }
+        const requestData = await fetchData();
+        if (isMountedRef.current) {
+          updateListData(requestData);
+        }
       }
     })();
-  }, [account, isMountedRef, networkId, serviceNFT]);
+  }, [account, fetchData, isMountedRef, networkId, serviceNFT]);
 
   return allAssets.length > 0 ? (
     <SendNFTContentProvider listData={allAssets} multiSelect={false}>
