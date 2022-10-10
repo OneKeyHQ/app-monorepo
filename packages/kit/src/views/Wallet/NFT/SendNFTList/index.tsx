@@ -104,17 +104,14 @@ function List() {
       numColumns={numColumns}
       data={listData}
       renderItem={renderItem}
-      ListHeaderComponent={<Box h="24px" />}
-      ListFooterComponent={
-        <Box h={`${50 + bottom + (isSmallScreen ? 0 : 24)}px`} />
-      }
       showsVerticalScrollIndicator={false}
+      py="24px"
     />
   );
 }
 
 function SendButton() {
-  const isSmallScreen = useIsVerticalLayout();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const content = useSendNFTContent();
   const { bottom } = useSafeAreaInsets();
@@ -147,16 +144,10 @@ function SendButton() {
   };
 
   return (
-    <Box
-      position="absolute"
-      width="100%"
-      bottom={`${bottom + (isSmallScreen ? 0 : 24)}px`}
-    >
+    <Box pt="16px" pb={{ base: `${16 + bottom}px`, md: '24px' }}>
       <Button
         isDisabled={isDisabled}
-        width="full"
-        height="50px"
-        size="xl"
+        size={isVerticalLayout ? 'xl' : 'lg'}
         type="primary"
         onPress={sendAction}
       >
@@ -168,7 +159,7 @@ function SendButton() {
               { count: selectNFTs.length },
             )
           : intl.formatMessage({
-              id: 'action__send',
+              id: 'action__send_nft',
             })}
       </Button>
     </Box>
@@ -178,6 +169,7 @@ function SendButton() {
 function SendNFTList() {
   const { account, networkId } = useActiveWalletAccount();
   const [collectibles, updateListData] = useState<Collection[]>([]);
+  const intl = useIntl();
 
   const allAssets = useMemo(
     () =>
@@ -229,7 +221,7 @@ function SendNFTList() {
         🖼️
       </Text>
       <Text typography="DisplayMedium" mt="12px">
-        No NFTs
+        {intl.formatMessage({ id: 'empty__no_nfts' })}
       </Text>
     </Box>
   );

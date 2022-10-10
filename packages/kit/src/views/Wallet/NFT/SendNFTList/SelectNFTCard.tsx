@@ -1,6 +1,8 @@
 import React, { ComponentProps, memo, useCallback } from 'react';
 import type { FC } from 'react';
 
+import { MotiView } from 'moti';
+
 import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -35,11 +37,17 @@ function SelectedIndicator({
       size={`${width}px`}
     >
       {selected && (
-        <Icon
-          name="CheckCircleSolid"
-          color="interactive-default"
-          size={width}
-        />
+        <MotiView
+          from={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'timing', duration: 150 }}
+        >
+          <Icon
+            name="CheckCircleSolid"
+            color="interactive-default"
+            size={width}
+          />
+        </MotiView>
       )}
     </Box>
   );
@@ -87,21 +95,30 @@ const SelectNFTCard: FC<Props> = ({ cardWidth, asset, ...rest }) => {
         width={cardWidth}
         onPress={onSelectAsset}
       >
-        <CollectibleListImage
-          asset={asset}
-          borderRadius="12px"
-          size={cardWidth}
-        />
-        <Text typography="Body2Strong" height="40px" numberOfLines={2} mt="8px">
-          {asset.name ?? asset.collection.contractName ?? ''}
-        </Text>
-        <Box position="absolute" right="6px" top="6px">
-          <SelectedIndicator
-            multiSelect={multiSelect}
-            selected={asset.selected}
-            width={20}
-          />
-        </Box>
+        {({ isHovered, isPressed }) => (
+          <>
+            <MotiView
+              animate={{ opacity: isHovered || isPressed ? 0.8 : 1 }}
+              transition={{ type: 'timing', duration: 150 }}
+            >
+              <CollectibleListImage
+                asset={asset}
+                borderRadius="12px"
+                size={cardWidth}
+              />
+            </MotiView>
+            <Text typography="Body2Strong" numberOfLines={2} mt="8px">
+              {asset.name ?? asset.collection.contractName ?? ''}
+            </Text>
+            <Box position="absolute" right="6px" top="6px">
+              <SelectedIndicator
+                multiSelect={multiSelect}
+                selected={asset.selected}
+                width={20}
+              />
+            </Box>
+          </>
+        )}
       </Pressable>
     </Box>
   );

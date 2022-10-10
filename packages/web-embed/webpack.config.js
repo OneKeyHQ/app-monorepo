@@ -15,7 +15,7 @@ module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(
     {
       ...env,
-      babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
+      babel: { dangerouslyAddModulePathsToTranspile: ['moti', '@gorhom'] },
     },
     argv,
   );
@@ -32,10 +32,9 @@ module.exports = async function (env, argv) {
     config,
     env,
   });
-
-  const htmlWebpackPlugin = config.plugins.find(
-    (p) => p.constructor.name === 'HtmlWebpackPlugin',
-  );
+  // const htmlWebpackPlugin = config.plugins.find(
+  //   (p) => p.constructor.name === 'HtmlWebpackPlugin',
+  // );
 
   config.plugins = [
     ...config.plugins,

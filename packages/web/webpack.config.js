@@ -12,7 +12,7 @@ module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(
     {
       ...env,
-      babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
+      babel: { dangerouslyAddModulePathsToTranspile: ['moti', '@gorhom'] },
       mode:
         process.env.NODE_ENV === 'production' ? 'production' : 'development',
     },

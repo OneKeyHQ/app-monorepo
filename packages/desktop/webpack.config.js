@@ -11,7 +11,7 @@ module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(
     {
       ...env,
-      babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
+      babel: { dangerouslyAddModulePathsToTranspile: ['moti', '@gorhom'] },
     },
     argv,
   );

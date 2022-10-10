@@ -107,22 +107,16 @@
     "node-notifier": "^10.0.0",
     "patch-package": "^6.4.7",
     "prettier": "^2.3.2",
-    "raw-loader": "^4.0.2",
     "react-native-bundle-visualizer": "^3.1.1",
-    "remove-files-webpack-plugin": "^1.4.5",
     "rimraf": "^3.0.2",
-    "sharedworker-loader": "^2.1.1",
-    "source-map-loader": "^3.0.0",
     "style-loader": "^2.0.0",
     "terser-webpack-plugin": "^4.2.3",
-    "ts-loader": "^9.2.6",
     "typescript": "4.8.4",
     "ultra-runner": "^3.10.5",
     "webpack": "4.43.0",
     "webpack-bundle-analyzer": "^4.6.1",
     "webpack-cli": "^4.10.0",
-    "webpack-dev-server": "^4.9.2",
-    "worker-loader": "^3.0.7"
+    "webpack-dev-server": "^4.9.2"
   },
   "resolutions": {
     "**/webpack-dev-server": "^4.3.1",
