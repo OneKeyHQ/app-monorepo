@@ -7,3 +7,12 @@ export const shortenAddress = (address: string, chars = 4) => {
 };
 
 export const CDN_PREFIX = 'https://onekey-asset.com/';
+
+export const numberToString = (value: number): string => {
+  const eFormat = value.toExponential();
+  const tmpArray = eFormat.match(/\d(?:\.(\d*))?e([+-]\d+)/);
+  const number = value.toFixed(
+    Math.max(0, (tmpArray?.[1] || '').length - parseInt(tmpArray?.[2] ?? '0')),
+  );
+  return number;
+};

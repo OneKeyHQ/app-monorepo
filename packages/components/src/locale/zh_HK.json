@@ -1100,6 +1100,7 @@
   "msg__received_a_nft": "🤑 收到 NFT",
   "msg__received_desc": "來自{address}",
   "msg__recover_account_progress": "{0}帳戶已恢復。 {1}總數",
+  "msg__recover_account_stopping": "正在停止恢復，請稍候...",
   "msg__removed": "已移除",
   "msg__renamed": "已重新命名。",
   "msg__restored_str": "已恢復 \"{0}\"",

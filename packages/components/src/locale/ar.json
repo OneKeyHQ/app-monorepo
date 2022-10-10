@@ -1100,6 +1100,7 @@
   "msg__received_a_nft": "🤑 حصل على NFT",
   "msg__received_desc": "من {address}",
   "msg__recover_account_progress": "{0} تم استرداد الحسابات. {1} الإجماليات",
+  "msg__recover_account_stopping": "جاري إيقاف الاسترداد ، يرجى الانتظار ...",
   "msg__removed": "إزالة!",
   "msg__renamed": "أعيدت تسميته",
   "msg__restored_str": "تمت استعادة \" {0} \"",

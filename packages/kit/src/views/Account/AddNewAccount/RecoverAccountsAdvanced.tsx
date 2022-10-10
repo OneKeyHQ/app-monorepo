@@ -228,6 +228,7 @@ const RecoverAccountsAdvanced: FC = () => {
             }}
           >
             <Form.Input
+              type="number"
               keyboardType="number-pad"
               size={isSmallScreen ? 'xl' : 'default'}
             />
@@ -271,6 +272,7 @@ const RecoverAccountsAdvanced: FC = () => {
             }}
           >
             <Form.Input
+              type="number"
               keyboardType="number-pad"
               size={isSmallScreen ? 'xl' : 'default'}
               rightCustomElement={generateCountButton}
