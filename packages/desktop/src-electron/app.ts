@@ -260,6 +260,11 @@ function createMainWindow() {
     event.reply('app/reloadBridgeProcess', true);
   });
 
+  ipcMain.on('app/restoreMainWindow', (event) => {
+    logger.debug('restoreMainWindow receive');
+    browserWindow.show();
+  });
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send('appState', undefined);
@@ -448,6 +453,10 @@ if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
 if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
   // Define custom protocol handler. Deep linking works on packaged versions of the application!
   app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
+}
+
+if (isWin) {
+  app.setAppUserModelId(APP_NAME);
 }
 
 // https://github.com/oikonomopo/electron-deep-linking-mac-win/blob/master/main.js

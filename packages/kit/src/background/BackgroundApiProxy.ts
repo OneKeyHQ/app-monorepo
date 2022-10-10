@@ -13,6 +13,7 @@ import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect'
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';
+import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
@@ -104,6 +105,10 @@ class BackgroundApiProxy
   ) as ServiceNotification;
 
   serviceSocket = this._createProxyService('serviceSocket') as ServiceSocket;
+
+  serviceBootstrap = this._createProxyService(
+    'serviceBootstrap',
+  ) as ServiceBootstrap;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

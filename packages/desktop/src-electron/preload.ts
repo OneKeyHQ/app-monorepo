@@ -55,6 +55,7 @@ export type DesktopAPI = {
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
   installUpdate: () => void;
+  restore: () => void;
 };
 declare global {
   interface Window {
@@ -151,6 +152,9 @@ const desktopApi = {
     ipcRenderer.send('update/check', isManual),
   downloadUpdate: () => ipcRenderer.send('update/download'),
   installUpdate: () => ipcRenderer.send('update/install'),
+  restore: () => {
+    ipcRenderer.send('app/restoreMainWindow');
+  },
 };
 
 window.desktopApi = desktopApi;

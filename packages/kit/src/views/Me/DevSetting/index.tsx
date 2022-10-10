@@ -12,6 +12,7 @@ import {
   useTheme,
   useToast,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
   getFiatEndpoint,
@@ -160,7 +161,7 @@ export const DevSettingSection = () => {
             titleColor="text-critical"
             subDescribeCustom={
               <Pressable onPress={copyRegistrationId}>
-                <Text color="text-subdued">{pushId}</Text>
+                <Text color="text-subdued">{shortenAddress(pushId || '')}</Text>
               </Pressable>
             }
           />

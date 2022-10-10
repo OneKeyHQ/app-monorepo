@@ -19,6 +19,10 @@ import {
   persistStore,
 } from 'redux-persist';
 
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
@@ -117,7 +121,12 @@ export function makeStore() {
         immutableCheck: { warnAfter: 128 },
       }).concat(middlewares),
   });
-  const persistor = persistStore(store);
+  const persistor = persistStore(store, null, () => {
+    debugLogger.common.info(`receive: store persisted`);
+    if (platformEnv.isExtensionBackground) {
+      appEventBus.emit(AppEventBusNames.InitReduxStateFromPersitor);
+    }
+  });
   return { store, persistor };
 }
 
