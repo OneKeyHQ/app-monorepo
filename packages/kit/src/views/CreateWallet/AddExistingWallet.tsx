@@ -74,6 +74,7 @@ function useAddExistingWallet({
   const toast = useToast();
   const { activeNetworkId } = useGeneral();
   const { wallets } = useRuntime();
+  const onboardingDone = useOnboardingDone();
 
   const { mode = 'all', presetText = '' } = (route.params ||
     emptyParams) as IAddExistingWalletModalParams;
@@ -137,6 +138,7 @@ function useAddExistingWallet({
               },
               {},
             );
+            onboardingDone({ showOnBoardingLoading: true });
           },
         });
         return;
@@ -154,6 +156,7 @@ function useAddExistingWallet({
               },
               {},
             );
+            onboardingDone({ showOnBoardingLoading: true });
           },
         });
         return;
@@ -204,6 +207,7 @@ function useAddExistingWallet({
             {},
           );
           onAddWatchingDone();
+          onboardingDone({ showOnBoardingLoading: true });
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
           toast.show(
@@ -225,6 +229,7 @@ function useAddExistingWallet({
               },
               {},
             );
+            onboardingDone({ showOnBoardingLoading: true });
           },
         });
       }
@@ -237,6 +242,7 @@ function useAddExistingWallet({
       onAddMnemonicAuth,
       onAddWatchingDone,
       onMultipleResults,
+      onboardingDone,
       toast,
       wallets,
     ],
@@ -425,7 +431,6 @@ function AddExistingWalletView(
 }
 
 function OnboardingAddExistingWallet() {
-  const onboardingDone = useOnboardingDone();
   const navigation = useNavigation();
 
   const context = useOnboardingContext();
@@ -453,9 +458,7 @@ function OnboardingAddExistingWallet() {
     debugLogger.onBoarding.info(
       'OnboardingAddExistingWallet > onAddWatchingDone',
     );
-
-    onboardingDone();
-  }, [onboardingDone]);
+  }, []);
 
   const onAddMnemonicAuth = useCallback(
     (p: IAppWalletDoneModalParams) => {
@@ -528,7 +531,6 @@ function OneKeyLiteRecoveryButton() {
 // AddExistingWalletInModal
 const AddExistingWallet = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const onboardingDone = useOnboardingDone();
   const route = useRoute();
   // @ts-expect-error
   const walletName = useWalletName({ wallet: route?.params?.wallet });
@@ -551,8 +553,8 @@ const AddExistingWallet = () => {
   );
 
   const onAddWatchingDone = useCallback(() => {
-    onboardingDone();
-  }, [onboardingDone]);
+    // noop
+  }, []);
 
   const onAddImportedAuth = useCallback(
     (p: IAddImportedAccountDoneModalParams) => {

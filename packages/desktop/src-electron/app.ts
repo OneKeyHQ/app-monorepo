@@ -263,6 +263,7 @@ function createMainWindow() {
   ipcMain.on('app/restoreMainWindow', (event) => {
     logger.debug('restoreMainWindow receive');
     browserWindow.show();
+    event.reply('app/restoreMainWindow', true);
   });
 
   // reset appState to undefined  to avoid screen lock.

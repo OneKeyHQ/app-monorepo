@@ -82,8 +82,13 @@ export function useNavigationActions() {
       .routes.find((route) => route.name === 'root');
 
     if (root) {
-      const inst = navigation.getParent() || navigation;
-      inst.goBack();
+      // const inst = navigation.getParent() || navigation;
+      // TODO why need goBack here? may recalling some logic when navigation back to previous route.
+      // inst.goBack();
+
+      // replace not working
+      // navigation.dispatch(StackActions.replace(TabRoutes.Home));
+
       // @ts-expect-error
       navigation.navigate(TabRoutes.Home);
       navigation.dispatch(TabActions.jumpTo(TabRoutes.Home, {}));
