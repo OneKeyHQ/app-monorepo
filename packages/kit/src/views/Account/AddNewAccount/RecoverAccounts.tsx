@@ -130,11 +130,11 @@ const AccountCell: FC<CellProps> = ({
         }}
         text={{
           label: shortenAddress(item.displayAddress),
+          labelProps: { w: '120px' },
           description: showPathAndLink ? item.path : undefined,
-          descriptionProps: { typography: 'Caption' },
+          descriptionProps: { typography: 'Caption', w: '132px' },
           size: 'sm',
         }}
-        w="132px"
       />
       <ListItem.Column>
         <Box alignItems="flex-end" flex={1}>
@@ -209,7 +209,6 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
           labelProps: { typography: 'Subheading', color: 'text-subdued' },
         }}
         flex={1}
-        w="132px"
       />
       <ListItem.Column
         alignItems="flex-end"
