@@ -56,7 +56,6 @@ export type CreateAccountRoutesParams = {
     purpose: number;
     existingAccounts: Account[];
     config: RecoverAccountsAdvancedParams;
-    selectedAll: boolean;
   };
   [CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication]: {
     walletId: string;

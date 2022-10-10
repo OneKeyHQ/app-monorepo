@@ -1100,6 +1100,7 @@
   "msg__received_a_nft": "🤑NFTを受け取りました",
   "msg__received_desc": "{address}から",
   "msg__recover_account_progress": "{0}アカウントが復元されました。 {1}合計",
+  "msg__recover_account_stopping": "リカバリを停止しています。お待ちください...",
   "msg__removed": "削除済み",
   "msg__renamed": "名前変更済み。",
   "msg__restored_str": "「 {0} 」を復元した",

@@ -1100,6 +1100,7 @@
   "msg__received_a_nft": "🤑 Nakatanggap ng NFT",
   "msg__received_desc": "Mula {address}",
   "msg__recover_account_progress": "{0} Nabawi ang mga account. {1} mga kabuuan",
+  "msg__recover_account_stopping": "Huminto sa pagbawi, mangyaring maghintay...",
   "msg__removed": "Inalis",
   "msg__renamed": "Pinalitan ng pangalan",
   "msg__restored_str": "Ibinalik ang \" {0} \"",

@@ -599,7 +599,6 @@ const RecoverAccounts: FC = () => {
               config.generateCount ?? 0,
             ),
           },
-          selectedAll: isAllSelected,
         });
       }}
       primaryActionProps={{
