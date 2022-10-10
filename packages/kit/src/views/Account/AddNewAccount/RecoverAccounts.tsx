@@ -43,11 +43,17 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 
 import { FormatBalance } from '../../../components/Format';
 import { deviceUtils } from '../../../utils/hardware';
 
-import { AdvancedValues, FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
+import { FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
+
+import type {
+  AdvancedValues,
+  RecoverAccountType as RecoverAccountConfirmType,
+} from './types';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -56,13 +62,15 @@ type RouteProps = RouteProp<
   CreateAccountModalRoutes.RecoverAccountsList
 >;
 
-type FlatDataType = ImportableHDAccount & {
+type RecoverAccountType = ImportableHDAccount;
+type SelectStateType = {
   selected: boolean;
   isDisabled: boolean;
 };
 
 type CellProps = {
-  item: FlatDataType;
+  item: RecoverAccountType;
+  state: SelectStateType | undefined;
   decimal: number;
   showPathAndLink: boolean;
   onChange: (select: boolean) => void;
@@ -71,22 +79,23 @@ type CellProps = {
 
 const AccountCell: FC<CellProps> = ({
   item,
+  state,
   onChange,
   decimal,
   showPathAndLink,
   openBlockExplorer,
 }) => {
-  const [isChecked, setChecked] = useState(item.selected);
+  const [isChecked, setChecked] = useState(state?.selected ?? false);
 
   useEffect(() => {
-    setChecked(item.selected);
-  }, [item.selected]);
+    setChecked(state?.selected ?? false);
+  }, [state?.selected]);
 
   const onToggle = useCallback(() => {
-    if (item.isDisabled) return;
+    if (state?.isDisabled) return;
     setChecked(!isChecked);
     onChange?.(!isChecked);
-  }, [isChecked, item.isDisabled, onChange]);
+  }, [isChecked, state?.isDisabled, onChange]);
 
   return (
     <ListItem onPress={onToggle} flex={1}>
@@ -100,7 +109,7 @@ const AccountCell: FC<CellProps> = ({
           <CheckBox
             w={6}
             isChecked={isChecked}
-            isDisabled={item.isDisabled}
+            isDisabled={state?.isDisabled ?? false}
             onChange={onToggle}
             pointerEvents="box-only"
           />
@@ -200,13 +209,9 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
         }}
       />
       {showPathAndLink && (
-        <ListItem.Column
-          icon={{
-            name: 'ExternalLinkSolid',
-            color: 'surface-subdued',
-            size: 20,
-          }}
-        />
+        <ListItem.Column>
+          <Box w={5} />
+        </ListItem.Column>
       )}
     </ListItem>
   );
@@ -272,8 +277,17 @@ const RecoverAccounts: FC = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const [allCacheData, setAllCacheData] = useState<FlatDataType[]>([]);
-  const [currentPageData, updateCurrentPageData] = useState<FlatDataType[]>([]);
+  const [loadedAccounts, setLoadedAccounts] = useState<
+    Map<number, RecoverAccountType>
+  >(new Map());
+  const [selectState, setSelectState] = useState<Map<number, SelectStateType>>(
+    new Map(),
+  );
+
+  const [currentPageData, updateCurrentPageData] = useState<
+    RecoverAccountType[]
+  >([]);
+
   const { wallets, networks } = useRuntime();
   const [pageWidth, setPageWidth] = useState<number>(0);
   const selectedNetWork = networks.filter((n) => n.id === network)[0];
@@ -282,13 +296,16 @@ const RecoverAccounts: FC = () => {
   const { openAddressDetails } = useOpenBlockBrowser(selectedNetWork);
 
   const [isAllSelected, setAllSelected] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [config, setConfig] = useState<AdvancedValues>({
+  const [config, setConfig] = useState<
+    AdvancedValues & { currentPage: number }
+  >({
+    currentPage: 0,
     fromIndex: 1,
     generateCount: 0,
     showPathAndLink: false,
   });
   const [realGenerateCount, setRealGenerateCount] = useState(Number.MAX_VALUE);
+  const [refreshTimestamp, setRefreshTimestamp] = useState(getTimeStamp());
 
   const isBatchMode = useMemo(
     () => config.generateCount && config.generateCount > 0,
@@ -297,7 +314,6 @@ const RecoverAccounts: FC = () => {
 
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
 
-  const [isInitLoading, setInitLoading] = useState(true);
   const [isLoading, setLoading] = useState(false);
   const [isValid, setIsValid] = useState(false);
   const isFetchingData = useRef(false);
@@ -322,88 +338,90 @@ const RecoverAccounts: FC = () => {
     refreshActiveAccounts();
   }, [network, wallet, obj]);
 
-  const getData = useCallback(
-    async (
-      pageIndex: number,
-      pageSize: number,
-      pathFromIndex: number,
-      generateCount: number,
-      cacheData: FlatDataType[],
-      selectAll = false,
-    ) => {
-      const lastPage = Math.ceil(generateCount / PAGE_SIZE) - 1;
-      const isLastPage = generateCount !== 0 && pageIndex === lastPage;
+  useEffect(() => {
+    if (isLoading) return;
+    isFetchingData.current = true;
+    setLoading(true);
 
-      let page = 0;
-      if (pageIndex < 0) {
-        page = 0;
-      } else if (generateCount && isLastPage) {
-        page = lastPage;
-      } else {
-        page = pageIndex;
-      }
+    const pageIndex = config.currentPage;
+    const pageSize = PAGE_SIZE;
+    const fromPathIndex = config.fromIndex;
+    const generateCount = config.generateCount ?? 0;
 
-      const start = page * pageSize + pathFromIndex - 1;
-      let limit = pageSize;
-      if (pageIndex === 0 && isBatchMode && generateCount < pageSize) {
-        limit = generateCount;
-      } else if (isLastPage) {
-        limit = generateCount - page * pageSize;
-      }
-      if (start + limit > FROM_INDEX_MAX) {
-        limit = FROM_INDEX_MAX - start;
-      }
+    const lastPage = Math.ceil(generateCount / PAGE_SIZE) - 1;
+    const isLastPage = generateCount !== 0 && pageIndex === lastPage;
 
-      const allCacheStart = page * pageSize;
-      const targetNumber = page * pageSize + limit;
+    let page = 0;
+    if (pageIndex < 0) {
+      page = 0;
+    } else if (generateCount && isLastPage) {
+      page = lastPage;
+    } else {
+      page = pageIndex;
+    }
 
-      if (cacheData.length >= targetNumber) {
-        updateCurrentPageData(
-          cacheData.slice(allCacheStart, allCacheStart + limit),
-        );
-        return;
-      }
+    const start = page * pageSize + fromPathIndex - 1;
+    let limit = pageSize;
+    if (pageIndex === 0 && isBatchMode && generateCount < pageSize) {
+      limit = generateCount;
+    } else if (isLastPage) {
+      limit = generateCount - page * pageSize;
+    }
+    if (start + limit > FROM_INDEX_MAX) {
+      limit = FROM_INDEX_MAX - start;
+    }
 
-      isFetchingData.current = true;
-      setLoading(true);
-      try {
-        await backgroundApiProxy.engine
-          .searchHDAccounts(walletId, network, password, start, limit, purpose)
-          .then((accounts) => {
-            if (accounts.length !== limit || accounts.length !== pageSize) {
-              limit = accounts.length;
-              setRealGenerateCount(start + accounts.length - pathFromIndex + 1);
-            }
+    const toAddAccountIndex = Array.from(Array(limit).keys()).map(
+      (index) => start + index,
+    );
 
-            if (pageIndex === 0) {
-              setInitLoading(false);
-            }
+    const currentPageArray: RecoverAccountType[] = [];
+    if (
+      toAddAccountIndex.every((i) => {
+        const account = loadedAccounts.get(i);
+        if (account) {
+          currentPageArray.push(account);
+          return true;
+        }
+        return false;
+      })
+    ) {
+      updateCurrentPageData(currentPageArray);
+      isFetchingData.current = false;
+      setLoading(false);
+      return;
+    }
 
-            isFetchingData.current = false;
-            setAllCacheData(() => {
-              const data = cacheData.concat(
-                accounts.map((item) => {
-                  const isDisabled = activeAccounts.current.some(
-                    (a) => a.path === item.path,
-                  );
-                  return {
-                    ...item,
-                    selected: isDisabled || selectAll,
-                    isDisabled,
-                  };
-                }),
-              );
+    backgroundApiProxy.engine
+      .searchHDAccounts(walletId, network, password, start, limit, purpose)
+      .then((accounts) => {
+        if (accounts.length !== limit || accounts.length !== pageSize) {
+          limit = accounts.length;
+          setRealGenerateCount(start + accounts.length - fromPathIndex + 1);
+        }
 
-              updateCurrentPageData(
-                data.slice(allCacheStart, allCacheStart + limit),
-              );
-              setIsValid(data.some((i) => !i.isDisabled && i.selected));
-              setLoading(false);
-              return data;
-            });
+        const addedAccounts = new Map(loadedAccounts);
+        const addedSelectState = new Map<number, SelectStateType>(selectState);
+        accounts.forEach((i) => {
+          const isDisabled = activeAccounts.current.some(
+            (a) => a.path === i.path,
+          );
+          addedSelectState.set(i.index, {
+            isDisabled,
+            selected: isDisabled || !!isBatchMode,
           });
-      } catch (e) {
+          addedAccounts.set(i.index, i);
+        });
+
         isFetchingData.current = false;
+        updateCurrentPageData(accounts);
+        setLoadedAccounts(addedAccounts);
+        setSelectState(addedSelectState);
+        setLoading(false);
+      })
+      .catch((e) => {
+        isFetchingData.current = false;
+        setLoading(false);
         if (navigation.isFocused()) {
           setTimeout(() => {
             deviceUtils.showErrorToast(e, 'msg__engine__internal_error');
@@ -412,71 +430,86 @@ const RecoverAccounts: FC = () => {
 
         navigation?.goBack?.();
         navigation?.goBack?.();
-      }
-    },
-    [isBatchMode, navigation, network, password, purpose, walletId],
-  );
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    refreshTimestamp,
+    config.fromIndex,
+    config.generateCount,
+    config.currentPage,
+    isBatchMode,
+    navigation,
+    network,
+    password,
+    purpose,
+    walletId,
+  ]);
 
   const checkBoxOnChange = useCallback(
-    (isSelected: boolean, item: FlatDataType, index: number): boolean => {
-      setAllCacheData((prev) => {
-        if (
-          !prev[item.index]?.isDisabled &&
-          prev[item.index]?.path === item.path
-        ) {
-          prev[item.index].selected = isSelected;
-        }
-
-        return prev;
-      });
-      updateCurrentPageData((prev) => {
-        if (!prev[index]?.isDisabled && prev[index]?.path === item.path) {
-          prev[index].selected = isSelected;
-        }
-
-        return prev;
-      });
-
-      setIsValid(allCacheData.some((i) => !i.isDisabled && i.selected));
-
-      if (!isSelected) {
-        setAllSelected(false);
-      } else {
-        const selectedAll = allCacheData.every((i) => i.selected);
-        setAllSelected(selectedAll);
+    (isSelected: boolean, item: RecoverAccountType): boolean => {
+      const newSelectState = new Map(selectState);
+      const state = newSelectState.get(item.index);
+      if (!state?.isDisabled) {
+        newSelectState.set(item.index, {
+          isDisabled: false,
+          selected: isSelected,
+        });
+        setSelectState(newSelectState);
       }
       return true;
     },
-    [allCacheData],
+    [selectState],
   );
 
-  const onRefreshCheckBox = useCallback((selectedAll: boolean) => {
-    setAllCacheData((prev) => {
-      const cacheData = prev.map((item) => ({
-        ...item,
-        selected: item.isDisabled ? item.selected : selectedAll,
-      }));
+  const onRefreshCheckBox = useCallback(
+    (selectedAll: boolean) => {
+      const newSelectState = new Map(selectState);
 
-      setIsValid(cacheData.some((i) => !i.isDisabled && i.selected));
-      return cacheData;
+      const start = config.currentPage * PAGE_SIZE + config.fromIndex - 1;
+      for (let index = start; index < start + PAGE_SIZE; index += 1) {
+        const state = newSelectState.get(index);
+        if (!!state && !state.isDisabled) {
+          newSelectState.set(index, {
+            isDisabled: false,
+            selected: selectedAll,
+          });
+        }
+      }
+
+      setSelectState(newSelectState);
+    },
+    [config.fromIndex, config.currentPage, selectState],
+  );
+
+  useEffect(() => {
+    let selectAll = selectState.size > 0;
+    let verify = false;
+    selectState.forEach((value, index) => {
+      if (!verify && !value.isDisabled && value.selected) {
+        verify = true;
+      }
+      const start = config.currentPage * PAGE_SIZE + config.fromIndex - 1;
+      if (index >= start && index < start + PAGE_SIZE) {
+        if (selectAll && !value.isDisabled && !value.selected) {
+          selectAll = false;
+        }
+      }
     });
-    updateCurrentPageData((prev) =>
-      prev.map((item) => ({
-        ...item,
-        selected: item.isDisabled ? item.selected : selectedAll,
-      })),
-    );
-  }, []);
+    setAllSelected(selectAll);
+    setIsValid(verify);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.currentPage, selectState]);
 
   const rowRenderer = useCallback(
-    ({ item, index }: ListRenderItemInfo<FlatDataType>) => (
+    ({ item }: ListRenderItemInfo<RecoverAccountType>) => (
       <AccountCell
         decimal={decimal}
         showPathAndLink={config.showPathAndLink}
         flex={1}
         item={item}
+        state={selectState.get(item.index)}
         onChange={(selected) => {
-          checkBoxOnChange(selected, item, index);
+          checkBoxOnChange(selected, item);
         }}
         openBlockExplorer={openAddressDetails}
       />
@@ -484,18 +517,6 @@ const RecoverAccounts: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [checkBoxOnChange, config.showPathAndLink],
   );
-
-  useEffect(() => {
-    getData(
-      currentPage,
-      PAGE_SIZE,
-      config.fromIndex,
-      config.generateCount ?? 0,
-      allCacheData,
-      isAllSelected,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
 
   /**
    * if the hardware method is still being called when the page jumps,
@@ -531,11 +552,13 @@ const RecoverAccounts: FC = () => {
     if (config.fromIndex >= FROM_INDEX_MAX) return true;
     if (!config.generateCount) return false;
 
-    return currentPage === Math.ceil(config.generateCount / PAGE_SIZE) - 1;
+    return (
+      config.currentPage === Math.ceil(config.generateCount / PAGE_SIZE) - 1
+    );
   }, [
     config.fromIndex,
     config.generateCount,
-    currentPage,
+    config.currentPage,
     currentPageData.length,
   ]);
 
@@ -547,8 +570,19 @@ const RecoverAccounts: FC = () => {
       primaryActionTranslationId="action__recover"
       onPrimaryActionPress={() => {
         hardwareCancel();
+
+        const recoverAccounts: RecoverAccountConfirmType[] = [];
+        loadedAccounts.forEach((value, index) => {
+          const state = selectState.get(index);
+          recoverAccounts.push({
+            ...value,
+            isDisabled: state?.isDisabled ?? false,
+            selected: state?.selected ?? false,
+          });
+        });
+
         navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
-          accounts: allCacheData,
+          accounts: recoverAccounts,
           walletId,
           network,
           purpose,
@@ -578,7 +612,7 @@ const RecoverAccounts: FC = () => {
         },
       }}
     >
-      {isInitLoading || isLoading ? (
+      {isLoading ? (
         <Center flex={1}>
           <Spinner size="lg" />
         </Center>
@@ -607,14 +641,7 @@ const RecoverAccounts: FC = () => {
                   id: 'action__retry',
                 })}
                 handleAction={() => {
-                  getData(
-                    currentPage,
-                    PAGE_SIZE,
-                    config.fromIndex,
-                    config.generateCount ?? 0,
-                    allCacheData,
-                    isAllSelected,
-                  );
+                  setRefreshTimestamp(getTimeStamp());
                 }}
               />
             </Center>
@@ -623,25 +650,31 @@ const RecoverAccounts: FC = () => {
               data={currentPageData}
               showDivider
               renderItem={rowRenderer}
-              keyExtractor={(item: FlatDataType) => `${item.index}`}
+              keyExtractor={(item: RecoverAccountType) => `${item.index}`}
               extraData={isAllSelected}
             />
           )}
           <ListTableFooter
             minLimit={config.fromIndex}
             count={config.generateCount}
-            prevButtonDisabled={currentPage === 0}
+            prevButtonDisabled={config.currentPage === 0}
             nextButtonDisabled={isMaxPage}
             onPrevPagePress={() => {
-              setCurrentPage((prev) => {
-                if (prev === 0) return prev;
-                return prev - 1;
+              setConfig((prev) => {
+                if (prev.currentPage === 0) return prev;
+                return {
+                  ...prev,
+                  currentPage: prev.currentPage - 1,
+                };
               });
             }}
             onNextPagePress={() => {
-              setCurrentPage((prev) => {
+              setConfig((prev) => {
                 if (isMaxPage) return prev;
-                return prev + 1;
+                return {
+                  ...prev,
+                  currentPage: prev.currentPage + 1,
+                };
               });
             }}
             onAdvancedPress={() => {
@@ -661,27 +694,21 @@ const RecoverAccounts: FC = () => {
                         config.fromIndex !== fromIndex ||
                         config.generateCount !== count;
 
-                      const selectedAll = (count ?? 0) > 0;
                       const newConfig = {
-                        currentPage: isForceRefresh ? 0 : currentPage,
+                        currentPage: isForceRefresh ? 0 : config.currentPage,
                         fromIndex,
                         generateCount: count,
                         showPathAndLink: showPath,
                       };
 
-                      setConfig(newConfig);
-                      setCurrentPage(newConfig.currentPage);
+                      if (isForceRefresh) {
+                        setSelectState(new Map());
+                        setLoadedAccounts(new Map());
+                      }
+
                       setRealGenerateCount(Number.MAX_VALUE);
-                      if (selectedAll) setAllSelected(selectedAll);
-                      getData(
-                        newConfig.currentPage,
-                        PAGE_SIZE,
-                        newConfig.fromIndex,
-                        newConfig.generateCount ?? 0,
-                        isForceRefresh ? [] : allCacheData,
-                        selectedAll ? true : isAllSelected,
-                      );
-                    });
+                      setConfig(newConfig);
+                    }, 100);
                   },
                 },
               );

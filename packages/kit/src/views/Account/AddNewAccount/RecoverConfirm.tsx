@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
 import { IAccount } from '@onekeyhq/engine/src/types';
-import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
@@ -20,16 +19,11 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
 import { deviceUtils } from '../../../utils/hardware';
 
-import type { AdvancedValues } from './RecoverAccountsAdvanced';
-
-type FlatDataType = ImportableHDAccount & {
-  selected: boolean;
-  isDisabled: boolean;
-};
+import type { AdvancedValues, RecoverAccountType } from './types';
 
 type RecoverConfirmDoneProps = {
   password: string;
-  accounts: FlatDataType[];
+  accounts: RecoverAccountType[];
   walletId: string;
   network: string;
   purpose: number;
@@ -75,7 +69,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
     return value !== undefined;
   }
 
-  const authenticationDone = async (restoreAccounts: FlatDataType[]) => {
+  const authenticationDone = async (restoreAccounts: RecoverAccountType[]) => {
     let addedAccount: IAccount | undefined;
     try {
       const selectedAccount = restoreAccounts.filter(
@@ -101,7 +95,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
       addedAccount = addedAccounts?.[0];
 
       setImportedAccounts(() => {
-        let size = addedAccounts?.length ?? 0;
+        let size = addedAccounts?.length ?? 1;
         if (isBatch && size >= givenExistsSize) {
           size -= givenExistsSize;
         }
