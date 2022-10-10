@@ -1,5 +1,29 @@
 import { ListHeadTagType } from './types';
 
+export const ListHeadTagsForSearch: ListHeadTagType[] = [
+  {
+    id: 2,
+    title: 'NAME',
+    minW: '100px',
+    textAlign: 'left',
+    isVerticalLayout: false,
+  },
+  {
+    id: 3,
+    title: 'PRICE',
+    minW: '100px',
+    textAlign: 'right',
+    isVerticalLayout: true,
+  },
+  {
+    id: 4,
+    title: '24H%',
+    minW: '100px',
+    textAlign: 'right',
+    isVerticalLayout: true,
+  },
+];
+
 export const ListHeadTags: ListHeadTagType[] = [
   {
     id: 1,

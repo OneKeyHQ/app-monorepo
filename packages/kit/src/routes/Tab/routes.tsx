@@ -13,7 +13,6 @@ import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home/DiscoverHome';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MarketScreen from '@onekeyhq/kit/src/views/Market';
 import MarketDetail from '@onekeyhq/kit/src/views/Market/MarketDetail';
-import MarketSearch from '@onekeyhq/kit/src/views/Market/MarketSearch';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
 import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
@@ -80,10 +79,6 @@ export const tabRoutes: TabRouteConfig[] = [
     tabBarIcon: () => 'ChartSquareLineOutline',
     translationId: 'title__market',
     children: [
-      {
-        name: HomeRoutes.MarketSearch,
-        component: MarketSearch,
-      },
       {
         name: HomeRoutes.MarketDetail,
         component: MarketDetail,

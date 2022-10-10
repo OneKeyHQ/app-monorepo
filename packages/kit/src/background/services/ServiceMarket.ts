@@ -8,20 +8,31 @@ import {
   MARKET_FAVORITES_CATEGORYID,
   MarketCategory,
   MarketListSortType,
+  MarketTopTabName,
   cancleMarketFavorite,
   moveTopMarketFavorite,
   saveMarketCategorys,
   saveMarketFavorite,
-  updateMarketListSort,
-  updateMarketTokenIpmlChainId,
-  updateMarketTokens,
+  switchMarketTopTab,
   updateMarketChats,
-  updateSelectedCategory,
+  updateMarketListSort,
   updateMarketTokenDetail,
+  updateMarketTokenAllNetworkTokens,
+  updateMarketTokens,
+  updateSelectedCategory,
+  syncMarketSearchTokenHistorys,
+  saveMarketSearchTokenHistory,
+  clearMarketSearchTokenHistory,
+  updateSearchTabCategory,
+  updateSearchTokens,
+  updateSearchKeyword,
 } from '../../store/reducers/market';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
+import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
+import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
+import { getDefaultLocale } from '../../utils/locale';
 
 @backgroundClass()
 export default class ServiceMarket extends ServiceBase {
@@ -29,9 +40,13 @@ export default class ServiceMarket extends ServiceBase {
   async fetchMarketCategorys() {
     const { appSelector, dispatch } = this.backgroundApi;
     const path = '/market/category/list';
-    const datas: MarketCategory[] = await this.fetchData(path, {}, []);
+    const datas: MarketCategory[] = await this.fetchData(
+      path,
+      { locale: getDefaultLocale() },
+      [],
+    );
 
-    // 填充favorite coingeckoIds
+    // add favorite coingeckoIds from db
     const favorites = datas.find(
       (d) => d.categoryId === MARKET_FAVORITES_CATEGORYID,
     );
@@ -44,7 +59,7 @@ export default class ServiceMarket extends ServiceBase {
     }
     dispatch(saveMarketCategorys(datas));
 
-    // 切换到默认分类
+    // toggle default category
     const selectedCategoryId = appSelector((s) => s.market.selectedCategoryId);
     const categorys = appSelector((s) => s.market.categorys);
     const defaultCategory = Object.values(categorys).find(
@@ -68,7 +83,7 @@ export default class ServiceMarket extends ServiceBase {
     ids,
     sparkline,
   }: {
-    categoryId: string;
+    categoryId?: string;
     vsCurrency: string;
     ids?: string;
     sparkline?: boolean;
@@ -94,63 +109,15 @@ export default class ServiceMarket extends ServiceBase {
     );
   }
 
-  async fetchData<T>(
-    path: string,
-    query: Record<string, unknown> = {},
-    fallback: T,
-  ): Promise<T> {
-    const endpoint = getFiatEndpoint();
-    const apiUrl = `${endpoint}${path}?${qs.stringify(query)}`;
-    console.log('apiUrl--', apiUrl);
-    try {
-      const { data } = await axios.get<T>(apiUrl);
-      return data;
-    } catch (e) {
-      console.error(e);
-      return fallback;
-    }
-  }
-
   @backgroundMethod()
-  async fetchTokenSupportImpl(coingeckoId: string) {
-    const path = '/market/token/impls';
-    const data = await this.fetchData(path, { coingeckoId }, []);
+  async fetchMarketTokenAllNetWorkTokens(marketTokenId: string) {
+    const path = '/market/token/tokens/';
+    const data = await this.fetchData(path, { coingeckoId: marketTokenId }, []);
+    const tokens = data.map((t) => formatServerToken(t));
     this.backgroundApi.dispatch(
-      updateMarketTokenIpmlChainId({ coingeckoId, implChainIds: data }),
+      updateMarketTokenAllNetworkTokens({ marketTokenId, tokens }),
     );
-    return data;
-  }
-
-  async getMarketFavoriteTokens() {
-    return simpleDb.market.getFavoriteMarketTokens();
-  }
-
-  @backgroundMethod()
-  async saveMarketFavoriteTokens(coingeckoIds: string[]) {
-    this.backgroundApi.dispatch(saveMarketFavorite(coingeckoIds));
-    return simpleDb.market.saveFavoriteMarketTokens(coingeckoIds);
-  }
-
-  @backgroundMethod()
-  async clearMarketFavoriteTokens() {
-    return simpleDb.market.clearRawData();
-  }
-
-  @backgroundMethod()
-  async cancelMarketFavoriteToken(coingeckoId: string) {
-    this.backgroundApi.dispatch(cancleMarketFavorite(coingeckoId));
-    return simpleDb.market.deleteFavoriteMarketToken(coingeckoId);
-  }
-
-  @backgroundMethod()
-  async moveTopMarketFavoriteToken(coingeckoId: string) {
-    this.backgroundApi.dispatch(moveTopMarketFavorite(coingeckoId));
-    return simpleDb.market.unshiftFavoriteMarketToken(coingeckoId);
-  }
-
-  @backgroundMethod()
-  updateMarketListSort(listSort: MarketListSortType | null) {
-    this.backgroundApi.dispatch(updateMarketListSort(listSort));
+    return tokens;
   }
 
   @backgroundMethod()
@@ -160,6 +127,7 @@ export default class ServiceMarket extends ServiceBase {
       path,
       {
         id: coingeckoId,
+        locale: getDefaultLocale(),
       },
       null,
     );
@@ -198,5 +166,115 @@ export default class ServiceMarket extends ServiceBase {
       );
     }
     return Promise.resolve([]);
+  }
+
+  @backgroundMethod()
+  updateMarketSearchKeyword({ searchKeyword }: { searchKeyword: string }) {
+    this.backgroundApi.dispatch(updateSearchKeyword(searchKeyword));
+  }
+
+  @backgroundMethod()
+  async fetchMarketSearchTokens({ searchKeyword }: { searchKeyword: string }) {
+    if (searchKeyword.length === 0) return;
+    const path = '/market/search/';
+    const data = await this.fetchData(path, { query: searchKeyword }, []);
+    this.backgroundApi.dispatch(
+      updateSearchTokens({ searchKeyword, coingeckoIds: data }),
+    );
+    // updata tokenItem for redux
+    if (data.length > 0) {
+      this.fetchMarketList({
+        ids: data.join(','),
+        sparkline: false,
+        vsCurrency: 'usd',
+      });
+    }
+  }
+
+  async fetchData<T>(
+    path: string,
+    query: Record<string, unknown> = {},
+    fallback: T,
+  ): Promise<T> {
+    const endpoint = getFiatEndpoint();
+    const apiUrl = `${endpoint}${path}?${qs.stringify(query)}`;
+    console.log('apiUrl--', apiUrl);
+    try {
+      const { data } = await axios.get<T>(apiUrl);
+      return data;
+    } catch (e) {
+      console.error(e);
+      return fallback;
+    }
+  }
+
+  async getMarketFavoriteTokens() {
+    return simpleDb.market.getFavoriteMarketTokens();
+  }
+
+  @backgroundMethod()
+  async saveMarketFavoriteTokens(coingeckoIds: string[]) {
+    this.backgroundApi.dispatch(saveMarketFavorite(coingeckoIds));
+    return simpleDb.market.saveFavoriteMarketTokens(coingeckoIds);
+  }
+
+  @backgroundMethod()
+  async clearMarketFavoriteTokens() {
+    return simpleDb.market.clearRawData();
+  }
+
+  @backgroundMethod()
+  async cancelMarketFavoriteToken(coingeckoId: string) {
+    this.backgroundApi.dispatch(cancleMarketFavorite(coingeckoId));
+    return simpleDb.market.deleteFavoriteMarketToken(coingeckoId);
+  }
+
+  @backgroundMethod()
+  async moveTopMarketFavoriteToken(coingeckoId: string) {
+    this.backgroundApi.dispatch(moveTopMarketFavorite(coingeckoId));
+    return simpleDb.market.unshiftFavoriteMarketToken(coingeckoId);
+  }
+
+  @backgroundMethod()
+  updateMarketListSort(listSort: MarketListSortType | null) {
+    this.backgroundApi.dispatch(updateMarketListSort(listSort));
+  }
+
+  @backgroundMethod()
+  switchMarketTopTab(tabName: MarketTopTabName) {
+    this.backgroundApi.dispatch(switchMarketTopTab(tabName));
+  }
+
+  @backgroundMethod()
+  async syncSearchHistory() {
+    const historys = await simpleDb.market.getMarketSearchHistoryToken();
+    this.backgroundApi.dispatch(
+      syncMarketSearchTokenHistorys({ tokens: historys }),
+    );
+  }
+
+  @backgroundMethod()
+  async saveSearchHistory(token: ISimpleSearchHistoryToken) {
+    this.backgroundApi.dispatch(saveMarketSearchTokenHistory({ token }));
+    return simpleDb.market.saveMarketSearchHistoryToken(token);
+  }
+
+  @backgroundMethod()
+  async clearSearchHistory() {
+    this.backgroundApi.dispatch(clearMarketSearchTokenHistory());
+    return simpleDb.market.clearMarketSearchHistoryToken();
+  }
+
+  @backgroundMethod()
+  setMarketSearchTab(name: string | number | undefined) {
+    if (name) {
+      const categorys = this.backgroundApi.appSelector(
+        (s) => s.market.categorys,
+      );
+      const categoryId = Object.values(categorys).find(
+        (c) => c.name === name,
+      )?.categoryId;
+      this.backgroundApi.dispatch(updateSearchTabCategory(categoryId));
+    }
   }
 }

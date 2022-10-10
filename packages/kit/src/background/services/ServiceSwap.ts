@@ -66,6 +66,7 @@ export default class ServiceSwap extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     const outputToken = appSelector((s) => s.swap.outputToken);
     const inputToken = appSelector((s) => s.swap.inputToken);
+    console.log('swapToken--', token);
     if (
       outputToken &&
       outputToken.networkId === token.networkId &&

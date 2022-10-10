@@ -9,9 +9,12 @@ import {
   Typography,
 } from '@onekeyhq/components/src';
 
-import { useAppSelector } from '../../../hooks/redux';
-import { MarketCategory } from '../../../store/reducers/market';
-import { useMarketSelectedCategoryId } from '../hooks/useMarketCategory';
+import { useAppSelector } from '../../../../hooks/redux';
+import {
+  MarketCategory,
+  MARKET_FAVORITES_CATEGORYID,
+} from '../../../../store/reducers/market';
+import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 
 export type MarketCategoryToggleItem = MarketCategory & {
   leftIconName?: ICON_NAMES;
@@ -32,7 +35,7 @@ const MarketCategoryToggleComponent: React.FC<
   console.log('MarketCategoryToggleComponent--', selectedCategoryId);
   return (
     <Box width="full" flexDirection="row">
-      <ScrollView>
+      <ScrollView horizontal  showsHorizontalScrollIndicator={false}>
         <Box width="full" flexDirection="row">
           {items.map((i) => (
             <Pressable
@@ -52,7 +55,7 @@ const MarketCategoryToggleComponent: React.FC<
               {i.leftIconName ? (
                 <Icon size={i.leftIconSize || 20} name={i.leftIconName} />
               ) : null}
-              {i.categoryId !== 'favorites' ? (
+              {i.categoryId !== MARKET_FAVORITES_CATEGORYID ? (
                 <Typography.Body2Strong color="text-subdued">
                   {i.name}
                 </Typography.Body2Strong>

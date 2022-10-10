@@ -23,7 +23,7 @@ const NewsItem: FC<NewsItemProps> = ({
 }) => {
   console.log('NewsItem');
   return (
-    <ListItem onPress={onPress}>
+    <ListItem onPress={onPress} borderRadius={0} p={0}>
       <Box my="4" flexDirection="row" justifyContent="space-between" w="full">
         <Box flex={1} justifyContent="space-between">
           <Typography.Body1Strong noOfLines={2}>{title}</Typography.Body1Strong>

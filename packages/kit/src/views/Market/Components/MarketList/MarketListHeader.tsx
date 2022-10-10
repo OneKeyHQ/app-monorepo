@@ -26,6 +26,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
           if (tag.id === 1) {
             return (
               <ListItem.Column
+                key={`${tag.title ?? ''}--${tag.id}`}
                 text={{
                   label: tag.title,
                   labelProps: {
@@ -47,7 +48,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
             tag.id === 7
           ) {
             return (
-              <ListItem.Column>
+              <ListItem.Column key={`${tag.title ?? ''}--${tag.id}`}>
                 <Pressable
                   onPress={() => {
                     let direction: 'up' | 'down' = 'down';
@@ -95,7 +96,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
           }
           if (tag.id === 8) {
             return (
-              <ListItem.Column>
+              <ListItem.Column key={`${tag.title ?? ''}--${tag.id}`}>
                 <Box flex={1} />
               </ListItem.Column>
             );

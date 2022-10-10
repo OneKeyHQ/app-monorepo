@@ -9,7 +9,7 @@ import {
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MarketCategoryHeadProps, MarketCategoryToggleItem } from '../../types';
-import MarketCategoryToggleComponent from '../MarketCategoryToggleComponent';
+import MarketCategoryToggleComponent from './MarketCategoryToggleComponent';
 import { MARKET_FAVORITES_CATEGORYID } from '../../../../store/reducers/market';
 
 const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({

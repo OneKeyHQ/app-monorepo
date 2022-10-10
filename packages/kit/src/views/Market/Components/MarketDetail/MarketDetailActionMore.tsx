@@ -19,10 +19,8 @@ import { ColorType } from 'lightweight-charts';
 import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
-// favorites 1.remove from Favorites  2.move to top
-// !favorites add to favorites
 
-type MarketCellMoreMenuOption = {
+type MarketDetailActionMoreMenuOption = {
   id: string;
   onPress: () => void;
   icon: ICON_NAMES;
@@ -30,57 +28,35 @@ type MarketCellMoreMenuOption = {
   iconColor?: ThemeToken;
 };
 
-type MarketCellMoreMenuProps = {
+type MarketDetailActionMenuProps = {
   closeOverlay: () => void;
   token: MarketTokenItem;
 };
-const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
+const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
   closeOverlay,
   token,
 }) => {
-  const selectedCategoryId = useMarketSelectedCategoryId();
   const isVerticalLayout = useIsVerticalLayout();
-  console.log('MarketCellMoreMenu--');
-  const options: MarketCellMoreMenuOption[] = useMemo(() => {
-    if (
-      selectedCategoryId &&
-      selectedCategoryId === MARKET_FAVORITES_CATEGORYID
-    ) {
-      return [
-        {
-          id: 'remove From Favorites',
-          onPress: () => {
-            backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
-              token.coingeckoId,
-            );
-          },
-          icon: 'TrashSolid',
-          textColor: 'text-critical',
-          iconColor: 'icon-critical',
-        },
-        {
-          id: 'move To Top',
-          onPress: () => {
-            backgroundApiProxy.serviceMarket.moveTopMarketFavoriteToken(
-              token.coingeckoId,
-            );
-          },
-          icon: 'ArrowUpSolid',
-        },
-      ];
-    }
-    return [
+  const options: MarketDetailActionMoreMenuOption[] = useMemo(
+    () => [
       {
-        id: 'Add To Favorites',
+        id: 'Price Alert',
         onPress: () => {
-          backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
-            token.coingeckoId,
-          ]);
+          // TODO 订阅价格
+          console.log('token', token);
         },
-        icon: 'StarOutline',
+        icon: 'BellOutline',
       },
-    ];
-  }, [selectedCategoryId, token]);
+      {
+        id: 'Share',
+        onPress: () => {
+          // Share 分享的逻辑
+        },
+        icon: 'ShareOutline',
+      },
+    ],
+    [token],
+  );
   return (
     <Box>
       {options.map(({ id, onPress, icon, textColor, iconColor }) => (
@@ -115,7 +91,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
   );
 };
 
-export const showMarketCellMoreMenu = (
+export const showMarketDetailActionMoreMenu = (
   token: MarketTokenItem,
   modalProps?: ModalProps,
   triggerEle?: SelectProps['triggerEle'],
@@ -126,6 +102,6 @@ export const showMarketCellMoreMenu = (
       closeOverlay={closeOverlay}
       modalProps={modalProps}
     >
-      <MarketCellMoreMenu closeOverlay={closeOverlay} token={token} />
+      <MarketDetailActionMoreMenu closeOverlay={closeOverlay} token={token} />
     </OverlayPanel>
   ));

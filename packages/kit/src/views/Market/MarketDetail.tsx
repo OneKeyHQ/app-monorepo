@@ -1,37 +1,27 @@
-import React, { FC, useCallback, useLayoutEffect, useState } from 'react';
+import React, { FC, useCallback, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
 import {
   Box,
-  useIsVerticalLayout,
-  IconButton,
   Icon,
-  Typography,
+  IconButton,
   Image,
   ScrollView,
-  Center,
-  Spinner,
-  useThemeValue,
-  useUserDevice,
+  Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import MarketPriceChart from './Components/MarketDetail/MarketPriceChart';
 
-import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
-import { MarkeInfoContent } from './Components/MarketDetail/MarketInfoContent';
-import { MarketStatsContent } from './Components/MarketDetail/MarketStatsContent';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import { RouteProp, useRoute } from '@react-navigation/core';
-import { useManageTokens } from '../../hooks';
-import { useMarketTokenItem } from './hooks/useMarketToken';
+
 import { useMarketDetail } from './hooks/useMarketDetail';
+import { useMarketTokenItem } from './hooks/useMarketToken';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import MarketPriceChart from './Components/MarketDetail/MarketPriceChart';
-import {
-  MarketTokenDetail,
-  MarketTokenItem,
-} from '../../store/reducers/market';
+import { MarketTokenItem } from '../../store/reducers/market';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 
@@ -148,77 +138,6 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   );
 };
 
-const VERTICAL_HEADER_HEIGHT = 179;
-const HORIZONTAL_HEDER_HEIGHT = 87;
-
-type MarketDetailTabsProps = MarketTokenDetail & {
-  isFetching?: boolean;
-};
-
-const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
-  isFetching,
-  ...props
-}) => {
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
-  const [detailTabName, setdetailTabName] = useState<string | number>(
-    () => 'info',
-  );
-  const { screenWidth } = useUserDevice();
-  const isVerticalLayout = useIsVerticalLayout();
-  return (
-    <Tabs.Container
-      initialTabName={detailTabName}
-      onTabChange={({ tabName }) => {
-        setdetailTabName(tabName);
-      }}
-      headerContainerStyle={{
-        shadowOffset: { width: 0, height: 0 },
-        shadowColor: 'transparent',
-        elevation: 0,
-        borderBottomWidth: 1,
-        borderBottomColor: borderDefault,
-      }}
-      width={isVerticalLayout ? screenWidth : screenWidth - 224}
-      pagerProps={{ scrollEnabled: false }}
-      containerStyle={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        width: '100%',
-        marginHorizontal: 'auto', // Center align vertically
-        backgroundColor: tabbarBgColor,
-        alignSelf: 'center',
-        flex: 1,
-      }}
-      headerHeight={
-        isVerticalLayout ? VERTICAL_HEADER_HEIGHT : HORIZONTAL_HEDER_HEIGHT
-      }
-    >
-      <Tabs.Tab name="info">
-        {isFetching ? (
-          <Center flex={1}>
-            <Spinner size="lg" />
-          </Center>
-        ) : (
-          <MarkeInfoContent
-            low24h={props.stats?.low24h}
-            high24h={props.stats?.high24h}
-            marketCap={props.stats?.marketCap}
-            volume24h={props.stats?.volume24h}
-            news={props.news}
-            expolorers={props.explorers}
-            about={props.about}
-          />
-        )}
-      </Tabs.Tab>
-      <Tabs.Tab name="state">
-        <MarketStatsContent {...props.stats} />
-      </Tabs.Tab>
-    </Tabs.Container>
-  );
-};
-
 const MarketDetail: FC = () => {
   const route = useRoute<RouteProps>();
   const { marketTokenId } = route.params;
@@ -226,7 +145,10 @@ const MarketDetail: FC = () => {
   return (
     <MarketDetailLayout marketTokenId={marketTokenId}>
       <MarketPriceChart coingeckoId={marketTokenId} />
-      <MarketDetailTabs {...tokenDetail} isFetching={Boolean(!tokenDetail)} />
+      <MarketDetailTab
+        tokenDetail={tokenDetail}
+        marketTokenId={marketTokenId}
+      />
     </MarketDetailLayout>
   );
 };

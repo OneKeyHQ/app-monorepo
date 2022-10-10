@@ -1,6 +1,8 @@
 import { FC, useEffect, useRef } from 'react';
 
-import { Modalize } from 'react-native-modalize';
+import { Modalize, ModalizeProps } from 'react-native-modalize';
+
+import { IBoxProps } from 'native-base';
 
 import {
   Box,
@@ -13,17 +15,18 @@ import {
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { CloseBackDrop, SelectProps } from '@onekeyhq/components/src/Select';
+import { IDropdownPosition } from '@onekeyhq/components/src/Select';
 
 const ModalizedPanel: FC<{
   closeOverlay: () => void;
   modalProps?: ModalProps;
-}> = ({ closeOverlay, modalProps, children }) => {
+  modalLizeProps?: ModalizeProps;
+}> = ({ closeOverlay, modalProps, children, modalLizeProps }) => {
   const modalizeRef = useRef<Modalize>(null);
 
   const bg = useThemeValue('surface-subdued');
 
   const { bottom } = useSafeAreaInsets();
-
   useEffect(() => {
     setTimeout(() => modalizeRef.current?.open(), 10);
   }, []);
@@ -40,6 +43,7 @@ const ModalizedPanel: FC<{
         borderTopRightRadius: 24,
         overflow: 'hidden',
       }}
+      {...modalLizeProps}
     >
       <Modal
         visible
@@ -60,7 +64,15 @@ const ModalizedPanel: FC<{
 const DesktopDropdown: FC<{
   closeOverlay: () => void;
   triggerEle?: SelectProps['triggerEle'];
-}> = ({ closeOverlay, children, triggerEle }) => {
+  dropdownStyle?: IBoxProps;
+  dropdownPosition?: IDropdownPosition;
+}> = ({
+  closeOverlay,
+  children,
+  triggerEle,
+  dropdownStyle,
+  dropdownPosition,
+}) => {
   const translateY = 2;
   const contentRef = useRef();
   const { position, toPxPositionValue, isPositionNotReady } =
@@ -69,7 +81,7 @@ const DesktopDropdown: FC<{
       triggerEle,
       visible: true,
       translateY,
-      dropdownPosition: 'right',
+      dropdownPosition: dropdownPosition ?? 'right',
       autoAdjust: false,
     });
   return (
@@ -100,6 +112,7 @@ const DesktopDropdown: FC<{
           right={toPxPositionValue(position.right)}
           top={toPxPositionValue(position.top)}
           bottom={toPxPositionValue(position.bottom)}
+          {...dropdownStyle}
         >
           {children}
         </Box>
@@ -112,6 +125,9 @@ export const OverlayPanel: FC<{
   closeOverlay: () => void;
   triggerEle?: SelectProps['triggerEle'];
   modalProps?: ModalProps;
+  modalLizeProps?: ModalizeProps;
+  dropdownPosition?: IDropdownPosition;
+  dropdownStyle?: IBoxProps;
 }> = (props) => {
   const isVerticalLayout = useIsVerticalLayout();
 

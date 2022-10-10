@@ -189,7 +189,7 @@ const ListGallery = () => (
         <GroupingList
           data={MarketData}
           showDivider
-          headerProps={{}}
+          // headerProps={{}}
           ListHeaderComponent={() => (
             <>
               <ListItem>

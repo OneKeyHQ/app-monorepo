@@ -1,12 +1,22 @@
+import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import natsort from 'natsort';
+import { Token } from '../typings';
 import { TokenChartData } from './tokens';
 
 export const MARKET_FAVORITES_CATEGORYID = 'favorites';
-
+export const MARKET_SEARCH_HISTORY_MAX = 10;
 type CoingeckoId = string;
 type CategoryId = string;
+
+export enum MarketCategoryType {
+  MRKET_CATEGORY_TYPE_TAB = 'tab',
+  MRKET_CATEGORY_TYPE_SEARCH = 'search',
+}
+
+export const MARKET_TAB_NAME = 'Market';
+export const SWAP_TAB_NAME = 'Swap';
 
 type RecomentToken = {
   coingeckoId: string;
@@ -36,12 +46,12 @@ export type MarketTokenItem = {
   marketCap?: number;
   totalVolume?: number;
   favorited?: boolean;
-  implChainIds?: string[];
+  tokens?: Token[]; // all netWork tokens
 };
 
 export type MarketTokenDetail = {
   stats?: MarketStats;
-  about?: Record<string, string>;
+  about?: string;
   explorers?: MarketEXplorer[];
   news?: MarketNews[];
 };
@@ -97,7 +107,7 @@ export type MarketListSortType = {
 };
 
 type MarketCategoryTokensPayloadAction = {
-  categoryId: string;
+  categoryId?: string;
   marketTokens: MarketTokenItem[];
 };
 
@@ -112,18 +122,38 @@ type MarketTokenDetailPayloadAction = {
   data: MarketTokenDetail;
 };
 
-type MarketTokenIpmlChainIdPayloadAction = {
-  coingeckoId: CoingeckoId;
-  implChainIds: string[];
+type MarketTokenAllNetworkTokensPayloadAction = {
+  marketTokenId: CoingeckoId;
+  tokens: Token[];
 };
+
+type SearchHistoryPayloadAction = {
+  token: ISimpleSearchHistoryToken;
+};
+
+type SearchHistorySyncPayloadAction = {
+  tokens: ISimpleSearchHistoryToken[];
+};
+
+type SearchTokenPayloadAction = {
+  searchKeyword: string;
+  coingeckoIds: CoingeckoId[];
+};
+
+export type MarketTopTabName = 'Market' | 'Swap';
 
 export type MarketInitialState = {
   selectedCategoryId?: CategoryId;
+  searchTabCategoryId?: CategoryId;
   categorys: Record<CategoryId, MarketCategory>;
   marketTokens: Record<CoingeckoId, MarketTokenItem>;
   charts: Record<CoingeckoId, Record<string, TokenChartData>>;
-  detail: Record<CoingeckoId, MarketTokenDetail>;
+  details: Record<CoingeckoId, MarketTokenDetail>;
   listSort: MarketListSortType | null;
+  marktTobTapName: MarketTopTabName;
+  searchHistory?: ISimpleSearchHistoryToken[];
+  searchTokens: Record<string, CoingeckoId[]>;
+  searchKeyword?: string;
 };
 
 const initialState: MarketInitialState = {
@@ -131,7 +161,9 @@ const initialState: MarketInitialState = {
   marketTokens: {},
   listSort: null,
   charts: {},
-  detail: {},
+  details: {},
+  searchTokens: {},
+  marktTobTapName: MARKET_TAB_NAME,
 };
 
 function equalStringArr(arr1: string[], arr2: string[]) {
@@ -155,20 +187,22 @@ export const MarketSlicer = createSlice({
       action: PayloadAction<MarketCategoryTokensPayloadAction>,
     ) {
       const { categoryId, marketTokens } = action.payload;
-      // check categorys
       const { categorys } = state;
-      const cacheCategory = categorys[categoryId];
-      if (cacheCategory) {
-        const fetchCoingeckoIds = marketTokens.map((t) => t.coingeckoId);
-        if (!cacheCategory.coingeckoIds) {
-          cacheCategory.coingeckoIds = fetchCoingeckoIds;
-        } else if (
-          // ban favorite category coingecko ids change
-          categoryId !== MARKET_FAVORITES_CATEGORYID &&
-          !equalStringArr(cacheCategory.coingeckoIds, fetchCoingeckoIds) &&
-          state.listSort === null
-        ) {
-          cacheCategory.coingeckoIds = fetchCoingeckoIds;
+      // check categorys
+      if (categoryId) {
+        const cacheCategory = categorys[categoryId];
+        if (cacheCategory) {
+          const fetchCoingeckoIds = marketTokens.map((t) => t.coingeckoId);
+          if (!cacheCategory.coingeckoIds) {
+            cacheCategory.coingeckoIds = fetchCoingeckoIds;
+          } else if (
+            // ban favorite category coingecko ids change
+            categoryId !== MARKET_FAVORITES_CATEGORYID &&
+            !equalStringArr(cacheCategory.coingeckoIds, fetchCoingeckoIds) &&
+            state.listSort === null
+          ) {
+            cacheCategory.coingeckoIds = fetchCoingeckoIds;
+          }
         }
       }
       // check favorites
@@ -177,6 +211,7 @@ export const MarketSlicer = createSlice({
         t.favorited =
           favoriteCategory &&
           favoriteCategory.coingeckoIds?.includes(t.coingeckoId);
+        t.symbol = t.symbol ? t.symbol.toLocaleUpperCase() : '';
         const cacheMarketToken = state.marketTokens[t.coingeckoId];
         if (cacheMarketToken) {
           Object.assign(cacheMarketToken, t);
@@ -188,6 +223,13 @@ export const MarketSlicer = createSlice({
     updateSelectedCategory(state, action: PayloadAction<CategoryId>) {
       const { payload } = action;
       state.selectedCategoryId = payload;
+    },
+    updateSearchTabCategory(
+      state,
+      action: PayloadAction<CategoryId | undefined>,
+    ) {
+      const { payload } = action;
+      state.searchTabCategoryId = payload;
     },
     saveMarketFavorite(state, action: PayloadAction<string[]>) {
       const { payload } = action;
@@ -238,22 +280,8 @@ export const MarketSlicer = createSlice({
       action: PayloadAction<MarketTokenDetailPayloadAction>,
     ) {
       const { coingeckoId, data } = action.payload;
-      state.detail[coingeckoId] = data;
+      state.details[coingeckoId] = data;
     },
-    // updateMarketInfo(state, action: PayloadAction<InfoPayloadAction>) {
-    //   const { coingeckoId, info } = action.payload;
-    //   const oldInfo = state.infos[coingeckoId] || {};
-    //   state.infos[coingeckoId] = { ...oldInfo, ...info };
-    // },
-    // updateMarketStats(state, action: PayloadAction<StatsPayloadAction>) {
-    //   const { coingeckoId, stats } = action.payload;
-    //   const oldStats = state.infos[coingeckoId] || {};
-    //   state.stats[coingeckoId] = { ...oldStats, ...stats };
-    // },
-    // updateMarketNews(state, action: PayloadAction<NewsPayloadAction>) {
-    //   const { coingeckoId, news } = action.payload;
-    //   state.news[coingeckoId] = news;
-    // },
     updateMarketListSort(
       state,
       action: PayloadAction<MarketListSortType | null>,
@@ -319,20 +347,49 @@ export const MarketSlicer = createSlice({
         }
       }
     },
-    updateMarketTokenIpmlChainId(
+    updateMarketTokenAllNetworkTokens(
       state,
-      action: PayloadAction<MarketTokenIpmlChainIdPayloadAction>,
+      action: PayloadAction<MarketTokenAllNetworkTokensPayloadAction>,
     ) {
-      const { coingeckoId, implChainIds } = action.payload;
-      const cacheMarketToken = state.marketTokens[coingeckoId];
-      if (cacheMarketToken) {
-        if (
-          !cacheMarketToken.implChainIds ||
-          !equalStringArr(implChainIds, cacheMarketToken.implChainIds)
-        ) {
-          cacheMarketToken.implChainIds = implChainIds;
-        }
+      const { marketTokenId, tokens } = action.payload;
+      state.marketTokens[marketTokenId].tokens = tokens;
+    },
+    switchMarketTopTab(state, action: PayloadAction<MarketTopTabName>) {
+      state.marktTobTapName = action.payload;
+    },
+    saveMarketSearchTokenHistory(
+      state,
+      action: PayloadAction<SearchHistoryPayloadAction>,
+    ) {
+      const { token } = action.payload;
+      const historys = state.searchHistory ? [...state.searchHistory] : [];
+      const findIndex = historys.findIndex(
+        (t) => t.coingeckoId === token.coingeckoId,
+      );
+      if (findIndex !== -1) {
+        historys.splice(findIndex, 1);
       }
+      if (historys.length >= MARKET_SEARCH_HISTORY_MAX) {
+        historys.pop();
+      }
+      historys.unshift(token);
+      state.searchHistory = historys;
+    },
+    clearMarketSearchTokenHistory(state) {
+      state.searchHistory = [];
+    },
+    syncMarketSearchTokenHistorys(
+      state,
+      action: PayloadAction<SearchHistorySyncPayloadAction>,
+    ) {
+      state.searchHistory = action.payload.tokens;
+    },
+    updateSearchTokens(state, action: PayloadAction<SearchTokenPayloadAction>) {
+      const { searchKeyword, coingeckoIds } = action.payload;
+      state.searchTokens[searchKeyword] = coingeckoIds;
+    },
+    updateSearchKeyword(state, action: PayloadAction<string>) {
+      state.searchKeyword = action.payload;
     },
   },
 });
@@ -347,7 +404,14 @@ export const {
   saveMarketFavorite,
   moveTopMarketFavorite,
   updateMarketListSort,
-  updateMarketTokenIpmlChainId,
+  updateMarketTokenAllNetworkTokens,
+  switchMarketTopTab,
+  syncMarketSearchTokenHistorys,
+  clearMarketSearchTokenHistory,
+  saveMarketSearchTokenHistory,
+  updateSearchTabCategory,
+  updateSearchTokens,
+  updateSearchKeyword,
 } = MarketSlicer.actions;
 
 export default MarketSlicer.reducer;

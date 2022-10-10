@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Box,
@@ -16,45 +16,62 @@ import {
 import { MarketTokenItem } from '../../../../store/reducers/market';
 import { ListItem } from '../../../Components/stories/List/ListView';
 import { ListHeadTagType } from '../../types';
-import SparklineChart from '../SparklineChart';
+import SparklineChart from './SparklineChart';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
 import { showHomeMoreMenu } from '../../../Overlay/HomeMoreMenu';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
+import { useNavigation } from '@react-navigation/core';
+import { TabRoutes } from '../../../../routes/routesEnum';
+import { TabRoutesParams } from '../../../../routes/types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {
+  formatMarketValueForComma,
+  formatMarketValueForFiexd,
+  formatMarketValueForMillionAndBillion,
+} from '../../utils';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
 interface MarketTokenCellProps {
-  onPress?: () => void;
+  onPress?: (marketTokenItem: MarketTokenItem) => void;
+  onLongPress?: (marketTokenItem: MarketTokenItem) => void;
   marketTokenId: string;
   headTags: ListHeadTagType[];
 }
 
+type NavigationProps = NativeStackNavigationProp<TabRoutesParams>;
+
 const MarketTokenSwapEnable = ({
   marketTokenId,
-  implChainIds,
+  tokens,
 }: {
   marketTokenId: string;
-  implChainIds?: string[];
+  tokens?: Token[];
 }) => {
+  const navigation = useNavigation<NavigationProps>();
   useEffect(() => {
-    if (!implChainIds) {
-      backgroundApiProxy.serviceMarket.fetchTokenSupportImpl(marketTokenId);
+    if (!tokens) {
+      backgroundApiProxy.serviceMarket.fetchMarketTokenAllNetWorkTokens(
+        marketTokenId,
+      );
     }
-  }, [marketTokenId, implChainIds]);
+  }, [marketTokenId, tokens]);
 
-  if (implChainIds) {
-    return implChainIds.length > 0 ? (
+  if (tokens) {
+    return (
       <Button
         borderRadius={12}
+        isDisabled={tokens.length === 0}
         type="basic"
         size="xs"
         onPress={() => {
-          // TODO 点击Swap 逻辑
+          backgroundApiProxy.serviceSwap.setOutputToken(tokens[0]);
+          navigation.navigate(TabRoutes.Swap);
         }}
       >
         Swap
       </Button>
-    ) : (
-      <Box w="55px" h="30px" />
     );
   }
   return <Skeleton shape="Caption" />;
@@ -64,21 +81,34 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   onPress,
   marketTokenId,
   headTags,
+  onLongPress,
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
   });
+  const moreButtonRef = useRef();
+  const showMore = useCallback(
+    () =>
+      showMarketCellMoreMenu(
+        marketTokenItem,
+        {
+          header: `${marketTokenItem.symbol ?? marketTokenItem.name ?? ''}`,
+        },
+        moreButtonRef.current,
+      ),
+    [marketTokenItem],
+  );
   return (
     <ListItem
       borderRadius={0}
       onLongPress={() => {
-        if (isVerticalLayout && marketTokenItem)
-          showMarketCellMoreMenu(marketTokenItem);
+        if (isVerticalLayout && marketTokenItem && onLongPress)
+          onLongPress(marketTokenItem);
       }}
       onPress={() => {
         if (marketTokenItem && onPress) {
-          onPress();
+          onPress(marketTokenItem);
         }
       }}
     >
@@ -86,7 +116,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
         switch (tag.id) {
           case 1: {
             return (
-              <ListItem.Column>
+              <ListItem.Column key={tag.id}>
                 <HStack
                   alignItems="center"
                   justifyContent="center"
@@ -129,7 +159,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
           }
           case 2: {
             return (
-              <ListItem.Column>
+              <ListItem.Column key={tag.id}>
                 <HStack alignItems="center" flex={1} space={3}>
                   {marketTokenItem && marketTokenItem.image ? (
                     <Image
@@ -146,7 +176,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                     <Skeleton shape="Avatar" size={32} />
                   )}
                   <Box>
-                    {marketTokenItem && marketTokenItem.symbol ? (
+                    {marketTokenItem && marketTokenItem.symbol !== undefined ? (
                       <Typography.Body2Strong>
                         {marketTokenItem.symbol}
                       </Typography.Body2Strong>
@@ -154,9 +184,11 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       <Skeleton shape="Body2" />
                     )}
                     {marketTokenItem && marketTokenItem.totalVolume ? (
-                      <Typography.Body2 color="text-subdued">
-                        {isVerticalLayout
-                          ? `Vol$${marketTokenItem.totalVolume}`
+                      <Typography.Body2 noOfLines={1} color="text-subdued">
+                        {tag.isVerticalLayout
+                          ? `Vol$${formatMarketValueForMillionAndBillion(
+                              marketTokenItem.totalVolume,
+                            )}`
                           : marketTokenItem.name}
                       </Typography.Body2>
                     ) : (
@@ -168,17 +200,18 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             );
           }
           case 3: {
-            return marketTokenItem && marketTokenItem.price ? (
+            return marketTokenItem && marketTokenItem.price !== undefined ? (
               <ListItem.Column
+                key={tag.id}
                 text={{
-                  label: `$${marketTokenItem.price}`,
+                  label: `$${formatMarketValueForComma(marketTokenItem.price)}`,
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
                 flex={1}
               />
             ) : (
-              <ListItem.Column>
+              <ListItem.Column key={tag.id}>
                 <Box
                   flex={1}
                   flexDirection="row"
@@ -191,9 +224,12 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             );
           }
           case 4: {
-            if (marketTokenItem && marketTokenItem.priceChangePercentage24H) {
+            if (
+              marketTokenItem &&
+              marketTokenItem.priceChangePercentage24H !== undefined
+            ) {
               return isVerticalLayout ? (
-                <ListItem.Column>
+                <ListItem.Column key={tag.id}>
                   <Box
                     flex={1}
                     flexDirection="row"
@@ -219,17 +255,18 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                             ? 'text-success'
                             : 'text-critical'
                         }
-                      >{`${marketTokenItem.priceChangePercentage24H.toFixed(
-                        2,
+                      >{`${formatMarketValueForFiexd(
+                        marketTokenItem.priceChangePercentage24H,
                       )}%`}</Typography.Body2Strong>
                     </Box>
                   </Box>
                 </ListItem.Column>
               ) : (
                 <ListItem.Column
+                  key={tag.id}
                   text={{
-                    label: `${marketTokenItem.priceChangePercentage24H.toFixed(
-                      2,
+                    label: `${formatMarketValueForFiexd(
+                      marketTokenItem.priceChangePercentage24H,
                     )}%`,
                     labelProps: {
                       textAlign: tag.textAlign,
@@ -246,6 +283,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             }
             return (
               <ListItem.Column
+                key={tag.id}
                 flex={1}
                 alignItems="center"
                 justifyContent="flex-end"
@@ -262,17 +300,21 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             );
           }
           case 5: {
-            return marketTokenItem && marketTokenItem.totalVolume ? (
+            return marketTokenItem &&
+              marketTokenItem.totalVolume !== undefined ? (
               <ListItem.Column
+                key={tag.id}
                 text={{
-                  label: `$${marketTokenItem.totalVolume}`,
+                  label: `$${formatMarketValueForComma(
+                    marketTokenItem.totalVolume,
+                  )}`,
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
                 flex={1}
               />
             ) : (
-              <ListItem.Column>
+              <ListItem.Column key={tag.id}>
                 <Box
                   flex={1}
                   flexDirection="row"
@@ -285,17 +327,21 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             );
           }
           case 6: {
-            return marketTokenItem ? (
+            return marketTokenItem &&
+              marketTokenItem.marketCap !== undefined ? (
               <ListItem.Column
+                key={tag.id}
                 text={{
-                  label: `$${marketTokenItem.marketCap ?? 0}`,
+                  label: `$${formatMarketValueForComma(
+                    marketTokenItem.marketCap,
+                  )}`,
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
                 flex={1}
               />
             ) : (
-              <ListItem.Column>
+              <ListItem.Column key={tag.id}>
                 <Box
                   flex={1}
                   flexDirection="row"
@@ -309,7 +355,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
           }
           case 7: {
             return (
-              <ListItem.Column>
+              <ListItem.Column key={tag.id}>
                 <Box
                   flex={1}
                   flexDirection="row"
@@ -343,11 +389,11 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
           }
           case 8: {
             return (
-              <ListItem.Column>
-                <Box flexDirection="row" flex={1}>
+              <ListItem.Column key={tag.id}>
+                <Box flexDirection="row" flex={1} ref={moreButtonRef}>
                   {marketTokenItem ? (
                     <MarketTokenSwapEnable
-                      implChainIds={marketTokenItem.implChainIds}
+                      tokens={marketTokenItem.tokens}
                       marketTokenId={marketTokenId}
                     />
                   ) : (
@@ -360,9 +406,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                     type="plain"
                     ml="2"
                     circle
-                    onPress={() => {
-                      showMarketCellMoreMenu(marketTokenItem);
-                    }}
+                    onPress={showMore}
                   />
                 </Box>
               </ListItem.Column>
