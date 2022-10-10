@@ -198,6 +198,7 @@ export default class ServiceSwap extends ServiceBase {
       const data = {
         address: account.address,
         name: account.name,
+        accountId: account.id,
         networkId: network.id,
         networkImpl: network.impl,
       };
@@ -223,6 +224,19 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async handleAccountRemoved(account: Account) {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+    if (sendingAccount && sendingAccount.id === account.id) {
+      dispatch(setSendingAccount(undefined));
+    }
+    const recipient = appSelector((s) => s.swap.recipient);
+    if (recipient && recipient?.accountId === account.id) {
+      dispatch(setRecipient(undefined));
+    }
+  }
+
+  @backgroundMethod()
   async setSendingAccountByNetwork(
     network?: Network,
   ): Promise<Account | undefined> {
@@ -237,7 +251,8 @@ export default class ServiceSwap extends ServiceBase {
     ) {
       return sendingAccount;
     }
-    const { wallets, networks } = appSelector((s) => s.runtime);
+    const wallets = await engine.getWallets();
+    const { networks } = appSelector((s) => s.runtime);
     const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
       (s) => s.general,
     );

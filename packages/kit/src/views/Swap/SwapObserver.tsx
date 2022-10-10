@@ -1,6 +1,11 @@
 import React, { useEffect } from 'react';
 
+import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, usePrevious } from '../../hooks';
@@ -44,6 +49,15 @@ const NetworkObserver = () => {
 };
 
 const AccountsObserver = () => {
+  useEffect(() => {
+    const fn = (account: Account) => {
+      backgroundApiProxy.serviceSwap.handleAccountRemoved(account);
+    };
+    appUIEventBus.on(AppUIEventBusNames.RemoveAccount, fn);
+    return function () {
+      appUIEventBus.off(AppUIEventBusNames.RemoveAccount, fn);
+    };
+  }, []);
   const accounts = useAppSelector((s) => s.runtime.accounts);
   useEffect(() => {
     backgroundApiProxy.serviceSwap.refreshSendingAccount();
