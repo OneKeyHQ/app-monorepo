@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
+import { appSelector } from '../../../../store';
 import {
   WebSiteHistory,
   addWebSiteHistory,
@@ -16,6 +17,7 @@ import {
 } from '../../../../store/reducers/discover';
 import {
   addWebTab,
+  homeTab,
   setCurrentWebTab,
   setIncomingUrl,
   setWebTabData,
@@ -42,7 +44,6 @@ export const useWebController = ({
     }
   | undefined = {}) => {
   const { dispatch } = backgroundApiProxy;
-  const { firstRemindDAPP } = useAppSelector((s) => s.discover);
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
@@ -119,6 +120,7 @@ export const useWebController = ({
       }
 
       if (dapp && dapp.url !== tab?.url) {
+        const { firstRemindDAPP } = appSelector((s) => s.discover);
         if (firstRemindDAPP) {
           let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
           DialogManager.show({
@@ -153,7 +155,7 @@ export const useWebController = ({
         });
       }
     },
-    [firstRemindDAPP, dispatch, gotoSite, tab?.url],
+    [dispatch, gotoSite, tab?.url],
   );
   const onNavigation: OnWebviewNavigation = useCallback(
     ({
@@ -210,7 +212,18 @@ export const useWebController = ({
     gotoHome,
     gotoSite,
     openMatchDApp,
-    goBack,
+    goBack: () => {
+      if (tab?.canGoBack) {
+        goBack();
+      } else {
+        dispatch(
+          setWebTabData({
+            ...homeTab,
+            id: curId,
+          }),
+        );
+      }
+    },
     goForward,
     stopLoading,
     incomingUrl,

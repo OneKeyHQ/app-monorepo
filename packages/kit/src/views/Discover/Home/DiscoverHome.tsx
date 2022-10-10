@@ -35,8 +35,8 @@ import ListView from './ListView';
 import type { SectionDataType } from './type';
 
 interface DiscoverProps {
-  onItemSelect: (item: DAppItemType) => Promise<boolean>;
-  onItemSelectHistory: (item: MatchDAppItemType) => Promise<boolean>;
+  onItemSelect: (item: DAppItemType) => void;
+  onItemSelectHistory: (item: MatchDAppItemType) => void;
 }
 
 const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
@@ -119,7 +119,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   );
 };
 
-const DiscoverHome: FC<DiscoverProps> = ({ onItemSelect, ...rest }) => {
+const DiscoverHome: FC<DiscoverProps> = (props) => {
   const { locale } = useLocale();
   const navigation = useNavigation();
   const intl = useIntl();
@@ -134,40 +134,20 @@ const DiscoverHome: FC<DiscoverProps> = ({ onItemSelect, ...rest }) => {
     }
   }, [navigation, intl]);
 
-  const callback = useCallback(
-    (item: DAppItemType) =>
-      // eslint-disable-next-line no-async-promise-executor
-      new Promise<boolean>(async (resolve) => {
-        if (onItemSelect) {
-          const agree = await onItemSelect(item);
-          if (agree) {
-            // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
-            if (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad) {
-              navigation.goBack();
-            }
-          }
-          return resolve(agree);
-        }
-        return resolve(false);
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onItemSelect],
-  );
-
   const renderItem: ListRenderItem<SectionDataType> = useCallback(
     ({ item }) => {
       switch (item.type) {
         case 'banner':
-          return <Banner {...item} {...rest} onItemSelect={callback} />;
+          return <Banner {...item} {...props} />;
         case 'card':
-          return <CardView {...item} {...rest} onItemSelect={callback} />;
+          return <CardView {...item} {...props} />;
         case 'list':
-          return <ListView {...item} {...rest} onItemSelect={callback} />;
+          return <ListView {...item} {...props} />;
         default:
           return null;
       }
     },
-    [callback, rest],
+    [props],
   );
 
   const generaListData = useCallback(

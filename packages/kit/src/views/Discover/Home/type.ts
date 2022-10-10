@@ -6,5 +6,5 @@ export interface SectionDataType {
   title: string;
   data: DAppItemType[];
   type?: SectionType;
-  onItemSelect?: (item: DAppItemType) => Promise<boolean> | void;
+  onItemSelect?: (item: DAppItemType) => void;
 }
