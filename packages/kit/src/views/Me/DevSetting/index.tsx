@@ -54,6 +54,11 @@ export const DevSettingSection = () => {
   }, [registrationId, instanceId]);
   const onToggleTestVersionUpdate = useCallback(() => {
     dispatch(setPreReleaseUpdate(!preReleaseUpdate));
+    if (platformEnv.isDesktop) {
+      window.desktopApi?.setAutoUpdateSettings?.({
+        useTestFeedUrl: !preReleaseUpdate,
+      });
+    }
   }, [preReleaseUpdate, dispatch]);
 
   const onToggleDebugMode = useCallback(() => {

@@ -5,12 +5,16 @@ import { CancellationToken, autoUpdater } from 'electron-updater';
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { Dependencies } from '.';
+import type { UpdateSettings } from '../libs/store';
 
 interface LatestVersion {
   version: string;
   releaseDate: string;
   isManualCheck: boolean;
 }
+
+const PROD_FEEDURL = 'https://web.onekey-asset.com/app-monorepo/assets/';
+const TEST_FEEDURL = 'https://web.onekey-asset.com/app-monorepo/pre-release/';
 
 function isNetworkError(errorObject: Error) {
   return (
@@ -25,7 +29,7 @@ function isNetworkError(errorObject: Error) {
   );
 }
 
-const init = ({ mainWindow }: Dependencies) => {
+const init = ({ mainWindow, store }: Dependencies) => {
   // Enable feature on FE once it's ready
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('update/enable');
@@ -34,12 +38,21 @@ const init = ({ mainWindow }: Dependencies) => {
   let isManualCheck = false;
   let latestVersion: LatestVersion = {} as LatestVersion;
   let updateCancellationToken: CancellationToken;
+  const updateSettings = store.getUpdateSettings();
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.logger = logger;
 
-  logger.info('auto-updater', `updateSettings: empty`);
+  logger.info(
+    'auto-updater',
+    `updateSettings: ${JSON.stringify(updateSettings)}`,
+  );
+
+  const setUseTestFeedUrl = (useTestFeedUrl: boolean) => {
+    updateSettings.useTestFeedUrl = useTestFeedUrl;
+    store.setUpdateSettings(updateSettings);
+  };
 
   autoUpdater.on('checking-for-update', () => {
     logger.info('auto-updater', 'Checking for update');
@@ -123,7 +136,9 @@ const init = ({ mainWindow }: Dependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
-    autoUpdater.setFeedURL('https://web.onekey-asset.com/app-monorepo/assets/');
+    const feedUrl = updateSettings.useTestFeedUrl ? TEST_FEEDURL : PROD_FEEDURL;
+    autoUpdater.setFeedURL(feedUrl);
+    logger.info('current feed url: ', feedUrl);
     autoUpdater.checkForUpdates().catch((error) => {
       if (isNetworkError(error)) {
         logger.info('auto-updater', `Check for update network error`);
@@ -163,6 +178,11 @@ const init = ({ mainWindow }: Dependencies) => {
     mainWindow.close();
 
     autoUpdater.quitAndInstall();
+  });
+
+  ipcMain.on('update/settings', (_, settings: UpdateSettings) => {
+    logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
+    setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
   });
 };
 

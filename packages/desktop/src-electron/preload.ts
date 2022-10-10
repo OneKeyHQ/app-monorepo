@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
 
+import type { UpdateSettings } from './libs/store';
+
 let keytar = {
   async setPassword(...args: any[]) {
     // noop
@@ -55,6 +57,7 @@ export type DesktopAPI = {
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
   installUpdate: () => void;
+  setAutoUpdateSettings: (settings: UpdateSettings) => void;
   restore: () => void;
 };
 declare global {
@@ -152,6 +155,9 @@ const desktopApi = {
     ipcRenderer.send('update/check', isManual),
   downloadUpdate: () => ipcRenderer.send('update/download'),
   installUpdate: () => ipcRenderer.send('update/install'),
+  setAutoUpdateSettings: (settings: UpdateSettings) =>
+    ipcRenderer.send('update/settings', settings),
+
   restore: () => {
     ipcRenderer.send('app/restoreMainWindow');
   },
