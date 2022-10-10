@@ -1100,6 +1100,7 @@
   "msg__received_a_nft": "🤑 Đã nhận được một NFT",
   "msg__received_desc": "Từ {address}",
   "msg__recover_account_progress": "{0} Các tài khoản đã được phục hồi. {1} tổng số",
+  "msg__recover_account_stopping": "Đang dừng khôi phục, vui lòng đợi ...",
   "msg__removed": "Loại bỏ",
   "msg__renamed": "Đã đổi tên",
   "msg__restored_str": "Đã khôi phục \" {0} \"",

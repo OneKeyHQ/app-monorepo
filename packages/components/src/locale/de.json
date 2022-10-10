@@ -1100,6 +1100,7 @@
   "msg__received_a_nft": "🤑 NFT erhalten",
   "msg__received_desc": "Von {address}",
   "msg__recover_account_progress": "{0} Konten wurden wiederhergestellt. {1} Summen",
+  "msg__recover_account_stopping": "Wiederherstellung wird gestoppt, bitte warten...",
   "msg__removed": "Entfernt",
   "msg__renamed": "Umbenannt",
   "msg__restored_str": "\" {0} \" wiederhergestellt",

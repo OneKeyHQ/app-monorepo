@@ -1100,6 +1100,7 @@
   "msg__received_a_nft": "🤑 NFT 접수",
   "msg__received_desc": "{address} 에서",
   "msg__recover_account_progress": "{0} 계정이 복구되었습니다. 총계 {1}",
+  "msg__recover_account_stopping": "복구를 중지하는 중입니다. 잠시만 기다려 주십시오...",
   "msg__removed": "제거됨",
   "msg__renamed": "이름이 변경되었습니다!",
   "msg__restored_str": "복원된 \" {0} \"",

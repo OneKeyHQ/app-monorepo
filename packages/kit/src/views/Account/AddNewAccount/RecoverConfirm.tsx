@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useRef, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -14,10 +14,9 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
-
-import { deviceUtils } from '../../../utils/hardware';
 
 import type { AdvancedValues, RecoverAccountType } from './types';
 
@@ -28,7 +27,7 @@ type RecoverConfirmDoneProps = {
   network: string;
   purpose: number;
   config: AdvancedValues;
-  selectedAll: boolean;
+  stopFlag: boolean;
   onDone: () => void;
 };
 const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
@@ -38,7 +37,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   network,
   purpose,
   config,
-  selectedAll,
+  stopFlag,
   onDone,
 }) => {
   const intl = useIntl();
@@ -46,6 +45,11 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   const [importedAccounts, setImportedAccounts] = useState(0);
 
   const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
+  const stopRecoverFlag = useRef(stopFlag);
+
+  useEffect(() => {
+    stopRecoverFlag.current = stopFlag;
+  }, [stopFlag]);
 
   const recoverAccountIndex = async (index: number[]) => {
     debugLogger.common.info('recoverAccountIndex', JSON.stringify(index));
@@ -72,61 +76,48 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   const authenticationDone = async (restoreAccounts: RecoverAccountType[]) => {
     let addedAccount: IAccount | undefined;
     try {
-      const selectedAccount = restoreAccounts.filter(
-        (i) => !i.isDisabled && i.selected,
-      );
+      const isBatchMode = config.generateCount && config.generateCount > 0;
 
-      const isBatch =
-        selectedAll && config.generateCount && config.generateCount > 0;
+      let unAddedIndexes: number[] = [];
 
-      const givenExistsSize = restoreAccounts.length - selectedAccount.length;
-      if (isBatch) {
-        const size = (config.generateCount ?? 0) - givenExistsSize;
-        setTotalAccounts(size);
-      } else {
-        setTotalAccounts(selectedAccount.length);
-      }
-
-      const selectedIndexes = selectedAccount
-        .filter((i) => i.selected)
-        .map((i) => i.index);
-
-      const addedAccounts = await recoverAccountIndex(selectedIndexes);
-      addedAccount = addedAccounts?.[0];
-
-      setImportedAccounts(() => {
-        let size = addedAccounts?.length ?? 1;
-        if (isBatch && size >= givenExistsSize) {
-          size -= givenExistsSize;
-        }
-        return size;
-      });
-
-      if (isBatch) {
+      if (isBatchMode) {
         const addedMap = new Map<number, boolean>();
-        selectedIndexes?.forEach((i) => addedMap.set(i, true));
+        restoreAccounts?.forEach((i) => {
+          if (i.isDisabled && i.selected) {
+            addedMap.set(i.index, true);
+          }
+        });
 
-        const unAddedIndexes = Array.from(
-          Array((config.generateCount ?? 1) - 1).keys(),
-        )
+        unAddedIndexes = Array.from(Array(config.generateCount ?? 1).keys())
           .map((index) => {
-            const i = config.fromIndex + index;
+            const i = index + config.fromIndex - 1;
             if (addedMap.has(i)) {
               return undefined;
             }
             return i;
           })
           .filter(filterUndefined);
+      } else {
+        unAddedIndexes = restoreAccounts
+          .filter((i) => i.selected && !i.isDisabled)
+          .map((i) => i.index);
+      }
 
-        // Add every 20 accounts at a time
-        while (unAddedIndexes.length > 0) {
-          const indexes = unAddedIndexes.splice(
-            0,
-            Math.min(unAddedIndexes.length, 20),
-          );
-          await recoverAccountIndex(indexes);
-          setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
+      setTotalAccounts(unAddedIndexes.length);
+
+      // Add every 20 accounts at a time
+      while (unAddedIndexes.length > 0) {
+        const indexes = unAddedIndexes.splice(
+          0,
+          Math.min(unAddedIndexes.length, 20),
+        );
+        const recoverAccounts = await recoverAccountIndex(indexes);
+        if (recoverAccounts?.[0]) {
+          addedAccount = recoverAccounts?.[0];
         }
+        setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
+
+        if (stopRecoverFlag.current) break;
       }
     } catch (e: any) {
       debugLogger.common.error('recover error:', toPlainErrorObject(e));
@@ -162,6 +153,12 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
           },
         )}
       </Typography.Body1>
+
+      {stopFlag && (
+        <Typography.Body2 position="absolute" bottom={1} color="text-subdued">
+          {intl.formatMessage({ id: 'msg__recover_account_stopping' })}
+        </Typography.Body2>
+      )}
     </Center>
   );
 };
@@ -175,17 +172,17 @@ type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 const RecoverConfirm: FC = () => {
   const route = useRoute<RouteProps>();
-  const { accounts, walletId, network, purpose, config, selectedAll } =
-    route.params;
+  const { accounts, walletId, network, purpose, config } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
+
+  const [stopFlag, setStopFlag] = useState(false);
 
   return (
     <Modal
-      height="640px"
+      height="340px"
       headerShown={false}
-      footer={null}
       hidePrimaryAction
-      hideSecondaryAction
+      onSecondaryActionPress={() => setStopFlag(true)}
     >
       <Protected
         walletId={walletId}
@@ -200,7 +197,7 @@ const RecoverConfirm: FC = () => {
             network={network}
             purpose={purpose}
             config={config}
-            selectedAll={selectedAll}
+            stopFlag={stopFlag}
             onDone={() => {
               if (navigation?.canGoBack?.()) {
                 navigation?.getParent?.()?.goBack?.();
