@@ -19,7 +19,7 @@ interface ListProps<T> extends FlatListProps<T> {
   headerProps?: HeaderProps;
   footerText?: string;
   showDivider?: boolean;
-  ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
+  ListHeaderComponent?: () => JSX.Element;
 }
 
 function List<T>({
@@ -30,9 +30,9 @@ function List<T>({
   showDivider,
   ...rest
 }: ListProps<T>) {
-  const renderHeader = useMemo(() => {
+  const header = useMemo(() => {
+    if (ListHeaderComponent) return ListHeaderComponent();
     if (headerProps) {
-      if (ListHeaderComponent) return ListHeaderComponent(headerProps);
       return <Header {...headerProps} />;
     }
     return null;
@@ -40,7 +40,7 @@ function List<T>({
 
   return (
     <NBFlatList
-      ListHeaderComponent={renderHeader}
+      ListHeaderComponent={header}
       ListFooterComponent={
         footerText ? <Footer text={footerText} /> : ListFooterComponent
       }
@@ -71,7 +71,7 @@ interface GroupingListProps<T> extends SectionListProps<T> {
   headerProps?: HeaderProps;
   footerText?: string;
   showDivider?: boolean;
-  ListHeaderComponent?: (props: HeaderProps) => JSX.Element;
+  ListHeaderComponent?: () => JSX.Element;
 }
 
 function GroupingList<T>({
@@ -86,8 +86,8 @@ function GroupingList<T>({
   ...rest
 }: GroupingListProps<T>) {
   const header = useMemo(() => {
+    if (ListHeaderComponent) return ListHeaderComponent();
     if (headerProps) {
-      if (ListHeaderComponent) return ListHeaderComponent(headerProps);
       return <Header {...headerProps} />;
     }
     return null;
