@@ -28,7 +28,6 @@ type RecoverConfirmDoneProps = {
   network: string;
   purpose: number;
   config: AdvancedValues;
-  selectedAll: boolean;
   onDone: () => void;
 };
 const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
@@ -38,7 +37,6 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   network,
   purpose,
   config,
-  selectedAll,
   onDone,
 }) => {
   const intl = useIntl();
@@ -72,41 +70,19 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   const authenticationDone = async (restoreAccounts: RecoverAccountType[]) => {
     let addedAccount: IAccount | undefined;
     try {
-      const selectedAccount = restoreAccounts.filter(
-        (i) => !i.isDisabled && i.selected,
-      );
+      const isBatchMode = config.generateCount && config.generateCount > 0;
 
-      const isBatch =
-        selectedAll && config.generateCount && config.generateCount > 0;
+      let unAddedIndexes: number[] = [];
 
-      const givenExistsSize = restoreAccounts.length - selectedAccount.length;
-      if (isBatch) {
-        const size = (config.generateCount ?? 0) - givenExistsSize;
-        setTotalAccounts(size);
-      } else {
-        setTotalAccounts(selectedAccount.length);
-      }
-
-      const selectedIndexes = selectedAccount
-        .filter((i) => i.selected)
-        .map((i) => i.index);
-
-      const addedAccounts = await recoverAccountIndex(selectedIndexes);
-      addedAccount = addedAccounts?.[0];
-
-      setImportedAccounts(() => {
-        let size = addedAccounts?.length ?? 1;
-        if (isBatch && size >= givenExistsSize) {
-          size -= givenExistsSize;
-        }
-        return size;
-      });
-
-      if (isBatch) {
+      if (isBatchMode) {
         const addedMap = new Map<number, boolean>();
-        selectedIndexes?.forEach((i) => addedMap.set(i, true));
+        restoreAccounts?.forEach((i) => {
+          if (i.isDisabled && i.selected) {
+            addedMap.set(i.index, true);
+          }
+        });
 
-        const unAddedIndexes = Array.from(
+        unAddedIndexes = Array.from(
           Array((config.generateCount ?? 1) - 1).keys(),
         )
           .map((index) => {
@@ -117,16 +93,25 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
             return i;
           })
           .filter(filterUndefined);
+      } else {
+        unAddedIndexes = restoreAccounts
+          .filter((i) => i.selected && !i.isDisabled)
+          .map((i) => i.index);
+      }
 
-        // Add every 20 accounts at a time
-        while (unAddedIndexes.length > 0) {
-          const indexes = unAddedIndexes.splice(
-            0,
-            Math.min(unAddedIndexes.length, 20),
-          );
-          await recoverAccountIndex(indexes);
-          setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
+      setTotalAccounts(unAddedIndexes.length);
+
+      // Add every 20 accounts at a time
+      while (unAddedIndexes.length > 0) {
+        const indexes = unAddedIndexes.splice(
+          0,
+          Math.min(unAddedIndexes.length, 20),
+        );
+        const recoverAccounts = await recoverAccountIndex(indexes);
+        if (recoverAccounts?.[0]) {
+          addedAccount = recoverAccounts?.[0];
         }
+        setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
       }
     } catch (e: any) {
       debugLogger.common.error('recover error:', toPlainErrorObject(e));
@@ -175,8 +160,7 @@ type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 const RecoverConfirm: FC = () => {
   const route = useRoute<RouteProps>();
-  const { accounts, walletId, network, purpose, config, selectedAll } =
-    route.params;
+  const { accounts, walletId, network, purpose, config } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   return (
@@ -200,7 +184,6 @@ const RecoverConfirm: FC = () => {
             network={network}
             purpose={purpose}
             config={config}
-            selectedAll={selectedAll}
             onDone={() => {
               if (navigation?.canGoBack?.()) {
                 navigation?.getParent?.()?.goBack?.();
