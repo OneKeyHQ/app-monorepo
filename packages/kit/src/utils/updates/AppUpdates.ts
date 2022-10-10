@@ -214,16 +214,21 @@ class AppUpdates {
         }
       },
     );
-    window.desktopApi?.on?.('update/error', ({ version, err }) => {
-      debugLogger.autoUpdate.debug('update/error, err: ', err);
-      dispatch(error());
-      dispatch(
-        setUpdateSetting({
-          updateLatestVersion: version,
-          updateLatestTimeStamp: getTimeStamp(),
-        }),
-      );
-    });
+    window.desktopApi?.on?.(
+      'update/error',
+      ({ version, err, isNetworkError }) => {
+        debugLogger.autoUpdate.debug('update/error, err: ', err);
+        dispatch(error());
+        if (isNetworkError) {
+          dispatch(
+            setUpdateSetting({
+              updateLatestVersion: version,
+              updateLatestTimeStamp: getTimeStamp(),
+            }),
+          );
+        }
+      },
+    );
     window.desktopApi?.on?.('update/downloading', (progress: any) => {
       debugLogger.autoUpdate.debug(
         'update/downloading, progress: ',
