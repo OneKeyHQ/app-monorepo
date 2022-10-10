@@ -11,13 +11,10 @@ interface ListItemSeparatorProps {
 const ListItemSeparator: FC<ListItemSeparatorProps> = ({ showDivider }) =>
   showDivider ? (
     <Box
-      my={1}
       mx={2}
       borderBottomWidth={StyleSheet.hairlineWidth}
       borderColor="divider"
     />
-  ) : (
-    <Box h={2} />
-  );
+  ) : null;
 
 export default ListItemSeparator;

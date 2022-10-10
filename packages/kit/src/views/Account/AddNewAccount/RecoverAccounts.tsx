@@ -20,11 +20,10 @@ import {
   CheckBox,
   Empty,
   HStack,
-  Icon,
+  IconButton,
   List,
   ListItem,
   Modal,
-  Pressable,
   Spinner,
   Text,
   Typography,
@@ -44,6 +43,7 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
 import { deviceUtils } from '../../../utils/hardware';
@@ -113,14 +113,7 @@ const AccountCell: FC<CellProps> = ({
             onChange={onToggle}
             pointerEvents="box-only"
           />
-          <Text
-            style={{
-              // @ts-ignore
-              userSelect: 'none',
-            }}
-            typography="Body2Strong"
-            color="text-subdued"
-          >
+          <Text typography="Body2Strong" color="text-subdued">
             {item.index + 1}
           </Text>
         </Box>
@@ -133,6 +126,7 @@ const AccountCell: FC<CellProps> = ({
         text={{
           label: shortenAddress(item.displayAddress),
           description: showPathAndLink ? item.path : undefined,
+          size: 'sm',
         }}
         flex={1}
       />
@@ -156,13 +150,14 @@ const AccountCell: FC<CellProps> = ({
       </ListItem.Column>
       {showPathAndLink && (
         <ListItem.Column>
-          <Pressable
+          <IconButton
+            type="plain"
+            name="ExternalLinkSolid"
+            circle
             onPress={() => {
               openBlockExplorer(item.displayAddress);
             }}
-          >
-            <Icon name="ExternalLinkSolid" size={20} />
-          </Pressable>
+          />
         </ListItem.Column>
       )}
     </ListItem>
@@ -185,7 +180,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
   const intl = useIntl();
 
   return (
-    <ListItem px={0} pt={0} pb={4}>
+    <ListItem>
       <ListItem.Column>
         <Box
           flexDirection="row"
@@ -199,6 +194,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
       <ListItem.Column
         text={{
           label: intl.formatMessage({ id: 'form__address' }),
+          labelProps: { typography: 'Subheading', color: 'text-subdued' },
         }}
         flex={1}
       />
@@ -206,11 +202,12 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
         alignItems="flex-end"
         text={{
           label: symbol,
+          labelProps: { typography: 'Subheading', color: 'text-subdued' },
         }}
       />
       {showPathAndLink && (
         <ListItem.Column>
-          <Box w={5} />
+          <Box w="36px" />
         </ListItem.Column>
       )}
     </ListItem>
@@ -618,15 +615,6 @@ const RecoverAccounts: FC = () => {
         </Center>
       ) : (
         <Box flex={1}>
-          <ListTableHeader
-            symbol={symbol}
-            isAllSelected={isAllSelected}
-            showPathAndLink={config.showPathAndLink}
-            onChange={(selectedAll) => {
-              setAllSelected(selectedAll);
-              onRefreshCheckBox(selectedAll);
-            }}
-          />
           {currentPageData.length === 0 ? (
             <Center flex={1}>
               <Empty
@@ -647,11 +635,32 @@ const RecoverAccounts: FC = () => {
             </Center>
           ) : (
             <List
+              headerProps={{}}
+              ListHeaderComponent={() => (
+                <>
+                  <ListTableHeader
+                    symbol={symbol}
+                    isAllSelected={isAllSelected}
+                    showPathAndLink={config.showPathAndLink}
+                    onChange={(selectedAll) => {
+                      setAllSelected(selectedAll);
+                      onRefreshCheckBox(selectedAll);
+                    }}
+                  />
+                </>
+              )}
               data={currentPageData}
-              showDivider
               renderItem={rowRenderer}
               keyExtractor={(item: RecoverAccountType) => `${item.index}`}
               extraData={isAllSelected}
+              showsVerticalScrollIndicator={false}
+              ItemSeparatorComponent={() => (
+                <>
+                  {!config.showPathAndLink && platformEnv.isNative ? (
+                    <Box h="8px" />
+                  ) : undefined}
+                </>
+              )}
             />
           )}
           <ListTableFooter
