@@ -72,26 +72,27 @@ const SelectNFTCard: FC<Props> = ({ cardWidth, asset, ...rest }) => {
 
   return (
     <Box mb="16px" {...rest}>
-      <Pressable
-        flexDirection="column"
-        width={cardWidth}
-        onPress={onSelectAsset}
-      >
-        <CollectibleListImage
-          asset={asset}
-          borderRadius="12px"
-          size={cardWidth}
-        />
-        <Text typography="Body2Strong" height="40px" numberOfLines={2} mt="8px">
-          {asset.name ?? asset.collection.contractName ?? ''}
-        </Text>
-        <Box position="absolute" right="6px" top="6px">
-          <SelectedIndicator
-            multiSelect={multiSelect}
-            selected={asset.selected}
-            width={20}
-          />
-        </Box>
+      <Pressable width={cardWidth} onPress={onSelectAsset}>
+        {({ isHovered }) => (
+          <>
+            <CollectibleListImage
+              asset={asset}
+              borderRadius="12px"
+              size={cardWidth}
+              opacity={isHovered ? 0.8 : 1}
+            />
+            <Text typography="Body2Strong" numberOfLines={2} mt="8px">
+              {asset.name ?? asset.collection.contractName ?? ''}
+            </Text>
+            <Box position="absolute" right="6px" top="6px">
+              <SelectedIndicator
+                multiSelect={multiSelect}
+                selected={asset.selected}
+                width={20}
+              />
+            </Box>
+          </>
+        )}
       </Pressable>
     </Box>
   );
