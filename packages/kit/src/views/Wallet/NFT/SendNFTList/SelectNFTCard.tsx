@@ -89,7 +89,7 @@ const SelectNFTCard: FC<Props> = ({ cardWidth, asset, ...rest }) => {
           <>
             <MotiView
               animate={{ opacity: isHovered || isPressed ? 0.8 : 1 }}
-              transition={{ duration: 150 }}
+              transition={{ type: 'timing', duration: 150 }}
             >
               <CollectibleListImage
                 asset={asset}
