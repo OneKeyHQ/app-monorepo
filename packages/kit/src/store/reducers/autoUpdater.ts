@@ -76,6 +76,9 @@ export const autoUpdaterSlice = createSlice({
       state.skip = action.payload;
     },
     error(state) {
+      if (state.state === 'checking') {
+        state.state = 'not-available';
+      }
       if (state.state === 'downloading') {
         state.state = 'available';
       }

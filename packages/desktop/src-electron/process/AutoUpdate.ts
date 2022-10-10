@@ -96,6 +96,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
       mainWindow.webContents.send('update/error', {
         err,
         version: latestVersion.version,
+        isNetworkError: true,
       });
     }
   });
@@ -150,6 +151,11 @@ const init = ({ mainWindow, store }: Dependencies) => {
             error == null ? 'unknown' : (error.stack || error).toString()
           }`,
         );
+        mainWindow.webContents.send('update/error', {
+          err: error,
+          version: null,
+          isNetworkError: false,
+        });
       }
     });
   });
