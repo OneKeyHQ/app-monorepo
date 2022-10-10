@@ -16,7 +16,8 @@
     "@onekeyhq/kit": "*",
     "firebase": "^9.8.2",
     "expo": "^45.0.5",
-    "react-native-web": "0.18.9"
+    "react-native-web": "0.18.9",
+    "moti": "^0.20.0"
   },
   "private": true
 }

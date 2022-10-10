@@ -6,6 +6,7 @@ import ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
 import ServiceAccount from './services/ServiceAccount';
 import ServiceAccountSelector from './services/ServiceAccountSelector';
 import ServiceApp from './services/ServiceApp';
+import ServiceBootstrap from './services/ServiceBootstrap';
 import ServiceCloudBackup from './services/ServiceCloudBackup';
 import ServiceCronJob from './services/ServiceCronJob';
 import ServiceDapp from './services/ServiceDapp';
@@ -112,6 +113,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceSocket = new ServiceSocket({
+    backgroundApi: this,
+  });
+
+  serviceBootstrap = new ServiceBootstrap({
     backgroundApi: this,
   });
 }

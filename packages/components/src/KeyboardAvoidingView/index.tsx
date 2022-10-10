@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { KeyboardAvoidingView as BaseKAV } from 'native-base';
 import { Platform } from 'react-native';

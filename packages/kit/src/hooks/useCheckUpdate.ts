@@ -11,7 +11,7 @@ function useCheckUpdate() {
   const { autoDownload } = useSettings().updateSetting ?? {};
   const showUpdateBadge = useMemo(() => {
     let showBadge = false;
-    if (!autoDownload && (state === 'available' || state === 'downloading')) {
+    if (!autoDownload && state === 'available') {
       showBadge = true;
     }
     if (state === 'ready') {

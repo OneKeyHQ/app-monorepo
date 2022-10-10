@@ -3,6 +3,10 @@ import RNRestart from 'react-native-restart';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { switchTestEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -36,14 +40,24 @@ import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
+  private _appInited = false;
+
   constructor(props: IServiceBaseProps) {
     super(props);
     if (platformEnv.isExtensionBackground) {
       this.autoOpenOnboardingIfExtensionInstalled();
-      this.initApp();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
+      appEventBus.once(AppEventBusNames.InitReduxStateFromPersitor, () => {
+        this.initApp();
+      });
+    } else {
+      this.initApp();
     }
     // TODO recheck last reset status and resetApp here
+  }
+
+  get isAppInited() {
+    return this._appInited;
   }
 
   logger: string[] = [];
@@ -197,6 +211,7 @@ class ServiceApp extends ServiceBase {
       appSelector(
         (s) => s?.settings?.devMode?.enableTestFiatEndpoint ?? false,
       ) ?? false;
+
     switchTestEndpoint(enableTestFiatEndpoint);
 
     await engine.cleanupDBOnStart();
@@ -223,6 +238,8 @@ class ServiceApp extends ServiceBase {
         activeNetworkId,
       }),
     );
+
+    this._appInited = true;
   }
 
   @backgroundMethod()

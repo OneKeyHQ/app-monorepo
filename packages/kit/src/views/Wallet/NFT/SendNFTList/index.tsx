@@ -105,11 +105,8 @@ function List() {
       numColumns={numColumns}
       data={listData}
       renderItem={renderItem}
-      ListHeaderComponent={<Box h="24px" />}
-      ListFooterComponent={
-        <Box h={`${50 + bottom + (isSmallScreen ? 0 : 24)}px`} />
-      }
       showsVerticalScrollIndicator={false}
+      py="24px"
     />
   );
 }
@@ -148,7 +145,7 @@ function SendButton() {
   };
 
   return (
-    <Box py="16px">
+    <Box pt="16px" pb={{ base: `${16 + bottom}px`, md: '24px' }}>
       <Button
         isDisabled={isDisabled}
         size={isVerticalLayout ? 'xl' : 'lg'}

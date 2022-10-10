@@ -31,12 +31,6 @@ type NavigationProps = NativeStackNavigationProp<
   CreateAccountModalRoutes.RecoverAccountsAdvanced
 >;
 
-export type AdvancedValues = {
-  fromIndex: number;
-  generateCount?: number;
-  showPathAndLink: boolean;
-};
-
 // type number does not work properly on Android
 type FromValues = {
   fromIndex: string;
