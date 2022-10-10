@@ -304,6 +304,7 @@ const RecoverAccounts: FC = () => {
     generateCount: 0,
     showPathAndLink: false,
   });
+  const [depDataInit, setDepDataInit] = useState(false);
   const [realGenerateCount, setRealGenerateCount] = useState(Number.MAX_VALUE);
   const [refreshTimestamp, setRefreshTimestamp] = useState(getTimeStamp());
 
@@ -332,6 +333,7 @@ const RecoverAccounts: FC = () => {
           network,
         );
         obj.resolve();
+        setDepDataInit(true);
       }
       return activeAccounts;
     }
@@ -339,7 +341,9 @@ const RecoverAccounts: FC = () => {
   }, [network, wallet, obj]);
 
   useEffect(() => {
+    if (!depDataInit) return;
     if (isLoading) return;
+
     isFetchingData.current = true;
     setLoading(true);
 
@@ -437,6 +441,7 @@ const RecoverAccounts: FC = () => {
     config.fromIndex,
     config.generateCount,
     config.currentPage,
+    depDataInit,
     isBatchMode,
     navigation,
     network,
@@ -612,7 +617,7 @@ const RecoverAccounts: FC = () => {
         },
       }}
     >
-      {isLoading ? (
+      {isLoading || !depDataInit ? (
         <Center flex={1}>
           <Spinner size="lg" />
         </Center>
