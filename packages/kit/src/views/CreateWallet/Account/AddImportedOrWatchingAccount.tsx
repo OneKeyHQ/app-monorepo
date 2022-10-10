@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
   CreateWalletModalRoutes.AddImportedOrWatchingAccountModal
