@@ -657,7 +657,6 @@ const RecoverAccounts: FC = () => {
             </Center>
           ) : (
             <List
-              headerProps={{}}
               ListHeaderComponent={() => (
                 <>
                   <ListTableHeader
