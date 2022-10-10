@@ -16,10 +16,13 @@ import Icon, { ICON_NAMES } from '../Icon';
 import Pressable from '../Pressable';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
+import { numberToString } from '../utils';
 
 import type { TypographyStyle } from '../Typography';
 
 interface Props extends ComponentProps<typeof BaseInput> {
+  value?: string | undefined;
+  type?: 'text' | 'password' | 'number' | string;
   autoFocus?: boolean;
   isDisabled?: boolean;
   isReadOnly?: boolean;
@@ -40,9 +43,12 @@ interface Props extends ComponentProps<typeof BaseInput> {
   onPressSecondaryRightIcon?: () => void;
 }
 
+const numberPattern = new RegExp('^(\\d+)?(\\.?(\\d*))?$');
 const Input = forwardRef<typeof BaseInput, Props>(
   (
     {
+      value,
+      type,
       autoFocus,
       isDisabled,
       isReadOnly,
@@ -88,6 +94,21 @@ const Input = forwardRef<typeof BaseInput, Props>(
     let pl = '3';
     let pr = '3';
     const small = useIsVerticalLayout();
+
+    // Format corrects number style
+    let inputValue = value;
+    if (type === 'number' && inputValue && inputValue.length > 0) {
+      if (numberPattern.test(inputValue)) {
+        if (inputValue.startsWith('0') && !inputValue.startsWith('0.')) {
+          inputValue = numberToString(parseFloat(inputValue));
+        }
+      } else {
+        inputValue = inputValue.replace(/[^\d.]/gi, '');
+        if (inputValue && inputValue.length > 0) {
+          inputValue = numberToString(parseFloat(inputValue));
+        }
+      }
+    }
 
     let textProps: Pick<
       ComponentProps<typeof Text>,
@@ -265,6 +286,8 @@ const Input = forwardRef<typeof BaseInput, Props>(
         }}
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}
+        value={inputValue}
+        type={type}
         fontSize={textProps.fontSize}
         fontWeight={textProps.fontWeight}
         fontFamily={textProps.fontFamily}
