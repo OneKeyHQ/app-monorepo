@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import useSWR from 'swr';
 
 import {
   Box,
@@ -105,17 +104,14 @@ function List() {
       numColumns={numColumns}
       data={listData}
       renderItem={renderItem}
-      ListHeaderComponent={<Box h="24px" />}
-      ListFooterComponent={
-        <Box h={`${50 + bottom + (isSmallScreen ? 0 : 24)}px`} />
-      }
       showsVerticalScrollIndicator={false}
+      py="24px"
     />
   );
 }
 
 function SendButton() {
-  const isSmallScreen = useIsVerticalLayout();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const content = useSendNFTContent();
   const { bottom } = useSafeAreaInsets();
@@ -148,16 +144,10 @@ function SendButton() {
   };
 
   return (
-    <Box
-      position="absolute"
-      width="100%"
-      bottom={`${bottom + (isSmallScreen ? 0 : 24)}px`}
-    >
+    <Box pt="16px" pb={{ base: `${16 + bottom}px`, md: '24px' }}>
       <Button
         isDisabled={isDisabled}
-        width="full"
-        height="50px"
-        size="xl"
+        size={isVerticalLayout ? 'xl' : 'lg'}
         type="primary"
         onPress={sendAction}
       >
@@ -169,7 +159,7 @@ function SendButton() {
               { count: selectNFTs.length },
             )
           : intl.formatMessage({
-              id: 'action__send',
+              id: 'action__send_nft',
             })}
       </Button>
     </Box>
@@ -177,8 +167,9 @@ function SendButton() {
 }
 
 function SendNFTList() {
-  const { account, networkId, accountId } = useActiveWalletAccount();
+  const { account, networkId } = useActiveWalletAccount();
   const [collectibles, updateListData] = useState<Collection[]>([]);
+  const intl = useIntl();
 
   const allAssets = useMemo(
     () =>
@@ -190,9 +181,7 @@ function SendNFTList() {
   );
   const { serviceNFT } = backgroundApiProxy;
   const isMountedRef = useIsMounted();
-  const isFocused = useIsFocused();
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (account && networkId) {
       const result = await serviceNFT.fetchNFT({
         accountId: account.address,
@@ -201,39 +190,7 @@ function SendNFTList() {
       return result;
     }
     return [];
-  };
-
-  const shouldDoRefresh = useMemo((): boolean => {
-    if (!accountId || !networkId) {
-      return false;
-    }
-    if (!isFocused) {
-      return false;
-    }
-    return true;
-  }, [accountId, isFocused, networkId]);
-
-  const swrKey = 'fetchNFTList';
-  const { mutate } = useSWR(swrKey, fetchData, {
-    refreshInterval: 30 * 1000,
-    revalidateOnMount: false,
-    revalidateOnFocus: false,
-    shouldRetryOnError: false,
-    isPaused() {
-      return !shouldDoRefresh;
-    },
-    onSuccess(data) {
-      if (isMountedRef.current) {
-        updateListData(data);
-      }
-    },
-  });
-
-  useEffect(() => {
-    if (shouldDoRefresh) {
-      mutate();
-    }
-  }, [mutate, shouldDoRefresh, account, networkId]);
+  }, [account, networkId, serviceNFT]);
 
   useEffect(() => {
     (async () => {
@@ -245,9 +202,13 @@ function SendNFTList() {
         if (isMountedRef.current) {
           updateListData(localData);
         }
+        const requestData = await fetchData();
+        if (isMountedRef.current) {
+          updateListData(requestData);
+        }
       }
     })();
-  }, [account, isMountedRef, networkId, serviceNFT]);
+  }, [account, fetchData, isMountedRef, networkId, serviceNFT]);
 
   return allAssets.length > 0 ? (
     <SendNFTContentProvider listData={allAssets} multiSelect={false}>
@@ -260,7 +221,7 @@ function SendNFTList() {
         🖼️
       </Text>
       <Text typography="DisplayMedium" mt="12px">
-        No NFTs
+        {intl.formatMessage({ id: 'empty__no_nfts' })}
       </Text>
     </Box>
   );

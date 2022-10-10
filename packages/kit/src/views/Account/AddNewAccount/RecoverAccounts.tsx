@@ -104,16 +104,21 @@ const AccountCell: FC<CellProps> = ({
           flexDirection="row"
           alignItems="flex-start"
           justifyContent="flex-start"
-          w="55px"
+          w="65px"
         >
           <CheckBox
-            w={6}
+            w="20px"
             isChecked={isChecked}
             isDisabled={state?.isDisabled ?? false}
             onChange={onToggle}
             pointerEvents="box-only"
           />
-          <Text typography="Body2Strong" color="text-subdued">
+          <Text
+            ml="8px"
+            typography="Body2"
+            color="text-subdued"
+            wordBreak="break-all"
+          >
             {item.index + 1}
           </Text>
         </Box>
@@ -126,33 +131,40 @@ const AccountCell: FC<CellProps> = ({
         text={{
           label: shortenAddress(item.displayAddress),
           description: showPathAndLink ? item.path : undefined,
+          descriptionProps: { typography: 'Caption' },
           size: 'sm',
         }}
-        flex={1}
+        w="132px"
       />
-      <ListItem.Column alignItems="flex-end">
-        <FormatBalance
-          balance={item.mainBalance}
-          formatOptions={{
-            fixed: decimal ?? 4,
-          }}
-          render={(ele) => (
-            <Typography.Body2
-              style={{
-                // @ts-ignore
-                userSelect: 'none',
-              }}
-            >
-              {ele}
-            </Typography.Body2>
-          )}
-        />
+      <ListItem.Column>
+        <Box alignItems="flex-end" flex={1}>
+          <FormatBalance
+            balance={item.mainBalance}
+            formatOptions={{
+              fixed: decimal ?? 4,
+            }}
+            render={(ele) => (
+              <Typography.Body2
+                style={{
+                  // @ts-ignore
+                  userSelect: 'none',
+                }}
+                wordBreak="break-all"
+                textAlign="right"
+              >
+                {ele}
+              </Typography.Body2>
+            )}
+          />
+        </Box>
       </ListItem.Column>
       {showPathAndLink && (
         <ListItem.Column>
           <IconButton
             type="plain"
             name="ExternalLinkSolid"
+            size="xs"
+            hitSlop={12}
             circle
             onPress={() => {
               openBlockExplorer(item.displayAddress);
@@ -186,7 +198,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
           flexDirection="row"
           alignItems="flex-start"
           justifyContent="flex-start"
-          w="55px"
+          w="65px"
         >
           <CheckBox w={6} isChecked={isAllSelected} onChange={onChange} />
         </Box>
@@ -197,17 +209,23 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
           labelProps: { typography: 'Subheading', color: 'text-subdued' },
         }}
         flex={1}
+        w="132px"
       />
       <ListItem.Column
         alignItems="flex-end"
         text={{
           label: symbol,
-          labelProps: { typography: 'Subheading', color: 'text-subdued' },
+          labelProps: {
+            typography: 'Subheading',
+            textAlign: 'right',
+            color: 'text-subdued',
+          },
         }}
+        flex={1}
       />
       {showPathAndLink && (
         <ListItem.Column>
-          <Box w="36px" />
+          <Box w="28px" />
         </ListItem.Column>
       )}
     </ListItem>
@@ -301,6 +319,7 @@ const RecoverAccounts: FC = () => {
     generateCount: 0,
     showPathAndLink: false,
   });
+  const [depDataInit, setDepDataInit] = useState(false);
   const [realGenerateCount, setRealGenerateCount] = useState(Number.MAX_VALUE);
   const [refreshTimestamp, setRefreshTimestamp] = useState(getTimeStamp());
 
@@ -329,6 +348,7 @@ const RecoverAccounts: FC = () => {
           network,
         );
         obj.resolve();
+        setDepDataInit(true);
       }
       return activeAccounts;
     }
@@ -336,7 +356,9 @@ const RecoverAccounts: FC = () => {
   }, [network, wallet, obj]);
 
   useEffect(() => {
+    if (!depDataInit) return;
     if (isLoading) return;
+
     isFetchingData.current = true;
     setLoading(true);
 
@@ -434,6 +456,7 @@ const RecoverAccounts: FC = () => {
     config.fromIndex,
     config.generateCount,
     config.currentPage,
+    depDataInit,
     isBatchMode,
     navigation,
     network,
@@ -609,7 +632,7 @@ const RecoverAccounts: FC = () => {
         },
       }}
     >
-      {isLoading ? (
+      {isLoading || !depDataInit ? (
         <Center flex={1}>
           <Spinner size="lg" />
         </Center>

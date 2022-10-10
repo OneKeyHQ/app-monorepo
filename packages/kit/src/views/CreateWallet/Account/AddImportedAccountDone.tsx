@@ -15,11 +15,8 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import { useNavigation, useNavigationActions } from '../../../hooks';
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
-import { setOnBoardingLoadingBehindModal } from '../../../store/reducers/runtime';
+import { useNavigation } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
-import { wait } from '../../../utils/helper';
 import { savePassword } from '../../../utils/localAuthentication';
 
 type RouteProps = RouteProp<
@@ -46,10 +43,8 @@ const Done: FC<DoneProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { closeWalletSelector, openRootHome } = useNavigationActions();
   useEffect(() => {
     async function main() {
-      const navigateDelay = 100;
       try {
         const accountAdded =
           await backgroundApiProxy.serviceAccount.addImportedAccount(
@@ -76,15 +71,6 @@ const Done: FC<DoneProps> = ({
           { type: 'error' },
         );
       }
-      backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(true));
-      await wait(navigateDelay);
-
-      closeWalletSelector();
-      openRootHome();
-      closeExtensionWindowIfOnboardingFinished();
-
-      await wait(600);
-      backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps

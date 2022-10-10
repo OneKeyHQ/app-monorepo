@@ -18,8 +18,8 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { isString } from 'lodash';
 
+import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
 import type { PrefType } from './preload';
@@ -260,9 +260,10 @@ function createMainWindow() {
     event.reply('app/reloadBridgeProcess', true);
   });
 
-  ipcMain.on('app/restoreMainWindow', (event) => {
+  ipcMain.on('app/restoreMainWindow', () => {
     logger.debug('restoreMainWindow receive');
     browserWindow.show();
+    event.reply('app/restoreMainWindow', true);
   });
 
   // reset appState to undefined  to avoid screen lock.
@@ -351,7 +352,7 @@ function createMainWindow() {
 }
 
 function init() {
-  initProcess({ mainWindow: mainWindow as BrowserWindow });
+  initProcess({ mainWindow: mainWindow as BrowserWindow, store });
 }
 
 const singleInstance = app.requestSingleInstanceLock();

@@ -1,10 +1,7 @@
 const webpack = require('webpack');
 const path = require('path');
 const fse = require('fs-extra');
-const fs = require('fs');
 const TerserPlugin = require('terser-webpack-plugin');
-const lodash = require('lodash');
-const httpServer = require('http-server');
 const env = require('./development/env');
 const pluginsHtml = require('./development/pluginsHtml');
 const pluginsCopy = require('./development/pluginsCopy');
@@ -32,6 +29,8 @@ const transpileModules = [
   '@onekeyhq/engine',
   '@onekeyhq/app',
   'react-native-animated-splash-screen',
+  'moti',
+  'popmotion',
 ];
 
 // load the secrets

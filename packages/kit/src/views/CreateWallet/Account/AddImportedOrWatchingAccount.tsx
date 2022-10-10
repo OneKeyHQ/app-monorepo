@@ -14,15 +14,12 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-
-import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -46,7 +43,6 @@ const AddImportedOrWatchingAccount = () => {
   const intl = useIntl();
   const toast = useToast();
 
-  const { closeWalletSelector, openRootHome } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { control, handleSubmit, getValues, watch } =
@@ -123,14 +119,15 @@ const AddImportedOrWatchingAccount = () => {
         );
       } else if (importType === UserInputCategory.WATCHING) {
         try {
-          await backgroundApiProxy.serviceAccount.addWatchAccount(
-            values.networkId,
-            text,
-            name,
-          );
-          closeWalletSelector();
-          openRootHome();
-          closeExtensionWindowIfOnboardingFinished();
+          const accountAdded =
+            await backgroundApiProxy.serviceAccount.addWatchAccount(
+              values.networkId,
+              text,
+              name,
+            );
+          onSuccess?.({
+            account: accountAdded,
+          });
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
           toast.show({
@@ -146,8 +143,6 @@ const AddImportedOrWatchingAccount = () => {
       navigation,
       text,
       onSuccess,
-      closeWalletSelector,
-      openRootHome,
       toast,
       intl,
     ],

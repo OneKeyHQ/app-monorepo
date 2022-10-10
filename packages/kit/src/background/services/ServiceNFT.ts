@@ -32,7 +32,7 @@ class ServiceNFT extends ServiceBase {
     accountId: string;
     items: Collection[];
   }) {
-    if (!items || !items.length) {
+    if (!items) {
       return;
     }
     const key = getNFTListKey(accountId, networkId);

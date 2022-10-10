@@ -36,7 +36,11 @@ export type SwapRoutesParams = {
   [SwapRoutes.PickRecipient]:
     | {
         networkId?: string;
-        onSelected?: (data: { address: string; name?: string }) => void;
+        onSelected?: (data: {
+          address: string;
+          name?: string;
+          accountId?: string;
+        }) => void;
       }
     | undefined;
   [SwapRoutes.EnterAddress]:
@@ -76,6 +80,7 @@ export type FieldType = 'INPUT' | 'OUTPUT';
 export type Recipient = {
   address?: string;
   name?: string;
+  accountId?: string;
   networkId?: string;
   networkImpl?: string;
 };

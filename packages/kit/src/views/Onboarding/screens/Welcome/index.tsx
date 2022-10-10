@@ -22,6 +22,7 @@ import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../../../hooks';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { RootRoutes } from '../../../../routes/routesEnum';
 import { setOnBoardingLoadingBehindModal } from '../../../../store/reducers/runtime';
@@ -41,6 +42,10 @@ const Welcome = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   // const navigation = useAppNavigation();
   const navigation = useNavigation<NavigationProps>();
+  const navigationActions = useNavigationActions();
+  if (process.env.NODE_ENV !== 'production') {
+    global.$$navigationActions = navigationActions;
+  }
 
   useEffect(() => {
     (async function () {

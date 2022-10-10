@@ -10,6 +10,10 @@ import {
   WALLET_TYPE_HW,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import { ValidationFields } from '../../../components/Protected';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
@@ -25,12 +29,14 @@ export default function useRemoveAccountDialog() {
   const [walletId, setWalletId] = React.useState('');
   const [password, setPassword] = React.useState<string | undefined>();
   const { showVerify } = useLocalAuthenticationModal();
-  const onSubmit = useCallback(() => {
+  const onSubmit = useCallback(async () => {
     if (!accountId) return Promise.resolve();
+    const removed = await serviceAccount.getAccount({ walletId, accountId });
     return serviceAccount
       .removeAccount(walletId, accountId, password ?? '')
       .then(() => {
         toast.show({ title: intl.formatMessage({ id: 'msg__removed' }) });
+        appUIEventBus.emit(AppUIEventBusNames.RemoveAccount, removed);
         setVisible(false);
         successCall?.current?.();
       })
