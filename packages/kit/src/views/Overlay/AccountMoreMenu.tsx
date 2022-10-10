@@ -7,6 +7,7 @@ import {
   ICON_NAMES,
   Icon,
   Text,
+  ToastManager,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
@@ -61,9 +62,11 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         network.id,
       );
-      setNeedActivateAccount(!!vaultSettings?.activateAccountRequired);
+      setNeedActivateAccount(
+        !!vaultSettings?.activateAccountRequired && wallet?.type !== 'watching',
+      );
     })();
-  }, [network]);
+  }, [network, wallet?.type]);
 
   const showSubscriptionIcon =
     !!account &&
@@ -139,7 +142,23 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
           if (!network) return;
           backgroundApiProxy.engine
             .activateAccount(account.id, network.id)
-            .catch(() => {});
+            .then(() => {
+              // TODO: temp
+              ToastManager.show(
+                {
+                  title: 'Get faucet success',
+                },
+                { type: 'success' },
+              );
+            })
+            .catch(() => {
+              ToastManager.show(
+                {
+                  title: 'Get faucet error',
+                },
+                { type: 'error' },
+              );
+            });
         },
         icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbSolid',
       },
