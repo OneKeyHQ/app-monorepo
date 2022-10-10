@@ -1,6 +1,8 @@
 import React, { ComponentProps, memo, useCallback } from 'react';
 import type { FC } from 'react';
 
+import { MotiView } from 'moti';
+
 import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 
 import CollectibleListImage from '../NFTList/CollectibleListImage';
@@ -77,21 +79,32 @@ const SelectNFTCard: FC<Props> = ({ cardWidth, asset, ...rest }) => {
         width={cardWidth}
         onPress={onSelectAsset}
       >
-        <CollectibleListImage
-          asset={asset}
-          borderRadius="12px"
-          size={cardWidth}
-        />
-        <Text typography="Body2Strong" height="40px" numberOfLines={2} mt="8px">
-          {asset.name ?? asset.collection.contractName ?? ''}
-        </Text>
-        <Box position="absolute" right="6px" top="6px">
-          <SelectedIndicator
-            multiSelect={multiSelect}
-            selected={asset.selected}
-            width={20}
-          />
-        </Box>
+        {({ isHovered }) => (
+          <>
+            <MotiView animate={{ opacity: isHovered ? 0.5 : 1 }}>
+              <CollectibleListImage
+                asset={asset}
+                borderRadius="12px"
+                size={cardWidth}
+              />
+            </MotiView>
+            <Text
+              typography="Body2Strong"
+              height="40px"
+              numberOfLines={2}
+              mt="8px"
+            >
+              {asset.name ?? asset.collection.contractName ?? ''}
+            </Text>
+            <Box position="absolute" right="6px" top="6px">
+              <SelectedIndicator
+                multiSelect={multiSelect}
+                selected={asset.selected}
+                width={20}
+              />
+            </Box>
+          </>
+        )}
       </Pressable>
     </Box>
   );
