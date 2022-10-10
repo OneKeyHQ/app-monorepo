@@ -169,7 +169,7 @@ const MyWallet = () => {
   }, []);
 
   const onPress = useCallback(
-    (item: { address: string; name?: string }) => {
+    (item: { address: string; name?: string; accountId?: string }) => {
       onSelected?.({ address: item.address, name: item.name });
       navigation.goBack();
     },
@@ -194,7 +194,9 @@ const MyWallet = () => {
       borderBottomRightRadius={
         index === section.data.length - 1 ? '12' : undefined
       }
-      onPress={() => onPress({ address: item.address, name: item.name })}
+      onPress={() =>
+        onPress({ address: item.address, name: item.name, accountId: item.id })
+      }
       alignItems="center"
     >
       <Box mr="3" key={item.address}>
