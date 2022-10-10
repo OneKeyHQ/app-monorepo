@@ -49,10 +49,6 @@ export const useWebController = ({
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
 
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
-  const gotoHome = useCallback(
-    () => dispatch(setCurrentWebTab('home')),
-    [dispatch],
-  );
   const clearIncomingUrl = useCallback(
     () => dispatch(setIncomingUrl('')),
     [dispatch],
@@ -209,7 +205,6 @@ export const useWebController = ({
     tabs,
     currentTabId,
     currentTab: tab,
-    gotoHome,
     gotoSite,
     openMatchDApp,
     goBack: () => {

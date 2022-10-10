@@ -65,6 +65,7 @@ const Mobile: FC<ExplorerViewProps> = ({
           alignItems="center"
         >
           <IconButton
+            disabled={url === ''}
             onPress={onGoBack}
             name="ChevronLeftOutline"
             size="lg"
@@ -101,8 +102,9 @@ const Mobile: FC<ExplorerViewProps> = ({
             </Box>
           </Pressable>
           <IconButton
-            // @ts-expect-error
-            onPress={onMore}
+            onPress={() => {
+              onMore?.(true);
+            }}
             name="DotsHorizontalOutline"
             size="lg"
             type="plain"
