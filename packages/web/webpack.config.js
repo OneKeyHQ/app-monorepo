@@ -12,7 +12,7 @@ module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(
     {
       ...env,
-      babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
+      babel: { dangerouslyAddModulePathsToTranspile: ['moti', '@gorhom'] },
       mode:
         process.env.NODE_ENV === 'production' ? 'production' : 'development',
     },
@@ -23,6 +23,7 @@ module.exports = async function (env, argv) {
     config,
     env,
   });
+  config.resolve.alias['framer-motion'] = 'framer-motion/dist/framer-motion';
   if (process.env.ENABLE_ANALYZER) {
     const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
     config.plugins.push(

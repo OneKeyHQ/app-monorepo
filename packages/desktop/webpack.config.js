@@ -11,7 +11,7 @@ module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(
     {
       ...env,
-      babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
+      babel: { dangerouslyAddModulePathsToTranspile: ['moti', '@gorhom'] },
     },
     argv,
   );
@@ -23,5 +23,6 @@ module.exports = async function (env, argv) {
   if (process.env.NODE_ENV === 'production') {
     config.devtool = false;
   }
+  config.resolve.alias['framer-motion'] = 'framer-motion/dist/framer-motion';
   return config;
 };

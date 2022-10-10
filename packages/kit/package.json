@@ -49,7 +49,8 @@
     "url-parse": "^1.5.10",
     "vision-camera-code-scanner": "^0.2.0",
     "zbar.wasm": "^2.1.1",
-    "socket.io-client": "^4.5.2"
+    "socket.io-client": "^4.5.2",
+    "moti": "^0.20.0"
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
