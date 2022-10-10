@@ -192,7 +192,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
   const intl = useIntl();
 
   return (
-    <ListItem>
+    <ListItem p={0} mb="16px">
       <ListItem.Column>
         <Box
           flexDirection="row"
@@ -637,6 +637,15 @@ const RecoverAccounts: FC = () => {
         </Center>
       ) : (
         <Box flex={1}>
+          <ListTableHeader
+            symbol={symbol}
+            isAllSelected={isAllSelected}
+            showPathAndLink={config.showPathAndLink}
+            onChange={(selectedAll) => {
+              setAllSelected(selectedAll);
+              onRefreshCheckBox(selectedAll);
+            }}
+          />
           {currentPageData.length === 0 ? (
             <Center flex={1}>
               <Empty
@@ -657,19 +666,6 @@ const RecoverAccounts: FC = () => {
             </Center>
           ) : (
             <List
-              ListHeaderComponent={() => (
-                <>
-                  <ListTableHeader
-                    symbol={symbol}
-                    isAllSelected={isAllSelected}
-                    showPathAndLink={config.showPathAndLink}
-                    onChange={(selectedAll) => {
-                      setAllSelected(selectedAll);
-                      onRefreshCheckBox(selectedAll);
-                    }}
-                  />
-                </>
-              )}
               data={currentPageData}
               renderItem={rowRenderer}
               keyExtractor={(item: RecoverAccountType) => `${item.index}`}
