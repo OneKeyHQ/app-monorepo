@@ -21,6 +21,8 @@ import {
   Empty,
   HStack,
   Icon,
+  List,
+  ListItem,
   Modal,
   Pressable,
   Spinner,
@@ -44,7 +46,6 @@ import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import { FormatBalance } from '../../../components/Format';
 import { deviceUtils } from '../../../utils/hardware';
-import { List, ListItem } from '../../Components/stories/List/ListView';
 
 import { AdvancedValues, FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
 
