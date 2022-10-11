@@ -90,6 +90,7 @@ const Explorer: FC = () => {
     };
 
     const onGoHomePage = () => {
+      stopLoading();
       backgroundApiProxy.dispatch(
         setWebTabData({ ...homeTab, id: currentTab?.id }),
       );
@@ -127,7 +128,15 @@ const Explorer: FC = () => {
         onGoHomePage={onGoHomePage}
       />
     );
-  }, [currentTab?.id, currentTab?.url, intl, onRefresh, toast, visibleMore]);
+  }, [
+    currentTab?.id,
+    currentTab?.url,
+    intl,
+    onRefresh,
+    stopLoading,
+    toast,
+    visibleMore,
+  ]);
 
   const Container = isVerticalLayout ? Mobile : Desktop;
   return (
