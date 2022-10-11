@@ -72,9 +72,11 @@ export const webtabsSlice = createSlice({
       delete webviewRefs[payload];
       state.tabs = state.tabs.filter((tab, index) => {
         if (tab.id === payload) {
-          const prev = state.tabs[index - 1];
-          prev.isCurrent = true;
-          state.currentTabId = prev.id;
+          if (tab.isCurrent) {
+            const prev = state.tabs[index - 1];
+            prev.isCurrent = true;
+            state.currentTabId = prev.id;
+          }
           return false;
         }
         return true;
