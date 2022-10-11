@@ -9,22 +9,20 @@ import {
   Text,
   Typography,
   VStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
 
   const goBack = useNavigationBack();
   const { dispatch, serviceNotification } = backgroundApiProxy;
