@@ -66,6 +66,7 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
               value={input}
               size={isSmallScreen ? 'xl' : 'default'}
               onChangeText={(text) => setInput(text.trim())}
+              placeholder="RESET"
             />
           </Box>
         ),
