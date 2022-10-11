@@ -317,7 +317,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                   formControlProps={{ zIndex: 10 }}
                   helpText={hintText}
                   rules={{
-                    validate: () => !rpcStatus.connected,
+                    validate: () => rpcStatus.connected,
                   }}
                 >
                   {isCustomRpc ? (
