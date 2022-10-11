@@ -4,8 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Box, Empty } from '@onekeyhq/components';
 
-import IconHistory from '../../../assets/3d_transaction_history.png';
-
 import { useTxHistoryContext } from './TxHistoryContext';
 
 export function TxHistoryListViewEmpty({
@@ -20,7 +18,7 @@ export function TxHistoryListViewEmpty({
   return (
     <Box py={4} flexDirection="column" alignItems="center">
       <Empty
-        imageUrl={IconHistory}
+        emoji="🕐"
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
         subTitle={intl.formatMessage({
           id: 'transaction__history_empty_desc',

@@ -5,7 +5,6 @@ import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
-import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 
 import AssetsList from '../Wallet/AssetsList';
@@ -81,7 +80,7 @@ function PreSendToken() {
               }
               return (
                 <Empty
-                  imageUrl={IconAccount}
+                  emoji="💳"
                   title={intl.formatMessage({
                     id: 'empty__no_account_title',
                   })}

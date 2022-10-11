@@ -25,12 +25,10 @@ import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 import {
   Button,
   Center,
-  Image,
+  Empty,
   Spinner,
-  Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import IconNoConnect from '@onekeyhq/kit/assets/ic_3d_no_connect.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // injected hot-reload cache update: 213344000
@@ -140,15 +138,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     };
     const ErrorView: FC<ErrorViewProps> = () => (
       <Center w="full" h="full" bg="background-default">
-        <Box mb={3}>
-          <Image size="100px" source={IconNoConnect} />
-        </Box>
-        <Typography.DisplayMedium mt={3}>
-          {intl.formatMessage({ id: 'title__no_connection' })}
-        </Typography.DisplayMedium>
-        <Typography.Body1 mt={2} color="text-subdued">
-          {intl.formatMessage({ id: 'title__no_connection_desc' })}
-        </Typography.Body1>
+        <Empty
+          emoji="🌐"
+          title={intl.formatMessage({ id: 'title__no_connection' })}
+          subTitle={intl.formatMessage({ id: 'title__no_connection_desc' })}
+          mb={3}
+        />
 
         <Button
           mt={6}

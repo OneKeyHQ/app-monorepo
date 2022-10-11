@@ -33,7 +33,6 @@ import type {
   Account,
   ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
-import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
@@ -648,7 +647,7 @@ const RecoverAccounts: FC = () => {
           {currentPageData.length === 0 ? (
             <Center flex={1}>
               <Empty
-                imageUrl={IconAccount}
+                emoji="💳"
                 title={intl.formatMessage({
                   id: 'empty__no_account_title',
                 })}

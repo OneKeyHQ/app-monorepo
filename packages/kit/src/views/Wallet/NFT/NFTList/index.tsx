@@ -15,7 +15,6 @@ import { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -61,7 +60,7 @@ const EmptyView: FC<
     return (
       <Empty
         pr="16px"
-        imageUrl={IconNFT}
+        emoji="🖼️"
         title={intl.formatMessage({ id: 'empty__not_supported' })}
         subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
       />
@@ -70,7 +69,7 @@ const EmptyView: FC<
   return (
     <Empty
       pr="16px"
-      imageUrl={IconNFT}
+      emoji="🖼️"
       title={intl.formatMessage({
         id: 'asset__collectibles_empty_title',
       })}

@@ -22,7 +22,6 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import historyPNG from '@onekeyhq/kit/assets/3d_transaction_history.png';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks/redux';
@@ -46,7 +45,7 @@ const ListEmptyComponent = () => {
       <Empty
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
         subTitle={intl.formatMessage({ id: 'transaction__history_empty_desc' })}
-        imageUrl={historyPNG}
+        emoji="🕐"
       />
     </Box>
   );

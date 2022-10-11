@@ -11,7 +11,6 @@ import {
   Spinner,
   Typography,
 } from '@onekeyhq/components';
-import IconNoHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 
 import type { DAppItemType } from '../../type';
 
@@ -112,7 +111,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   return terms.length ? null : (
     <Box pt={12}>
       <Empty
-        imageUrl={IconNoHistory}
+        emoji="🕐"
         title={intl.formatMessage({
           id: 'title__no_history',
         })}

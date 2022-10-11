@@ -17,8 +17,6 @@ import {
   Spinner,
   Text,
 } from '@onekeyhq/components';
-import IconRequest from '@onekeyhq/kit/assets/3d_request.png';
-import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -103,7 +101,7 @@ export const HistoryRequest: FC = () => {
       case 'network':
         return (
           <Empty
-            imageUrl={IconWifi}
+            emoji="🌐"
             title={intl.formatMessage({ id: 'title__no_connection' })}
             subTitle={intl.formatMessage({
               id: 'title__no_connection_desc',
@@ -118,7 +116,7 @@ export const HistoryRequest: FC = () => {
         return (
           <>
             <Empty
-              imageUrl={IconRequest}
+              emoji="💬"
               title={intl.formatMessage({ id: 'title__no_request_history' })}
               subTitle={intl.formatMessage({
                 id: 'title__no_request_history_desc',

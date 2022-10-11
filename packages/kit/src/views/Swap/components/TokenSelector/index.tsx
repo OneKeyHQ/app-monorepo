@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/engine/src/types/token';
-import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 import SwapAllChainsLogoPNG from '@onekeyhq/kit/assets/swap_all_chains_logo.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -167,7 +166,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   }
   return terms.length > 0 ? (
     <Empty
-      imageUrl={IconSearch}
+      emoji="🕐"
       title={intl.formatMessage({
         id: 'content__no_results',
         defaultMessage: 'No Result',
