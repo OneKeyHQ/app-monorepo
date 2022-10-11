@@ -15,6 +15,7 @@ export const OnekeyNetwork = {
   'cryptoorgchain': 'cosmos--crypto-org-chain-mainnet-1',
   'osmosis': 'cosmos--osmosis-1',
   'secretnetwork': 'cosmos--secret-4',
+  'doge': 'doge--0',
   'eth': 'evm--1',
   'optimism': 'evm--10',
   'xdai': 'evm--100',

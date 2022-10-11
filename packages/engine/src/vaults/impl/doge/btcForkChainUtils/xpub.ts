@@ -1,0 +1,1 @@
+function xpubToAddress(xpub: string) {}

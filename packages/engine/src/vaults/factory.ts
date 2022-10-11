@@ -3,6 +3,7 @@ import {
   IMPL_APTOS,
   IMPL_BTC,
   IMPL_CFX,
+  IMPL_DOGE,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
@@ -23,6 +24,8 @@ import VaultBtc from './impl/btc/Vault';
 import VaultHelperBtc from './impl/btc/VaultHelper';
 import VaultCfx from './impl/cfx/Vault';
 import VaultHelperCfx from './impl/cfx/VaultHelper';
+import VaultDoge from './impl/doge/Vault';
+import VaultHelperDoge from './impl/doge/VaultHelper';
 import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultNear from './impl/near/Vault';
@@ -66,6 +69,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_APTOS) {
     return new VaultHelperAptos(options);
+  }
+  if (impl === IMPL_DOGE) {
+    return new VaultHelperDoge(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -133,6 +139,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_APTOS) {
     vault = new VaultAptos(options);
+  }
+  if (network.impl === IMPL_DOGE) {
+    vault = new VaultDoge(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(
