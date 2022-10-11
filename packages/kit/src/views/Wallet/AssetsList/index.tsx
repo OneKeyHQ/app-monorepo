@@ -32,7 +32,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
-import { wait } from '../../../utils/helper';
 import { getTokenValues } from '../../../utils/priceUtils';
 import { PushNotificationRoutes } from '../../PushNotification/types';
 
@@ -142,7 +141,6 @@ function AssetsList({
       const func = async () => {
         const { serviceBootstrap } = backgroundApiProxy;
         const res = await serviceBootstrap.checkShouldShowNotificationGuide();
-        await wait(3000);
         if (!isActive) {
           return;
         }

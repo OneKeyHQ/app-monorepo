@@ -9,6 +9,9 @@ import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { homeTab, setWebTabData } from '../../../store/reducers/webTabs';
+
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
@@ -26,7 +29,6 @@ const Explorer: FC = () => {
     gotoSite,
     currentTab,
     tabs,
-    gotoHome,
     incomingUrl,
     clearIncomingUrl,
     stopLoading,
@@ -87,6 +89,12 @@ const Explorer: FC = () => {
       openUrlExternal(getCurrentUrl());
     };
 
+    const onGoHomePage = () => {
+      backgroundApiProxy.dispatch(
+        setWebTabData({ ...homeTab, id: currentTab?.id }),
+      );
+    };
+
     const onShare = () => {
       try {
         Share.share(
@@ -116,10 +124,10 @@ const Explorer: FC = () => {
         onShare={onShare}
         onOpenBrowser={onOpenBrowser}
         onCopyUrlToClipboard={onCopyUrlToClipboard}
-        onGoHomePage={gotoHome}
+        onGoHomePage={onGoHomePage}
       />
     );
-  }, [currentTab?.url, gotoHome, intl, onRefresh, toast, visibleMore]);
+  }, [currentTab?.id, currentTab?.url, intl, onRefresh, toast, visibleMore]);
 
   const Container = isVerticalLayout ? Mobile : Desktop;
   return (
