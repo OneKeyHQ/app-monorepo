@@ -150,6 +150,9 @@ class ServiceApp extends ServiceBase {
     if (platformEnv.isRuntimeBrowser) {
       window.localStorage.clear();
     }
+    if (platformEnv.isDesktop) {
+      window.desktopApi?.clearAutoUpdateSettings?.();
+    }
     await appStorage.clear();
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
