@@ -138,7 +138,7 @@ const RecoverAccountsAdvanced: FC = () => {
     () => (
       <>
         {configGenerateCount.map((item, index) => (
-          <>
+          <Box key={`box-${item}`} alignItems="center" flexDirection="row">
             <RadioButton
               size="sm"
               value="true"
@@ -152,7 +152,7 @@ const RecoverAccountsAdvanced: FC = () => {
             {index !== configGenerateCount.length - 1 && (
               <Divider orientation="vertical" h={5} ml={1} mr={1} />
             )}
-          </>
+          </Box>
         ))}
         <Box w={1} />
       </>

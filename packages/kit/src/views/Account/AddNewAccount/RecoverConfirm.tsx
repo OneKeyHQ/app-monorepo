@@ -1,11 +1,13 @@
 import React, { FC, useEffect, useRef, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
 import { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
@@ -46,6 +48,9 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
 
   const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
   const stopRecoverFlag = useRef(stopFlag);
+
+  // Prevents screen locking
+  useKeepAwake();
 
   useEffect(() => {
     stopRecoverFlag.current = stopFlag;
@@ -140,6 +145,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
 
   return (
     <Center w="full" h="full">
+      <SkipAppLock />
       <Spinner size="lg" />
       <Typography.DisplayMedium mt={3}>
         {intl.formatMessage({ id: 'action__recover_accounts' })}
