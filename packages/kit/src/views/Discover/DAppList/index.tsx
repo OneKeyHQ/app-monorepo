@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
+import { FC, useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
@@ -12,7 +12,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import DAppIcon from '../DAppIcon';
 import { SectionDataType } from '../Home/type';
@@ -26,9 +25,7 @@ const Mobile: FC<SectionDataType> = ({ ...rest }) => {
     ({ item, index }) => (
       <Pressable
         onPress={() => {
-          if (onItemSelect) {
-            onItemSelect(item);
-          }
+          onItemSelect?.(item);
         }}
       >
         <Box
@@ -152,7 +149,7 @@ const Desktop: FC<SectionDataType> = ({ ...rest }) => {
 
 const DAppList: FC = () => {
   const route = useRoute<RouteProps>();
-  const { title, onItemSelect } = route.params;
+  const { title } = route.params;
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation();
   useLayoutEffect(() => {
@@ -160,29 +157,12 @@ const DAppList: FC = () => {
       title,
     });
   }, [navigation, title]);
-  const callback = useCallback(
-    (item: DAppItemType) => {
-      (async () => {
-        if (onItemSelect) {
-          // iOS 弹窗无法展示在 modal 上面提前返回
-          if (platformEnv.isNativeIOS) {
-            navigation.goBack();
-          }
-          const agree = await onItemSelect(item);
-          if (agree && (platformEnv.isDesktop || platformEnv.isNativeAndroid)) {
-            navigation.goBack();
-          }
-        }
-      })();
-    },
-    [navigation, onItemSelect],
-  );
   return (
     <Box flex="1" bg="background-default">
       {isSmallScreen ? (
-        <Mobile {...route.params} onItemSelect={callback} />
+        <Mobile {...route.params} />
       ) : (
-        <Desktop {...route.params} onItemSelect={callback} />
+        <Desktop {...route.params} />
       )}
     </Box>
   );

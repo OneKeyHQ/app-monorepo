@@ -24,9 +24,10 @@ export interface WebTabsInitialState {
   incomingUrl: string;
 }
 
-const homeTab: WebTab = {
+export const homeTab: WebTab = {
   id: 'home',
   url: '',
+  // TODO i18n
   title: 'OneKey',
   isCurrent: true,
 };
