@@ -15,7 +15,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  const { gotoSite, openMatchDApp } = useWebController({
+  const { openMatchDApp } = useWebController({
     id,
     navigationStateChangeEvent,
   });
@@ -34,17 +34,9 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       showHome ? (
         // TODO avoid rerender, maybe singleton
         <DiscoverHome
-          onItemSelect={(dapp) =>
-            // @ts-expect-error
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
-            gotoSite({
-              url: dapp.url,
-              title: dapp.name,
-              favicon: dapp.favicon,
-              dAppId: dapp.id,
-            })
-          }
-          // @ts-expect-error
+          onItemSelect={(dapp) => {
+            openMatchDApp({ id: dapp.id, dapp });
+          }}
           onItemSelectHistory={openMatchDApp}
         />
       ) : (

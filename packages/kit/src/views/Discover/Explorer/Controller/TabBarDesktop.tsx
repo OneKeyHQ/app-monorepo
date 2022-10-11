@@ -11,6 +11,7 @@ import {
   WebTab,
   addWebTab,
   closeWebTab,
+  homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
 
@@ -72,11 +73,8 @@ const addNewTab = () => {
   const { dispatch } = backgroundApiProxy;
   dispatch(
     addWebTab({
+      ...homeTab,
       id: nanoid(),
-      url: '',
-      // TODO i18n
-      title: 'Home',
-      isCurrent: true,
     }),
   );
 };
