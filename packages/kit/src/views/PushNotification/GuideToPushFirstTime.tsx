@@ -111,9 +111,7 @@ const GuideToPushFirstTime: FC = () => {
           </Typography.Body2>
         </Center>
         <Center>
-          <Text fontSize={56} lineHeight="auto">
-            🔔
-          </Text>
+          <Text fontSize={56}>🔔</Text>
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'title__notifications' })}
           </Typography.DisplayLarge>

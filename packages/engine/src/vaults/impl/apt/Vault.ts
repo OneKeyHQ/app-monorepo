@@ -9,13 +9,14 @@ import {
   PartialTokenInfo,
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient, FaucetClient } from 'aptos';
+import { AptosClient } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { get, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -207,15 +208,7 @@ export default class Vault extends VaultBase {
   }
 
   override async activateAccount() {
-    // TODO other network
-    // TODO check account is activated
-    const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    const client = new FaucetClient(
-      rpcURL,
-      'https://faucet.testnet.aptoslabs.com',
-    );
-    const { address } = (await this.getDbAccount()) as DBSimpleAccount;
-    await client.fundAccount(address, 1000000);
+    openDapp('https://aptoslabs.com/testnet-faucet');
   }
 
   override async activateToken(
