@@ -515,7 +515,14 @@ export default class Vault extends VaultBase {
                 utxoFrom,
                 utxoTo,
                 from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
-                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
+                // For out and self transaction, use first address as to.
+                // For in transaction, use first owned address as to.
+                to:
+                  utxoTo.find((utxo) =>
+                    direction === IDecodedTxDirection.IN
+                      ? utxo.isMine
+                      : !!utxo.address,
+                  )?.address ?? '',
                 amount: amountValue.shiftedBy(-decimals).toFixed(),
                 amountValue: amountValue.toFixed(),
                 extraInfo: null,
