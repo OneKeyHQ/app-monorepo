@@ -17,6 +17,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CollectiblesModalRoutes,
@@ -34,7 +35,6 @@ import { SendRoutes } from '../../../../routes';
 import CollectibleContent from './CollectibleContent';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
-export const NFTTransferEnable = true;
 
 type Props = {
   imageContent: JSX.Element;
@@ -74,7 +74,8 @@ const NFTDetailModal: FC = () => {
     >();
   const { network, asset } = route.params;
 
-  const transferEnable = wallet?.type !== 'watching';
+  const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
+
   const sendAction = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
@@ -98,21 +99,19 @@ const NFTDetailModal: FC = () => {
     imageContent: (
       <Box flexDirection="column">
         <CollectibleContent asset={asset} />
-        {NFTTransferEnable && (
-          <Button
-            isDisabled={!transferEnable}
-            mt="24px"
-            width="full"
-            height="42px"
-            size="lg"
-            type="primary"
-            onPress={sendAction}
-          >
-            {intl.formatMessage({
-              id: 'action__send',
-            })}
-          </Button>
-        )}
+        <Button
+          isDisabled={isDisabled}
+          mt="24px"
+          width="full"
+          height="42px"
+          size="lg"
+          type="primary"
+          onPress={sendAction}
+        >
+          {intl.formatMessage({
+            id: 'action__send',
+          })}
+        </Button>
         {platformEnv.isDev && (
           <Button
             mt={4}
