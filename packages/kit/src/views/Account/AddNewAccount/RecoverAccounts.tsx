@@ -20,11 +20,10 @@ import {
   CheckBox,
   Empty,
   HStack,
-  Icon,
+  IconButton,
   List,
   ListItem,
   Modal,
-  Pressable,
   Spinner,
   Text,
   Typography,
@@ -44,6 +43,7 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
 import { deviceUtils } from '../../../utils/hardware';
@@ -104,22 +104,20 @@ const AccountCell: FC<CellProps> = ({
           flexDirection="row"
           alignItems="flex-start"
           justifyContent="flex-start"
-          w="55px"
+          w="65px"
         >
           <CheckBox
-            w={6}
+            w="20px"
             isChecked={isChecked}
             isDisabled={state?.isDisabled ?? false}
             onChange={onToggle}
             pointerEvents="box-only"
           />
           <Text
-            style={{
-              // @ts-ignore
-              userSelect: 'none',
-            }}
-            typography="Body2Strong"
+            ml="8px"
+            typography="Body2"
             color="text-subdued"
+            wordBreak="break-all"
           >
             {item.index + 1}
           </Text>
@@ -132,37 +130,46 @@ const AccountCell: FC<CellProps> = ({
         }}
         text={{
           label: shortenAddress(item.displayAddress),
+          labelProps: { w: '120px' },
           description: showPathAndLink ? item.path : undefined,
+          descriptionProps: { typography: 'Caption', w: '132px' },
+          size: 'sm',
         }}
-        flex={1}
       />
-      <ListItem.Column alignItems="flex-end">
-        <FormatBalance
-          balance={item.mainBalance}
-          formatOptions={{
-            fixed: decimal ?? 4,
-          }}
-          render={(ele) => (
-            <Typography.Body2
-              style={{
-                // @ts-ignore
-                userSelect: 'none',
-              }}
-            >
-              {ele}
-            </Typography.Body2>
-          )}
-        />
+      <ListItem.Column>
+        <Box alignItems="flex-end" flex={1}>
+          <FormatBalance
+            balance={item.mainBalance}
+            formatOptions={{
+              fixed: decimal ?? 4,
+            }}
+            render={(ele) => (
+              <Typography.Body2
+                style={{
+                  // @ts-ignore
+                  userSelect: 'none',
+                }}
+                wordBreak="break-all"
+                textAlign="right"
+              >
+                {ele}
+              </Typography.Body2>
+            )}
+          />
+        </Box>
       </ListItem.Column>
       {showPathAndLink && (
         <ListItem.Column>
-          <Pressable
+          <IconButton
+            type="plain"
+            name="ExternalLinkSolid"
+            size="xs"
+            hitSlop={12}
+            circle
             onPress={() => {
               openBlockExplorer(item.displayAddress);
             }}
-          >
-            <Icon name="ExternalLinkSolid" size={20} />
-          </Pressable>
+          />
         </ListItem.Column>
       )}
     </ListItem>
@@ -185,13 +192,13 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
   const intl = useIntl();
 
   return (
-    <ListItem px={0} pt={0} pb={4}>
+    <ListItem p={0} mb="16px">
       <ListItem.Column>
         <Box
           flexDirection="row"
           alignItems="flex-start"
           justifyContent="flex-start"
-          w="55px"
+          w="65px"
         >
           <CheckBox w={6} isChecked={isAllSelected} onChange={onChange} />
         </Box>
@@ -199,6 +206,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
       <ListItem.Column
         text={{
           label: intl.formatMessage({ id: 'form__address' }),
+          labelProps: { typography: 'Subheading', color: 'text-subdued' },
         }}
         flex={1}
       />
@@ -206,11 +214,17 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
         alignItems="flex-end"
         text={{
           label: symbol,
+          labelProps: {
+            typography: 'Subheading',
+            textAlign: 'right',
+            color: 'text-subdued',
+          },
         }}
+        flex={1}
       />
       {showPathAndLink && (
         <ListItem.Column>
-          <Box w={5} />
+          <Box w="28px" />
         </ListItem.Column>
       )}
     </ListItem>
@@ -652,10 +666,17 @@ const RecoverAccounts: FC = () => {
           ) : (
             <List
               data={currentPageData}
-              showDivider
               renderItem={rowRenderer}
               keyExtractor={(item: RecoverAccountType) => `${item.index}`}
               extraData={isAllSelected}
+              showsVerticalScrollIndicator={false}
+              ItemSeparatorComponent={() => (
+                <>
+                  {!config.showPathAndLink && platformEnv.isNative ? (
+                    <Box h="8px" />
+                  ) : undefined}
+                </>
+              )}
             />
           )}
           <ListTableFooter

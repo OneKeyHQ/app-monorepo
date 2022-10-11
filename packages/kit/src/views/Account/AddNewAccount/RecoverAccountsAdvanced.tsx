@@ -164,7 +164,6 @@ const RecoverAccountsAdvanced: FC = () => {
     <Modal
       header={intl.formatMessage({ id: 'content__advanced' })}
       headerDescription={intl.formatMessage({ id: 'action__recover_accounts' })}
-      height="560px"
       primaryActionProps={{
         onPromise: handleSubmit(onSubmit),
         isDisabled: !isValid,
