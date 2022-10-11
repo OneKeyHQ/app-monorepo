@@ -23,7 +23,6 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
@@ -210,7 +209,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const renderEmpty = () => (
     <Box py={4} flexDirection="column" alignItems="center">
       <Empty
-        imageUrl={IconHistory}
+        emoji="🕐"
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
         subTitle={intl.formatMessage({
           id: 'transaction__history_empty_desc',

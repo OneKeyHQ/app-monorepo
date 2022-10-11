@@ -73,7 +73,7 @@ const Empty: FC<EmptyProps> = ({
           </Box>
         )}
         {!!emoji && (
-          <Text fontSize={48} mb={3}>
+          <Text fontSize={56} lineHeight="auto" mb={3}>
             {emoji}
           </Text>
         )}

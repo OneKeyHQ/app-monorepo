@@ -16,7 +16,6 @@ import {
   useIsVerticalLayout,
   useLocale,
 } from '@onekeyhq/components';
-import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   updateRankData,
@@ -245,7 +244,7 @@ const DiscoverHome: FC<DiscoverProps> = (props) => {
           keyExtractor={(item, index) => `${item.type ?? ''}${index}`}
           ListEmptyComponent={
             <Empty
-              imageUrl={IconWifi}
+              emoji="🌐"
               title={intl.formatMessage({ id: 'title__no_connection' })}
               subTitle={intl.formatMessage({
                 id: 'title__no_connection_desc',

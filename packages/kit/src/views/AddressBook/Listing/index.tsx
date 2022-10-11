@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
-import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
@@ -214,7 +213,7 @@ const Listing = () => {
         actionTitle={intl.formatMessage({ id: 'action__add_new_address' })}
         actionProps={{ leftIconName: 'PlusSolid' }}
         handleAction={onNew}
-        imageUrl={imageUrl}
+        emoji="📇"
       />
     </Center>
   ) : (

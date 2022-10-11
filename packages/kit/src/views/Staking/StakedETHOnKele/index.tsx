@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/components';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import EmptyHistoryPNG from '../../../../assets/staking/empty_staking_history.png';
 import EthLogo from '../../../../assets/staking/eth_logo.png';
 import KeleLogoPNG from '../../../../assets/staking/kele_pool.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -178,7 +177,7 @@ const ListEmptyComponent = () => {
   return (
     <Box py="10">
       <Empty
-        imageUrl={EmptyHistoryPNG}
+        emoji="🕐"
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
         subTitle={intl.formatMessage({ id: 'reward__history_empty_desc' })}
       />

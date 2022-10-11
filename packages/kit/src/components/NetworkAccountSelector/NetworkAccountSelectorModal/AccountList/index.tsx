@@ -204,7 +204,10 @@ function AccountList({
               {isEmptySectionData && !isPreloadingCreate ? (
                 <Empty
                   emoji="💳"
-                  title={intl.formatMessage({ id: 'empty__no_account_desc' })}
+                  title={intl.formatMessage({ id: 'empty__no_account_title' })}
+                  subTitle={intl.formatMessage({
+                    id: 'empty__no_account_desc',
+                  })}
                   flex={1}
                   mt={8}
                 />

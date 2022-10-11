@@ -5,8 +5,8 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
-  Image,
   Modal,
+  Text,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -14,7 +14,6 @@ import {
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
-import imageUrl from '@onekeyhq/kit/assets/alert.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
@@ -75,7 +74,7 @@ const GuideToPushFirstTime: FC = () => {
         desc: intl.formatMessage({ id: 'form__price_volatility_desc' }),
       },
       {
-        icon: '🔔',
+        icon: '📈',
         title: intl.formatMessage({ id: 'form__price_alert' }),
         desc: intl.formatMessage(
           { id: 'title__no_alert_desc' },
@@ -112,7 +111,9 @@ const GuideToPushFirstTime: FC = () => {
           </Typography.Body2>
         </Center>
         <Center>
-          <Image size="64px" source={imageUrl} />
+          <Text fontSize={56} lineHeight="auto">
+            🔔
+          </Text>
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'title__notifications' })}
           </Typography.DisplayLarge>

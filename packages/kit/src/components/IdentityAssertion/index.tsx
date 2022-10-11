@@ -4,8 +4,6 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Empty, useToast } from '@onekeyhq/components';
-import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
-import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
@@ -35,7 +33,7 @@ const IdentityAssertion: FC = ({ children }) => {
         bg="background-default"
       >
         <Empty
-          imageUrl={IconWallet}
+          emoji="🤑"
           title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
           subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
         />
@@ -69,7 +67,7 @@ const IdentityAssertion: FC = ({ children }) => {
         bg="background-default"
       >
         <Empty
-          imageUrl={IconAccount}
+          emoji="💳"
           title={intl.formatMessage({ id: 'empty__no_account_title' })}
           subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
         />
