@@ -20,6 +20,7 @@ import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
@@ -127,7 +128,7 @@ const GuideToPushFirstTime: FC = () => {
             <Box flex={1}>
               <Typography.Body1Strong mb="1">{c.title}</Typography.Body1Strong>
               <Typography.Body2
-                flex={isVertical ? undefined : 1}
+                flex={platformEnv.isNative ? undefined : 1}
                 numberOfLines={2}
                 color="text-subdued"
               >
