@@ -86,17 +86,22 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
       let unAddedIndexes: number[] = [];
 
       if (isBatchMode) {
-        const addedMap = new Map<number, boolean>();
+        const ignoreAccount = new Map<number, boolean>();
         restoreAccounts?.forEach((i) => {
+          // existent account
           if (i.isDisabled && i.selected) {
-            addedMap.set(i.index, true);
+            ignoreAccount.set(i.index, true);
+          }
+          // unselected account
+          if (!i.selected) {
+            ignoreAccount.set(i.index, true);
           }
         });
 
         unAddedIndexes = Array.from(Array(config.generateCount ?? 1).keys())
           .map((index) => {
             const i = index + config.fromIndex - 1;
-            if (addedMap.has(i)) {
+            if (ignoreAccount.has(i)) {
               return undefined;
             }
             return i;
