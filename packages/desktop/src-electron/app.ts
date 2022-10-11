@@ -260,7 +260,7 @@ function createMainWindow() {
     event.reply('app/reloadBridgeProcess', true);
   });
 
-  ipcMain.on('app/restoreMainWindow', () => {
+  ipcMain.on('app/restoreMainWindow', (event) => {
     logger.debug('restoreMainWindow receive');
     browserWindow.show();
     event.reply('app/restoreMainWindow', true);
