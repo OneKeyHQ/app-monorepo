@@ -255,10 +255,12 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
   return (
     <HStack flexDirection="row" justifyContent="space-between" pt={4}>
       <Button
+        maxW="200px"
         type="basic"
         leftIconName="AdjustmentsSolid"
         alignItems="flex-start"
         onPress={onAdvancedPress}
+        overflow="hidden"
       >
         {minLimit && count
           ? `${minLimit} - ${maxLimit}`
@@ -318,6 +320,7 @@ const RecoverAccounts: FC = () => {
     showPathAndLink: false,
   });
   const [depDataInit, setDepDataInit] = useState(false);
+  const [pendRefreshData, setPendRefreshData] = useState(true);
   const [realGenerateCount, setRealGenerateCount] = useState(Number.MAX_VALUE);
   const [refreshTimestamp, setRefreshTimestamp] = useState(getTimeStamp());
 
@@ -359,6 +362,7 @@ const RecoverAccounts: FC = () => {
 
     isFetchingData.current = true;
     setLoading(true);
+    setPendRefreshData(false);
 
     const pageIndex = config.currentPage;
     const pageSize = PAGE_SIZE;
@@ -580,6 +584,11 @@ const RecoverAccounts: FC = () => {
     currentPageData.length,
   ]);
 
+  const isLoadingState = useMemo(
+    () => pendRefreshData || isLoading || !depDataInit,
+    [depDataInit, isLoading, pendRefreshData],
+  );
+
   return (
     <Modal
       height="640px"
@@ -629,7 +638,7 @@ const RecoverAccounts: FC = () => {
         },
       }}
     >
-      {isLoading || !depDataInit ? (
+      {isLoadingState ? (
         <Center flex={1}>
           <Spinner size="lg" />
         </Center>
@@ -713,11 +722,13 @@ const RecoverAccounts: FC = () => {
                     generateCount: count,
                     showPathAndLink: showPath,
                   }) => {
-                    setTimeout(() => {
-                      const isForceRefresh =
-                        config.fromIndex !== fromIndex ||
-                        config.generateCount !== count;
+                    const isForceRefresh =
+                      config.fromIndex !== fromIndex ||
+                      config.generateCount !== count;
 
+                    if (isForceRefresh) setPendRefreshData(true);
+
+                    setTimeout(() => {
                       const newConfig = {
                         currentPage: isForceRefresh ? 0 : config.currentPage,
                         fromIndex,
