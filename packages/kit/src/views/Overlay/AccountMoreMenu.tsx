@@ -7,7 +7,6 @@ import {
   ICON_NAMES,
   Icon,
   Text,
-  ToastManager,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
@@ -140,25 +139,10 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
         onPress: () => {
           if (!account) return;
           if (!network) return;
+
           backgroundApiProxy.engine
             .activateAccount(account.id, network.id)
-            .then(() => {
-              // TODO: temp
-              ToastManager.show(
-                {
-                  title: 'Get faucet success',
-                },
-                { type: 'success' },
-              );
-            })
-            .catch(() => {
-              ToastManager.show(
-                {
-                  title: 'Get faucet error',
-                },
-                { type: 'error' },
-              );
-            });
+            .catch(() => {});
         },
         icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbSolid',
       },
