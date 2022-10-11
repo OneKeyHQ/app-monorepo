@@ -2,7 +2,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let refreshDataDebounce = 300;
-let resetDataAfterCloseDelay = 200;
+let resetDataAfterCloseDelay = 0; //  DO NOT add delay here, feedback slowly in Desktop
 let refreshDataAfterOpenDelay = 300;
 let visibleAfterOpenDelay = 200;
 let switchAccountDelay = 500;
