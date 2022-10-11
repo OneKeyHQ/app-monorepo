@@ -190,6 +190,11 @@ const init = ({ mainWindow, store }: Dependencies) => {
     logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
     setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
   });
+
+  ipcMain.on('update/clearSettings', () => {
+    logger.info('auto-update', 'clear update settings');
+    store.clear();
+  });
 };
 
 export default init;
