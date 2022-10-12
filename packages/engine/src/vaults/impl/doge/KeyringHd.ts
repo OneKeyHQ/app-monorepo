@@ -4,14 +4,14 @@ import bs58check from 'bs58check';
 import { COINTYPE_DOGE as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
-import { DBUTXOAccount } from '../../../types/account';
+import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import { IPrepareSoftwareAccountsParams } from '../../types';
 
-import { getNetwork } from './btcForkChainUtils/networks';
+import { Provider } from './btcForkChainUtils/provider';
+import { AddressEncodings } from './btcForkChainUtils/types';
 
 const DEFAULT_PURPOSE = 44;
-const CHAIN_CODE = 'doge';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -22,11 +22,16 @@ export class KeyringHd extends KeyringHdBase {
     console.log('Doge prepareAccounts!');
 
     const usedPurpose = purpose || DEFAULT_PURPOSE;
-    const usedIndexes = [...indexes];
+    const ignoreFirst = indexes[0] !== 0;
+    const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
+    const provider = (await this.engine.providerManager.getProvider(
+      this.networkId,
+    )) as unknown as Provider;
+    const { network } = provider;
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,
@@ -39,7 +44,6 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
 
-    const network = getNetwork(CHAIN_CODE);
     const { public: xpubVersionBytes } = network.bip32;
 
     const ret = [];
@@ -65,7 +69,7 @@ export class KeyringHd extends KeyringHdBase {
       );
       const name =
         (names || [])[index - (ignoreFirst ? 1 : 0)] ||
-        `${namePrefix} #${usedIndexes[index] + 1}`;
+        `#${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,
@@ -86,11 +90,11 @@ export class KeyringHd extends KeyringHdBase {
 
       const { txs } = (await provider.getAccount(
         { type: 'simple', xpub },
-        addressEncoding,
+        AddressEncodings.P2PKH,
       )) as { txs: number };
       if (txs > 0) {
         index += 1;
-        // TODO: blockbook API rate limit.
+        // blockbook API rate limit.
         await new Promise((r) => setTimeout(r, 200));
       } else {
         break;
