@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -42,8 +36,9 @@ import {
   WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY,
 } from './walletConnectConsts';
 
-type IDialogConfirmMismatchContinueInfo = {
+interface IDialogConfirmMismatchContinueInfo {
   myAddress: string;
+  // eslint-disable-next-line react/no-unused-prop-types
   myChainId: string;
   peerAddress: string;
   peerChainId: string;
@@ -52,12 +47,14 @@ type IDialogConfirmMismatchContinueInfo = {
   currentNetwork: Network;
   isAddressMismatched: boolean;
   isChainMismatched: boolean;
-};
-export type IDialogConfirmMismatchContinueProps = {
+}
+export interface IDialogConfirmMismatchContinueProps
+  extends IDialogConfirmMismatchContinueInfo {
   onClose?: () => void;
   onSubmit: () => void;
   onCancel: () => void;
-} & IDialogConfirmMismatchContinueInfo;
+}
+
 function DialogConfirmMismatchOrContinue(
   props: IDialogConfirmMismatchContinueProps,
 ) {

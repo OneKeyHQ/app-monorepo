@@ -44,7 +44,7 @@ const defaultProps = {
   hidePadding: false,
 } as const;
 
-const Item: FC<ContentItemProps> = ({
+const Item: FC<Omit<ContentItemProps, 'onPress'>> = ({
   title,
   titleColor,
   describe,

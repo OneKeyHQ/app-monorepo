@@ -19,7 +19,6 @@ import {
   addWebTab,
   closeWebTab,
   homeTab,
-  setCurrentWebTab,
   setIncomingUrl,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';

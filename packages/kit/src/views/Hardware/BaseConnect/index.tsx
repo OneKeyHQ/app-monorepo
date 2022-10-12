@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -29,18 +29,20 @@ export type OperateType =
   | 'complete'
   | 'done';
 
-export type HardwareConnectViewProps = {
+export interface HardwareConnectViewProps {
   title: string;
   actionState: string;
   actionDescription: string;
+  // eslint-disable-next-line react/no-unused-prop-types
   connectType: ConnectType;
   operateType?: OperateType;
+  // eslint-disable-next-line react/no-unused-prop-types
   onReadyConnect?: () => void | undefined;
   onCloseConnect?: () => void | undefined;
   onActionPress?: () => void | undefined;
   actionPressStyle?: ButtonType;
   actionPressContent?: string;
-};
+}
 
 const HardwareConnect: FC<HardwareConnectViewProps> = ({
   title,

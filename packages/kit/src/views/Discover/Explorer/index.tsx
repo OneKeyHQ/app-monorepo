@@ -52,7 +52,7 @@ const Explorer: FC = () => {
     }, [clearIncomingUrl, gotoSite, incomingUrl]),
   );
 
-  const onSearchSubmitEditing = async (dapp: MatchDAppItemType | string) => {
+  const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
       return gotoSite({ url: dapp });
     }
