@@ -9,7 +9,7 @@ export type IEncodedTxCfx = {
   gasFee?: string;
   gasPrice?: string;
   gasLimit?: string;
-  storageLimit?: number;
+  storageLimit?: string;
   chainId?: number;
   epochHeight?: number;
 };

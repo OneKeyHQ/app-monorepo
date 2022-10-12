@@ -1,4 +1,5 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
@@ -9,7 +10,6 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
-  ISignedTx,
   IUnsignedTxPro,
 } from '../../types';
 
@@ -94,7 +94,7 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<ISignedTx> {
+  ): Promise<SignedTx> {
     const dbAccount = await this.getDbAccount();
     const selectedAddress = (dbAccount as DBVariantAccount).addresses[
       this.networkId
@@ -106,5 +106,35 @@ export class KeyringHd extends KeyringHdBase {
     const signer = signers[selectedAddress];
 
     return signTransaction(unsignedTx, signer);
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const { password } = options;
+    if (typeof password === 'undefined') {
+      throw new OneKeyInternalError('Software signing requires a password.');
+    }
+
+    const dbAccount = await this.getDbAccount();
+    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+      this.networkId
+    ];
+
+    const signers = await this.getSigners(options.password || '', [
+      selectedAddress,
+    ]);
+    const signer = signers[selectedAddress];
+
+    return Promise.all(
+      messages.map((message) =>
+        this.engine.providerManager.signMessage(
+          this.networkId,
+          message,
+          signer,
+        ),
+      ),
+    );
   }
 }

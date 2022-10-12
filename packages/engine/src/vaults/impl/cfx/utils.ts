@@ -1,5 +1,6 @@
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
+import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { Transaction } from 'js-conflux-sdk';
 import { Conflux, Contract } from 'js-conflux-sdk/dist/types/index';
 import memoizee from 'memoizee';
@@ -8,7 +9,6 @@ import { Signer } from '../../../proxy';
 import {
   IDecodedTxActionType,
   IDecodedTxStatus,
-  ISignedTx,
   IUnsignedTxPro,
 } from '../../types';
 
@@ -29,16 +29,17 @@ export async function isCfxNativeTransferType(
 ) {
   const { data, to } = options;
 
-  const code = await getCodeCache(to, client);
-  if (code === '0x') return true;
-
+  if (to) {
+    const code = await getCodeCache(to, client);
+    if (code === '0x') return true;
+  }
   return !data || data === '0x' || data === '0x0' || data === '0';
 }
 
 export async function signTransaction(
   unsignedTx: IUnsignedTxPro,
   signer: Signer,
-): Promise<ISignedTx> {
+): Promise<SignedTx> {
   const unsignedTransaction = new Transaction(
     unsignedTx.encodedTx as IEncodedTxCfx,
   );
@@ -59,7 +60,6 @@ export async function signTransaction(
   return {
     txid: signedTransaction.hash,
     rawTx: signedTransaction.serialize(),
-    encodedTx: unsignedTx.encodedTx,
   };
 }
 

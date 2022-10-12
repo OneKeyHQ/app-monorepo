@@ -65,6 +65,10 @@ import {
 } from './utils';
 
 const TOKEN_TRANSFER_FUNCTION_SIGNATURE = '0xa9059cbb';
+const TOKEN_APPROVE_FUNCTION_SIGNATURE = '0x095ea7b3';
+const INFINITE_AMOUNT_TEXT = 'Infinite';
+const INFINITE_AMOUNT_HEX =
+  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
   settings = settings;
@@ -222,11 +226,47 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  updateEncodedTxTokenApprove(
-    encodedTx: IEncodedTx,
+  async updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTxCfx,
     amount: string,
   ): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+    const decodedTx = await this.decodeTx(encodedTx);
+    const action = decodedTx.actions[0];
+    if (
+      !action ||
+      action.type !== IDecodedTxActionType.TOKEN_APPROVE ||
+      !action.tokenApprove
+    ) {
+      throw new Error('Not a approve transaction.');
+    }
+
+    const { tokenInfo, spender } = action.tokenApprove;
+    let amountHex;
+    if (amount === INFINITE_AMOUNT_TEXT || amount === INFINITE_AMOUNT_HEX) {
+      amountHex = INFINITE_AMOUNT_HEX;
+    } else {
+      const amountBN = new BigNumber(amount);
+      if (amountBN.isNaN()) {
+        throw new Error(`Invalid amount input: ${amount}`);
+      }
+      amountHex = toBigIntHex(amountBN.shiftedBy(tokenInfo.decimals));
+    }
+
+    const data = `${TOKEN_APPROVE_FUNCTION_SIGNATURE}${defaultAbiCoder
+      .encode(
+        ['address', 'uint256'],
+        [
+          `0x${confluxAddress
+            .decodeCfxAddress(spender)
+            .hexAddress.toString('hex')}`,
+          amountHex,
+        ],
+      )
+      .slice(2)}`;
+    return {
+      ...encodedTx,
+      data,
+    };
   }
 
   async buildUnsignedTxFromEncodedTx(
@@ -249,7 +289,9 @@ export default class Vault extends VaultBase {
     encodedTx.nonce = Number(nonce);
     encodedTx.epochHeight = status.epochNumber;
     encodedTx.chainId = status.chainId;
-    encodedTx.storageLimit = estimate.storageCollateralized;
+    encodedTx.storageLimit = new BigNumber(
+      estimate.storageCollateralized,
+    ).toFixed();
 
     const unsignedTx: IUnsignedTxPro = {
       inputs: [],
@@ -522,24 +564,41 @@ export default class Vault extends VaultBase {
       extraNativeTransferAction = undefined;
     }
 
-    if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
+    if (
+      actionType === IDecodedTxActionType.TOKEN_TRANSFER ||
+      actionType === IDecodedTxActionType.TOKEN_APPROVE
+    ) {
       const token = await this.engine.findToken({
         networkId: this.networkId,
         tokenIdOnNetwork: encodedTx.to,
       });
 
       if (token && abiDecodeResult) {
-        const { to, amount } = abiDecodeResult.object;
+        const { from, to, recipient, amount, spender } = abiDecodeResult.object;
         const amountBn = new BigNumber(amount);
-        action.type = IDecodedTxActionType.TOKEN_TRANSFER;
-        action.tokenTransfer = {
+        const baseAcionInfo = {
           tokenInfo: token,
-          from: encodedTx.from ?? address,
-          to,
           amount: amountBn.shiftedBy(-token.decimals).toFixed(),
           amountValue: amountBn.toFixed(),
           extraInfo: null,
         };
+        action.type = actionType;
+        if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
+          action.tokenTransfer = {
+            ...baseAcionInfo,
+            from: from ?? encodedTx.from ?? address,
+            to: to ?? recipient,
+          };
+        }
+
+        if (actionType === IDecodedTxActionType.TOKEN_APPROVE) {
+          action.tokenApprove = {
+            ...baseAcionInfo,
+            owner: encodedTx.from || address,
+            spender,
+            isMax: toBigIntHex(new BigNumber(amount)) === INFINITE_AMOUNT_HEX,
+          };
+        }
       }
     }
 

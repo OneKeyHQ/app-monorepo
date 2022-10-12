@@ -4,6 +4,7 @@ import { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
 
 import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBase from './ProviderApiBase';
+import ProviderApiConflux from './ProviderApiConflux';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
 import ProviderApiPrivate from './ProviderApiPrivate';
@@ -34,8 +35,10 @@ function createBackgroundProviders({
     [IInjectedProviderNames.aptos]: new ProviderApiAptos({
       backgroundApi,
     }),
+    [IInjectedProviderNames.conflux]: new ProviderApiConflux({
+      backgroundApi,
+    }),
     // near
-    // conflux
     // sollet
   };
 
