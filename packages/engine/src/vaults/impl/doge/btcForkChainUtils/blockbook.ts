@@ -18,6 +18,8 @@ class BlockBook {
       return i;
     });
   }
+
+  setChainInfo() {}
 }
 
 const getBlockBook = (chainInfo: ChainInfo) =>

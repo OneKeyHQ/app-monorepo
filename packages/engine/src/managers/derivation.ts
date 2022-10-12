@@ -49,7 +49,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_CFX]: `m/44'/${COINTYPE_CFX}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_BTC]: `m/${PURPOSE_TAG}'/${COINTYPE_BTC}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_TRON]: `m/44'/${COINTYPE_TRON}'/0'/0/${INCREMENT_LEVEL_TAG}`,
-  [COINTYPE_DOGE]: `m/44'/${COINTYPE_DOGE}'/0'/0/${INCREMENT_LEVEL_TAG}`,
+  [COINTYPE_DOGE]: `m/44'/${COINTYPE_DOGE}'/${INCREMENT_LEVEL_TAG}'`,
 };
 
 function getDerivationPaths(

@@ -60,6 +60,8 @@ import {
 import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
+import { BtcForkImpl } from './vaults/impl/doge/btcForkChainUtils';
+import { Provider as BTCForkProvider } from './vaults/impl/doge/btcForkChainUtils/provider';
 
 // IMPL naming aren't necessarily the same.
 export const IMPL_MAPPINGS: Record<
@@ -73,6 +75,7 @@ export const IMPL_MAPPINGS: Record<
   [IMPL_STC]: { defaultClient: 'StcClient' },
   [IMPL_CFX]: { defaultClient: 'Conflux' },
   [IMPL_BTC]: { defaultClient: 'BlockBook' },
+  [IMPL_DOGE]: { defaultClient: 'BlockBook' },
 };
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -392,6 +395,10 @@ class ProviderController extends BaseProviderController {
   }
 
   override requireChainImpl(impl: string): any {
+    // Migrating providers from blockchainlibs
+    if (impl === IMPL_DOGE) {
+      return BtcForkImpl[impl];
+    }
     return super.requireChainImpl(IMPL_MAPPINGS[impl]?.implName || impl);
   }
 

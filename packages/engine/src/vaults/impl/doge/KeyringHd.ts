@@ -12,6 +12,7 @@ import { Provider } from './btcForkChainUtils/provider';
 import { AddressEncodings } from './btcForkChainUtils/types';
 
 const DEFAULT_PURPOSE = 44;
+const COIN_NAME = 'DOGE';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -69,7 +70,7 @@ export class KeyringHd extends KeyringHdBase {
       );
       const name =
         (names || [])[index - (ignoreFirst ? 1 : 0)] ||
-        `#${usedIndexes[index] + 1}`;
+        `${COIN_NAME} #${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,
