@@ -23,6 +23,7 @@ import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAcc
 import {
   MatchDAppItemType,
   SearchViewKeyEventType,
+  SearchViewRef,
   WebControllerBarProps,
 } from '../explorerUtils';
 import SearchView from '../Search/SearchView';
@@ -112,13 +113,10 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
 
   const searchBar = useRef<TextInput>(null);
   // Todo Ref Type
-  const searchView = useRef<any>(null);
+  const searchView = useRef<SearchViewRef>(null);
 
-  const onKeyEvent = (event: SearchViewKeyEventType) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    searchView?.current?.onKeyPress?.(event);
-  };
-
+  const onKeyEvent = (event: SearchViewKeyEventType) =>
+    searchView.current?.onKeyPress(event);
   return (
     <>
       <HStack
@@ -178,10 +176,11 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
             // @ts-ignore
             onKeyPress={(event) => {
               const { key } = event.nativeEvent;
-              if (key === 'ArrowUp' || key === 'ArrowDown') {
-                onKeyEvent?.(key);
-                // 阻断 上键、下键 事件传递
-                event.preventDefault();
+              if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'Enter') {
+                if (onKeyEvent?.(key)) {
+                  // 阻断 上键、下键 事件传递
+                  event.preventDefault();
+                }
               }
             }}
             onFocus={() => {

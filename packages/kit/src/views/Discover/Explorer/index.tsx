@@ -16,7 +16,7 @@ import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
 import { useWebController } from './Controller/useWebController';
-import { MatchDAppItemType, isValidDomain, webHandler } from './explorerUtils';
+import { MatchDAppItemType, webHandler } from './explorerUtils';
 import MoreView from './MoreMenu';
 
 const showExplorerBar = webHandler !== 'browser';
@@ -54,13 +54,7 @@ const Explorer: FC = () => {
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
-      if (dapp.startsWith('http')) {
-        return gotoSite({ url: dapp });
-      }
-      if (isValidDomain(dapp)) {
-        return gotoSite({ url: `https://${dapp}` });
-      }
-      return gotoSite({ url: `https://www.google.com/search?q=${dapp}` });
+      return gotoSite({ url: dapp });
     }
     openMatchDApp(dapp);
   };

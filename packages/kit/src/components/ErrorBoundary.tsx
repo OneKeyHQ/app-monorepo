@@ -1,6 +1,6 @@
 /* eslint-disable react/destructuring-assignment, react/state-in-constructor */
 // eslint-disable-next-line max-classes-per-file
-import React from 'react';
+import { PureComponent } from 'react';
 
 import { Box, Button, Typography } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,7 +10,7 @@ type ErrorBoundaryProps = {
 };
 type ErrorBoundaryState = { error: Error | null };
 
-class ErrorBoundaryBase extends React.PureComponent<
+class ErrorBoundaryBase extends PureComponent<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
@@ -29,6 +29,7 @@ class ErrorBoundaryBase extends React.PureComponent<
   }
 
   override render() {
+    // eslint-disable-next-line react/prop-types
     return this.props.children;
   }
 }

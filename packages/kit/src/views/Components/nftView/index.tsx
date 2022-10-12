@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { Box, Center, Image } from 'native-base';
 
@@ -9,7 +9,9 @@ import type { ResponsiveValue } from 'native-base/lib/typescript/components/type
 export type NFTViewProps = {
   src?: string;
   size?: ResponsiveValue<string | number>;
+  // eslint-disable-next-line react/no-unused-prop-types
   id?: string | null;
+  // eslint-disable-next-line react/no-unused-prop-types
   chain?: string;
 };
 
