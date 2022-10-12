@@ -40,7 +40,6 @@ export class KeyringHd extends KeyringHdBase {
       `m/${usedPurpose}'/${COIN_TYPE}'`,
       usedIndexes.map((index) => `${index.toString()}'`),
     );
-    debugger;
     if (pubkeyInfos.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
@@ -98,6 +97,9 @@ export class KeyringHd extends KeyringHdBase {
         // blockbook API rate limit.
         await new Promise((r) => setTimeout(r, 200));
       } else {
+        // Software should prevent a creation of an account
+        // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
+        // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
         break;
       }
     }

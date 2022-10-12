@@ -126,7 +126,11 @@ const defaultAccountNameInfo: Record<
     default: { prefix: 'APT', category: `44'/${COINTYPE_APTOS}'` },
   },
   [IMPL_DOGE]: {
-    default: { prefix: 'DOGE', category: `44'/${COINTYPE_ETH}'` },
+    default: {
+      prefix: 'DOGE',
+      category: `44'/${COINTYPE_ETH}'`,
+      label: 'Legacy (P2PKH)',
+    },
   },
 };
 
