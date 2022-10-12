@@ -20,7 +20,7 @@ export const balanceSupprtedNetwork: string[] = [
   OnekeyNetwork.bsc,
   OnekeyNetwork.cronos,
   OnekeyNetwork.fantom,
-  OnekeyNetwork.teth,
+  OnekeyNetwork.goerli,
   OnekeyNetwork.tbsc,
 ];
 
