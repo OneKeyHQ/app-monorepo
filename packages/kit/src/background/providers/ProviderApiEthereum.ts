@@ -7,6 +7,7 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import * as ethUtils from 'ethereumjs-util';
 import { get } from 'lodash';
 import uuid from 'react-native-uuid';
 
@@ -405,6 +406,70 @@ class ProviderApiEthereum extends ProviderApiBase {
     });
   }
 
+  /*
+  const wait = (ms) =>
+    new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  const testCase = [
+      ['test sample','test sample'],
+      [
+        '0x4578616d706c652060706572736f6e616c5f7369676e60206d657373616765',
+        '0x84abfa0d0ce78c9ae22416ccbd38e8c5e7ef21b7a97e3e6cce378397485ed7037dc7f93837d488461a23c50ecc43eb6904e53afa6b124452e8a77c81111ab4991b',
+      ],
+      [
+        'haha',
+        '0x8d97f86bc49dd442df3f359e0901223a6b45ebbddfb0ac3729326315a98e3ba81b7a416895dfa82ed1fe096b61741f1df6ca6e535a608f27e05cb1b8013e3ee11c',
+      ],
+      [
+        '66726f6d206469643a20361efca9bfb910883594e6c3a5461ef66c11df7c61cc030bad3eb12821386d86',
+        '0xe83f6a9c5015d602720af5ed0af0e2e388427efa26bc3a4abd426624598bcaaa7282764c44d33f26b662f0cca28b56e36175f9e3053a56cbf58e98dff66d15841b',
+      ],
+      [
+        '66726f6d206469643a20361efca9bfb910883594e6c3a5461ef6',
+        '0x59821bb2aa19c10ca4719017686f129d8e51d8a51018142f804cb492c26fe4dd2e799495e857cd2c343a556b49c80b895e7aac25673b77bd5550ae6067ea64511b',
+      ],
+      [
+        '66726f6d206469643a20361efca9bfb910883594e6c3a5461ef6i',
+        '0x3a7fa998d6c17dc7f0c0d152dedbf86716df839afaa33213d33a72773da6b00f18942a4612aaeb3eb15cff8cf75addea5065d20e74c7ade0ac78e0da1386d6761c',
+      ],
+      [
+        'abc',
+        '0x996b1f8b9d16ea57b694820054d76125972f61ffbb51e1564230f098e809cdbb27fffc0164b73f93a3d9da6a495bde925827d28898785583d10aea90cf84db421b',
+      ],
+      [
+        'ab',
+        '0x03a8c966ffa96f0af82f42f7072ae67e2dace29f7079303d7903adeee3bde17963abde5567db962f05afa3dfebcb22aa425f5cba0d26872c13ad0c5cefce1fce1c',
+      ],
+      [
+        'a',
+        '0xdad5adb51627b58b1f55d4957d9be2605c6baf93eb79ce8c4d98e7e854688bad5cd1400d9c1d2cafeb6ca5f4851f8a0c99e773d4353fefc1e3325b0dbfc9634b1b',
+      ],
+      [
+        'abz',
+        '0xa3fb77c66015ef3a052026e9aa9550c7853623c15cb30aec0ea94d36ae3bba9271b97f96b5b544ab3a3a5b5bb46513d44c589472eec5824a531b1f03fd7a34b11b',
+      ],
+    ];
+    const address = window.ethereum._state.accounts[0];
+    for (const caseInfo of testCase) {
+      const [message, signedExpect] = caseInfo;
+      const signedActual = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [message, address, 'HelloWorld'],
+      });
+      const logInfo = {
+        message,
+        signedActual,
+        signedExpect,
+      };
+      if (signedActual !== signedExpect) {
+        console.error('personal_sign ERROR: ', logInfo);
+      } else {
+        console.info('personal_sign Success: ', logInfo);
+      }
+      await wait(1000); // TODO remove in future
+    }
+   */
   @providerApiMethod()
   async personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     let message = messages[0] as string;
@@ -425,11 +490,30 @@ class ProviderApiEthereum extends ProviderApiBase {
       }
     }
 
+    message = this.autoFixPersonalSignMessage({ message });
+
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
       message,
       payload: messages,
     });
+  }
+
+  autoFixPersonalSignMessage({ message }: { message: string }) {
+    let messageFixed = message;
+    try {
+      ethUtils.toBuffer(message);
+    } catch (error) {
+      // message not prefixed by 0x
+      const tmpMsg = `0x${message}`;
+      try {
+        ethUtils.toBuffer(tmpMsg);
+        messageFixed = tmpMsg;
+      } catch (err) {
+        // message not including valid hex character
+      }
+    }
+    return messageFixed;
   }
 
   @providerApiMethod()
