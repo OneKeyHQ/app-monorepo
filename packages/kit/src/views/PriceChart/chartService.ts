@@ -159,6 +159,7 @@ export const fetchChartData = async ({
     networkId,
     addresses: [contract],
     days,
+    // eslint-disable-next-line camelcase
     vs_currency,
     points,
   });
