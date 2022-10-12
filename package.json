@@ -61,6 +61,8 @@
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",
+    "@babel/eslint-parser": "^7.19.1",
+    "@babel/preset-react": "^7.18.6",
     "@babel/plugin-proposal-class-properties": "^7.14.5",
     "@types/chrome": "^0.0.161",
     "@types/jest": "^27.0.3",
