@@ -17,6 +17,7 @@ import {
 } from '../../../../store/reducers/discover';
 import {
   addWebTab,
+  closeWebTab,
   homeTab,
   setCurrentWebTab,
   setIncomingUrl,
@@ -27,6 +28,7 @@ import DappOpenHintDialog from '../DappOpenHintDialog';
 import {
   MatchDAppItemType,
   OnWebviewNavigation,
+  validateUrl,
   webHandler,
   webviewRefs,
 } from '../explorerUtils';
@@ -67,26 +69,31 @@ export const useWebController = ({
       isInPlace?: boolean;
     }) => {
       if (url) {
+        const validatedUrl = validateUrl(url);
+        if (!validatedUrl) {
+          return;
+        }
         if (webHandler === 'browser') {
-          return openUrl(url);
+          return openUrl(validatedUrl);
         }
         const isNewTab =
           (isNewWindow || curId === 'home') && webHandler === 'tabbedWebview';
 
+        const tabId = isNewTab ? nanoid() : curId;
         dispatch(
           isNewTab
             ? addWebTab({
-                id: nanoid(),
+                id: tabId,
                 title,
-                url,
+                url: validatedUrl,
                 favicon,
                 isCurrent: true,
               })
-            : setWebTabData({ id: curId, url, title, favicon }),
+            : setWebTabData({ id: tabId, url: validatedUrl, title, favicon }),
           dAppId
             ? updateHistory(dAppId)
             : addWebSiteHistory({
-                webSite: { url, title, favicon },
+                webSite: { url: validatedUrl, title, favicon },
               }),
         );
         if (
@@ -97,7 +104,14 @@ export const useWebController = ({
         ) {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          getInnerRef()?.loadURL(url);
+          getInnerRef()?.loadURL(validatedUrl);
+        }
+
+        // close deep link tab after 1s
+        if (!validatedUrl.startsWith('http')) {
+          setTimeout(() => {
+            dispatch(closeWebTab(tabId));
+          }, 1000);
         }
         return true;
       }

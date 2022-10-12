@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import * as Linking from 'expo-linking';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -77,24 +76,18 @@ export const isValidDomain = (domain: string) =>
     domain,
   );
 
-export const validateUrl = async (url: string) => {
+export const validateUrl = (url: string) => {
   try {
     // eslint-disable-next-line no-new
     new URL(url);
-    if (url.startsWith('http')) {
-      return url;
-    }
-    // web always returns true
-    if (platformEnv.isNative && (await Linking.canOpenURL(url))) {
-      Linking.openURL(url);
-      return null;
-    }
   } catch (e) {
     if (isValidDomain(url)) {
       return `https://${url}`;
     }
     return `https://www.google.com/search?q=${url}`;
   }
+
+  return url;
 };
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
