@@ -74,7 +74,7 @@ function ListItem({
   onLastItemRender,
 }: {
   wallet: IWallet;
-  isSingleton?: boolean;
+  isSingleton?: boolean; // isSingleton Wallet: watching\imported\external
   isLastItem?: boolean;
   deviceStatus: IHardwareDeviceStatusMap | undefined;
   onLastItemRender?: () => void;

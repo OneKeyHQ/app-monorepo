@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Dialog,
   Icon,
   IconButton,
@@ -34,8 +35,12 @@ import {
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
-import { IHardwareDeviceStatusMap } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
+import {
+  DeviceStatusType,
+  IHardwareDeviceStatusMap,
+} from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import { ValidationFields } from '../../Protected';
+import { WalletStatus, useHardwareWalletInfo } from '../WalletAvatar';
 
 enum EWalletSelectorListItemSelectOptions {
   rename = 'rename',
@@ -58,6 +63,10 @@ function WalletItemSelectDropdown({
   const [showBackupDialog, setShowBackupDialog] = useState(false);
   const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
   const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
+  const hwInfo = useHardwareWalletInfo({
+    deviceStatus,
+    wallet,
+  });
 
   const onDeleteWallet = useCallback(() => {
     if (wallet?.type === 'hw') {
@@ -95,10 +104,7 @@ function WalletItemSelectDropdown({
   const isPassphraseHardwareWallet = wallet
     ? isPassphraseWallet(wallet)
     : false;
-  const hasAvailableUpdate = useMemo(
-    () => Boolean(isHardwareWallet && deviceStatus?.hasUpgrade) ?? false,
-    [deviceStatus?.hasUpgrade, isHardwareWallet],
-  );
+  const hasAvailableUpdate = hwInfo?.hasUpgrade;
 
   const navigateToBackupModal = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -295,24 +301,33 @@ function WalletItemSelectDropdown({
           width: 248,
         }}
         renderTrigger={({ onPress }) => (
-          <IconButton
-            name="DotsVerticalSolid"
-            circle
-            type="plain"
-            onPress={onPress}
-            hitSlop={16}
-            // TODO custom props
-            // isTriggerHovered={isHovered}
-            // isSelectVisible={visible}
-            // isTriggerPressed={isPressed}
-            // TODO hardware only
-            // isNotification={hasAvailableUpdate}
-            // notificationColor="icon-warning"
-          />
+          <Box>
+            {hasAvailableUpdate ? (
+              <WalletStatus
+                size={platformEnv.isNative ? 'lg' : 'sm'}
+                status="warning"
+              />
+            ) : null}
+
+            <IconButton
+              name="DotsVerticalSolid"
+              circle
+              type="plain"
+              onPress={onPress}
+              hitSlop={16}
+              // TODO custom props
+              // isTriggerHovered={isHovered}
+              // isSelectVisible={visible}
+              // isTriggerPressed={isPressed}
+              // TODO hardware only
+              // isNotification={hasAvailableUpdate}
+              // notificationColor="icon-warning"
+            />
+          </Box>
         )}
       />
     ),
-    [onSelectChange, selectOptions],
+    [hasAvailableUpdate, onSelectChange, selectOptions],
   );
 
   // TODO use redux to save memory
