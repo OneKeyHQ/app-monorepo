@@ -27,6 +27,7 @@ import {
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
+  IFeeInfoUnit,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -47,7 +48,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-const DEFAULT_BLOCK_NUMS = [6, 3, 2];
+const DEFAULT_BLOCK_NUMS = [10, 5, 2];
 const DEFAULT_BLOCK_TIME = 60;
 
 // @ts-ignore
@@ -174,6 +175,20 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );
+  }
+
+  attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxBtc;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTxBtc> {
+    const feeRate = params.feeInfoValue.price;
+    if (typeof feeRate === 'string') {
+      return this.buildEncodedTxFromTransfer(
+        params.encodedTx.transferInfo,
+        feeRate,
+      );
+    }
+    return Promise.resolve(params.encodedTx);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
@@ -348,13 +363,13 @@ export default class Vault extends VaultBase {
   //   throw new NotImplemented();
   // }
 
-  // updateEncodedTx(
-  //   encodedTx: IEncodedTx,
-  //   payload: any,
-  //   options: IEncodedTxUpdateOptions,
-  // ): Promise<IEncodedTx> {
-  //   return Promise.resolve(encodedTx);
-  // }
+  updateEncodedTx(
+    encodedTx: IEncodedTx,
+    payload: any,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTx> {
+    return Promise.resolve(encodedTx);
+  }
 
   buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxBtc,
