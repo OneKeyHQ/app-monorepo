@@ -25,17 +25,6 @@ export type AddressValidation = {
   encoding?: string;
 };
 
-type EstimatedPrice = {
-  price: BigNumber;
-  waitingBlock?: number;
-  payload?: { [key: string]: any };
-};
-
-export type FeePricePerUnit = {
-  normal: EstimatedPrice;
-  others?: EstimatedPrice[];
-};
-
 export type IBtcUTXO = {
   txid: string;
   vout: number;

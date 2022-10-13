@@ -325,11 +325,6 @@ class Provider {
     }
 
     feeLimit = feeLimit || new BigNumber(PLACEHOLDER_VSIZE);
-    feePricePerUnit =
-      feePricePerUnit ||
-      (await this.blockbook
-        .then((client) => client.getFeePricePerUnit())
-        .then((fee) => fee.normal.price));
 
     return { ...unsignedTx, feeLimit, feePricePerUnit };
   }
