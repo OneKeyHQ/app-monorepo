@@ -189,10 +189,9 @@ const ListGallery = () => (
       </Box>
 
       <Box p={4} bgColor="background-default">
-        <GroupingList
+        <List
           data={MarketData}
           showDivider
-          // headerProps={{}}
           ListHeaderComponent={() => (
             <>
               <ListItem>

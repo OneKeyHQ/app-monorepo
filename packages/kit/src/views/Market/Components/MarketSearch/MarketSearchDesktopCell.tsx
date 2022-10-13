@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/components/src';
 import React, { FC } from 'react';
 import { MarketTokenItem } from '../../../../store/reducers/market';
-import { ListItem } from '../../../Components/stories/List/ListView';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 const MarketSearchTokenDestopCell: FC<{

@@ -1,10 +1,9 @@
-import { FlatList, Box, Pressable, Typography } from '@onekeyhq/components/src';
+import { Box, FlatList, ListItem, Typography } from '@onekeyhq/components/src';
 import { Image } from '@onekeyhq/components/src/NetImage';
 import { FC, useCallback } from 'react';
 import { ListRenderItem } from 'react-native';
 
 import { MarketNews } from '../../../../store/reducers/market';
-import { ListItem } from '../../../Components/stories/List/ListView';
 import { useWebController } from '../../../Discover/Explorer/Controller/useWebController';
 
 type NewsItemProps = {

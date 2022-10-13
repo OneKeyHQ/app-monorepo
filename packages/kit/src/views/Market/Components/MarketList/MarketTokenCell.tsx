@@ -7,6 +7,7 @@ import {
   Icon,
   IconButton,
   Image,
+  ListItem,
   Pressable,
   Skeleton,
   Typography,
@@ -14,7 +15,6 @@ import {
 } from '@onekeyhq/components/src';
 
 import { MarketTokenItem } from '../../../../store/reducers/market';
-import { ListItem } from '../../../Components/stories/List/ListView';
 import { ListHeadTagType } from '../../types';
 import SparklineChart from './SparklineChart';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';

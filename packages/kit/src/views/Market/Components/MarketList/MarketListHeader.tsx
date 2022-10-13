@@ -4,11 +4,11 @@ import {
   Box,
   Divider,
   Icon,
+  ListItem,
   Pressable,
   Typography,
 } from '@onekeyhq/components/src';
 
-import { ListItem } from '../../../Components/stories/List/ListView';
 import { ListHeadTagType } from '../../types';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useListSort } from '../../hooks/useMarketList';
