@@ -22,6 +22,13 @@ export const balanceSupprtedNetwork: string[] = [
   OnekeyNetwork.fantom,
   OnekeyNetwork.goerli,
   OnekeyNetwork.tbsc,
+
+  // moralis, non-evm
+  OnekeyNetwork.sol,
+  OnekeyNetwork.tsol,
+
+  OnekeyNetwork.near,
+  OnekeyNetwork.stc,
 ];
 
 export type TokenBalancesQuery = {
