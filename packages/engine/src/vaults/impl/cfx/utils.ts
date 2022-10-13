@@ -94,6 +94,15 @@ export async function parseTransaction(
         }
         case 'transferFrom': {
           txType = IDecodedTxActionType.TOKEN_TRANSFER;
+
+          const { sender, recipient } = abiDecodeResult.object;
+
+          if (sender !== encodedTx.from && recipient !== encodedTx.from) {
+            return {
+              actionType: IDecodedTxActionType.UNKNOWN,
+              abiDecodeResult: null,
+            };
+          }
           break;
         }
         case 'approve': {

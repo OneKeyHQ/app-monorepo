@@ -23,11 +23,13 @@ import {
 } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
+import { Token } from '../../../types/token';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
+  IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
   IDecodedTxLegacy,
   IDecodedTxStatus,
@@ -432,6 +434,7 @@ export default class Vault extends VaultBase {
     const apiExplorer = await this.getApiExplorer();
     const client = await this.getClient();
     const address = await this.getAccountAddress();
+    const actionsFromTransferHistory: IDecodedTxAction[] = [];
 
     const transferType = getApiExplorerTransferType(tokenIdOnNetwork);
 
@@ -491,6 +494,26 @@ export default class Vault extends VaultBase {
               encodedTx.to = txDetail.to || tx.contract || encodedTx.to;
             }
           }
+
+          // If it is crc20 transfer, the corresponding transaction may be a complex contract call with multiple processes
+          // Build and return action directly to avoid further parsing
+          if (transferType === IOnChainTransferType.Transfer20) {
+            const token = await this.engine.findToken({
+              networkId: this.networkId,
+              tokenIdOnNetwork: tokenIdOnNetwork as string,
+            });
+            if (token) {
+              actionsFromTransferHistory.push({
+                type: IDecodedTxActionType.TOKEN_TRANSFER,
+                tokenTransfer: this.buildTokenTransferAction({
+                  from: tx.from,
+                  to: tx.to,
+                  token,
+                  amount: tx.amount,
+                }),
+              });
+            }
+          }
         }
 
         const decodedTx: IDecodedTx = {
@@ -498,7 +521,9 @@ export default class Vault extends VaultBase {
           owner: address,
           signer: encodedTx.from || address,
           nonce: encodedTx.nonce || 0,
-          actions: await this.buildEncodedTxActions(encodedTx),
+          actions: actionsFromTransferHistory.length
+            ? actionsFromTransferHistory
+            : await this.buildEncodedTxActions(encodedTx),
           status: getTransactionStatus(tx.status),
           networkId: this.networkId,
           accountId: this.accountId,
@@ -553,14 +578,14 @@ export default class Vault extends VaultBase {
       if (!valueBn.isNaN() && valueBn.gt(0)) {
         extraNativeTransferAction = {
           type: IDecodedTxActionType.NATIVE_TRANSFER,
-          nativeTransfer: await this.buildNativeTransfer(encodedTx),
+          nativeTransfer: await this.buildNativeTransferAction(encodedTx),
         };
       }
     }
 
     if (actionType === IDecodedTxActionType.NATIVE_TRANSFER) {
       action.type = IDecodedTxActionType.NATIVE_TRANSFER;
-      action.nativeTransfer = await this.buildNativeTransfer(encodedTx);
+      action.nativeTransfer = await this.buildNativeTransferAction(encodedTx);
       extraNativeTransferAction = undefined;
     }
 
@@ -574,30 +599,25 @@ export default class Vault extends VaultBase {
       });
 
       if (token && abiDecodeResult) {
-        const { from, to, recipient, amount, spender } = abiDecodeResult.object;
-        const amountBn = new BigNumber(amount);
-        const baseAcionInfo = {
-          tokenInfo: token,
-          amount: amountBn.shiftedBy(-token.decimals).toFixed(),
-          amountValue: amountBn.toFixed(),
-          extraInfo: null,
-        };
+        const { from, to, sender, recipient, amount, spender } =
+          abiDecodeResult.object;
         action.type = actionType;
         if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
-          action.tokenTransfer = {
-            ...baseAcionInfo,
-            from: from ?? encodedTx.from ?? address,
+          action.tokenTransfer = this.buildTokenTransferAction({
+            from: from ?? sender ?? encodedTx.from ?? address,
             to: to ?? recipient,
-          };
+            token,
+            amount,
+          });
         }
 
         if (actionType === IDecodedTxActionType.TOKEN_APPROVE) {
-          action.tokenApprove = {
-            ...baseAcionInfo,
+          action.tokenApprove = this.buildTokenApproveAction({
             owner: encodedTx.from || address,
             spender,
-            isMax: toBigIntHex(new BigNumber(amount)) === INFINITE_AMOUNT_HEX,
-          };
+            token,
+            amount,
+          });
         }
       }
     }
@@ -605,7 +625,7 @@ export default class Vault extends VaultBase {
     return [action, extraNativeTransferAction].filter(Boolean);
   }
 
-  async buildNativeTransfer(encodedTx: IEncodedTxCfx) {
+  async buildNativeTransferAction(encodedTx: IEncodedTxCfx) {
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     const valueBn = new BigNumber(encodedTx.value);
     const network = await this.getNetwork();
@@ -615,6 +635,51 @@ export default class Vault extends VaultBase {
       to: encodedTx.to,
       amount: valueBn.shiftedBy(-network.decimals).toFixed(),
       amountValue: valueBn.toFixed(),
+      extraInfo: null,
+    };
+  }
+
+  buildTokenTransferAction({
+    from,
+    to,
+    token,
+    amount,
+  }: {
+    from: string;
+    to: string;
+    token: Token;
+    amount: string;
+  }) {
+    const amountBn = new BigNumber(amount);
+    return {
+      from,
+      to,
+      tokenInfo: token,
+      amount: amountBn.shiftedBy(-token.decimals).toFixed(),
+      amountValue: amountBn.toFixed(),
+      extraInfo: null,
+    };
+  }
+
+  buildTokenApproveAction({
+    owner,
+    spender,
+    token,
+    amount,
+  }: {
+    owner: string;
+    spender: string;
+    token: Token;
+    amount: string;
+  }) {
+    const amountBn = new BigNumber(amount);
+    return {
+      owner,
+      spender,
+      isMax: toBigIntHex(new BigNumber(amount)) === INFINITE_AMOUNT_HEX,
+      tokenInfo: token,
+      amount: amountBn.shiftedBy(-token.decimals).toFixed(),
+      amountValue: amountBn.toFixed(),
       extraInfo: null,
     };
   }
