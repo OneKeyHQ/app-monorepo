@@ -28,20 +28,18 @@ const AppLoading: FC = ({ children }) => {
 
   useSWR(initDataReady ? 'currencies' : null, fetchCurrencies);
 
-  const initService = async () => {
-    try {
-      await serviceApp.initApp();
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
   const bgColor = useThemeValue('background-default');
 
   useEffect(() => {
     async function main() {
+      await Promise.all([
+        serviceApp.waitForAppInited({
+          logName: 'AppLoading',
+        }),
+      ]);
       await waitForDataLoaded({
-        logName: 'WaitBackgroundReady',
+        logName: 'WaitBackgroundReady @ AppLoading',
+        wait: 300,
         data: async () => {
           const result = await backgroundApiProxy.getState();
           if (result && result.bootstrapped) {
@@ -56,12 +54,6 @@ const AppLoading: FC = ({ children }) => {
           return false;
         },
       });
-      await Promise.all([
-        new Promise((resolve) => {
-          setTimeout(resolve, 300);
-        }),
-        initService(),
-      ]);
       setInitDataReady(true);
 
       // end splash screen to show AnimatedSplash after 50ms to avoid twinkling

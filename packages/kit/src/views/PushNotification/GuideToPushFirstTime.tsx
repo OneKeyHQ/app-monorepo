@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useMemo } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,10 +17,46 @@ import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigationBack } from '../../hooks/useAppNavigation';
+import useAppNavigation, {
+  useNavigationBack,
+} from '../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
+import { wait } from '../../utils/helper';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
+import { PushNotificationRoutes } from './types';
+
+export function GuideToPushFirstTimeCheck() {
+  const navigation = useAppNavigation();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      const func = async () => {
+        const { serviceBootstrap } = backgroundApiProxy;
+        await wait(1000);
+        const res = await serviceBootstrap.checkShouldShowNotificationGuide();
+        if (!isActive) {
+          return;
+        }
+        if (res) {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.PushNotification,
+            params: {
+              screen: PushNotificationRoutes.GuideToPushFirstTime,
+            },
+          });
+        }
+      };
+      func();
+      return () => {
+        isActive = false;
+      };
+    }, [navigation]),
+  );
+  return null;
+}
 
 const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
