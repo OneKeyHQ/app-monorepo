@@ -1,6 +1,8 @@
 import { CKDPub } from '@onekeyfe/blockchain-libs/dist/secret';
+import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
+import memoziee from 'memoizee';
 
 import { getBlockBook } from './blockbook';
 import { Network, getNetwork } from './networks';
@@ -275,6 +277,24 @@ class Provider {
           isValid: false,
         };
   }
+
+  getBalances(
+    requests: { address: string }[],
+  ): Promise<(BigNumber | undefined)[]> {
+    return this.blockbook.then((client) =>
+      Promise.all(requests.map(({ address }) => client.getBalance(address))),
+    );
+  }
+
+  getUTXOs = memoziee(
+    async (xpub: string) =>
+      this.blockbook.then((client) => client.getUTXOs(xpub)),
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 }
 
 export { Provider };
