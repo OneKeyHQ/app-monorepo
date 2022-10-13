@@ -667,6 +667,8 @@
   "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
   "form__estimate_str": "تقدير {0}",
   "form__estomated_gas": "الغاز المقدر",
+  "form__exact_amount_allowance": "بدل المبلغ الدقيق",
+  "form__exact_amount_allowance_desc": "احذر من إعطاء الكثير من البدل لأي عقد. قد يؤدي استخدام وضع المبلغ المحدد إلى تقليل المخاطر بشكل كبير. يمكنك تبديله في أي وقت.",
   "form__expand_view": "قم بتوسيع العرض",
   "form__explorer": "إكسبلورر",
   "form__face_id": "معرف الوجه / معرف اللمس",
@@ -713,6 +715,7 @@
   "form__language": "لغة",
   "form__last_7_days_uppercase": "اخر 7 ايام",
   "form__last_price": "السعر الاخير",
+  "form__lending": "الإقراض",
   "form__light": "خفيفة",
   "form__manage": "يدير",
   "form__manage_threshold": "إدارة العتبة",
@@ -1132,7 +1135,7 @@
   "msg__str_not_exist": "{0} غير موجود",
   "msg__submitted_successfully": "تم الإرسال بنجاح",
   "msg__subscription_succeeded": "نجح الاشتراك",
-  "msg__success": "Success",
+  "msg__success": "النجاح",
   "msg__successful_trade": "💫 تداول {assets1} مقابل {الأصول 2 {assets2}",
   "msg__successful_trade_desc": "{0} لـ {1}",
   "msg__swap_failed": "😵️ فشل المبادلة",
