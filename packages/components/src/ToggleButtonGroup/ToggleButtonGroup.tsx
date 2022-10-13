@@ -70,18 +70,20 @@ const ToggleButton: FC<
       onPress={onPress}
       onLayout={onLayout}
     >
-      <Center borderRadius="9999px" w={iconSize} h={iconSize} mr="8px">
-        {!!leftIcon && (
-          <Icon
-            name={leftIcon}
-            color={isCurrent ? 'icon-hovered' : 'icon-default'}
-          />
-        )}
-        {!!leftImage && (
-          <NetImage height={iconSize} width={iconSize} src={leftImage} />
-        )}
-      </Center>
-      {!!leftComponent && leftComponent}
+      {(!!leftIcon || !!leftImage) && (
+        <Center borderRadius="9999px" w={iconSize} h={iconSize} mr="8px">
+          {!!leftIcon && (
+            <Icon
+              name={leftIcon}
+              color={isCurrent ? 'icon-hovered' : 'icon-default'}
+            />
+          )}
+          {!!leftImage && (
+            <NetImage height={iconSize} width={iconSize} src={leftImage} />
+          )}
+        </Center>
+      )}
+      {leftComponent?.()}
       <Typography.Body2Strong
         maxW="82px"
         isTruncated
