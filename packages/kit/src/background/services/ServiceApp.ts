@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { RootRoutes } from '../../routes/routesEnum';
+import { storeStatus } from '../../store';
 import {
   passwordSet,
   release,
@@ -44,14 +45,10 @@ class ServiceApp extends ServiceBase {
 
   constructor(props: IServiceBaseProps) {
     super(props);
+    this.initAppAfterStoreReady();
     if (platformEnv.isExtensionBackground) {
       this.autoOpenOnboardingIfExtensionInstalled();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
-      appEventBus.once(AppEventBusNames.InitReduxStateFromPersitor, () => {
-        this.initApp();
-      });
-    } else {
-      this.initApp();
     }
     // TODO recheck last reset status and resetApp here
   }
@@ -200,6 +197,16 @@ class ServiceApp extends ServiceBase {
         );
       }
     });
+  }
+
+  initAppAfterStoreReady() {
+    if (storeStatus.isStoreReady) {
+      this.initApp();
+    } else {
+      appEventBus.once(AppEventBusNames.StoreInitedFromPersistor, () => {
+        this.initApp();
+      });
+    }
   }
 
   /**

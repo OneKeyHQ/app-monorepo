@@ -20,6 +20,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
+import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AccountInfo, {
@@ -119,7 +120,10 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.Tokens}
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
-          <AssetsList ListFooterComponent={<Box h={16} />} limitSize={20} />
+          <>
+            <AssetsList ListFooterComponent={<Box h={16} />} limitSize={20} />
+            <GuideToPushFirstTimeCheck />
+          </>
         </Tabs.Tab>
         <Tabs.Tab
           name={WalletHomeTabEnum.Collectibles}
