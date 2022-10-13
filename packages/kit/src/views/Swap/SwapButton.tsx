@@ -14,7 +14,11 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
-import { useActiveWalletAccount, useRuntime } from '../../hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useRuntime,
+} from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { addTransaction } from '../../store/reducers/swapTransactions';
@@ -31,7 +35,7 @@ import {
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import { FetchQuoteParams, QuoteData, SwapError, SwapRoutes } from './typings';
-import { TokenAmount } from './utils';
+import { TokenAmount, getTokenAmountValue } from './utils';
 
 function convertToSwapInfo(options: {
   swapQuote: QuoteData;
@@ -91,6 +95,9 @@ const ExchangeButton = () => {
   const { inputAmount, outputAmount } = useDerivedSwapState();
   const recipient = useSwapRecipient();
   const params = useSwapQuoteRequestParams();
+  const disableSwapExactApproveAmount = useAppSelector(
+    (s) => s.settings.disableSwapExactApproveAmount,
+  );
 
   const onSubmit = useCallback(async () => {
     if (!params || !sendingAccount || !quote || !inputAmount || !outputAmount) {
@@ -229,68 +236,63 @@ const ExchangeButton = () => {
         );
       }
     };
-
-    if (quote.allowanceTarget && params.tokenIn.tokenIdOnNetwork) {
-      const allowance = await backgroundApiProxy.engine.getTokenAllowance({
-        networkId: params.tokenIn.networkId,
-        tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
-        spender: quote.allowanceTarget,
-        accountId: sendingAccount.id,
-      });
-      const allowanceBN = new BigNumber(allowance ?? '0');
-      if (allowanceBN.lt(inputAmount.toNumber())) {
-        const encodedApproveTx =
-          (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-            spender: quote.allowanceTarget,
-            networkId: params.tokenIn.networkId,
-            accountId: sendingAccount.id,
-            token: inputAmount.token.tokenIdOnNetwork,
-            amount: 'unlimited',
-          })) as IEncodedTxEvm;
-        const nonce = await backgroundApiProxy.engine.getEvmNextNonce({
+    console.log('quote', quote);
+    if (quote.needApproved && quote.allowanceTarget) {
+      const encodedApproveTx =
+        (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+          spender: quote.allowanceTarget,
           networkId: params.tokenIn.networkId,
           accountId: sendingAccount.id,
-        });
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Send,
+          token: inputAmount.token.tokenIdOnNetwork,
+          amount: disableSwapExactApproveAmount
+            ? 'unlimited'
+            : getTokenAmountValue(inputAmount.token, quote.sellAmount)
+                .multipliedBy(1.5)
+                .toString(),
+        })) as IEncodedTxEvm;
+      const nonce = await backgroundApiProxy.engine.getEvmNextNonce({
+        networkId: params.tokenIn.networkId,
+        accountId: sendingAccount.id,
+      });
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendConfirm,
           params: {
-            screen: SendRoutes.SendConfirm,
-            params: {
-              payloadInfo: {
-                type: 'InternalSwap',
-                swapInfo: { ...swapInfo, isApprove: true },
-              },
-              feeInfoEditable: true,
-              feeInfoUseFeeInTx: false,
-              skipSaveHistory: true,
-              encodedTx: {
-                ...encodedApproveTx,
-                nonce,
-                from: sendingAccount?.address,
-              },
-              onSuccess: async () => {
-                if (!encodedTx) {
-                  return;
-                }
-                const encodedEvmTx = encodedTx as IEncodedTxEvm;
-                const { result, decodedTx } =
-                  await backgroundApiProxy.serviceSwap.sendTransaction({
-                    accountId: params.activeAccount.id,
-                    networkId: params.tokenIn.networkId,
-                    encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
-                    payload: {
-                      type: 'InternalSwap',
-                      swapInfo,
-                    },
-                  });
-                appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-                addSwapTransaction(result.txid, decodedTx.nonce);
-              },
+            payloadInfo: {
+              type: 'InternalSwap',
+              swapInfo: { ...swapInfo, isApprove: true },
+            },
+            feeInfoEditable: true,
+            feeInfoUseFeeInTx: false,
+            skipSaveHistory: true,
+            encodedTx: {
+              ...encodedApproveTx,
+              nonce,
+              from: sendingAccount?.address,
+            },
+            onSuccess: async () => {
+              if (!encodedTx) {
+                return;
+              }
+              const encodedEvmTx = encodedTx as IEncodedTxEvm;
+              const { result, decodedTx } =
+                await backgroundApiProxy.serviceSwap.sendTransaction({
+                  accountId: params.activeAccount.id,
+                  networkId: params.tokenIn.networkId,
+                  encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
+                  payload: {
+                    type: 'InternalSwap',
+                    swapInfo,
+                  },
+                });
+              appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+              addSwapTransaction(result.txid, decodedTx.nonce);
             },
           },
-        });
-        return;
-      }
+        },
+      });
+      return;
     }
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
@@ -331,6 +333,7 @@ const ExchangeButton = () => {
     inputAmount,
     outputAmount,
     addTransaction,
+    disableSwapExactApproveAmount,
     recipient?.address,
   ]);
 

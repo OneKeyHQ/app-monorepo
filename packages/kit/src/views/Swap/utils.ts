@@ -41,6 +41,14 @@ export function getTokenAmountString(token: Token, amount: string) {
   return tokenAmount.toFormat();
 }
 
+export function getTokenAmountValue(token: Token, amount: string) {
+  const bn = new BigNumber(amount);
+  const decimals = new BigNumber(token.decimals);
+  const base = new BigNumber(10);
+  const value = bn.dividedBy(base.exponentiatedBy(decimals));
+  return value;
+}
+
 export function multiply(a: BigNumber.Value, b: BigNumber.Value): string {
   const num1 = new BigNumber(a);
   const num2 = new BigNumber(b);
