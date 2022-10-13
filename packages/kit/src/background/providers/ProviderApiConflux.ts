@@ -8,6 +8,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { Transaction } from 'js-conflux-sdk';
+import memoizee from 'memoizee';
 
 import { IMPL_CFX } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -57,20 +58,12 @@ export type SwitchConfluxChainParameter = {
 class ProviderApiConflux extends ProviderApiBase {
   public providerName = IInjectedProviderNames.conflux;
 
-  async _getCurrentNetworkExtraInfo(): Promise<EvmExtraInfo> {
-    const { network, accountId, networkId } = getActiveWalletAccount();
-    // Give default value to prevent UI crashing
-    let networkInfo: EvmExtraInfo = {
-      chainId: '0x405',
-      networkVersion: '1029',
-    };
-    if (
-      network &&
-      network.impl === IMPL_CFX &&
-      Object.keys(network.extraInfo).length
-    ) {
-      networkInfo = network.extraInfo as EvmExtraInfo;
-    } else {
+  _getCurrentNetworkExtraInfoCache = memoizee(
+    async (accountId, networkId) => {
+      let networkInfo: EvmExtraInfo = {
+        chainId: '0x405',
+        networkVersion: '1029',
+      };
       const vault = (await this.backgroundApi.engine.getVault({
         networkId,
         accountId,
@@ -81,8 +74,17 @@ class ProviderApiConflux extends ProviderApiBase {
         chainId: toBigIntHex(new BigNumber(status.chainId)),
         networkVersion: new BigNumber(status.networkId).toFixed(),
       };
-    }
-    return networkInfo;
+      return networkInfo;
+    },
+    {
+      promise: true,
+      max: 1,
+    },
+  );
+
+  async _getCurrentNetworkExtraInfo(): Promise<EvmExtraInfo> {
+    const { accountId, networkId } = getActiveWalletAccount();
+    return this._getCurrentNetworkExtraInfoCache(accountId, networkId);
   }
 
   async _showSignMessageModal(
@@ -182,11 +184,11 @@ class ProviderApiConflux extends ProviderApiBase {
   @providerApiMethod()
   async cfx_getNextUsableNonce(
     request: IJsBridgeMessagePayload,
-    addresses: string[],
+    ...params: any[]
   ) {
     return this.rpcCall({
       method: 'cfx_getNextNonce',
-      params: addresses,
+      params,
     });
   }
 
@@ -259,15 +261,25 @@ class ProviderApiConflux extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  cfx_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    return this._showSignMessageModal(req, {
+      type: ETHMessageTypes.ETH_SIGN,
+      message: messages[1],
+      payload: messages,
+    });
+  }
+
+  @providerApiMethod()
   wallet_addConfluxChain() {
     // Temporarily not supported
     throw web3Errors.provider.unsupportedMethod();
   }
 
   @providerApiMethod()
-  wallet_getBalance() {
+  wallet_getBalance(_: IJsBridgeMessagePayload, ...params: any[]) {
     return this.rpcCall({
       method: 'cfx_getBalance',
+      params,
     });
   }
 

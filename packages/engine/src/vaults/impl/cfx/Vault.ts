@@ -488,7 +488,7 @@ export default class Vault extends VaultBase {
             encodedTx.nonce = new BigNumber(txDetail.nonce).toNumber();
             encodedTx.data = txDetail.data;
             if (transferType === IOnChainTransferType.Transfer20) {
-              encodedTx.to = tx.contract || txDetail.to || encodedTx.to;
+              encodedTx.to = txDetail.to || tx.contract || encodedTx.to;
             }
           }
         }
