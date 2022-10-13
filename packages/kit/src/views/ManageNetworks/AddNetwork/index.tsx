@@ -161,7 +161,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
         await serviceNetwork.addNetwork('evm', params);
         toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
       }
-      navigation.replace(ManageNetworkRoutes.Listing);
+      navigation.navigate(ManageNetworkRoutes.Listing);
     },
     [toast, intl, serviceNetwork, navigation, route, network?.id],
   );

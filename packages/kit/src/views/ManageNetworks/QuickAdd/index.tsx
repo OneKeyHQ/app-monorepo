@@ -22,6 +22,7 @@ import { useManageNetworks } from '../../../hooks';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
@@ -63,19 +64,31 @@ export const ManageNetworkQuickAdd: FC = () => {
   }, [allNetworks, serviceNetwork]);
 
   const toAddChainPage = useCallback(
-    (chain: ChainListConfig) => {
+    async (chain: ChainListConfig) => {
+      let rpc = chain.rpc?.[0] ?? '';
+      for (const url of chain.rpc) {
+        try {
+          const res = await serviceNetwork.preAddNetwork(url);
+          if (res && res.chainId) {
+            rpc = url;
+            break;
+          }
+        } catch (error) {
+          debugLogger.http.warn(`preAddNetwork error: `, error);
+        }
+      }
       navigation.navigate(ManageNetworkRoutes.AddNetwork, {
         mode: 'add',
         network: {
           name: chain.name ?? '',
-          rpcURL: chain.rpc?.[0] ?? '',
+          rpcURL: rpc,
           symbol: chain.nativeCurrency?.symbol ?? '',
           explorerURL: chain.explorers?.[0].url ?? '',
           logoURI: chain.logoURI,
         },
       });
     },
-    [navigation],
+    [navigation, serviceNetwork],
   );
 
   useEffect(() => {
