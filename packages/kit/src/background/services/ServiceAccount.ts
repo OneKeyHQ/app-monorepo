@@ -805,7 +805,7 @@ class ServiceAccount extends ServiceBase {
 
     const actions = [];
     if (activeAccountId === accountId) {
-      await this.autoChangeAccount({ walletId });
+      await this.autoChangeAccount({ walletId, shouldUpdateWallets: true });
     } else {
       const wallet: Wallet | null = await engine.getWallet(walletId);
       actions.push(updateWallet(wallet));
