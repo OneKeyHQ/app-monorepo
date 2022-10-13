@@ -23,6 +23,19 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
+  override validateWatchingCredential(input: string): Promise<boolean> {
+    let ret = false;
+    try {
+      ret =
+        this.settings.watchingAccountEnabled &&
+        /^[d]gub/.test(input) &&
+        (this.engineProvider as unknown as Provider).isValidXpub(input);
+    } catch {
+      // ignore
+    }
+    return Promise.resolve(ret);
+  }
+
   override async checkAccountExistence(
     accountIdOnNetwork: string,
   ): Promise<boolean> {

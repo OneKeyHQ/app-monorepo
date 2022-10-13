@@ -13,3 +13,10 @@ export type ChainInfo = {
   implOptions: { [key: string]: any };
   clients: Array<{ name: string; args: Array<any> }>;
 };
+
+export type AddressValidation = {
+  isValid: boolean;
+  normalizedAddress?: string;
+  displayAddress?: string;
+  encoding?: string;
+};

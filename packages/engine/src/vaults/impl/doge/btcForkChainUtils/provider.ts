@@ -4,7 +4,7 @@ import bs58check from 'bs58check';
 
 import { getBlockBook } from './blockbook';
 import { Network, getNetwork } from './networks';
-import { AddressEncodings, ChainInfo } from './types';
+import { AddressEncodings, AddressValidation, ChainInfo } from './types';
 
 type GetAccountParams =
   | {
@@ -227,6 +227,49 @@ class Provider {
     return (
       typeof this.versionBytesToEncodings.private[versionBytes] !== 'undefined'
     );
+  }
+
+  verifyAddress(address: string): AddressValidation {
+    let encoding: string | undefined;
+
+    try {
+      const decoded = BitcoinJS.address.fromBase58Check(address);
+      if (
+        decoded.version === this.network.pubKeyHash &&
+        decoded.hash.length === 20
+      ) {
+        encoding = AddressEncodings.P2PKH;
+      } else if (
+        decoded.version === this.network.scriptHash &&
+        decoded.hash.length === 20
+      ) {
+        encoding = AddressEncodings.P2SH_P2WPKH;
+      }
+    } catch (e) {
+      try {
+        const decoded = BitcoinJS.address.fromBech32(address);
+        if (
+          decoded.version === 0x00 &&
+          decoded.prefix === this.network.bech32 &&
+          decoded.data.length === 20
+        ) {
+          encoding = AddressEncodings.P2WPKH;
+        }
+      } catch (_) {
+        // ignore error
+      }
+    }
+
+    return encoding
+      ? {
+          displayAddress: address,
+          normalizedAddress: address,
+          encoding,
+          isValid: true,
+        }
+      : {
+          isValid: false,
+        };
   }
 }
 
