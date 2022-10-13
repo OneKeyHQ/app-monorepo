@@ -209,6 +209,10 @@ class Provider {
     return this.isValidExtendedKey(xpub, 'pub');
   }
 
+  isValidXprv(xprv: string | Buffer): boolean {
+    return this.isValidExtendedKey(xprv, 'prv');
+  }
+
   private isValidExtendedKey(
     xkey: string | Buffer,
     category: 'pub' | 'prv',

@@ -77,7 +77,6 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
 
-    debugger;
     const ret = [];
     let index = 0;
     for (const { path, parentFingerPrint, extendedKey } of pubkeyInfos) {
