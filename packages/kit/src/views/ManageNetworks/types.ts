@@ -1,3 +1,5 @@
+import { AddEVMNetworkParams } from '@onekeyhq/engine/src/types/network';
+
 import { ManageNetworkRoutes } from '../../routes/routesEnum';
 
 export { ManageNetworkRoutes };
@@ -5,7 +7,12 @@ export { ManageNetworkRoutes };
 export type ManageNetworkRoutesParams = {
   [ManageNetworkRoutes.NetworkAccountSelector]: undefined;
   [ManageNetworkRoutes.Listing]: { onEdited?: () => void } | undefined;
-  [ManageNetworkRoutes.AddNetwork]: undefined;
+  [ManageNetworkRoutes.AddNetwork]: {
+    mode?: 'add' | 'edit';
+    network?: AddEVMNetworkParams & {
+      id?: string;
+    };
+  };
   [ManageNetworkRoutes.CustomNetwork]: {
     id: string;
     name?: string;
@@ -35,4 +42,10 @@ export type ManageNetworkRoutesParams = {
       }
     | { query: string };
   [ManageNetworkRoutes.SwitchNetwork]: { query: string };
+
+  [ManageNetworkRoutes.RPCNode]: { networkId: string };
+
+  [ManageNetworkRoutes.QuickAdd]: undefined;
+
+  [ManageNetworkRoutes.Sort]: undefined;
 };

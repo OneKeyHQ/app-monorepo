@@ -113,6 +113,7 @@ class ServiceApp extends ServiceBase {
     return Boolean(isUnlock && isStatusUnlock);
   }
 
+  @backgroundMethod()
   restartApp() {
     if (platformEnv.isNative) {
       return RNRestart.Restart();
