@@ -1,8 +1,10 @@
 import axios from 'axios';
 import qs from 'qs';
 
+import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
 
 import {
   MARKET_FAVORITES_CATEGORYID,
@@ -10,29 +12,27 @@ import {
   MarketListSortType,
   MarketTopTabName,
   cancleMarketFavorite,
+  clearMarketSearchTokenHistory,
   moveTopMarketFavorite,
   saveMarketCategorys,
   saveMarketFavorite,
+  saveMarketSearchTokenHistory,
   switchMarketTopTab,
+  syncMarketSearchTokenHistorys,
   updateMarketChats,
   updateMarketListSort,
-  updateMarketTokenDetail,
   updateMarketTokenAllNetworkTokens,
+  updateMarketTokenDetail,
   updateMarketTokens,
-  updateSelectedCategory,
-  syncMarketSearchTokenHistorys,
-  saveMarketSearchTokenHistory,
-  clearMarketSearchTokenHistory,
+  updateSearchKeyword,
   updateSearchTabCategory,
   updateSearchTokens,
-  updateSearchKeyword,
+  updateSelectedCategory,
 } from '../../store/reducers/market';
+import { getDefaultLocale } from '../../utils/locale';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
-import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
-import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
-import { getDefaultLocale } from '../../utils/locale';
 
 @backgroundClass()
 export default class ServiceMarket extends ServiceBase {
@@ -100,7 +100,6 @@ export default class ServiceMarket extends ServiceBase {
       },
       [],
     );
-    console.log('data---', data);
     if (data.length === 0) {
       return;
     }
@@ -160,7 +159,6 @@ export default class ServiceMarket extends ServiceBase {
       [],
     );
     if (data.length > 0) {
-      console.log('data', data);
       this.backgroundApi.dispatch(
         updateMarketChats({ coingeckoId, chart: data, days }),
       );
@@ -198,7 +196,6 @@ export default class ServiceMarket extends ServiceBase {
   ): Promise<T> {
     const endpoint = getFiatEndpoint();
     const apiUrl = `${endpoint}${path}?${qs.stringify(query)}`;
-    console.log('apiUrl--', apiUrl);
     try {
       const { data } = await axios.get<T>(apiUrl);
       return data;

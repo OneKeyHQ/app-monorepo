@@ -39,17 +39,9 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
       }),
     );
   }, [categorys]);
-  // todo 分类列表组件
   return (
     <Box>
       <Box flex={1} width="full" mt="4">
-        {/* {categorys.map((catogory) =>
-            catogory.name === 'favorite' ? (
-              <IconButton iconSize={20} name="StarSolid" />
-            ) : (
-              <Button borderRadius="12px"> {catogory.name}</Button>
-            ),
-          )} */}
         <MarketCategoryToggleComponent
           items={toggleItems}
           onSelect={toggleCategory}

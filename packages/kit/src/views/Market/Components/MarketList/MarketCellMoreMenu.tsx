@@ -40,7 +40,6 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
 }) => {
   const selectedCategoryId = useMarketSelectedCategoryId();
   const isVerticalLayout = useIsVerticalLayout();
-  console.log('MarketCellMoreMenu--');
   const options: MarketCellMoreMenuOption[] = useMemo(() => {
     if (
       selectedCategoryId &&

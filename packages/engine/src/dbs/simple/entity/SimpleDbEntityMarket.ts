@@ -1,5 +1,6 @@
-import { MARKET_SEARCH_HISTORY_MAX } from '@onekeyhq/kit/src/store/reducers/market';
 import { cloneDeep } from 'lodash';
+
+import { MARKET_SEARCH_HISTORY_MAX } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 

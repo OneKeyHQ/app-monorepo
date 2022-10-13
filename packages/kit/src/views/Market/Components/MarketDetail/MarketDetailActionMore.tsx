@@ -50,7 +50,7 @@ const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
       {
         id: 'Share',
         onPress: () => {
-          // Share 分享的逻辑
+          // TODO Share 分享的逻辑
         },
         icon: 'ShareOutline',
       },

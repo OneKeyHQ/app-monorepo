@@ -58,7 +58,6 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
           type="primary"
           isDisabled={!(groupValue && groupValue.length > 0)}
           onPress={() => {
-            // 批量添加
             backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens(
               groupValue ?? [],
             );

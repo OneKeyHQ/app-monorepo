@@ -48,3 +48,10 @@ export function formatMarketValueForMillionAndBillion(value?: number) {
   }
   return 0;
 }
+
+export function formatLocalDate(date?: string) {
+  if (date && date.length > 0) {
+    return new Date(date).toLocaleString();
+  }
+  return '';
+}

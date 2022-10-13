@@ -32,7 +32,6 @@ const MarketCategoryToggleComponent: React.FC<
   MarketCategoryToggleComponentProp
 > = ({ items, onSelect }) => {
   const selectedCategoryId = useMarketSelectedCategoryId();
-  console.log('MarketCategoryToggleComponent--', selectedCategoryId);
   return (
     <Box width="full" flexDirection="row">
       <ScrollView horizontal  showsHorizontalScrollIndicator={false}>
