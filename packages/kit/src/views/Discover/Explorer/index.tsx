@@ -9,11 +9,14 @@ import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { homeTab, setWebTabData } from '../../../store/reducers/webTabs';
+
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
 import { useWebController } from './Controller/useWebController';
-import { MatchDAppItemType, isValidDomain, webHandler } from './explorerUtils';
+import { MatchDAppItemType, webHandler } from './explorerUtils';
 import MoreView from './MoreMenu';
 
 const showExplorerBar = webHandler !== 'browser';
@@ -26,16 +29,14 @@ const Explorer: FC = () => {
     gotoSite,
     currentTab,
     tabs,
-    gotoHome,
     incomingUrl,
     clearIncomingUrl,
-    loading,
     stopLoading,
-    canGoBack,
-    canGoForward,
     goBack,
     goForward,
   } = useWebController();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { loading, canGoBack, canGoForward } = currentTab!;
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -53,13 +54,7 @@ const Explorer: FC = () => {
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
-      if (dapp.startsWith('http')) {
-        return gotoSite({ url: dapp });
-      }
-      if (isValidDomain(dapp)) {
-        return gotoSite({ url: `https://${dapp}` });
-      }
-      return gotoSite({ url: `https://www.google.com/search?q=${dapp}` });
+      return gotoSite({ url: dapp });
     }
     openMatchDApp(dapp);
   };
@@ -86,6 +81,13 @@ const Explorer: FC = () => {
 
     const onOpenBrowser = () => {
       openUrlExternal(getCurrentUrl());
+    };
+
+    const onGoHomePage = () => {
+      stopLoading();
+      backgroundApiProxy.dispatch(
+        setWebTabData({ ...homeTab, id: currentTab?.id }),
+      );
     };
 
     const onShare = () => {
@@ -117,10 +119,18 @@ const Explorer: FC = () => {
         onShare={onShare}
         onOpenBrowser={onOpenBrowser}
         onCopyUrlToClipboard={onCopyUrlToClipboard}
-        onGoHomePage={gotoHome}
+        onGoHomePage={onGoHomePage}
       />
     );
-  }, [currentTab?.url, gotoHome, intl, onRefresh, toast, visibleMore]);
+  }, [
+    currentTab?.id,
+    currentTab?.url,
+    intl,
+    onRefresh,
+    stopLoading,
+    toast,
+    visibleMore,
+  ]);
 
   const Container = isVerticalLayout ? Mobile : Desktop;
   return (

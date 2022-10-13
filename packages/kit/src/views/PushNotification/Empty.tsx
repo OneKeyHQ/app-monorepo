@@ -3,7 +3,6 @@ import { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Center, Empty, Spinner } from '@onekeyhq/components';
-import imageUrl from '@onekeyhq/kit/assets/alert.png';
 
 type ListEmptyComponentProps = {
   desc?: string;
@@ -35,7 +34,7 @@ export const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   return (
     <Center w="full" h="full">
       <Empty
-        imageUrl={imageUrl}
+        emoji="🔔"
         title={intl.formatMessage({
           id: 'title__no_alert',
         })}

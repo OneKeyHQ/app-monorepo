@@ -7,8 +7,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useEffectOnUpdate } from '../../../hooks/useEffectOnUpdate';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { wait } from '../../../utils/helper';
-import { ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 
 import { useAccountSelectorInfo } from './useAccountSelectorInfo';
 
@@ -22,10 +20,10 @@ const {
 function useAccountSelectorEffects() {
   const {
     isOpenDelay,
-    isCloseFromOpen,
+    isCloseFromOpenDelay,
     preloadingCreateAccount,
-    activeWallet,
-    activeNetwork,
+    activeWallet, // useActiveWalletAccount
+    activeNetwork, // useActiveWalletAccount
     isOpen,
   } = useAccountSelectorInfo();
   const { serviceAccountSelector, dispatch } = backgroundApiProxy;
@@ -66,19 +64,25 @@ function useAccountSelectorEffects() {
   // ** update on NetworkAccountSelector closed
   //    change network & wallet, close and reopen
   useEffectOnUpdate(() => {
-    InteractionManager.runAfterInteractions(async () => {
-      if (isCloseFromOpen) {
-        await wait(ACCOUNT_SELECTOR_IS_CLOSE_RESET_DELAY);
+    const walletId = activeWallet?.id;
+    const networkId = activeNetwork?.id;
+    // eslint-disable-next-line @typescript-eslint/require-await
+    const resetSelectedWalletAndNetwork = async () => {
+      if (isCloseFromOpenDelay) {
         dispatch(
           // updateAccountsGroup([]), // clear section data in redux
           updateIsLoading(false),
           updatePreloadingCreateAccount(undefined),
-          updateSelectedWalletId(activeWallet?.id),
-          updateSelectedNetworkId(activeNetwork?.id),
+          updateSelectedWalletId(walletId),
+          updateSelectedNetworkId(networkId),
         );
       }
-    });
-  }, [activeWallet?.id, activeNetwork?.id, isCloseFromOpen]);
+    };
+
+    // feedback slowly in Desktop
+    // InteractionManager.runAfterInteractions(resetSelectedWalletAndNetwork);
+    resetSelectedWalletAndNetwork();
+  }, [activeWallet?.id, activeNetwork?.id, isCloseFromOpenDelay]);
 }
 
 export function NetworkAccountSelectorEffectsSingleton() {

@@ -23,6 +23,7 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import logo from '@onekeyhq/kit/assets/logo.png';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -32,13 +33,13 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import logo from '@onekeyhq/web/public/static/images/icons/favicon/favicon.png';
 
 import { HomeRoutes, RootRoutes, TabRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setHomeTabName } from '../../store/reducers/status';
 import { WalletHomeTabEnum } from '../../views/Wallet/type';
 import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
+import { waitForDataLoaded } from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -48,8 +49,12 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async init() {
+    try {
+      await this.waitForAppInited();
+    } catch (error) {
+      debugLogger.notification.error(error);
+    }
     this.clear();
-    this.syncLocalEnabledAccounts();
     this.interval = setInterval(
       () => {
         this.syncLocalEnabledAccounts();
@@ -77,6 +82,18 @@ export default class ServiceNotification extends ServiceBase {
         debugLogger.notification.error(`init socket failed`, e);
       }
     }
+    this.syncLocalEnabledAccounts();
+    this.syncPushNotificationConfig();
+  }
+
+  @backgroundMethod()
+  async waitForAppInited() {
+    const { serviceApp } = this.backgroundApi;
+    await waitForDataLoaded({
+      logName: 'WaitAppInited',
+      data: () => serviceApp.isAppInited,
+      timeout: getTimeDurationMs({ minute: 1 }),
+    });
   }
 
   @bindThis()
@@ -285,6 +302,10 @@ export default class ServiceNotification extends ServiceBase {
     ) {
       return;
     }
+    if (platformEnv.isDesktop) {
+      const { desktopApi } = window;
+      desktopApi?.restore?.();
+    }
     // focus browser tab
     if (platformEnv.isWeb) {
       window?.focus?.();
@@ -354,7 +375,7 @@ export default class ServiceNotification extends ServiceBase {
         });
         new Notification(params.title, {
           body: params.content,
-          icon: logo,
+          icon: platformEnv.isDesktopMac ? undefined : logo,
         }).onclick = () => {
           this.handleNotificationCallback({
             messageID: '',

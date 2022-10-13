@@ -49,6 +49,7 @@ import {
 } from './dbs/base';
 import simpleDb from './dbs/simple/simpleDb';
 import {
+  AccountAlreadyExists,
   NotImplemented,
   OneKeyHardwareError,
   OneKeyInternalError,
@@ -898,6 +899,7 @@ class Engine {
     indexes?: Array<number>,
     names?: Array<string>,
     purpose?: number,
+    skipRepeat?: boolean,
     callback = (_account: Account): Promise<boolean> => Promise.resolve(true),
   ): Promise<Array<Account>> {
     // And an HD account to wallet. Path and name are auto detected if not specified.
@@ -944,12 +946,20 @@ class Engine {
 
     const ret: Array<Account> = [];
     for (const dbAccount of accounts) {
-      const { id } = await this.dbApi.addAccountToWallet(walletId, dbAccount);
+      try {
+        const { id } = await this.dbApi.addAccountToWallet(walletId, dbAccount);
 
-      const account = await this.getAccount(id, networkId);
-      ret.push(account);
-      if ((await callback(account)) === false) {
-        break;
+        const account = await this.getAccount(id, networkId);
+        ret.push(account);
+        if ((await callback(account)) === false) {
+          break;
+        }
+      } catch (error) {
+        if (skipRepeat && error instanceof AccountAlreadyExists) {
+          // skip
+        } else {
+          throw error;
+        }
       }
     }
     return ret;

@@ -38,6 +38,7 @@ export enum ModalRoutes {
   ImportBackupPassword = 'ImportBackupPassword',
   Staking = 'Staking',
   PushNotification = 'PushNotification',
+  Webview = 'Webview',
 }
 
 export enum RootRoutes {
@@ -63,6 +64,7 @@ export enum HomeRoutes {
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
   ExploreScreen = 'ExploreScreen',
   DAppListScreen = 'DAppListScreen',
+  MyDAppListScreen = 'MyDAppListScreen',
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   Protected = 'Protected',
   AddressBook = 'AddressBook',
@@ -93,6 +95,7 @@ export enum CreateAccountModalRoutes {
   CreateAccountAuthentication = 'CreateAccountAuthentication',
   RecoverySelectChainList = 'RecoverySelectChainList',
   RecoverAccountsList = 'RecoverAccountList',
+  RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
   RecoverAccountsConfirm = 'RecoverAccountsConfirm',
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
 }

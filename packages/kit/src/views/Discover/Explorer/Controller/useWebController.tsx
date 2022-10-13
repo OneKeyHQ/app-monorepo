@@ -8,21 +8,30 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
+import { appSelector } from '../../../../store';
 import {
-  WebSiteHistory,
   addWebSiteHistory,
+  setDappHistory,
   updateFirstRemindDAPP,
   updateHistory,
 } from '../../../../store/reducers/discover';
 import {
   addWebTab,
-  setCurrentWebTab,
+  closeWebTab,
+  homeTab,
   setIncomingUrl,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
+import { WebSiteHistory } from '../../type';
 import DappOpenHintDialog from '../DappOpenHintDialog';
-import { MatchDAppItemType, webHandler, webviewRefs } from '../explorerUtils';
+import {
+  MatchDAppItemType,
+  OnWebviewNavigation,
+  validateUrl,
+  webHandler,
+  webviewRefs,
+} from '../explorerUtils';
 
 import { useWebviewRef } from './useWebviewRef';
 
@@ -37,16 +46,12 @@ export const useWebController = ({
     }
   | undefined = {}) => {
   const { dispatch } = backgroundApiProxy;
-  const { firstRemindDAPP } = useAppSelector((s) => s.discover);
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
+  const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
   const curId = id || currentTabId;
-  const innerRef = webviewRefs[curId]?.innerRef;
+  const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
 
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
-  const gotoHome = useCallback(
-    () => dispatch(setCurrentWebTab('home')),
-    [dispatch],
-  );
   const clearIncomingUrl = useCallback(
     () => dispatch(setIncomingUrl('')),
     [dispatch],
@@ -65,28 +70,46 @@ export const useWebController = ({
       isInPlace?: boolean;
     }) => {
       if (url) {
+        const validatedUrl = validateUrl(url);
+        if (!validatedUrl) {
+          return;
+        }
         if (webHandler === 'browser') {
-          return openUrl(url);
+          return openUrl(validatedUrl);
         }
         const isNewTab =
           (isNewWindow || curId === 'home') && webHandler === 'tabbedWebview';
 
+        const tabId = isNewTab ? nanoid() : curId;
+        if (dAppId) {
+          dispatch(setDappHistory(dAppId));
+        }
+        const isBookmarked = dappFavorites?.includes(url);
+
         dispatch(
           isNewTab
             ? addWebTab({
-                id: nanoid(),
+                id: tabId,
                 title,
-                url,
+                url: validatedUrl,
                 favicon,
                 isCurrent: true,
+                isBookmarked,
               })
-            : setWebTabData({ id: curId, url, title, favicon }),
+            : setWebTabData({
+                id: tabId,
+                url: validatedUrl,
+                title,
+                favicon,
+                isBookmarked,
+              }),
           dAppId
             ? updateHistory(dAppId)
             : addWebSiteHistory({
-                webSite: { url, title, favicon },
+                webSite: { url: validatedUrl, title, favicon },
               }),
         );
+
         if (
           !isNewTab &&
           !isInPlace &&
@@ -95,13 +118,20 @@ export const useWebController = ({
         ) {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          innerRef?.loadURL(url);
+          getInnerRef()?.loadURL(validatedUrl);
+        }
+
+        // close deep link tab after 1s
+        if (!validatedUrl.startsWith('http')) {
+          setTimeout(() => {
+            dispatch(closeWebTab(tabId));
+          }, 1000);
         }
         return true;
       }
       return false;
     },
-    [curId, dispatch, innerRef, tab?.url],
+    [curId, dispatch, getInnerRef, tab?.url, dappFavorites],
   );
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -114,6 +144,7 @@ export const useWebController = ({
       }
 
       if (dapp && dapp.url !== tab?.url) {
+        const { firstRemindDAPP } = appSelector((s) => s.discover);
         if (firstRemindDAPP) {
           let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
           DialogManager.show({
@@ -143,15 +174,23 @@ export const useWebController = ({
         return gotoSite({
           url: dapp.url,
           title: dapp.name,
-          favicon: dapp.favicon,
-          dAppId: dapp.id,
+          dAppId: dapp._id,
         });
       }
     },
-    [firstRemindDAPP, dispatch, gotoSite, tab?.url],
+    [dispatch, gotoSite, tab?.url],
   );
-  const onNavigation = useCallback(
-    ({ url, title, favicon, isNewWindow, isInPlace }) => {
+  const onNavigation: OnWebviewNavigation = useCallback(
+    ({
+      url,
+      isNewWindow,
+      isInPlace,
+      title,
+      favicon,
+      canGoBack,
+      canGoForward,
+      loading,
+    }) => {
       let isValidNewUrl = typeof url === 'string' && url !== '';
       // tab url changes *AFTER* `gotoSite` on desktop
       // but *BEFORE* `gotoSite` on native
@@ -167,36 +206,49 @@ export const useWebController = ({
         }
         lastNewUrlTimestamp = Date.now();
         gotoSite({ url, title, favicon, isNewWindow, isInPlace });
-      } else if (title) {
-        dispatch(setWebTabData({ id: curId, title }));
-      } else if (favicon) {
-        dispatch(setWebTabData({ id: curId, favicon }));
       }
+
+      dispatch(
+        setWebTabData({
+          id: curId,
+          title,
+          favicon,
+          canGoBack,
+          canGoForward,
+          loading,
+        }),
+      );
     },
     [curId, dispatch, gotoSite, tab?.url],
   );
-  const { canGoBack, canGoForward, goBack, goForward, stopLoading, loading } =
-    useWebviewRef({
-      // @ts-expect-error
-      ref: innerRef,
-      onNavigation,
-      navigationStateChangeEvent,
-    });
+  const { goBack, goForward, stopLoading } = useWebviewRef({
+    // @ts-expect-error
+    ref: getInnerRef(),
+    onNavigation,
+    navigationStateChangeEvent,
+  });
 
   return {
     tabs,
     currentTabId,
     currentTab: tab,
-    gotoHome,
     gotoSite,
     openMatchDApp,
-    canGoBack,
-    canGoForward,
-    goBack,
+    goBack: () => {
+      if (tab?.canGoBack) {
+        goBack();
+      } else {
+        dispatch(
+          setWebTabData({
+            ...homeTab,
+            id: curId,
+          }),
+        );
+      }
+    },
     goForward,
     stopLoading,
     incomingUrl,
     clearIncomingUrl,
-    loading,
   };
 };

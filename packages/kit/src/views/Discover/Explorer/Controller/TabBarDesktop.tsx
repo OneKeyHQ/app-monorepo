@@ -11,6 +11,7 @@ import {
   WebTab,
   addWebTab,
   closeWebTab,
+  homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
 
@@ -43,7 +44,7 @@ const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
       borderRightColor="border-default"
       borderRightWidth="0.5px"
       px="12px"
-      bg={isCurrent ? 'background-default' : 'surface-default'}
+      bg={isCurrent ? 'background-default' : 'background-hovered'}
       onPress={setCurrentTab}
       flexDirection="row"
       justifyContent="space-between"
@@ -61,8 +62,6 @@ const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
         size="xs"
         type="plain"
         iconSize={12}
-        disabled={!isCurrent}
-        opacity={isCurrent ? 1 : 0}
         leftIconName="CloseSolid"
         onPress={closeTab}
       />
@@ -74,11 +73,8 @@ const addNewTab = () => {
   const { dispatch } = backgroundApiProxy;
   dispatch(
     addWebTab({
+      ...homeTab,
       id: nanoid(),
-      url: '',
-      // TODO i18n
-      title: 'Home',
-      isCurrent: true,
     }),
   );
 };

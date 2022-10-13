@@ -18,8 +18,8 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { isString } from 'lodash';
 
+import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
 import type { PrefType } from './preload';
@@ -260,6 +260,12 @@ function createMainWindow() {
     event.reply('app/reloadBridgeProcess', true);
   });
 
+  ipcMain.on('app/restoreMainWindow', (event) => {
+    logger.debug('restoreMainWindow receive');
+    browserWindow.show();
+    event.reply('app/restoreMainWindow', true);
+  });
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send('appState', undefined);
@@ -346,7 +352,7 @@ function createMainWindow() {
 }
 
 function init() {
-  initProcess();
+  initProcess({ mainWindow: mainWindow as BrowserWindow, store });
 }
 
 const singleInstance = app.requestSingleInstanceLock();
@@ -389,9 +395,9 @@ if (!singleInstance && !process.mas) {
   app.name = APP_NAME;
   app.on('ready', () => {
     if (!mainWindow) {
-      init();
       mainWindow = createMainWindow();
     }
+    init();
     showMainWindow();
   });
 }
@@ -448,6 +454,10 @@ if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
 if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
   // Define custom protocol handler. Deep linking works on packaged versions of the application!
   app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
+}
+
+if (isWin) {
+  app.setAppUserModelId(APP_NAME);
 }
 
 // https://github.com/oikonomopo/electron-deep-linking-mac-win/blob/master/main.js

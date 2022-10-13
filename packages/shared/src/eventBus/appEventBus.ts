@@ -11,7 +11,7 @@ enum AppEventBusNames {
   AccountChanged = 'AccountChanged',
   BackupRequired = 'BackupRequired',
   NotificationStatusChanged = 'NotificationStatusChanged',
-  SwapCompleted = 'SwapCompleted',
+  InitReduxStateFromPersitor = 'InitReduxStateFromPersitor',
 }
 
 if (isExtensionUi) {

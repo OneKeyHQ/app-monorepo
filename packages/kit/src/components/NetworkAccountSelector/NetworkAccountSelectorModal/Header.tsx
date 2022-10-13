@@ -31,7 +31,7 @@ function Header({
       <Box flexDirection="row" alignItems="center" pt={3.5} pb={2} pl={4}>
         <Box flexDirection="row" alignItems="center" flex={1} mr={3}>
           <Text typography="Heading" isTruncated>
-            {selectedNetwork?.shortName || '-'}
+            {selectedNetwork?.name || '-'}
           </Text>
 
           {isLoading ? (

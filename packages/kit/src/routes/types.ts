@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 import { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
@@ -52,6 +53,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Staking]: NavigatorScreenParams<SubModalRoutesParams.StakingRoutesParams>;
   [ModalRoutes.ManageConnectedSites]: NavigatorScreenParams<SubModalRoutesParams.ManageConnectedSitesRoutesParams>;
   [ModalRoutes.PushNotification]: NavigatorScreenParams<SubModalRoutesParams.PushNotificationRoutesParams>;
+  [ModalRoutes.Webview]: NavigatorScreenParams<SubModalRoutesParams.WebviewRoutesParams>;
 };
 /** Modal */
 
@@ -94,7 +96,11 @@ export type HomeRoutesParams = {
   [HomeRoutes.DAppListScreen]: {
     title: string;
     data: DAppItemType[];
-    onItemSelect?: (item: DAppItemType) => Promise<boolean> | void | undefined;
+    onItemSelect?: (item: DAppItemType) => void;
+  };
+  [HomeRoutes.MyDAppListScreen]: {
+    defaultIndex?: number;
+    onItemSelect?: (item: MatchDAppItemType) => void;
   };
   [HomeRoutes.TransactionHistoryScreen]: {
     tokenId?: string;

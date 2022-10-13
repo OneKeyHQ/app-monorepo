@@ -15,9 +15,9 @@ jobs:
       HOST_PATH: '${{ github.event.repository.name }}/${{ github.sha }}/'
       PUBLIC_URL: 'https://web.onekey-asset.com/${{ github.event.repository.name }}/${{ github.sha }}/'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Environment
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true

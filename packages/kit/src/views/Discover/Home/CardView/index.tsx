@@ -9,65 +9,100 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Chains } from '../../Chains';
 import DAppIcon from '../../DAppIcon';
-import { DAppItemType } from '../../type';
+import { DAppItemType, SectionDataType } from '../../type';
 import { SectionTitle } from '../TitleView';
-import { SectionDataType } from '../type';
+
+type DappTypeTuple = [DAppItemType | undefined, DAppItemType | undefined];
+
+type CardBaseViewCardProps = {
+  item: DAppItemType;
+  onItemSelect: SectionDataType['onItemSelect'];
+};
+
+const CardBaseViewCard: FC<CardBaseViewCardProps> = ({
+  item,
+  onItemSelect,
+}) => (
+  <Pressable
+    onPress={() => {
+      if (onItemSelect) {
+        onItemSelect(item);
+      }
+    }}
+  >
+    <Box
+      width="260px"
+      ml="4"
+      borderRadius="12px"
+      alignItems="center"
+      flexDirection="row"
+    >
+      <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+      <Box flex={1} ml="2">
+        <Typography.Body2Strong numberOfLines={1}>
+          {item.name}
+        </Typography.Body2Strong>
+        <Typography.Caption
+          numberOfLines={1}
+          mt="1"
+          color="text-subdued"
+          overflow="hidden"
+        >
+          {item.subtitle}
+        </Typography.Caption>
+      </Box>
+    </Box>
+  </Pressable>
+);
 
 const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
-  const filterData = data.filter((item, index) => index < 8);
+  const chuckItems = (items: DAppItemType[]) => {
+    const result: DappTypeTuple[] = [];
+    for (let i = 0; i < items.length; i += 2) {
+      result.push([items[i], items[i + 1]]);
+    }
+    return result;
+  };
 
-  const renderItem: ListRenderItem<DAppItemType> = useCallback(
-    ({ item }) => (
-      <Pressable
-        onPress={() => {
-          if (onItemSelect) {
-            onItemSelect(item);
-          }
-        }}
-      >
-        <Box
-          width="139px"
-          height="100%"
-          bgColor="surface-default"
-          ml="16px"
-          borderRadius="12px"
-          padding="16px"
-          alignItems="center"
-          borderWidth={1}
-          borderColor="border-subdued"
-        >
-          <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
-          <Typography.Body2Strong numberOfLines={1} mt="12px">
-            {item.name}
-          </Typography.Body2Strong>
-          <Typography.Caption
-            numberOfLines={4}
-            mt="4px"
-            textAlign="center"
-            color="text-subdued"
-          >
-            {item.subtitle}
-          </Typography.Caption>
+  const filterData = data.filter((item, index) => index < 8);
+  const items = chuckItems(filterData);
+
+  const renderItem: ListRenderItem<DappTypeTuple> = useCallback(
+    ({ item }) => {
+      const itemA = item[0];
+      const itemB = item[1];
+      return (
+        <Box>
+          {itemA ? (
+            <Box>
+              <CardBaseViewCard item={itemA} onItemSelect={onItemSelect} />
+            </Box>
+          ) : null}
+          {itemB ? (
+            <Box mt="5">
+              <CardBaseViewCard item={itemB} onItemSelect={onItemSelect} />
+            </Box>
+          ) : null}
         </Box>
-      </Pressable>
-    ),
+      );
+    },
     [onItemSelect],
   );
   return (
-    <Box width="100%" height="224px" mt="32px">
+    <Box width="100%" mt="8">
       <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
       <FlatList
         contentContainerStyle={{
           paddingRight: 16,
         }}
-        showsHorizontalScrollIndicator={!platformEnv.isNative}
+        showsHorizontalScrollIndicator={false}
         horizontal
-        data={filterData}
+        data={items}
         renderItem={renderItem}
-        keyExtractor={(item, index) => `CardView${index}${item.id}`}
+        keyExtractor={(item, index) => `${index}`}
       />
     </Box>
   );
@@ -91,8 +126,8 @@ const CardViewDesktop: FC<SectionDataType> = ({
         width={cardWidth}
         maxWidth={cardWidth}
         minWidth={cardWidth}
-        height={176}
-        paddingX="8px"
+        height={156}
+        paddingX="2"
         justifyContent="center"
         alignItems="center"
       >
@@ -100,9 +135,9 @@ const CardViewDesktop: FC<SectionDataType> = ({
           bgColor="surface-default"
           flexDirection="column"
           borderRadius="12px"
-          padding="16px"
+          padding="4"
           width={cardWidth - 16}
-          height={164}
+          height={144}
           borderWidth={1}
           _hover={{ bgColor: 'surface-hovered' }}
           borderColor="border-subdued"
@@ -112,13 +147,22 @@ const CardViewDesktop: FC<SectionDataType> = ({
             }
           }}
         >
-          <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
-          <Typography.Body2Strong numberOfLines={1} mt="12px">
-            {item.name}
-          </Typography.Body2Strong>
+          <Box flexDirection="row">
+            <DAppIcon
+              size={48}
+              url={item.logoURL}
+              networkIds={item.networkIds}
+            />
+            <Box ml="3">
+              <Typography.Body2Strong numberOfLines={1} mb="1">
+                {item.name}
+              </Typography.Body2Strong>
+              <Chains networkIds={item.networkIds} />
+            </Box>
+          </Box>
           <Typography.Caption
-            numberOfLines={3}
-            mt="4px"
+            mt="3"
+            numberOfLines={2}
             textAlign="left"
             color="text-subdued"
           >
@@ -137,7 +181,8 @@ const CardViewDesktop: FC<SectionDataType> = ({
         data={filterData}
         renderItem={renderItem}
         numColumns={numColumns}
-        keyExtractor={(item, index) => `${numColumns}key${index}${item.id}`}
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item, index) => `${numColumns}key${index}${item._id}`}
         key={`key${numColumns}`}
       />
     ),

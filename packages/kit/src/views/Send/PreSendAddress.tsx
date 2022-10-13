@@ -37,7 +37,9 @@ function NFTView({ asset }: { asset?: NFTAsset }) {
     return (
       <Box flexDirection="row" alignItems="center">
         <CollectibleListImage asset={asset} borderRadius="6px" size={40} />
-        <Typography.Body1Strong ml={3}>{asset.name}</Typography.Body1Strong>
+        <Typography.Body1Strong ml={3} numberOfLines={2} flex={1}>
+          {asset.name ?? asset.contractName}
+        </Typography.Body1Strong>
       </Box>
     );
   }
@@ -140,14 +142,14 @@ function PreSendAddress() {
         return;
       }
       if (transferInfo) {
-        transferInfo.amount = '1';
         transferInfo.from = account.address;
         transferInfo.to = toVal;
       }
+      const { closeModal, ...info } = transferInfo;
       const encodedTx = await engine.buildEncodedTxFromTransfer({
         networkId,
         accountId,
-        transferInfo,
+        transferInfo: info,
       });
       navigation.navigate(SendRoutes.SendConfirm, {
         ...transferInfo,
@@ -159,11 +161,12 @@ function PreSendAddress() {
           type: 'Transfer',
           nftInfo: {
             asset: nftInfo,
-            amount: '1',
+            amount: transferInfo.amount,
             from: account.address,
             to: toVal,
           },
         },
+        onModalClose: closeModal,
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

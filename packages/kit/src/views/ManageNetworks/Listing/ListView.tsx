@@ -90,13 +90,13 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
             >
               <NetworkIcon network={network} />
               <Text
+                flexShrink={1}
                 mr="3"
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                numberOfLines={1}
-                maxW="48"
+                numberOfLines={2}
                 isTruncated
               >
-                {network.shortName}
+                {network.name}
               </Text>
               <Badge size="sm" title={network.impl.toUpperCase()} />
             </Box>

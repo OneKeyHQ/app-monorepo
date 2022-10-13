@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +6,7 @@ import { CardErrors } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { Dialog } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
-export type ErrorDialogViewProps = {
+export interface ErrorDialogViewProps {
   code: number;
   /**
    * 其他附带数据
@@ -28,9 +28,10 @@ export type ErrorDialogViewProps = {
    * 退出流程
    */
   onExit?: () => void;
+  // eslint-disable-next-line react/no-unused-prop-types
   onContinue?: () => void;
   onIntoNfcSetting?: () => void;
-};
+}
 
 const ErrorDialog: FC<ErrorDialogViewProps> = ({
   code,

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
@@ -23,7 +23,7 @@ export function useSendConfirmRouteParamsParsed() {
   // const navigation = useNavigation<ModalNavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const routeParams = route.params ?? {};
-  const { sourceInfo, resendActionInfo, encodedTx } = routeParams;
+  const { sourceInfo, resendActionInfo, encodedTx, onModalClose } = routeParams;
   const isFromDapp = !!routeParams.sourceInfo;
   const feeInfoEditable = routeParams.feeInfoEditable ?? true;
   const feeInfoUseFeeInTx = routeParams.feeInfoUseFeeInTx ?? false;
@@ -39,9 +39,15 @@ export function useSendConfirmRouteParamsParsed() {
     id: sourceInfo?.id ?? '',
     closeOnError: true,
   });
-  const onModalClose = dappApprove.reject;
+  const onClose = useCallback(() => {
+    dappApprove.reject();
+    if (onModalClose) {
+      onModalClose();
+    }
+  }, [dappApprove, onModalClose]);
   // TODO use Context instead
-  Object.assign(routeParams, { onModalClose });
+
+  Object.assign(routeParams, { onModalClose: onClose });
 
   const isInternalSwapTx = payload?.payloadType === 'InternalSwap';
   // const isTransferTypeTx =
@@ -50,7 +56,7 @@ export function useSendConfirmRouteParamsParsed() {
 
   return {
     dappApprove,
-    onModalClose,
+    onModalClose: onClose,
     encodedTx,
     navigation,
     route,

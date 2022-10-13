@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, useCallback } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
@@ -15,7 +15,7 @@ const PressableItem: FC<PressableItemProps> = ({
   ...props
 }) => {
   const { hapticsEnabled } = useProviderValue();
-  const onPressOverride = React.useCallback(
+  const onPressOverride = useCallback(
     (e) => {
       if (hapticsEnabled && onPress) {
         enableHaptics();

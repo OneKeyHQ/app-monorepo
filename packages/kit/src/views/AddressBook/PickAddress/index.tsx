@@ -18,12 +18,12 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
 import { useAppSelector } from '../../../hooks';
@@ -118,7 +118,7 @@ const AddressBook = () => {
         <Empty
           title={intl.formatMessage({ id: 'title__no_cantact' })}
           subTitle={intl.formatMessage({ id: 'title__no_cantact_desc' })}
-          imageUrl={imageUrl}
+          emoji="📇"
         />
       </Center>
     ),
@@ -209,6 +209,7 @@ const MyWallet = () => {
             (section.wallet.deviceType as IOneKeyDeviceType) ||
             getDeviceTypeByDeviceId(section.wallet.associatedDevice)
           }
+          isPassphrase={isPassphraseWallet(section.wallet)}
           size="sm"
         />
       </Box>

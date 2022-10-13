@@ -17,7 +17,7 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
-const TestnetContractAddress = '0x09D93B9d2E7fb79f5Bf26687b35844cf1993DAFa';
+const TestnetContractAddress = '0xdCAe38cC28606e61B1e54D8b4b134588e4ca7Ab7';
 const MainnetContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';
 
 @backgroundClass()
@@ -31,7 +31,7 @@ export default class ServiceStaking extends ServiceBase {
     if (networkId === OnekeyNetwork.eth) {
       return `${getFiatEndpoint()}/keleMainnet`;
     }
-    if (networkId === OnekeyNetwork.teth) {
+    if (networkId === OnekeyNetwork.goerli) {
       return `${getFiatEndpoint()}/keleTestnet`;
     }
     throw new Error('Not supported network');
@@ -41,7 +41,7 @@ export default class ServiceStaking extends ServiceBase {
     if (networkId === OnekeyNetwork.eth) {
       return MainnetContractAddress;
     }
-    if (networkId === OnekeyNetwork.teth) {
+    if (networkId === OnekeyNetwork.goerli) {
       return TestnetContractAddress;
     }
     throw new Error('Not supported network');

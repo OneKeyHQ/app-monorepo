@@ -295,7 +295,7 @@ class ServiceDapp extends ServiceBase {
     const requestMethod = (request.data as IJsonRpcRequest)?.method || '';
     const notMatchedErrorMessage = `OneKey Wallet chain/network not matched. method=${requestMethod} scope=${
       request.scope || ''
-    }`;
+    } origin=${request.origin || ''}`;
 
     if (isAuthorizedRequired && isNotAuthorized) {
       // TODO show different modal for isNotAuthorized

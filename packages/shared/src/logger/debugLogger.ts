@@ -120,6 +120,7 @@ export enum LoggerNames {
   swap = 'swap',
   providerApi = 'providerApi',
   notification = 'notification',
+  autoUpdate = 'autoUpdate',
 }
 
 export type LoggerEntity = {
@@ -170,6 +171,7 @@ const debugLogger: Record<
   [LoggerNames.swap]: Cache.createLogger(LoggerNames.swap),
   [LoggerNames.providerApi]: Cache.createLogger(LoggerNames.providerApi),
   [LoggerNames.notification]: Cache.createLogger(LoggerNames.notification),
+  [LoggerNames.autoUpdate]: Cache.createLogger(LoggerNames.autoUpdate),
 };
 
 if (platformEnv.isDev) {

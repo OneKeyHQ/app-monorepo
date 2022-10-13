@@ -32,11 +32,11 @@ const typesTemplate = `
     .map((item) => `import ${item.name} from './react/${item.path}';`)
     .join('\n')}
 
-export type ICON_NAMES = ${items.map((item) => `"${item.symbol}"`).join(' | ')};
-
-  export default {
-    ${items.map((item) => `"${item.symbol}": ${item.name}`).join(',')}
+  const icons = {
+    ${items.map((item) => `${item.symbol}`).join(',')}
   }
+  export type ICON_NAMES = keyof typeof icons;
+  export default icons;
 `;
 fs.writeFileSync(
   path.resolve(__dirname, `./Icons.tsx`),

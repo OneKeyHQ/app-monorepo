@@ -11,13 +11,12 @@ import {
   Spinner,
   Typography,
 } from '@onekeyhq/components';
-import IconNoHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 
-import type { DAppItemType } from '../../type';
+import { MatchDAppItemType } from '../explorerUtils';
 
 type HeaderHistoriesProps = {
   keyword: string;
-  onSelectHistory?: (token: DAppItemType | string) => void;
+  onSelectHistory?: (token: MatchDAppItemType | string) => void;
 };
 
 const HeaderHistories: FC<HeaderHistoriesProps> = ({
@@ -51,7 +50,7 @@ type HeaderProps = {
   terms: string;
   keyword: string;
   onChange: (keyword: string) => void;
-  onSelectHistory?: (history: DAppItemType | string) => void;
+  onSelectHistory?: (history: MatchDAppItemType | string) => void;
   onSubmitContent?: (content: string) => void;
 };
 
@@ -69,7 +68,6 @@ const Header: FC<HeaderProps> = ({
         w="full"
         placeholder={intl.formatMessage({
           id: 'content__search_or_enter_dapp_url',
-          defaultMessage: 'Search Tokens',
         })}
         mb="6"
         autoFocus
@@ -112,7 +110,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   return terms.length ? null : (
     <Box pt={12}>
       <Empty
-        imageUrl={IconNoHistory}
+        emoji="🕐"
         title={intl.formatMessage({
           id: 'title__no_history',
         })}

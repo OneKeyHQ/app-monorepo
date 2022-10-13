@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -322,7 +321,7 @@ const ReceiveToken = () => {
           </>
         ) : (
           <Empty
-            imageUrl={IconAccount}
+            emoji="💳"
             title={intl.formatMessage({
               id: 'empty__no_account_title',
             })}

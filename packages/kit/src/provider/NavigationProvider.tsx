@@ -96,6 +96,10 @@ const NavigationApp = () => {
         const currentRouteName =
           navigationRef?.current?.getCurrentRoute?.()?.name;
 
+        setAttributes({
+          previousRouteName: previousRouteName ?? '',
+          currentRouteName: currentRouteName ?? '',
+        });
         if (previousRouteName !== currentRouteName) {
           debugLogger.navigation.info(
             previousRouteName,

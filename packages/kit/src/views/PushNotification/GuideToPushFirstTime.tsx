@@ -5,16 +5,15 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
-  Image,
   Modal,
+  Text,
   Typography,
   VStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
-import imageUrl from '@onekeyhq/kit/assets/alert.png';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
@@ -24,7 +23,6 @@ import { useEnabledAccountDynamicAccounts } from './hooks';
 
 const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
 
   const goBack = useNavigationBack();
   const { dispatch, serviceNotification } = backgroundApiProxy;
@@ -75,7 +73,7 @@ const GuideToPushFirstTime: FC = () => {
         desc: intl.formatMessage({ id: 'form__price_volatility_desc' }),
       },
       {
-        icon: '🔔',
+        icon: '📈',
         title: intl.formatMessage({ id: 'form__price_alert' }),
         desc: intl.formatMessage(
           { id: 'title__no_alert_desc' },
@@ -112,7 +110,7 @@ const GuideToPushFirstTime: FC = () => {
           </Typography.Body2>
         </Center>
         <Center>
-          <Image size="64px" source={imageUrl} />
+          <Text fontSize={56}>🔔</Text>
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'title__notifications' })}
           </Typography.DisplayLarge>
@@ -128,7 +126,7 @@ const GuideToPushFirstTime: FC = () => {
             <Box flex={1}>
               <Typography.Body1Strong mb="1">{c.title}</Typography.Body1Strong>
               <Typography.Body2
-                flex={isVertical ? undefined : 1}
+                flex={platformEnv.isNative ? undefined : 1}
                 numberOfLines={2}
                 color="text-subdued"
               >

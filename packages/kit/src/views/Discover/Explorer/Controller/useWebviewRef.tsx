@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -16,8 +16,7 @@ export const useWebviewRef = ({
   onNavigation: OnWebviewNavigation;
   navigationStateChangeEvent?: WebViewNavigation;
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [isDomReady, setIsDomReady] = useState(false);
+  const isDomReady = useRef(false);
   useEffect(() => {
     if (platformEnv.isDesktop) {
       try {
@@ -25,7 +24,7 @@ export const useWebviewRef = ({
         if (!ref) {
           return;
         }
-        const handleFinishLoading = () => setLoading(false);
+        const handleFinishLoading = () => onNavigation({ loading: false });
         const handleNavigation = ({
           url,
           isInPlace,
@@ -42,13 +41,21 @@ export const useWebviewRef = ({
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call
               title: ref.getTitle(),
               isInPlace,
+              canGoBack:
+                isDomReady.current && // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                ref.canGoBack(),
+              canGoForward:
+                isDomReady.current && // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                ref.canGoForward(),
             });
           }
         };
 
-        const handleDomReady = () => setIsDomReady(true);
+        const handleDomReady = () => (isDomReady.current = true);
 
-        const handleStartLoadingMessage = () => setLoading(true);
+        const handleStartLoadingMessage = () => onNavigation({ loading: true });
 
         const handleTitleMessage = ({ title }: { title: string }) => {
           if (title) {
@@ -107,48 +114,33 @@ export const useWebviewRef = ({
     }
   }, [ref, onNavigation]);
 
-  const canGoBack =
-    isDomReady && // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-    ref?.canGoBack();
-
   const goBack = useCallback(() => {
-    if (isDomReady) {
+    if (isDomReady.current) {
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       ref?.goBack();
     }
-  }, [isDomReady, ref]);
-
-  const canGoForward =
-    isDomReady && // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
-    ref?.canGoForward();
+  }, [ref]);
 
   const goForward = useCallback(() => {
-    if (isDomReady) {
+    if (isDomReady.current) {
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       ref?.goForward();
     }
-  }, [isDomReady, ref]);
+  }, [ref]);
 
   const stopLoading = useCallback(() => {
-    if (isDomReady) {
+    if (isDomReady.current) {
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       ref?.stop();
-      setLoading(false);
     }
-  }, [isDomReady, ref]);
+  }, [ref]);
 
   return {
-    canGoBack,
     goBack,
-    canGoForward,
     goForward,
     stopLoading,
-    loading,
-    isDomReady,
   };
 };

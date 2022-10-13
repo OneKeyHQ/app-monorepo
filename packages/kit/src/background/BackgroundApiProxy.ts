@@ -13,9 +13,11 @@ import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect'
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';
+import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServicDiscover from './services/ServiceDiscover';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceMarket from './services/ServiceMarket';
@@ -106,8 +108,16 @@ class BackgroundApiProxy
 
   serviceSocket = this._createProxyService('serviceSocket') as ServiceSocket;
 
-  serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
+  serviceBootstrap = this._createProxyService(
+    'serviceBootstrap',
+  ) as ServiceBootstrap;
 
+  serviceDiscover = this._createProxyService(
+    'serviceDiscover',
+  ) as ServicDiscover;
+
+  serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
+  
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {
       throw new Error(`_createProxyService name duplicated. name=${name}`);

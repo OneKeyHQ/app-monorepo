@@ -1,6 +1,4 @@
-import React, { useCallback } from 'react';
-
-import { NumberInput } from 'native-base';
+import React, { useCallback, useState } from 'react';
 
 import {
   Center,
@@ -18,6 +16,8 @@ const InputGallery = () => {
   const onUser = useCallback(() => {
     console.log('onUser');
   }, []);
+
+  const [inputNumber, setInputNumber] = useState('');
   return (
     <Center flex="1" bg="background-hovered">
       <ScrollView
@@ -31,8 +31,13 @@ const InputGallery = () => {
       >
         <Stack space="2">
           <Input placeholder="Placeholder" value="hello world1" />
-          <NumberInput min={1} max={100} value="20" w="full" size="xl" />
-          <Input type="number" placeholder="number" defaultValue="1" />
+          <Input
+            type="number"
+            placeholder="number"
+            value={inputNumber}
+            defaultValue="1"
+            onChangeText={setInputNumber}
+          />
           <Input placeholder="Placeholder" value="hello world2" />
           <Input placeholder="Placeholder" value="disabled" isDisabled />
           <Input leftText="$" placeholder="Placeholder" />

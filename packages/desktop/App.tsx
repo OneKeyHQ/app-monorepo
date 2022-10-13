@@ -8,6 +8,7 @@ const App: FC = function () {
   return (
     <>
       <DesktopDragZoneBox
+        testID="DesktopDragZoneBox-TopFixedBar"
         style={{
           height: '16px',
           position: 'absolute',

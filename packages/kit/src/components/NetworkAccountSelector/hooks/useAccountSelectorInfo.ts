@@ -43,6 +43,7 @@ export function useAccountSelectorInfo() {
   const isOpenPrev = usePrevious(isOpen);
   const isOpenFromClose = !isOpenPrev && isOpen;
   const isCloseFromOpen = isOpenPrev && !isOpen;
+  const isCloseFromOpenDelay = useDebounce(isCloseFromOpen, 300);
 
   const { wallets } = useRuntimeWallets();
   const { enabledNetworks } = useManageNetworks();
@@ -91,6 +92,7 @@ export function useAccountSelectorInfo() {
 
       isOpenFromClose,
       isCloseFromOpen,
+      isCloseFromOpenDelay,
       isOpenDelay,
       isOpenDelayForShow,
       isOpen,
@@ -116,6 +118,7 @@ export function useAccountSelectorInfo() {
       deviceStatus,
       isOpenFromClose,
       isCloseFromOpen,
+      isCloseFromOpenDelay,
       isOpenDelay,
       isOpenDelayForShow,
       isOpen,

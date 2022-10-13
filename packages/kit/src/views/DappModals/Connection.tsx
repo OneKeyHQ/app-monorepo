@@ -23,6 +23,7 @@ import {
   Token,
   Typography,
   VStack,
+  useToast,
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -32,6 +33,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
@@ -79,6 +81,7 @@ const Connection = () => {
   );
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
+  const toast = useToast();
   const { networkImpl, network, accountAddress, account } =
     useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
@@ -125,21 +128,27 @@ const Connection = () => {
     },
     [],
   );
-  const getWalletConnectBridge = useCallback(() => {
+  const walletConnectUriInfo = useMemo(() => {
     if (!walletConnectUri) {
-      return '';
+      return null;
     }
-    try {
-      const uriInfo = new URL(walletConnectUri);
-
-      return uriInfo.searchParams.get('bridge');
-    } catch {
-      //
-    }
-    return '';
+    return walletConnectUtils.getWalletConnectUriInfo({
+      uri: walletConnectUri,
+    });
   }, [walletConnectUri]);
+  const getWalletConnectBridge = useCallback(
+    () =>
+      (walletConnectUriInfo?.v1 && walletConnectUriInfo?.v1?.bridge) ||
+      (walletConnectUriInfo?.v2 &&
+        `relay-protocol=${walletConnectUriInfo?.v2?.relayProtocol}`) ||
+      '',
+    [walletConnectUriInfo],
+  );
   useEffect(() => {
     if (walletConnectUri) {
+      if (walletConnectUriInfo?.v2) {
+        toast.show({ title: 'WalletConnect V2 not supported yet.' });
+      }
       backgroundApiProxy.walletConnect
         .connect({
           uri: walletConnectUri || '',
@@ -160,7 +169,14 @@ const Connection = () => {
           );
         });
     }
-  }, [closeModal, dispatch, intl, walletConnectUri]);
+  }, [
+    closeModal,
+    dispatch,
+    intl,
+    toast,
+    walletConnectUri,
+    walletConnectUriInfo?.v2,
+  ]);
 
   // TODO move to DappService
   const getResolveData = useCallback(() => {

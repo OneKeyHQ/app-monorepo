@@ -24,7 +24,7 @@ import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons'
 import ImageViewerGallery from '@onekeyhq/kit/src/views/Components/stories/ImageViewer';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
 import KeyboardGallery from '@onekeyhq/kit/src/views/Components/stories/Keyboard';
-import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List/index';
+import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
@@ -49,6 +49,7 @@ import TabsGallery from '@onekeyhq/kit/src/views/Components/stories/Tabs';
 import TextareaGallery from '@onekeyhq/kit/src/views/Components/stories/Textarea';
 import ThemeGallery from '@onekeyhq/kit/src/views/Components/stories/Theme';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
+import ToggleButtonGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleButtonGroup';
 import TypeWriter from '@onekeyhq/kit/src/views/Components/stories/TypeWriter';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WalletSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/WalletSelector/index';
@@ -114,6 +115,7 @@ export enum StackRoutes {
   ComponentPriceChart = 'component/PriceChart',
   ComponentTypeWriter = 'component/TypeWriter',
   ComponentHomescreen = 'component/homescreen',
+  ComponentToggleButtonGroup = 'component/ToggleButtonGroup',
 }
 
 export type StackBasicRoutesParams = {
@@ -173,6 +175,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentHomescreen]: undefined;
   [StackRoutes.ComponentNFTImage]: undefined;
   [StackRoutes.ComponentList]: undefined;
+  [StackRoutes.ComponentToggleButtonGroup]: undefined;
 };
 
 export const stackScreenList = [
@@ -254,6 +257,10 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentPriceChart, component: PriceChart },
   { name: StackRoutes.ComponentTypeWriter, component: TypeWriter },
   { name: StackRoutes.ComponentHomescreen, component: HardwareHomescreen },
+  {
+    name: StackRoutes.ComponentToggleButtonGroup,
+    component: ToggleButtonGroupGallery,
+  },
 ];
 
 const DevStack = createNativeStackNavigator();

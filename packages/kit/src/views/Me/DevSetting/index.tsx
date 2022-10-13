@@ -12,6 +12,7 @@ import {
   useTheme,
   useToast,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
   getFiatEndpoint,
@@ -53,6 +54,11 @@ export const DevSettingSection = () => {
   }, [registrationId, instanceId]);
   const onToggleTestVersionUpdate = useCallback(() => {
     dispatch(setPreReleaseUpdate(!preReleaseUpdate));
+    if (platformEnv.isDesktop) {
+      window.desktopApi?.setAutoUpdateSettings?.({
+        useTestFeedUrl: !preReleaseUpdate,
+      });
+    }
   }, [preReleaseUpdate, dispatch]);
 
   const onToggleDebugMode = useCallback(() => {
@@ -160,7 +166,7 @@ export const DevSettingSection = () => {
             titleColor="text-critical"
             subDescribeCustom={
               <Pressable onPress={copyRegistrationId}>
-                <Text color="text-subdued">{pushId}</Text>
+                <Text color="text-subdued">{shortenAddress(pushId || '')}</Text>
               </Pressable>
             }
           />

@@ -23,7 +23,6 @@ import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
 import { useAppSelector } from '../../../hooks';
@@ -115,7 +114,7 @@ const AddressBook = () => {
         <Empty
           title={intl.formatMessage({ id: 'title__no_cantact' })}
           subTitle={intl.formatMessage({ id: 'title__no_cantact_desc' })}
-          imageUrl={imageUrl}
+          emoji="📇"
         />
       </Center>
     ),
@@ -169,7 +168,7 @@ const MyWallet = () => {
   }, []);
 
   const onPress = useCallback(
-    (item: { address: string; name?: string }) => {
+    (item: { address: string; name?: string; accountId?: string }) => {
       onSelected?.({ address: item.address, name: item.name });
       navigation.goBack();
     },
@@ -194,7 +193,9 @@ const MyWallet = () => {
       borderBottomRightRadius={
         index === section.data.length - 1 ? '12' : undefined
       }
-      onPress={() => onPress({ address: item.address, name: item.name })}
+      onPress={() =>
+        onPress({ address: item.address, name: item.name, accountId: item.id })
+      }
       alignItems="center"
     >
       <Box mr="3" key={item.address}>

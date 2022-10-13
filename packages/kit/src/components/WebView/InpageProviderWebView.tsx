@@ -25,19 +25,26 @@ import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 import {
   Button,
   Center,
-  Image,
+  Empty,
   Spinner,
-  Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import IconNoConnect from '@onekeyhq/kit/assets/ic_3d_no_connect.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// injected hot-reload cache update: 213344000
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const USER_AGENT_IOS =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const USER_AGENT_ANDROID =
+  'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36';
+const DESKTOP_USER_AGENT_MOCK = USER_AGENT_ANDROID;
 
 export type InpageProviderWebViewProps = InpageWebViewProps & {
   onNavigationStateChange?: (event: any) => void;
@@ -131,15 +138,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     };
     const ErrorView: FC<ErrorViewProps> = () => (
       <Center w="full" h="full" bg="background-default">
-        <Box mb={3}>
-          <Image size="100px" source={IconNoConnect} />
-        </Box>
-        <Typography.DisplayMedium mt={3}>
-          {intl.formatMessage({ id: 'title__no_connection' })}
-        </Typography.DisplayMedium>
-        <Typography.Body1 mt={2} color="text-subdued">
-          {intl.formatMessage({ id: 'title__no_connection_desc' })}
-        </Typography.Body1>
+        <Empty
+          emoji="🌐"
+          title={intl.formatMessage({ id: 'title__no_connection' })}
+          subTitle={intl.formatMessage({ id: 'title__no_connection_desc' })}
+          mb={3}
+        />
 
         <Button
           mt={6}
@@ -236,7 +240,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
                   // we can resize desktop to vertical only in DEV env currently
                   platformEnv.isDev && isVertical
                     ? // sim mobile app UA
-                      'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+                      DESKTOP_USER_AGENT_MOCK
                     : undefined
                 }
               />

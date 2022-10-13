@@ -61,9 +61,11 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         network.id,
       );
-      setNeedActivateAccount(!!vaultSettings?.activateAccountRequired);
+      setNeedActivateAccount(
+        !!vaultSettings?.activateAccountRequired && wallet?.type !== 'watching',
+      );
     })();
-  }, [network]);
+  }, [network, wallet?.type]);
 
   const showSubscriptionIcon =
     !!account &&
@@ -137,6 +139,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
         onPress: () => {
           if (!account) return;
           if (!network) return;
+
           backgroundApiProxy.engine
             .activateAccount(account.id, network.id)
             .catch(() => {});

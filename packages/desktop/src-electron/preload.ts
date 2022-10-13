@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
+
+import type { UpdateSettings } from './libs/store';
 
 let keytar = {
   async setPassword(...args: any[]) {
@@ -27,6 +30,7 @@ export type PrefType =
   | 'notification'
   | 'locationService';
 export type DesktopAPI = {
+  on: (channel: string, func: (...args: any[]) => any) => void;
   hello: string;
   arch: string;
   platform: string;
@@ -48,6 +52,14 @@ export type DesktopAPI = {
     event: string,
     listener: (...args: any[]) => void,
   ) => void;
+
+  // Updater
+  checkForUpdates: (isManual?: boolean) => void;
+  downloadUpdate: () => void;
+  installUpdate: () => void;
+  setAutoUpdateSettings: (settings: UpdateSettings) => void;
+  clearAutoUpdateSettings: () => void;
+  restore: () => void;
 };
 declare global {
   interface Window {
@@ -79,7 +91,22 @@ ipcRenderer.on('OPEN_URL_DEEP_LINK_MESSAGE', (event, data) => {
   window.ONEKEY_DESKTOP_DEEP_LINKS = window.ONEKEY_DESKTOP_DEEP_LINKS.slice(-5);
 });
 
+const validChannels = [
+  // Update events
+  'update/checking',
+  'update/available',
+  'update/not-available',
+  'update/error',
+  'update/downloading',
+  'update/downloaded',
+];
+
 const desktopApi = {
+  on: (channel: string, func: (...args: any[]) => any) => {
+    if (validChannels.includes(channel)) {
+      ipcRenderer.on(channel, (_, ...args) => func(...args));
+    }
+  },
   hello: 'world',
   arch: process.arch,
   platform: process.platform,
@@ -122,6 +149,19 @@ const desktopApi = {
   },
   reloadBridgeProcess: () => {
     ipcRenderer.send('app/reloadBridgeProcess');
+  },
+
+  // Updater
+  checkForUpdates: (isManual?: boolean) =>
+    ipcRenderer.send('update/check', isManual),
+  downloadUpdate: () => ipcRenderer.send('update/download'),
+  installUpdate: () => ipcRenderer.send('update/install'),
+  setAutoUpdateSettings: (settings: UpdateSettings) =>
+    ipcRenderer.send('update/settings', settings),
+  clearAutoUpdateSettings: () => ipcRenderer.send('update/clearSettings'),
+
+  restore: () => {
+    ipcRenderer.send('app/restoreMainWindow');
   },
 };
 

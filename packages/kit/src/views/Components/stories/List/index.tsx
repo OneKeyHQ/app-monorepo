@@ -1,18 +1,21 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Badge,
   Box,
+  GroupingList,
   HStack,
   Icon,
   IconButton,
   Image,
+  List,
+  ListItem,
   Pressable,
   ScrollView,
   Switch,
   Text,
   VStack,
 } from '@onekeyhq/components';
-
-import { GroupingList, List, ListItem } from './ListView';
 
 interface TokenListDataType {
   id: string;
