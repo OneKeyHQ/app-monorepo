@@ -126,6 +126,7 @@ export type QuoteData = {
   arrivalTime?: number;
   txData?: TransactionData;
   additionalParams?: BuildTransactionAdditionalParameters;
+  needApproved?: boolean;
 };
 
 export interface BuildTransactionAdditionalParameters {

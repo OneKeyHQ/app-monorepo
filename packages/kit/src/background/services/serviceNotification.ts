@@ -39,7 +39,6 @@ import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setHomeTabName } from '../../store/reducers/status';
 import { WalletHomeTabEnum } from '../../views/Wallet/type';
 import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
-import { waitForDataLoaded } from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -50,7 +49,9 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async init() {
     try {
-      await this.waitForAppInited();
+      await this.backgroundApi.serviceApp.waitForAppInited({
+        logName: 'ServiceNotification',
+      });
     } catch (error) {
       debugLogger.notification.error(error);
     }
@@ -84,16 +85,6 @@ export default class ServiceNotification extends ServiceBase {
     }
     this.syncLocalEnabledAccounts();
     this.syncPushNotificationConfig();
-  }
-
-  @backgroundMethod()
-  async waitForAppInited() {
-    const { serviceApp } = this.backgroundApi;
-    await waitForDataLoaded({
-      logName: 'WaitAppInited',
-      data: () => serviceApp.isAppInited,
-      timeout: getTimeDurationMs({ minute: 1 }),
-    });
   }
 
   @bindThis()

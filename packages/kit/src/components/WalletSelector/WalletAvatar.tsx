@@ -130,7 +130,10 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
   );
 };
 
-const WalletStatus: FC<Partial<WalletAvatarProps>> = ({ size, status }) => (
+export const WalletStatus: FC<Partial<WalletAvatarProps>> = ({
+  size,
+  status,
+}) => (
   <Box
     position="absolute"
     right={-2}
@@ -219,6 +222,46 @@ const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
   return undefined;
 };
 
+export function useHardwareWalletInfo({
+  deviceStatus,
+  wallet,
+}: {
+  wallet: IWallet;
+  deviceStatus: IHardwareDeviceStatusMap | undefined | null;
+}) {
+  const hwInfo = useMemo(() => {
+    const { type } = wallet;
+    const { deviceType } = wallet;
+    const deviceId = wallet.associatedDevice || '';
+    let isPassphrase = false;
+    let status: string | undefined;
+    let statusType: DeviceStatusType | undefined;
+    if (type === WALLET_TYPE_HW) {
+      statusType = deviceStatus?.[deviceId];
+      // TODO how to test status?
+      //    packages/kit/src/components/Header/AccountSelectorChildren/LeftSide.tsx #getWalletItemStatus()
+      status = convertDeviceStatus(statusType); // hw status
+      isPassphrase = isPassphraseWallet(wallet); // hw hiddenWallet
+    }
+    let hwWalletType = deviceType as IOneKeyDeviceType;
+    if (!hwWalletType) {
+      hwWalletType = getDeviceTypeByDeviceId(deviceId);
+    }
+
+    const hasUpgrade = Boolean(statusType?.hasUpgrade);
+    const isConnected = Boolean(statusType?.isConnected);
+    return {
+      isPassphrase,
+      status,
+      hwWalletType,
+      statusType,
+      hasUpgrade,
+      isConnected,
+    };
+  }, [deviceStatus, wallet]);
+  return hwInfo;
+}
+
 function WalletAvatarPro({
   wallet,
   deviceStatus, // get by useDeviceStatusOfHardwareWallet()
@@ -227,32 +270,14 @@ function WalletAvatarPro({
   wallet: IWallet;
   deviceStatus: IHardwareDeviceStatusMap | undefined | null;
 } & WalletAvatarProps) {
-  const { deviceType, avatar, type } = wallet;
+  const { avatar } = wallet;
   const walletImage = wallet.type;
   const avatarBgColor = avatar?.bgColor;
-  const deviceId = wallet.associatedDevice || '';
 
-  const hwInfo = useMemo(() => {
-    let isPassphrase = false;
-    let status: string | undefined;
-    if (type === WALLET_TYPE_HW) {
-      // TODO how to test status?
-      //    packages/kit/src/components/Header/AccountSelectorChildren/LeftSide.tsx #getWalletItemStatus()
-      status = convertDeviceStatus(deviceStatus?.[deviceId]); // hw status
-      isPassphrase = isPassphraseWallet(wallet); // hw hiddenWallet
-    }
-    let hwWalletType = deviceType as IOneKeyDeviceType;
-    if (!hwWalletType) {
-      hwWalletType = getDeviceTypeByDeviceId(deviceId);
-    }
-
-    return {
-      isPassphrase,
-      status,
-      hwWalletType,
-    };
-  }, [deviceId, deviceStatus, deviceType, type, wallet]);
-
+  const hwInfo = useHardwareWalletInfo({
+    deviceStatus,
+    wallet,
+  });
   return (
     <WalletAvatar
       walletImage={walletImage}

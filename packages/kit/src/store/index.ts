@@ -106,7 +106,6 @@ const persistConfig = {
   whitelist: persistWhiteList,
   throttle: platformEnv.isExtension ? 1000 : 0, // default=0
 };
-
 export function makeStore() {
   const persistedReducer = persistReducer(
     persistConfig,
@@ -125,9 +124,7 @@ export function makeStore() {
   });
   const persistor = persistStore(store, null, () => {
     debugLogger.common.info(`receive: store persisted`);
-    if (platformEnv.isExtensionBackground) {
-      appEventBus.emit(AppEventBusNames.InitReduxStateFromPersitor);
-    }
+    appEventBus.emit(AppEventBusNames.StoreInitedFromPersistor);
   });
   return { store, persistor };
 }

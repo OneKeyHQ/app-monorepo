@@ -27,14 +27,14 @@ import {
   unlock,
 } from '../../store/reducers/status';
 import extUtils, { OpenUrlRouteInfo } from '../../utils/extUtils';
-import { wait } from '../../utils/helper';
+import { getTimeDurationMs, wait } from '../../utils/helper';
 import {
   getPassword,
   hasHardwareSupported,
 } from '../../utils/localAuthentication';
 import { EOnboardingRoutes } from '../../views/Onboarding/routes/enums';
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { MAX_LOG_LENGTH } from '../utils';
+import { MAX_LOG_LENGTH, waitForDataLoaded } from '../utils';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
@@ -44,20 +44,26 @@ class ServiceApp extends ServiceBase {
 
   constructor(props: IServiceBaseProps) {
     super(props);
+    this.initAppAfterStoreReady();
     if (platformEnv.isExtensionBackground) {
       this.autoOpenOnboardingIfExtensionInstalled();
       setInterval(() => this.checkLockStatus(1), 60 * 1000);
-      appEventBus.once(AppEventBusNames.InitReduxStateFromPersitor, () => {
-        this.initApp();
-      });
-    } else {
-      this.initApp();
     }
     // TODO recheck last reset status and resetApp here
   }
 
   get isAppInited() {
     return this._appInited;
+  }
+
+  @backgroundMethod()
+  async waitForAppInited({ logName }: { logName: string }) {
+    await waitForDataLoaded({
+      logName: `waitForAppInited @ ${logName}`,
+      data: () => this.isAppInited,
+      wait: 300,
+      timeout: getTimeDurationMs({ minute: 1 }),
+    });
   }
 
   logger: string[] = [];
@@ -200,6 +206,17 @@ class ServiceApp extends ServiceBase {
         );
       }
     });
+  }
+
+  initAppAfterStoreReady() {
+    const { bootstrapped } = this.backgroundApi.persistor.getState();
+    if (bootstrapped) {
+      this.initApp();
+    } else {
+      appEventBus.once(AppEventBusNames.StoreInitedFromPersistor, () => {
+        this.initApp();
+      });
+    }
   }
 
   /**
