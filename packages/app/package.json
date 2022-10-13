@@ -97,7 +97,7 @@
     "@babel/core": "^7.15.8",
     "@types/node": "^16.7.13",
     "@types/react": "~17.0.21",
-    "@types/react-native": "~0.67.7",
+    "@types/react-native": "~0.68",
     "@types/react-native-canvas": "^0.1.9",
     "babel-plugin-module-resolver": "^4.1.0"
   },

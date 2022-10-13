@@ -160,7 +160,6 @@ export const tabRoutes: TabRouteConfig[] = [
   },
 ];
 
-console.log('tabRoutes--', tabRoutes);
 if (process.env.NODE_ENV !== 'production') {
   tabRoutes.push({
     name: TabRoutes.Developer,
