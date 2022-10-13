@@ -2,16 +2,16 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient } from 'aptos';
+import { AptosClient, BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
-import { get, isNil } from 'lodash';
+import { get, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
@@ -24,6 +24,7 @@ import {
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
 } from '../../../errors';
 import { DBSimpleAccount } from '../../../types/account';
@@ -65,7 +66,10 @@ import {
   APTOS_NATIVE_COIN,
   APTOS_TRANSFER_FUNC,
   DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
+  DEFAULT_GAS_LIMIT_TRANSFER,
+  buildSignedTx,
   generateRegisterToken,
+  generateUnsignedTransaction,
   getAccountCoinResource,
   getTokenInfo,
   getTransactionType,
@@ -272,15 +276,35 @@ export default class Vault extends VaultBase {
     }
     const network = await this.getNetwork();
 
-    // TODO: Dapp transaction edit fee
+    const txPrice = convertFeeGweiToValue({
+      value: price || '0.000000001',
+      network,
+    });
+
+    let { bscTxn } = params.encodedTx;
+    if (!isNil(bscTxn) && !isEmpty(bscTxn)) {
+      const deserializer = new BCS.Deserializer(hexToBytes(bscTxn));
+      const rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+      const newRawTx = new TxnBuilderTypes.RawTransaction(
+        rawTx.sender,
+        rawTx.sequence_number,
+        rawTx.payload,
+        BigInt(limit),
+        BigInt(txPrice),
+        rawTx.expiration_timestamp_secs,
+        rawTx.chain_id,
+      );
+
+      const serializer = new BCS.Serializer();
+      newRawTx.serialize(serializer);
+      bscTxn = bytesToHex(serializer.getBytes());
+    }
 
     const encodedTxWithFee = {
       ...params.encodedTx,
-      gas_unit_price: convertFeeGweiToValue({
-        value: price || '0.000000001',
-        network,
-      }),
+      gas_unit_price: txPrice,
       max_gas_amount: limit,
+      bscTxn,
     };
     return Promise.resolve(encodedTxWithFee);
   }
@@ -472,6 +496,34 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxAptos,
   ): Promise<IUnsignedTxPro> {
+    const newEncodedTx = encodedTx;
+
+    const expect = BigInt(Math.floor(Date.now() / 1000) + 100);
+    if (!isNil(encodedTx.bscTxn) && !isEmpty(encodedTx.bscTxn)) {
+      const deserializer = new BCS.Deserializer(hexToBytes(encodedTx.bscTxn));
+      const rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+      const newRawTx = new TxnBuilderTypes.RawTransaction(
+        rawTx.sender,
+        rawTx.sequence_number,
+        rawTx.payload,
+        rawTx.max_gas_amount,
+        rawTx.gas_unit_price,
+        rawTx.expiration_timestamp_secs > expect
+          ? rawTx.expiration_timestamp_secs
+          : expect,
+        rawTx.chain_id,
+      );
+
+      const serializer = new BCS.Serializer();
+      newRawTx.serialize(serializer);
+      newEncodedTx.bscTxn = bytesToHex(serializer.getBytes());
+    } else if (
+      encodedTx.expiration_timestamp_secs &&
+      BigInt(encodedTx.expiration_timestamp_secs) < expect
+    ) {
+      newEncodedTx.expiration_timestamp_secs = expect.toString();
+    }
+
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     return Promise.resolve({
       inputs: [
@@ -482,8 +534,8 @@ export default class Vault extends VaultBase {
         },
       ],
       outputs: [],
-      payload: { encodedTx },
-      encodedTx,
+      payload: { encodedTx: newEncodedTx },
+      encodedTx: newEncodedTx,
     });
   }
 
@@ -501,22 +553,74 @@ export default class Vault extends VaultBase {
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 
-    let limit = BigNumber.max(
-      unsignedTx.feeLimit ?? '0',
-      gasLimit ?? '0',
-    ).toFixed();
+    let limit: string;
+    let price: string;
 
-    const price = convertFeeValueToGwei({
-      value: gasPrice.gas_estimate.toString(),
-      network,
-    });
+    try {
+      let rawTx: TxnBuilderTypes.RawTransaction;
+      const unSignedEncodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
+      if (unSignedEncodedTx.bscTxn && unSignedEncodedTx.bscTxn?.length > 0) {
+        const deserializer = new BCS.Deserializer(
+          hexToBytes(unSignedEncodedTx.bscTxn),
+        );
+        rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+      } else {
+        rawTx = await generateUnsignedTransaction(client, unsignedTx);
+      }
 
-    if (limit === '0') {
-      // Dry run failed.
+      const invalidSigBytes = new Uint8Array(64);
+      const { rawTx: rawSignTx } = await buildSignedTx(
+        rawTx,
+        unsignedTx.inputs?.[0].publicKey ?? '',
+        bytesToHex(invalidSigBytes),
+      );
 
-      // Native transfer, give a default limit.
-      limit = DEFAULT_GAS_LIMIT_NATIVE_TRANSFER;
+      const tx = await (
+        await this.getClient()
+      ).submitBCSSimulation(hexToBytes(rawSignTx), {
+        estimateGasUnitPrice: true,
+        estimateMaxGasAmount: true,
+      });
+
+      // https://github.com/aptos-labs/aptos-core/blob/a1062d9ce2bb76990a84d068adb809f5932aeacb/developer-docs-site/docs/concepts/basics-gas-txn-fee.md#simulating-the-transaction-to-estimate-the-gas
+      if (tx && tx.length !== 0) {
+        const simulationTx = tx?.[0];
+
+        const gasUsed = new BigNumber(simulationTx.gas_used);
+        if (gasUsed.isEqualTo(0) || !simulationTx.success) {
+          // Exec failure
+          throw new OneKeyError();
+        }
+
+        limit = BigNumber.min(
+          gasUsed.multipliedBy(2),
+          new BigNumber(simulationTx.max_gas_amount),
+        ).toFixed(0);
+
+        price = convertFeeValueToGwei({
+          value: simulationTx.gas_unit_price,
+          network,
+        });
+      } else {
+        throw new Error();
+      }
+    } catch (error) {
+      if (error instanceof OneKeyError) {
+        throw error;
+      }
+
+      if (encodedTx.function === APTOS_NATIVE_COIN) {
+        // Native transfer, give a default limit.
+        limit = DEFAULT_GAS_LIMIT_NATIVE_TRANSFER;
+      } else {
+        limit = DEFAULT_GAS_LIMIT_TRANSFER;
+      }
+      price = convertFeeValueToGwei({
+        value: gasPrice.gas_estimate.toString(),
+        network,
+      });
     }
+
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
