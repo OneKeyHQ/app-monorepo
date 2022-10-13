@@ -39,7 +39,6 @@ import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setHomeTabName } from '../../store/reducers/status';
 import { WalletHomeTabEnum } from '../../views/Wallet/type';
 import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
-import { waitForDataLoaded } from '../utils';
 
 import ServiceBase from './ServiceBase';
 

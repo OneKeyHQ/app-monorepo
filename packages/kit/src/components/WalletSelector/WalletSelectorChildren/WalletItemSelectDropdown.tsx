@@ -35,10 +35,7 @@ import {
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
-import {
-  DeviceStatusType,
-  IHardwareDeviceStatusMap,
-} from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
+import { IHardwareDeviceStatusMap } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import { ValidationFields } from '../../Protected';
 import { WalletStatus, useHardwareWalletInfo } from '../WalletAvatar';
 
