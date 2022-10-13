@@ -6,8 +6,8 @@ import { ModalizeProps } from 'react-native-modalize';
 import {
   Box,
   Button,
-  FlatList,
   ScrollView,
+  Empty,
   Searchbar,
   Typography,
   Spinner,
@@ -34,7 +34,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { MarketTokenItem } from '../../store/reducers/market';
 import MarketSearchList from './Components/MarketSearch/MarketSearchList';
-
+import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketSearch: FC<{
@@ -42,6 +42,7 @@ const MarketSearch: FC<{
 }> = ({ closeOverlay }) => {
   const isVertical = useIsVerticalLayout();
   const searchHistory = useMarketSearchHistory();
+  const searchCategorys = useMarketSearchCategoryList();
   const { searchTokens, searchKeyword } = useMarketSearchTokens();
   const style = useMarketSearchContainerStyle();
   const navigation = useNavigation<NavigationProps>();
@@ -76,47 +77,65 @@ const MarketSearch: FC<{
       );
     }
     return (
-      <Box>
-        <Box flexDirection="row" justifyContent="space-between" mb={1}>
-          <Typography.Subheading>RECENT SEARCHED</Typography.Subheading>
-          {searchHistory && searchHistory.length > 0 ? (
-            <Button
-              type="plain"
-              size="xs"
-              leftIconName="TrashSolid"
-              iconSize={16}
-              mr="2"
-              onPress={() => {
-                backgroundApiProxy.serviceMarket.clearSearchHistory();
-              }}
-            >
-              Clear All
-            </Button>
-          ) : null}
-        </Box>
-        {searchHistory && searchHistory.length > 0 ? (
-          <Box mb={2} flexDirection="row" flexWrap="wrap">
-            {searchHistory.map((t, i) => (
-              <TokenTag
-                onPress={() => {
-                  // goto marketoken detail
-                  onTokenPress({
-                    coingeckoId: t.coingeckoId,
-                    image: t.iconUrl,
-                    symbol: t.symbol,
-                  });
-                }}
-                name={t.symbol}
-                logoURI={t.iconUrl}
-                key={i}
-              />
-            ))}
+      <>
+        {searchCategorys && searchCategorys.length > 0 ? (
+          <Box>
+            <Box flexDirection="row" justifyContent="space-between" mb={1}>
+              <Typography.Subheading>RECENT SEARCHED</Typography.Subheading>
+              {searchHistory && searchHistory.length > 0 ? (
+                <Button
+                  type="plain"
+                  size="xs"
+                  leftIconName="TrashSolid"
+                  iconSize={16}
+                  mr="2"
+                  onPress={() => {
+                    backgroundApiProxy.serviceMarket.clearSearchHistory();
+                  }}
+                >
+                  Clear All
+                </Button>
+              ) : null}
+            </Box>
+            {searchHistory && searchHistory.length > 0 ? (
+              <Box mb={2} flexDirection="row" flexWrap="wrap">
+                {searchHistory.map((t, i) => (
+                  <TokenTag
+                    onPress={() => {
+                      // goto marketoken detail
+                      onTokenPress({
+                        coingeckoId: t.coingeckoId,
+                        image: t.iconUrl,
+                        symbol: t.symbol,
+                      });
+                    }}
+                    name={t.symbol}
+                    logoURI={t.iconUrl}
+                    key={i}
+                  />
+                ))}
+              </Box>
+            ) : null}
+            <MarketSearchTab onPress={onTokenPress} />
           </Box>
-        ) : null}
-        <MarketSearchTab onPress={onTokenPress} />
-      </Box>
+        ) : (
+          <Center flex={1}>
+            <Empty
+              title="No History"
+              subTitle="Search for token name or contract address."
+              emoji="🕓"
+            />
+          </Center>
+        )}
+      </>
     );
-  }, [searchKeyword, searchHistory, onTokenPress, searchTokens]);
+  }, [
+    searchKeyword,
+    searchCategorys,
+    searchHistory,
+    onTokenPress,
+    searchTokens,
+  ]);
   const [searchInput, setSearchInput] = useState(() => '');
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   return (
@@ -158,7 +177,7 @@ export const showMarketSearch = ({
       closeOverlay={closeOverlay}
       modalProps={modalProps}
       modalLizeProps={modalLizeProps}
-      dropdownPosition="center"
+      dropdownPosition="left"
       dropdownStyle={{ w: '360px', bg: 'surface-default', p: 0 }}
     >
       <MarketSearch closeOverlay={closeOverlay} />

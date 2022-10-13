@@ -52,7 +52,8 @@ const ToggleButton: FC<
   onLayout,
 }) => {
   const isVertical = useIsVerticalLayout();
-  const iconSize = leftIconSize || (isVertical ? '16px' : '20px');
+  // const iconSize = leftIconSize || (isVertical ? '16px' : '20px');
+  const iconSize = 0;
   return (
     <Pressable
       _hover={{
@@ -70,7 +71,7 @@ const ToggleButton: FC<
       onPress={onPress}
       onLayout={onLayout}
     >
-      <Center borderRadius="9999px" w={iconSize} h={iconSize} mr="8px">
+      <Center borderRadius="9999px" w={iconSize} h={iconSize} mr="0px">
         {!!leftIcon && (
           <Icon
             name={leftIcon}
@@ -81,7 +82,7 @@ const ToggleButton: FC<
           <NetImage height={iconSize} width={iconSize} src={leftImage} />
         )}
       </Center>
-      {!!leftComponent && leftComponent}
+      {!!leftComponent && leftComponent()}
       <Typography.Body2Strong
         maxW="82px"
         isTruncated

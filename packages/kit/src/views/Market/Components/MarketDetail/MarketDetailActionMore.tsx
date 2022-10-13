@@ -1,17 +1,14 @@
 import {
-  ICON_NAMES,
-  useIsVerticalLayout,
-  Text,
-  Icon,
   Box,
+  ICON_NAMES,
+  Icon,
+  Text,
+  useIsVerticalLayout,
 } from '@onekeyhq/components/src';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+
 import { FC, useMemo } from 'react';
-import {
-  MarketTokenItem,
-  MARKET_FAVORITES_CATEGORYID,
-} from '../../../../store/reducers/market';
-import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
+import { MarketTokenItem } from '../../../../store/reducers/market';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { SelectProps } from '@onekeyhq/components/src/Select';
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';
@@ -47,13 +44,13 @@ const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
         },
         icon: 'BellOutline',
       },
-      {
-        id: 'Share',
-        onPress: () => {
-          // TODO Share 分享的逻辑
-        },
-        icon: 'ShareOutline',
-      },
+      //   {
+      //     id: 'Share',
+      //     onPress: () => {
+      //       // TODO Share 分享的逻辑 第二期功能
+      //     },
+      //     icon: 'ShareOutline',
+      //   },
     ],
     [token],
   );

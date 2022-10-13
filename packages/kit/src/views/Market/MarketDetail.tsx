@@ -30,6 +30,7 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   return (
     <Box>
       <IconButton
+        ml={4}
         type={isVertical ? 'plain' : 'basic'}
         name={isVertical ? 'StarOutline' : 'StarSolid'}
         size={isVertical ? 'xl' : 'base'}
@@ -47,6 +48,25 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
               ]);
             }
           }
+        }}
+      />
+    </Box>
+  );
+};
+
+const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
+  console.log('BellButton');
+  return (
+    <Box>
+      <IconButton
+        ml={4}
+        type="basic"
+        name="BellOffSolid"
+        size="base"
+        circle
+        iconColor="icon-default" // get subscribe status
+        onPress={() => {
+          // TODO subscribe
         }}
       />
     </Box>
@@ -129,6 +149,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
               justifyContent="space-around"
             >
               <FavoritButton tokenItem={marketTokenItem} />
+              <BellButton tokenItem={marketTokenItem} />
             </Box>
           </Box>
           {children}

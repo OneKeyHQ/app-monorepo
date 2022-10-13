@@ -18,12 +18,11 @@ import {
 } from '../../../../store/reducers/market';
 import { useMarketTopTabName } from '../../hooks/useMarketList';
 import { showMarketSearch } from '../../MarketSearch';
-import {
-  useMarketSearchTokenChange,
-  useMarketSearchTokens,
-} from '../../hooks/useMarketSearch';
+import { useMarketSearchTokenChange } from '../../hooks/useMarketSearch';
+import { useIntl } from 'react-intl';
 
 const Header: React.FC = () => {
+  const intl = useIntl();
   const searchBarRef = useRef();
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   const [searchInput, setSearchInput] = useState(() => '');
@@ -49,7 +48,7 @@ const Header: React.FC = () => {
       </Box>
       <Divider mt="3" />
       <Typography.DisplayLarge ml="3" mt="6">
-        Market
+        {intl.formatMessage({ id: 'title__market' })}
       </Typography.DisplayLarge>
     </Box>
   );
@@ -58,6 +57,7 @@ const Header: React.FC = () => {
 const HeaderSmall: React.FC = () => {
   const tabName = useMarketTopTabName();
   const handleBg = useThemeValue('icon-subdued');
+  const intl = useIntl();
   return (
     <Box
       p="3"
@@ -78,7 +78,7 @@ const HeaderSmall: React.FC = () => {
               tabName === MARKET_TAB_NAME ? 'text-default' : 'text-disabled'
             }
           >
-            Market
+            {intl.formatMessage({ id: 'title__market' })}
           </Typography.DisplayMedium>
         </Pressable>
         <Pressable
@@ -90,7 +90,7 @@ const HeaderSmall: React.FC = () => {
           <Typography.DisplayMedium
             color={tabName === SWAP_TAB_NAME ? 'text-default' : 'text-disabled'}
           >
-            Swap
+            {intl.formatMessage({ id: 'title__swap' })}
           </Typography.DisplayMedium>
         </Pressable>
       </Box>

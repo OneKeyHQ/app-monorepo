@@ -1,5 +1,7 @@
 import { ListHeadTagType } from './types';
 
+export const SUBMIT_TOKEN_URL = 'https://gr4yl99ujhl.typeform.com/to/ZM0qyr9e';
+
 export const ListHeadTagsForSearch: ListHeadTagType[] = [
   {
     id: 2,

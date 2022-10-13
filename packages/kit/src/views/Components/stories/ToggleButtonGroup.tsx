@@ -9,16 +9,15 @@ const buttons: ToggleButtonProps[] = [
     leftImage: 'https://onekey-asset.com/assets/btc/btc.png',
   },
   {
-    text: 'ETH',
-    leftImage: 'https://onekey-asset.com/assets/eth/eth.png',
+    text: '',
+    leftIcon: 'StarSolid',
   },
   {
-    text: 'BSC',
+    text: '',
     leftImage: 'https://onekey-asset.com/assets/bsc/bsc.png',
   },
   {
     text: 'polygon',
-    leftImage: 'https://onekey-asset.com/assets/polygon/polygon.png',
   },
 ];
 const ToggleButtonGroupGallery = () => {
