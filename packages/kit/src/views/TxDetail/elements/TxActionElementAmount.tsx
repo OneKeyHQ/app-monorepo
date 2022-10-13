@@ -47,7 +47,13 @@ export function TxActionElementAmount(props: ITxActionAmountProps) {
   }, [amount, amountBN, decimals]);
 
   const content = (
-    <Text color={directionMeta.color} {...others}>
+    <Text
+      testID="TxActionElementAmount"
+      numberOfLines={2}
+      isTruncated
+      color={directionMeta.color}
+      {...others}
+    >
       {directionMeta.sign}
       {amountText} {symbol}
     </Text>
