@@ -29,7 +29,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
-  useAccount,
   useActiveWalletAccount,
   useAddressName,
   useNetwork,
@@ -38,6 +37,7 @@ import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { changeActiveNetwork } from '../../../../store/reducers/general';
 import { wait } from '../../../../utils/helper';
+import { useTransactionsAccount } from '../../hooks/useTransactions';
 import {
   SwapRoutes,
   SwapRoutesParams,
@@ -411,7 +411,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
   const { networkId } = useActiveWalletAccount();
-  const account = useAccount(tx.accountId);
+  const account = useTransactionsAccount(tx.accountId);
   const network = useNetwork(tx.networkId);
   const fromNetwork = useNetwork(tx.tokens?.from.networkId);
   const toNetwork = useNetwork(tx.tokens?.to.networkId);

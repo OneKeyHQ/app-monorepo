@@ -22,7 +22,7 @@ import {
   setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
-import { clearAccountTransactions } from '../../store/reducers/swapTransactions';
+import { clearTransactions } from '../../store/reducers/swapTransactions';
 import { SendConfirmParams } from '../../views/Send/types';
 import { enabledNetworkIds } from '../../views/Swap/config';
 import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
@@ -146,9 +146,9 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearAccountTransactions(accountId: string) {
+  async clearTransactions() {
     const { dispatch } = this.backgroundApi;
-    dispatch(clearAccountTransactions({ accountId }));
+    dispatch(clearTransactions());
   }
 
   @backgroundMethod()

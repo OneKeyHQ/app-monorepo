@@ -2,15 +2,14 @@ import React, { useCallback, useMemo, useRef } from 'react';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { useActiveWalletAccount, useInterval } from '../../hooks';
+import { useInterval } from '../../hooks';
 
 import PendingTransaction from './components/PendingTransaction';
 import { useSwapQuoteCallback, useSwapState } from './hooks/useSwap';
-import { useAllTransactions } from './hooks/useTransactions';
+import { useWalletsSwapTransactions } from './hooks/useTransactions';
 
 const TransactionsUpdater = () => {
-  const { accountId } = useActiveWalletAccount();
-  const txs = useAllTransactions(accountId);
+  const txs = useWalletsSwapTransactions();
   const pendging = useMemo(
     () => txs.filter((tx) => tx.status === 'pending'),
     [txs],

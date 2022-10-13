@@ -8,9 +8,9 @@ import { Box, Modal, QRCode, Typography } from '@onekeyhq/components';
 import LogoPrimary from '@onekeyhq/components/src/Icon/react/illus/LogoPrimary';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useActiveWalletAccount, useNavigation } from '../../../hooks';
+import { useNavigation } from '../../../hooks';
 import Transaction from '../components/Transaction';
-import { useAllTransactions } from '../hooks/useTransactions';
+import { useWalletsSwapTransactions } from '../hooks/useTransactions';
 import { SwapRoutes, SwapRoutesParams } from '../typings';
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
@@ -27,8 +27,7 @@ const Share = () => {
   const ref = useRef<ViewShot | null>(null);
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
-  const { accountId } = useActiveWalletAccount();
-  const transactions = useAllTransactions(accountId);
+  const transactions = useWalletsSwapTransactions();
   const tx = transactions.find((s) => s.hash === route.params.txid);
 
   useEffect(() => {

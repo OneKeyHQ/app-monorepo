@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
@@ -236,7 +235,7 @@ const ExchangeButton = () => {
         );
       }
     };
-    console.log('quote', quote);
+
     if (quote.needApproved && quote.allowanceTarget) {
       const encodedApproveTx =
         (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
