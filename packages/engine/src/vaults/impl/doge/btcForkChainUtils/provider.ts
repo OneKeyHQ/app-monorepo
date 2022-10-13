@@ -6,7 +6,13 @@ import memoziee from 'memoizee';
 
 import { getBlockBook } from './blockbook';
 import { Network, getNetwork } from './networks';
-import { AddressEncodings, AddressValidation, ChainInfo } from './types';
+import {
+  AddressEncodings,
+  AddressValidation,
+  ChainInfo,
+  UnsignedTx,
+} from './types';
+import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
 
 type GetAccountParams =
   | {
@@ -164,6 +170,16 @@ class Provider {
     return payment;
   }
 
+  private parseAddressEncodings(addresses: string[]): Promise<string[]> {
+    return Promise.all(
+      addresses.map((address) => this.verifyAddress(address)),
+    ).then((results) =>
+      results
+        .filter((i) => i.isValid)
+        .map((i) => (i as { encoding: string }).encoding),
+    );
+  }
+
   getAccount(params: GetAccountParams, addressEncoding?: AddressEncodings) {
     const decodedXpub = bs58check.decode(params.xpub);
     check(this.isValidXpub(decodedXpub));
@@ -276,6 +292,46 @@ class Provider {
       : {
           isValid: false,
         };
+  }
+
+  async buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
+    const {
+      inputs,
+      outputs,
+      payload: { opReturn },
+    } = unsignedTx;
+    let { feeLimit, feePricePerUnit } = unsignedTx;
+
+    if (inputs.length > 0 && outputs.length > 0) {
+      const inputAddressEncodings = await this.parseAddressEncodings(
+        inputs.map((i) => i.address),
+      );
+      const outputAddressEncodings = await this.parseAddressEncodings(
+        outputs.map((i) => i.address),
+      );
+
+      if (
+        inputAddressEncodings.length === inputs.length &&
+        outputAddressEncodings.length === outputs.length
+      ) {
+        const vsize = estimateVsize(
+          inputAddressEncodings,
+          outputAddressEncodings,
+          opReturn,
+        );
+        feeLimit =
+          feeLimit && feeLimit.gte(vsize) ? feeLimit : new BigNumber(vsize);
+      }
+    }
+
+    feeLimit = feeLimit || new BigNumber(PLACEHOLDER_VSIZE);
+    feePricePerUnit =
+      feePricePerUnit ||
+      (await this.blockbook
+        .then((client) => client.getFeePricePerUnit())
+        .then((fee) => fee.normal.price));
+
+    return { ...unsignedTx, feeLimit, feePricePerUnit };
   }
 
   getBalances(

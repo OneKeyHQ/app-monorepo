@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { ITransferInfo } from '../../../types';
 
 export enum AddressEncodings {
@@ -23,6 +25,17 @@ export type AddressValidation = {
   encoding?: string;
 };
 
+type EstimatedPrice = {
+  price: BigNumber;
+  waitingBlock?: number;
+  payload?: { [key: string]: any };
+};
+
+export type FeePricePerUnit = {
+  normal: EstimatedPrice;
+  others?: EstimatedPrice[];
+};
+
 export type IBtcUTXO = {
   txid: string;
   vout: number;
@@ -35,9 +48,41 @@ export type IUTXOInput = Omit<IBtcUTXO, 'txid'> & { txId: string };
 export type IUTXOOutput = { address: string; value: number };
 
 export type IEncodedTxBtc = {
-  inputs: Array<IBtcUTXO>;
-  outputs: Array<{ address: string; value: string }>;
+  inputs: IBtcUTXO[];
+  outputs: { address: string; value: string }[];
   totalFee: string;
   totalFeeInNative: string;
   transferInfo: ITransferInfo;
+};
+
+type UTXO = {
+  txid: string;
+  vout: number;
+  value: BigNumber;
+};
+
+export type TxInput = {
+  address: string;
+  value: BigNumber;
+  tokenAddress?: string;
+  utxo?: UTXO;
+  publicKey?: string;
+};
+
+type TxOutput = {
+  address: string;
+  value: BigNumber;
+  tokenAddress?: string;
+  payload?: { [key: string]: any };
+};
+
+export type UnsignedTx = {
+  inputs: TxInput[];
+  outputs: TxOutput[];
+  type?: string;
+  nonce?: number;
+  feeLimit?: BigNumber;
+  feePricePerUnit?: BigNumber;
+  payload: { [key: string]: any };
+  tokensChangedTo?: { [key: string]: string };
 };

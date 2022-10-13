@@ -10,18 +10,36 @@ import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
-import { InsufficientBalance, OneKeyInternalError } from '../../../errors';
+import {
+  InsufficientBalance,
+  NotImplemented,
+  OneKeyInternalError,
+} from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
-import { ITransferInfo } from '../../types';
+import {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxActionNativeTransfer,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxLegacy,
+  IDecodedTxStatus,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IFeeInfo,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
+import { EVMDecodedTxType } from '../evm/decoder/types';
 
 import { Provider } from './btcForkChainUtils/provider';
 import {
   AddressEncodings,
-  IBtcUTXO,
   IEncodedTxBtc,
   IUTXOInput,
   IUTXOOutput,
+  TxInput,
 } from './btcForkChainUtils/types';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -29,7 +47,8 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-const DEFAULT_BLOCK_NUMS = [5, 2, 1];
+const DEFAULT_BLOCK_NUMS = [6, 3, 2];
+const DEFAULT_BLOCK_TIME = 60;
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -157,11 +176,95 @@ export default class Vault extends VaultBase {
     );
   }
 
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    const { type, nativeTransfer } = decodedTx.actions[0];
+    if (
+      type !== IDecodedTxActionType.NATIVE_TRANSFER ||
+      typeof nativeTransfer === 'undefined'
+    ) {
+      // shouldn't happen.
+      throw new OneKeyInternalError('Incorrect decodedTx.');
+    }
+    return Promise.resolve({
+      txType: EVMDecodedTxType.NATIVE_TRANSFER,
+      symbol: 'UNKNOWN',
+      amount: nativeTransfer.amount,
+      value: nativeTransfer.amountValue,
+      fromAddress: nativeTransfer.from,
+      toAddress: nativeTransfer.to,
+      data: '',
+      totalFeeInNative: decodedTx.totalFeeInNative,
+      total: BigNumber.sum
+        .apply(
+          null,
+          (nativeTransfer.utxoFrom || []).map(
+            ({ balanceValue }) => balanceValue,
+          ),
+        )
+        .toFixed(),
+    } as IDecodedTxLegacy);
+  }
+
+  async decodeTx(encodedTx: IEncodedTxBtc, payload?: any): Promise<IDecodedTx> {
+    const { inputs, outputs } = encodedTx;
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const nativeTransfer: IDecodedTxActionNativeTransfer = {
+      tokenInfo: token,
+      utxoFrom: inputs.map((input) => ({
+        address: input.address,
+        balance: new BigNumber(input.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        balanceValue: input.value,
+        symbol: network.symbol,
+        isMine: true,
+      })),
+      utxoTo: outputs.map((output) => ({
+        address: output.address,
+        balance: new BigNumber(output.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        balanceValue: output.value,
+        symbol: network.symbol,
+        isMine: output.address === dbAccount.address,
+      })),
+      from: dbAccount.address,
+      to: outputs[0].address,
+      amount: new BigNumber(outputs[0].value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      amountValue: outputs[0].value,
+      extraInfo: null,
+    };
+    return {
+      txid: '',
+      owner: dbAccount.address,
+      signer: dbAccount.address,
+      nonce: 0,
+      actions: [
+        {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          direction:
+            outputs[0].address === dbAccount.address
+              ? IDecodedTxDirection.OUT
+              : IDecodedTxDirection.SELF,
+          nativeTransfer,
+        },
+      ],
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      totalFeeInNative: encodedTx.totalFeeInNative,
+    };
+  }
+
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
     specifiedFeeRate?: string,
   ): Promise<IEncodedTxBtc> {
-    console.log(1);
     const { to, amount } = transferInfo;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -179,7 +282,6 @@ export default class Vault extends VaultBase {
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
       .lte(amount);
-    console.log(utxos);
 
     const unspentSelectFn = max ? coinSelectSplit : coinSelect;
     const {
@@ -232,6 +334,83 @@ export default class Vault extends VaultBase {
       totalFee,
       totalFeeInNative,
       transferInfo,
+    };
+  }
+
+  // buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
+  //   throw new NotImplemented();
+  // }
+
+  // updateEncodedTxTokenApprove(
+  //   encodedTx: IEncodedTx,
+  //   amount: string,
+  // ): Promise<IEncodedTx> {
+  //   throw new NotImplemented();
+  // }
+
+  // updateEncodedTx(
+  //   encodedTx: IEncodedTx,
+  //   payload: any,
+  //   options: IEncodedTxUpdateOptions,
+  // ): Promise<IEncodedTx> {
+  //   return Promise.resolve(encodedTx);
+  // }
+
+  buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxBtc,
+  ): Promise<IUnsignedTxPro> {
+    const { inputs, outputs } = encodedTx;
+
+    const inputsInUnsignedTx: TxInput[] = [];
+    for (const input of inputs) {
+      const value = new BigNumber(input.value);
+      inputsInUnsignedTx.push({
+        address: input.address,
+        value,
+        utxo: { txid: input.txid, vout: input.vout, value },
+      });
+    }
+    const outputsInUnsignedTx = outputs.map(({ address, value }) => ({
+      address,
+      value: new BigNumber(value),
+    }));
+
+    const ret = {
+      inputs: inputsInUnsignedTx,
+      outputs: outputsInUnsignedTx,
+      payload: {},
+      encodedTx,
+    };
+
+    return Promise.resolve(ret);
+  }
+
+  async fetchFeeInfo(encodedTx: IEncodedTxBtc): Promise<IFeeInfo> {
+    const network = await this.engine.getNetwork(this.networkId);
+    const { feeLimit } = await this.engine.providerManager.buildUnsignedTx(
+      this.networkId,
+      {
+        ...(await this.buildUnsignedTxFromEncodedTx(encodedTx)),
+        feePricePerUnit: new BigNumber(1),
+      },
+    );
+    // Prices are in sats/byte, convert it to BTC/byte for UI.
+    const prices = (await this.getFeeRate()).map((price) =>
+      new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
+    );
+    return {
+      customDisabled: true,
+      limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
+      prices,
+      waitingSeconds: DEFAULT_BLOCK_NUMS.map(
+        (numOfBlocks) => numOfBlocks * DEFAULT_BLOCK_TIME,
+      ),
+      defaultPresetIndex: '1',
+      feeSymbol: 'BTC',
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      tx: null, // Must be null if network not support feeInTx
     };
   }
 

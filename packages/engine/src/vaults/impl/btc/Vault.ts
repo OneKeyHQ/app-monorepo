@@ -36,7 +36,6 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
-  ISignCredentialOptions,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
