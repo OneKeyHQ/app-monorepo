@@ -9,7 +9,7 @@ export interface WebTab {
   favicon?: string;
   // isPinned: boolean;
   isCurrent: boolean;
-  // isBookmarked?: boolean;
+  isBookmarked?: boolean;
   // isMuted: boolean;
   canGoBack?: boolean;
   canGoForward?: boolean;

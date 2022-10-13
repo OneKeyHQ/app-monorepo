@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { FC, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
@@ -20,13 +22,14 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/Discover';
 
 import DAppIcon from '../../DAppIcon';
+import { useDiscoverHistory } from '../../hooks';
+import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
+import { DAppItemType } from '../../type';
 import { MatchDAppItemType } from '../explorerUtils';
 
 import { Header, ListEmptyComponent } from './Header';
-import { useLimitHistories } from './useLimitHistories';
-import { useSearchLocalDapp } from './useSearchLocalDapp';
 
-import type { FlatListProps } from 'react-native';
+import type { ListRenderItem } from 'react-native';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -46,7 +49,7 @@ const SearchModalView: FC = () => {
     searchContent,
   );
 
-  const { limitHistories: allHistories } = useLimitHistories();
+  const allHistories = useDiscoverHistory();
 
   const flatListData = useMemo(
     () => (searchContentTerm ? searchedDapps : allHistories),
@@ -58,21 +61,16 @@ const SearchModalView: FC = () => {
     onSelectorItem?.(item);
   };
 
-  const renderItem: FlatListProps<MatchDAppItemType>['renderItem'] = ({
-    item,
-    index,
-  }) => {
-    const { favicon: dappFavicon, chain, name, url: dappUrl } = item.dapp || {};
-    const {
-      favicon: webSiteFavicon,
-      title,
-      url: webSiteUrl,
-    } = item.webSite || {};
+  const renderItem: ListRenderItem<MatchDAppItemType> = ({ item, index }) => {
+    const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
+    const name = item.dapp?.name ?? item.webSite?.title ?? 'Unknown';
+    const dappUrl = item.dapp?.url ?? item.webSite?.url;
+    const networkIds = item.dapp?.networkIds;
 
     return (
       <Pressable.Item
         p={4}
-        key={`search-history-item-${index}-${item.id}`}
+        key={`${index}-${item.id}`}
         borderTopRadius={index === 0 ? '12px' : '0px'}
         borderRadius={index === flatListData?.length - 1 ? '12px' : '0px'}
         onPress={() => {
@@ -80,31 +78,8 @@ const SearchModalView: FC = () => {
         }}
       >
         <Box w="100%" flexDirection="row" alignItems="center">
-          {(!!dappFavicon || item.dapp) && (
-            <DAppIcon size={38} favicon={dappFavicon ?? ''} chain={chain} />
-          )}
-          {(!!webSiteFavicon || item.webSite) && (
-            <Box width="38px" height="38px">
-              <Image
-                width="38px"
-                height="38px"
-                source={{ uri: webSiteFavicon }}
-                borderRadius="10px"
-                borderWidth="1px"
-                borderColor="border-subdued"
-                fallbackElement={
-                  <Center
-                    w="38px"
-                    h="38px"
-                    borderRadius="10px"
-                    borderWidth="1px"
-                    borderColor="border-subdued"
-                  >
-                    <Icon size={20} name="GlobeSolid" />
-                  </Center>
-                }
-              />
-            </Box>
+          {logoURL && (
+            <DAppIcon size={38} url={logoURL} networkIds={networkIds} />
           )}
 
           <Box mx={3} flexDirection="column" flex={1}>
@@ -112,10 +87,10 @@ const SearchModalView: FC = () => {
               numberOfLines={1}
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             >
-              {name ?? title ?? 'Unknown'}
+              {name ?? 'Unknown'}
             </Text>
             <Typography.Body2 numberOfLines={1} color="text-subdued">
-              {dappUrl ?? webSiteUrl}
+              {dappUrl}
             </Typography.Body2>
           </Box>
         </Box>

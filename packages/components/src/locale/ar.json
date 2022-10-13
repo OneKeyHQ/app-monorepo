@@ -124,6 +124,7 @@
   "action__max": "الأعلى",
   "action__merge": "دمج",
   "action__more": "أكثر",
+  "action__move_to_top": "انتقل إلى الأعلى",
   "action__next": "التالي",
   "action__notnow": "ليس الآن",
   "action__ok": "نعم",
@@ -180,6 +181,7 @@
   "action__start_syncing": "ابدأ المزامنة",
   "action__stop_backup": "وقف النسخ الاحتياطي",
   "action__submit": "إرسال",
+  "action__submit_token": "إرسال الرمز",
   "action__subscribe": "الإشتراك",
   "action__support": "الدعم",
   "action__swap_again": "المبادلة مرة أخرى",
@@ -349,6 +351,8 @@
   "content__hash": "تجزئة",
   "content__have_been_connected": "متصل سابقًا",
   "content__height": "ارتفاع",
+  "content__how_to_receive_push_in_str": "كيفية تلقي الدفع في {0}",
+  "content__how_to_receive_push_in_str_desc": "1. وافق على تطبيق إذن إعلام OneKey في المتصفح.\n 2. في إعدادات النظام ، افتح إذن إعلام المتصفح.",
   "content__i_am_aware_of_the_above_risks": "أنا على علم بالمخاطر المذكورة أعلاه",
   "content__if_the_price_drifts_against_you": "إذا انحرف السعر ضدك بأكثر من هذه النسبة المئوية ، يتم إنهاء الصفقة.",
   "content__if_you_choose_max": "إذا اخترت الحد الأقصى ، فإن الحد الأقصى للمبلغ الذي قد تنفقه على {0} لا نهائي.",
@@ -429,6 +433,7 @@
   "content__save_phrase_securely": "يرجى حفظ عبارة الاسترداد بشكل آمن",
   "content__search": "بحث...",
   "content__search_cryptos": "البحث في التشفير",
+  "content__search_for_token_name_or_contract_address": "ابحث عن اسم الرمز أو عنوان العقد.",
   "content__search_or_enter_dapp_url": "ابحث أو أدخل عنوان URL لـ DApp ...",
   "content__search_token_or_contract_address": "ابحث عن رمز أو عنوان العقد",
   "content__sec": "ثانية",
@@ -476,6 +481,7 @@
   "content__total_value_by_str": "إجمالي القيمة بواسطة {0}",
   "content__touch_id": "معرف اتصال",
   "content__transfer_tokens_to_another_wallet": "تحويل الرموز إلى محفظة أخرى",
+  "content__try_searching_with_contract_address_or_submit_a_new_token_to_us": "حاول البحث بعنوان العقد ، أو أرسل رمزًا جديدًا إلينا.",
   "content__type": "يكتب",
   "content__up_to_100_accounts": "ما يصل إلى 100 حساب",
   "content__update_ready_to_install": "التحديث جاهز للتثبيت",
@@ -573,6 +579,7 @@
   "form__24h_high": "24 ساعة عالية",
   "form__24h_low": "24 ساعة منخفضة",
   "form__24h_volume": "حجم 24H",
+  "form__24h_volume_uppercase": "حجم 24 ساعة",
   "form___7d_volume": "حجم 7D",
   "form__about_uppercase": "حول",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
@@ -692,6 +699,7 @@
   "form__hint_optional": "اختياري",
   "form__hot_cryptos_uppercase": "التشفير الساخن",
   "form__hot_tokens": "الرموز الساخنة",
+  "form__hot_tokens_uppercase": "الرموز الساخنة",
   "form__import_as": "استيراد بتنسيق",
   "form__imported_as_a_watch_account": "استيراد كحساب مراقب",
   "form__include_nfts_in_totals": "تضمين NFTs في الإجماليات",
@@ -703,11 +711,13 @@
   "form__keystore_invalid": "تنسيق Keystore / JSON غير صحيح.",
   "form__keystore_password": "كلمة مرور Keystore",
   "form__language": "لغة",
+  "form__last_7_days_uppercase": "اخر 7 ايام",
   "form__last_price": "السعر الاخير",
   "form__light": "خفيفة",
   "form__manage": "يدير",
   "form__manage_threshold": "إدارة العتبة",
   "form__market_cap": "القيمة السوقية",
+  "form__market_cap_uppercase": "غطاء السوق",
   "form__market_uppercase": "سوق",
   "form__massage_uppercase": "رسالة",
   "form__max_fee_invalid_min": "لا يمكن أن يكون الحد الأقصى للرسوم أقل من رسوم الأولوية القصوى.",
@@ -727,10 +737,12 @@
   "form__my_tokens": "الرموز الخاصة بي",
   "form__my_wallet": "محفظتى",
   "form__name": "اسم",
+  "form__name_uppercase": "اسم",
   "form__network_helperText": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
   "form__network_name": "اسم الشبكة",
   "form__network_name_invalid": "يجب أن يتكون الاسم من 30 حرفًا أو أقل.",
   "form__network_uppercase": "شبكة الاتصال",
+  "form__new": "جديد",
   "form__not_enough_confirmations": "التأكيدات غير كافية.",
   "form__notification": "تنبيه",
   "form__one_year_high": "1 سنة عالية",
@@ -751,6 +763,7 @@
   "form__price_alert": "تنبيه السعر",
   "form__price_alert_desc": "عندما يصل الرمز المميز إلى السعر المحدد",
   "form__price_impact_desc": "تغيرات الأسعار التي قد تكون ناجمة عن معاملتك.",
+  "form__price_uppercase": "سعر",
   "form__price_volatility": "تقلب الأسعار",
   "form__price_volatility_desc": "تلقي إخطار تقلب أسعار الرموز الخاصة بك",
   "form__privacy_policy": "سياسة الخصوصية",
@@ -760,6 +773,7 @@
   "form__quests": "أسئلة",
   "form__rate": "معدل",
   "form__receiving_address": "عنوان الاستلام",
+  "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
   "form__recovery_phrase": "عبارة الاسترداد",
   "form__recovery_seed_invalid": "عبارة الاسترداد الخاصة بك غير صالحة.",
   "form__recovery_seed_placeholder": "اكتب كلمات عبارة الاسترداد الخاصة بك هنا",
@@ -778,6 +792,7 @@
   "form__rule_at_least_int_digits": "على الأقل {0} من الأحرف",
   "form__s_request_history": "طلب التاريخ",
   "form__se_version": "إصدار SE",
+  "form__search_results_uppercase": "نتائج البحث",
   "form__search_tokens": "بحث عن الرموز",
   "form__searching_token": "جاري البحث في الرمز المميز ...",
   "form__security_uppercase": "الأمان",
@@ -788,6 +803,7 @@
   "form__service_fee": "رسوم الخدمة",
   "form__show_all": "عرض الكل",
   "form__show_path_and_link": "إظهار المسار والارتباط",
+  "form__showing_str_out_of_str": "إظهار {0} من {1}",
   "form__sign_method_type_uppercase": "طريقة تسجيل الدخول",
   "form__slippage_desc": "إذا كان السعر النهائي خارج النطاق الذي حددته ، فسيتم إلغاء معاملتك.",
   "form__slippage_tolerance": "تحمل الانزلاق",
@@ -826,6 +842,7 @@
   "form__third_party_provider": "مزود الطرف الثالث",
   "form__token_symbol": "رمز الرمز",
   "form__top_50_tokens": "أفضل 50 توكينز",
+  "form__top_searched": "الأكثر بحثا",
   "form__total_amount_fee": "الإجمالي (المبلغ + الرسوم)",
   "form__trading_time": "وقت التداول",
   "form__unconnected_account": "حساب غير متصل",
@@ -860,8 +877,8 @@
   "history__queue": "طابور",
   "loading__confirming": "التأكد",
   "message__choose_address": "اختر العنوان",
-  "message__discover_favorite_is_empty": "Your favorites will appear here",
-  "message__discover_history_is_empty": "Your history will appear here",
+  "message__discover_favorite_is_empty": "ستظهر مفضلاتك هنا",
+  "message__discover_history_is_empty": "سيظهر سجلك هنا",
   "message__fetching_addresses": "إحضار العناوين ...",
   "message__fetching_error": "اسم {0} غير صالح.",
   "modal__add_wallet": "أضف المحفظة",
@@ -996,7 +1013,7 @@
   "model__create_passphrase_wallet": "إنشاء محفظة مخفية",
   "model__keep_device_close_desc": "تأكد من تشغيل الجهاز وتواجده في النطاق ، واستمر في الضغط عليه وانقر فوق الزر أدناه لبدء الاتصال.",
   "msg__account_created": "تم إنشاء الحساب",
-  "msg__account_deleted": "Account {0} removed",
+  "msg__account_deleted": "تمت إزالة الحساب {0}",
   "msg__account_imported": "تم استيراد الحساب",
   "msg__added": "مضاف",
   "msg__address_added": "تمت إضافة العنوان!",
@@ -1115,6 +1132,7 @@
   "msg__str_not_exist": "{0} غير موجود",
   "msg__submitted_successfully": "تم الإرسال بنجاح",
   "msg__subscription_succeeded": "نجح الاشتراك",
+  "msg__success": "Success",
   "msg__successful_trade": "💫 تداول {assets1} مقابل {الأصول 2 {assets2}",
   "msg__successful_trade_desc": "{0} لـ {1}",
   "msg__swap_failed": "😵️ فشل المبادلة",
@@ -1203,7 +1221,7 @@
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
   "title__buy_str": "شراء {0}",
   "title__channel": "قناة",
-  "title__choose_an_account": "Choose an Account",
+  "title__choose_an_account": "اختيار حساب",
   "title__client_download": "تحميل العميل",
   "title__connect_sites": "المواقع المتصلة",
   "title__connect_to_str": "اتصال بـ {0}",
@@ -1242,7 +1260,7 @@
   "title__market": "سوق",
   "title__me": "أنا",
   "title__menu": "قائمة",
-  "title__my_dapps": "My dApps",
+  "title__my_dapps": "dApps الخاصة بي",
   "title__newly_added": "مضاف حديثا",
   "title__news": "أخبار",
   "title__nfc_data_has_been_read": "الانتعاش جاهز",

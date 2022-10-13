@@ -1,6 +1,7 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -10,7 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
-import { SectionDataType } from '../type';
+import { DAppItemType, SectionDataType } from '../../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -23,8 +24,19 @@ export const SectionTitle: FC<SectionDataType> = ({
   data,
   onItemSelect,
 }) => {
+  const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
+
+  const onSelected = useCallback(
+    (item: DAppItemType) => {
+      onItemSelect?.(item);
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
+    },
+    [navigation, onItemSelect],
+  );
 
   return (
     <Box
@@ -41,7 +53,7 @@ export const SectionTitle: FC<SectionDataType> = ({
           navigation.navigate(HomeRoutes.DAppListScreen, {
             data,
             title,
-            onItemSelect,
+            onItemSelect: onSelected,
           });
         }}
         height="32px"
@@ -50,7 +62,7 @@ export const SectionTitle: FC<SectionDataType> = ({
         rightIconName="ChevronRightSolid"
         textProps={{ color: 'text-subdued' }}
       >
-        See All
+        {intl.formatMessage({ id: 'action__see_all' })}
       </Button>
     </Box>
   );

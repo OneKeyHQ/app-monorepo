@@ -19,7 +19,9 @@ import {
   Pressable,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
+import { homeTab } from '../../../../store/reducers/webTabs';
 import {
   MatchDAppItemType,
   SearchViewKeyEventType,
@@ -193,18 +195,28 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
               }
               setHistoryVisible(false);
             }}
+            rightElement={
+              currentTab?.id !== homeTab.id ? (
+                <IconButton
+                  onPress={() =>
+                    currentTab &&
+                    backgroundApiProxy.serviceDiscover.toggleBookmark(
+                      currentTab,
+                    )
+                  }
+                  type="plain"
+                  name="StarSolid"
+                  iconColor={
+                    currentTab?.isBookmarked ? 'icon-warning' : 'icon-default'
+                  }
+                />
+              ) : undefined
+            }
           />
         </Pressable>
 
         <NetworkAccountSelectorTrigger size="lg" />
-
-        {/* <IconButton
-  type="plain"
-  name="DotsHorizontalOutline"
-  onPress={onMore}
-  /> */}
       </HStack>
-      {/* {moreView} */}
       <SearchView
         ref={searchView}
         visible={historyVisible}
@@ -214,15 +226,6 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
           onSearchSubmitEditing(item);
           searchBar.current?.blur();
         }}
-        // onHoverItem={(item: MatchDAppItemType) => {
-        //   let url;
-        //   if (item.dapp) {
-        //     url = item.dapp.url;
-        //   } else if (item.webSite) {
-        //     url = item.webSite.url;
-        //   }
-        //   if (url) onSearchTextChange(url);
-        // }}
         relativeComponent={searchBar.current}
       />
     </>

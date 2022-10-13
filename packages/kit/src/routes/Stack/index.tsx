@@ -15,6 +15,7 @@ import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home/DiscoverHome';
+import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
@@ -64,6 +65,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.DAppListScreen,
     component: DAppList,
+  },
+  {
+    name: HomeRoutes.MyDAppListScreen,
+    component: MyDAppList,
   },
   {
     name: HomeRoutes.TransactionHistoryScreen,

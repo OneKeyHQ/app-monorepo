@@ -17,6 +17,7 @@ import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServicDiscover from './services/ServiceDiscover';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNameResolver from './services/ServiceNameResolver';
@@ -109,6 +110,10 @@ class BackgroundApiProxy
   serviceBootstrap = this._createProxyService(
     'serviceBootstrap',
   ) as ServiceBootstrap;
+
+  serviceDiscover = this._createProxyService(
+    'serviceDiscover',
+  ) as ServicDiscover;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

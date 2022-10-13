@@ -10,8 +10,8 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useAppSelector } from '../../../../hooks';
 import { appSelector } from '../../../../store';
 import {
-  WebSiteHistory,
   addWebSiteHistory,
+  setDappHistory,
   updateFirstRemindDAPP,
   updateHistory,
 } from '../../../../store/reducers/discover';
@@ -23,6 +23,7 @@ import {
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
+import { WebSiteHistory } from '../../type';
 import DappOpenHintDialog from '../DappOpenHintDialog';
 import {
   MatchDAppItemType,
@@ -46,6 +47,7 @@ export const useWebController = ({
   | undefined = {}) => {
   const { dispatch } = backgroundApiProxy;
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
+  const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
   const curId = id || currentTabId;
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
 
@@ -79,6 +81,11 @@ export const useWebController = ({
           (isNewWindow || curId === 'home') && webHandler === 'tabbedWebview';
 
         const tabId = isNewTab ? nanoid() : curId;
+        if (dAppId) {
+          dispatch(setDappHistory(dAppId));
+        }
+        const isBookmarked = dappFavorites?.includes(url);
+
         dispatch(
           isNewTab
             ? addWebTab({
@@ -87,14 +94,22 @@ export const useWebController = ({
                 url: validatedUrl,
                 favicon,
                 isCurrent: true,
+                isBookmarked,
               })
-            : setWebTabData({ id: tabId, url: validatedUrl, title, favicon }),
+            : setWebTabData({
+                id: tabId,
+                url: validatedUrl,
+                title,
+                favicon,
+                isBookmarked,
+              }),
           dAppId
             ? updateHistory(dAppId)
             : addWebSiteHistory({
                 webSite: { url: validatedUrl, title, favicon },
               }),
         );
+
         if (
           !isNewTab &&
           !isInPlace &&
@@ -116,7 +131,7 @@ export const useWebController = ({
       }
       return false;
     },
-    [curId, dispatch, getInnerRef, tab?.url],
+    [curId, dispatch, getInnerRef, tab?.url, dappFavorites],
   );
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -159,8 +174,7 @@ export const useWebController = ({
         return gotoSite({
           url: dapp.url,
           title: dapp.name,
-          favicon: dapp.favicon,
-          dAppId: dapp.id,
+          dAppId: dapp._id,
         });
       }
     },
