@@ -6,10 +6,12 @@ import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import {
   setAccountStakingActivity,
+  setKeleDashboardGlobal,
   setKeleETH2StakingState,
   setShowETH2UnableToUnstakeWarning,
 } from '../../store/reducers/staking';
 import {
+  KeleDashboardGlobal,
   KeleETHStakingState,
   StakingActivity,
 } from '../../views/Staking/typing';
@@ -123,7 +125,6 @@ export default class ServiceStaking extends ServiceBase {
       params: { address: account.address },
     });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    console.log('data', data);
     return data.data as
       | {
           date: string;
@@ -147,5 +148,18 @@ export default class ServiceStaking extends ServiceBase {
     this.backgroundApi.dispatch(
       setAccountStakingActivity({ networkId, accountId, data }),
     );
+  }
+
+  @backgroundMethod()
+  async getDashboardGlobal(params: { networkId: string }) {
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const url = `${baseUrl}/eth2/v2/global`;
+    const { data } = await this.client.get(url);
+    const result = data?.data;
+    if (result) {
+      this.backgroundApi.dispatch(
+        setKeleDashboardGlobal(result as KeleDashboardGlobal),
+      );
+    }
   }
 }
