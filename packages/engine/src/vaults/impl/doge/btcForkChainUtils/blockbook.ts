@@ -63,6 +63,27 @@ class BlockBook {
 
     return resp.hex;
   }
+
+  async broadcastTransaction(rawTx: string): Promise<string> {
+    try {
+      const res = await this.request
+        .get(`/api/v2/sendtx/${rawTx}`)
+        .then((i) => i.data);
+
+      return res.result;
+    } catch (e: any) {
+      if (
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        e.response?.data?.error?.includes?.(
+          'transaction already in block chain',
+        )
+      ) {
+        throw new Error('Transaction already in block');
+      }
+
+      throw e;
+    }
+  }
 }
 
 const getBlockBook = (chainInfo: ChainInfo) =>

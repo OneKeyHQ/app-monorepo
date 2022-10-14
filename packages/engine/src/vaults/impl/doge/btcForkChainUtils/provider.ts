@@ -423,7 +423,10 @@ class Provider {
 
       switch (encoding) {
         case AddressEncodings.P2PKH:
-          mixin.nonWitnessUtxo = Buffer.from(nonWitnessPrevTxs[utxo.txid]);
+          mixin.nonWitnessUtxo = Buffer.from(
+            nonWitnessPrevTxs[utxo.txid],
+            'hex',
+          );
           break;
         case AddressEncodings.P2WPKH:
           mixin.witnessUtxo = {
@@ -527,6 +530,10 @@ class Provider {
     }
     console.log('lookup: ', lookup);
     return lookup;
+  }
+
+  broadcastTransaction(rawTx: string) {
+    return this.blockbook.then((client) => client.broadcastTransaction(rawTx));
   }
 }
 

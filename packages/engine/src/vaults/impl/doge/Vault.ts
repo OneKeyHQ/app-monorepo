@@ -9,6 +9,8 @@ import coinSelect from 'coinselect';
 import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
@@ -28,6 +30,7 @@ import {
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
+  ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -426,6 +429,23 @@ export default class Vault extends VaultBase {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       tx: null, // Must be null if network not support feeInTx
+    };
+  }
+
+  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const txid = await (
+      this.engineProvider as unknown as Provider
+    ).broadcastTransaction(signedTx.rawTx);
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...signedTx,
+      txid,
     };
   }
 
