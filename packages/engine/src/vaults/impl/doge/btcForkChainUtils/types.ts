@@ -1,4 +1,9 @@
 import BigNumber from 'bignumber.js';
+import {
+  NonWitnessUtxo,
+  RedeemScript,
+  WitnessUtxo,
+} from 'bip174/src/lib/interfaces';
 
 import type { ITransferInfo } from '../../../types';
 
@@ -44,7 +49,7 @@ export type IEncodedTxBtc = {
   transferInfo: ITransferInfo;
 };
 
-type UTXO = {
+export type UTXO = {
   txid: string;
   vout: number;
   value: BigNumber;
@@ -74,4 +79,25 @@ export type UnsignedTx = {
   feePricePerUnit?: BigNumber;
   payload: { [key: string]: any };
   tokensChangedTo?: { [key: string]: string };
+};
+
+export type TransactionMixin = {
+  nonWitnessUtxo?: NonWitnessUtxo;
+  witnessUtxo?: WitnessUtxo;
+  redeemScript?: RedeemScript;
+};
+
+export interface Verifier {
+  getPubkey: (compressed?: boolean) => Promise<Buffer>;
+  verify: (digest: Buffer, signature: Buffer) => Promise<Buffer>;
+}
+
+export interface Signer extends Verifier {
+  sign: (digest: Buffer) => Promise<[Buffer, number]>;
+  getPrvkey: () => Promise<Buffer>;
+}
+
+export type SignedTx = {
+  txid: string;
+  rawTx: string;
 };

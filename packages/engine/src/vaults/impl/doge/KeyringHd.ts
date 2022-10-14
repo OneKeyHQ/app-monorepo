@@ -23,7 +23,6 @@ export class KeyringHd extends KeyringHdBase {
     password: string,
     addresses: Array<string>,
   ): Promise<Record<string, Signer>> {
-    debugger;
     const relPathToAddresses: Record<string, string> = {};
     const utxos = await (this.vault as BTCForkVault).collectUTXOs();
     for (const utxo of utxos) {

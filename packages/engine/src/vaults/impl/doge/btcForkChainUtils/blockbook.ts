@@ -15,6 +15,8 @@ class BlockBook {
     this.request = axios.create({});
   }
 
+  setChainInfo() {}
+
   async estimateFee(waitingBlock: number): Promise<number> {
     const resp = await this.request
       .get(`/api/v2/estimatefee/${waitingBlock}`)
@@ -54,7 +56,13 @@ class BlockBook {
       .then((res) => res.data as unknown as Array<IBtcUTXO>);
   }
 
-  setChainInfo() {}
+  async getRawTransaction(txid: string): Promise<string> {
+    const resp = await this.request
+      .get(`/api/v2/tx/${txid}`)
+      .then((i) => i.data);
+
+    return resp.hex;
+  }
 }
 
 const getBlockBook = (chainInfo: ChainInfo) =>

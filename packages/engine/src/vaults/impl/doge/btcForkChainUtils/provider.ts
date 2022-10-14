@@ -1,4 +1,4 @@
-import { CKDPub } from '@onekeyfe/blockchain-libs/dist/secret';
+import { CKDPub, verify } from '@onekeyfe/blockchain-libs/dist/secret';
 import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
@@ -10,6 +10,10 @@ import {
   AddressEncodings,
   AddressValidation,
   ChainInfo,
+  SignedTx,
+  Signer,
+  TransactionMixin,
+  UTXO,
   UnsignedTx,
 } from './types';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
@@ -39,6 +43,20 @@ const check = (statement: any, orError?: ErrorType) => {
     throw error;
   }
 };
+
+const checkIsDefined = <T>(something?: T, orError?: ErrorType): T => {
+  check(
+    typeof something !== 'undefined',
+    orError || 'Expect defined but actually undefined',
+  );
+  return something as T;
+};
+
+const validator = (
+  pubkey: Buffer,
+  msghash: Buffer,
+  signature: Buffer,
+): boolean => verify('secp256k1', pubkey, msghash, signature);
 
 class Provider {
   readonly chainInfo: ChainInfo;
@@ -346,6 +364,170 @@ class Provider {
       maxAge: 1000 * 30,
     },
   );
+
+  async signTransaction(
+    unsignedTx: UnsignedTx,
+    signers: { [p: string]: Signer },
+  ): Promise<SignedTx> {
+    const psdt = await this.packTransaction(unsignedTx, signers);
+
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < unsignedTx.inputs.length; ++i) {
+      const { address } = unsignedTx.inputs[i];
+      const signer = signers[address];
+      const publicKey = await signer.getPubkey(true);
+
+      await psdt.signInputAsync(i, {
+        publicKey,
+        sign: async (hash: Buffer) => {
+          const [sig] = await signer.sign(hash);
+          return sig;
+        },
+      });
+    }
+
+    psdt.validateSignaturesOfAllInputs(validator);
+    psdt.finalizeAllInputs();
+
+    const tx = psdt.extractTransaction();
+    return {
+      txid: tx.getId(),
+      rawTx: tx.toHex(),
+    };
+  }
+
+  private async packTransaction(
+    unsignedTx: UnsignedTx,
+    signers: { [p: string]: Signer },
+  ) {
+    const {
+      inputs,
+      outputs,
+      payload: { opReturn },
+    } = unsignedTx;
+
+    const [inputAddressesEncodings, nonWitnessPrevTxs] =
+      await this.collectInfoForSoftwareSign(unsignedTx);
+
+    const psbt = new BitcoinJS.Psbt({ network: this.network });
+
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < inputs.length; ++i) {
+      console.log(i);
+      const input = inputs[i];
+      const utxo = input.utxo as UTXO;
+      check(utxo);
+
+      const encoding = inputAddressesEncodings[i];
+      const mixin: TransactionMixin = {};
+
+      switch (encoding) {
+        case AddressEncodings.P2PKH:
+          mixin.nonWitnessUtxo = Buffer.from(nonWitnessPrevTxs[utxo.txid]);
+          break;
+        case AddressEncodings.P2WPKH:
+          mixin.witnessUtxo = {
+            script: checkIsDefined(
+              this.pubkeyToPayment(
+                await signers[input.address].getPubkey(true),
+                encoding,
+              ),
+            ).output as Buffer,
+            value: utxo.value.integerValue().toNumber(),
+          };
+          break;
+        case AddressEncodings.P2SH_P2WPKH:
+          {
+            const payment = checkIsDefined(
+              this.pubkeyToPayment(
+                await signers[input.address].getPubkey(true),
+                encoding,
+              ),
+            );
+            mixin.witnessUtxo = {
+              script: payment.output as Buffer,
+              value: utxo.value.integerValue().toNumber(),
+            };
+            mixin.redeemScript = payment.redeem?.output as Buffer;
+          }
+
+          break;
+        default:
+          break;
+      }
+
+      psbt.addInput({
+        hash: utxo.txid,
+        index: utxo.vout,
+        ...mixin,
+      });
+    }
+
+    outputs.forEach((output) => {
+      psbt.addOutput({
+        address: output.address,
+        value: output.value.integerValue().toNumber(),
+      });
+    });
+
+    if (typeof opReturn === 'string') {
+      const embed = BitcoinJS.payments.embed({
+        data: [loadOPReturn(opReturn)],
+      });
+      psbt.addOutput({
+        script: checkIsDefined(embed.output),
+        value: 0,
+      });
+    }
+
+    return psbt;
+  }
+
+  private async collectInfoForSoftwareSign(
+    unsignedTx: UnsignedTx,
+  ): Promise<[string[], Record<string, string>]> {
+    const { inputs } = unsignedTx;
+
+    const inputAddressesEncodings = await this.parseAddressEncodings(
+      inputs.map((i) => i.address),
+    );
+    check(
+      inputAddressesEncodings.length === inputs.length,
+      'Found invalid address from inputs',
+    );
+
+    const nonWitnessInputPrevTxids = Array.from(
+      new Set(
+        inputAddressesEncodings
+          .map((encoding, index) => {
+            if (encoding === AddressEncodings.P2PKH) {
+              return checkIsDefined(inputs[index].utxo).txid;
+            }
+            return undefined;
+          })
+          .filter((i) => !!i) as string[],
+      ),
+    );
+
+    const nonWitnessPrevTxs = await this.collectTxs(nonWitnessInputPrevTxids);
+
+    return [inputAddressesEncodings, nonWitnessPrevTxs];
+  }
+
+  async collectTxs(txids: string[]): Promise<Record<string, string>> {
+    const blockbook = await this.blockbook;
+    const lookup: Record<string, string> = {};
+
+    for (let i = 0, batchSize = 5; i < txids.length; i += batchSize) {
+      const batchTxids = txids.slice(i, i + batchSize);
+      const txs = await Promise.all(
+        batchTxids.map((txid) => blockbook.getRawTransaction(txid)),
+      );
+      batchTxids.forEach((txid, index) => (lookup[txid] = txs[index]));
+    }
+    console.log('lookup: ', lookup);
+    return lookup;
+  }
 }
 
 export { Provider };
