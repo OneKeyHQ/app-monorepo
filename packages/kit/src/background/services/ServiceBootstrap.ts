@@ -1,6 +1,5 @@
 import { enabledAccountDynamicNetworkIds } from '@onekeyhq/engine/src/constants';
 
-import { setGuideToPushFistTime } from '../../store/reducers/status';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -10,7 +9,7 @@ export default class ServiceBootstrap extends ServiceBase {
   // eslint-disable-next-line
   @backgroundMethod()
   async checkShouldShowNotificationGuide(): Promise<boolean> {
-    const { appSelector, dispatch } = this.backgroundApi;
+    const { appSelector } = this.backgroundApi;
     const { accountId, pushNotification, guideToPushFirstTime, networkId } =
       appSelector((s) => ({
         accountId: s.general.activeAccountId,
@@ -33,9 +32,6 @@ export default class ServiceBootstrap extends ServiceBase {
     }
     if (!enabledAccountDynamicNetworkIds.includes(networkId || '')) {
       return false;
-    }
-    if (!guideToPushFirstTime) {
-      dispatch(setGuideToPushFistTime(true));
     }
     return true;
   }
