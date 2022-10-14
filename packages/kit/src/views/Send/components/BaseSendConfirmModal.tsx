@@ -146,6 +146,7 @@ function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 accountId={accountId}
                 networkId={networkId}
                 encodedTx={encodedTx}
+                feeInfoPayload={feeInfoPayload}
               />
             </SendConfirmErrorBoundary>
 

@@ -248,6 +248,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   abstract fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo>;
 
+  // DO NOT override this method
   async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
@@ -255,6 +256,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return this.keyring.signTransaction(unsignedTx, options);
   }
 
+  // TODO DO NOT override this method, override broadcastTransaction instead.
   async signAndSendTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
@@ -286,6 +288,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return {
       ...signedTx,
       txid,
+      encodedTx: signedTx.encodedTx,
     };
   }
 
