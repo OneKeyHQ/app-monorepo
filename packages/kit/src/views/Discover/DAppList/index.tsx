@@ -36,7 +36,9 @@ const Mobile: FC<SectionDataType> = ({ ...rest }) => {
               networkIds={item.networkIds}
             />
             <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
+              <Typography.Body2Strong flex="1" numberOfLines={1}>
+                {item.name}
+              </Typography.Body2Strong>
               <Typography.Caption
                 color="text-subdued"
                 mt="4px"
@@ -68,7 +70,7 @@ const Desktop: FC<SectionDataType> = ({ ...rest }) => {
   const { data, onItemSelect } = rest;
   const { width } = useWindowDimensions();
   // with sidebar
-  const screenWidth = width - 48 - 256;
+  const screenWidth = width - 72 - 256;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
@@ -106,8 +108,8 @@ const Desktop: FC<SectionDataType> = ({ ...rest }) => {
               url={item.logoURL}
               networkIds={item.networkIds}
             />
-            <Box ml="3">
-              <Typography.Body2Strong numberOfLines={1} mb="1">
+            <Box ml="3" flex="1">
+              <Typography.Body2Strong numberOfLines={1} mb="1" flex="1">
                 {item.name}
               </Typography.Body2Strong>
               <Chains networkIds={item.networkIds} />

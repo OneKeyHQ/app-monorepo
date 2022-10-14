@@ -160,15 +160,22 @@ function ConnectionContent({
             />
           </Box>
         </HStack>
-
         <Typography.DisplayXLarge mt="16px">
           {intl.formatMessage({
             id: 'title__connect_to_website',
           })}
         </Typography.DisplayXLarge>
-        <Typography.Body2 textAlign="right" color="text-subdued" mt={1}>
-          {hostname ?? 'DApp'}
-        </Typography.Body2>
+        <Box w="80%" justifyContent="center">
+          <Typography.Body2
+            flex="1"
+            flexWrap="wrap"
+            textAlign="center"
+            color="text-subdued"
+            mt={1}
+          >
+            {hostname ?? 'DApp'}
+          </Typography.Body2>
+        </Box>
       </Center>
       <VStack space={6} mx="8px" mt="40px">
         <HStack

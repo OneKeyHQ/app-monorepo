@@ -1,11 +1,4 @@
-import {
-  FC,
-  useCallback,
-  useContext,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { FC, useCallback, useContext, useLayoutEffect, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,12 +7,10 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Button,
-  CustomSkeleton,
   FlatList,
   Image,
   Pressable,
   Typography,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
@@ -30,10 +21,11 @@ import DAppIcon from '../DAppIcon';
 import { useDiscoverFavorites, useDiscoverHistory } from '../hooks';
 
 import CardView from './CardView';
-import { DiscoverContext, ItemSource } from './context';
+import { DiscoverContext } from './context';
+import { ListEmptyComponent } from './DiscoverDesktopEmptyComponent';
 
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
-import type { DAppItemType, SectionDataType } from '../type';
+import type { SectionDataType } from '../type';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -41,36 +33,8 @@ type NavigationProps = NativeStackNavigationProp<
   HomeRoutes.DAppListScreen
 >;
 
-interface DiscoverProps {
-  onItemSelect: (item: DAppItemType) => void;
-  onItemSelectHistory: (item: MatchDAppItemType) => void;
-}
-
-const ListEmptyComponent = () => (
-  <FlatList
-    contentContainerStyle={{
-      paddingBottom: 24,
-      paddingTop: 24,
-    }}
-    data={[1, 2, 3, 4, 5, 6, 7, 8]}
-    renderItem={() => (
-      <Box px="4" w="full">
-        <Box h="4" borderRadius={8} mb="3" overflow="hidden">
-          <CustomSkeleton />
-        </Box>
-        <Box h="3" borderRadius={6} overflow="hidden" width="70%">
-          <CustomSkeleton />
-        </Box>
-      </Box>
-    )}
-    keyExtractor={(item) => String(item)}
-    ItemSeparatorComponent={() => <Box h="8" />}
-  />
-);
-
 const ListHeaderLabels = () => {
   const { categoryId, setCategoryId } = useContext(DiscoverContext);
-  const isSmall = useIsVerticalLayout();
   const categories = useAppSelector((s) => s.discover.categories);
 
   const data = useMemo(() => {
@@ -107,25 +71,18 @@ const ListHeaderLabels = () => {
       renderItem={renderItem}
       showsHorizontalScrollIndicator={platformEnv.isDesktop}
       keyExtractor={(item) => item._id}
-      contentContainerStyle={
-        isSmall
-          ? {
-              paddingHorizontal: 16,
-            }
-          : {
-              paddingHorizontal: 32,
-            }
-      }
+      contentContainerStyle={{
+        paddingHorizontal: 32,
+      }}
     />
   );
 };
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
-  const isSmall = useIsVerticalLayout();
   const { itemSource } = useContext(DiscoverContext);
   return (
-    <Box px={isSmall ? '4' : undefined}>
+    <Box>
       <Box
         width="full"
         h="20"
@@ -221,14 +178,13 @@ const ListHeaderHistories = () => {
 const ListHeaderItems = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const isSmall = useIsVerticalLayout();
   const { itemSource, setItemSource, onItemSelectHistory } =
     useContext(DiscoverContext);
 
   return (
-    <Box px={isSmall ? undefined : '8'} pt={isSmall ? '6' : '8'}>
+    <Box px="8" pt="8">
       <Box flexDirection="row" justifyContent="space-between">
-        <Box flexDirection="row" mb="3" px={isSmall ? '4' : undefined}>
+        <Box flexDirection="row" mb="3">
           <Pressable onPress={() => setItemSource('Favorites')}>
             <Typography.Heading
               color={
@@ -279,7 +235,7 @@ const ListHeaderComponent = () => (
   </Box>
 );
 
-const DiscoverHome: FC<DiscoverProps> = () => {
+export const DiscoverDesktop: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const dapps = useAppSelector((s) => s.discover.dapps);
@@ -342,24 +298,3 @@ const DiscoverHome: FC<DiscoverProps> = () => {
     </Box>
   );
 };
-
-const DiscoverPage: FC<DiscoverProps> = ({ ...props }) => {
-  const [categoryId, setCategoryId] = useState('');
-  const [itemSource, setItemSource] = useState<ItemSource>('Favorites');
-  return (
-    <DiscoverContext.Provider
-      value={{
-        categoryId,
-        setCategoryId,
-        itemSource,
-        setItemSource,
-        onItemSelect: props.onItemSelect,
-        onItemSelectHistory: props.onItemSelectHistory,
-      }}
-    >
-      <DiscoverHome {...props} />
-    </DiscoverContext.Provider>
-  );
-};
-
-export default DiscoverPage;
