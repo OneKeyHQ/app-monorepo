@@ -633,25 +633,26 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async signAndSendTransaction(
-    unsignedTx: IUnsignedTxPro,
-    options: ISignCredentialOptions,
-    _signOnly: boolean,
-  ): Promise<ISignedTx> {
+  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
     const client = await this.getClient();
-    const signedTx = await this.signTransaction(unsignedTx, options);
+
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
     try {
-      const ret = await client.submitSignedBCSTransaction(
+      const { hash: txid } = await client.submitSignedBCSTransaction(
         hexToBytes(signedTx.rawTx),
       );
-
       // wait error or success
-      await waitPendingTransaction(client, ret.hash);
+      await waitPendingTransaction(client, txid);
 
+      debugLogger.engine.info('broadcastTransaction END:', {
+        txid,
+        rawTx: signedTx.rawTx,
+      });
       return {
         ...signedTx,
-        txid: ret.hash,
-        encodedTx: unsignedTx.encodedTx,
+        txid,
       };
     } catch (error: any) {
       const { errorCode, message } = error || {};
