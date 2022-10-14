@@ -29,7 +29,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
-  useAccountSimple,
   useActiveWalletAccount,
   useAddressName,
   useNetworkSimple,

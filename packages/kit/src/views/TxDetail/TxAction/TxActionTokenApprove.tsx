@@ -12,7 +12,6 @@ import {
   TokenApproveAmountEditParams,
 } from '../../Send/types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/utils/sendConfirmConsts';
-import { useSendConfirmRouteParamsParsed } from '../../Send/utils/useSendConfirmRouteParamsParsed';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
