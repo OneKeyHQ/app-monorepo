@@ -153,8 +153,8 @@ const CardViewDesktop: FC<SectionDataType> = ({
               url={item.logoURL}
               networkIds={item.networkIds}
             />
-            <Box ml="3">
-              <Typography.Body2Strong numberOfLines={1} mb="1">
+            <Box ml="3" flex="1">
+              <Typography.Body2Strong numberOfLines={1} mb="1" flex="1">
                 {item.name}
               </Typography.Body2Strong>
               <Chains networkIds={item.networkIds} />

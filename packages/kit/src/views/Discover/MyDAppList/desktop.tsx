@@ -62,7 +62,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
   const ref = useRef();
   const { width } = useWindowDimensions();
   const { onItemSelect } = useContext(MyDAppListContext);
-  const screenWidth = width - 48 - 256;
+  const screenWidth = width - 64 - 256;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
@@ -139,8 +139,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
 const Favorites = () => {
   const data = useDiscoverFavorites();
   const { width } = useWindowDimensions();
-  // with sidebar
-  const screenWidth = width - 48 - 256;
+  const screenWidth = width - 64 - 256;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
 
@@ -152,7 +151,7 @@ const Favorites = () => {
   return (
     <FlatList
       contentContainerStyle={{ paddingTop: 32, paddingBottom: 32 }}
-      paddingLeft="24px"
+      // paddingLeft="24px"
       data={data}
       renderItem={renderItem}
       numColumns={numColumns}
@@ -176,7 +175,7 @@ const History = () => {
   return (
     <FlatList
       contentContainerStyle={{ paddingTop: 32, paddingBottom: 32 }}
-      paddingLeft="24px"
+      // paddingLeft="24px"
       data={data}
       renderItem={renderItem}
       numColumns={numColumns}
