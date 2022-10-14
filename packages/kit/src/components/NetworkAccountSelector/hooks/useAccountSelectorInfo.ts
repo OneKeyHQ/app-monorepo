@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
@@ -43,7 +43,6 @@ export function useAccountSelectorInfo() {
   const isOpenPrev = usePrevious(isOpen);
   const isOpenFromClose = !isOpenPrev && isOpen;
   const isCloseFromOpen = isOpenPrev && !isOpen;
-  const isCloseFromOpenDelay = useDebounce(isCloseFromOpen, 300);
 
   const { wallets } = useRuntimeWallets();
   const { enabledNetworks } = useManageNetworks();
@@ -54,6 +53,15 @@ export function useAccountSelectorInfo() {
     wallet: activeWallet,
     network: activeNetwork,
   } = useActiveWalletAccount();
+
+  const activeAccountRef = useRef(activeAccount);
+  activeAccountRef.current = activeAccount;
+
+  const activeWalletRef = useRef(activeWallet);
+  activeWalletRef.current = activeWallet;
+
+  const activeNetworkRef = useRef(activeNetwork);
+  activeNetworkRef.current = activeNetwork;
 
   const { refreshAccountSelectorTs } = useAppSelector((s) => s.refresher);
 
@@ -92,7 +100,6 @@ export function useAccountSelectorInfo() {
 
       isOpenFromClose,
       isCloseFromOpen,
-      isCloseFromOpenDelay,
       isOpenDelay,
       isOpenDelayForShow,
       isOpen,
@@ -111,6 +118,10 @@ export function useAccountSelectorInfo() {
       activeAccount,
       activeWallet,
       activeNetwork,
+
+      activeAccountRef,
+      activeNetworkRef,
+      activeWalletRef,
     }),
     [
       wallets,
@@ -118,7 +129,6 @@ export function useAccountSelectorInfo() {
       deviceStatus,
       isOpenFromClose,
       isCloseFromOpen,
-      isCloseFromOpenDelay,
       isOpenDelay,
       isOpenDelayForShow,
       isOpen,

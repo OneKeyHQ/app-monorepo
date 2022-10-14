@@ -17,6 +17,7 @@ import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {
+  getActiveWalletAccount,
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
@@ -194,11 +195,14 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
+            const { accountId, networkId } = getActiveWalletAccount();
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Send,
               params: {
                 screen: SendRoutes.PreSendToken,
                 params: {
+                  accountId,
+                  networkId,
                   from: '',
                   to: '',
                   amount: '',

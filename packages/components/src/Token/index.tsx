@@ -88,7 +88,7 @@ const TokenIcon = ({
   token,
   showNetworkIcon,
 }: Pick<TokenProps, 'size' | 'token' | 'showNetworkIcon'>) => {
-  const network = useNetwork(token?.networkId);
+  const { network } = useNetwork({ networkId: token?.networkId });
   const src = token?.logoURI;
   const letter = (token?.symbol || token?.name || '').slice(0, 4);
   const fallbackElement = useMemo(

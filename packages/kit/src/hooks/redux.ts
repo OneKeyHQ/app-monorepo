@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
-import { TypedUseSelectorHook, useSelector } from 'react-redux';
-
+import { useToast } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import {
@@ -12,11 +11,11 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appSelector } from '../store';
+import { useTransactionSendContext } from '../views/Send/utils/TransactionSendContext';
 
-import type { IAppState } from '../store';
+import { useAppSelector } from './useAppSelector';
 
-export const useAppSelector: TypedUseSelectorHook<IAppState> = useSelector;
-
+export { useAppSelector };
 export type ISelectorBuilder = (
   selector: typeof useAppSelector,
   helpers: {
@@ -100,60 +99,85 @@ export type IActiveWalletAccount = {
   isCompatibleNetwork: boolean;
 };
 
-export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
-  makeSelector<IActiveWalletAccount>((selector) => {
-    const { activeAccountId, activeWalletId, activeNetworkId } = selector(
-      (s) => s.general,
-    );
+export const {
+  use: useActiveWalletAccountOrigin,
+  get: getActiveWalletAccount,
+} = makeSelector<IActiveWalletAccount>((selector) => {
+  const { activeAccountId, activeWalletId, activeNetworkId } = selector(
+    (s) => s.general,
+  );
 
-    // TODO init runtime data from background
-    const { wallets, networks, accounts } = selector((s) => s.runtime);
+  // TODO init runtime data from background
+  const { wallets, networks, accounts } = selector((s) => s.runtime);
 
-    const externalWallet =
-      wallets.find((wallet) => wallet.id === WALLET_TYPE_EXTERNAL) ?? null;
-    const watchingWallet =
-      wallets.find((wallet) => wallet.id === WALLET_TYPE_WATCHING) ?? null;
+  const externalWallet =
+    wallets.find((wallet) => wallet.id === WALLET_TYPE_EXTERNAL) ?? null;
+  const watchingWallet =
+    wallets.find((wallet) => wallet.id === WALLET_TYPE_WATCHING) ?? null;
 
-    const activeWallet =
-      wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
-    const activeAccountInfo = activeWallet
-      ? accounts.find((account) => account.id === activeAccountId) ?? null
-      : null;
-    const activeNetwork =
-      networks.find((network) => network.id === activeNetworkId) ?? null;
+  const activeWallet =
+    wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
+  const activeAccountInfo = activeWallet
+    ? accounts.find((account) => account.id === activeAccountId) ?? null
+    : null;
+  const activeNetwork =
+    networks.find((network) => network.id === activeNetworkId) ?? null;
 
-    const networkImpl = activeNetwork?.impl || '';
-    const networkId = activeNetworkId || '';
-    const accountAddress = activeAccountInfo?.address || '';
-    const accountId = activeAccountId || '';
-    const walletId = activeWalletId || '';
+  const networkImpl = activeNetwork?.impl || '';
+  const networkId = activeNetworkId || '';
+  const accountAddress = activeAccountInfo?.address || '';
+  const accountId = activeAccountId || '';
+  const walletId = activeWalletId || '';
 
-    let isCompatibleNetwork = true;
-    if (accountId && networkId) {
-      try {
-        isCompatibleNetwork = isAccountCompatibleWithNetwork(
-          accountId,
-          networkId,
-        );
-      } catch (error) {
-        debugLogger.common.error(error);
-      }
+  let isCompatibleNetwork = true;
+  if (accountId && networkId) {
+    try {
+      isCompatibleNetwork = isAccountCompatibleWithNetwork(
+        accountId,
+        networkId,
+      );
+    } catch (error) {
+      debugLogger.common.error(error);
     }
+  }
 
-    return {
-      wallet: activeWallet,
-      account: activeAccountInfo,
-      network: activeNetwork,
-      externalWallet,
-      watchingWallet,
-      accountId,
-      networkId,
-      networkImpl,
-      accountAddress,
-      walletId,
-      isCompatibleNetwork,
-    };
-  });
+  return {
+    wallet: activeWallet,
+    account: activeAccountInfo,
+    network: activeNetwork,
+    externalWallet,
+    watchingWallet,
+    accountId,
+    networkId,
+    networkImpl,
+    accountAddress,
+    walletId,
+    isCompatibleNetwork,
+  };
+});
+
+export function useActiveWalletAccount() {
+  const result = useActiveWalletAccountOrigin();
+  const context = useTransactionSendContext();
+  const toast = useToast();
+  if (context && context.isTransactionSendFlow) {
+    const msg =
+      'useActiveWalletAccount() is NOT allowed in Send flow. please replace to useActiveSideAccount()';
+    toast.show(
+      {
+        title: msg,
+      },
+      {
+        type: 'error',
+      },
+    );
+    if (process.env.NODE_ENV !== 'production') {
+      // console.error(msg);
+      throw new Error(msg);
+    }
+  }
+  return result;
+}
 
 export const useGetWalletDetail = (walletId: string | null) => {
   const wallet =
@@ -170,17 +194,3 @@ export const useFiatPay = (networkId: string) => {
 
 export const useMoonpayPayCurrency = (code?: string) =>
   useAppSelector((s) => s.data.currencyList).find((item) => item.code === code);
-
-export const useNetwork = (networkId?: string | null) => {
-  const network = useAppSelector((s) =>
-    s.runtime.networks?.find((n) => n.id === networkId),
-  );
-  return network ?? null;
-};
-
-export const useAccount = (accountId: string | null) => {
-  const account = useAppSelector((s) =>
-    s.runtime.accounts?.find((n) => n.id === accountId),
-  );
-  return account ?? null;
-};

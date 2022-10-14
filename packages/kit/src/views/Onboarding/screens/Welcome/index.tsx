@@ -49,15 +49,21 @@ const Welcome = () => {
 
   useEffect(() => {
     (async function () {
-      if (platformEnv.isExtensionUiPopup) {
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiStandaloneWindow
+      ) {
         if (await backgroundApiProxy.serviceApp.isResettingApp()) {
           return;
         }
+        // open onBoarding by browser tab
         backgroundApiProxy.serviceApp.openExtensionExpandTab({
           routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
           params: {},
         });
-        window.close();
+        setTimeout(() => {
+          window.close();
+        }, 200);
       }
     })();
   }, []);

@@ -1,83 +1,80 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { TransitionPresets } from '@react-navigation/stack';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
-import SendAuthentication from '@onekeyhq/kit/src/views/Send/Authentication';
-import { PreSendAddress } from '@onekeyhq/kit/src/views/Send/PreSendAddress';
-import { PreSendAmount } from '@onekeyhq/kit/src/views/Send/PreSendAmount';
-import { PreSendToken } from '@onekeyhq/kit/src/views/Send/PreSendToken';
-import SendConfirmModern from '@onekeyhq/kit/src/views/Send/SendConfirm';
-import { SendConfirmFromDapp } from '@onekeyhq/kit/src/views/Send/SendConfirmFromDapp';
-import SendEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
-import SendLegacy from '@onekeyhq/kit/src/views/Send/SendLegacy';
 import {
   SendRoutes,
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
-import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenApproveAmountEdit';
-import { HardwareSwapContinue } from '../../views/Send/SendModals/HardwareSwapContinue';
-import { SendFeedbackReceipt } from '../../views/Send/SendModals/SendFeedbackReceipt';
-import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
+import { BaseSendRouteScreen } from '../../views/Send/components/BaseSendRouteScreen';
+import { HardwareSwapContinue } from '../../views/Send/modals/HardwareSwapContinue';
+import { PreSendAddress } from '../../views/Send/modals/PreSendAddress';
+import { PreSendAmount } from '../../views/Send/modals/PreSendAmount';
+import { PreSendToken } from '../../views/Send/modals/PreSendToken';
+import { SendAuthentication } from '../../views/Send/modals/SendAuthentication';
+import { SendConfirm } from '../../views/Send/modals/SendConfirm';
+import { SendConfirmFromDapp } from '../../views/Send/modals/SendConfirmFromDapp';
+import { SendEditFee } from '../../views/Send/modals/SendEditFee';
+import { SendFeedbackReceipt } from '../../views/Send/modals/SendFeedbackReceipt';
+import { SignMessageConfirm } from '../../views/Send/modals/SignMessageConfirm';
+import { TokenApproveAmountEdit } from '../../views/Send/modals/TokenApproveAmountEdit';
+import { TransactionSendContextProvider } from '../../views/Send/utils/TransactionSendContext';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 const SendNavigator = createStackNavigator<SendRoutesParams>();
 
-// const SendConfirm = SendConfirmLegacy;
-const SendConfirm = SendConfirmModern;
-
 const modalRoutes = [
   {
     name: SendRoutes.PreSendToken,
-    component: PreSendToken,
+    // component: PreSendToken,
+    component: BaseSendRouteScreen.wrap(PreSendToken, 'action__send'),
   },
   {
     name: SendRoutes.PreSendAddress,
-    component: PreSendAddress,
+    component: BaseSendRouteScreen.wrap(PreSendAddress),
   },
   {
     name: SendRoutes.PreSendAmount,
-    component: PreSendAmount,
-  },
-  {
-    name: SendRoutes.SendLegacy,
-    component: SendLegacy,
-  },
-  {
-    name: SendRoutes.SendConfirm,
-    component: SendConfirm,
-  },
-  {
-    name: SendRoutes.SendConfirmFromDapp,
-    component: SendConfirmFromDapp,
-  },
-  {
-    name: SendRoutes.SendEditFee,
-    component: SendEditFee,
-  },
-  {
-    name: SendRoutes.TokenApproveAmountEdit,
-    component: TokenApproveAmountEdit,
-  },
-  {
-    name: SendRoutes.SendAuthentication,
-    component: SendAuthentication,
-  },
-  {
-    name: SendRoutes.SendFeedbackReceipt,
-    component: SendFeedbackReceipt,
+    component: BaseSendRouteScreen.wrap(PreSendAmount),
   },
   {
     name: SendRoutes.SignMessageConfirm,
-    component: SignMessageConfirm,
+    component: BaseSendRouteScreen.wrap(SignMessageConfirm),
+  },
+  {
+    name: SendRoutes.SendConfirmFromDapp,
+    // BaseSendRouteScreen.wrap
+    component: SendConfirmFromDapp, // DO NOT wrap SendConfirmFromDapp
+  },
+  {
+    name: SendRoutes.SendConfirm,
+    component: BaseSendRouteScreen.wrap(SendConfirm),
+  },
+  {
+    name: SendRoutes.SendEditFee,
+    component: BaseSendRouteScreen.wrap(SendEditFee),
+  },
+  {
+    name: SendRoutes.TokenApproveAmountEdit,
+    component: BaseSendRouteScreen.wrap(TokenApproveAmountEdit),
+  },
+  {
+    name: SendRoutes.SendAuthentication,
+    component: BaseSendRouteScreen.wrap(SendAuthentication),
+  },
+  {
+    name: SendRoutes.SendFeedbackReceipt,
+    component: BaseSendRouteScreen.wrap(SendFeedbackReceipt),
   },
   {
     name: SendRoutes.HardwareSwapContinue,
-    component: HardwareSwapContinue,
+    component: BaseSendRouteScreen.wrap(HardwareSwapContinue),
   },
 ];
 
@@ -85,19 +82,21 @@ const TransactionStack = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isVerticalLayout = useIsVerticalLayout();
   return (
-    <SendNavigator.Navigator
-      screenOptions={(navInfo) => ({
-        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
-      })}
-    >
-      {modalRoutes.map((route) => (
-        <SendNavigator.Screen
-          key={route.name}
-          name={route.name}
-          component={route.component}
-        />
-      ))}
-    </SendNavigator.Navigator>
+    <TransactionSendContextProvider>
+      <SendNavigator.Navigator
+        screenOptions={(navInfo) => ({
+          ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+        })}
+      >
+        {modalRoutes.map((route) => (
+          <SendNavigator.Screen
+            key={route.name}
+            name={route.name}
+            component={route.component}
+          />
+        ))}
+      </SendNavigator.Navigator>
+    </TransactionSendContextProvider>
   );
 };
 

@@ -5,8 +5,8 @@ import { MotiView } from 'moti';
 
 import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
+import { useActiveSideAccount } from '../../../../hooks';
 import CollectibleListImage from '../NFTList/CollectibleListImage';
 
 import { SelectAsset, useSendNFTContent } from './SendNFTContent';
@@ -14,6 +14,8 @@ import { SelectAsset, useSendNFTContent } from './SendNFTContent';
 type Props = ComponentProps<typeof Box> & {
   cardWidth: number;
   asset: SelectAsset;
+  accountId: string;
+  networkId: string;
 };
 
 function SelectedIndicator({
@@ -53,9 +55,18 @@ function SelectedIndicator({
   );
 }
 
-const SelectNFTCard: FC<Props> = ({ cardWidth, asset, ...rest }) => {
+const SelectNFTCard: FC<Props> = ({
+  accountId,
+  networkId,
+  cardWidth,
+  asset,
+  ...rest
+}) => {
   const content = useSendNFTContent();
-  const { networkImpl } = useActiveWalletAccount();
+  const { networkImpl } = useActiveSideAccount({
+    accountId,
+    networkId,
+  });
   const multiSelect = content?.context.multiSelect;
   const onSelectAsset = useCallback(() => {
     content?.setContext((value) => {

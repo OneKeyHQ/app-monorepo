@@ -18,7 +18,10 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  getActiveWalletAccount,
+  useActiveWalletAccount,
+} from '@onekeyhq/kit/src/hooks/redux';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -77,11 +80,14 @@ const NFTDetailModal: FC = () => {
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
   const sendAction = () => {
+    const { accountId, networkId } = getActiveWalletAccount();
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
         screen: SendRoutes.PreSendAddress,
         params: {
+          accountId,
+          networkId,
           isNFT: true,
           from: '',
           to: '',

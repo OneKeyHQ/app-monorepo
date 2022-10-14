@@ -1,3 +1,6 @@
+import { SendRoutes } from '../views/Send/enums';
+
+export { SendRoutes };
 /*
 Error: Couldn't find a 'component', 'getComponent' or 'children' prop for the screen 'CreateWallet'. This can happen if you passed 'undefined'. You likely forgot to export your component from the file it's defined in, or mixed up default import and named import when importing.
 

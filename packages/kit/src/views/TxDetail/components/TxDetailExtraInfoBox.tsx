@@ -23,7 +23,7 @@ import { ITxActionElementDetail, ITxActionListViewProps } from '../types';
 import { TxDetailActionBox } from './TxDetailActionBox';
 
 function getFeeInNativeText(options: {
-  network?: Network;
+  network?: Network | null;
   decodedTx: IDecodedTx;
 }) {
   const {

@@ -6,13 +6,14 @@ import { isNil } from 'lodash';
 import { FormattedNumber } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
+
 import {
+  useActiveSideAccount,
   useActiveWalletAccount,
   useAppSelector,
+  useManageTokensOfAccount,
   useSettings,
-} from '@onekeyhq/kit/src/hooks/redux';
-
-import { useManageTokens } from '../../hooks';
+} from '../../hooks';
 import { Token } from '../../store/typings';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 
@@ -197,15 +198,29 @@ export const FormatCurrency: FC<{
 
   return <Component>{child}</Component>;
 };
-
-export const FormatCurrencyToken: FC<{
+type IFormatCurrencyTokenProps = {
   token?: Token | null;
   value: BigNumber.Value | string | undefined;
   formatOptions?: FormatOptions;
   render: (c: JSX.Element) => JSX.Element;
   as?: FC;
-}> = ({ token, value, formatOptions = {}, as, render }) => {
-  const { prices } = useManageTokens();
+};
+export function FormatCurrencyTokenOfAccount({
+  token,
+  value,
+  formatOptions = {},
+  as,
+  render,
+  accountId,
+  networkId,
+}: IFormatCurrencyTokenProps & {
+  accountId: string;
+  networkId: string;
+}) {
+  const { prices } = useManageTokensOfAccount({
+    accountId,
+    networkId,
+  });
   const priceKey =
     token && token.tokenIdOnNetwork ? token.tokenIdOnNetwork : 'main';
   const priceValue = prices?.[priceKey];
@@ -220,23 +235,58 @@ export const FormatCurrencyToken: FC<{
       as={as}
     />
   );
-};
+}
+export function FormatCurrencyToken(props: IFormatCurrencyTokenProps) {
+  const { accountId, networkId } = useActiveWalletAccount();
+  return (
+    <FormatCurrencyTokenOfAccount
+      {...props}
+      accountId={accountId}
+      networkId={networkId}
+    />
+  );
+}
 
-export const FormatCurrencyNative: FC<{
+type IFormatCurrencyNativeProps = {
   value: BigNumber.Value | string | undefined;
   formatOptions?: FormatOptions;
   render: (c: JSX.Element) => JSX.Element;
   as?: FC;
-}> = ({ value, formatOptions = {}, as, render }) => (
-  <FormatCurrencyToken
-    // token is native
-    token={null}
-    value={value}
-    formatOptions={formatOptions}
-    render={render}
-    as={as}
-  />
-);
+};
+export function FormatCurrencyNativeOfAccount({
+  value,
+  formatOptions = {},
+  as,
+  render,
+  accountId,
+  networkId,
+}: IFormatCurrencyNativeProps & {
+  accountId: string;
+  networkId: string;
+}) {
+  return (
+    <FormatCurrencyTokenOfAccount
+      accountId={accountId}
+      networkId={networkId}
+      // token is native
+      token={null}
+      value={value}
+      formatOptions={formatOptions}
+      render={render}
+      as={as}
+    />
+  );
+}
+export function FormatCurrencyNative(props: IFormatCurrencyNativeProps) {
+  const { accountId, networkId } = useActiveWalletAccount();
+  return (
+    <FormatCurrencyNativeOfAccount
+      {...props}
+      accountId={accountId}
+      networkId={networkId}
+    />
+  );
+}
 
 export const FormatBalance: FC<{
   balance: BigNumber.Value | string | undefined;
@@ -267,16 +317,23 @@ export const FormatBalance: FC<{
   return <Component>{child}</Component>;
 };
 
-export function FormatBalanceToken({
+export function FormatBalanceTokenOfAccount({
   token,
   render,
+  accountId,
+  networkId,
 }: {
   render?: (c: JSX.Element) => JSX.Element;
   token?: Token | null;
+  accountId: string;
+  networkId: string;
 }) {
-  const { balances } = useManageTokens();
+  const { balances } = useManageTokensOfAccount({ networkId, accountId });
+  const { network } = useActiveSideAccount({
+    accountId,
+    networkId,
+  });
   const isNativeToken = !token?.tokenIdOnNetwork;
-  const { network } = useActiveWalletAccount();
   const decimal = isNativeToken
     ? network?.nativeDisplayDecimals
     : network?.tokenDisplayDecimals;
@@ -296,6 +353,23 @@ export function FormatBalanceToken({
           </Text>
         ))
       }
+    />
+  );
+}
+export function FormatBalanceToken({
+  token,
+  render,
+}: {
+  render?: (c: JSX.Element) => JSX.Element;
+  token?: Token | null;
+}) {
+  const { networkId, accountId } = useActiveWalletAccount();
+  return (
+    <FormatBalanceTokenOfAccount
+      token={token}
+      render={render}
+      accountId={accountId}
+      networkId={networkId}
     />
   );
 }

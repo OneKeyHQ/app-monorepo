@@ -16,7 +16,7 @@ type TabViewItem = {
   title: string;
   view: ComponentType<any>;
 };
-export type Props = {
+type Props = {
   onIndexChange?: (index: number) => void;
   options: TabViewItem[];
 };

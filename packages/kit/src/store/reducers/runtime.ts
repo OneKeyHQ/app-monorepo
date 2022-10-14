@@ -9,7 +9,7 @@ type InitialState = {
   wallets: BaseWallet[];
   networks: BaseNetwork[];
   /** accounts will always change by different wallet and different networks */
-  accounts: BaseAccount[]; // accounts in current wallet and network
+  accounts: BaseAccount[]; // accounts only in current wallet and network, not all accounts in db
   displayPassphraseWalletIdList: string[]; // Passphrase Wallet can be displayed
 };
 

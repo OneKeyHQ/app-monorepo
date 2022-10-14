@@ -1,6 +1,10 @@
+import React from 'react';
+
+import { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
@@ -13,6 +17,12 @@ import type {
   ISwapInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IDecodedTxLegacy,
+  IFeeInfoPayload,
+} from '@onekeyhq/engine/src/vaults/types';
+
+import { SendRoutes } from './enums';
 
 import type { IDappSourceInfo } from '../../background/IBackgroundApi';
 import type { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
@@ -21,22 +31,16 @@ import type { WalletConnectClientForDapp } from '../../components/WalletConnect/
 import type { SwapQuoteTx } from '../Swap/typings';
 import type { IWalletConnectSession } from '@walletconnect/types';
 
-export enum SendRoutes {
-  SendLegacy = 'SendLegacy',
-  PreSendToken = 'PreSendToken',
-  PreSendAddress = 'PreSendAddress',
-  PreSendAmount = 'PreSendAmount',
-  SendConfirm = 'SendConfirm',
-  SendConfirmFromDapp = 'SendConfirmFromDapp',
-  SendEditFee = 'SendEditFee',
-  TokenApproveAmountEdit = 'TokenApproveAmountEdit',
-  SendAuthentication = 'SendAuthentication',
-  SignMessageConfirm = 'SignMessageConfirm',
-  SendFeedbackReceipt = 'SendFeedbackReceipt',
-  HardwareSwapContinue = 'HardwareSwapContinue',
-}
+export { SendRoutes };
+
+export type ISendAuthenticationModalTitleInfo = {
+  title: string;
+  subTitle: string;
+};
 
 export type TokenApproveAmountEditParams = {
+  networkId: string;
+  accountId: string;
   tokenApproveAmount: string;
   isMaxAmount: boolean;
   sourceInfo?: IDappSourceInfo | undefined;
@@ -49,12 +53,11 @@ export type EditFeeParams = SendConfirmSharedParams & {
   sendConfirmParams: SendConfirmParams;
 };
 
-export type PreSendParams = ITransferInfo & { closeModal?: () => any };
-
-export type SendLegacyParams = SendConfirmSharedParams & {
-  token?: Token;
-  to?: string;
-};
+export type PreSendParams = {
+  networkId: string;
+  accountId: string;
+  closeModal?: () => any;
+} & ITransferInfo;
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;
@@ -106,6 +109,8 @@ export type SendConfirmPayloadInfo = {
   nftInfo?: INFTInfo;
 };
 export type SendConfirmSharedParams = {
+  networkId: string;
+  accountId: string;
   encodedTx?: IEncodedTx;
   resendActionInfo?: SendConfirmResendActionInfo;
   feeInfoSelected?: IFeeInfoSelected;
@@ -129,7 +134,10 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   signOnly?: boolean;
   skipSaveHistory?: boolean;
 };
-
+export type SignMessageConfirmParams = SendConfirmSharedParams & {
+  sourceInfo?: IDappSourceInfo;
+  unsignedMessage: IUnsignedMessageEvm;
+};
 export type IWalletConnectExternalAccountInfo = {
   accountInfo?: ISimpleDbWalletConnectAccountInfo;
   session?: IWalletConnectSession;
@@ -156,23 +164,21 @@ export type SendAuthenticationParams = Omit<
   encodedTx?: IEncodedTx;
 };
 
-export type SignMessageConfirmParams = {
-  sourceInfo?: IDappSourceInfo;
-  unsignedMessage: IUnsignedMessageEvm;
-};
-
 export type SendFeedbackReceiptParams = {
+  networkId: string;
+  accountId: string;
   txid: string;
   closeModal?: () => any;
   onDetail?: (txid: string) => any;
 };
 
 export type HardwareSwapContinueParams = {
+  networkId: string;
+  accountId: string;
   closeModal?: () => any;
 };
 
 export type SendRoutesParams = {
-  [SendRoutes.SendLegacy]: SendLegacyParams;
   [SendRoutes.PreSendToken]: PreSendParams;
   [SendRoutes.PreSendAddress]: PreSendParams;
   [SendRoutes.PreSendAmount]: PreSendParams;
@@ -184,4 +190,79 @@ export type SendRoutesParams = {
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
   [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
   [SendRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
+};
+
+export type ITxConfirmViewPropsHandleConfirm = ({
+  onClose,
+  close,
+  encodedTx,
+}: {
+  onClose?: () => void;
+  close: () => void;
+  encodedTx: IEncodedTx;
+}) => void;
+
+// TODO networkId, accountId, onSuccess
+export type ITxConfirmViewProps = ModalProps & {
+  networkId: string;
+  accountId: string;
+  // TODO rename sourceInfo
+  sourceInfo?: IDappSourceInfo;
+  encodedTx: IEncodedTx | null;
+  decodedTx?: IDecodedTx | IDecodedTxLegacy | null;
+  payload?: SendConfirmPayload;
+
+  updateEncodedTxBeforeConfirm?: (encodedTx: IEncodedTx) => Promise<IEncodedTx>;
+  handleConfirm: ITxConfirmViewPropsHandleConfirm;
+  onEncodedTxUpdate?: (encodedTx: IEncodedTx) => void; // TODO remove
+
+  feeInfoPayload: IFeeInfoPayload | null;
+  feeInfoLoading: boolean;
+  feeInfoEditable?: boolean;
+  feeInput?: JSX.Element;
+
+  confirmDisabled?: boolean;
+  autoConfirm?: boolean;
+  children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
+
+  sendConfirmParams: SendConfirmParams;
+};
+export type ISignMessageConfirmViewPropsHandleConfirm = ({
+  onClose,
+  close,
+  unsignedMessage,
+}: {
+  onClose?: () => void;
+  close: () => void;
+  unsignedMessage: IUnsignedMessageEvm;
+}) => void;
+
+export type ISignMessageConfirmViewProps = ModalProps & {
+  networkId: string;
+  accountId: string;
+  // TODO rename sourceInfo
+  sourceInfo?: IDappSourceInfo;
+  unsignedMessage: IUnsignedMessageEvm;
+  confirmDisabled?: boolean;
+  handleConfirm: ISignMessageConfirmViewPropsHandleConfirm;
+  children?: React.ReactElement;
+};
+export type IFeeInfoInputProps = {
+  networkId: string;
+  accountId: string;
+  encodedTx: any;
+  feeInfoPayload: IFeeInfoPayload | null;
+  loading?: boolean;
+  editable?: boolean;
+  renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
+  autoNavigateToEdit?: boolean;
+  sendConfirmParams: SendConfirmParams;
+};
+export type ISendEditFeeValues = {
+  gasPrice: string;
+  gasLimit: string;
+  maxPriorityFeePerGas: string;
+  maxFeePerGas: string;
+  baseFee: string;
+  totalFee: string;
 };

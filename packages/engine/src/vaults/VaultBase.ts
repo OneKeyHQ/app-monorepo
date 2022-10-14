@@ -542,6 +542,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       }
     }
 
+    if (nextNonce < onChainNonce) {
+      nextNonce = onChainNonce;
+    }
+
     if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
       throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
     }

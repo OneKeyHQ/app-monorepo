@@ -1,0 +1,68 @@
+import { useEffect } from 'react';
+
+import {
+  NavigationProp,
+  StackActions,
+  useNavigation,
+} from '@react-navigation/native';
+
+import { getActiveWalletAccount } from '../../../hooks/redux';
+import useDappParams from '../../../hooks/useDappParams';
+import {
+  SendConfirmParams,
+  SendRoutes,
+  SendRoutesParams,
+  SignMessageConfirmParams,
+} from '../types';
+
+type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
+
+function SendConfirmFromDapp() {
+  const navigation = useNavigation<NavigationProps>();
+  // const navigation = useAppNavigation();
+  const {
+    sourceInfo,
+    unsignedMessage,
+    encodedTx,
+    signOnly = false,
+  } = useDappParams();
+  useEffect(() => {
+    let action: any;
+    // TODO get network and account from dapp connections
+    const { networkId, accountId } = getActiveWalletAccount();
+    // TODO providerName
+    if (encodedTx) {
+      const params: SendConfirmParams = {
+        networkId,
+        accountId,
+        sourceInfo,
+        encodedTx,
+        feeInfoEditable: true,
+        feeInfoUseFeeInTx: false,
+        signOnly,
+        // @ts-ignore
+        _disabledAnimationOfNavigate: true,
+      };
+      // replace router to SendConfirm
+      action = StackActions.replace(SendRoutes.SendConfirm, params);
+    }
+    if (unsignedMessage) {
+      const params: SignMessageConfirmParams = {
+        networkId,
+        accountId,
+        sourceInfo,
+        unsignedMessage,
+        // @ts-ignore
+        _disabledAnimationOfNavigate: true,
+      };
+      action = StackActions.replace(SendRoutes.SignMessageConfirm, params);
+    }
+    if (action) {
+      navigation.dispatch(action);
+    }
+  }, [encodedTx, navigation, sourceInfo, unsignedMessage, signOnly]);
+
+  return null;
+}
+
+export { SendConfirmFromDapp };

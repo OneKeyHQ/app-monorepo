@@ -4,7 +4,7 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useAppSelector } from './redux';
+import { useAppSelector } from './useAppSelector';
 
 export function useAccountTokens(networkId?: string, accountId?: string) {
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);

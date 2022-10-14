@@ -8,7 +8,7 @@ import {
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { FormatCurrencyToken } from '../../../components/Format';
+import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import {
   TxListActionBox,
@@ -113,6 +113,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 
 export function TxActionTransferT0(props: ITxActionCardProps) {
   const { action, meta, decodedTx, historyTx } = props;
+  const { accountId, networkId } = decodedTx;
   const { amount, symbol, from, to, isOut, displayDecimals } =
     getTxActionTransferInfo(props);
   const statusBar = (
@@ -136,7 +137,9 @@ export function TxActionTransferT0(props: ITxActionCardProps) {
       }
       subTitle={isOut ? shortenAddress(to) : shortenAddress(from)}
       extra={
-        <FormatCurrencyToken
+        <FormatCurrencyTokenOfAccount
+          accountId={accountId}
+          networkId={networkId}
           token={
             action.nativeTransfer?.tokenInfo ?? action.tokenTransfer?.tokenInfo
           }

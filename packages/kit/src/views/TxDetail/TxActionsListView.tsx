@@ -6,7 +6,7 @@ import { Box, Divider, VStack } from '@onekeyhq/components';
 import { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../hooks';
+import { useNetworkSimple } from '../../hooks';
 
 import { TxActionErrorBoundary } from './components/TxActionErrorBoundary';
 import { ITxActionListViewProps } from './types';
@@ -39,7 +39,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
   } = props;
   const intl = useIntl();
   const originTx = useOriginHistoryTxOfCancelTx(historyTx);
-  const network = useNetwork(decodedTx.networkId);
+  const network = useNetworkSimple(decodedTx.networkId);
   const items = useMemo(() => {
     const finalDecodedTx = { ...decodedTx };
     if (originTx) {

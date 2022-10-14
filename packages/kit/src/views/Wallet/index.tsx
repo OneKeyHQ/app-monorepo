@@ -41,7 +41,8 @@ const WalletTabs: FC = () => {
   ]);
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
-  const { wallet, account, network } = useActiveWalletAccount();
+  const { wallet, account, network, accountId, networkId } =
+    useActiveWalletAccount();
   const [backupMap, updateBackMap] = useState<
     Record<string, boolean | undefined>
   >({});
@@ -121,7 +122,12 @@ const WalletTabs: FC = () => {
           label={intl.formatMessage({ id: 'asset__tokens' })}
         >
           <>
-            <AssetsList ListFooterComponent={<Box h={16} />} limitSize={20} />
+            <AssetsList
+              accountId={accountId}
+              networkId={networkId}
+              ListFooterComponent={<Box h={16} />}
+              limitSize={20}
+            />
             <GuideToPushFirstTimeCheck />
           </>
         </Tabs.Tab>
@@ -135,13 +141,6 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.History}
           label={intl.formatMessage({ id: 'transaction__history' })}
         >
-          {/* {platformEnv.isLegacyHistory ? (
-            <HistoricalRecord
-              accountId={account?.id}
-              networkId={network?.id}
-              isTab
-            />
-          ) : ( */}
           <TxHistoryListView
             accountId={account?.id}
             networkId={network?.id}

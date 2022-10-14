@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -71,6 +72,133 @@ type RouteProps = RouteProp<
 >;
 
 let lastWalletConnectUri: string | undefined = '';
+
+function ConnectionContent({
+  isWalletConnectPreloading,
+  walletConnectError,
+  getWalletConnectBridge,
+  hostname,
+  account,
+  network,
+}: {
+  hostname: string;
+  account: IAccount | null;
+  network: INetwork | null;
+  isWalletConnectPreloading: boolean;
+  walletConnectError: string;
+  getWalletConnectBridge: () => string;
+}) {
+  const intl = useIntl();
+  if (isWalletConnectPreloading) {
+    return (
+      <Center flex={1} minH="300px">
+        {walletConnectError ? (
+          // <Typography.DisplayXLarge my="16px">
+          //   {walletConnectError}
+          // </Typography.DisplayXLarge>
+          <Empty
+            emoji="😵"
+            title={walletConnectError}
+            subTitle={intl.formatMessage({
+              id: 'empty__connection_failed_desc',
+            })}
+          />
+        ) : (
+          <>
+            <Spinner size="lg" />
+            {platformEnv.isDev ? (
+              <Box mt={4}>
+                <Text>{getWalletConnectBridge()}</Text>
+              </Box>
+            ) : null}
+          </>
+        )}
+      </Center>
+    );
+  }
+
+  if (!account?.id) {
+    return (
+      <Center flex={1} minH="300px">
+        <Empty
+          emoji="💳"
+          title={intl.formatMessage({
+            id: 'empty__no_account_title',
+          })}
+        />
+      </Center>
+    );
+  }
+
+  return (
+    // Add padding to escape the footer
+    <VStack flex="1" space={6}>
+      <Center mt="12px">
+        <HStack alignItems="center">
+          <Box
+            size="44px"
+            borderWidth={2}
+            borderColor="surface-subdued"
+            mr="-8px"
+            zIndex={2}
+            rounded="full"
+          >
+            <Image
+              w="full"
+              h="full"
+              borderRadius="full"
+              zIndex={100}
+              source={Logo}
+            />
+          </Box>
+          <Box size="40px" overflow="hidden" rounded="full">
+            <Image
+              w="full"
+              h="full"
+              source={{ uri: `${origin}/favicon.ico` }}
+              fallbackElement={<Token size="40px" />}
+            />
+          </Box>
+        </HStack>
+
+        <Typography.DisplayXLarge mt="16px">
+          {intl.formatMessage({
+            id: 'title__connect_to_website',
+          })}
+        </Typography.DisplayXLarge>
+        <Typography.Body2 textAlign="right" color="text-subdued" mt={1}>
+          {hostname ?? 'DApp'}
+        </Typography.Body2>
+      </Center>
+      <VStack space={6} mx="8px" mt="40px">
+        <HStack
+          alignItems="center"
+          borderBottomWidth={StyleSheet.hairlineWidth}
+          borderColor="border-subdued"
+          pb={6}
+        >
+          <Typography.Body1Strong color="text-subdued" flex={1}>
+            {intl.formatMessage({ id: 'form__account' })}
+          </Typography.Body1Strong>
+          <HStack alignItems="center">
+            <Image src={network?.logoURI} size="24px" borderRadius="full" />
+            <Typography.Body1 ml="12px">{account?.name}</Typography.Body1>
+          </HStack>
+        </HStack>
+        {MockData.permissions.map((permission, index) => (
+          <HStack key={index}>
+            <Icon size={24} name={permission.icon} color="icon-success" />
+            <Typography.Body1 ml="12px" alignSelf="center" flex={1}>
+              {intl.formatMessage({
+                id: permission.text,
+              })}
+            </Typography.Body1>
+          </HStack>
+        ))}
+      </VStack>
+    </VStack>
+  );
+}
 
 /* Connection Modal are use to accept user with permission to dapp */
 const defaultSourceInfo = Object.freeze({}) as IDappSourceInfo;
@@ -239,7 +367,7 @@ const Connection = () => {
             : ''
         }
         headerDescription={isWalletConnectPreloading ? 'WalletConnect' : ''}
-        hidePrimaryAction={isWalletConnectPreloading}
+        hidePrimaryAction={isWalletConnectPreloading || !account?.id}
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__cancel"
         onPrimaryActionPress={async ({ close }) => {
@@ -258,107 +386,15 @@ const Connection = () => {
         onModalClose={dappApprove.reject}
         scrollViewProps={{
           contentContainerStyle: { flex: 1 },
-          children: isWalletConnectPreloading ? (
-            <Center flex={1} minH="300px">
-              {walletConnectError ? (
-                // <Typography.DisplayXLarge my="16px">
-                //   {walletConnectError}
-                // </Typography.DisplayXLarge>
-                <Empty
-                  emoji="😵"
-                  title={walletConnectError}
-                  subTitle={intl.formatMessage({
-                    id: 'empty__connection_failed_desc',
-                  })}
-                />
-              ) : (
-                <>
-                  <Spinner size="lg" />
-                  {platformEnv.isDev ? (
-                    <Box mt={4}>
-                      <Text>{getWalletConnectBridge()}</Text>
-                    </Box>
-                  ) : null}
-                </>
-              )}
-            </Center>
-          ) : (
-            // Add padding to escape the footer
-            <VStack flex="1" space={6}>
-              <Center mt="12px">
-                <HStack alignItems="center">
-                  <Box
-                    size="44px"
-                    borderWidth={2}
-                    borderColor="surface-subdued"
-                    mr="-8px"
-                    zIndex={2}
-                    rounded="full"
-                  >
-                    <Image
-                      w="full"
-                      h="full"
-                      borderRadius="full"
-                      zIndex={100}
-                      source={Logo}
-                    />
-                  </Box>
-                  <Box size="40px" overflow="hidden" rounded="full">
-                    <Image
-                      w="full"
-                      h="full"
-                      source={{ uri: `${origin}/favicon.ico` }}
-                      fallbackElement={<Token size="40px" />}
-                    />
-                  </Box>
-                </HStack>
-
-                <Typography.DisplayXLarge mt="16px">
-                  {intl.formatMessage({
-                    id: 'title__connect_to_website',
-                  })}
-                </Typography.DisplayXLarge>
-                <Typography.Body2 textAlign="right" color="text-subdued" mt={1}>
-                  {hostname ?? 'DApp'}
-                </Typography.Body2>
-              </Center>
-              <VStack space={6} mx="8px" mt="40px">
-                <HStack
-                  alignItems="center"
-                  borderBottomWidth={StyleSheet.hairlineWidth}
-                  borderColor="border-subdued"
-                  pb={6}
-                >
-                  <Typography.Body1Strong color="text-subdued" flex={1}>
-                    {intl.formatMessage({ id: 'form__account' })}
-                  </Typography.Body1Strong>
-                  <HStack alignItems="center">
-                    <Image
-                      src={network?.logoURI}
-                      size="24px"
-                      borderRadius="full"
-                    />
-                    <Typography.Body1 ml="12px">
-                      {account?.name}
-                    </Typography.Body1>
-                  </HStack>
-                </HStack>
-                {MockData.permissions.map((permission, index) => (
-                  <HStack key={index}>
-                    <Icon
-                      size={24}
-                      name={permission.icon}
-                      color="icon-success"
-                    />
-                    <Typography.Body1 ml="12px" alignSelf="center" flex={1}>
-                      {intl.formatMessage({
-                        id: permission.text,
-                      })}
-                    </Typography.Body1>
-                  </HStack>
-                ))}
-              </VStack>
-            </VStack>
+          children: (
+            <ConnectionContent
+              walletConnectError={walletConnectError}
+              isWalletConnectPreloading={isWalletConnectPreloading}
+              getWalletConnectBridge={getWalletConnectBridge}
+              network={network}
+              account={account}
+              hostname={hostname}
+            />
           ),
         }}
       />

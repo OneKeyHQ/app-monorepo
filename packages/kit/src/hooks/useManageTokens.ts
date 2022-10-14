@@ -8,7 +8,8 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useActiveWalletAccount, useAppSelector } from './redux';
+import { useActiveWalletAccount } from './redux';
+import { useAppSelector } from './useAppSelector';
 import {
   useAccountTokenLoading,
   useAccountTokens,
@@ -19,15 +20,18 @@ import {
   useNetworkTokensPrice,
 } from './useTokens';
 
-export const useManageTokens = ({
+export const useManageTokensOfAccount = ({
   pollingInterval = 0,
   fetchTokensOnMount = false,
+  accountId,
+  networkId,
 }: {
   pollingInterval?: number;
   fetchTokensOnMount?: boolean;
-} = {}) => {
+  accountId: string;
+  networkId: string;
+}) => {
   const isFocused = useIsFocused();
-  const { accountId, networkId } = useActiveWalletAccount();
   const allTokens: Token[] = useNetworkTokens(networkId);
   const accountTokens: Token[] = useAccountTokens(networkId, accountId);
   const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
@@ -148,4 +152,20 @@ export const useManageTokens = ({
     getTokenBalance,
     getTokenPrice,
   };
+};
+
+export const useManageTokens = ({
+  pollingInterval = 0,
+  fetchTokensOnMount = false,
+}: {
+  pollingInterval?: number;
+  fetchTokensOnMount?: boolean;
+} = {}) => {
+  const { accountId, networkId } = useActiveWalletAccount();
+  return useManageTokensOfAccount({
+    pollingInterval,
+    fetchTokensOnMount,
+    accountId,
+    networkId,
+  });
 };

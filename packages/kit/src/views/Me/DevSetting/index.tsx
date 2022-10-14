@@ -30,6 +30,9 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
+import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+
 export const DevSettingSection = () => {
   const toast = useToast();
   const { themeVariant } = useTheme();
@@ -178,6 +181,15 @@ export const DevSettingSection = () => {
                 platformEnv.distributionChannel ?? ''
               }`,
             ]}
+          />
+          <Container.Item
+            title="All-Chain Send"
+            titleColor="text-critical"
+            subDescribeCustom={
+              <NetworkAccountSelectorTrigger
+                mode={EAccountSelectorMode.Transfer}
+              />
+            }
           />
         </Container.Box>
       </Box>
