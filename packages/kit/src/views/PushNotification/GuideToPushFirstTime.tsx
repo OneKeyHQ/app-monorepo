@@ -31,8 +31,7 @@ import { PushNotificationRoutes } from './types';
 export function GuideToPushFirstTimeCheck() {
   const navigation = useAppNavigation();
   const { serviceBootstrap } = backgroundApiProxy;
-
-  useFocusEffect(() => {
+  const focusHandler = useCallback(() => {
     let isActive = true;
     const func = async () => {
       await wait(1000);
@@ -53,7 +52,8 @@ export function GuideToPushFirstTimeCheck() {
     return () => {
       isActive = false;
     };
-  });
+  }, [navigation, serviceBootstrap]);
+  useFocusEffect(focusHandler);
   return null;
 }
 
