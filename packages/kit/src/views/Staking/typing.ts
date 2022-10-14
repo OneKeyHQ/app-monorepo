@@ -26,6 +26,15 @@ export type KeleETHStakingState = {
   staking?: number;
 };
 
+export type KeleDashboardGlobal = {
+  contract: string;
+  online_ratio: number;
+  predicted_reward: number;
+  retail_deposit_far: number;
+  validator_alive_predicted_hour: number;
+  validator_total: number;
+};
+
 export type StakingActivity = {
   nonce?: number;
   oldValue?: number;

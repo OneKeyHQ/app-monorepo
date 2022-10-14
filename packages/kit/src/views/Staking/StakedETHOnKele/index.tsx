@@ -53,6 +53,9 @@ const ListHeaderComponent = () => {
   const showETH2UnableToUnstakeWarning = useAppSelector(
     (s) => s.staking.showETH2UnableToUnstakeWarning,
   );
+  const keleDashboardGlobal = useAppSelector(
+    (s) => s.staking.keleDashboardGlobal,
+  );
   const onStake = useCallback(() => {
     navigation.replace(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
@@ -157,7 +160,14 @@ const ListHeaderComponent = () => {
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage(
                 { id: 'form__str_is_activating_eth_desc' },
-                { '0': 'ETH', '1': '24' },
+                {
+                  '0': 'ETH',
+                  '1':
+                    keleDashboardGlobal?.validator_alive_predicted_hour ?? '24',
+                  '3': `${(
+                    keleDashboardGlobal?.retail_deposit_far ?? 32
+                  ).toFixed(2)} ETH`,
+                },
               )}
             </Typography.Body2>
           </Box>
@@ -204,6 +214,7 @@ export default function StakedETHOnKele() {
       if (data) {
         setIncomeItems(data);
       }
+      await backgroundApiProxy.serviceStaking.getDashboardGlobal({ networkId });
     }
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
