@@ -60,11 +60,16 @@ class ProviderApiConflux extends ProviderApiBase {
   public providerName = IInjectedProviderNames.conflux;
 
   _getCurrentNetworkExtraInfoCache = memoizee(
-    async (accountId, networkId) => {
+    async (accountId, networkId, networkImpl) => {
       let networkInfo: EvmExtraInfo = {
         chainId: '0x405',
         networkVersion: '1029',
       };
+
+      if (networkImpl !== IMPL_CFX) {
+        return networkInfo;
+      }
+
       const vault = (await this.backgroundApi.engine.getVault({
         networkId,
         accountId,
@@ -84,8 +89,12 @@ class ProviderApiConflux extends ProviderApiBase {
   );
 
   async _getCurrentNetworkExtraInfo(): Promise<EvmExtraInfo> {
-    const { accountId, networkId } = getActiveWalletAccount();
-    return this._getCurrentNetworkExtraInfoCache(accountId, networkId);
+    const { accountId, networkId, networkImpl } = getActiveWalletAccount();
+    return this._getCurrentNetworkExtraInfoCache(
+      accountId,
+      networkId,
+      networkImpl,
+    );
   }
 
   async _showSignMessageModal(
