@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,7 +28,7 @@ import {
 } from '../../../views/ManageNetworks/types';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
-import Speedindicator, { SpeedindicatorColors } from './SpeedIndicator';
+import Speedindicator from './SpeedIndicator';
 import { WalletSelectDropdown } from './WalletSelectDropdown';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -49,17 +49,17 @@ function Header({
   const { firstTimeShowCheckRPCNodeTooltip } = useStatus();
   const [isOpen, setIsOpen] = useState(false);
   const { selectedNetwork, isLoading } = accountSelectorInfo;
-  const rpcStatus = useRpcMeasureStatus(selectedNetwork?.id ?? '');
+  const { loading, status } = useRpcMeasureStatus(selectedNetwork?.id ?? '');
   const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps>();
   const close = useModalClose();
 
-  const toCheckNodePage = () => {
+  const toCheckNodePage = useCallback(() => {
     setIsOpen(false);
     navigation.navigate(ManageNetworkRoutes.RPCNode, {
       networkId: selectedNetwork?.id || '',
     });
-  };
+  }, [navigation, selectedNetwork]);
 
   useEffect(() => {
     if (firstTimeShowCheckRPCNodeTooltip) {
@@ -74,6 +74,40 @@ function Header({
     };
     main();
   }, [firstTimeShowCheckRPCNodeTooltip, dispatch]);
+
+  const rpcStatusElement = useMemo(() => {
+    if (!status || loading) {
+      return <Spinner size="sm" />;
+    }
+    return (
+      <>
+        <Speedindicator
+          mr="6px"
+          borderWidth="0"
+          backgroundColor={status.color}
+        />
+        <Tooltip
+          isOpen={isOpen}
+          hasArrow
+          label={intl.formatMessage({
+            id: 'content__click_here_to_switch_node',
+          })}
+          bg="interactive-default"
+          _text={{ color: 'text-on-primary', fontSize: '14px' }}
+          px="4"
+          py="2"
+        >
+          <Box>
+            <Pressable onPress={toCheckNodePage}>
+              <Text typography="Caption" isTruncated color={status.color}>
+                {intl.formatMessage({ id: 'content__check_node' })}
+              </Text>
+            </Pressable>
+          </Box>
+        </Tooltip>
+      </>
+    );
+  }, [status, intl, isOpen, toCheckNodePage, loading]);
 
   return (
     <Box pr={3.5}>
@@ -96,36 +130,7 @@ function Header({
             ) : null}
           </Box>
           <HStack alignItems="center" position="relative" pb="2">
-            {rpcStatus && (
-              <Speedindicator
-                mr="6px"
-                borderWidth="0"
-                backgroundColor={rpcStatus.color}
-              />
-            )}
-            <Tooltip
-              isOpen={isOpen}
-              hasArrow
-              label={intl.formatMessage({
-                id: 'content__click_here_to_switch_node',
-              })}
-              bg="interactive-default"
-              _text={{ color: 'text-on-primary', fontSize: '14px' }}
-              px="4"
-              py="2"
-            >
-              <Box>
-                <Pressable onPress={toCheckNodePage}>
-                  <Text
-                    typography="Caption"
-                    isTruncated
-                    color={SpeedindicatorColors.Fast}
-                  >
-                    {intl.formatMessage({ id: 'content__check_node' })}
-                  </Text>
-                </Pressable>
-              </Box>
-            </Tooltip>
+            {rpcStatusElement}
           </HStack>
         </VStack>
         <IconButton

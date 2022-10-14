@@ -35,7 +35,7 @@ export const ManageNetworkRPCNode: FC = () => {
   const route = useRoute<RouteProps>();
   const { networkId } = route.params;
   const [isEdit, setIsEdit] = useState(false);
-  const network = useNetwork(networkId);
+  const { network } = useNetwork({ networkId });
   const { preset, custom, refresh } = useRPCUrls(network?.id);
   const [measureMap, setMeasureMap] = useState<{
     [url: string]: MeasureResult;

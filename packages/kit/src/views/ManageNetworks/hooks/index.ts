@@ -11,17 +11,14 @@ export type MeasureResult = {
   latestBlock?: number;
 };
 
-const getColor = (speed: number) => {
-  if (typeof speed !== 'number') {
+const getColor = (speed?: number) => {
+  if (typeof speed === 'undefined') {
     return SpeedindicatorColors.Unavailable;
   }
   if (speed <= 300) {
     return SpeedindicatorColors.Fast;
   }
-  if (speed <= 1000) {
-    return SpeedindicatorColors.Slow;
-  }
-  return SpeedindicatorColors.Unavailable;
+  return SpeedindicatorColors.Slow;
 };
 
 export const measureRpc = async (networkId: string, url: string) => {
@@ -80,11 +77,17 @@ export const useRPCUrls = (networkId?: string) => {
 };
 
 export const useRpcMeasureStatus = (networkId: string) => {
+  const [loading, setLoading] = useState(false);
   const { network } = useNetwork({ networkId });
   const [status, setStatus] = useState<MeasureResult>();
 
   const refresh = useCallback(() => {
-    measureRpc(network?.id ?? '', network?.rpcURL ?? '').then(setStatus);
+    setLoading(true);
+    measureRpc(network?.id ?? '', network?.rpcURL ?? '')
+      .then(setStatus)
+      .finally(() => {
+        setLoading(false);
+      });
   }, [network]);
 
   useEffect(() => {
@@ -97,5 +100,9 @@ export const useRpcMeasureStatus = (networkId: string) => {
     };
   }, [refresh]);
 
-  return status;
+  return {
+    loading,
+    status,
+    refresh,
+  };
 };

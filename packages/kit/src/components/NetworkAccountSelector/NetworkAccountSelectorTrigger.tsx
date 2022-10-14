@@ -37,7 +37,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   // TODO different options of scene
   const { network, account, wallet } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
-  const rpcStatus = useRpcMeasureStatus(network?.id ?? '');
+  const { status: rpcStatus } = useRpcMeasureStatus(network?.id ?? '');
   const intl = useIntl();
   const activeOption = useMemo(
     () => ({
