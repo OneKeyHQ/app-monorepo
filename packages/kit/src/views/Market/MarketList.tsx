@@ -78,7 +78,7 @@ const MarketList: FC = () => {
     const offsetHeight = platformEnv.isNativeIOS
       ? e.nativeEvent.targetContentOffset?.y
       : e.nativeEvent.contentOffset.y;
-    setGoToTopBtnShow(offsetHeight > 200);
+    setGoToTopBtnShow((offsetHeight ?? 0) > 200);
   }, []);
   return (
     <Box flex={1}>
