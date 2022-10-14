@@ -4,7 +4,7 @@ import { Box, Icon, Image, NetImage } from '@onekeyhq/components';
 import DAppIconBG from '@onekeyhq/kit/assets/DAppIcon_bg.png';
 import multichainPNG from '@onekeyhq/kit/assets/dappIcon_multichain.png';
 
-import { useNetwork } from '../../../hooks';
+import { useNetworkSimple } from '../../../hooks';
 
 type DAppSize = 24 | 28 | 38 | 48 | 40;
 type DAppIconProps = {
@@ -64,7 +64,7 @@ type DAppNetworkIconProps = {
 const DAppNetworkIcon: FC<DAppNetworkIconProps> = ({ networkIds, size }) => {
   const innerProps = sizeWithProps(size);
   const { chainIconPadding } = innerProps;
-  const network = useNetwork(networkIds[0]);
+  const network = useNetworkSimple(networkIds[0]);
   if (networkIds.length > 1) {
     return (
       <Box>

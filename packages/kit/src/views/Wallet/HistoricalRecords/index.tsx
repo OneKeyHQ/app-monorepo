@@ -34,8 +34,6 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import TxRecordCell from '../../Components/transactionRecord/TxRecordCell';
-
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
 
 type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
@@ -156,7 +154,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         });
       }}
     >
-      <TxRecordCell tx={item} />
+      <Box />
     </Pressable.Item>
   );
 

@@ -31,7 +31,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import {
   useActiveWalletAccount,
   useAddressName,
-  useNetwork,
+  useNetworkSimple,
 } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
@@ -185,8 +185,8 @@ const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
 };
 
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
-  const fromNetwork = useNetwork(tx.tokens?.from.networkId);
-  const toNetwork = useNetwork(tx.tokens?.to.networkId);
+  const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
+  const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
   return (
     <Box my="6" borderRadius="12" background="surface-default" p="4">
       <Box
@@ -267,8 +267,8 @@ type ViewInBrowserSelectorItem = {
 type ViewInBrowserSelectorProps = { tx: TransactionDetails };
 const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const intl = useIntl();
-  const fromNetwork = useNetwork(tx.tokens?.from.networkId);
-  const toNetwork = useNetwork(tx.tokens?.to.networkId);
+  const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
+  const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
 
   const onOpenTx = useCallback((url: string) => {
     if (platformEnv.isNative) {
@@ -369,7 +369,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
 type ViewInBrowserLinkProps = { tx: TransactionDetails };
 const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
   const intl = useIntl();
-  const network = useNetwork(tx.networkId);
+  const network = useNetworkSimple(tx.networkId);
   const openLinkUrl = useCallback((url: string) => {
     if (platformEnv.isNative) {
       Linking.openURL(url);
@@ -412,9 +412,10 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   const navigation = useNavigation<NavigationProps>();
   const { networkId } = useActiveWalletAccount();
   const account = useTransactionsAccount(tx.accountId);
-  const network = useNetwork(tx.networkId);
-  const fromNetwork = useNetwork(tx.tokens?.from.networkId);
-  const toNetwork = useNetwork(tx.tokens?.to.networkId);
+  const network = useNetworkSimple(tx.networkId);
+  const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
+  const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
+
   const receivingName = useAddressName({ address: tx.receivingAddress });
   const { formatDate } = useFormatDate();
   const { from, to } = tx.tokens ?? {};

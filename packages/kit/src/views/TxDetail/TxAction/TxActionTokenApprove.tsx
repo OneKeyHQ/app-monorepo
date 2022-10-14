@@ -6,18 +6,18 @@ import { useIntl } from 'react-intl';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
-import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/sendConfirmConsts';
 import {
   SendRoutes,
   SendRoutesParams,
   TokenApproveAmountEditParams,
 } from '../../Send/types';
-import { useSendConfirmRouteParamsParsed } from '../../Send/useSendConfirmRouteParamsParsed';
+import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/utils/sendConfirmConsts';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
+import { useTxDetailContext } from '../TxDetailContext';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,
@@ -65,6 +65,7 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
 
 export function TxActionTokenApprove(props: ITxActionCardProps) {
   const { action, decodedTx, meta } = props;
+  const { accountId, networkId } = decodedTx;
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const { amount, symbol } = getTxActionTokenApproveInfo({
@@ -72,22 +73,30 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
     intl,
   });
 
+  const context = useTxDetailContext();
+  const isSendConfirm = context?.context?.isSendConfirm;
+  const sendConfirmParamsParsed = context?.context?.sendConfirmParamsParsed;
+
   // TODO sourceInfo get from Tx history
-  const sendConfirmParams = useSendConfirmRouteParamsParsed();
-  const isSendConfirm = Boolean(sendConfirmParams.encodedTx);
-  const { sourceInfo } = sendConfirmParams;
+  const sourceInfo = sendConfirmParamsParsed?.sourceInfo;
 
   const { tokenApprove } = action;
   const amountView = (
     <TxActionElementAmountNormal
+      testID="TxActionTokenApprove-AllowanceAmount"
       amount={amount}
       symbol={symbol}
       onPress={
         isSendConfirm
           ? () => {
               const routeName = SendRoutes.TokenApproveAmountEdit;
+              if (!sendConfirmParamsParsed?.routeParams) {
+                return;
+              }
               const routeParams: TokenApproveAmountEditParams = {
-                sendConfirmParams: sendConfirmParams.routeParams,
+                accountId,
+                networkId,
+                sendConfirmParams: sendConfirmParamsParsed?.routeParams,
                 tokenApproveAmount: tokenApprove?.amount ?? '0',
                 isMaxAmount: tokenApprove?.isMax ?? true,
                 sourceInfo,

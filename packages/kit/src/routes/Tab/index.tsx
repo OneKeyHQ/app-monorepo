@@ -6,7 +6,10 @@ import { useIntl } from 'react-intl';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/BottomTabs';
 import { LayoutHeaderMobile } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderMobile';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  getActiveWalletAccount,
+  useActiveWalletAccount,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -24,7 +27,12 @@ const Tab = createBottomTabNavigator<TabRoutesParams>();
 const TabNavigator = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { network: activeNetwork, wallet } = useActiveWalletAccount();
+  const {
+    network: activeNetwork,
+    wallet,
+    accountId,
+    networkId,
+  } = useActiveWalletAccount();
 
   const renderHeader = useCallback(() => <LayoutHeaderMobile />, []);
 
@@ -52,11 +60,14 @@ const TabNavigator = () => {
         component: () => null,
         disabled: wallet?.type === 'watching',
         onPress: () => {
+          // TODO show new standalone empty Modal if accountId is empty, as Send Modal require valid accountId
           navigationRef.current?.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Send,
             params: {
               screen: SendRoutes.PreSendToken,
               params: {
+                accountId,
+                networkId,
                 from: '',
                 to: '',
                 amount: '',
@@ -112,7 +123,7 @@ const TabNavigator = () => {
         }),
       },
     ],
-    [activeNetwork?.id, intl, wallet?.type],
+    [accountId, activeNetwork?.id, intl, networkId, wallet?.type],
   );
 
   const tabRoutesList = useMemo(

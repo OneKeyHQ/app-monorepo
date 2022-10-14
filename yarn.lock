@@ -10709,10 +10709,10 @@ eslint-config-prettier@^8.3.0:
   resolved "https://registry.yarnpkg.com/eslint-config-prettier/-/eslint-config-prettier-8.3.0.tgz#f7471b20b6fe8a9a9254cc684454202886a2dd7a"
   integrity sha512-BgZuLUSeKzvlL/VUjx/Yb787VQ26RU3gGjA3iiFvdsp/2bMfVIWUVP7tjxtjS0e+HP409cPlPvNkQloz8C91ew==
 
-eslint-config-wesbos@2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/eslint-config-wesbos/-/eslint-config-wesbos-2.1.0.tgz#e0fa8ccb5f6d9b4cfbd8a5647ed1308dfc86ea68"
-  integrity sha512-qwuEFecMmfRoaV/7niB7StdaLwUQEWv9Oz67G5rQsiEm84ACC3mgMBe2NXeV5l2LHUuCiyHWKMWFpmWvPicnhQ==
+eslint-config-wesbos@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/eslint-config-wesbos/-/eslint-config-wesbos-3.1.1.tgz#00a68b92d529f06a91e7a49c56af4b38ea1a9921"
+  integrity sha512-LbCxv3yJBIuI+/5LLN8aACxYR6PLqLi41vCekbrpESA+EBEaxflunKnzdxs9r75uwEyujHZ61J+QPVq59b2EmQ==
 
 eslint-import-resolver-node@^0.3.6:
   version "0.3.6"

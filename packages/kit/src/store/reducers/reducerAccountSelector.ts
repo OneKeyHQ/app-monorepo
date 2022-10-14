@@ -2,7 +2,12 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import type { AccountGroup } from '../../components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
 
+export enum EAccountSelectorMode {
+  Wallet = 'Wallet',
+  Transfer = 'Transfer',
+}
 type InitialState = {
+  accountSelectorMode: EAccountSelectorMode;
   isDesktopWalletSelectorVisible: boolean;
   isMobileWalletSelectorDrawerOpen: boolean;
   isOpen: boolean;
@@ -20,6 +25,7 @@ type InitialState = {
 };
 
 const initialState: InitialState = {
+  accountSelectorMode: EAccountSelectorMode.Wallet,
   isDesktopWalletSelectorVisible: false,
   isMobileWalletSelectorDrawerOpen: false,
   isOpen: false,
@@ -36,6 +42,12 @@ export const reducerSlice = createSlice({
   name: 'accountSelector',
   initialState,
   reducers: {
+    updateAccountSelectorMode(
+      state,
+      action: PayloadAction<InitialState['accountSelectorMode']>,
+    ) {
+      state.accountSelectorMode = action.payload;
+    },
     updateDesktopWalletSelectorVisible(
       state,
       action: PayloadAction<InitialState['isDesktopWalletSelectorVisible']>,

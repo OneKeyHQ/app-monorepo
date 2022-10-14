@@ -14,6 +14,7 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import {
+  getActiveWalletAccount,
   useActiveWalletAccount,
   useAppSelector,
   useRuntime,
@@ -253,11 +254,14 @@ const ExchangeButton = () => {
         networkId: params.tokenIn.networkId,
         accountId: sendingAccount.id,
       });
+      const activeAccountInfo = getActiveWalletAccount();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
           screen: SendRoutes.SendConfirm,
           params: {
+            accountId: activeAccountInfo.accountId,
+            networkId: activeAccountInfo.networkId,
             payloadInfo: {
               type: 'InternalSwap',
               swapInfo: { ...swapInfo, isApprove: true },
@@ -293,11 +297,14 @@ const ExchangeButton = () => {
       });
       return;
     }
+    const activeAccountInfo = getActiveWalletAccount();
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
         screen: SendRoutes.SendConfirm,
         params: {
+          accountId: activeAccountInfo.accountId,
+          networkId: activeAccountInfo.networkId,
           payloadInfo: {
             type: 'InternalSwap',
             swapInfo,

@@ -19,8 +19,6 @@ export type IDistributionChannel =
   | 'native-ios-pad-store';
 
 export type IPlatformEnv = {
-  isLegacyHistory?: boolean;
-  isLegacySendConfirm?: boolean;
   isMultipleHistoryTxActionsSim?: boolean;
 
   /** development mode */
@@ -210,8 +208,6 @@ export const isManifestV3: boolean =
 export const canGetClipboard: boolean = !isWeb && !isExtension;
 
 const platformEnv: IPlatformEnv = {
-  isLegacyHistory: false, // TODO remove
-  isLegacySendConfirm: false, // TODO remove
   isMultipleHistoryTxActionsSim: false,
 
   isDev,

@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 
-import { useNavigation } from '../../hooks';
+import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { HomeRoutes } from '../../routes/types';
 import AssetsList from '../Wallet/AssetsList';
 
@@ -23,6 +23,7 @@ const FullTokenList: FC<FullTokenListProps> = () => {
   const navigation = useNavigation();
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
+  const { accountId, networkId } = useActiveWalletAccount();
   useEffect(() => {
     const title = intl.formatMessage({ id: 'asset__tokens' });
     navigation.setOptions({
@@ -32,6 +33,8 @@ const FullTokenList: FC<FullTokenListProps> = () => {
 
   return (
     <AssetsList
+      accountId={accountId}
+      networkId={networkId}
       flatStyle
       ListFooterComponent={<Box h={`${48 + bottom}px`} />}
     />

@@ -10,14 +10,17 @@ import {
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { ManageNetworkRoutes } from '../routes/routesEnum';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/types';
-import reducerAccountSelector from '../store/reducers/reducerAccountSelector';
-import { ManageNetworkRoutes } from '../views/ManageNetworks/types';
+import reducerAccountSelector, {
+  EAccountSelectorMode,
+} from '../store/reducers/reducerAccountSelector';
 
 import { useAppSelector } from './redux';
 import { getAppNavigation } from './useAppNavigation';
 
-const { updateDesktopWalletSelectorVisible } = reducerAccountSelector.actions;
+const { updateDesktopWalletSelectorVisible, updateAccountSelectorMode } =
+  reducerAccountSelector.actions;
 export function useNavigationActions() {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
@@ -25,14 +28,18 @@ export function useNavigationActions() {
   const { isDesktopWalletSelectorVisible } = useAppSelector(
     (s) => s.accountSelector,
   );
-  const openAccountSelector = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.ManageNetwork,
-      params: {
-        screen: ManageNetworkRoutes.NetworkAccountSelector,
-      },
-    });
-  }, [navigation]);
+  const openAccountSelector = useCallback(
+    ({ mode }: { mode?: EAccountSelectorMode }) => {
+      dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageNetwork,
+        params: {
+          screen: ManageNetworkRoutes.NetworkAccountSelector,
+        },
+      });
+    },
+    [dispatch, navigation],
+  );
 
   const closeWalletSelector = useCallback(() => {
     if (isVertical) {

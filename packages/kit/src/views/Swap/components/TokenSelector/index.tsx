@@ -26,7 +26,7 @@ import {
   useAccountTokens,
   useActiveWalletAccount,
   useDebounce,
-  useNetwork,
+  useNetworkSimple,
   useNetworkTokens,
 } from '../../../../hooks';
 import { enabledNetworkIds } from '../../config';
@@ -194,7 +194,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
 }) => {
   const { selectedToken } = useContext(TokenSelectorContext);
 
-  const tokenNetwork = useNetwork(token.networkId);
+  const tokenNetwork = useNetworkSimple(token.networkId);
 
   const onPress = useCallback(() => {
     onSelect?.(token);

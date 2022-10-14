@@ -17,6 +17,7 @@ import {
   FormatCurrencyNumber,
 } from '@onekeyhq/kit/src/components/Format';
 import {
+  getActiveWalletAccount,
   useActiveWalletAccount,
   useFiatPay,
   useMoonpayPayCurrency,
@@ -153,11 +154,14 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
+              const { accountId, networkId } = getActiveWalletAccount();
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Send,
                 params: {
                   screen: SendRoutes.PreSendAddress,
                   params: {
+                    accountId,
+                    networkId,
                     from: '',
                     to: '',
                     amount: '',

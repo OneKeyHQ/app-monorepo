@@ -210,7 +210,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async eth_sendTransaction(
     request: IJsBridgeMessagePayload,
-    transaction: Transaction,
+    transaction: IEncodedTxEvm,
   ) {
     // TODO check tx from address match current account
     debugLogger.providerApi.info('eth_sendTransaction', request, transaction);
@@ -422,6 +422,10 @@ class ProviderApiEthereum extends ProviderApiBase {
         '0x8d97f86bc49dd442df3f359e0901223a6b45ebbddfb0ac3729326315a98e3ba81b7a416895dfa82ed1fe096b61741f1df6ca6e535a608f27e05cb1b8013e3ee11c',
       ],
       [
+        'cabbed',
+        "0x00a4985e1544bf9f8b01ddd34bd9f0bd64e47644ca65347beb6f010a02ad4299761cd7911879de17fa64f06462c9950c03595cc6fbaaf769719230ba2125b5261c",
+      ],
+      [
         '66726f6d206469643a20361efca9bfb910883594e6c3a5461ef66c11df7c61cc030bad3eb12821386d86',
         '0xe83f6a9c5015d602720af5ed0af0e2e388427efa26bc3a4abd426624598bcaaa7282764c44d33f26b662f0cca28b56e36175f9e3053a56cbf58e98dff66d15841b',
       ],
@@ -467,7 +471,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       } else {
         console.info('personal_sign Success: ', logInfo);
       }
-      await wait(1000); // TODO remove in future
+      // await wait(1000); // TODO remove in future
     }
    */
   @providerApiMethod()

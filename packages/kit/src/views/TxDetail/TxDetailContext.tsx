@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+import { useSendConfirmRouteParamsParsed } from '../Send/utils/useSendConfirmRouteParamsParsed';
+
 export type ITxDetailContextData = {
   isSendConfirm?: boolean;
   isHistoryDetail?: boolean;
   isMultipleActions?: boolean;
+  sendConfirmParamsParsed?: ReturnType<typeof useSendConfirmRouteParamsParsed>;
 };
 
 export type ITxDetailContext = {
@@ -18,11 +21,18 @@ function TxDetailContextProvider(
     children: JSX.Element;
   },
 ) {
-  const { children, isHistoryDetail, isMultipleActions, isSendConfirm } = props;
+  const {
+    children,
+    isHistoryDetail,
+    isMultipleActions,
+    isSendConfirm,
+    sendConfirmParamsParsed,
+  } = props;
   const [context, setContext] = useState<ITxDetailContextData>({
     isHistoryDetail,
     isMultipleActions,
     isSendConfirm,
+    sendConfirmParamsParsed,
   });
   useEffect(() => {
     setContext((ctx) => ({
@@ -30,8 +40,14 @@ function TxDetailContextProvider(
       isHistoryDetail,
       isMultipleActions,
       isSendConfirm,
+      sendConfirmParamsParsed,
     }));
-  }, [isHistoryDetail, isMultipleActions, isSendConfirm]);
+  }, [
+    isHistoryDetail,
+    isMultipleActions,
+    isSendConfirm,
+    sendConfirmParamsParsed,
+  ]);
   return (
     <TxDetailContext.Provider value={{ context, setContext }}>
       {children}

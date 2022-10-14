@@ -846,6 +846,8 @@ class ServiceAccount extends ServiceBase {
       }
       return label;
     };
+    // TODO search from wallet in params
+    // search from active wallet
     if (wallet && wallet.accounts && wallet.accounts.length) {
       const label = await findNameLabelByAccountIds(wallet.accounts);
       if (label) {
@@ -855,6 +857,7 @@ class ServiceAccount extends ServiceBase {
         };
       }
     }
+    // search from all wallets
     const wallets = await this.backgroundApi.engine.getWallets({
       includeAllPassphraseWallet: true,
     });

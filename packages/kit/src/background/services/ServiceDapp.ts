@@ -36,6 +36,8 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { IDappSignAndSendParams } from '../../hooks/useDappParams';
+
 type CommonRequestParams = {
   request: IJsBridgeMessagePayload;
 };
@@ -44,6 +46,7 @@ type CommonRequestParams = {
 class ServiceDapp extends ServiceBase {
   isSendConfirmModalVisible = false;
 
+  // TODO remove after dapp request queue implemented.
   @backgroundMethod()
   setSendConfirmModalVisible({ visible }: { visible: boolean }) {
     this.isSendConfirmModalVisible = visible;
@@ -204,7 +207,11 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
-  openSignAndSendModal(request: IJsBridgeMessagePayload, params: any) {
+  // TODO support dapp accountId & networkId
+  openSignAndSendModal(
+    request: IJsBridgeMessagePayload,
+    params: IDappSignAndSendParams,
+  ) {
     // Move authorizedRequired to UI check
     // this.authorizedRequired(request);
 
@@ -243,6 +250,18 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
+  isSendModalExisting() {
+    return (
+      (
+        global.$navigationRef.current
+          ?.getState()
+          ?.routes?.find((item) => item?.name === RootRoutes.Modal)?.params as {
+          screen?: ModalRoutes;
+        }
+      )?.screen === ModalRoutes.Send
+    );
+  }
+
   _openModalByRouteParams = ({
     modalParams,
     routeParams,
@@ -258,10 +277,13 @@ class ServiceDapp extends ServiceBase {
         params: routeParams,
       });
     } else {
-      global.$navigationRef.current?.navigate(
-        modalParams.screen,
-        modalParams.params,
-      );
+      const doOpenModal = () =>
+        global.$navigationRef.current?.navigate(
+          modalParams.screen,
+          modalParams.params,
+        );
+      // TODO remove timeout after dapp request queue implemented.
+      setTimeout(() => doOpenModal(), this.isSendModalExisting() ? 1000 : 0);
     }
   };
 

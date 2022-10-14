@@ -20,7 +20,7 @@ import { useCreateAccountInWallet } from '../../../../components/NetworkAccountS
 import {
   useActiveWalletAccount,
   useNavigation,
-  useNetwork,
+  useNetworkSimple,
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
@@ -122,7 +122,7 @@ const TokenInput: FC<TokenInputProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const tokenNetwork = useNetwork(token?.networkId);
+  const tokenNetwork = useNetworkSimple(token?.networkId);
 
   const balance = useTokenBalance(token, account?.id);
   const price = useTokenPrice(token);

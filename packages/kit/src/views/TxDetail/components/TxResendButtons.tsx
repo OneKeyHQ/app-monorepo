@@ -28,7 +28,7 @@ function doSpeedUpOrCancelTx(props: {
 }) {
   const { historyTx, actionType, navigation } = props;
   const encodedTx = (historyTx.decodedTx?.encodedTx ?? {}) as IEncodedTxEvm;
-  const { nonce } = historyTx.decodedTx;
+  const { nonce, accountId, networkId } = historyTx.decodedTx;
   if (isNil(nonce) || !isNumber(nonce) || nonce < 0) {
     console.error('speedUpOrCancelTx ERROR: nonce is missing!');
     return;
@@ -60,6 +60,8 @@ function doSpeedUpOrCancelTx(props: {
   }
 
   const params: SendConfirmParams = {
+    accountId,
+    networkId,
     // actionType2: '',
     actionType,
     resendActionInfo: {

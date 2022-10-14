@@ -10,8 +10,6 @@ import {
 import { IDappSourceInfo } from '../background/IBackgroundApi';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useActiveWalletAccount } from './redux';
-
 // TODO move to serviceDapp getDappInteractInfo()
 export function useInteractWithInfo({
   sourceInfo,
@@ -34,10 +32,14 @@ export function useInteractWithInfo({
 }
 
 function useDecodedTx({
+  networkId,
+  accountId,
   encodedTx,
   payload,
   sourceInfo,
 }: {
+  accountId: string;
+  networkId: string;
   encodedTx: IEncodedTx | null | undefined;
   payload?: any;
   sourceInfo?: IDappSourceInfo;
@@ -45,7 +47,6 @@ function useDecodedTx({
   const [decodedTxLegacy, setDecodedTxLegacy] =
     useState<IDecodedTxLegacy | null>(null);
   const [decodedTx, setDecodedTx] = useState<IDecodedTx | null>(null);
-  const { networkId, accountId } = useActiveWalletAccount();
   const { engine } = backgroundApiProxy;
   const interactInfo = useInteractWithInfo({ sourceInfo });
   useEffect(() => {

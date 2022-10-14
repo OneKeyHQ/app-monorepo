@@ -11,13 +11,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useManageTokens } from '../../../hooks';
+import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
 import { calculateGains } from '../../../utils/priceUtils';
 
 interface TokenCellProps {
@@ -30,8 +29,12 @@ interface TokenCellProps {
   token: TokenType;
   bg?: string;
   borderColor?: string;
+  accountId: string;
+  networkId: string;
 }
 const TokenCell: FC<TokenCellProps> = ({
+  accountId,
+  networkId,
   hidePriceInfo,
   borderTopRadius,
   borderRadius,
@@ -43,8 +46,11 @@ const TokenCell: FC<TokenCellProps> = ({
   bg = 'surface-default',
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { balances, charts, prices } = useManageTokens();
-  const { network } = useActiveWalletAccount();
+  const { balances, charts, prices } = useManageTokensOfAccount({
+    accountId,
+    networkId,
+  });
+  const { network } = useActiveSideAccount({ accountId, networkId });
 
   const tokenId = token.tokenIdOnNetwork || 'main';
   const balance = balances[tokenId] || 0;
