@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
-import DiscoverHome from '../../Home/DiscoverHome';
+import DiscoverHome from '../../Home';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler, webviewRefs } from '../explorerUtils';
 
