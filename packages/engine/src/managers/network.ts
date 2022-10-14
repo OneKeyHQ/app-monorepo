@@ -209,10 +209,16 @@ function generateNetworkIdByChainId({
   return `${impl}${SEPERATOR}${chainIdNum}`;
 }
 
-export const fetchChainList = async () => {
+export const fetchChainList = async (params: {
+  query: string;
+  showTestNet: boolean;
+}) => {
   const endpoint = getFiatEndpoint();
+  const { query, showTestNet } = params;
   const { data } = await axios.get<ChainListConfig[]>(
-    `${endpoint}/network/chainlist`,
+    `${endpoint}/network/chainlist?query=${query}&showTestNet=${Number(
+      showTestNet,
+    )}`,
   );
   return data;
 };

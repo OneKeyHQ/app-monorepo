@@ -181,7 +181,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
     });
   }, [navigation, network, serviceNetwork]);
 
-  const quickAdd = useMemo(() => {
+  const quickAddButton = useMemo(() => {
     if (mode === 'add' && network) {
       return null;
     }
@@ -230,7 +230,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
           children: (
             <KeyboardDismissView flexDirection="row" justifyContent="center">
               <VStack w="full">
-                {quickAdd}
+                {quickAddButton}
                 <Form>
                   <Form.Item
                     name="name"

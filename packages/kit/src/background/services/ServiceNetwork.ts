@@ -167,8 +167,8 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  fetchChainList() {
-    return fetchChainList();
+  fetchChainList(params: { query: string; showTestNet: boolean }) {
+    return fetchChainList(params);
   }
 }
 

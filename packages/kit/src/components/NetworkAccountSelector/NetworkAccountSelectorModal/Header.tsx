@@ -1,6 +1,7 @@
 /* eslint-disable no-nested-ternary */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -61,22 +62,32 @@ function Header({
     });
   }, [navigation, selectedNetwork]);
 
-  useEffect(() => {
-    if (firstTimeShowCheckRPCNodeTooltip) {
-      return;
-    }
-    const main = async () => {
-      await wait(500);
-      setIsOpen(true);
-      await wait(8 * 1000);
-      setIsOpen(false);
-      dispatch(setFistTimeShowCheckRPCNodeTooltip(true));
-    };
-    main();
-  }, [firstTimeShowCheckRPCNodeTooltip, dispatch]);
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      if (firstTimeShowCheckRPCNodeTooltip) {
+        return;
+      }
+      const func = async () => {
+        await wait(500);
+        if (!isActive) {
+          return;
+        }
+        setIsOpen(true);
+        await wait(8 * 1000);
+        setIsOpen(false);
+        dispatch(setFistTimeShowCheckRPCNodeTooltip(true));
+      };
+      func();
+      return () => {
+        setIsOpen(false);
+        isActive = false;
+      };
+    }, [dispatch, firstTimeShowCheckRPCNodeTooltip]),
+  );
 
   const rpcStatusElement = useMemo(() => {
-    if (!status || loading) {
+    if (!status || loading || typeof status.responseTime !== 'number') {
       return <Spinner size="sm" />;
     }
     return (
@@ -100,7 +111,7 @@ function Header({
           <Box>
             <Pressable onPress={toCheckNodePage}>
               <Text typography="Caption" isTruncated color={status.color}>
-                {intl.formatMessage({ id: 'content__check_node' })}
+                {`${status.responseTime} ms`}
               </Text>
             </Pressable>
           </Box>

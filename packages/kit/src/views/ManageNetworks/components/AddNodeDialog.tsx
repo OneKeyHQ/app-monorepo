@@ -88,13 +88,6 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
                 id: 'form__rpc_url_wrong_format',
               }),
             },
-            maxLength: {
-              value: 100,
-              message: intl.formatMessage(
-                { id: 'form__validator_max_length' },
-                { value: 100 },
-              ),
-            },
             validate: (value) => {
               if (custom.includes(value)) {
                 return intl.formatMessage({

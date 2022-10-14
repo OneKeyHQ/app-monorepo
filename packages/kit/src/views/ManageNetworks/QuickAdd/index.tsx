@@ -51,7 +51,10 @@ export const ManageNetworkQuickAdd: FC = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await serviceNetwork.fetchChainList();
+      const list = await serviceNetwork.fetchChainList({
+        query: search,
+        showTestNet,
+      });
       setChains(
         list.filter(
           (item) => !allNetworks.find((n) => n.id === `evm--${item.chainId}`),
@@ -61,7 +64,7 @@ export const ManageNetworkQuickAdd: FC = () => {
       // pass
     }
     setLoading(false);
-  }, [allNetworks, serviceNetwork]);
+  }, [allNetworks, serviceNetwork, search, showTestNet]);
 
   const toAddChainPage = useCallback(
     async (chain: ChainListConfig) => {
@@ -94,26 +97,6 @@ export const ManageNetworkQuickAdd: FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const data = useMemo(
-    () =>
-      chains.filter((item) => {
-        const matchFields = [item.name, item.title, item.network].map(
-          (f) => f?.toLowerCase() ?? '',
-        );
-        if (
-          !showTestNet &&
-          matchFields.find((f) => f.includes('test') || f.includes('devnet'))
-        ) {
-          return false;
-        }
-        if (search) {
-          return !!matchFields.find((f) => f.includes(search.toLowerCase()));
-        }
-        return true;
-      }),
-    [chains, showTestNet, search],
-  );
 
   const empty = useMemo(() => {
     if (loading) {
@@ -160,9 +143,9 @@ export const ManageNetworkQuickAdd: FC = () => {
           onToggle={toggleShowTestNet}
         />
       </HStack>
-      {data.length > 0 ? (
+      {chains.length > 0 ? (
         <List
-          data={data}
+          data={chains}
           renderItem={({ item }) => (
             <ListItem onPress={() => toAddChainPage(item)} flex={1}>
               <ListItem.Column
