@@ -33,7 +33,6 @@ export function GuideToPushFirstTimeCheck() {
   const { serviceBootstrap } = backgroundApiProxy;
 
   useFocusEffect(() => {
-    console.log('GuideToPushFirstTimeCheck >>>>> isFocused');
     let isActive = true;
     const func = async () => {
       await wait(1000);
