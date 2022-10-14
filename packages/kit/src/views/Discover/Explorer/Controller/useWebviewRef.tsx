@@ -53,7 +53,11 @@ export const useWebviewRef = ({
           }
         };
 
-        const handleDomReady = () => (isDomReady.current = true);
+        const handleDomReady = () => {
+          isDomReady.current = true;
+          // @ts-ignore
+          ref.__domReady = true;
+        };
 
         const handleStartLoadingMessage = () => onNavigation({ loading: true });
 
