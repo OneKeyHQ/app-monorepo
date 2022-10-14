@@ -4,8 +4,8 @@ import { Box } from '@onekeyhq/components';
 import { getImageWithAsset } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
-import NFTImage from '../../../../components/NFTImage';
-import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
+import NFTImage from '../../../../../components/NFTImage';
+import { MemoFallbackElement } from '../../../../../components/NFTPlaceholderElement';
 
 type Props = {
   url?: string;
@@ -16,7 +16,7 @@ type Props = {
   resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
 } & ComponentProps<typeof Box>;
 
-const CollectibleListImage: FC<Props> = ({
+const NFTListImage: FC<Props> = ({
   url,
   thumbnail = true,
   asset,
@@ -67,4 +67,4 @@ const CollectibleListImage: FC<Props> = ({
   );
 };
 
-export default CollectibleListImage;
+export default NFTListImage;

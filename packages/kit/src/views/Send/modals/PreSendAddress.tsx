@@ -15,7 +15,7 @@ import NameServiceResolver, {
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
-import CollectibleListImage from '../../Wallet/NFT/NFTList/CollectibleListImage';
+import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes, SendRoutesParams } from '../types';
 
@@ -35,7 +35,7 @@ function NFTView({ asset }: { asset?: NFTAsset }) {
   if (asset) {
     return (
       <Box flexDirection="row" alignItems="center">
-        <CollectibleListImage asset={asset} borderRadius="6px" size={40} />
+        <NFTListImage asset={asset} borderRadius="6px" size={40} />
         <Typography.Body1Strong ml={3} numberOfLines={2} flex={1}>
           {asset.name ?? asset.contractName}
         </Typography.Body1Strong>

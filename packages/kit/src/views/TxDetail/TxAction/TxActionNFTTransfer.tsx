@@ -9,7 +9,7 @@ import {
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import CollectibleListImage from '../../Wallet/NFT/NFTList/CollectibleListImage';
+import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
@@ -148,7 +148,7 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
     <TxDetailActionBox
       icon={
         nftTransfer ? (
-          <CollectibleListImage
+          <NFTListImage
             asset={nftTransfer.asset}
             borderRadius="6px"
             size={32}
