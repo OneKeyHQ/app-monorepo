@@ -14,6 +14,14 @@ export enum AddressEncodings {
   // P2TR = "P2TR",  // BIP-86 P2TR
 }
 
+export enum TransactionStatus {
+  NOT_FOUND = 0,
+  PENDING = 1,
+  INVALID = 2,
+  CONFIRM_AND_SUCCESS = 10,
+  CONFIRM_BUT_FAILED = 11,
+}
+
 export type ChainInfo = {
   code: string;
   feeCode: string;

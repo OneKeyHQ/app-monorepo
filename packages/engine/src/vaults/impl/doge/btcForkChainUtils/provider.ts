@@ -13,6 +13,7 @@ import {
   SignedTx,
   Signer,
   TransactionMixin,
+  TransactionStatus,
   UTXO,
   UnsignedTx,
 } from './types';
@@ -534,6 +535,14 @@ class Provider {
 
   broadcastTransaction(rawTx: string) {
     return this.blockbook.then((client) => client.broadcastTransaction(rawTx));
+  }
+
+  getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    return this.blockbook.then((client) =>
+      client.getTransactionStatuses(txids),
+    );
   }
 }
 

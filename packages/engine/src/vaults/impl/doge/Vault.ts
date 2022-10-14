@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 // @ts-expect-error
@@ -447,6 +448,14 @@ export default class Vault extends VaultBase {
       ...signedTx,
       txid,
     };
+  }
+
+  override getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    return (this.engineProvider as unknown as Provider).getTransactionStatuses(
+      txids,
+    );
   }
 
   collectUTXOs = memoizee(

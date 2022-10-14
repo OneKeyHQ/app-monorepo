@@ -1,18 +1,46 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosError, AxiosInstance } from 'axios';
 import BigNumber from 'bignumber.js';
+
+import { TransactionStatus } from './types';
 
 import type { ChainInfo, IBtcUTXO } from './types';
 
 const BTC_PER_KBYTES_TO_SAT_PER_BYTE = 10 ** 5;
+
+type RequestError = AxiosError<{ error: string }>;
 
 class BlockBook {
   readonly request: AxiosInstance;
 
   constructor(url: string) {
     this.request = axios.create({});
+  }
+
+  async batchCall2SingleCall<T, R>(
+    inputs: T[],
+    handler: (input: T) => Promise<R | undefined>,
+  ): Promise<Array<R | undefined>> {
+    const ret = await Promise.all(
+      inputs.map((input) =>
+        handler(input).then(
+          (value) => value,
+          (reason) => {
+            console.debug(
+              `Error in Calling ${handler.name}. `,
+              ' input: ',
+              input,
+              ', reason',
+              reason,
+            );
+            return undefined;
+          },
+        ),
+      ),
+    );
+    return ret;
   }
 
   setChainInfo() {}
@@ -71,14 +99,39 @@ class BlockBook {
         .then((i) => i.data);
 
       return res.result;
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const err = e as RequestError;
       if (
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        e.response?.data?.error?.includes?.(
-          'transaction already in block chain',
-        )
+        err.response?.data.error.includes('transaction already in block chain')
       ) {
         throw new Error('Transaction already in block');
+      }
+
+      throw e;
+    }
+  }
+
+  getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    return this.batchCall2SingleCall(txids, (i) =>
+      this.getTransactionStatus(i),
+    );
+  }
+
+  async getTransactionStatus(txid: string): Promise<TransactionStatus> {
+    try {
+      const resp = await this.request
+        .get(`/api/v2/tx/${txid}`)
+        .then((i) => i.data);
+      const confirmations = Number(resp.confirmations);
+      return Number.isFinite(confirmations) && confirmations > 0
+        ? TransactionStatus.CONFIRM_AND_SUCCESS
+        : TransactionStatus.PENDING;
+    } catch (e) {
+      const err = e as RequestError;
+      if (err.response?.data.error.includes('not found')) {
+        return TransactionStatus.NOT_FOUND;
       }
 
       throw e;
