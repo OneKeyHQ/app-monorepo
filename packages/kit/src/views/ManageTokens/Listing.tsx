@@ -21,6 +21,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/engine/src/types/token';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
@@ -32,7 +33,6 @@ import {
   useDebounce,
   useNetworkTokens,
 } from '../../hooks';
-import { timeout } from '../../utils/helper';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
@@ -243,6 +243,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { walletId, accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
@@ -253,100 +254,101 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   );
 
   const onAddToken = useCallback(async () => {
-    if (accountId && networkId) {
-      try {
-        await timeout(
-          backgroundApiProxy.engine.quickAddToken(
-            accountId,
-            networkId,
-            item.tokenIdOnNetwork,
-            undefined,
-            { autoDetected: false },
-          ),
-          5000,
-        );
-      } catch (e) {
+    try {
+      await backgroundApiProxy.engine.quickAddToken(
+        accountId,
+        networkId,
+        item.tokenIdOnNetwork,
+        undefined,
+        { autoDetected: false },
+      );
+    } catch (e) {
+      debugLogger.common.error('add token error', e);
+      toast.show(
+        {
+          title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
+        },
+        {
+          type: 'error',
+        },
+      );
+      return;
+    }
+    backgroundApiProxy.serviceToken.fetchAccountTokens({
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+    });
+    if (hideSmallBalance) {
+      const [balances, prices] = await Promise.all([
+        backgroundApiProxy.serviceToken.fetchTokenBalance({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          tokenIds: [item.tokenIdOnNetwork],
+        }),
+        backgroundApiProxy.serviceToken.fetchPrices({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          tokenIds: [item.tokenIdOnNetwork],
+        }),
+      ]);
+      const [value] = getTokenValues({
+        balances,
+        prices,
+        tokens: [item],
+      });
+      if (value.isLessThan(1)) {
         toast.show(
           {
-            title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
+            title: intl.formatMessage({
+              id: 'msg__token_has_been_added_but_is_hidden',
+            }),
           },
           {
-            type: 'error',
+            type: 'action',
+            text2: intl.formatMessage({
+              id: 'action__go_to_setting',
+            }),
+            onPress: showHomeBalanceSettings,
           },
         );
         return;
       }
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-      });
-      if (hideSmallBalance) {
-        const [balances, prices] = await Promise.all([
-          backgroundApiProxy.serviceToken.fetchTokenBalance({
-            activeAccountId: accountId,
-            activeNetworkId: networkId,
-            tokenIds: [item.tokenIdOnNetwork],
-          }),
-          backgroundApiProxy.serviceToken.fetchPrices({
-            activeAccountId: accountId,
-            activeNetworkId: networkId,
-            tokenIds: [item.tokenIdOnNetwork],
-          }),
-        ]);
-        const [value] = getTokenValues({
-          balances,
-          prices,
-          tokens: [item],
-        });
-        if (value.isLessThan(1)) {
-          toast.show(
-            {
-              title: intl.formatMessage({
-                id: 'msg__token_has_been_added_but_is_hidden',
-              }),
-            },
-            {
-              type: 'action',
-              text2: intl.formatMessage({
-                id: 'action__go_to_setting',
-              }),
-              onPress: showHomeBalanceSettings,
-            },
-          );
-          return;
-        }
-      }
-      toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
     }
+    toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
   }, [accountId, networkId, toast, intl, hideSmallBalance, item]);
 
-  const onPress = useCallback(async () => {
-    if (accountId && networkId) {
-      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
-        networkId,
-      );
-      if (vaultSettings?.activateTokenRequired) {
-        navigation.navigate(ManageTokenRoutes.ActivateToken, {
-          walletId,
-          accountId,
-          networkId,
-          tokenId: item.tokenIdOnNetwork,
-          onSuccess() {
-            onAddToken();
-          },
-        });
-      } else {
-        onAddToken();
-      }
+  const checkIfShouldActiveToken = useCallback(async () => {
+    const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+      networkId,
+    );
+    if (!vaultSettings?.activateTokenRequired) {
+      return;
     }
-  }, [
-    walletId,
-    accountId,
-    item.tokenIdOnNetwork,
-    navigation,
-    networkId,
-    onAddToken,
-  ]);
+    return new Promise((resolve) => {
+      navigation.navigate(ManageTokenRoutes.ActivateToken, {
+        walletId,
+        accountId,
+        networkId,
+        tokenId: item.tokenIdOnNetwork,
+        onSuccess: () => {
+          resolve(true);
+        },
+      });
+    });
+  }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
+
+  const onPress = useCallback(async () => {
+    if (!accountId || !networkId) {
+      return;
+    }
+    setLoading(true);
+    await checkIfShouldActiveToken();
+    onAddToken().finally(() => {
+      setTimeout(() => {
+        setLoading(false);
+      }, 1000);
+    });
+  }, [accountId, networkId, onAddToken, checkIfShouldActiveToken]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned
@@ -362,6 +364,32 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       source: item.source || [],
     });
   }, [navigation, item, isOwned]);
+
+  const actionButton = useMemo(() => {
+    if (isOwned) {
+      return (
+        <Box p={2}>
+          <Icon name="CheckSolid" color="interactive-disabled" />
+        </Box>
+      );
+    }
+    if (loading) {
+      return (
+        <Box p="2">
+          <Spinner size="sm" />
+        </Box>
+      );
+    }
+    return (
+      <IconButton
+        name="PlusSolid"
+        type="plain"
+        circle
+        p="4"
+        onPromise={onPress}
+      />
+    );
+  }, [loading, onPress, isOwned]);
   return (
     <Pressable
       borderTopRadius={borderTopRadius}
@@ -396,21 +424,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
           }}
         />
       </Box>
-      <Box>
-        {isOwned ? (
-          <Box p={2}>
-            <Icon name="CheckSolid" color="interactive-disabled" />
-          </Box>
-        ) : (
-          <IconButton
-            name="PlusSolid"
-            type="plain"
-            circle
-            p="4"
-            onPromise={onPress}
-          />
-        )}
-      </Box>
+      {actionButton}
     </Pressable>
   );
 };
