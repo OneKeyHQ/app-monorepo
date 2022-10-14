@@ -128,3 +128,9 @@ export type IBlockBookTransaction = {
   fees: string;
   blockTime?: number;
 };
+
+export type PartialTokenInfo = {
+  decimals: number;
+  name: string;
+  symbol: string;
+};

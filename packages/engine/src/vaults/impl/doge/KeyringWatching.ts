@@ -6,7 +6,6 @@ import { IPrepareWatchingAccountsParams } from '../../types';
 
 import { Provider } from './btcForkChainUtils/provider';
 
-// @ts-ignore
 export class KeyringWatching extends KeyringWatchingBase {
   async prepareAccounts(
     params: IPrepareWatchingAccountsParams,

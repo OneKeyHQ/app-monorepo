@@ -17,14 +17,13 @@ import type BTCForkVault from './Vault';
 const DEFAULT_PURPOSE = 44;
 const COIN_NAME = 'DOGE';
 
-// @ts-ignore
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(
     password: string,
     addresses: Array<string>,
   ): Promise<Record<string, Signer>> {
     const relPathToAddresses: Record<string, string> = {};
-    const utxos = await (this.vault as BTCForkVault).collectUTXOs();
+    const utxos = await (this.vault as unknown as BTCForkVault).collectUTXOs();
     for (const utxo of utxos) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {

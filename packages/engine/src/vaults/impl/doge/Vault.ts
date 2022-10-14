@@ -39,6 +39,7 @@ import {
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
+import { BlockBook } from './btcForkChainUtils/blockbook';
 import { Provider } from './btcForkChainUtils/provider';
 import {
   AddressEncodings,
@@ -46,6 +47,7 @@ import {
   IEncodedTxBtc,
   IUTXOInput,
   IUTXOOutput,
+  PartialTokenInfo,
   TxInput,
 } from './btcForkChainUtils/types';
 import { KeyringHardware } from './KeyringHardware';
@@ -57,7 +59,6 @@ import settings from './settings';
 const DEFAULT_BLOCK_NUMS = [10, 5, 2];
 const DEFAULT_BLOCK_TIME = 60;
 
-// @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -358,16 +359,16 @@ export default class Vault extends VaultBase {
     };
   }
 
-  // buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
-  //   throw new NotImplemented();
-  // }
+  buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
+    throw new NotImplemented();
+  }
 
-  // updateEncodedTxTokenApprove(
-  //   encodedTx: IEncodedTx,
-  //   amount: string,
-  // ): Promise<IEncodedTx> {
-  //   throw new NotImplemented();
-  // }
+  updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTx,
+    amount: string,
+  ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
 
   updateEncodedTx(
     encodedTx: IEncodedTx,
@@ -626,4 +627,15 @@ export default class Vault extends VaultBase {
       maxAge: 1000 * 30,
     },
   );
+
+  // @ts-expect-error
+  createClientFromURL(url: string): BlockBook | undefined {
+    throw new NotImplemented();
+  }
+
+  fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<Array<PartialTokenInfo | undefined>> {
+    throw new NotImplemented();
+  }
 }
