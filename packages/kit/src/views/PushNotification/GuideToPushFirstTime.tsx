@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -22,6 +22,7 @@ import useAppNavigation, {
 } from '../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
+import { setGuideToPushFistTime } from '../../store/reducers/status';
 import { wait } from '../../utils/helper';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
@@ -29,32 +30,30 @@ import { PushNotificationRoutes } from './types';
 
 export function GuideToPushFirstTimeCheck() {
   const navigation = useAppNavigation();
-
-  useFocusEffect(
-    React.useCallback(() => {
-      let isActive = true;
-      const func = async () => {
-        const { serviceBootstrap } = backgroundApiProxy;
-        await wait(1000);
-        const res = await serviceBootstrap.checkShouldShowNotificationGuide();
-        if (!isActive) {
-          return;
-        }
-        if (res) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.PushNotification,
-            params: {
-              screen: PushNotificationRoutes.GuideToPushFirstTime,
-            },
-          });
-        }
-      };
-      func();
-      return () => {
-        isActive = false;
-      };
-    }, [navigation]),
-  );
+  const { serviceBootstrap } = backgroundApiProxy;
+  const focusHandler = useCallback(() => {
+    let isActive = true;
+    const func = async () => {
+      await wait(1000);
+      const res = await serviceBootstrap.checkShouldShowNotificationGuide();
+      if (!isActive) {
+        return;
+      }
+      if (res) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.PushNotification,
+          params: {
+            screen: PushNotificationRoutes.GuideToPushFirstTime,
+          },
+        });
+      }
+    };
+    func();
+    return () => {
+      isActive = false;
+    };
+  }, [navigation, serviceBootstrap]);
+  useFocusEffect(focusHandler);
   return null;
 }
 
@@ -64,6 +63,10 @@ const GuideToPushFirstTime: FC = () => {
   const goBack = useNavigationBack();
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
+
+  useEffect(() => {
+    dispatch(setGuideToPushFistTime(true));
+  }, [dispatch]);
 
   const addAccountDynamics = useCallback(async () => {
     let count = 0;
