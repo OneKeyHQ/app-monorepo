@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
 import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
+import { useDesktopTopDragBarController } from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
@@ -22,6 +23,9 @@ import MoreView from './MoreMenu';
 const showExplorerBar = webHandler !== 'browser';
 
 const Explorer: FC = () => {
+  useDesktopTopDragBarController({
+    height: '0px',
+  });
   const intl = useIntl();
   const toast = useToast();
   const {
