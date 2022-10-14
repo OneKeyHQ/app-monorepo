@@ -7,13 +7,14 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { Transaction } from 'js-conflux-sdk';
 import memoizee from 'memoizee';
 
 import { IMPL_CFX } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
-import VaultConflux from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
+import VaultConflux, {
+  IEncodedTxCfx,
+} from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
@@ -218,7 +219,7 @@ class ProviderApiConflux extends ProviderApiBase {
   @providerApiMethod()
   async cfx_sendTransaction(
     request: IJsBridgeMessagePayload,
-    transaction: Transaction,
+    transaction: IEncodedTxCfx,
   ) {
     debugLogger.providerApi.info('cfx_sendTransaction', request, transaction);
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
@@ -301,7 +302,7 @@ class ProviderApiConflux extends ProviderApiBase {
   @providerApiMethod()
   async wallet_sendTransaction(
     request: IJsBridgeMessagePayload,
-    transaction: Transaction,
+    transaction: IEncodedTxCfx,
   ) {
     return this.cfx_sendTransaction(request, transaction);
   }
