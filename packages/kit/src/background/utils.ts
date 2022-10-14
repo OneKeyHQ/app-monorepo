@@ -306,6 +306,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.near,
   IInjectedProviderNames.solana,
   IInjectedProviderNames.aptos,
+  IInjectedProviderNames.conflux,
 ];
 
 export function getNetworkImplFromDappScope(

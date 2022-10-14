@@ -256,7 +256,7 @@ function TxHistoryListViewComponent({
       const txList = await serviceHistory.getLocalHistory({
         networkId,
         accountId,
-        tokenIdOnNetwork: tokenId || undefined,
+        tokenIdOnNetwork: tokenId === '' ? tokenId : tokenId || undefined,
         limit: HISTORY_CONSTS.DISPLAY_TX_LIMIT,
       });
       return txList;

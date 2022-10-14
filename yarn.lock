@@ -1186,6 +1186,13 @@
   dependencies:
     jsbi "^3.1.4"
 
+"@conflux-dev/conflux-address-js@^1.3.16":
+  version "1.3.16"
+  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.16.tgz#2ae7733138fe160e177392d7e1dc5f27590d1ee6"
+  integrity sha512-9n7wFCr7Wu4WYdngPfxB63bRHSk+0xWFHVqVwUPddg3oIRT+sQm+TcHGiXaiuvnjnvjDFfCMbHnjZ+a8X5C/aA==
+  dependencies:
+    jsbi "^3.1.4"
+
 "@develar/schema-utils@~2.6.5":
   version "2.6.5"
   resolved "https://registry.yarnpkg.com/@develar/schema-utils/-/schema-utils-2.6.5.tgz#3ece22c5838402419a6e0425f85742b961d9b6c6"
@@ -1568,7 +1575,7 @@
     "@ethersproject/bytes" "^5.7.0"
     js-sha3 "0.8.0"
 
-"@ethersproject/logger@5.7.0", "@ethersproject/logger@^5.0.5", "@ethersproject/logger@^5.0.6", "@ethersproject/logger@^5.7.0":
+"@ethersproject/logger@5.7.0", "@ethersproject/logger@^5.0.5", "@ethersproject/logger@^5.0.6", "@ethersproject/logger@^5.5.0", "@ethersproject/logger@^5.7.0":
   version "5.7.0"
   resolved "https://registry.yarnpkg.com/@ethersproject/logger/-/logger-5.7.0.tgz#6ce9ae168e74fecf287be17062b590852c311892"
   integrity sha512-0odtFdXu/XHtjQXJYA3u9G0G8btm0ND5Cu8M7i5vhEcE8/HmF4Lbdqanwyv4uQTr2tx6b7fQRmgLrsnpQlmnig==
@@ -3491,14 +3498,14 @@
     tiny-worker "^2.3.0"
     ws "^7.4.0"
 
-"@onekeyfe/cross-inpage-provider-core@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-core/-/cross-inpage-provider-core-1.0.8.tgz#f4916b31c627eba9dfa47d52495ddc58bed2fbf5"
-  integrity sha512-f1rZuB+pjeuzAdj5c/kz2XHIYhLeKXDkxIo5luxskqS2bdACeBlCtFIP03UcCaV6ymSQPbj9O8PzEFnrban9Rw==
+"@onekeyfe/cross-inpage-provider-core@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-core/-/cross-inpage-provider-core-1.1.0.tgz#5671b9b41549fc9e5b4ec373eff871b2d54a95d7"
+  integrity sha512-/IawrPnHJyNEdpirVk0JR0pK822CuuPlV8aU8LM9A8oIz6E6eytEkUBbX67SWx7qM9FxJ4+ShIResECAC7JpmQ==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-errors" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-events" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-errors" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-events" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
     events "^3.3.0"
     lodash "^4.17.21"
     ms "^2.1.3"
@@ -3515,10 +3522,10 @@
     lodash "^4.17.21"
     ms "^2.1.3"
 
-"@onekeyfe/cross-inpage-provider-errors@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-errors/-/cross-inpage-provider-errors-1.0.8.tgz#576a0dd1a41f712b869cd8ae82cb73c523edd3b6"
-  integrity sha512-YquGTVYArFyUiqWPBePuUd5WgnaR3JFqw9JzALcWCL42eH/NWsOiTce+Q0YJzzwWFI/BVu8AcB7+4uGTXmIw9A==
+"@onekeyfe/cross-inpage-provider-errors@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-errors/-/cross-inpage-provider-errors-1.1.0.tgz#b7f9874003b13713cd3ce954a2ebdbbafb1ea2eb"
+  integrity sha512-5YhgfyPW7m6sXaCFyHBvHuBjQN+lyINjt1LcGhqiHIDvQWwPtkHlDF3SSZPKoX7e5oXjOW65kuWPKUIhpIWLmA==
   dependencies:
     fast-safe-stringify "^2.1.1"
 
@@ -3529,62 +3536,62 @@
   dependencies:
     fast-safe-stringify "^2.1.1"
 
-"@onekeyfe/cross-inpage-provider-events@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-events/-/cross-inpage-provider-events-1.0.8.tgz#cd20a12b6f5decb7acaaaddb0999ec920124992d"
-  integrity sha512-mOcpm579lXRuskXO2hmTzKCiwaiBKJBiFp6zM+OyGqJHFamlr0qmUK5PjYRetH1N/YyW5IASILLO1978vyCp3g==
+"@onekeyfe/cross-inpage-provider-events@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-events/-/cross-inpage-provider-events-1.1.0.tgz#3cdaca698bd457a1b18635e2e392cf06e3c284ec"
+  integrity sha512-zmdnZ+0EqtZ518Spnh9k5B4pIJBZv0TQWnDDMtzRvWAZQT2IRW4+sM1AGL363i9ozy+E+Idc5Q+YDrFIVsoV6A==
 
 "@onekeyfe/cross-inpage-provider-events@^0.0.17":
   version "0.0.17"
   resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-events/-/cross-inpage-provider-events-0.0.17.tgz#9412e8a164d55a157475d8aed19bedeb7c2df959"
   integrity sha512-mRpLJkBAhaDEhVIKY6WI9+Zwdb6LhFJjM8E0HLHgxZlOmswKmNAhY4lgYr3Z8iF2yX2//Z46DqW0C5nWsDdVYA==
 
-"@onekeyfe/cross-inpage-provider-injected@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-injected/-/cross-inpage-provider-injected-1.0.8.tgz#efa0d9ef48a2dd31a16f5a35e90ebca51caac6c7"
-  integrity sha512-P0EhLJ3+cmtbW7tgwQ/1EbN3yFM1SK91f4RsMxjo//+rMkGXvR1e1nNfoubuZDQw+kFptMCLMB3jFW2eclMmpg==
+"@onekeyfe/cross-inpage-provider-injected@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-injected/-/cross-inpage-provider-injected-1.1.0.tgz#1b7376b948f34b5b8928eab8617db9527a85df8a"
+  integrity sha512-eiynmuxyD4a/szx8AlEYrXUFBSZTtMoo4SPGYvfb2j/3GSIKvbHqghlFqrLC3BZbbkFqkdTx1D1Z74sN2yDrcg==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
-    "@onekeyfe/desktop-bridge-injected" "1.0.8"
-    "@onekeyfe/extension-bridge-injected" "1.0.8"
-    "@onekeyfe/inpage-providers-hub" "1.0.8"
-    "@onekeyfe/native-bridge-injected" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/desktop-bridge-injected" "1.1.0"
+    "@onekeyfe/extension-bridge-injected" "1.1.0"
+    "@onekeyfe/inpage-providers-hub" "1.1.0"
+    "@onekeyfe/native-bridge-injected" "1.1.0"
     buffer "^6.0.3"
 
-"@onekeyfe/cross-inpage-provider-types@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-types/-/cross-inpage-provider-types-1.0.8.tgz#8c34b4605f0bafa573cc06e330e62efb30f7225b"
-  integrity sha512-IZDhPl/li+0qN4TAWQ3+Ucb5TYYqweTaJtQXSMPA4wMXoYnvONIkhpXkMBdmnqigBXutImJULtdswTHg8kFSpQ==
+"@onekeyfe/cross-inpage-provider-types@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-types/-/cross-inpage-provider-types-1.1.0.tgz#e5507da924752aa0e7f6833e52640de024c91686"
+  integrity sha512-rPXmCMNIbtInQ4GD0c2sqMmGB5p7gnWNk3mCd6nqn520m8Jk8fkiL7Gl/r8brhegOhaFArFL8MhHsBimQb2Bpg==
 
 "@onekeyfe/cross-inpage-provider-types@^0.0.17":
   version "0.0.17"
   resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-types/-/cross-inpage-provider-types-0.0.17.tgz#0c88c1a2febac44ec1600e0e59da732579cbd045"
   integrity sha512-QqjIPXQHb3UG9w79ujjL5L5Qd6oCrymQ/x2J2rYICtr56G6shHTmUvRZxAvne0ZsLv8UBGqZWbepVdnPipehYQ==
 
-"@onekeyfe/desktop-bridge-injected@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/desktop-bridge-injected/-/desktop-bridge-injected-1.0.8.tgz#6e1d9b238a74571bb6fe57e839475e99bb01ad27"
-  integrity sha512-QXb/8IBR2ZuN7T7aDOY0+QpS/HJTHj5vbbnWR9r/p2AxHutWhHGbUiajg/tOZvQtamCArfvx30NXDSbQuFDIVA==
+"@onekeyfe/desktop-bridge-injected@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/desktop-bridge-injected/-/desktop-bridge-injected-1.1.0.tgz#60cb8d8271840e3ad49c82c3def9a828837bb5e0"
+  integrity sha512-/xePz2wPXceSzymHNvqvt/xPKs/XEjzjCx0Dz3Mo2gqGR7Z9MTerr37yOtJvozpyAQHAxu2z5NdkEIZhh8ozWA==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
 
-"@onekeyfe/extension-bridge-hosted@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/extension-bridge-hosted/-/extension-bridge-hosted-1.0.8.tgz#873849406a41f8681b67f7caea7b97fd787ad4bc"
-  integrity sha512-sLXpp2Z51xTinGfbnrKq0ezsHtVZB+rwT8vK/RL307dXSHVCEWnK2Arj69SU92AygZ+ImieQcWjDWvKL2XH38w==
+"@onekeyfe/extension-bridge-hosted@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/extension-bridge-hosted/-/extension-bridge-hosted-1.1.0.tgz#e8cc3af6dd670e1d5e35a630a53b261aff3d54c5"
+  integrity sha512-NvUdV4lswdc73ZcUtaRlBZogx3znIv7it6W0yx6vvXhqmIn9WhViFv+RT+BPZk6l+TcvT/j6laSEMDGu3UQakA==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
 
-"@onekeyfe/extension-bridge-injected@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/extension-bridge-injected/-/extension-bridge-injected-1.0.8.tgz#dbbc3e7186152237ae39ced31c89903bd0fc519f"
-  integrity sha512-dxxmAc1A30gCuyTZvTOw3qiVEGxHPEgkQCGYtf0/HUZVrGwFKtk2w98xymG8hYAulYmGOXk6ut7QOmvmdSvSzw==
+"@onekeyfe/extension-bridge-injected@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/extension-bridge-injected/-/extension-bridge-injected-1.1.0.tgz#ad013e905d5336ff7c021685632b8ebe80cc3a0c"
+  integrity sha512-iR0X21l5NqDG8ljXY61Wr389QLaNDPPR6mHUq3KPSuermnNiMuYIdn+gn8gK48iUOdZuO8t8a7DMOJrsnh7DsQ==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
 
 "@onekeyfe/hd-ble-sdk@0.1.53":
   version "0.1.53"
@@ -3661,18 +3668,19 @@
     "@onekeyfe/hd-transport-http" "^0.1.53"
     "@onekeyfe/hd-transport-webusb" "^0.1.53"
 
-"@onekeyfe/inpage-providers-hub@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/inpage-providers-hub/-/inpage-providers-hub-1.0.8.tgz#8ad25d2dabd904482f9f81c7b708d503f5d72c68"
-  integrity sha512-6uz4kaGqyWd9OHX/fVNtgArDujUHRSHNXmFi+CStcnmJ3jocHKcA0YlWbPs18ekZGVdpXIQpOtn0EnQ7AESivg==
+"@onekeyfe/inpage-providers-hub@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/inpage-providers-hub/-/inpage-providers-hub-1.1.0.tgz#a7d2998abf0599a9cecfa859ffcd3147a36e2b26"
+  integrity sha512-kCcI61KNgEFLLV9gljNgMUGJcgOHhtimsun5qKsGvIOdGr6i63bS6flToolYwNqa0mGVByBWiBxt0EGMIxx92g==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
-    "@onekeyfe/onekey-aptos-provider" "1.0.8"
-    "@onekeyfe/onekey-eth-provider" "1.0.8"
-    "@onekeyfe/onekey-private-provider" "1.0.8"
-    "@onekeyfe/onekey-solana-provider" "1.0.8"
-    "@onekeyfe/onekey-starcoin-provider" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/onekey-aptos-provider" "1.1.0"
+    "@onekeyfe/onekey-conflux-provider" "1.1.0"
+    "@onekeyfe/onekey-eth-provider" "1.1.0"
+    "@onekeyfe/onekey-private-provider" "1.1.0"
+    "@onekeyfe/onekey-solana-provider" "1.1.0"
+    "@onekeyfe/onekey-starcoin-provider" "1.1.0"
     web3 "^1.7.3"
 
 "@onekeyfe/js-sdk@1.1.5":
@@ -3719,82 +3727,92 @@
     semver-compare "^1.0.0"
     whatwg-fetch "^3.5.0"
 
-"@onekeyfe/native-bridge-injected@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/native-bridge-injected/-/native-bridge-injected-1.0.8.tgz#45b683c03014efcc085b99e07c777de6eafcf948"
-  integrity sha512-iLdL+45TVAbgwRMCn3RH1ez6WG4XYJqlAxg893bG0nViWhoJfgkdB3W2PFXBsQZqnKFADcSDjU4r6TzjS7yxVg==
+"@onekeyfe/native-bridge-injected@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/native-bridge-injected/-/native-bridge-injected-1.1.0.tgz#bc1f06c1fd578163da22d3de3e1f09dd2cffd5d5"
+  integrity sha512-UybjTZFYIFT77aFp/tFk6TjCLtzN3rIhLkyIC5u9sB7jRmqUL4wYKXDryRR6DjFG/dSZcUghS9acmjWZ1z+AAA==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
 
 "@onekeyfe/network-list@1.6.7":
   version "1.6.7"
   resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.6.7.tgz#38087932e649e04bda576837ebcf4ad648dfc74d"
   integrity sha512-nAAeecOQUcskARHckixR671r0pbw+ytMGUHVZX+ROSkXkwp78S+kn8TiviYPoNrDBw3Gvx1NLwGI/hdDYpNYwg==
 
-"@onekeyfe/onekey-aptos-provider@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-aptos-provider/-/onekey-aptos-provider-1.0.8.tgz#52714f6700372b81b068f20df96f71bdbdfb68b1"
-  integrity sha512-eZK84GFyrK+AeJ1RxN/m3yFvjXE7VGZYwyy+3X/EtQpVsLW6bEQW5Pr2xH/b3sk5CD8i+TigcCXEE2FQx/wxXA==
+"@onekeyfe/onekey-aptos-provider@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-aptos-provider/-/onekey-aptos-provider-1.1.0.tgz#eb4f29ba05e92d68c92d0f7f547508cea00411eb"
+  integrity sha512-Sc8ASRbdazSoXcqQYqHEkj1qrPBRsz5R0t4zS0tHk+q1ULGWCQz+xF4qfxkJRXYmjZTQTfYaD2xFNIunPaee/w==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-errors" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
-    "@onekeyfe/extension-bridge-injected" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-errors" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/extension-bridge-injected" "1.1.0"
     aptos "^1.3.13"
     eth-rpc-errors "^4.0.3"
 
-"@onekeyfe/onekey-cross-webview@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-cross-webview/-/onekey-cross-webview-1.0.8.tgz#cb8566d1cb72baf8d4ef65e5950ae18911156aa3"
-  integrity sha512-sNeG4xv5V0iSa03cL2Lxe/czzv5JHbeL41HQeYBw2kmMxKmHzwxsILTv88iL5earBeCwziiIC4194K5F0LPa+g==
+"@onekeyfe/onekey-conflux-provider@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-conflux-provider/-/onekey-conflux-provider-1.1.0.tgz#ac2922be9df3f052a21501afe2268a46348676fc"
+  integrity sha512-Rv9358ua9npUcOnyKOYYmZwr8w9r/jOMXl0bqOPFlCykMvS4Gu43bubrR22ungmI91fSKuRukSSXyHPUvshhpA==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-errors" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/extension-bridge-injected" "1.1.0"
+
+"@onekeyfe/onekey-cross-webview@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-cross-webview/-/onekey-cross-webview-1.1.0.tgz#84766b9c073d75fd0d038b2a91b2dad6d32c21ee"
+  integrity sha512-wHPuE9S6CTIPp3wWMtLknFvjPWLmvr8/k0W69WpttaQEL7gjwrI9fKV4oIg9h6I+sOLkRzCjmLRvNgV9vxezFg==
+  dependencies:
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
     react-native-webview "^11.17.2"
 
-"@onekeyfe/onekey-eth-provider@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-eth-provider/-/onekey-eth-provider-1.0.8.tgz#878bd21a755e80169dbafaf5d6fbefe612e02621"
-  integrity sha512-jOSBl6jOj5zyWH875xY2J0AEz0kgZCl87pjhkGzlztGypMHOJ6LiDLYF1gzlU+tBMW9pqfZ7gOaYdYNFb1ZVJw==
+"@onekeyfe/onekey-eth-provider@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-eth-provider/-/onekey-eth-provider-1.1.0.tgz#b160419803b07129e0e4950f072ca27fee189d4d"
+  integrity sha512-vFnPWTjKffQBz/jB+yKxOHEuBf4xdCHz0iQ35+fE092vFo2lZach6gIFJrauv4qPGX3mlHO3+a02kBf6bNlJJg==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-errors" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
-    "@onekeyfe/extension-bridge-injected" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-errors" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/extension-bridge-injected" "1.1.0"
     eth-rpc-errors "^4.0.3"
 
-"@onekeyfe/onekey-private-provider@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-private-provider/-/onekey-private-provider-1.0.8.tgz#6e5a1ff2d1ca9b9e8561a76c11af3f09ef9adbda"
-  integrity sha512-qC/vPqfDRHMvDj+dw84+rFE8ZGecNzlTMlon9naYEKEn+nLq7Y5jAFLwmFNG81WrIqEUMy4yOopVejAuu1zazw==
+"@onekeyfe/onekey-private-provider@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-private-provider/-/onekey-private-provider-1.1.0.tgz#c1a4b5c718e586033c5d9a54b016b5baa51bca2e"
+  integrity sha512-kDiMOgEH7ITvo3rVFkupxebvoqWBlY8fvlcBiMMwPyPy+68iPBkWPrQkP0bl6EVb0Ehxo8lq8eUA0o4IC8LHdQ==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-errors" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
-    "@onekeyfe/extension-bridge-injected" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-errors" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/extension-bridge-injected" "1.1.0"
 
-"@onekeyfe/onekey-solana-provider@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-solana-provider/-/onekey-solana-provider-1.0.8.tgz#157585b66f73ecabfa4221022cae2ad6be188168"
-  integrity sha512-13xVkInem4xY0sRGLrv0dAF+pW5U8MJuMqgmDiJ0QDL5JjeRecM6gnt4jGVoWmyr9eGVJSqwwl1V09Zrv5Hrqg==
+"@onekeyfe/onekey-solana-provider@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-solana-provider/-/onekey-solana-provider-1.1.0.tgz#dade12a05c55051809cd5ae0832685efe3a7f8bd"
+  integrity sha512-h5Apk5Zu6dwG261IazDaH+JFrk7Msys9YyuTj0lVWgTTAU9f6H5qqpwG/IyTCf1Ezi+01FTUzGstTn1nUt3TXg==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-errors" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
-    "@onekeyfe/extension-bridge-injected" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-errors" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/extension-bridge-injected" "1.1.0"
     "@solana/web3.js" "^1.41.3"
     bs58 "^5.0.0"
 
-"@onekeyfe/onekey-starcoin-provider@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-starcoin-provider/-/onekey-starcoin-provider-1.0.8.tgz#d558858e53ad63168cabbab27f7052cc10c176df"
-  integrity sha512-zivbjn+ZVe5HClNzDvZ+PKClxRNswlIAa0eSi/vhromEnxzz8vKiBsme09lz5V2Dev0BDakpYMai7VMcMvDh5A==
+"@onekeyfe/onekey-starcoin-provider@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/onekey-starcoin-provider/-/onekey-starcoin-provider-1.1.0.tgz#137d799cd63abbdbb645dceab61a613cbdddd5b5"
+  integrity sha512-4Ck8o9vfHmvIoo1uORJkLkyNVVVgqTSFiBIGAWSMFfD7jJ3nA5dugk6vT5LsHRG6dQ2N0seIYpCUaL6bR2CVdA==
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-errors" "1.0.8"
-    "@onekeyfe/cross-inpage-provider-types" "1.0.8"
-    "@onekeyfe/extension-bridge-injected" "1.0.8"
+    "@onekeyfe/cross-inpage-provider-core" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-errors" "1.1.0"
+    "@onekeyfe/cross-inpage-provider-types" "1.1.0"
+    "@onekeyfe/extension-bridge-injected" "1.1.0"
     eth-rpc-errors "^4.0.3"
 
 "@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git":
@@ -6326,6 +6344,13 @@ abab@^2.0.3, abab@^2.0.5:
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/abab/-/abab-2.0.5.tgz#c0b678fb32d60fc1219c784d6a826fe385aeb79a"
   integrity sha512-9IK9EadsbHo6jLWIpxpR6pL0sazTXV6+SQv25ZB+F7Bj9mJNaOc4nCRabwd5M/JwmUa8idz6Eci6eKfJryPs6Q==
+
+abi-util-lite@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/abi-util-lite/-/abi-util-lite-0.1.0.tgz#dd4687b2a64920598bec92c45f3a2f6787122ce2"
+  integrity sha512-iUXhIEXq2RFrT+Cc4lkG+H+Q+7xfZYnmv531oP4wgyP/wRfC15j5nbUNvE6LqoJyvEwRkV9ku+36w+MWor0jpA==
+  dependencies:
+    "@ethersproject/logger" "^5.5.0"
 
 abort-controller@^3.0.0:
   version "3.0.0"
@@ -14579,6 +14604,23 @@ js-conflux-sdk@^1.7.1:
     superagent "^6.1.0"
     websocket "^1.0.31"
 
+js-conflux-sdk@^2.1.6:
+  version "2.1.6"
+  resolved "https://registry.yarnpkg.com/js-conflux-sdk/-/js-conflux-sdk-2.1.6.tgz#3abb19620aa0d83fa2d77f52698d151e7d7fa226"
+  integrity sha512-y/j6atNPnEcXiMoKWPaUgWVtbqKVJ8Qp14CXteHUzLHa7I3IytsklYUfNEil0qc3w2794ynQ0f08MPThK8cEFw==
+  dependencies:
+    "@conflux-dev/conflux-address-js" "^1.3.16"
+    abi-util-lite "^0.1.0"
+    big.js "^5.2.2"
+    commander "^8.0.0"
+    keccak "^2.0.0"
+    lodash "^4.17.19"
+    rlp "^2.2.7"
+    scrypt-js "^3.0.1"
+    secp256k1 "^3.7.1"
+    superagent "^6.1.0"
+    websocket "^1.0.31"
+
 js-sdsl@^4.1.4:
   version "4.1.5"
   resolved "https://registry.yarnpkg.com/js-sdsl/-/js-sdsl-4.1.5.tgz#1ff1645e6b4d1b028cd3f862db88c9d887f26e2a"
@@ -19517,7 +19559,7 @@ ripple-lib@1.8.2:
     ripple-lib-transactionparser "0.8.2"
     ws "^7.2.0"
 
-rlp@^2.0.0, rlp@^2.2.3, rlp@^2.2.4:
+rlp@^2.0.0, rlp@^2.2.3, rlp@^2.2.4, rlp@^2.2.7:
   version "2.2.7"
   resolved "https://registry.yarnpkg.com/rlp/-/rlp-2.2.7.tgz#33f31c4afac81124ac4b283e2bd4d9720b30beaf"
   integrity sha512-d5gdPmgQ0Z+AklL2NVXr/IoSjNZFfTVvQWzL/AM2AOcSzYP2xjlb0AC8YyCLc41MSNf6P6QVtjgPdmVtzb+4lQ==

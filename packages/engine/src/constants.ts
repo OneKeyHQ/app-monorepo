@@ -32,7 +32,7 @@ const COINTYPE_APTOS = '637';
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
-  // IMPL_CFX,
+  IMPL_CFX,
   IMPL_BTC,
   IMPL_SOL,
   // IMPL_ALGO,
@@ -44,6 +44,7 @@ const SUPPORTED_IMPLS = new Set([
 const PRODUCTION_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
+  IMPL_CFX,
   IMPL_BTC,
   IMPL_SOL,
   IMPL_STC,
