@@ -16,13 +16,13 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import type { ChainListConfig } from '@onekeyhq/engine/src/managers/network';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../hooks';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
