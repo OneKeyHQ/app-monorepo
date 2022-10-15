@@ -266,7 +266,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
     return this.broadcastTransaction({
       ...signedTx,
-      txid: '',
       encodedTx: unsignedTx.encodedTx,
     });
   }
