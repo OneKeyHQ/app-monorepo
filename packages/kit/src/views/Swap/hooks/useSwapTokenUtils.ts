@@ -9,16 +9,12 @@ import {
   useThrottle,
 } from '../../../hooks';
 
-export const useTokenSearch = (
-  keyword: string,
-  networkId?: string | null,
-  accountId?: string | null,
-) => {
+export const useTokenSearch = (keyword: string, networkId?: string | null) => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Token[]>([]);
   useEffect(() => {
     async function main() {
-      if (keyword.length === 0 || !accountId) {
+      if (keyword.length === 0) {
         return;
       }
       setLoading(true);
@@ -33,16 +29,9 @@ export const useTokenSearch = (
       } finally {
         setLoading(false);
       }
-      if (networkId) {
-        backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          tokenIds: tokens.map((i) => i.tokenIdOnNetwork),
-        });
-      }
     }
     main();
-  }, [keyword, networkId, accountId]);
+  }, [keyword, networkId]);
   return {
     loading,
     result,

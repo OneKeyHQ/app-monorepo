@@ -14,15 +14,12 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import {
-  getActiveWalletAccount,
   useActiveWalletAccount,
   useAppSelector,
   useRuntime,
 } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
-import { changeActiveAccount } from '../../store/reducers/general';
 import { addTransaction } from '../../store/reducers/swapTransactions';
-import { wait } from '../../utils/helper';
 import { SendRoutes } from '../Send/types';
 
 import {
@@ -91,7 +88,6 @@ const ExchangeButton = () => {
   const navigation = useNavigation();
   const { networks } = useRuntime();
   const { quote, sendingAccount } = useSwapState();
-  const { account: currentAccount, network } = useActiveWalletAccount();
   const { inputAmount, outputAmount } = useDerivedSwapState();
   const recipient = useSwapRecipient();
   const params = useSwapQuoteRequestParams();
@@ -122,26 +118,6 @@ const ExchangeButton = () => {
     }
 
     const targetNetworkId = inputAmount.token.networkId;
-
-    if (network?.id !== targetNetworkId) {
-      backgroundApiProxy.serviceNetwork.changeActiveNetwork(targetNetworkId);
-      await wait(1000);
-    }
-    if (sendingAccount && sendingAccount !== currentAccount) {
-      const wallet =
-        await backgroundApiProxy.serviceSwap.getAccountRelatedWallet(
-          sendingAccount.id,
-        );
-      if (wallet) {
-        backgroundApiProxy.dispatch(
-          changeActiveAccount({
-            activeAccountId: sendingAccount.id,
-            activeWalletId: wallet.id,
-          }),
-        );
-        await wait(1000);
-      }
-    }
 
     const targetNetwork = networks.find((item) => item.id === targetNetworkId);
     if (!targetNetwork) {
@@ -248,20 +224,19 @@ const ExchangeButton = () => {
             ? 'unlimited'
             : getTokenAmountValue(inputAmount.token, quote.sellAmount)
                 .multipliedBy(1.5)
-                .toString(),
+                .toFixed(),
         })) as IEncodedTxEvm;
       const nonce = await backgroundApiProxy.engine.getEvmNextNonce({
         networkId: params.tokenIn.networkId,
         accountId: sendingAccount.id,
       });
-      const activeAccountInfo = getActiveWalletAccount();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
           screen: SendRoutes.SendConfirm,
           params: {
-            accountId: activeAccountInfo.accountId,
-            networkId: activeAccountInfo.networkId,
+            accountId: sendingAccount.id,
+            networkId: targetNetworkId,
             payloadInfo: {
               type: 'InternalSwap',
               swapInfo: { ...swapInfo, isApprove: true },
@@ -279,32 +254,36 @@ const ExchangeButton = () => {
                 return;
               }
               const encodedEvmTx = encodedTx as IEncodedTxEvm;
-              const { result, decodedTx } =
-                await backgroundApiProxy.serviceSwap.sendTransaction({
-                  accountId: params.activeAccount.id,
-                  networkId: params.tokenIn.networkId,
-                  encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
-                  payload: {
-                    type: 'InternalSwap',
-                    swapInfo,
-                  },
-                });
-              appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-              addSwapTransaction(result.txid, decodedTx.nonce);
+              try {
+                const { result, decodedTx } =
+                  await backgroundApiProxy.serviceSwap.sendTransaction({
+                    accountId: sendingAccount.id,
+                    networkId: targetNetworkId,
+                    encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
+                    payload: {
+                      type: 'InternalSwap',
+                      swapInfo,
+                    },
+                  });
+                addSwapTransaction(result.txid, decodedTx.nonce);
+                appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+              } catch {
+                appUIEventBus.emit(AppUIEventBusNames.SwapError);
+              }
             },
           },
         },
       });
       return;
     }
-    const activeAccountInfo = getActiveWalletAccount();
+
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
         screen: SendRoutes.SendConfirm,
         params: {
-          accountId: activeAccountInfo.accountId,
-          networkId: activeAccountInfo.networkId,
+          accountId: sendingAccount.id,
+          networkId: targetNetworkId,
           payloadInfo: {
             type: 'InternalSwap',
             swapInfo,
@@ -333,9 +312,7 @@ const ExchangeButton = () => {
   }, [
     params,
     quote,
-    currentAccount,
     sendingAccount,
-    network,
     inputAmount,
     outputAmount,
     addTransaction,
