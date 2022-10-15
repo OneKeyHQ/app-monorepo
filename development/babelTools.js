@@ -107,6 +107,7 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-class-properties', { 'loose': true }],
     ['@babel/plugin-proposal-private-methods', { 'loose': true }],
     ['@babel/plugin-proposal-private-property-in-object', { 'loose': true }],
+    ['@babel/plugin-proposal-export-namespace-from'],
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
 
