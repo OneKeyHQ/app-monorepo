@@ -1,14 +1,15 @@
 import { useEffect } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../../hooks';
 import { webviewRefs } from '../explorerUtils';
+
+import { useWebTab } from './useWebTabs';
 
 const notifyChanges = (url: string) => {
   debugLogger.webview.info('webview notify changed events', url);
@@ -18,11 +19,23 @@ const notifyChanges = (url: string) => {
 
 export const useNotifyChanges = () => {
   const isFocused = useIsFocused();
-  const { currentTabId, tabs } = useAppSelector((s) => s.webTabs);
-  const tab = tabs.find((t) => t.id === currentTabId);
+  const navigation = useNavigation();
+
+  const tab = useWebTab();
   useEffect(() => {
-    if (!tab || !isFocused) {
+    if (!tab) {
       return;
+    }
+    if (!isFocused) {
+      let tabNav = navigation;
+      if (tabNav.getState().type !== 'tab') {
+        tabNav = navigation.getParent();
+      }
+      const { routeNames, index: navIndex } = tabNav.getState();
+      const isInDiscoverTab = (routeNames[navIndex] as string) === 'discover';
+      if (!isInDiscoverTab) {
+        return;
+      }
     }
     const ref = webviewRefs[tab.id];
     if (!ref) {
@@ -57,5 +70,5 @@ export const useNotifyChanges = () => {
         };
       }
     }
-  }, [tab?.url, isFocused, tab]);
+  }, [tab, isFocused, navigation]);
 };

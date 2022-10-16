@@ -22,7 +22,6 @@ import {
 } from '../explorerUtils';
 
 import { useGotoSite } from './useGotoSite';
-import { useNotifyChanges } from './useNotifyChanges';
 import { useWebviewRef } from './useWebviewRef';
 
 export const useWebController = ({
@@ -40,7 +39,6 @@ export const useWebController = ({
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
   const lastNewUrlTimestamp = useRef(Date.now());
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
-  useNotifyChanges();
 
   const clearIncomingUrl = useCallback(
     () => dispatch(setIncomingUrl('')),
