@@ -45,9 +45,9 @@ export const wait = (ms: number) =>
     setTimeout(resolve, ms);
   });
 
-export const timeout = <T>(p: Promise<T>, ms: number) =>
+export const timeout = <T>(p: Promise<T>, ms: number, message?: string) =>
   new Promise<T>((resolve, reject) => {
-    setTimeout(() => reject(new Error('Timeout')), ms);
+    setTimeout(() => reject(new Error(message || 'Timeout')), ms);
     p.then((value) => resolve(value)).catch((err) => reject(err));
   });
 
