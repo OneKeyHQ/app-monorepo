@@ -1,5 +1,6 @@
 import { ICON_NAMES } from '@onekeyhq/components/src';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { MessageDescriptor } from 'react-intl';
 
 import { MarketCategory } from '../../store/reducers/market';
 
@@ -26,7 +27,7 @@ export type MarketCategoryToggleComponentProp = {
 
 export type ListHeadTagType = {
   id: number;
-  title?: string;
+  title?: MessageDescriptor['id'];
   minW: string;
   textAlign?: 'center' | 'left' | 'right';
   isVerticalLayout: boolean;

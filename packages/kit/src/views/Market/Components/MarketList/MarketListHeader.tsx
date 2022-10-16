@@ -12,6 +12,7 @@ import {
 import { ListHeadTagType } from '../../types';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useListSort } from '../../hooks/useMarketList';
+import { useIntl } from 'react-intl';
 
 interface MarketListHeaderProps {
   headTags: ListHeadTagType[];
@@ -19,6 +20,7 @@ interface MarketListHeaderProps {
 
 const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
   const listSort = useListSort();
+  const intl = useIntl();
   return (
     <Box mt="2" w="full">
       <ListItem>
@@ -26,9 +28,9 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
           if (tag.id === 1) {
             return (
               <ListItem.Column
-                key={`${tag.title ?? ''}--${tag.id}`}
+                key={tag.id}
                 text={{
-                  label: tag.title,
+                  label: '#',
                   labelProps: {
                     typography: 'Subheading',
                     textAlign: tag.textAlign,
@@ -73,7 +75,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                     color="text-subdued"
                     textAlign={tag.textAlign}
                   >
-                    {tag.title}
+                    {intl.formatMessage({ id: tag.title })}
                   </Typography.Subheading>
                   <Icon
                     name={

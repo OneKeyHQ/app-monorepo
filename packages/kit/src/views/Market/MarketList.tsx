@@ -41,10 +41,12 @@ import { useMarketList } from './hooks/useMarketList';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMenu';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useIntl } from 'react-intl';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketList: FC = () => {
+  const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const categorys: MarketCategory[] = useMarketCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
@@ -117,12 +119,13 @@ const MarketList: FC = () => {
                           selectedCategory.categoryId ===
                           MARKET_FAVORITES_CATEGORYID
                             ? '⭐️'
-                            : '⌛'
+                            : '🤷'
                         }
-                        title={`No ${selectedCategory.name ?? ''} Token`}
-                        subTitle={`${
-                          selectedCategory.name ?? ''
-                        } tokens will show here.`}
+                        title={intl.formatMessage({ id: 'empty__no_tokens' })}
+                        subTitle={intl.formatMessage(
+                          { id: 'empty__no_tokens_desc' },
+                          { 0: selectedCategory.name },
+                        )}
                       />
                     </Center>
                   }

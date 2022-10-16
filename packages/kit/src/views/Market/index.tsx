@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo,useCallback } from 'react';
 
 import { Box } from '@onekeyhq/components/src';
 import { MARKET_TAB_NAME, SWAP_TAB_NAME } from '../../store/reducers/market';

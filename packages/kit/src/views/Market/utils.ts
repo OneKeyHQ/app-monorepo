@@ -1,4 +1,5 @@
-function parseExponential(value: number) {
+export function parseExponential(value?: number) {
+  if (!value) return 0;
   const e = /\d(?:\.(\d*))?e([+-]\d+)/.exec(value.toExponential());
   return e
     ? value.toFixed(Math.max(0, (e[1] || '').length - parseInt(e[2])))
@@ -29,22 +30,46 @@ export function formatMarketValueForFiexd(
   fractionDigits?: number,
 ) {
   if (value) {
-    return fractionDigits ? value.toFixed(fractionDigits) : value.toFixed(2);
+    const resValue = fractionDigits
+      ? value.toFixed(fractionDigits).replace(/0+$/g, '')
+      : value.toFixed(2).replace(/0+$/g, '');
+
+    return resValue.endsWith('.')
+      ? resValue.substring(-1, resValue.length - 1)
+      : resValue;
   }
   return 0;
 }
 
 const BILLION = 1000000000;
 const MILLION = 1000000;
-export function formatMarketValueForMillionAndBillion(value?: number) {
+const THOUSAND = 1000;
+export function formatMarketValueForInfo(value?: number | string) {
   if (value) {
-    if (value >= BILLION) {
-      return `${(value / BILLION).toFixed(3)}B`;
+    let parseValue = 0;
+    if (typeof value === 'string') {
+      if (value.startsWith('$')) {
+        parseValue = parseFloat(value.substring(1).replaceAll(',', ''));
+      } else {
+        parseValue = Number.isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+      }
+    } else {
+      parseValue = value;
+    }
+    if (parseValue >= BILLION) {
+      return `${formatMarketValueForFiexd(parseValue / BILLION)}B`;
     }
     if (value >= MILLION) {
-      return `${(value / MILLION).toFixed(3)}M`;
+      return `${formatMarketValueForFiexd(parseValue / MILLION)}M`;
     }
-    return value;
+    if (value >= THOUSAND) {
+      return `${formatMarketValueForFiexd(parseValue / THOUSAND)}K`;
+    }
+    if (value >= 1) {
+      return formatMarketValueForFiexd(parseValue);
+    }
+
+    return value < 0.001 ? 0 : formatMarketValueForFiexd(parseValue, 3);
   }
   return 0;
 }

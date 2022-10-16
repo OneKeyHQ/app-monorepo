@@ -19,6 +19,7 @@ import { ColorType } from 'lightweight-charts';
 import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
+import { useIntl } from 'react-intl';
 // favorites 1.remove from Favorites  2.move to top
 // !favorites add to favorites
 
@@ -38,6 +39,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
   closeOverlay,
   token,
 }) => {
+  const intl = useIntl();
   const selectedCategoryId = useMarketSelectedCategoryId();
   const isVerticalLayout = useIsVerticalLayout();
   const options: MarketCellMoreMenuOption[] = useMemo(() => {
@@ -47,7 +49,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
     ) {
       return [
         {
-          id: 'remove From Favorites',
+          id: intl.formatMessage({ id: 'action__remove_from_favorites' }),
           onPress: () => {
             backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
               token.coingeckoId,
@@ -58,7 +60,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
           iconColor: 'icon-critical',
         },
         {
-          id: 'move To Top',
+          id: intl.formatMessage({ id: 'action__move_to_top' }),
           onPress: () => {
             backgroundApiProxy.serviceMarket.moveTopMarketFavoriteToken(
               token.coingeckoId,
@@ -70,7 +72,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
     }
     return [
       {
-        id: 'Add To Favorites',
+        id: intl.formatMessage({ id: 'action__add_to_favorites' }),
         onPress: () => {
           backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
             token.coingeckoId,
@@ -79,7 +81,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
         icon: 'StarOutline',
       },
     ];
-  }, [selectedCategoryId, token]);
+  }, [selectedCategoryId, token, intl]);
   return (
     <Box>
       {options.map(({ id, onPress, icon, textColor, iconColor }) => (

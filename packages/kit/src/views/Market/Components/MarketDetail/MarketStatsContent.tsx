@@ -1,10 +1,15 @@
 import { Box, Divider, Typography, VStack } from '@onekeyhq/components/src';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { FC } from 'react';
+import { useIntl } from 'react-intl';
 
 import { MarketStats } from '../../../../store/reducers/market';
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
-import { formatLocalDate, formatMarketValueForFiexd } from '../../utils';
+import {
+  formatLocalDate,
+  formatMarketValueForFiexd,
+  parseExponential,
+} from '../../utils';
 
 type DataViewComponentProps = {
   title?: string;
@@ -64,124 +69,144 @@ export const MarketStatsContent: FC<MarketStats> = ({
   high7d,
   atl,
   ath,
-}) => (
-  <Box flex={1}>
-    <VStack space={3} mt="6">
-      <Box>
-        <Typography.Heading mb="3">Performance</Typography.Heading>
-        <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
-          <DataViewComponent
-            index={0}
-            title="1h"
-            value={`${formatMarketValueForFiexd(
-              performance?.priceChangePercentage1h,
-            )}%`}
-            valueColor={
-              performance?.priceChangePercentage1h &&
-              performance?.priceChangePercentage1h >= 0
-                ? 'text-success'
-                : 'text-critical'
-            }
-          />
-          <DataViewComponent
-            index={1}
-            title="24h"
-            value={`${formatMarketValueForFiexd(
-              performance?.priceChangePercentage24h,
-            )}%`}
-            valueColor={
-              performance?.priceChangePercentage24h &&
-              performance?.priceChangePercentage24h >= 0
-                ? 'text-success'
-                : 'text-critical'
-            }
-          />
-          <DataViewComponent
-            index={2}
-            title="7d"
-            value={`${formatMarketValueForFiexd(
-              performance?.priceChangePercentage7d,
-            )}%`}
-            valueColor={
-              performance?.priceChangePercentage7d &&
-              performance?.priceChangePercentage7d >= 0
-                ? 'text-success'
-                : 'text-critical'
-            }
-          />
-          <DataViewComponent
-            index={3}
-            title="14d"
-            value={`${formatMarketValueForFiexd(
-              performance?.priceChangePercentage14d,
-            )}%`}
-            valueColor={
-              performance?.priceChangePercentage14d &&
-              performance?.priceChangePercentage14d >= 0
-                ? 'text-success'
-                : 'text-critical'
-            }
-          />
-          <DataViewComponent
-            index={4}
-            title="30d"
-            value={`${formatMarketValueForFiexd(
-              performance?.priceChangePercentage30d,
-            )}%`}
-            valueColor={
-              performance?.priceChangePercentage30d &&
-              performance?.priceChangePercentage30d >= 0
-                ? 'text-success'
-                : 'text-critical'
-            }
-          />
-          <DataViewComponent
-            index={5}
-            title="1y"
-            value={`${formatMarketValueForFiexd(
-              performance?.priceChangePercentage1y,
-            )}%`}
-            valueColor={
-              performance?.priceChangePercentage1y &&
-              performance?.priceChangePercentage1y >= 0
-                ? 'text-success'
-                : 'text-critical'
-            }
-          />
-        </Box>
-      </Box>
-      <Box>
-        <Typography.Heading mb="3">Stats</Typography.Heading>
+}) => {
+  const intl = useIntl();
+  return (
+    <Box flex={1}>
+      <VStack space={3} mt="6">
         <Box>
-          <DataViewComponent title="Market Cap" value={`$${marketCap ?? 0}`} />
-          <DataViewComponent
-            title="Market Cap Dominanc"
-            value={`${marketCapDominance ?? 0}`}
-          />
-          <DataViewComponent
-            title="Market Cap Rank"
-            value={`#${marketCapRank ?? 0}`}
-          />
-          <DataViewComponent
-            title="Tranding Volume"
-            value={`$${trandingVolume ?? 0}`}
-          />
-          <DataViewComponent title="7dLow" value={`${low7d ?? 0}`} />
-          <DataViewComponent title="7dHigh" value={`${high7d ?? 0}`} />
-          <DataViewComponent title="24hLow" value={`$${low24h ?? 0}`} />
-          <DataViewComponent title="24hHigh" value={`$${high24h ?? 0}`} />
-          <DataViewComponent
-            title="All-Time Low"
-            value={`$${atl?.value ?? 0}`}
-            subValue={formatLocalDate(atl?.time)}
-          />
-          <DataViewComponent
-            title="All-Time High"
-            value={`$${ath?.value ?? 0}`}
-            subValue={formatLocalDate(ath?.time)}
-          />
+          <Typography.Heading mb="3">
+            {intl.formatMessage({ id: 'form__performance' })}
+          </Typography.Heading>
+          <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
+            <DataViewComponent
+              index={0}
+              title={intl.formatMessage({ id: 'form__str_h' }, { 0: 1 })}
+              value={`${formatMarketValueForFiexd(
+                performance?.priceChangePercentage1h,
+              )}%`}
+              valueColor={
+                performance?.priceChangePercentage1h &&
+                performance?.priceChangePercentage1h >= 0
+                  ? 'text-success'
+                  : 'text-critical'
+              }
+            />
+            <DataViewComponent
+              index={1}
+              title={intl.formatMessage({ id: 'form__str_h' }, { 0: 24 })}
+              value={`${formatMarketValueForFiexd(
+                performance?.priceChangePercentage24h,
+              )}%`}
+              valueColor={
+                performance?.priceChangePercentage24h &&
+                performance?.priceChangePercentage24h >= 0
+                  ? 'text-success'
+                  : 'text-critical'
+              }
+            />
+            <DataViewComponent
+              index={2}
+              title={intl.formatMessage({ id: 'form__str_d' }, { 0: 7 })}
+              value={`${formatMarketValueForFiexd(
+                performance?.priceChangePercentage7d,
+              )}%`}
+              valueColor={
+                performance?.priceChangePercentage7d &&
+                performance?.priceChangePercentage7d >= 0
+                  ? 'text-success'
+                  : 'text-critical'
+              }
+            />
+            <DataViewComponent
+              index={3}
+              title={intl.formatMessage({ id: 'form__str_d' }, { 0: 14 })}
+              value={`${formatMarketValueForFiexd(
+                performance?.priceChangePercentage14d,
+              )}%`}
+              valueColor={
+                performance?.priceChangePercentage14d &&
+                performance?.priceChangePercentage14d >= 0
+                  ? 'text-success'
+                  : 'text-critical'
+              }
+            />
+            <DataViewComponent
+              index={4}
+              title={intl.formatMessage({ id: 'form__str_d' }, { 0: 30 })}
+              value={`${formatMarketValueForFiexd(
+                performance?.priceChangePercentage30d,
+              )}%`}
+              valueColor={
+                performance?.priceChangePercentage30d &&
+                performance?.priceChangePercentage30d >= 0
+                  ? 'text-success'
+                  : 'text-critical'
+              }
+            />
+            <DataViewComponent
+              index={5}
+              title={intl.formatMessage({ id: 'form__str_y' }, { 0: 1 })}
+              value={`${formatMarketValueForFiexd(
+                performance?.priceChangePercentage1y,
+              )}%`}
+              valueColor={
+                performance?.priceChangePercentage1y &&
+                performance?.priceChangePercentage1y >= 0
+                  ? 'text-success'
+                  : 'text-critical'
+              }
+            />
+          </Box>
         </Box>
-      </Box>
-    </VStack>
-  </Box>
-);
+        <Box>
+          <Typography.Heading mb="3">Stats</Typography.Heading>
+          <Box>
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__market_cap' })}
+              value={`$${parseExponential(marketCap)}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__market_cap_dominance' })}
+              value={`${marketCapDominance ?? 0}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__market_cap_rank' })}
+              value={`#${marketCapRank ?? 0}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__trading_volume' })}
+              value={`$${trandingVolume ?? 0}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__7d_low' })}
+              value={`${low7d ?? 0}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__7d_high' })}
+              value={`${high7d ?? 0}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__24h_low' })}
+              value={`$${parseExponential(low24h)}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__24h_high' })}
+              value={`$${parseExponential(high24h)}`}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__all_time_low' })}
+              value={`$${parseExponential(atl?.value)}`}
+              subValue={formatLocalDate(atl?.time)}
+            />
+            <DataViewComponent
+              title={intl.formatMessage({ id: 'form__all_time_high' })}
+              value={`$${parseExponential(ath?.value)}`}
+              subValue={formatLocalDate(ath?.time)}
+            />
+          </Box>
+        </Box>
+      </VStack>
+    </Box>
+  );
+};

@@ -12,11 +12,13 @@ import {
 import { MarketTokenItem } from '../../../../store/reducers/market';
 
 import { useWebController } from '../../../Discover/Explorer/Controller/useWebController';
+import { useIntl } from 'react-intl';
 
 const MarketSearchList: FC<{
   data?: string[];
   onPress: (marketTokenId: MarketTokenItem) => void;
 }> = ({ data, onPress }) => {
+  const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const { gotoSite } = useWebController();
   const renderItem = useCallback(
@@ -38,10 +40,12 @@ const MarketSearchList: FC<{
       renderItem={renderItem}
       ListEmptyComponent={
         <Empty
-          title="No Results"
-          subTitle="Try searching with contract address Or submit a new token to us"
+          title={intl.formatMessage({ id: 'content__no_results' })}
+          subTitle={intl.formatMessage({
+            id: 'content__try_searching_with_contract_address_or_submit_a_new_token_to_us',
+          })}
           emoji="🔍"
-          actionTitle="Submit Token"
+          actionTitle={intl.formatMessage({ id: 'action__submit_token' })}
           handleAction={() => {
             gotoSite({ url: SUBMIT_TOKEN_URL });
           }}

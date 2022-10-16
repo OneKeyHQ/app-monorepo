@@ -29,7 +29,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   formatMarketValueForComma,
   formatMarketValueForFiexd,
-  formatMarketValueForMillionAndBillion,
+  formatMarketValueForInfo,
 } from '../../utils';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -186,7 +186,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                     {marketTokenItem && marketTokenItem.totalVolume ? (
                       <Typography.Body2 noOfLines={1} color="text-subdued">
                         {tag.isVerticalLayout
-                          ? `Vol$${formatMarketValueForMillionAndBillion(
+                          ? `Vol$${formatMarketValueForInfo(
                               marketTokenItem.totalVolume,
                             )}`
                           : marketTokenItem.name}

@@ -1,13 +1,10 @@
 import { Box, HStack, Typography, VStack } from '@onekeyhq/components/src';
 
 import { FC } from 'react';
+import { useIntl } from 'react-intl';
 import { MarketEXplorer, MarketNews } from '../../../../store/reducers/market';
 import { useWebController } from '../../../Discover/Explorer/Controller/useWebController';
-import {
-  formatMarketValueForComma,
-  formatMarketValueForFiexd,
-  formatMarketValueForMillionAndBillion,
-} from '../../utils';
+import { formatMarketValueForInfo } from '../../utils';
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
 
@@ -21,6 +18,8 @@ const BaseInfo = ({ title, value }: { title: string; value: string }) => (
 type MarketInfoContentProps = {
   low24h?: number;
   high24h?: number;
+  low7d?: string;
+  high7d?: string;
   volume24h?: number;
   marketCap?: number;
   expolorers?: MarketEXplorer[];
@@ -31,6 +30,8 @@ type MarketInfoContentProps = {
 export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   low24h,
   high24h,
+  low7d,
+  high7d,
   volume24h,
   marketCap,
   expolorers,
@@ -38,6 +39,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   about,
 }) => {
   const { gotoSite } = useWebController();
+  const intl = useIntl();
   return (
     <Box flex={1}>
       <VStack space={6} mt="6">
@@ -45,25 +47,35 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
           <Typography.Heading>Info</Typography.Heading>
           <HStack space={6} flexWrap="wrap">
             <BaseInfo
-              title="24H High"
-              value={`$${formatMarketValueForComma(high24h)}`}
+              title={intl.formatMessage({ id: 'form__24h_high' })}
+              value={`$${formatMarketValueForInfo(high24h)}`}
             />
             <BaseInfo
-              title="24H Low"
-              value={`$${formatMarketValueForComma(low24h)}`}
+              title={intl.formatMessage({ id: 'form__24h_low' })}
+              value={`$${formatMarketValueForInfo(low24h)}`}
             />
             <BaseInfo
-              title="24H Volume"
-              value={`$${formatMarketValueForMillionAndBillion(volume24h)}`}
+              title={intl.formatMessage({ id: 'form__24h_volume' })}
+              value={`$${formatMarketValueForInfo(volume24h)}`}
             />
             <BaseInfo
-              title="Market Cap"
-              value={`$${formatMarketValueForMillionAndBillion(marketCap)}`}
+              title={intl.formatMessage({ id: 'form__7d_high' })}
+              value={`$${formatMarketValueForInfo(high7d)}`}
+            />
+            <BaseInfo
+              title={intl.formatMessage({ id: 'form__7d_low' })}
+              value={`$${formatMarketValueForInfo(low7d)}`}
+            />
+            <BaseInfo
+              title={intl.formatMessage({ id: 'form__market_cap' })}
+              value={`$${formatMarketValueForInfo(marketCap)}`}
             />
           </HStack>
         </Box>
         <Box>
-          <Typography.Heading>Explorers</Typography.Heading>
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'form__explorers' })}
+          </Typography.Heading>
           <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
             {expolorers?.map((e, i) => (
               <MarketInfoExplorer
@@ -78,13 +90,19 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
             ))}
           </Box>
         </Box>
-        <Box>
-          <Typography.Heading mb="3">About</Typography.Heading>
-          <Typography.Body2 noOfLines={5}>{about}</Typography.Body2>
-        </Box>
+        {about && about.length > 0 ? (
+          <Box>
+            <Typography.Heading mb="3">
+              {intl.formatMessage({ id: 'title__about' })}
+            </Typography.Heading>
+            <Typography.Body2 noOfLines={5}>{about}</Typography.Body2>
+          </Box>
+        ) : null}
         {news && news.length > 0 ? (
           <Box>
-            <Typography.Heading>News</Typography.Heading>
+            <Typography.Heading>
+              {intl.formatMessage({ id: 'title__news' })}
+            </Typography.Heading>
             <MarketInfoNewsList news={news} />
           </Box>
         ) : null}

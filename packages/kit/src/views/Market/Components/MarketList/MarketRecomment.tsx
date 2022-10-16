@@ -11,6 +11,7 @@ import {
 import RecommendedTokenBox from './RecommendedToken';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { GRID_MAX_WIDTH } from '../../hooks/useMarketLayout';
+import { useIntl } from 'react-intl';
 
 type RecomentTokenType = {
   iconUrl?: string;
@@ -26,11 +27,14 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
   const [groupValue, setGroupValue] = useState(() =>
     tokens?.map((t) => t.coingeckoId),
   );
+  const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   return (
     <Box flex={1} alignItems="center" justifyContent="center">
       <Box mt={isVertical ? '6' : '14'} maxW={GRID_MAX_WIDTH}>
-        <Typography.Heading>Hot Tokens</Typography.Heading>
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'form__hot_tokens_uppercase' })}
+        </Typography.Heading>
         <CheckBox.Group
           defaultValue={groupValue}
           onChange={(values) => {
@@ -63,7 +67,9 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
             );
           }}
         >
-          Add
+          {intl.formatMessage({
+            id: 'action__add',
+          })}
         </Button>
       </Box>
     </Box>

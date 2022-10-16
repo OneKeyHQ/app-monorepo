@@ -35,11 +35,13 @@ import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { MarketTokenItem } from '../../store/reducers/market';
 import MarketSearchList from './Components/MarketSearch/MarketSearchList';
 import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
+import { useIntl } from 'react-intl';
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketSearch: FC<{
   closeOverlay: () => void;
 }> = ({ closeOverlay }) => {
+  const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const searchHistory = useMarketSearchHistory();
   const searchCategorys = useMarketSearchCategoryList();
@@ -93,7 +95,7 @@ const MarketSearch: FC<{
                     backgroundApiProxy.serviceMarket.clearSearchHistory();
                   }}
                 >
-                  Clear All
+                  {intl.formatMessage({ id: 'action__clear_all' })}
                 </Button>
               ) : null}
             </Box>
@@ -121,8 +123,10 @@ const MarketSearch: FC<{
         ) : (
           <Center flex={1}>
             <Empty
-              title="No History"
-              subTitle="Search for token name or contract address."
+              title={intl.formatMessage({ id: 'title__no_history' })}
+              subTitle={intl.formatMessage({
+                id: 'content__search_for_token_name_or_contract_address',
+              })}
               emoji="🕓"
             />
           </Center>
@@ -133,6 +137,7 @@ const MarketSearch: FC<{
     searchKeyword,
     searchCategorys,
     searchHistory,
+    intl,
     onTokenPress,
     searchTokens,
   ]);
@@ -142,7 +147,7 @@ const MarketSearch: FC<{
     <Box {...style}>
       {isVertical ? (
         <Searchbar
-          placeholder="Search Tokens"
+          placeholder={intl.formatMessage({ id: 'form__search_tokens' })}
           value={searchInput}
           autoFocus
           w="full"

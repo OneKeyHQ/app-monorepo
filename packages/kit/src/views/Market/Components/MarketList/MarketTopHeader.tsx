@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { debounce } from 'lodash';
+
+import { useFocusEffect } from '@react-navigation/native';
 
 import {
   Box,
@@ -20,17 +21,36 @@ import { useMarketTopTabName } from '../../hooks/useMarketList';
 import { showMarketSearch } from '../../MarketSearch';
 import { useMarketSearchTokenChange } from '../../hooks/useMarketSearch';
 import { useIntl } from 'react-intl';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const Header: React.FC = () => {
   const intl = useIntl();
   const searchBarRef = useRef();
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   const [searchInput, setSearchInput] = useState(() => '');
+  const [searchFocused, setSearchFocused] = useState(() => false);
+  const [autoFocused, setAutoFocused] = useState(() => false);
+  useFocusEffect(
+    useCallback(() => {
+      if (platformEnv.isRuntimeBrowser) {
+        const triggleerSearch = (e: KeyboardEvent) => {
+          if (e.code === 'KeyF' && !searchFocused) {
+            setAutoFocused(true);
+          }
+        };
+        document.addEventListener('keydown', triggleerSearch);
+        return () => {
+          document.removeEventListener('keydown', triggleerSearch);
+        };
+      }
+    }, [searchFocused]),
+  );
   return (
     <Box flexDirection="column">
       <Box mt="3" ml="6" ref={searchBarRef} width="360px">
         <Searchbar
-          placeholder="Search Cryptos"
+          autoFocus={autoFocused}
+          placeholder={intl.formatMessage({ id: 'form__search_tokens' })}
           w="full"
           value={searchInput}
           onChangeText={(text) => {
@@ -42,7 +62,12 @@ const Header: React.FC = () => {
             searchOnChangeDebounce('');
           }}
           onFocus={() => {
+            setSearchFocused(true);
             showMarketSearch({ triggerEle: searchBarRef.current });
+          }}
+          onBlur={() => {
+            setAutoFocused(false);
+            setSearchFocused(false);
           }}
         />
       </Box>
