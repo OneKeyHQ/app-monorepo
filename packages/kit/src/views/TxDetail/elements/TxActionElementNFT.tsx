@@ -2,11 +2,11 @@ import React from 'react';
 
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
-import CollectibleListImage from '../../Wallet/NFT/NFTList/CollectibleListImage';
+import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 
 function TxActionElementNFT(props: { asset: NFTAsset }) {
   const { asset } = props;
-  return <CollectibleListImage asset={asset} borderRadius="6px" size={96} />;
+  return <NFTListImage asset={asset} borderRadius="6px" size={96} />;
 }
 
 export { TxActionElementNFT };

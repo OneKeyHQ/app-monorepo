@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC, useRef, useState } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
 
@@ -9,9 +9,10 @@ type Props = {
   url: string;
 };
 const NFTVideo: FC<Props> = ({ url, size }) => {
+  const [isMuted, setIsMuted] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>();
   const video = React.useRef<Video | null>(null);
-
+  const isPlaying = useRef<boolean | null>(null);
   return (
     <Box size={`${size}px`}>
       <Video
@@ -25,7 +26,17 @@ const NFTVideo: FC<Props> = ({ url, size }) => {
           setLoading(false);
         }}
         ref={video}
-        isMuted
+        onPlaybackStatusUpdate={(s) => {
+          if (s.isLoaded === true) {
+            if (isPlaying.current === false && s.isPlaying === true) {
+              setIsMuted(false);
+            }
+            isPlaying.current = s.isPlaying;
+          } else {
+            isPlaying.current = null;
+          }
+        }}
+        isMuted={isMuted}
         style={{
           alignSelf: 'center',
           width: size,

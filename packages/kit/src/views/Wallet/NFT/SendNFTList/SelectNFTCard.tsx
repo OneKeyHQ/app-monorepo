@@ -7,7 +7,7 @@ import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
 
 import { useActiveSideAccount } from '../../../../hooks';
-import CollectibleListImage from '../NFTList/CollectibleListImage';
+import NFTListImage from '../NFTList/NFTListImage';
 
 import { SelectAsset, useSendNFTContent } from './SendNFTContent';
 
@@ -112,7 +112,7 @@ const SelectNFTCard: FC<Props> = ({
               animate={{ opacity: isHovered || isPressed ? 0.8 : 1 }}
               transition={{ type: 'timing', duration: 150 }}
             >
-              <CollectibleListImage
+              <NFTListImage
                 asset={asset}
                 borderRadius="12px"
                 size={cardWidth}
