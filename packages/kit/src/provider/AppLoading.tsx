@@ -32,11 +32,12 @@ const AppLoading: FC = ({ children }) => {
 
   useEffect(() => {
     async function main() {
-      await Promise.all([
-        serviceApp.waitForAppInited({
-          logName: 'AppLoading',
-        }),
-      ]);
+      // TODO initApp too slow, maybe do not need waiting for initApp in UI
+      // await Promise.all([
+      //   serviceApp.waitForAppInited({
+      //     logName: 'AppLoading',
+      //   }),
+      // ]);
       await waitForDataLoaded({
         logName: 'WaitBackgroundReady @ AppLoading',
         wait: 300,

@@ -1,4 +1,6 @@
-import { useManageTokensOfAccount } from '../../../hooks';
+import { useEffect } from 'react';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export function useReloadAccountBalance({
   accountId,
@@ -7,10 +9,12 @@ export function useReloadAccountBalance({
   accountId: string;
   networkId: string;
 }) {
-  // do not remove this line, call account balance fetch
-  useManageTokensOfAccount({
-    fetchTokensOnMount: true,
-    accountId,
-    networkId,
-  });
+  useEffect(() => {
+    backgroundApiProxy.serviceToken.fetchAccountTokens({
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+      withBalance: true,
+      withPrice: true,
+    });
+  }, [accountId, networkId]);
 }
