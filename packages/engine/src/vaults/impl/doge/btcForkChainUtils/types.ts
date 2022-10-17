@@ -71,7 +71,7 @@ export type TxInput = {
   publicKey?: string;
 };
 
-type TxOutput = {
+export type TxOutput = {
   address: string;
   value: BigNumber;
   tokenAddress?: string;
