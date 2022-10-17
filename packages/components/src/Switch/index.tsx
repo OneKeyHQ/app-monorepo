@@ -3,6 +3,8 @@ import { ComponentProps, FC } from 'react';
 import { Switch as BaseSwitch } from 'native-base';
 import { ISizes } from 'native-base/lib/typescript/theme/base/sizes';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../Box';
 import Typography from '../Typography';
 
@@ -92,7 +94,17 @@ const Switch: FC<SwitchProps> = ({
         {...props}
         isChecked={isChecked}
         isDisabled={isDisabled}
-        onToggle={onToggle ? () => setTimeout(onToggle) : undefined}
+        onToggle={
+          onToggle
+            ? () => {
+                if (platformEnv.isNativeAndroid) {
+                  setTimeout(onToggle);
+                } else {
+                  onToggle();
+                }
+              }
+            : undefined
+        }
       />
     </Box>
   );
