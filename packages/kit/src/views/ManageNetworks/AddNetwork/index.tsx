@@ -1,13 +1,19 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Form,
+  Icon,
+  IconButton,
   KeyboardDismissView,
   Modal,
+  Pressable,
   Typography,
+  VStack,
   useForm,
   useIsVerticalLayout,
   useToast,
@@ -15,6 +21,19 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks';
+import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RouteProps = RouteProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkRoutes.AddNetwork
+>;
+
+type NavigationProps = NativeStackNavigationProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkRoutes.Listing
+>;
 
 type NetworkValues = {
   name: string;
@@ -37,8 +56,10 @@ const URITester =
 
 export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const toast = useToast();
+  const route = useRoute<RouteProps>();
+  const { network, mode } = route.params;
   const isSmallScreen = useIsVerticalLayout();
 
   const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
@@ -80,56 +101,123 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const url = watchedRpcURL?.trim();
 
   useEffect(() => {
-    if (url && URITester.test(url)) {
-      setRpcUrlStatus((prev) => ({ ...prev, connected: false, loading: true }));
-      serviceNetwork
-        .preAddNetwork(url)
-        .then(({ chainId, existingNetwork }) => {
-          setValue('chainId', chainId);
-          if (existingNetwork) {
-            setRpcUrlStatus({
-              loading: false,
-              connected: true,
-              error: intl.formatMessage(
-                { id: 'form__rpc_url_invalid_exist' },
-                { name: existingNetwork.name },
-              ),
-            });
-            return;
-          }
-          setRpcUrlStatus({ connected: true, loading: false });
-        })
-        .catch(() => {
+    if (!network) {
+      return;
+    }
+    const { name, rpcURL, symbol, explorerURL } = network;
+    setValue('name', name || '');
+    setValue('symbol', symbol);
+    setValue('rpcURL', rpcURL);
+    setValue('explorerURL', explorerURL);
+  }, [network, setValue]);
+
+  useEffect(() => {
+    if (!url && !URITester.test(url)) {
+      return;
+    }
+    setRpcUrlStatus((prev) => ({ ...prev, connected: false, loading: true }));
+    serviceNetwork
+      .preAddNetwork(url)
+      .then(({ chainId, existingNetwork }) => {
+        setValue('chainId', chainId);
+        if (existingNetwork && mode !== 'edit') {
           setRpcUrlStatus({
             loading: false,
-            connected: false,
-            error: intl.formatMessage({ id: 'form__rpc_fetched_failed' }),
+            connected: true,
+            error: intl.formatMessage(
+              { id: 'form__rpc_url_invalid_exist' },
+              { name: existingNetwork.name },
+            ),
           });
-        })
-        .finally(() => {
-          trigger('rpcURL');
+          return;
+        }
+        setRpcUrlStatus({ connected: true, loading: false });
+      })
+      .catch(() => {
+        setRpcUrlStatus({
+          loading: false,
+          connected: false,
+          error: intl.formatMessage({ id: 'form__rpc_fetched_failed' }),
         });
-    }
-  }, [url, intl, setValue, setError, serviceNetwork, trigger]);
+      })
+      .finally(() => {
+        trigger('rpcURL');
+      });
+  }, [url, intl, setValue, setError, serviceNetwork, trigger, mode]);
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
-      await serviceNetwork.addNetwork('evm', {
+      const params = {
         name: data.name,
         rpcURL: data.rpcURL,
         symbol: data.symbol,
         explorerURL: data.explorerURL,
-      });
-      toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
-      navigation.goBack();
+        logoURI: route.params?.network?.logoURI,
+      };
+      if (network?.id) {
+        await serviceNetwork.updateNetwork(network.id, params);
+        toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+      } else {
+        await serviceNetwork.addNetwork('evm', params);
+        toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
+      }
+      navigation.navigate(ManageNetworkRoutes.Listing);
     },
-    [toast, intl, serviceNetwork, navigation],
+    [toast, intl, serviceNetwork, navigation, route, network?.id],
   );
+
+  const toQuickAddPage = useCallback(() => {
+    navigation.navigate(ManageNetworkRoutes.QuickAdd);
+  }, [navigation]);
+
+  const deleteNetwork = useCallback(() => {
+    if (!network?.id) {
+      return;
+    }
+    serviceNetwork.deleteNetwork(network?.id).then(() => {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
+    });
+  }, [navigation, network, serviceNetwork]);
+
+  const quickAddButton = useMemo(() => {
+    if (mode === 'add' && network) {
+      return null;
+    }
+    if (mode === 'edit' && network?.id) {
+      return null;
+    }
+    return (
+      <>
+        <Pressable
+          flex="1"
+          alignItems="center"
+          w="full"
+          bg="surface-default"
+          borderWidth="1"
+          borderRadius="12px"
+          borderColor="border-subdued"
+          flexDirection="row"
+          px="3"
+          py="2"
+          onPress={toQuickAddPage}
+        >
+          <Icon name="LightningBoltOutline" size={24} />
+          <Typography.Body1Strong flex="1" ml="4">
+            {intl.formatMessage({ id: 'action__quick_add' })}
+          </Typography.Body1Strong>
+          <Icon name="ChevronRightSolid" size={20} />
+        </Pressable>
+        <Divider my="6" />
+      </>
+    );
+  }, [intl, mode, network, toQuickAddPage]);
 
   return (
     <>
       <Modal
-        header={intl.formatMessage({ id: 'action__add_network' })}
+        header={intl.formatMessage({ id: 'action__add_custom_chain' })}
         hidePrimaryAction
         secondaryActionTranslationId="action__save"
         secondaryActionProps={{
@@ -141,148 +229,161 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
         scrollViewProps={{
           children: (
             <KeyboardDismissView flexDirection="row" justifyContent="center">
-              <Form>
-                <Form.Item
-                  name="name"
-                  label={intl.formatMessage({
-                    id: 'form__network_name',
-                    defaultMessage: 'Network Name',
-                  })}
-                  control={control}
-                  rules={{
-                    required: {
-                      value: true,
-                      message: intl.formatMessage({
-                        id: 'form__field_is_required',
-                      }),
-                    },
-                    validate: (value) => {
-                      if (!value?.trim()) {
-                        return intl.formatMessage({
+              <VStack w="full">
+                {quickAddButton}
+                <Form>
+                  <Form.Item
+                    name="name"
+                    label={intl.formatMessage({
+                      id: 'form__network_name',
+                      defaultMessage: 'Network Name',
+                    })}
+                    control={control}
+                    rules={{
+                      required: {
+                        value: true,
+                        message: intl.formatMessage({
                           id: 'form__field_is_required',
-                        });
-                      }
-                    },
-                    maxLength: {
-                      value: 30,
-                      message: intl.formatMessage({
-                        id: 'form__network_name_invalid',
-                      }),
-                    },
-                  }}
-                >
-                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
-                </Form.Item>
-                <Form.Item
-                  name="rpcURL"
-                  control={control}
-                  label={intl.formatMessage({
-                    id: 'form__rpc_url',
-                    defaultMessage: 'RPC URL',
-                  })}
-                  helpText={hintText}
-                  formControlProps={{ zIndex: 10 }}
-                  rules={{
-                    required: {
-                      value: true,
-                      message: intl.formatMessage({
-                        id: 'form__field_is_required',
-                      }),
-                    },
-                    pattern: {
-                      value: /^https?:\/\//,
-                      message: intl.formatMessage({
-                        id: 'form__rpc_url_wrong_format',
-                      }),
-                    },
-                    maxLength: {
-                      value: 100,
-                      message: intl.formatMessage(
-                        { id: 'form__validator_max_length' },
-                        { value: 100 },
-                      ),
-                    },
-                    validate: () => rpcUrlStatus.error,
-                  }}
-                >
-                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
-                </Form.Item>
-                <Form.Item
-                  name="chainId"
-                  control={control}
-                  label={intl.formatMessage({
-                    id: 'form__chain_id',
-                    defaultMessage: 'Chain ID',
-                  })}
-                >
-                  <Form.Input
-                    isDisabled
-                    size={isSmallScreen ? 'xl' : 'default'}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="symbol"
-                  label={intl.formatMessage({
-                    id: 'form__symbol',
-                    defaultMessage: 'Symbol',
-                  })}
-                  labelAddon={
-                    <Typography.Body2 color="text-subdued">
-                      {intl.formatMessage({
-                        id: 'form__hint_optional',
-                        defaultMessage: 'Optional',
-                      })}
-                    </Typography.Body2>
-                  }
-                  control={control}
-                  rules={{
-                    maxLength: {
-                      value: 15,
-                      message: intl.formatMessage({
-                        id: 'form__symbol_invalid',
-                      }),
-                    },
-                  }}
-                >
-                  <Form.Input
-                    size={isSmallScreen ? 'xl' : 'default'}
-                    placeholder="ETH"
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="explorerURL"
-                  label={intl.formatMessage({
-                    id: 'form__blockchain_explorer_url',
-                    defaultMessage: 'Blockchain Explore URL',
-                  })}
-                  labelAddon={
-                    <Typography.Body2 color="text-subdued">
-                      {intl.formatMessage({
-                        id: 'form__hint_optional',
-                        defaultMessage: 'Optional',
-                      })}
-                    </Typography.Body2>
-                  }
-                  control={control}
-                  rules={{
-                    pattern: {
-                      value: /https?:\/\//,
-                      message: intl.formatMessage({
-                        id: 'form__blockchain_explorer_url_invalid',
-                      }),
-                    },
-                    maxLength: {
-                      value: 100,
-                      message: intl.formatMessage(
-                        { id: 'form__validator_max_length' },
-                        { value: 100 },
-                      ),
-                    },
-                  }}
-                >
-                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
-                </Form.Item>
-              </Form>
+                        }),
+                      },
+                      validate: (value) => {
+                        if (!value?.trim()) {
+                          return intl.formatMessage({
+                            id: 'form__field_is_required',
+                          });
+                        }
+                      },
+                      maxLength: {
+                        value: 30,
+                        message: intl.formatMessage({
+                          id: 'form__network_name_invalid',
+                        }),
+                      },
+                    }}
+                  >
+                    <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
+                  </Form.Item>
+                  <Form.Item
+                    name="rpcURL"
+                    control={control}
+                    label={intl.formatMessage({
+                      id: 'form__rpc_url',
+                      defaultMessage: 'RPC URL',
+                    })}
+                    helpText={hintText}
+                    formControlProps={{ zIndex: 10 }}
+                    rules={{
+                      required: {
+                        value: true,
+                        message: intl.formatMessage({
+                          id: 'form__field_is_required',
+                        }),
+                      },
+                      pattern: {
+                        value: /^https?:\/\//,
+                        message: intl.formatMessage({
+                          id: 'form__rpc_url_wrong_format',
+                        }),
+                      },
+                      maxLength: {
+                        value: 100,
+                        message: intl.formatMessage(
+                          { id: 'form__validator_max_length' },
+                          { value: 100 },
+                        ),
+                      },
+                      validate: () => rpcUrlStatus.error,
+                    }}
+                  >
+                    <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
+                  </Form.Item>
+                  <Form.Item
+                    name="chainId"
+                    control={control}
+                    label={intl.formatMessage({
+                      id: 'form__chain_id',
+                      defaultMessage: 'Chain ID',
+                    })}
+                  >
+                    <Form.Input
+                      isDisabled
+                      size={isSmallScreen ? 'xl' : 'default'}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="symbol"
+                    label={intl.formatMessage({
+                      id: 'form__symbol',
+                      defaultMessage: 'Symbol',
+                    })}
+                    labelAddon={
+                      <Typography.Body2 color="text-subdued">
+                        {intl.formatMessage({
+                          id: 'form__hint_optional',
+                          defaultMessage: 'Optional',
+                        })}
+                      </Typography.Body2>
+                    }
+                    control={control}
+                    rules={{
+                      maxLength: {
+                        value: 15,
+                        message: intl.formatMessage({
+                          id: 'form__symbol_invalid',
+                        }),
+                      },
+                    }}
+                  >
+                    <Form.Input
+                      size={isSmallScreen ? 'xl' : 'default'}
+                      placeholder="ETH"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="explorerURL"
+                    label={intl.formatMessage({
+                      id: 'form__blockchain_explorer_url',
+                      defaultMessage: 'Blockchain Explore URL',
+                    })}
+                    labelAddon={
+                      <Typography.Body2 color="text-subdued">
+                        {intl.formatMessage({
+                          id: 'form__hint_optional',
+                          defaultMessage: 'Optional',
+                        })}
+                      </Typography.Body2>
+                    }
+                    control={control}
+                    rules={{
+                      pattern: {
+                        value: /https?:\/\//,
+                        message: intl.formatMessage({
+                          id: 'form__blockchain_explorer_url_invalid',
+                        }),
+                      },
+                      maxLength: {
+                        value: 100,
+                        message: intl.formatMessage(
+                          { id: 'form__validator_max_length' },
+                          { value: 100 },
+                        ),
+                      },
+                    }}
+                  >
+                    <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
+                  </Form.Item>
+                </Form>
+                {mode === 'edit' && network?.id ? (
+                  <IconButton
+                    name="TrashSolid"
+                    mt={6}
+                    type="outline"
+                    onPress={deleteNetwork}
+                  >
+                    {intl.formatMessage({ id: 'action__remove' })}
+                  </IconButton>
+                ) : null}
+              </VStack>
             </KeyboardDismissView>
           ),
         }}

@@ -1,5 +1,6 @@
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
+import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
 import {
   AddNetworkParams,
   Network,
@@ -155,6 +156,19 @@ class ServiceNetwork extends ServiceBase {
       return networks[0]?.id ?? null;
     }
     return previousActiveNetworkId;
+  }
+
+  @backgroundMethod()
+  getCustomRpcUrls(networkId: string) {
+    const { appSelector } = this.backgroundApi;
+    return Promise.resolve(
+      appSelector((s) => s.settings.customNetworkRpcMap?.[networkId] || []),
+    );
+  }
+
+  @backgroundMethod()
+  fetchChainList(params: { query: string; showTestNet: boolean }) {
+    return fetchChainList(params);
   }
 }
 

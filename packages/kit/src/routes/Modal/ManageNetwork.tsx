@@ -4,7 +4,9 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import { AddNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/AddNetwork';
 import { CustomNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/CustomNetwork';
 import { Listing } from '@onekeyhq/kit/src/views/ManageNetworks/Listing';
+import { SortableView } from '@onekeyhq/kit/src/views/ManageNetworks/Listing/SortableView';
 import { PresetNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/PresetNetwork';
+import { ManageNetworkRPCNode } from '@onekeyhq/kit/src/views/ManageNetworks/RPCNode';
 import {
   ManageNetworkRoutes,
   ManageNetworkRoutesParams,
@@ -12,6 +14,7 @@ import {
 
 import { NetworkAccountSelectorModal } from '../../components/NetworkAccountSelector';
 import { AddNetworkConfirm } from '../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
+import { ManageNetworkQuickAdd } from '../../views/ManageNetworks/QuickAdd';
 import { SwitchNetwork } from '../../views/ManageNetworks/SwitchNetwork';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
@@ -48,6 +51,18 @@ const modalRoutes = [
   {
     name: ManageNetworkRoutes.SwitchNetwork,
     component: SwitchNetwork,
+  },
+  {
+    name: ManageNetworkRoutes.RPCNode,
+    component: ManageNetworkRPCNode,
+  },
+  {
+    name: ManageNetworkRoutes.QuickAdd,
+    component: ManageNetworkQuickAdd,
+  },
+  {
+    name: ManageNetworkRoutes.Sort,
+    component: SortableView,
   },
 ];
 

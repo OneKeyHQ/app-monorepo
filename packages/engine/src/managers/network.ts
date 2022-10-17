@@ -1,6 +1,8 @@
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM, IMPL_STC, SEPERATOR } from '../constants';
+import { getFiatEndpoint } from '../endpoint';
 import { getPresetNetworks, networkIsPreset } from '../presets';
 import {
   AddEVMNetworkParams,
@@ -12,6 +14,37 @@ import { IVaultSettings } from '../vaults/types';
 
 import { getAccountNameInfoByImpl, implToCoinTypes } from './impl';
 
+export type ChainListConfig = {
+  name?: string;
+  title?: string;
+  network?: string;
+  chain: string;
+  icon: string;
+  rpc: string[];
+
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+  infoURL: string;
+  shortName: string;
+  chainId: number;
+  networkId: number;
+  slip44: number;
+  ens: {
+    registry: string;
+  };
+  explorers: {
+    name: string;
+    url: string;
+    standard: string;
+  }[];
+  tvl: number;
+  chainSlug: string;
+  logoURI: string;
+};
+
 function getEVMNetworkToCreate(
   id: string,
   params: AddEVMNetworkParams,
@@ -21,7 +54,7 @@ function getEVMNetworkToCreate(
     name: params.name || id,
     impl: IMPL_EVM,
     symbol: params.symbol || 'ETH',
-    logoURI: '',
+    logoURI: params.logoURI ?? '',
     enabled: true,
     feeSymbol: 'Gwei',
     decimals: 18,
@@ -175,6 +208,20 @@ function generateNetworkIdByChainId({
   const chainIdNum = new BigNumber(chainId).toNumber();
   return `${impl}${SEPERATOR}${chainIdNum}`;
 }
+
+export const fetchChainList = async (params: {
+  query: string;
+  showTestNet: boolean;
+}) => {
+  const endpoint = getFiatEndpoint();
+  const { query, showTestNet } = params;
+  const { data } = await axios.get<ChainListConfig[]>(
+    `${endpoint}/network/chainlist?query=${query}&showTestNet=${Number(
+      showTestNet,
+    )}`,
+  );
+  return data;
+};
 
 export {
   getNetworkImpl,

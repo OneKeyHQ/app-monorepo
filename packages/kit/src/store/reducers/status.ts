@@ -9,6 +9,7 @@ type StatusState = {
   homeTabName?: string | number;
   swapPopoverShown?: boolean;
   guideToPushFirstTime?: boolean;
+  firstTimeShowCheckRPCNodeTooltip?: boolean;
 };
 
 const initialState: StatusState = {
@@ -19,6 +20,7 @@ const initialState: StatusState = {
   homeTabName: undefined,
   swapPopoverShown: false,
   guideToPushFirstTime: false,
+  firstTimeShowCheckRPCNodeTooltip: false,
 };
 
 export const slice = createSlice({
@@ -55,6 +57,12 @@ export const slice = createSlice({
     setGuideToPushFistTime: (state, action: PayloadAction<boolean>) => {
       state.guideToPushFirstTime = action.payload;
     },
+    setFistTimeShowCheckRPCNodeTooltip: (
+      state,
+      action: PayloadAction<boolean>,
+    ) => {
+      state.firstTimeShowCheckRPCNodeTooltip = action.payload;
+    },
   },
 });
 
@@ -68,6 +76,7 @@ export const {
   setHomeTabName,
   setSwapPopoverShown,
   setGuideToPushFistTime,
+  setFistTimeShowCheckRPCNodeTooltip,
 } = slice.actions;
 
 export default slice.reducer;

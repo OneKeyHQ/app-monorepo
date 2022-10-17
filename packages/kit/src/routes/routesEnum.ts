@@ -109,6 +109,10 @@ export enum ManageNetworkRoutes {
   PresetNetwork = 'PresetNetwork',
   AddNetworkConfirm = 'AddNetworkConfirm',
   SwitchNetwork = 'SwitchNetwork',
+
+  RPCNode = 'RPCNode',
+  QuickAdd = 'QuickAdd',
+  Sort = 'Sort',
 }
 
 export enum CreateWalletModalRoutes {

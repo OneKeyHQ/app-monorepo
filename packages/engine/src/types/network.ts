@@ -73,6 +73,7 @@ type AddEVMNetworkParams = {
   symbol?: string;
   rpcURL: string;
   explorerURL?: string;
+  logoURI?: string;
 };
 
 type AddNetworkParams = AddEVMNetworkParams;
@@ -82,6 +83,7 @@ type UpdateEVMNetworkParams = {
   symbol?: string;
   rpcURL?: string;
   explorerURL?: string;
+  logoURI?: string;
 };
 
 type UpdateNetworkParams = UpdateEVMNetworkParams;

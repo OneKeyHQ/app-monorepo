@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Box,
   HStack,
   Icon,
   Pressable,
@@ -13,6 +14,9 @@ import {
 
 import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 import { EAccountSelectorMode } from '../../store/reducers/reducerAccountSelector';
+import { useRpcMeasureStatus } from '../../views/ManageNetworks/hooks';
+
+import Speedindicator from './NetworkAccountSelectorModal/SpeedIndicator';
 
 type NetworkAccountSelectorTriggerProps = {
   size?: 'sm' | 'lg' | string;
@@ -33,6 +37,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   // TODO different options of scene
   const { network, account, wallet } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
+  const { status: rpcStatus } = useRpcMeasureStatus(network?.id ?? '');
   const intl = useIntl();
   const activeOption = useMemo(
     () => ({
@@ -94,10 +99,21 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
               borderColor="border-default"
             >
               <HStack space={size === 'sm' ? 2 : 3} alignItems="center">
-                <Token
-                  size={size === 'sm' ? 5 : 7}
-                  {...activeOption.tokenProps}
-                />
+                <Box position="relative">
+                  <Token
+                    size={size === 'sm' ? 5 : 7}
+                    {...activeOption.tokenProps}
+                  />
+                  {rpcStatus && (
+                    <Speedindicator
+                      position="absolute"
+                      top={size === 'sm' ? '-4px' : '-2px'}
+                      right={size === 'sm' ? '-4px' : '-2px'}
+                      size="10px"
+                      backgroundColor={rpcStatus?.color}
+                    />
+                  )}
+                </Box>
                 <Typography.Body2Strong isTruncated maxW="120px">
                   {activeOption.label}
                 </Typography.Body2Strong>

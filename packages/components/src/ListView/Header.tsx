@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import { FC } from 'react';
+import { FC, isValidElement } from 'react';
 
 import { Box, HStack, Pressable, Text } from '@onekeyhq/components';
 
@@ -15,29 +15,36 @@ const Header: FC<HeaderProps> = ({ title, actions }) => (
     </Text>
     {actions?.length ? (
       <HStack space={6}>
-        {actions.map((item) => (
-          <Pressable onPress={item.onPress} hitSlop={8}>
-            {({ isHovered, isPressed }) => (
-              <Box m={-2}>
-                <Box
-                  p={2}
-                  rounded="xl"
-                  bgColor={
-                    isPressed
-                      ? 'surface-pressed'
-                      : isHovered
-                      ? 'surface-hovered'
-                      : undefined
-                  }
-                >
-                  <Text typography="Body1Strong" color="text-subdued">
-                    {item.label}
-                  </Text>
+        {actions.map((item) => {
+          const label = isValidElement(item.label) ? (
+            item.label
+          ) : (
+            <Text typography="Body1Strong" color="text-subdued">
+              {item.label}
+            </Text>
+          );
+          return (
+            <Pressable onPress={item.onPress} hitSlop={8}>
+              {({ isHovered, isPressed }) => (
+                <Box m={-2}>
+                  <Box
+                    p={2}
+                    rounded="xl"
+                    bgColor={
+                      isPressed
+                        ? 'surface-pressed'
+                        : isHovered
+                        ? 'surface-hovered'
+                        : undefined
+                    }
+                  >
+                    {label}
+                  </Box>
                 </Box>
-              </Box>
-            )}
-          </Pressable>
-        ))}
+              )}
+            </Pressable>
+          );
+        })}
       </HStack>
     ) : null}
   </HStack>
