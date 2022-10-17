@@ -15,6 +15,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
@@ -61,6 +62,22 @@ function Header({
       networkId: selectedNetwork?.id || '',
     });
   }, [navigation, selectedNetwork]);
+
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      // FocusEffect has a delay for Native Stack
+      // so need to close the overlay immediately in transitionStart
+      const onTransitionStart = navigation.addListener(
+        'transitionStart',
+        (e) => {
+          if (e.data.closing) {
+            setIsOpen(false);
+          }
+        },
+      );
+      return onTransitionStart;
+    }
+  }, [navigation]);
 
   useFocusEffect(
     React.useCallback(() => {
