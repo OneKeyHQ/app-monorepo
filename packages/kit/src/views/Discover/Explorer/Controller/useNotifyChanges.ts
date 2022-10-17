@@ -20,22 +20,20 @@ const notifyChanges = (url: string) => {
 export const useNotifyChanges = () => {
   const isFocused = useIsFocused();
   const navigation = useNavigation();
+  let isFocusedInDiscoverTab = false;
+  if (!isFocused) {
+    let tabNav = navigation;
+    if (tabNav.getState().type !== 'tab') {
+      tabNav = navigation.getParent();
+    }
+    const { routeNames, index: navIndex } = tabNav.getState();
+    isFocusedInDiscoverTab = (routeNames[navIndex] as string) === 'discover';
+  }
 
   const tab = useWebTab();
   useEffect(() => {
-    if (!tab) {
+    if (!tab || !isFocusedInDiscoverTab) {
       return;
-    }
-    if (!isFocused) {
-      let tabNav = navigation;
-      if (tabNav.getState().type !== 'tab') {
-        tabNav = navigation.getParent();
-      }
-      const { routeNames, index: navIndex } = tabNav.getState();
-      const isInDiscoverTab = (routeNames[navIndex] as string) === 'discover';
-      if (!isInDiscoverTab) {
-        return;
-      }
     }
     const ref = webviewRefs[tab.id];
     if (!ref) {
@@ -70,5 +68,5 @@ export const useNotifyChanges = () => {
         };
       }
     }
-  }, [tab, isFocused, navigation]);
+  }, [tab, navigation, isFocusedInDiscoverTab]);
 };
