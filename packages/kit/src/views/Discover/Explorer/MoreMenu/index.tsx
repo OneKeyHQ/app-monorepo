@@ -6,7 +6,7 @@ import { Box, Select, useToast } from '@onekeyhq/components';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useWebController } from '../Controller/useWebController';
+import { useWebTab } from '../Controller/useWebTabs';
 
 export type MoreViewProps = {
   visible: boolean;
@@ -34,7 +34,7 @@ const MoreView: FC<MoreViewProps> = ({
     null,
   );
 
-  const { currentTab } = useWebController();
+  const currentTab = useWebTab();
 
   useEffect(() => {
     function main() {

@@ -14,7 +14,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import { useWebController } from '../Controller/useWebController';
+import { useWebTab } from '../Controller/useWebTabs';
 import { ExplorerViewProps, MatchDAppItemType } from '../explorerUtils';
 
 type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
@@ -29,7 +29,7 @@ const Mobile: FC<ExplorerViewProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { currentTab } = useWebController();
+  const currentTab = useWebTab();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const url: string = currentTab?.url || '';
   const [searchText, setSearchText] = useState(url);
