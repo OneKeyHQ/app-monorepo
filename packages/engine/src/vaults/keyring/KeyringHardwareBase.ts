@@ -2,8 +2,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { KeyringBase } from './KeyringBase';
 import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
+
+import { KeyringBase } from './KeyringBase';
 
 export type WalletPassphraseState = {
   passphraseState?: string;
@@ -26,7 +27,9 @@ export abstract class KeyringHardwareBase extends KeyringBase {
   }
 
   async getHardwareSDKInstance() {
-    const sdk = await backgroundApiProxy.serviceHardware.getSDKInstance();
+    const sdk =
+      // @ts-ignore
+      await backgroundApiProxy?.backgroundApi?.serviceHardware.getSDKInstance();
     return sdk ?? HardwareSDK;
   }
 }

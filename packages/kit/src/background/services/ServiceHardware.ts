@@ -62,7 +62,6 @@ class ServiceHardware extends ServiceBase {
 
   featursCache: Record<string, IOneKeyDeviceFeatures> = {};
 
-  @backgroundMethod()
   async getSDKInstance() {
     return getHardwareSDKInstance().then((instance) => {
       if (!this.registeredEvents) {
