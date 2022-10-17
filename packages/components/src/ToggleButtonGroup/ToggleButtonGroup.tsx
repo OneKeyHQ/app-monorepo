@@ -52,7 +52,7 @@ const ToggleButton: FC<
   onLayout,
 }) => {
   const isVertical = useIsVerticalLayout();
-  const iconSize = 0;
+  const iconSize = leftIconSize || (isVertical ? '16px' : '20px');
   return (
     <Pressable
       _hover={{

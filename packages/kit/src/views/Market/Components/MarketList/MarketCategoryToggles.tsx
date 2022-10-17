@@ -53,6 +53,7 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
     <Box>
       <Box flex={1} width="full">
         <ToggleButtonGroup
+          leftIconSize={0}
           buttons={buttons}
           selectedIndex={toggleIndex}
           onButtonPress={toggleCategory}
