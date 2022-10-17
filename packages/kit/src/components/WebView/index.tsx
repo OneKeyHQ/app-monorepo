@@ -46,46 +46,6 @@ function WebView({
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
 }): JSX.Element {
-  // TODO some dapps will call method when Dapp Modal opened, and isFocused will be false
-  //    https://app.1inch.io/#/1/swap/ETH/DAI
-  // const isFocused = useIsFocused();
-  const isFocused = true; // TODO webview isFocused or Dapp Modal isFocused
-
-  const { jsBridge, setWebViewRef } = useWebViewBridge();
-
-  useEffect(() => {
-    if (jsBridge) {
-      // only enable message for current focused webview
-      jsBridge.globalOnMessageEnabled = isFocused;
-    }
-    if (!jsBridge || !isFocused) {
-      return;
-    }
-    debugLogger.webview.info('webview isFocused and connectBridge', src);
-    // connect background jsBridge
-    backgroundApiProxy.connectBridge(jsBridge);
-
-    // Native App needs notify immediately
-    if (platformEnv.isNative) {
-      debugLogger.webview.info('webview notify changed events1', src);
-      backgroundApiProxy.serviceAccount.notifyAccountsChanged();
-      backgroundApiProxy.serviceNetwork.notifyChainChanged();
-    }
-
-    // TODO use webview dom-ready event: https://github.com/electron/electron/blob/main/docs/api/webview-tag.md#methods
-    // Desktop needs timeout wait for webview DOM ready
-    //  FIX: Error: The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called.
-    const timer = setTimeout(() => {
-      debugLogger.webview.info('webview notify changed events2', src);
-      backgroundApiProxy.serviceAccount.notifyAccountsChanged();
-      backgroundApiProxy.serviceNetwork.notifyChainChanged();
-    }, 1500);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [jsBridge, isFocused, src]);
-
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
@@ -116,7 +76,6 @@ function WebView({
         <InpageProviderWebView
           ref={(ref: IWebViewWrapperRef | null) => {
             if (ref) {
-              setWebViewRef(ref);
               onWebViewRef?.(ref);
             }
           }}

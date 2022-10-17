@@ -1,4 +1,6 @@
-import { useAppSelector } from './redux';
+import { useMemo } from 'react';
+
+import { useAppSelector } from '../../../../hooks';
 
 export const useWebTabs = () => useAppSelector((s) => s.webTabs.tabs);
 
@@ -8,5 +10,5 @@ export const useCurrentTabId = () =>
 export const useWebTab = (id?: string) => {
   const { tabs, currentTabId } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
-  return tabs.find((tab) => tab.id === curId);
+  return useMemo(() => tabs.find((tab) => tab.id === curId), [curId, tabs]);
 };
