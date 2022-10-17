@@ -48,7 +48,7 @@ const TabNavigator = () => {
           navigationRef.current?.navigate(TabRoutes.Swap);
         },
         tabBarLabel: intl.formatMessage({ id: 'title__swap' }),
-        tabBarIcon: () => 'SwitchHorizontalOutline',
+        tabBarIcon: () => 'SwitchHorizontalSolid',
         description: intl.formatMessage({
           id: 'content__exchange_any_tokens',
         }),
@@ -64,7 +64,7 @@ const TabNavigator = () => {
           navigationRef.current?.navigate(TabRoutes.Market);
         },
         tabBarLabel: intl.formatMessage({ id: 'title__market' }),
-        tabBarIcon: () => 'SwitchHorizontalOutline',
+        tabBarIcon: () => 'ChartSquareLineOutline',
         description: intl.formatMessage({
           id: 'content__exchange_any_tokens',
         }),
@@ -142,23 +142,24 @@ const TabNavigator = () => {
     [accountId, activeNetwork?.id, intl, networkId, wallet?.type],
   );
 
-  const tabRoutesList = useMemo(
-    () =>
-      tabRoutes.map((tab) => (
-        <Tab.Screen
-          key={tab.name}
-          name={tab.name}
-          component={
-            isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
-          }
-          options={{
-            tabBarIcon: tab.tabBarIcon,
-            tabBarLabel: intl.formatMessage({ id: tab.translationId }),
-          }}
-        />
-      )),
-    [intl, isVerticalLayout],
-  );
+  const tabRoutesList = useMemo(() => {
+    let tabs = tabRoutes;
+    if (isVerticalLayout)
+      tabs = tabRoutes.filter((t) => t.name !== TabRoutes.Swap);
+    return tabs.map((tab) => (
+      <Tab.Screen
+        key={tab.name}
+        name={tab.name}
+        component={
+          isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
+        }
+        options={{
+          tabBarIcon: tab.tabBarIcon,
+          tabBarLabel: intl.formatMessage({ id: tab.translationId }),
+        }}
+      />
+    ));
+  }, [intl, isVerticalLayout]);
 
   return useMemo(
     () => (

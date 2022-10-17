@@ -576,10 +576,13 @@
   "empty__no_wallet_title": "لا توجد محفظة",
   "empty__not_supported": "غير مدعوم",
   "empty__not_supported_desc": "هذه الشبكة لا تدعم NFT حتى الآن",
+  "form__24h%_uppercase": "24 ساعة",
   "form__24h_high": "24 ساعة عالية",
   "form__24h_low": "24 ساعة منخفضة",
   "form__24h_volume": "حجم 24H",
   "form__24h_volume_uppercase": "حجم 24 ساعة",
+  "form__7d_high": "7d عالية",
+  "form__7d_low": "7d منخفض",
   "form___7d_volume": "حجم 7D",
   "form__about_uppercase": "حول",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
@@ -608,6 +611,8 @@
   "form__address_unspoorted_btc_address": "استيراد عناوين BTC غير مدعوم حاليًا",
   "form__alert_uppercase": "إنذار",
   "form__alerts_uppercase": "التنبيهات",
+  "form__all_time_high": "عالية على الإطلاق",
+  "form__all_time_low": "منخفض طوال الوقت",
   "form__allow_this_site_to_uppercase": "السماح لهذا الموقع بـ:",
   "form__always": "دائماً",
   "form__amount_invalid": "رصيد {0} غير كافٍ",
@@ -671,6 +676,7 @@
   "form__exact_amount_allowance_desc": "احذر من إعطاء الكثير من البدل لأي عقد. قد يؤدي استخدام وضع المبلغ المحدد إلى تقليل المخاطر بشكل كبير. يمكنك تبديله في أي وقت.",
   "form__expand_view": "قم بتوسيع العرض",
   "form__explorer": "إكسبلورر",
+  "form__explorers": "المستكشفون",
   "form__face_id": "معرف الوجه / معرف اللمس",
   "form__favorite_desc": "تقلبات كبيرة في أسعار الأصول المفضلة لديك",
   "form__fee_estimated": "الرسوم (تقديرية)",
@@ -720,6 +726,8 @@
   "form__manage": "يدير",
   "form__manage_threshold": "إدارة العتبة",
   "form__market_cap": "القيمة السوقية",
+  "form__market_cap_dominance": "هيمنة القيمة السوقية",
+  "form__market_cap_rank": "تصنيف القيمة السوقية",
   "form__market_cap_uppercase": "غطاء السوق",
   "form__market_uppercase": "سوق",
   "form__massage_uppercase": "رسالة",
@@ -761,6 +769,7 @@
   "form__password_invalid": "كلمة سر خاطئة.",
   "form__pay": "يدفع",
   "form__payment_address": "عنوان الدفع",
+  "form__performance": "أداء",
   "form__pin_error": "خطأ في رمز PIN. سيتم مسح بيانات هذا الجهاز بعد {0} المزيد من محاولات PIN الفاشلة.",
   "form__please_confirm_on_device": "الرجاء التأكيد على الجهاز ...",
   "form__price_alert": "تنبيه السعر",
@@ -848,6 +857,7 @@
   "form__top_searched": "الأكثر بحثا",
   "form__total_amount_fee": "الإجمالي (المبلغ + الرسوم)",
   "form__trading_time": "وقت التداول",
+  "form__trading_volume": "حجم التداول",
   "form__unconnected_account": "حساب غير متصل",
   "form__unconnected_account_desc": "عند تصفح موقع ويب مع تحديد حساب غير متصل",
   "form__unknown_tokens__uppercase": "رموز غير معروفة",
