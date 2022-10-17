@@ -17,7 +17,6 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 
 import ReceivingTokenInput from './components/ReceivingTokenInput';
 import TokenInput from './components/TokenInput';
-import { enabledNetworkIds } from './config';
 import {
   useDerivedSwapState,
   useSwapQuoteCallback,
@@ -40,11 +39,8 @@ const SwapContent = () => {
   } = useSwapState();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { wallet, network } = useActiveWalletAccount();
-
   const { formattedAmounts } = useDerivedSwapState();
-
-  const isDisabled =
-    !wallet || !network || !enabledNetworkIds.includes(network.id);
+  const isDisabled = !wallet || !network;
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
