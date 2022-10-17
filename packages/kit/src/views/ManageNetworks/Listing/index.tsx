@@ -78,7 +78,7 @@ export const Listing: FC = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'action__add_custom_chain' })}
+      header={intl.formatMessage({ id: 'action__customize_network' })}
       height="560px"
       hideSecondaryAction
       primaryActionProps={{
