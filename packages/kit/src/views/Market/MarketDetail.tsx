@@ -253,22 +253,26 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
               <SwapButton
                 tokenItem={marketTokenItem}
                 onPress={() => {
-                  backgroundApiProxy.serviceSwap.setOutputToken(token);
-                  navigation.navigate(TabRoutes.Swap);
+                  if (token) {
+                    backgroundApiProxy.serviceSwap.setOutputToken(token);
+                    navigation.navigate(TabRoutes.Swap);
+                  }
                 }}
               />
               <StakeButton
                 tokenItem={marketTokenItem}
                 onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.Staking,
-                    params: {
-                      screen: StakingRoutes.StakingAmount,
+                  if (token) {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.Staking,
                       params: {
-                        networkId: token.networkId,
+                        screen: StakingRoutes.StakingAmount,
+                        params: {
+                          networkId: token.networkId,
+                        },
                       },
-                    },
-                  });
+                    });
+                  }
                 }}
               />
               <PurchaseButton
