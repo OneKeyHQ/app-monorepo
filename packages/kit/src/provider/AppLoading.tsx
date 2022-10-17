@@ -14,6 +14,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { fetchCurrencies } from '../views/FiatPay/Service';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
 const AppLoading: FC = ({ children }) => {
