@@ -10,7 +10,7 @@ import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import { IPrepareSoftwareAccountsParams } from '../../types';
 
-import { AddressEncodings } from './types';
+import { getAccountDefaultByPurpose } from './utils';
 
 import type BTCForkVault from './VaultBtcFork';
 
@@ -57,6 +57,10 @@ export class KeyringHd extends KeyringHdBase {
     const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
+    const { addressEncoding } = getAccountDefaultByPurpose(
+      usedPurpose,
+      coinName,
+    );
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
@@ -76,7 +80,8 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
 
-    const { public: xpubVersionBytes } = network.bip32;
+    const { public: xpubVersionBytes } =
+      (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
     const ret = [];
     let index = 0;
@@ -122,7 +127,7 @@ export class KeyringHd extends KeyringHdBase {
 
       const { txs } = (await provider.getAccount(
         { type: 'simple', xpub },
-        AddressEncodings.P2PKH,
+        addressEncoding,
       )) as { txs: number };
       if (txs > 0) {
         index += 1;

@@ -11,7 +11,6 @@ import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
 import {
-  AddressEncodings,
   IBlockBookTransaction,
   IEncodedTxBtc,
   IUTXOInput,
@@ -54,6 +53,7 @@ import { IKeyringMapKey, VaultBase } from '../../VaultBase';
 
 import { Provider } from './provider';
 import { BlockBook } from './provider/blockbook';
+import { getAccountDefaultByPurpose } from './utils';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
@@ -160,9 +160,13 @@ export default class VaultBtcFork extends VaultBase {
 
     if (dbAccount.id.startsWith('hd-')) {
       const purpose = parseInt(dbAccount.path.split('/')[1]);
-      const addressEncoding = AddressEncodings.P2PKH;
+      const { addressEncoding } = getAccountDefaultByPurpose(
+        purpose,
+        this.getCoinName(),
+      );
       const { network } = this.engineProvider as unknown as Provider;
-      const { private: xprvVersionBytes } = network.bip32;
+      const { private: xprvVersionBytes } =
+        (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
       const keyring = this.keyring as KeyringHdBase;
       const [encryptedPrivateKey] = Object.values(

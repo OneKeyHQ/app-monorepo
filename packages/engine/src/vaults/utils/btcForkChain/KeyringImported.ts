@@ -99,7 +99,10 @@ export class KeyringImported extends KeyringImportedBase {
       privateKey.slice(0, 4).toString('hex'),
       16,
     );
-    for (const versionBytes of [network.bip32]) {
+    for (const versionBytes of [
+      ...Object.values(network.segwitVersionBytes || {}),
+      network.bip32,
+    ]) {
       if (versionBytes.private === xprvVersionBytesNum) {
         const publicKey = secp256k1.publicFromPrivate(privateKey.slice(46, 78));
         const pubVersionBytes = Buffer.from(

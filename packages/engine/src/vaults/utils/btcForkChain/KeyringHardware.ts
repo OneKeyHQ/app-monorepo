@@ -17,7 +17,8 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { IGetAddressParams, IPrepareHardwareAccountsParams } from '../../types';
 
 import { Provider } from './provider';
-import { AddressEncodings, TxInput, TxOutput, UTXO } from './types';
+import { TxInput, TxOutput, UTXO } from './types';
+import { getAccountDefaultByPurpose } from './utils';
 
 import type BTCForkVault from './VaultBtcFork';
 import type { Messages } from '@onekeyfe/hd-transport';
@@ -80,6 +81,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
+    const { addressEncoding } = getAccountDefaultByPurpose(
+      usedPurpose,
+      coinName,
+    );
     const provider = (await this.engine.providerManager.getProvider(
       this.networkId,
     )) as unknown as Provider;
@@ -141,7 +146,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
       const { txs } = (await provider.getAccount(
         { type: 'simple', xpub },
-        AddressEncodings.P2PKH,
+        addressEncoding,
       )) as { txs: number };
       if (txs > 0) {
         index += 1;
