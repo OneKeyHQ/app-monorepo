@@ -98,6 +98,7 @@ const Switch: FC<SwitchProps> = ({
           onToggle
             ? () => {
                 if (platformEnv.isNativeAndroid) {
+                  // onToggle();
                   setTimeout(onToggle);
                 } else {
                   onToggle();
