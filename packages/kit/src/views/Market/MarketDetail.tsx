@@ -61,7 +61,7 @@ const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
       <IconButton
         ml={4}
         type="basic"
-        name="BellOffSolid"
+        name="BellSolid"
         size="base"
         circle
         iconColor="icon-default" // get subscribe status
@@ -149,7 +149,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
               justifyContent="space-around"
             >
               <FavoritButton tokenItem={marketTokenItem} />
-              <BellButton tokenItem={marketTokenItem} />
+              {/* <BellButton tokenItem={marketTokenItem} /> */}
             </Box>
           </Box>
           {children}

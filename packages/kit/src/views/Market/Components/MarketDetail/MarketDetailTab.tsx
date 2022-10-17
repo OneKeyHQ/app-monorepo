@@ -28,6 +28,7 @@ import { MarketStatsContent } from './MarketStatsContent';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 import { showMarketDetailActionMoreMenu } from './MarketDetailActionMore';
+import { useIntl } from 'react-intl';
 
 const MarketDetailActionButton = ({
   marketTokenId,
@@ -101,6 +102,11 @@ type MarketDetailTabsProps = {
   tokenDetail?: MarketTokenDetail;
 };
 
+enum MarketDetailTabName {
+  Info = 'info',
+  Stats = 'stats',
+}
+
 const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   marketTokenId,
   tokenDetail,
@@ -110,8 +116,9 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
     'border-subdued',
   ]);
   const [detailTabName, setDetailTabName] = useState<string | number>(
-    () => 'info',
+    () => MarketDetailTabName.Info,
   );
+  const intl = useIntl();
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   return (
@@ -144,7 +151,10 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
       }
       headerHeight={isVerticalLayout ? 90 : 1}
     >
-      <Tabs.Tab name="info">
+      <Tabs.Tab
+        name={MarketDetailTabName.Info}
+        label={intl.formatMessage({ id: 'content__info' })}
+      >
         {!tokenDetail ? (
           <Center w="full" h={200}>
             <Spinner size="lg" />
@@ -163,7 +173,10 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
           />
         )}
       </Tabs.Tab>
-      <Tabs.Tab name="state">
+      <Tabs.Tab
+        name={MarketDetailTabName.Stats}
+        label={intl.formatMessage({ id: 'title__stats' })}
+      >
         {!tokenDetail ? (
           <Center w="full" h={200}>
             <Spinner size="lg" />

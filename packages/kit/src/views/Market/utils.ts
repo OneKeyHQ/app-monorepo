@@ -59,17 +59,18 @@ export function formatMarketValueForInfo(value?: number | string) {
     if (parseValue >= BILLION) {
       return `${formatMarketValueForFiexd(parseValue / BILLION)}B`;
     }
-    if (value >= MILLION) {
+    if (parseValue >= MILLION) {
       return `${formatMarketValueForFiexd(parseValue / MILLION)}M`;
     }
-    if (value >= THOUSAND) {
+    if (parseValue >= THOUSAND) {
       return `${formatMarketValueForFiexd(parseValue / THOUSAND)}K`;
     }
-    if (value >= 1) {
+    if (parseValue >= 1) {
       return formatMarketValueForFiexd(parseValue);
     }
-
-    return value < 0.001 ? 0 : formatMarketValueForFiexd(parseValue, 3);
+    const noRexponentail = parseExponential(parseValue);
+    const effectIndex = noRexponentail.toString().search(/[^.0]/g);
+    return formatMarketValueForFiexd(parseValue, 3 + effectIndex - 2);
   }
   return 0;
 }

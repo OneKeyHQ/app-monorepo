@@ -160,7 +160,9 @@ export const MarketStatsContent: FC<MarketStats> = ({
           </Box>
         </Box>
         <Box>
-          <Typography.Heading mb="3">Stats</Typography.Heading>
+          <Typography.Heading mb="3">
+            {intl.formatMessage({ id: 'title__stats' })}
+          </Typography.Heading>
           <Box>
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__market_cap' })}

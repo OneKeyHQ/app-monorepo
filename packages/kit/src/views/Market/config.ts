@@ -19,7 +19,7 @@ export const ListHeadTagsForSearch: ListHeadTagType[] = [
   },
   {
     id: 4,
-    title: 'form__24h_volume_uppercase',
+    title: 'form__24h%_uppercase',
     minW: '100px',
     textAlign: 'right',
     isVerticalLayout: true,
@@ -49,7 +49,7 @@ export const ListHeadTags: ListHeadTagType[] = [
   },
   {
     id: 4,
-    title: 'form__24h_volume_uppercase',
+    title: 'form__24h%_uppercase',
     minW: '100px',
     textAlign: 'right',
     isVerticalLayout: true,

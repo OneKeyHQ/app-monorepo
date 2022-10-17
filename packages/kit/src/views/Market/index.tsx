@@ -1,14 +1,13 @@
-import React, { useMemo,useCallback } from 'react';
+import React, { useMemo } from 'react';
 
 import { Box } from '@onekeyhq/components/src';
+
 import { MARKET_TAB_NAME, SWAP_TAB_NAME } from '../../store/reducers/market';
+import Swap from '../Swap';
 
 import MarketHeader from './Components/MarketList/MarketTopHeader';
 import { useMarketTopTabName } from './hooks/useMarketList';
-
 import MarketList from './MarketList';
-
-import Swap from '../Swap';
 
 const Market = () => {
   const marketTopTabName = useMarketTopTabName();

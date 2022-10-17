@@ -67,7 +67,10 @@ const MarketSearch: FC<{
     if (searchKeyword && searchKeyword.length > 0) {
       return (
         <Box mt="3">
-          <Typography.Subheading mb="3">Search Results</Typography.Subheading>
+          <Typography.Subheading mb="3">
+            {' '}
+            {intl.formatMessage({ id: 'form__search_results_uppercase' })}
+          </Typography.Subheading>
           {searchTokens ? (
             <MarketSearchList data={searchTokens} onPress={onTokenPress} />
           ) : (
@@ -83,7 +86,9 @@ const MarketSearch: FC<{
         {searchCategorys && searchCategorys.length > 0 ? (
           <Box>
             <Box flexDirection="row" justifyContent="space-between" mb={1}>
-              <Typography.Subheading>RECENT SEARCHED</Typography.Subheading>
+              <Typography.Subheading>
+                {intl.formatMessage({ id: 'form__recent_searched_uppercase' })}
+              </Typography.Subheading>
               {searchHistory && searchHistory.length > 0 ? (
                 <Button
                   type="plain"
