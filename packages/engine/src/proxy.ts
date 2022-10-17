@@ -36,6 +36,8 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import { BtcForkImpl } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider';
+
 import {
   IMPL_ALGO,
   IMPL_BTC,
@@ -60,8 +62,6 @@ import {
 import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
-import { BtcForkImpl } from './vaults/impl/doge/btcForkChainUtils';
-import { Provider as BTCForkProvider } from './vaults/impl/doge/btcForkChainUtils/provider';
 
 // IMPL naming aren't necessarily the same.
 export const IMPL_MAPPINGS: Record<

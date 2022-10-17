@@ -1,6 +1,6 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 
-import { AddressEncodings } from './types';
+import { AddressEncodings } from '../types';
 
 export interface Network extends BitcoinJS.Network {
   // Extends the network interface to support:

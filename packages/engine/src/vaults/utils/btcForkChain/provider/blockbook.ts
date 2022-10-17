@@ -4,9 +4,11 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { TransactionStatus } from './types';
-
-import type { ChainInfo, IBtcUTXO } from './types';
+import { TransactionStatus } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import type {
+  ChainInfo,
+  IBtcUTXO,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 const BTC_PER_KBYTES_TO_SAT_PER_BYTE = 10 ** 5;
 

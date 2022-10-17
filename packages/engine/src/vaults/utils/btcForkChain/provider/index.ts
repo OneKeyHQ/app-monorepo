@@ -7,3 +7,5 @@ export const BtcForkImpl = {
     BlockBook,
   },
 };
+
+export { Provider, BlockBook };
