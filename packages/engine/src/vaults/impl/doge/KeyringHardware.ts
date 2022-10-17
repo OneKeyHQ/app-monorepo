@@ -1,10 +1,18 @@
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { RefTransaction, getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_DOGE as COIN_TYPE } from '../../../constants';
-import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '../../../errors';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { IGetAddressParams, IPrepareHardwareAccountsParams } from '../../types';
@@ -17,13 +25,57 @@ import {
   UTXO,
 } from './btcForkChainUtils/types';
 
+import type BTCForkVault from './Vault';
 import type { Messages } from '@onekeyfe/hd-transport';
 
 const DEFAULT_PURPOSE = '44';
 const COIN_NAME = 'DOGE';
 
-// @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {
+  override async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+    const addresses = unsignedTx.inputs.map((input) => input.address);
+    const utxos = await (this.vault as unknown as BTCForkVault).collectUTXOs();
+
+    const signers: Record<string, string> = {};
+    for (const utxo of utxos) {
+      const { address, path } = utxo;
+      if (addresses.includes(address)) {
+        signers[address] = path;
+      }
+    }
+
+    const provider = (await this.engine.providerManager.getProvider(
+      this.networkId,
+    )) as unknown as Provider;
+
+    const { inputs, outputs } = unsignedTx;
+    const prevTxids = Array.from(
+      new Set(inputs.map((i) => (i.utxo as UTXO).txid)),
+    );
+    const prevTxs = await provider.collectTxs(prevTxids);
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    await this.getHardwareSDKInstance();
+
+    const response = await HardwareSDK.btcSignTransaction(connectId, deviceId, {
+      // useEmptyPassphrase: true,
+      coin: 'doge',
+      inputs: inputs.map((i) => this.buildHardwareInput(i, signers[i.address])),
+      outputs: outputs.map((o) => this.buildHardwareOutput(o)),
+      refTxs: Object.values(prevTxs).map((i) => this.buildPrevTx(i)),
+      ...passphraseState,
+    });
+
+    if (response.success) {
+      const { serializedTx } = response.payload;
+      const tx = BitcoinJS.Transaction.fromHex(serializedTx);
+
+      return { txid: tx.getId(), rawTx: serializedTx };
+    }
+
+    throw deviceUtils.convertDeviceError(response.payload);
+  }
+
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
@@ -193,5 +245,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       return response.payload.address;
     }
     throw deviceUtils.convertDeviceError(response.payload);
+  }
+
+  signMessage(): Promise<string[]> {
+    throw new NotImplemented();
   }
 }
