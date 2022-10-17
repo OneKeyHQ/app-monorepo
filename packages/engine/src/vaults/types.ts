@@ -14,6 +14,7 @@ import type {
   IEncodedTxBtc,
   INativeTxBtc,
 } from './impl/btc/types';
+import type { IEncodedTxCfx } from './impl/cfx/types';
 import type { EVMDecodedItem } from './impl/evm/decoder/types';
 import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -114,7 +115,8 @@ export type IEncodedTx =
   | IEncodedTxSTC
   | IEncodedTxSol
   | IEncodedTxTron
-  | IEncodedTxAptos;
+  | IEncodedTxAptos
+  | IEncodedTxCfx;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear

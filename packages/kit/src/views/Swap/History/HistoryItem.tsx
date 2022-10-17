@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import { useNetwork } from '../../../hooks/redux';
+import { useNetworkSimple } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import SwappingVia from '../components/SwappingVia';
 import { SwapRoutes, TransactionDetails, TransactionStatus } from '../typings';
@@ -80,8 +80,8 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
   const navigation = useNavigation();
   const fromNetworkId = tx.tokens?.from.networkId;
   const toNetworkId = tx.tokens?.to.networkId;
-  const fromNetwork = useNetwork(fromNetworkId);
-  const toNetwork = useNetwork(toNetworkId);
+  const fromNetwork = useNetworkSimple(fromNetworkId);
+  const toNetwork = useNetworkSimple(toNetworkId);
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -199,8 +199,8 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
   const navigation = useNavigation();
   const fromNetworkId = tx.tokens?.from.networkId;
   const toNetworkId = tx.tokens?.to.networkId;
-  const fromNetwork = useNetwork(fromNetworkId);
-  const toNetwork = useNetwork(toNetworkId);
+  const fromNetwork = useNetworkSimple(fromNetworkId);
+  const toNetwork = useNetworkSimple(toNetworkId);
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,

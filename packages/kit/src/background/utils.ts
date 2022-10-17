@@ -300,12 +300,13 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     '$private': undefined,
   };
 
-export const ENABLED_DAPP_SCOPE = [
+export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.ethereum,
   IInjectedProviderNames.starcoin,
   IInjectedProviderNames.near,
   IInjectedProviderNames.solana,
   IInjectedProviderNames.aptos,
+  IInjectedProviderNames.conflux,
 ];
 
 export function getNetworkImplFromDappScope(

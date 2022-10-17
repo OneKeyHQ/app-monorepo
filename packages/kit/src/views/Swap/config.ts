@@ -23,7 +23,6 @@ export const enabledNetworkIds: string[] = [
   OnekeyNetwork.aurora,
   OnekeyNetwork.near,
   OnekeyNetwork.etc,
-  OnekeyNetwork.teth,
   OnekeyNetwork.ethw,
   OnekeyNetwork.etf,
 ];
@@ -31,9 +30,6 @@ export const enabledNetworkIds: string[] = [
 export const zeroXServerEndpoints: Record<string, string> = {
   get [OnekeyNetwork.eth]() {
     return `${getFiatEndpoint()}/0x/quote?chainID=ethereum`;
-  },
-  get [OnekeyNetwork.teth]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=ropsten`;
   },
   get [OnekeyNetwork.bsc]() {
     return `${getFiatEndpoint()}/0x/quote?chainID=bsc`;
@@ -62,7 +58,6 @@ export const quoterServerEndpoints: Record<string, string> = {
 
 export const estimatedTime: Record<string, number> = {
   [OnekeyNetwork.eth]: 60,
-  [OnekeyNetwork.teth]: 15,
   [OnekeyNetwork.bsc]: 30,
   [OnekeyNetwork.polygon]: 30,
   [OnekeyNetwork.fantom]: 30,

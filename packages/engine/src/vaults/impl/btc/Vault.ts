@@ -53,6 +53,7 @@ import type { IBlockBookTransaction, IBtcUTXO, IEncodedTxBtc } from './types';
 
 const DEFAULT_BLOCK_NUMS = [5, 2, 1];
 const DEFAULT_BLOCK_TIME = 600; // Average block time is 10 minutes.
+const DEFAULT_PRESET_FEE_INDEX = 1; // Use medium fee rate by default.
 
 export default class Vault extends VaultBase {
   private getFeeRate = memoizee(
@@ -225,7 +226,7 @@ export default class Vault extends VaultBase {
         ? new BigNumber(specifiedFeeRate)
             .shiftedBy(network.feeDecimals)
             .toFixed()
-        : (await this.getFeeRate())[0];
+        : (await this.getFeeRate())[DEFAULT_PRESET_FEE_INDEX];
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
@@ -356,7 +357,7 @@ export default class Vault extends VaultBase {
       waitingSeconds: DEFAULT_BLOCK_NUMS.map(
         (numOfBlocks) => numOfBlocks * DEFAULT_BLOCK_TIME,
       ),
-      defaultPresetIndex: '1',
+      defaultPresetIndex: DEFAULT_PRESET_FEE_INDEX.toString(),
       feeSymbol: 'BTC',
       feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
@@ -514,7 +515,14 @@ export default class Vault extends VaultBase {
                 utxoFrom,
                 utxoTo,
                 from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
-                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
+                // For out and self transaction, use first address as to.
+                // For in transaction, use first owned address as to.
+                to:
+                  utxoTo.find((utxo) =>
+                    direction === IDecodedTxDirection.IN
+                      ? utxo.isMine
+                      : !!utxo.address,
+                  )?.address ?? '',
                 amount: amountValue.shiftedBy(-decimals).toFixed(),
                 amountValue: amountValue.toFixed(),
                 extraInfo: null,

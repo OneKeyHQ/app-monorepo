@@ -7,12 +7,11 @@ import { Box, Icon, Image, Modal, Typography } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import swftLogoPNG from '../../../../assets/swft_logo.png';
-import { useActiveWalletAccount } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { HistoryRequestRoutes } from '../../Help/Request/types';
 import Transaction from '../components/Transaction';
 import { swftcCustomerSupportUrl } from '../config';
-import { useAllTransactions } from '../hooks/useTransactions';
+import { useWalletsSwapTransactions } from '../hooks/useTransactions';
 import { SwapRoutes, SwapRoutesParams } from '../typings';
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
@@ -21,8 +20,7 @@ const TransactionModal = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
   const intl = useIntl();
-  const { accountId } = useActiveWalletAccount();
-  const transactions = useAllTransactions(accountId);
+  const transactions = useWalletsSwapTransactions();
   const { txid } = route.params;
   const tx = transactions.filter((s) => s.hash === txid)[0];
 

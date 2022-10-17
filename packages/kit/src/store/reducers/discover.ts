@@ -1,30 +1,35 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { RankingsPayload, SyncRequestPayload } from '../../views/Discover/type';
-
-export type WebSiteHistory = {
-  title?: string;
-  url?: string;
-  favicon?: string;
-};
-export type DiscoverHistory = {
-  webSite?: WebSiteHistory; // 手动输入的普通网站
-  clicks: number;
-  timestamp: number;
-};
+import {
+  DAppItemType,
+  DiscoverHistory,
+  HistoryItemData,
+  ItemsType,
+  WebSiteHistory,
+} from '../../views/Discover/type';
 
 type InitialState = {
+  dappHistory?: Record<string, HistoryItemData>;
+  dapps?: ItemsType[] | null;
+  allDapps?: DAppItemType[] | null;
+  allDappsMap?: Record<string, DAppItemType>;
+  tags?: { name: string; _id: string }[];
+  categories?: { name: string; _id: string }[];
+  dappFavorites?: string[];
+
   history: Record<string, DiscoverHistory>;
-  syncData: SyncRequestPayload;
+
   firstRemindDAPP: boolean;
-  rankData: RankingsPayload;
 };
 
 const initialState: InitialState = {
   history: {},
-  syncData: { timestamp: 0, banners: [], increment: {} },
   firstRemindDAPP: true,
-  rankData: { tags: [], special: { daily: [], new: [], weekly: [] } },
+  tags: [],
+  categories: [],
+  dapps: [],
+  dappHistory: {},
+  dappFavorites: [],
 };
 
 function getUrlHostName(urlStr: string | undefined): string | undefined {
@@ -121,6 +126,9 @@ export const discoverSlice = createSlice({
         };
       }
     },
+    removeWebSiteHistory(state, action: PayloadAction<string>) {
+      delete state.history[action.payload];
+    },
     updateWebSiteHistory(
       state,
       action: PayloadAction<{
@@ -144,27 +152,84 @@ export const discoverSlice = createSlice({
         };
       }
     },
-    updateSyncData(state, action: PayloadAction<InitialState['syncData']>) {
-      if (action.payload.timestamp > state.syncData.timestamp) {
-        state.syncData = action.payload;
-      }
-    },
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;
     },
-    updateRankData(state, action: PayloadAction<InitialState['rankData']>) {
-      state.rankData = action.payload;
+    setData: (
+      state,
+      action: PayloadAction<{
+        dapps: ItemsType[] | null;
+        tags: { name: string; _id: string }[];
+        categories: { name: string; _id: string }[];
+      }>,
+    ) => {
+      state.tags = action.payload.tags;
+      state.categories = action.payload.categories;
+      state.dapps = action.payload.dapps;
+      const { dapps } = action.payload;
+      if (dapps) {
+        const allDapps = dapps.reduce(
+          (result, item) => result.concat(item.items),
+          [] as DAppItemType[],
+        );
+        state.allDapps = allDapps;
+      }
+    },
+    setDappHistory(state, action: PayloadAction<string>) {
+      if (!state.dappHistory) {
+        state.dappHistory = {};
+      }
+      const dappHistory = state.dappHistory[action.payload];
+      if (dappHistory) {
+        state.dappHistory[action.payload] = {
+          'clicks': (dappHistory?.clicks ?? 1) + 1,
+          'timestamp': new Date().getTime(),
+        };
+      } else {
+        state.dappHistory[action.payload] = {
+          'clicks': 1,
+          'timestamp': new Date().getTime(),
+        };
+      }
+    },
+    removeDappHistory(state, action: PayloadAction<string>) {
+      if (!state.dappHistory) {
+        state.dappHistory = {};
+      }
+      delete state.dappHistory[action.payload];
+    },
+    addFavorite(state, action: PayloadAction<string>) {
+      if (!state.dappFavorites) {
+        state.dappFavorites = [];
+      }
+      if (state.dappFavorites.includes(action.payload)) {
+        return;
+      }
+      state.dappFavorites.push(action.payload);
+    },
+    removeFavorite(state, action: PayloadAction<string>) {
+      if (!state.dappFavorites) {
+        state.dappFavorites = [];
+      }
+      const i = state.dappFavorites.findIndex((o) => o === action.payload);
+      if (i >= 0) {
+        state.dappFavorites.splice(i, 1);
+      }
     },
   },
 });
 
 export const {
   updateHistory,
-  updateSyncData,
   updateFirstRemindDAPP,
-  updateRankData,
   addWebSiteHistory,
   updateWebSiteHistory,
+  setData,
+  setDappHistory,
+  removeDappHistory,
+  addFavorite,
+  removeFavorite,
+  removeWebSiteHistory,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;

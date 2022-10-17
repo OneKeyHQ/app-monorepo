@@ -224,7 +224,13 @@ async function openConnectToDappModal({ uri }: { uri: string }) {
 // V1:
 //  wc:7a2eabf0-a5ab-4df5-805c-1bf50da956c7@1?bridge=https%3A%2F%2Fx.bridge.walletconnect.org&key=a1bc7b3461fc0c017288c06bbfddd4d00fa187409821b3f909f2125b33277e0d
 function getWalletConnectUriInfo({ uri }: { uri: string }) {
-  const uriInfo = new URL(uri);
+  let uriInfo;
+  try {
+    uriInfo = new URL(uri);
+  } catch (e) {
+    return null;
+  }
+
   const { searchParams } = uriInfo;
   let v1: { bridge: string; key: string } | undefined;
   if (uri.includes('@1')) {

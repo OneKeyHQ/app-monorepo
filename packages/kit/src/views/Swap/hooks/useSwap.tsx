@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
@@ -17,7 +15,11 @@ import { Token } from '../../../store/typings';
 import { enabledNetworkIds } from '../config';
 import { SwapQuoter } from '../quoter';
 import { FetchQuoteParams, SwapError } from '../typings';
-import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
+import {
+  getTokenAmountString,
+  greaterThanZeroOrUndefined,
+  nativeTokenAddress,
+} from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
 
@@ -138,14 +140,6 @@ export const useSwapQuoteCallback = function (
     try {
       refs.current.params = params;
       refs.current.count += 1;
-      debugLogger.swap.info(
-        'quote params',
-        params.tokenIn.networkId,
-        params.tokenIn.tokenIdOnNetwork || 'native',
-        params.tokenOut.networkId,
-        params.tokenOut.tokenIdOnNetwork || 'native',
-        params.typedValue,
-      );
       const recipient = await backgroundApiProxy.serviceSwap.setRecipient(
         params.networkOut,
       );
@@ -153,11 +147,25 @@ export const useSwapQuoteCallback = function (
         ...params,
         receivingAddress: recipient?.address,
       });
-      debugLogger.swap.info('quote success');
       if (refs.current.params === params) {
         backgroundApiProxy.dispatch(setLoading(false));
         if (res) {
           if (res.data) {
+            const { data } = res;
+            if (data.allowanceTarget) {
+              const allowance =
+                await backgroundApiProxy.engine.getTokenAllowance({
+                  networkId: params.tokenIn.networkId,
+                  accountId: params.activeAccount.id,
+                  tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
+                  spender: data.allowanceTarget,
+                });
+              if (allowance) {
+                data.needApproved = new BigNumber(
+                  getTokenAmountString(params.tokenIn, allowance),
+                ).lt(data.sellAmount);
+              }
+            }
             backgroundApiProxy.serviceSwap.setQuote(res.data);
           }
           backgroundApiProxy.dispatch(setQuoteLimited(res.limited));

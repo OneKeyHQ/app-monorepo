@@ -10,6 +10,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import ETHLogoPNG from '../../../../assets/staking/eth_staking.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
+import { getActiveWalletAccount } from '../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { SendRoutes } from '../../Send/types';
 import { useKelePoolStakingState } from '../hooks';
@@ -49,11 +50,14 @@ export default function StakingETHNotes() {
           networkId: params.networkId,
         });
       onClose();
+      const { networkId, accountId } = getActiveWalletAccount();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
           screen: SendRoutes.SendConfirm,
           params: {
+            networkId,
+            accountId,
             payloadInfo: {
               type: 'InternalStake',
               stakeInfo: {

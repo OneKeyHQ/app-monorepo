@@ -18,6 +18,7 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
@@ -208,6 +209,7 @@ const MyWallet = () => {
             (section.wallet.deviceType as IOneKeyDeviceType) ||
             getDeviceTypeByDeviceId(section.wallet.associatedDevice)
           }
+          isPassphrase={isPassphraseWallet(section.wallet)}
           size="sm"
         />
       </Box>

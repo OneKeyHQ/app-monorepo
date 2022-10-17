@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
 import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
+import { useDesktopTopDragBarController } from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
@@ -16,12 +17,15 @@ import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
 import { useWebController } from './Controller/useWebController';
-import { MatchDAppItemType, isValidDomain, webHandler } from './explorerUtils';
+import { MatchDAppItemType, webHandler } from './explorerUtils';
 import MoreView from './MoreMenu';
 
 const showExplorerBar = webHandler !== 'browser';
 
 const Explorer: FC = () => {
+  useDesktopTopDragBarController({
+    height: '0px',
+  });
   const intl = useIntl();
   const toast = useToast();
   const {
@@ -54,13 +58,7 @@ const Explorer: FC = () => {
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
-      if (dapp.startsWith('http')) {
-        return gotoSite({ url: dapp });
-      }
-      if (isValidDomain(dapp)) {
-        return gotoSite({ url: `https://${dapp}` });
-      }
-      return gotoSite({ url: `https://www.google.com/search?q=${dapp}` });
+      return gotoSite({ url: dapp });
     }
     openMatchDApp(dapp);
   };
@@ -90,6 +88,7 @@ const Explorer: FC = () => {
     };
 
     const onGoHomePage = () => {
+      stopLoading();
       backgroundApiProxy.dispatch(
         setWebTabData({ ...homeTab, id: currentTab?.id }),
       );
@@ -127,7 +126,15 @@ const Explorer: FC = () => {
         onGoHomePage={onGoHomePage}
       />
     );
-  }, [currentTab?.id, currentTab?.url, intl, onRefresh, toast, visibleMore]);
+  }, [
+    currentTab?.id,
+    currentTab?.url,
+    intl,
+    onRefresh,
+    stopLoading,
+    toast,
+    visibleMore,
+  ]);
 
   const Container = isVerticalLayout ? Mobile : Desktop;
   return (

@@ -247,6 +247,7 @@ const OnekeyLiteDetail: React.FC = () => {
                 value={resetValidationInput}
                 isInvalid={resetAllow != null ? !resetAllow : false}
                 onChangeText={setResetValidationInput}
+                placeholder="RESET"
               />
             </Box>
           }

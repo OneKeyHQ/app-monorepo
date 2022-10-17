@@ -17,12 +17,12 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount, useAppSelector } from '../../hooks';
+import { useAppSelector } from '../../hooks';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import { setSwapPopoverShown } from '../../store/reducers/status';
 
 import { useSwapQuoteCallback } from './hooks/useSwap';
-import { useTransactions } from './hooks/useTransactions';
+import { useWalletsSwapTransactions } from './hooks/useTransactions';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -83,10 +83,9 @@ const HistoryPopoverButton: FC<{ onPress?: () => void }> = ({ onPress }) => {
 };
 
 const HistoryButton = () => {
-  const { accountId } = useActiveWalletAccount();
-  const allTransactions = useTransactions(accountId);
+  const transactions = useWalletsSwapTransactions();
   const swapPopoverShown = useAppSelector((s) => s.status.swapPopoverShown);
-  const pendings = allTransactions.filter(
+  const pendings = transactions.filter(
     (tx) => tx.status === 'pending' && tx.type === 'swap',
   );
   const navigation = useNavigation<NavigationProps>();

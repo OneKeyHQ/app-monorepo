@@ -1,5 +1,6 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,25 +10,63 @@ import {
   Text,
   Typography,
   VStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigationBack } from '../../hooks/useAppNavigation';
+import useAppNavigation, {
+  useNavigationBack,
+} from '../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
+import { setGuideToPushFistTime } from '../../store/reducers/status';
+import { wait } from '../../utils/helper';
 
 import { useEnabledAccountDynamicAccounts } from './hooks';
+import { PushNotificationRoutes } from './types';
+
+export function GuideToPushFirstTimeCheck() {
+  const navigation = useAppNavigation();
+  const { serviceBootstrap } = backgroundApiProxy;
+  const focusHandler = useCallback(() => {
+    let isActive = true;
+    const func = async () => {
+      await wait(1000);
+      const res = await serviceBootstrap.checkShouldShowNotificationGuide();
+      if (!isActive) {
+        return;
+      }
+      if (res) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.PushNotification,
+          params: {
+            screen: PushNotificationRoutes.GuideToPushFirstTime,
+          },
+        });
+      }
+    };
+    func();
+    return () => {
+      isActive = false;
+    };
+  }, [navigation, serviceBootstrap]);
+  useFocusEffect(focusHandler);
+  return null;
+}
 
 const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
 
   const goBack = useNavigationBack();
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
+
+  useEffect(() => {
+    dispatch(setGuideToPushFistTime(true));
+  }, [dispatch]);
 
   const addAccountDynamics = useCallback(async () => {
     let count = 0;
@@ -111,9 +150,7 @@ const GuideToPushFirstTime: FC = () => {
           </Typography.Body2>
         </Center>
         <Center>
-          <Text fontSize={56} lineHeight="auto">
-            🔔
-          </Text>
+          <Text fontSize={56}>🔔</Text>
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'title__notifications' })}
           </Typography.DisplayLarge>
@@ -129,7 +166,7 @@ const GuideToPushFirstTime: FC = () => {
             <Box flex={1}>
               <Typography.Body1Strong mb="1">{c.title}</Typography.Body1Strong>
               <Typography.Body2
-                flex={isVertical ? undefined : 1}
+                flex={platformEnv.isNative ? undefined : 1}
                 numberOfLines={2}
                 color="text-subdued"
               >

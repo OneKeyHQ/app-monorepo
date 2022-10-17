@@ -12,6 +12,8 @@ import {
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
 
+import { useSendConfirmRouteParamsParsed } from '../Send/utils/useSendConfirmRouteParamsParsed';
+
 import { ITxDetailContextData } from './TxDetailContext';
 
 export type ITxActionMetaTitle = {
@@ -69,6 +71,7 @@ export type ITxActionCardViewProps = {
 };
 
 export type ITxActionListViewProps = {
+  sendConfirmParamsParsed?: ReturnType<typeof useSendConfirmRouteParamsParsed>;
   historyTx?: IHistoryTx;
   decodedTx: IDecodedTx;
   space?: number | string;

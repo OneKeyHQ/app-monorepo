@@ -44,6 +44,7 @@ export const APTOS_NFT_CLAIM = '0x3::token_transfers::claim_script';
 
 export const APTOS_NATIVE_COIN = '0x1::aptos_coin::AptosCoin';
 export const DEFAULT_GAS_LIMIT_NATIVE_TRANSFER = '2000';
+export const DEFAULT_GAS_LIMIT_TRANSFER = '20000';
 
 const MAX_U64_BIG_INT = BigInt(9007199254740991);
 

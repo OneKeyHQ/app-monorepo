@@ -35,6 +35,9 @@ export function TxListActionBoxSubTitleText(
 export function TxListActionBoxExtraText(props: ComponentProps<typeof Text>) {
   return (
     <Text
+      testID="TxListActionBoxExtraText"
+      numberOfLines={2}
+      isTruncated
       typography="Body2"
       color="text-subdued"
       textAlign="right"
@@ -69,7 +72,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
     TxListActionBoxSubTitleText,
   );
   const extraView = fallbackTextComponent(extra, TxListActionBoxExtraText);
-
+  const hasExtraView = !!extraView;
   return (
     <Box>
       <HStack space={2}>
@@ -89,8 +92,17 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
               flexDirection="row"
               justifyContent="space-between"
             >
-              <Box flex={1}>{subTitleView}</Box>
-              {!!extraView && <Box>{extraView}</Box>}
+              <Box
+                testID="TxListActionBox-subTitleView"
+                flex={hasExtraView ? undefined : 1}
+              >
+                {subTitleView}
+              </Box>
+              {hasExtraView && (
+                <Box testID="TxListActionBox-extraView" flex={1}>
+                  {extraView}
+                </Box>
+              )}
             </HStack>
           )}
         </Box>

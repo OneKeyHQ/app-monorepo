@@ -58,6 +58,7 @@ export type DesktopAPI = {
   downloadUpdate: () => void;
   installUpdate: () => void;
   setAutoUpdateSettings: (settings: UpdateSettings) => void;
+  clearAutoUpdateSettings: () => void;
   restore: () => void;
 };
 declare global {
@@ -157,6 +158,7 @@ const desktopApi = {
   installUpdate: () => ipcRenderer.send('update/install'),
   setAutoUpdateSettings: (settings: UpdateSettings) =>
     ipcRenderer.send('update/settings', settings),
+  clearAutoUpdateSettings: () => ipcRenderer.send('update/clearSettings'),
 
   restore: () => {
     ipcRenderer.send('app/restoreMainWindow');

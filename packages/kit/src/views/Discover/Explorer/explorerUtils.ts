@@ -4,8 +4,9 @@ import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WebSiteHistory } from '../../../store/reducers/discover';
 import { DAppItemType } from '../type';
+
+import type { WebSiteHistory } from '../type';
 
 export interface WebSiteType {
   url?: string;
@@ -45,8 +46,11 @@ export interface ExplorerViewProps extends WebControllerBarProps {
   explorerContent: ReactNode;
 }
 
-export type SearchViewKeyEventType = 'ArrowUp' | 'ArrowDown';
+export type SearchViewKeyEventType = 'ArrowUp' | 'ArrowDown' | 'Enter';
 
+export interface SearchViewRef {
+  onKeyPress: (event: SearchViewKeyEventType) => boolean;
+}
 export interface SearchViewProps {
   visible: boolean;
   searchContent?: string;
@@ -54,8 +58,6 @@ export interface SearchViewProps {
   onVisibleChange?: (visible: boolean) => void;
   onSelectorItem?: (item: MatchDAppItemType) => void;
   onHoverItem?: (item: MatchDAppItemType) => void;
-  forwardedRef?: any;
-  onKeyPress?: (event: SearchViewKeyEventType) => void;
   onSearchContentChange?: (searchContent: string) => void;
 }
 
@@ -71,7 +73,23 @@ export const webHandler: WebHandler = (() => {
 })();
 
 export const isValidDomain = (domain: string) =>
-  /\.(com|net|io|dev|info|org|network|xyz|ai|co)$/.test(domain);
+  /\.(ai|app|art|co|com|club|dev|ee|finance|game|im|info|io|is|it|net|network|news|org|xyz)$/.test(
+    domain,
+  );
+
+export const validateUrl = (url: string) => {
+  try {
+    // eslint-disable-next-line no-new
+    new URL(url);
+  } catch (e) {
+    if (isValidDomain(url)) {
+      return `https://${url}`;
+    }
+    return `https://www.google.com/search?q=${url}`;
+  }
+
+  return url;
+};
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
 

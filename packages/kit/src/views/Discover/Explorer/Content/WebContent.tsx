@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
-import DiscoverHome from '../../Home/DiscoverHome';
+import DiscoverHome from '../../Home';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler, webviewRefs } from '../explorerUtils';
 
@@ -35,7 +35,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
         // TODO avoid rerender, maybe singleton
         <DiscoverHome
           onItemSelect={(dapp) => {
-            openMatchDApp({ id: dapp.id, dapp });
+            openMatchDApp({ id: dapp._id, dapp });
           }}
           onItemSelectHistory={openMatchDApp}
         />

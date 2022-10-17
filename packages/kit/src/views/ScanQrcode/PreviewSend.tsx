@@ -14,7 +14,10 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  getActiveWalletAccount,
+  useActiveWalletAccount,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
@@ -49,14 +52,17 @@ const PreviewSend: FC<PreviewSendProps> = () => {
 
   return (
     <Modal
-      onPrimaryActionPress={() => {
+      onPrimaryActionPress={async () => {
         const { serviceNetwork } = backgroundApiProxy;
-        serviceNetwork.changeActiveNetwork(getValues('network'));
+        await serviceNetwork.changeActiveNetwork(getValues('network'));
+        const { accountId, networkId } = getActiveWalletAccount();
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
             screen: SendRoutes.PreSendToken,
             params: {
+              accountId,
+              networkId,
               from: '',
               to: address,
               amount: '',

@@ -1,6 +1,10 @@
 import React, { FC } from 'react';
 
 import { DesktopDragZoneBox } from '@onekeyhq/components';
+import {
+  DESKTOP_TOP_DRAG_BAR_HEIGHT,
+  DESKTOP_TOP_DRAG_BAR_ID,
+} from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController';
 import { Provider } from '@onekeyhq/kit';
 import '@onekeyhq/shared/src/web/index.css';
 
@@ -8,9 +12,9 @@ const App: FC = function () {
   return (
     <>
       <DesktopDragZoneBox
-        testID="DesktopDragZoneBox-TopFixedBar"
+        nativeID={DESKTOP_TOP_DRAG_BAR_ID}
         style={{
-          height: '16px',
+          height: DESKTOP_TOP_DRAG_BAR_HEIGHT,
           position: 'absolute',
           top: 0,
           left: 0,

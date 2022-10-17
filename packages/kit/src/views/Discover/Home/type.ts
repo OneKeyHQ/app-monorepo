@@ -1,10 +1,7 @@
-import { DAppItemType } from '../type';
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { DAppItemType } from '../type';
 
-export type SectionType = 'banner' | 'card' | 'list';
-
-export interface SectionDataType {
-  title: string;
-  data: DAppItemType[];
-  type?: SectionType;
-  onItemSelect?: (item: DAppItemType) => void;
+export interface DiscoverProps {
+  onItemSelect: (item: DAppItemType) => void;
+  onItemSelectHistory: (item: MatchDAppItemType) => void;
 }

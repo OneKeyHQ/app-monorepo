@@ -5,6 +5,7 @@ const store = new Store();
 export type LocalStore = {
   getUpdateSettings(): UpdateSettings;
   setUpdateSettings(updateSettings: UpdateSettings): void;
+  clear(): void;
 };
 
 export type UpdateSettings = {
@@ -16,4 +17,8 @@ export const getUpdateSettings = (): UpdateSettings =>
 
 export const setUpdateSettings = (updateSettings: UpdateSettings): void => {
   store.set('updateSettings', updateSettings);
+};
+
+export const clear = () => {
+  store.clear();
 };

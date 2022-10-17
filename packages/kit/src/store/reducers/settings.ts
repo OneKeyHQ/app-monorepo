@@ -36,6 +36,7 @@ export type SettingsState = {
   refreshTimeStamp: number;
   autoRefreshTimeStamp: number;
   swapSlippagePercent: string;
+  disableSwapExactApproveAmount?: boolean;
   enableHaptics: boolean;
   deviceUpdates?: Record<
     string, // connectId
@@ -121,6 +122,7 @@ const initialState: SettingsState = {
     updateLatestVersion: null,
     updateLatestTimeStamp: null,
   },
+  disableSwapExactApproveAmount: false,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -319,6 +321,9 @@ export const settingsSlice = createSlice({
       };
       state.updateSetting = setting as SettingsState['updateSetting'];
     },
+    setDisableSwapExactApproveAmount(state, action: PayloadAction<boolean>) {
+      state.disableSwapExactApproveAmount = action.payload;
+    },
   },
 });
 
@@ -349,6 +354,7 @@ export const {
   setIncludeNFTsInTotal,
   setHideBalance,
   setUpdateSetting,
+  setDisableSwapExactApproveAmount,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

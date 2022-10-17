@@ -45,8 +45,9 @@ const Mobile: FC<ExplorerViewProps> = ({
         screen: DiscoverModalRoutes.SearchHistoryModal,
         params: {
           url: searchText,
-          onSelectorItem: (item: MatchDAppItemType | string) =>
-            onSearchSubmitEditing?.(item),
+          onSelectorItem: (item: MatchDAppItemType | string) => {
+            onSearchSubmitEditing?.(item);
+          },
         },
       },
     });
@@ -64,13 +65,14 @@ const Mobile: FC<ExplorerViewProps> = ({
           flexDirection="row"
           alignItems="center"
         >
-          <IconButton
-            disabled={url === ''}
-            onPress={onGoBack}
-            name="ChevronLeftOutline"
-            size="lg"
-            type="plain"
-          />
+          {!url ? null : (
+            <IconButton
+              onPress={onGoBack}
+              name="ChevronLeftOutline"
+              size="lg"
+              type="plain"
+            />
+          )}
           <Pressable
             onPress={() => {
               onSearch();
@@ -101,14 +103,16 @@ const Mobile: FC<ExplorerViewProps> = ({
               </Typography.Caption>
             </Box>
           </Pressable>
-          <IconButton
-            onPress={() => {
-              onMore?.(true);
-            }}
-            name="DotsHorizontalOutline"
-            size="lg"
-            type="plain"
-          />
+          {url === '' ? null : (
+            <IconButton
+              onPress={() => {
+                onMore?.(true);
+              }}
+              name="DotsHorizontalOutline"
+              size="lg"
+              type="plain"
+            />
+          )}
         </Box>
       )}
 

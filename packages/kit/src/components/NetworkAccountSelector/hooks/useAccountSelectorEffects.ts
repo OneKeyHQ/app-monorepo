@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef } from 'react';
 
 import { InteractionManager } from 'react-native';
@@ -20,10 +21,12 @@ const {
 function useAccountSelectorEffects() {
   const {
     isOpenDelay,
-    isCloseFromOpenDelay,
+    isCloseFromOpen,
     preloadingCreateAccount,
     activeWallet, // useActiveWalletAccount
     activeNetwork, // useActiveWalletAccount
+    activeWalletRef,
+    activeNetworkRef,
     isOpen,
   } = useAccountSelectorInfo();
   const { serviceAccountSelector, dispatch } = backgroundApiProxy;
@@ -62,13 +65,13 @@ function useAccountSelectorEffects() {
   }, [activeWallet, setSelectedWalletToActive]);
 
   // ** update on NetworkAccountSelector closed
-  //    change network & wallet, close and reopen
+  //    change network & wallet, select other account, close and reopen
   useEffectOnUpdate(() => {
-    const walletId = activeWallet?.id;
-    const networkId = activeNetwork?.id;
     // eslint-disable-next-line @typescript-eslint/require-await
     const resetSelectedWalletAndNetwork = async () => {
-      if (isCloseFromOpenDelay) {
+      if (!isOpenDelay) {
+        const walletId = activeWalletRef.current?.id;
+        const networkId = activeNetworkRef.current?.id;
         dispatch(
           // updateAccountsGroup([]), // clear section data in redux
           updateIsLoading(false),
@@ -76,13 +79,20 @@ function useAccountSelectorEffects() {
           updateSelectedWalletId(walletId),
           updateSelectedNetworkId(networkId),
         );
+        debugLogger.accountSelector.info(
+          'Reset selected walletId & networkId after close',
+          {
+            networkId,
+            walletId,
+          },
+        );
       }
     };
 
     // feedback slowly in Desktop
     // InteractionManager.runAfterInteractions(resetSelectedWalletAndNetwork);
     resetSelectedWalletAndNetwork();
-  }, [activeWallet?.id, activeNetwork?.id, isCloseFromOpenDelay]);
+  }, [isOpenDelay]);
 }
 
 export function NetworkAccountSelectorEffectsSingleton() {

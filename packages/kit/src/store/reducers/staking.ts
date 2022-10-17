@@ -1,6 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import {
+  KeleDashboardGlobal,
   KeleETHStakingState,
   StakingActivity,
 } from '../../views/Staking/typing';
@@ -11,6 +12,7 @@ export type StakingState = {
     string,
     Record<string, KeleETHStakingState | undefined>
   >;
+  keleDashboardGlobal?: KeleDashboardGlobal;
   stakingActivities?: Record<
     string,
     Record<string, StakingActivity | undefined>
@@ -65,6 +67,9 @@ export const stakingSlice = createSlice({
       }
       state.stakingActivities[accountId][networkId] = data;
     },
+    setKeleDashboardGlobal(state, action: PayloadAction<KeleDashboardGlobal>) {
+      state.keleDashboardGlobal = action.payload;
+    },
   },
 });
 
@@ -72,6 +77,7 @@ export const {
   setShowETH2UnableToUnstakeWarning,
   setKeleETH2StakingState,
   setAccountStakingActivity,
+  setKeleDashboardGlobal,
 } = stakingSlice.actions;
 
 export default stakingSlice.reducer;

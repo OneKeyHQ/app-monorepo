@@ -4,10 +4,14 @@ import React, { FC, useMemo, useState } from 'react';
 import * as ethUtils from 'ethereumjs-util';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
+  Box,
   Button,
+  Center,
   HStack,
+  Icon,
   Image,
   Text,
   Typography,
@@ -19,9 +23,7 @@ import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault'
 import X from '@onekeyhq/kit/assets/red_x.png';
 
 import { IDappSourceInfo } from '../../background/IBackgroundApi';
-import { useActiveWalletAccount } from '../../hooks/redux';
-
-import ConfirmHeader from './_legacy/ConfirmHeader';
+import { useActiveSideAccount } from '../../hooks';
 
 type TabType = 'message' | 'data';
 
@@ -149,12 +151,85 @@ const renderDataCard = (unsignedMessage: IUnsignedMessageEvm) => {
   return renderCard(formattedJson);
 };
 
+type ConfirmHeaderProps = {
+  title: string;
+  origin?: string;
+  networkId: string;
+  accountId: string;
+};
+
+const ConfirmHeader: FC<ConfirmHeaderProps> = (props) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { title, origin, networkId, accountId } = props;
+  const { account, network } = useActiveSideAccount(props);
+  const intl = useIntl();
+
+  const logoURI = origin ? `${origin}/favicon.ico` : '';
+  const host = origin?.split('://')[1] ?? 'DApp';
+
+  return (
+    <Box
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      mt="2"
+    >
+      <Image
+        source={{ uri: logoURI }}
+        alt="logoURI"
+        size="40px"
+        borderRadius="full"
+        fallbackElement={
+          <Center
+            w="40px"
+            h="40px"
+            rounded="full"
+            bgColor="surface-neutral-default"
+          >
+            <Icon size={24} name="QuestionMarkOutline" />
+          </Center>
+        }
+      />
+
+      <Typography.DisplayXLarge mt="4">{title}</Typography.DisplayXLarge>
+      <Typography.Body1 mt={1} color="text-subdued">
+        {host}
+      </Typography.Body1>
+
+      <HStack
+        alignItems="center"
+        borderBottomWidth={StyleSheet.hairlineWidth}
+        borderColor="border-subdued"
+        mt="32px"
+        alignSelf="stretch"
+        px="16px"
+        pb="12px"
+      >
+        <Typography.Body1Strong color="text-subdued" flex={1}>
+          {intl.formatMessage({ id: 'form__account' })}
+        </Typography.Body1Strong>
+        <HStack alignItems="center">
+          <Image src={network?.logoURI} size="24px" borderRadius="full" />
+          <Typography.Body1 ml="12px">{account?.name}</Typography.Body1>
+        </HStack>
+      </HStack>
+    </Box>
+  );
+};
+
 const SignDetail: FC<{
   unsignedMessage: IUnsignedMessageEvm;
   sourceInfo?: IDappSourceInfo;
-}> = ({ unsignedMessage, sourceInfo }) => {
+  networkId: string;
+  accountId: string;
+}> = ({
+  unsignedMessage,
+  sourceInfo,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  networkId,
+  accountId,
+}) => {
   const intl = useIntl();
-  const { accountId } = useActiveWalletAccount();
   const { type, message } = unsignedMessage;
   const [curTab, setCurTab] = useState<TabType>('message');
 
@@ -166,13 +241,15 @@ const SignDetail: FC<{
   const header = useMemo(
     () => (
       <ConfirmHeader
+        networkId={networkId}
+        accountId={accountId}
         title={intl.formatMessage({
           id: 'title__signature_request',
         })}
         origin={sourceInfo?.origin}
       />
     ),
-    [intl, sourceInfo?.origin],
+    [accountId, intl, networkId, sourceInfo?.origin],
   );
 
   const warning = useMemo(

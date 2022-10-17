@@ -17,23 +17,19 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
-import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useManageTokensOfAccount } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import {
   HomeRoutes,
   HomeRoutesParams,
-  ModalRoutes,
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
+import { useActiveSideAccount } from '../../../hooks';
 import { getTokenValues } from '../../../utils/priceUtils';
-import { PushNotificationRoutes } from '../../PushNotification/types';
 
 import AssetsListHeader from './AssetsListHeader';
 import EmptyList from './EmptyList';
@@ -58,6 +54,8 @@ export type IAssetsListProps = Omit<
   showRoundTop?: boolean;
   limitSize?: number;
   flatStyle?: boolean;
+  accountId: string;
+  networkId: string;
 };
 function AssetsList({
   showRoundTop,
@@ -69,13 +67,20 @@ function AssetsList({
   onTokenPress,
   limitSize,
   flatStyle,
+  accountId,
+  networkId,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
-  const { accountTokens, balances, prices, loading } = useManageTokens();
+  const { accountTokens, balances, prices, loading } = useManageTokensOfAccount(
+    { accountId, networkId },
+  );
 
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
-  const { account, network } = useActiveWalletAccount();
+  const { account, network } = useActiveSideAccount({
+    accountId,
+    networkId,
+  });
   const navigation = useNavigation<NavigationProps>();
   const valueSortedTokens = useMemo(() => {
     const tokenValues = new Map<TokenType, BigNumber>();
@@ -135,36 +140,13 @@ function AssetsList({
     }, [account, network]),
   );
 
-  useFocusEffect(
-    React.useCallback(() => {
-      let isActive = true;
-      const func = async () => {
-        const { serviceBootstrap } = backgroundApiProxy;
-        const res = await serviceBootstrap.checkShouldShowNotificationGuide();
-        if (!isActive) {
-          return;
-        }
-        if (res) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.PushNotification,
-            params: {
-              screen: PushNotificationRoutes.GuideToPushFirstTime,
-            },
-          });
-        }
-      };
-      func();
-      return () => {
-        isActive = false;
-      };
-    }, [navigation]),
-  );
-
   const renderListItem: FlatListProps<TokenType>['renderItem'] = ({
     item,
     index,
   }) => (
     <TokenCell
+      networkId={networkId}
+      accountId={accountId}
       hidePriceInfo={hidePriceInfo}
       bg={flatStyle ? 'transparent' : 'surface-default'}
       token={item}

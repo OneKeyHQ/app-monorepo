@@ -21,7 +21,7 @@ const StakedAssets: FC<StakedAssetsProps> = ({
   if (networkId === OnekeyNetwork.eth && !tokenIdOnNetwork) {
     children = <ETHAsset networkId={networkId} accountId={accountId} />;
   }
-  if (networkId === OnekeyNetwork.teth && !tokenIdOnNetwork) {
+  if (networkId === OnekeyNetwork.goerli && !tokenIdOnNetwork) {
     children = <ETHAsset networkId={networkId} accountId={accountId} />;
   }
   return children ? <Box mb="4">{children}</Box> : null;

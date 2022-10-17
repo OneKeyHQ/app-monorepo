@@ -1,10 +1,18 @@
+import { TabActions } from '@react-navigation/routers';
 import * as Linking from 'expo-linking';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { WebviewRoutesModalRoutes } from '../routes/Modal/WebView';
-import { HomeRoutes, ModalRoutes, RootRoutes } from '../routes/routesEnum';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../routes/routesEnum';
+import { setIncomingUrl } from '../store/reducers/webTabs';
 
 export const openUrlByWebview = (
   url: string,
@@ -46,6 +54,17 @@ export const openUrl = (
 ) => {
   if (platformEnv.isNative) {
     openUrlByWebview(url, title, options);
+  } else {
+    window.open(url, '_blank');
+  }
+};
+
+export const openDapp = (url: string) => {
+  if (platformEnv.isNative || platformEnv.isDesktop) {
+    const navigation = getAppNavigation();
+    backgroundApiProxy.dispatch(setIncomingUrl(url));
+
+    navigation?.dispatch(TabActions.jumpTo(TabRoutes.Discover, {}));
   } else {
     window.open(url, '_blank');
   }

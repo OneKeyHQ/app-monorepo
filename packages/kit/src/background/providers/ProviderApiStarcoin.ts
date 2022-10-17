@@ -17,6 +17,7 @@ import {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { IEncodedTxSTC } from '@onekeyhq/engine/src/vaults/impl/stc/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
@@ -226,7 +227,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
   @providerApiMethod()
   async stc_sendTransaction(
     request: IJsBridgeMessagePayload,
-    transaction: Transaction,
+    transaction: IEncodedTxSTC,
   ) {
     debugLogger.providerApi.info('stc_sendTransaction', request, transaction);
     // Parse transaction

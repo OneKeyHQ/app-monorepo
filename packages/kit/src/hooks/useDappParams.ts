@@ -6,16 +6,19 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IDappSourceInfo } from '../background/IBackgroundApi';
 
+export type IDappSignAndSendParams = {
+  unsignedMessage?: IUnsignedMessageEvm;
+  encodedTx?: IEncodedTx;
+  signOnly?: boolean;
+};
+
 // TODO rename useDappQuery
 function useDappParams() {
   const route = useRoute();
   const query = (route.params as { query: string })?.query ?? '';
   let queryInfo: {
     sourceInfo?: IDappSourceInfo;
-    unsignedMessage?: IUnsignedMessageEvm;
-    encodedTx?: IEncodedTx;
-    signOnly?: boolean;
-  } = {};
+  } & IDappSignAndSendParams = {};
 
   try {
     if (query) {

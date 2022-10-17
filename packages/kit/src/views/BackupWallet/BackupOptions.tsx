@@ -32,6 +32,7 @@ export type BackupItemProps = {
   title: string;
   discription?: string;
   badge?: string;
+  // eslint-disable-next-line react/no-unused-prop-types
   badgeType?: BadgeType;
   onPress?: () => void;
 };

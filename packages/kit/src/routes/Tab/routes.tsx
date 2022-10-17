@@ -9,7 +9,8 @@ import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
-import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home/DiscoverHome';
+import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
+import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
@@ -84,6 +85,10 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.DAppListScreen,
         component: DAppList,
+      },
+      {
+        name: HomeRoutes.MyDAppListScreen,
+        component: MyDAppList,
       },
     ],
   },

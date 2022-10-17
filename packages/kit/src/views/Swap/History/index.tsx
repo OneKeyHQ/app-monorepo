@@ -24,9 +24,8 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
-import { useTransactions } from '../hooks/useTransactions';
+import { useWalletsSwapTransactions } from '../hooks/useTransactions';
 import { TransactionDetails } from '../typings';
 
 import { HistoryItem } from './HistoryItem';
@@ -65,8 +64,7 @@ const HistorySectionList = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { format } = useFormatDate();
-  const { accountId } = useActiveWalletAccount();
-  const transactions = useTransactions(accountId);
+  const transactions = useWalletsSwapTransactions();
   const sections = useMemo(() => {
     const result: Record<string, TransactionDetails[]> = {};
     for (let i = 0; i < transactions.length; i += 1) {
@@ -125,15 +123,14 @@ const HistorySectionList = () => {
 
 const TrashButton = () => {
   const intl = useIntl();
-  const { accountId } = useActiveWalletAccount();
   const [visible, setVisible] = useState(false);
   const onPress = useCallback(() => {
     setVisible(true);
   }, []);
   const onClear = useCallback(() => {
-    backgroundApiProxy.serviceSwap.clearAccountTransactions(accountId);
+    backgroundApiProxy.serviceSwap.clearTransactions();
     setVisible(false);
-  }, [accountId]);
+  }, []);
   return (
     <Box px="4">
       <IconButton type="plain" name="TrashOutline" onPress={onPress} />

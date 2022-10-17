@@ -11,9 +11,9 @@ jobs:
     env:
       TEST_ENDPOINT: app.onekeytest.com
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Environment
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
@@ -72,7 +72,7 @@ jobs:
             const timeStamp = new Date().toLocaleString('en-HK', { hour12: false, timeZone: 'Hongkong' });                                                                                            
             const botComment = comments.find(comment => comment.body.startsWith(commentPrefix))                                                                       
             const commentBody = `${commentPrefix} \`${process.env.SHA}\` to https://${process.env.TEST_ENDPOINT} at ${timeStamp}`                 
-            
+
             if (botComment) {
                 github.rest.issues.updateComment({
                   owner: context.repo.owner,

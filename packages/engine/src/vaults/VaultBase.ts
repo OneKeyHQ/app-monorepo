@@ -266,7 +266,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
     return this.broadcastTransaction({
       ...signedTx,
-      txid: '',
       encodedTx: unsignedTx.encodedTx,
     });
   }
@@ -540,6 +539,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           break;
         }
       }
+    }
+
+    if (nextNonce < onChainNonce) {
+      nextNonce = onChainNonce;
     }
 
     if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {

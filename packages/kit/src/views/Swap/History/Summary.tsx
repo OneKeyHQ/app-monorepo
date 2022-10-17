@@ -5,15 +5,13 @@ import { useIntl } from 'react-intl';
 import { Alert, Box, Center } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 import { archiveTransaction } from '../../../store/reducers/swapTransactions';
 import { useSummaryTx } from '../hooks/useSwapUtils';
-import { useTransactions } from '../hooks/useTransactions';
+import { useWalletsSwapTransactions } from '../hooks/useTransactions';
 
 const PendingTxs = () => {
   const intl = useIntl();
-  const { accountId } = useActiveWalletAccount();
-  const allTransactions = useTransactions(accountId);
+  const allTransactions = useWalletsSwapTransactions();
   const pendings = allTransactions.filter((tx) => tx.status === 'pending');
 
   return pendings.length ? (
@@ -37,9 +35,8 @@ const PendingTxs = () => {
 
 const FailedTxs = () => {
   const intl = useIntl();
-  const { accountId } = useActiveWalletAccount();
   const summaryTx = useSummaryTx();
-  const allTransactions = useTransactions(accountId);
+  const allTransactions = useWalletsSwapTransactions();
   const confirmedTxs = allTransactions.filter(
     (tx) => tx.status === 'failed' && !tx.archive,
   );

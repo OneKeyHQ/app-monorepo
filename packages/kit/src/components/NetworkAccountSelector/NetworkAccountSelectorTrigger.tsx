@@ -12,10 +12,12 @@ import {
 } from '@onekeyhq/components';
 
 import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
+import { EAccountSelectorMode } from '../../store/reducers/reducerAccountSelector';
 
 type NetworkAccountSelectorTriggerProps = {
   size?: 'sm' | 'lg' | string;
   type?: 'basic' | 'plain';
+  mode?: EAccountSelectorMode;
 };
 
 const defaultProps = {
@@ -26,6 +28,7 @@ const defaultProps = {
 const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   size,
   type,
+  mode,
 }) => {
   // TODO different options of scene
   const { network, account, wallet } = useActiveWalletAccount();
@@ -62,7 +65,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
     <>
       <Pressable
         onPress={() => {
-          openAccountSelector();
+          openAccountSelector({ mode });
         }}
       >
         {(status) => {

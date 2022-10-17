@@ -1,29 +1,39 @@
+export type WebSiteHistory = {
+  title?: string;
+  url?: string;
+  favicon?: string;
+};
+
+export type DiscoverHistory = {
+  webSite?: WebSiteHistory; // 手动输入的普通网站
+  clicks: number;
+  timestamp: number;
+};
+
+export type HistoryItemData = {
+  clicks: number;
+  timestamp: number;
+};
+
 export type DAppItemType = {
-  id: string;
+  _id: string;
   name: string;
+  url: string;
+  logoURL: string;
   subtitle: string;
   description: string;
-  url: string;
-  chain: string;
-  status: string;
-  favicon: string;
-  pic?: string;
+  networkIds: string[];
+  tags: { name: string; _id: string }[];
+  categories: { name: string; _id: string }[];
 };
 
-type BannerItemType = { dapp: string; pic: string };
-type DAppTagsType = { name: string; dapps: string[] };
-
-export type SyncRequestPayload = {
-  timestamp: number;
-  increment: Record<string, DAppItemType>;
-  banners: BannerItemType[];
+export type ItemsType = {
+  label: string;
+  items: DAppItemType[];
 };
 
-export type RankingsPayload = {
-  special: {
-    daily: string[];
-    new: string[];
-    weekly: string[];
-  };
-  tags: DAppTagsType[];
-};
+export interface SectionDataType {
+  title: string;
+  data: DAppItemType[];
+  onItemSelect?: (item: DAppItemType) => void;
+}

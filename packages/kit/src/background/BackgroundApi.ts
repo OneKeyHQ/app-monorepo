@@ -10,6 +10,7 @@ import ServiceBootstrap from './services/ServiceBootstrap';
 import ServiceCloudBackup from './services/ServiceCloudBackup';
 import ServiceCronJob from './services/ServiceCronJob';
 import ServiceDapp from './services/ServiceDapp';
+import ServiceDiscover from './services/ServiceDiscover';
 import ServiceHardware from './services/ServiceHardware';
 import ServiceHistory from './services/ServiceHistory';
 import ServiceNameResolver from './services/ServiceNameResolver';
@@ -117,6 +118,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceBootstrap = new ServiceBootstrap({
+    backgroundApi: this,
+  });
+
+  serviceDiscover = new ServiceDiscover({
     backgroundApi: this,
   });
 }

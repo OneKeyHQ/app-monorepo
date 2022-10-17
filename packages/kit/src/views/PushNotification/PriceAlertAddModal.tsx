@@ -29,7 +29,7 @@ import {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
 } from '../ManageTokens/types';
-import { PreSendAmountPreview } from '../Send/PreSendAmount';
+import { PreSendAmountPreview } from '../Send/modals/PreSendAmount';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

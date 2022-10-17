@@ -1423,18 +1423,18 @@ class Engine {
     filterRemoved = false,
     forceReloadTokens = false,
   ): Promise<Array<Token>> {
-    try {
-      await this.updateOnlineTokens(networkId, forceReloadTokens);
-    } catch (error) {
-      debugLogger.engine.error(`updateOnlineTokens error`, {
-        message: error instanceof Error ? error.message : error,
-      });
-    }
     // Get token info by network and account.
-    const tokens = await simpleDb.token.getTokens({
+    let tokens = await simpleDb.token.getTokens({
       networkId,
       accountId,
     });
+    if (!tokens?.length || forceReloadTokens) {
+      await this.updateOnlineTokens(networkId, forceReloadTokens);
+      tokens = await simpleDb.token.getTokens({
+        networkId,
+        accountId,
+      });
+    }
     const legacyAccountTokens = await this.dbApi.getTokens(
       networkId,
       accountId,
@@ -1494,13 +1494,17 @@ class Engine {
     if (!impl || !chainId) {
       return;
     }
-    const tokens = await fetchOnlineTokens({
-      impl,
-      chainId,
-      includeNativeToken: 1,
-    });
-    if (tokens.length) {
-      await simpleDb.token.updateTokens(impl, chainId, tokens);
+    try {
+      const tokens = await fetchOnlineTokens({
+        impl,
+        chainId,
+        includeNativeToken: 1,
+      });
+      if (tokens.length) {
+        await simpleDb.token.updateTokens(impl, chainId, tokens);
+      }
+    } catch (error) {
+      debugLogger.engine.error(`updateOnlineTokens error`, error);
     }
     updateTokenCache[networkId] = true;
   }
