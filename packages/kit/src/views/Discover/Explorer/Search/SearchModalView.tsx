@@ -103,7 +103,6 @@ const SearchModalView: FC = () => {
       footer={null}
       flatListProps={{
         data: flatListData,
-        // @ts-expect-error
         renderItem,
         ItemSeparatorComponent: () => <Divider />,
         // @ts-expect-error

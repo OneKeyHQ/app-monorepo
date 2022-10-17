@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
+import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DAppItemType, SectionDataType } from '../../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,11 +32,10 @@ export const SectionTitle: FC<SectionDataType> = ({
   const onSelected = useCallback(
     (item: DAppItemType) => {
       onItemSelect?.(item);
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      }
+      // use root nav instead of tab nav to goback
+      getAppNavigation().goBack();
     },
-    [navigation, onItemSelect],
+    [onItemSelect],
   );
 
   return (
