@@ -28,16 +28,10 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useAccount,
-  useActiveWalletAccount,
-  useAddressName,
-  useNetwork,
-} from '../../../../hooks';
+import { useAddressName, useNetworkSimple } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
-import { changeActiveNetwork } from '../../../../store/reducers/general';
-import { wait } from '../../../../utils/helper';
+import { useTransactionsAccount } from '../../hooks/useTransactions';
 import {
   SwapRoutes,
   SwapRoutesParams,
@@ -113,7 +107,7 @@ const StatusTitle: FC<{ status: TransactionStatus }> = ({ status }) => {
   );
 };
 
-const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
+const Header: FC<TransactionProps & { onPress?: () => void }> = ({
   tx,
   onPress,
 }) => {
@@ -176,7 +170,7 @@ const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
         </Box>
       </Box>
       {tx.status === 'sucesss' ? (
-        <Button size="xs" onPromise={onPress}>
+        <Button size="xs" onPress={onPress}>
           {intl.formatMessage({ id: 'action__swap_again' })}
         </Button>
       ) : null}
@@ -185,8 +179,8 @@ const Header: FC<TransactionProps & { onPress?: () => Promise<void> }> = ({
 };
 
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
-  const fromNetwork = useNetwork(tx.tokens?.from.networkId);
-  const toNetwork = useNetwork(tx.tokens?.to.networkId);
+  const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
+  const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
   return (
     <Box my="6" borderRadius="12" background="surface-default" p="4">
       <Box
@@ -267,8 +261,8 @@ type ViewInBrowserSelectorItem = {
 type ViewInBrowserSelectorProps = { tx: TransactionDetails };
 const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const intl = useIntl();
-  const fromNetwork = useNetwork(tx.tokens?.from.networkId);
-  const toNetwork = useNetwork(tx.tokens?.to.networkId);
+  const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
+  const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
 
   const onOpenTx = useCallback((url: string) => {
     if (platformEnv.isNative) {
@@ -369,7 +363,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
 type ViewInBrowserLinkProps = { tx: TransactionDetails };
 const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
   const intl = useIntl();
-  const network = useNetwork(tx.networkId);
+  const network = useNetworkSimple(tx.networkId);
   const openLinkUrl = useCallback((url: string) => {
     if (platformEnv.isNative) {
       Linking.openURL(url);
@@ -410,11 +404,11 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   const toast = useToast();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
-  const { networkId } = useActiveWalletAccount();
-  const account = useAccount(tx.accountId);
-  const network = useNetwork(tx.networkId);
-  const fromNetwork = useNetwork(tx.tokens?.from.networkId);
-  const toNetwork = useNetwork(tx.tokens?.to.networkId);
+  const account = useTransactionsAccount(tx.accountId);
+  const network = useNetworkSimple(tx.networkId);
+  const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
+  const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
+
   const receivingName = useAddressName({ address: tx.receivingAddress });
   const { formatDate } = useFormatDate();
   const { from, to } = tx.tokens ?? {};
@@ -444,12 +438,8 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     openLinkUrl(url);
   }, [openLinkUrl, network, tx.hash]);
 
-  const onPress = useCallback(async () => {
+  const onPress = useCallback(() => {
     if (from && to && fromNetwork && toNetwork) {
-      if (networkId !== fromNetwork.id) {
-        backgroundApiProxy.dispatch(changeActiveNetwork(fromNetwork.id));
-        await wait(500);
-      }
       backgroundApiProxy.serviceSwap.selectToken(
         'INPUT',
         fromNetwork,
@@ -464,7 +454,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
         route.params.goBack?.();
       }, 100);
     }
-  }, [from, to, fromNetwork, toNetwork, navigation, networkId, route.params]);
+  }, [from, to, fromNetwork, toNetwork, navigation, route.params]);
 
   if (!account || !network) {
     return null;

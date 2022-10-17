@@ -1,67 +1,91 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { Account } from '@onekeyhq/engine/src/types/account';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks/redux';
-import { TransactionDetails, TransactionType } from '../typings';
+import { TransactionDetails } from '../typings';
 
 export function isTransactionRecent(tx: TransactionDetails): boolean {
   return new Date().getTime() - tx.addedTime < 86400000;
 }
 
-export function useAllTransactions(
-  accountId: string,
-  networkId?: string,
-): TransactionDetails[] {
+export function useAllTransactions(): TransactionDetails[] {
   const transactions = useAppSelector(
     (state) => state.swapTransactions.transactions,
   );
   return useMemo(() => {
-    const records = transactions[accountId];
-    if (!records) {
-      return [];
-    }
-    let txs: TransactionDetails[] = [];
-    if (!networkId) {
-      const values = Object.values(records);
-      txs = values.reduce((a, b) => a.concat(b), []);
-    } else {
-      txs = records?.[networkId] ?? [];
-    }
+    const accountsTransactions = Object.values(transactions);
+    const txs = accountsTransactions.reduce(
+      (result, item) => result.concat(...Object.values(item)),
+      [] as TransactionDetails[],
+    );
     return [...txs].sort((a, b) => (a.addedTime > b.addedTime ? -1 : 1));
-  }, [transactions, networkId, accountId]);
+  }, [transactions]);
 }
 
-export function useTransactions(
-  accountId: string,
-  networkId?: string,
-  type: TransactionType = 'swap',
-): TransactionDetails[] {
-  const transactions = useAllTransactions(accountId, networkId);
+function useSwapTransactions(): TransactionDetails[] {
+  const transactions = useAllTransactions();
   return useMemo(
-    () => transactions.filter((tx) => tx.type === type),
-    [transactions, type],
+    () => transactions.filter((tx) => tx.type === 'swap'),
+    [transactions],
   );
 }
 
-export function useHasPendingApproval(
-  accountId: string,
-  networkId: string,
-  tokenAddress: string | undefined,
-  spender: string | undefined,
-): boolean {
-  const allTransactions = useTransactions(accountId, networkId, 'approve');
-  return useMemo(
-    () =>
-      typeof tokenAddress === 'string' &&
-      typeof spender === 'string' &&
-      allTransactions.some((tx) => {
-        const { approval, confirmedTime } = tx;
-        if (!approval || confirmedTime) return false;
-        return (
-          approval.spender === spender &&
-          approval.tokenAddress === tokenAddress &&
-          isTransactionRecent(tx)
-        );
-      }),
-    [allTransactions, spender, tokenAddress],
+export function useWalletsAccounts() {
+  const wallets = useAppSelector((s) => s.runtime.wallets);
+  const accounts = wallets.reduce(
+    (result, wallet) =>
+      result.concat(
+        wallet.accounts.map((account) => ({
+          accountId: account,
+          walletId: wallet.id,
+        })),
+      ),
+    [] as { accountId: string; walletId: string }[],
   );
+  return accounts;
+}
+
+export function useWalletsSwapTransactions() {
+  const swapTransations = useSwapTransactions();
+  const walletsAccounts = useWalletsAccounts();
+  const networks = useAppSelector((s) => s.runtime.networks);
+  const networkIds = useMemo(() => networks.map((item) => item.id), [networks]);
+  const accountIds = useMemo(
+    () => walletsAccounts.map((item) => item.accountId),
+    [walletsAccounts],
+  );
+  const accountIdsSet = new Set(accountIds);
+  const networkIdsSet = new Set(networkIds);
+  return swapTransations.filter(
+    (tx) => accountIdsSet.has(tx.accountId) && networkIdsSet.has(tx.networkId),
+  );
+}
+
+export function useTransactionsAccount(accountId: string) {
+  const walletAccounts = useWalletsAccounts();
+  const [account, setAccount] = useState<Account | undefined | null>(() =>
+    walletAccounts.find((item) => item.accountId === accountId)
+      ? undefined
+      : null,
+  );
+
+  useEffect(() => {
+    async function main() {
+      const walletAccount = walletAccounts.find(
+        (item) => item.accountId === accountId,
+      );
+      if (walletAccount) {
+        const [item] = await backgroundApiProxy.engine.getAccounts([
+          walletAccount.accountId,
+        ]);
+        if (item) {
+          setAccount(item);
+        }
+      }
+    }
+    main();
+  }, [walletAccounts, accountId]);
+  return account;
 }

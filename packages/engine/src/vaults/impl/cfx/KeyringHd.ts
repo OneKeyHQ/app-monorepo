@@ -1,4 +1,5 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
@@ -6,7 +7,13 @@ import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBVariantAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import { IPrepareSoftwareAccountsParams } from '../../types';
+import {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+  IUnsignedTxPro,
+} from '../../types';
+
+import { signTransaction } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
@@ -82,5 +89,52 @@ export class KeyringHd extends KeyringHdBase {
       index += 1;
     }
     return ret;
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+      this.networkId
+    ];
+
+    const signers = await this.getSigners(options.password || '', [
+      selectedAddress,
+    ]);
+    const signer = signers[selectedAddress];
+
+    return signTransaction(unsignedTx, signer);
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const { password } = options;
+    if (typeof password === 'undefined') {
+      throw new OneKeyInternalError('Software signing requires a password.');
+    }
+
+    const dbAccount = await this.getDbAccount();
+    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+      this.networkId
+    ];
+
+    const signers = await this.getSigners(options.password || '', [
+      selectedAddress,
+    ]);
+    const signer = signers[selectedAddress];
+
+    return Promise.all(
+      messages.map((message) =>
+        this.engine.providerManager.signMessage(
+          this.networkId,
+          message,
+          signer,
+        ),
+      ),
+    );
   }
 }

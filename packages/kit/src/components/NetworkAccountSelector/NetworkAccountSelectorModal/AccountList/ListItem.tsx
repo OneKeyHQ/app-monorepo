@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { FC, useLayoutEffect, useMemo } from 'react';
+import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { InteractionManager } from 'react-native';
 
@@ -15,9 +15,18 @@ import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
+  useAppSelector,
   useNavigationActions,
 } from '../../../../hooks';
-import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendRoutes,
+} from '../../../../routes/routesEnum';
+import reducerAccountSelector, {
+  EAccountSelectorMode,
+} from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import ExternalAccountImg from '../../../WalletConnect/ExternalAccountImg';
@@ -54,6 +63,8 @@ const ListItem: FC<ListItemProps> = ({
   const isVertical = useIsVerticalLayout();
   const closeModal = useModalClose();
   const { closeWalletSelector } = useNavigationActions();
+  const navigation = useAppNavigation();
+  const { accountSelectorMode } = useAppSelector((s) => s.accountSelector);
 
   // @ts-ignore
   const isLastItem = account?.$isLastItem;
@@ -83,34 +94,67 @@ const ListItem: FC<ListItemProps> = ({
     ],
   );
 
-  return (
-    <Pressable
-      onPress={() => {
-        closeModal();
-        closeWalletSelector();
-        dispatch(updateIsRefreshDisabled(true));
+  const onPress = useCallback(() => {
+    closeModal();
+    closeWalletSelector();
+    const accountId = account?.id || '';
 
-        InteractionManager.runAfterInteractions(async () => {
-          try {
-            if (isVertical) {
-              await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
-            }
+    if (accountSelectorMode === EAccountSelectorMode.Transfer) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.PreSendToken,
+          params: {
+            accountId,
+            networkId: networkId || '',
+            from: '',
+            to: '',
+            amount: '',
+          },
+        },
+      });
+      return;
+    }
+    if (accountSelectorMode === EAccountSelectorMode.Wallet) {
+      dispatch(updateIsRefreshDisabled(true));
 
-            if (networkId) {
-              await serviceNetwork.changeActiveNetwork(networkId);
-            }
-            await serviceAccount.changeActiveAccount({
-              accountId: account.id,
-              walletId: walletId ?? '',
-            });
-            await serviceAccountSelector.setSelectedWalletToActive();
-          } finally {
-            await wait(100);
-            dispatch(updateIsRefreshDisabled(false));
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          if (isVertical) {
+            await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
           }
-        });
-      }}
-    >
+
+          if (networkId) {
+            await serviceNetwork.changeActiveNetwork(networkId);
+          }
+          await serviceAccount.changeActiveAccount({
+            accountId,
+            walletId: walletId ?? '',
+          });
+          await serviceAccountSelector.setSelectedWalletToActive();
+        } finally {
+          await wait(100);
+          dispatch(updateIsRefreshDisabled(false));
+        }
+      });
+    }
+  }, [
+    account?.id,
+    accountSelectorMode,
+    closeModal,
+    closeWalletSelector,
+    dispatch,
+    isVertical,
+    navigation,
+    networkId,
+    serviceAccount,
+    serviceAccountSelector,
+    serviceNetwork,
+    walletId,
+  ]);
+
+  return (
+    <Pressable onPress={onPress}>
       {({ isHovered, isPressed }) => (
         <>
           <Box

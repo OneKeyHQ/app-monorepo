@@ -16,6 +16,8 @@ export default class ServiceBase {
 
   @backgroundMethod()
   async getActiveWalletAccount() {
-    return Promise.resolve(getActiveWalletAccount());
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    const result = await getActiveWalletAccount();
+    return Promise.resolve(result);
   }
 }

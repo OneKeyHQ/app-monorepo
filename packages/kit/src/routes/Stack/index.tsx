@@ -14,7 +14,7 @@ import {
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
-import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home/DiscoverHome';
+import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
 import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';

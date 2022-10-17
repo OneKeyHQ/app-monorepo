@@ -30,8 +30,12 @@ import {
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../../components/Format';
-import { useActiveWalletAccount, useManageTokens } from '../../../hooks';
-import { useNetwork, useSettings } from '../../../hooks/redux';
+import {
+  useActiveWalletAccount,
+  useManageTokens,
+  useNetworkSimple,
+} from '../../../hooks';
+import { useSettings } from '../../../hooks/redux';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
@@ -279,7 +283,7 @@ export default function StakingAmount() {
   const { networkId, tokenIdOnNetwork } = route.params;
   const [amount, setAmount] = useState('');
   const { account } = useActiveWalletAccount();
-  const network = useNetwork(networkId);
+  const network = useNetworkSimple(networkId);
 
   const tokenInfo = useTokenInfo({
     networkId,

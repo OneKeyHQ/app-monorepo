@@ -23,10 +23,8 @@ import SwapAllChainsLogoPNG from '@onekeyhq/kit/assets/swap_all_chains_logo.png'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
-  useAccountTokens,
-  useActiveWalletAccount,
   useDebounce,
-  useNetwork,
+  useNetworkSimple,
   useNetworkTokens,
 } from '../../../../hooks';
 import { enabledNetworkIds } from '../../config';
@@ -194,7 +192,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
 }) => {
   const { selectedToken } = useContext(TokenSelectorContext);
 
-  const tokenNetwork = useNetwork(token.networkId);
+  const tokenNetwork = useNetworkSimple(token.networkId);
 
   const onPress = useCallback(() => {
     onSelect?.(token);
@@ -250,25 +248,13 @@ const TokenSelector: FC<TokenSelectorProps> = ({
   onSelect,
 }) => {
   const intl = useIntl();
-  const { accountId: activeAccountId } = useActiveWalletAccount();
   const { networkId: activeNetworkId } = useContext(TokenSelectorContext);
   const swappableNativeTokens = useSwappableNativeTokens();
-
-  const accountsTokens = useAccountTokens(activeNetworkId, activeAccountId);
   const networkTokens = useNetworkTokens(activeNetworkId);
 
-  const deduplicated = useMemo(() => {
-    const items = [...accountsTokens, ...networkTokens];
-    const result = items.reduce<Record<string, Token>>((a, b) => {
-      a[b.tokenIdOnNetwork] = b;
-      return a;
-    }, {});
-    return Object.values(result);
-  }, [accountsTokens, networkTokens]);
-
   const tokens = useMemo(
-    () => (!activeNetworkId ? swappableNativeTokens ?? [] : deduplicated),
-    [deduplicated, swappableNativeTokens, activeNetworkId],
+    () => (!activeNetworkId ? swappableNativeTokens ?? [] : networkTokens),
+    [swappableNativeTokens, activeNetworkId, networkTokens],
   );
 
   const restrictedTokens = useRestrictedTokens(tokens, included, excluded);
@@ -278,7 +264,6 @@ const TokenSelector: FC<TokenSelectorProps> = ({
   const { loading, result: searchedTokens } = useTokenSearch(
     terms,
     activeNetworkId,
-    activeAccountId,
   );
   const isLoading = loading || keyword !== terms;
 

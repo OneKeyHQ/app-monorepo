@@ -39,7 +39,6 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
-  ISignCredentialOptions,
   ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
@@ -555,26 +554,27 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async signAndSendTransaction(
-    unsignedTx: IUnsignedTxPro,
-    options: ISignCredentialOptions,
-    _signOnly: boolean,
-  ): Promise<ISignedTx> {
+  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+
     const tronWeb = await this.getClient();
-    const signedTx = await this.signTransaction(unsignedTx, options);
     const ret = await tronWeb.trx.sendRawTransaction(
       JSON.parse(signedTx.rawTx),
     );
+
     if (typeof ret.code !== 'undefined') {
       throw new OneKeyInternalError(
         `${ret.code} ${Buffer.from(ret.message || '', 'hex').toString()}`,
       );
     }
 
-    return {
-      ...signedTx,
-      encodedTx: unsignedTx.encodedTx,
-    };
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+    return signedTx;
   }
 
   override async getExportedCredential(password: string): Promise<string> {

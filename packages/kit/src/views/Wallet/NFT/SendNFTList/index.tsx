@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -13,11 +13,13 @@ import {
 } from '@onekeyhq/components';
 import { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useActiveSideAccount } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
-import { SendRoutes, SendRoutesParams } from '../../../../routes';
+import { SendRoutes } from '../../../../routes/routesEnum';
+import { PreSendParams } from '../../../Send/types';
 
 import SelectNFTCard from './SelectNFTCard';
 import {
@@ -26,6 +28,7 @@ import {
   useSendNFTContent,
 } from './SendNFTContent';
 
+import type { SendRoutesParams } from '../../../../routes';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -65,9 +68,17 @@ function useGridListLayout({
   }, [isSmallScreen, margin, maxCardWidth, numColumns, pageWidth]);
 }
 
-function List() {
-  // const { bottom } = useSafeAreaInsets();
-  // const isSmallScreen = useIsVerticalLayout();
+function List({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { bottom } = useSafeAreaInsets();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const isSmallScreen = useIsVerticalLayout();
 
   const content = useSendNFTContent();
   const { listData } = content?.context ?? { listData: [] };
@@ -79,18 +90,20 @@ function List() {
     pageWidth,
   });
 
-  const renderItem = useCallback<
+  const renderItem = React.useCallback<
     NonNullable<FlatListProps<SelectAsset>['renderItem']>
   >(
     ({ item }) => (
       <SelectNFTCard
+        accountId={accountId}
+        networkId={networkId}
         cardWidth={cardWidth}
         key={item.tokenId ?? item.tokenAddress}
         marginRight="8px"
         asset={item}
       />
     ),
-    [cardWidth],
+    [accountId, cardWidth, networkId],
   );
 
   return (
@@ -130,7 +143,10 @@ function SendButton() {
     if (multiSelect === false) {
       const asset = listData.find((item) => item.selected === true);
       if (asset) {
-        navigation.navigate(SendRoutes.PreSendAddress, {
+        const { accountId, networkId } = getActiveWalletAccount();
+        const params: PreSendParams = {
+          accountId,
+          networkId,
           isNFT: true,
           from: '',
           to: '',
@@ -138,7 +154,8 @@ function SendButton() {
           token: asset.contractAddress ?? asset.tokenAddress,
           tokenId: asset.tokenId ?? asset.tokenAddress,
           type: asset.ercType,
-        });
+        };
+        navigation.navigate(SendRoutes.PreSendAddress, params);
       }
     }
   };
@@ -166,10 +183,16 @@ function SendButton() {
   );
 }
 
-function SendNFTList() {
-  const { account, networkId } = useActiveWalletAccount();
+function SendNFTList({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
   const [collectibles, updateListData] = useState<Collection[]>([]);
   const intl = useIntl();
+  const { account } = useActiveSideAccount({ accountId, networkId });
 
   const allAssets = useMemo(
     () =>
@@ -212,7 +235,7 @@ function SendNFTList() {
 
   return allAssets.length > 0 ? (
     <SendNFTContentProvider listData={allAssets} multiSelect={false}>
-      <List />
+      <List accountId={accountId} networkId={networkId} />
       <SendButton />
     </SendNFTContentProvider>
   ) : (

@@ -28,7 +28,7 @@ const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
       type="plain"
       w="52px"
       borderRadius={0}
-      bg={isCurrent ? 'background-default' : 'surface-default'}
+      bg={isCurrent ? 'background-default' : 'background-hovered'}
       leftIconName="HomeSolid"
       iconSize={16}
       iconColor={isCurrent ? 'icon-hovered' : 'icon-default'}
@@ -39,7 +39,7 @@ const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
   ) : (
     <Pressable
       _hover={{
-        bg: 'action-secondary-hovered',
+        bg: isCurrent ? 'background-default' : 'action-secondary-hovered',
       }}
       borderRightColor="border-default"
       borderRightWidth="0.5px"

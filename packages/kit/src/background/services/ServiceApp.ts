@@ -113,6 +113,7 @@ class ServiceApp extends ServiceBase {
     return Boolean(isUnlock && isStatusUnlock);
   }
 
+  @backgroundMethod()
   restartApp() {
     if (platformEnv.isNative) {
       return RNRestart.Restart();
@@ -250,6 +251,10 @@ class ServiceApp extends ServiceBase {
       activeNetworkId,
     );
     const activeAccountId = serviceAccount.initCheckingAccount(accounts);
+
+    if (activeNetworkId) {
+      await engine.updateOnlineTokens(activeNetworkId, false);
+    }
 
     dispatch(
       setActiveIds({

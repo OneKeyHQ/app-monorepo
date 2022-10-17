@@ -49,21 +49,20 @@
     "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "1.0.8",
-    "@onekeyfe/cross-inpage-provider-errors": "1.0.8",
-    "@onekeyfe/cross-inpage-provider-injected": "1.0.8",
-    "@onekeyfe/cross-inpage-provider-types": "1.0.8",
-    "@onekeyfe/extension-bridge-hosted": "1.0.8",
-    "@onekeyfe/onekey-cross-webview": "1.0.8",
+    "@onekeyfe/cross-inpage-provider-core": "1.1.0",
+    "@onekeyfe/cross-inpage-provider-errors": "1.1.0",
+    "@onekeyfe/cross-inpage-provider-injected": "1.1.0",
+    "@onekeyfe/cross-inpage-provider-types": "1.1.0",
+    "@onekeyfe/extension-bridge-hosted": "1.1.0",
+    "@onekeyfe/onekey-cross-webview": "1.1.0",
     "axios": "^0.26.0",
     "expo-device": "^4.3.0",
     "memoizee": "^0.4.15"
   },
   "devDependencies": {
-    "@babel/core": "^7.15.8",
+    "@babel/core": "^7.19.3",
     "@babel/eslint-parser": "^7.19.1",
     "@babel/preset-react": "^7.18.6",
-    "@babel/plugin-proposal-class-properties": "^7.14.5",
     "@types/chrome": "^0.0.161",
     "@types/jest": "^27.0.3",
     "@types/memoizee": "^0.4.8",
@@ -85,7 +84,7 @@
     "eslint-config-airbnb": "^18.2.1",
     "eslint-config-airbnb-typescript": "^14.0.0",
     "eslint-config-prettier": "^8.3.0",
-    "eslint-config-wesbos": "2.1.0",
+    "eslint-config-wesbos": "^3.1.1",
     "eslint-plugin-html": "^6.1.2",
     "eslint-plugin-import": "^2.24.2",
     "eslint-plugin-jest": "^25.3.0",
@@ -121,6 +120,7 @@
     "webpack-dev-server": "^4.9.2"
   },
   "resolutions": {
+    "@babel/core": "^7.19.3",
     "**/webpack-dev-server": "^4.3.1",
     "**/browserslist": "^4",
     "**/immer": "^9",

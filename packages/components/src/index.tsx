@@ -70,6 +70,7 @@ export { default as BalanceText } from './BalanceText';
 export { default as Progress } from './Progress';
 export { default as TypeWriter } from './TypeWriter';
 export { default as Hidden } from './Hidden';
+export { default as Collapse } from './Collapse';
 export { default as ToggleButtonGroup } from './ToggleButtonGroup/ToggleButtonGroup';
 export { List, GroupingList, ListItem } from './ListView';
 

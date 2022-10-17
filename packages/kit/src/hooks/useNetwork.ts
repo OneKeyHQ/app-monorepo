@@ -1,20 +1,26 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from 'react';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
+import { INetwork } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useAppSelector } from './redux';
+import { useAppSelector } from './useAppSelector';
 
-function useNetwork({ networkId }: { networkId?: string }) {
+function useNetwork({
+  networkId,
+  networkFallback,
+}: {
+  networkId?: string | null;
+  networkFallback?: INetwork | null;
+}) {
   if (networkId === 'all') {
     debugger;
   }
   const networkInRedux = useAppSelector((s) =>
     s.runtime.networks?.find((n) => n.id === networkId),
   );
-  const [networkInDb, setNetworkInDb] = useState<Network | undefined>(
+  const [networkInDb, setNetworkInDb] = useState<INetwork | undefined>(
     networkInRedux,
   );
   useEffect(() => {
@@ -29,7 +35,15 @@ function useNetwork({ networkId }: { networkId?: string }) {
       setNetworkInDb(result);
     })();
   }, [networkId, networkInRedux]);
-  return { network: networkInRedux ?? networkInDb };
+  return { network: networkInRedux ?? networkInDb ?? networkFallback };
 }
+
+export const useNetworkSimple = (
+  networkId?: string | null,
+  networkFallback?: INetwork | null,
+) => {
+  const { network } = useNetwork({ networkId, networkFallback });
+  return network ?? null;
+};
 
 export { useNetwork };

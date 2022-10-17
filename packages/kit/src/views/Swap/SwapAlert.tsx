@@ -4,31 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import { useActiveWalletAccount } from '../../hooks';
-
-import { enabledNetworkIds } from './config';
 import { useInputLimitsError, useSwapState } from './hooks/useSwap';
 import { SwapError } from './typings';
-
-const NetworkDisabledAlert = () => {
-  const intl = useIntl();
-  const { network } = useActiveWalletAccount();
-  if (!network || !enabledNetworkIds.includes(network.id)) {
-    return (
-      <Box mt="6">
-        <Alert
-          title={intl.formatMessage({ id: 'msg__wrong_network' })}
-          description={intl.formatMessage({
-            id: 'msg__wrong_network_desc',
-          })}
-          alertType="error"
-          dismiss={false}
-        />
-      </Box>
-    );
-  }
-  return <></>;
-};
 
 const DepositLimitAlert = () => {
   const limitsError = useInputLimitsError();
@@ -76,7 +53,6 @@ const ErrorAlert = () => {
 
 const SwapWarning: FC = () => (
   <>
-    <NetworkDisabledAlert />
     <DepositLimitAlert />
     <ErrorAlert />
   </>

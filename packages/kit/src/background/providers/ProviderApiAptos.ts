@@ -263,6 +263,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
+      // @ts-expect-error
       { encodedTx: encodeTx },
     )) as string;
 
@@ -291,6 +292,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
+      // @ts-expect-error
       { encodedTx: encodeTx, signOnly: true },
     )) as string;
 
@@ -329,6 +331,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
+      // @ts-expect-error
       { encodedTx: encodeTx, signOnly: true },
     )) as string;
 
@@ -399,6 +402,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
+      // @ts-expect-error
       { encodedTx: encodeTx },
     )) as string;
 

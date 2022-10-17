@@ -16,8 +16,8 @@ import { FormatCurrencyNumber } from '../../../../components/Format';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { useNFTSymbolPrice } from '../../../../hooks/useTokens';
 
-import CollectibleListImage from './CollectibleListImage';
 import { useNFTListContent } from './NFTListContent';
+import NFTListImage from './NFTListImage';
 
 type Props = ComponentProps<typeof Box> & {
   asset: NFTAsset;
@@ -65,7 +65,7 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
           }
         }}
       >
-        <CollectibleListImage
+        <NFTListImage
           asset={asset}
           borderRadius="6px"
           size={cardWidth - 2 * padding}

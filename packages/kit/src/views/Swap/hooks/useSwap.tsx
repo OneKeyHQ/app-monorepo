@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
@@ -58,7 +56,7 @@ export function useTokenAmount(token?: Token, amount?: string) {
     const decimals = new BigNumber(token.decimals);
     const base = new BigNumber(10);
     const value = bn.dividedBy(base.exponentiatedBy(decimals));
-    return new TokenAmount(token, value.toString());
+    return new TokenAmount(token, value.toFixed());
   }, [token, amount]);
 }
 
@@ -162,8 +160,6 @@ export const useSwapQuoteCallback = function (
                   tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
                   spender: data.allowanceTarget,
                 });
-              console.log('allowance', allowance);
-              console.log('data.sellAmount', data.sellAmount);
               if (allowance) {
                 data.needApproved = new BigNumber(
                   getTokenAmountString(params.tokenIn, allowance),

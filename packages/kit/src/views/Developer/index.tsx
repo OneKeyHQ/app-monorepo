@@ -18,6 +18,7 @@ import {
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  getActiveWalletAccount,
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
@@ -253,12 +254,15 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
+                const { networkId, accountId } = getActiveWalletAccount();
                 // @ts-ignore
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
                     screen: SendRoutes.SendFeedbackReceipt,
                     params: {
+                      networkId,
+                      accountId,
                       txid: 'test-txid',
                     },
                   },
@@ -283,12 +287,15 @@ export const Debug = () => {
                var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","value": "0xa3b5840f4000","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
                await window.ethereum.request(p);
                  */
+                const { networkId, accountId } = getActiveWalletAccount();
                 // @ts-ignore
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
                     screen: SendRoutes.SendConfirmFromDapp,
                     params: {
+                      networkId,
+                      accountId,
                       query: `{"sourceInfo":{"id":0,"origin":"https://swap.onekey.so","scope":"ethereum","data":{"method":"eth_sendTransaction","params":[{
                       "gas":"0xbf01",
                       "from":"0x76f3f64cb3cd19debee51436df630a342b736c24",
@@ -328,12 +335,15 @@ export const Debug = () => {
                 const randomValue = `0x${Math.floor(
                   Math.random() * 10 ** 15,
                 ).toString(16)}`;
+                const { networkId, accountId } = getActiveWalletAccount();
                 // @ts-ignore
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
                     screen: SendRoutes.SendConfirmFromDapp,
                     params: {
+                      networkId,
+                      accountId,
                       query: `{
   "sourceInfo": {
     "id": 0,

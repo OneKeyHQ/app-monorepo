@@ -14,9 +14,12 @@ import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../hooks';
-import { useActiveWalletAccount, useNetwork } from '../../hooks/redux';
-import { useManageTokens } from '../../hooks/useManageTokens';
+import {
+  useActiveWalletAccount,
+  useDebounce,
+  useManageTokens,
+  useNetworkSimple,
+} from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -47,7 +50,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     account: activeAccount,
     network: defaultNetwork,
   } = useActiveWalletAccount();
-  const activeNetwork = useNetwork(networkId ?? null) ?? defaultNetwork;
+  const activeNetwork = useNetworkSimple(networkId ?? null, defaultNetwork);
   const { accountTokensMap } = useManageTokens();
   const isSmallScreen = useIsVerticalLayout();
 

@@ -30,7 +30,7 @@ import {
 } from '../explorerUtils';
 import SearchView from '../Search/SearchView';
 
-import { useWebController } from './useWebController';
+import { useWebTab } from './useWebTabs';
 
 type BrowserURLInputProps = {
   onClear?: () => void;
@@ -103,7 +103,7 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
 }) => {
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
-  const { currentTab } = useWebController();
+  const currentTab = useWebTab();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const url: string = currentTab?.url || '';
   const [searchText, setSearchText] = useState(url);

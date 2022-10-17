@@ -48,6 +48,12 @@ export function getImageWithAsset(asset: NFTAsset) {
   }
 }
 
+const SVGContracts = ['0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85'];
+
+export function isSVGContract(contractAddress?: string) {
+  return SVGContracts.includes(contractAddress ?? '');
+}
+
 export function getHttpImageWithAsset(asset: NFTAsset) {
   const { imageUri, nftscanUri } = asset;
   if (nftscanUri) {
@@ -107,8 +113,10 @@ export const getUserNFTAssets = async (params: {
 export const syncImage = async (params: {
   contractAddress?: string;
   tokenId: string;
-  imageURI: string;
+  imageURI?: string;
 }) => {
+  const { imageURI } = params;
+  if (!imageURI) return false;
   const endpoint = getFiatEndpoint();
   const apiUrl = `${endpoint}/NFT/sync`;
   const data = await axios

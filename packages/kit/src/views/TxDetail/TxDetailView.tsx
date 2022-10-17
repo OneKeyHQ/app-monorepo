@@ -13,7 +13,13 @@ import { ITxActionListViewProps } from './types';
 import { getDisplayedActions } from './utils/utilsTxDetail';
 
 export function TxDetailView(props: ITxActionListViewProps) {
-  const { historyTx, decodedTx, isHistoryDetail, isSendConfirm } = props;
+  const {
+    historyTx,
+    decodedTx,
+    isHistoryDetail,
+    isSendConfirm,
+    sendConfirmParamsParsed,
+  } = props;
   const replacedTxTextKeys = getReplacedTxAlertTextKeys({ historyTx });
   const intl = useIntl();
   const actions = getDisplayedActions({ decodedTx });
@@ -43,6 +49,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
         isMultipleActions={isMultipleActions}
         isHistoryDetail={isHistoryDetail}
         isSendConfirm={isSendConfirm}
+        sendConfirmParamsParsed={sendConfirmParamsParsed}
       >
         <TxActionsListView {...props} transformType="T1" space={6} />
       </TxDetailContextProvider>
