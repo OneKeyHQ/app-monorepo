@@ -59,3 +59,23 @@ index 30aada8..3783b0b 100644
  }
 +export declare type ISectionListProps<ItemT, sectionT = DefaultSectionT> = InterfaceSectionListProps<ItemT, sectionT>;
 +export {};
+diff --git a/node_modules/native-base/src/components/composites/Tooltip/Tooltip.tsx b/node_modules/native-base/src/components/composites/Tooltip/Tooltip.tsx
+index df36889..8048bf3 100644
+--- a/node_modules/native-base/src/components/composites/Tooltip/Tooltip.tsx
++++ b/node_modules/native-base/src/components/composites/Tooltip/Tooltip.tsx
+@@ -1,4 +1,5 @@
+-import { OverlayContainer } from '@react-native-aria/overlays';
++
++import { OverlayContainer } from '@onekeyhq/components';
+ import React from 'react';
+ import { useControllableState, useKeyboardDismissable } from '../../../hooks';
+ import { Popper } from '../Popper';
+@@ -194,7 +195,7 @@ export const Tooltip = ({
+     <>
+       {newChildren}
+       {isOpen && (
+-        <OverlayContainer>
++        <OverlayContainer useFullWindowForIOS>
+           <PresenceTransition
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1, transition: { duration: 150 } }}
