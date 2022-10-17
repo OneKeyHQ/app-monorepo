@@ -17,7 +17,6 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokensOfAccount } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import {
   HomeRoutes,
@@ -32,7 +31,7 @@ import { useActiveSideAccount } from '../../../hooks';
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
-import EmptyList, { EmptyListOfAccount } from './EmptyList';
+import { EmptyListOfAccount } from './EmptyList';
 import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 

@@ -1,5 +1,3 @@
-import { FC } from 'react';
-
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 

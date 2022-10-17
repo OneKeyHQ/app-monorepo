@@ -1,7 +1,5 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
 
 import { KeyringBase } from './KeyringBase';

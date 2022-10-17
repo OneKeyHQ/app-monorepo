@@ -1,17 +1,13 @@
-import { ComponentProps, useCallback, useEffect } from 'react';
+import { ComponentProps, useCallback } from 'react';
 
 import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
-import {
-  IWebViewWrapperRef,
-  useWebViewBridge,
-} from '@onekeyfe/onekey-cross-webview';
+import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import {
   WebViewNavigation,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
 import { Box, Button, Center } from '@onekeyhq/components';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
