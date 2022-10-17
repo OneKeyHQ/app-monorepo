@@ -131,7 +131,6 @@ export default class ServiceMarket extends ServiceBase {
       null,
     );
     if (data) {
-      console.log('detail-data', data);
       this.backgroundApi.dispatch(
         updateMarketTokenDetail({ coingeckoId, data }),
       );
@@ -263,14 +262,8 @@ export default class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  setMarketSearchTab(name: string | number | undefined) {
-    if (name) {
-      const categorys = this.backgroundApi.appSelector(
-        (s) => s.market.categorys,
-      );
-      const categoryId = Object.values(categorys).find(
-        (c) => c.name === name,
-      )?.categoryId;
+  setMarketSearchTab(categoryId: string | number | undefined) {
+    if (categoryId && typeof categoryId === 'string') {
       this.backgroundApi.dispatch(updateSearchTabCategory(categoryId));
     }
   }

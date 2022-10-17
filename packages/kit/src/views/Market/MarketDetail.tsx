@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useLayoutEffect } from 'react';
+import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
@@ -6,6 +6,7 @@ import {
   Box,
   Icon,
   IconButton,
+  ICON_NAMES,
   Image,
   ScrollView,
   Typography,
@@ -13,7 +14,15 @@ import {
 } from '@onekeyhq/components/src';
 import MarketPriceChart from './Components/MarketDetail/MarketPriceChart';
 
-import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalScreenProps,
+  TabRoutes,
+  TabRoutesParams,
+  RootRoutes,
+  ModalRoutes,
+} from '../../routes/types';
 import { RouteProp, useRoute } from '@react-navigation/core';
 
 import { useMarketDetail } from './hooks/useMarketDetail';
@@ -22,8 +31,20 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { MarketTokenItem } from '../../store/reducers/market';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
+import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import { FiatPayModalRoutesParams } from '../../routes/Modal/FiatPay';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
+import { useActiveWalletAccount, useManageTokens } from '../../hooks';
+import { useFiatPay } from '../../hooks/redux';
+import { CurrencyType } from '../FiatPay/types';
+import { StakingRoutes } from '../Staking/typing';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
+
+type NavigationProps = NativeStackNavigationProp<TabRoutesParams> &
+  ModalScreenProps<FiatPayModalRoutesParams>;
 
 const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
@@ -54,24 +75,88 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   );
 };
 
-const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
-  console.log('BellButton');
-  return (
-    <Box>
-      <IconButton
-        ml={4}
-        type="basic"
-        name="BellSolid"
-        size="base"
-        circle
-        iconColor="icon-default" // get subscribe status
-        onPress={() => {
-          // TODO subscribe
-        }}
-      />
-    </Box>
-  );
-};
+const SwapButton = ({
+  tokenItem,
+  onPress,
+}: {
+  tokenItem: MarketTokenItem;
+  onPress: () => void;
+}) => (
+  <Box>
+    <IconButton
+      ml={4}
+      isDisabled={tokenItem.tokens && tokenItem.tokens.length === 0}
+      type="basic"
+      name="SwitchHorizontalSolid"
+      size="base"
+      circle
+      iconColor="icon-default"
+      onPress={onPress}
+    />
+  </Box>
+);
+
+const StakeButton = ({
+  tokenItem,
+  onPress,
+}: {
+  tokenItem: MarketTokenItem;
+  onPress: () => void;
+}) => (
+  <Box>
+    <IconButton
+      isDisabled={tokenItem.tokens && tokenItem.tokens.length === 0}
+      ml={4}
+      type="basic"
+      name="SaveSolid"
+      size="base"
+      circle
+      iconColor="icon-default"
+      onPress={onPress}
+    />
+  </Box>
+);
+
+const PurchaseButton = ({
+  onPress,
+  isDisabled,
+}: {
+  onPress: () => void;
+  isDisabled: boolean;
+}) => (
+  <Box>
+    <IconButton
+      isDisabled={isDisabled}
+      ml={4}
+      type="basic"
+      name="PlusSolid"
+      size="base"
+      circle
+      iconColor="icon-default"
+      onPress={onPress}
+    />
+  </Box>
+);
+
+const BellButton = ({
+  tokenItem,
+  onPress,
+}: {
+  tokenItem?: MarketTokenItem;
+  onPress: () => void;
+}) => (
+  <Box>
+    <IconButton
+      ml={4}
+      type="basic"
+      name="BellSolid"
+      size="base"
+      circle
+      iconColor="icon-default" // get subscribe status
+      onPress={onPress}
+    />
+  </Box>
+);
 
 const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
@@ -99,7 +184,9 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   marketTokenId,
   children,
 }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<
+    NavigationProps & NavigationProps['navigation']
+  >();
   const isVertical = useIsVerticalLayout();
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
   const onBack = useCallback(() => {
@@ -115,6 +202,21 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
       });
     }
   });
+  const token = marketTokenItem.tokens?.[0];
+  const { network } = useActiveWalletAccount();
+  const currencies = useFiatPay(network?.id ?? '');
+  let crypotoCurrency = currencies.find((item) => {
+    if (!token?.tokenIdOnNetwork) {
+      return item.contract === '';
+    }
+    return item.contract === token?.tokenIdOnNetwork;
+  });
+  const { balances } = useManageTokens();
+  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
+  if (crypotoCurrency) {
+    crypotoCurrency = { ...crypotoCurrency, balance: amount };
+  }
+
   if (isVertical) {
     return (
       <Box
@@ -148,6 +250,42 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
               alignItems="center"
               justifyContent="space-around"
             >
+              <SwapButton
+                tokenItem={marketTokenItem}
+                onPress={() => {
+                  backgroundApiProxy.serviceSwap.setOutputToken(token);
+                  navigation.navigate(TabRoutes.Swap);
+                }}
+              />
+              <StakeButton
+                tokenItem={marketTokenItem}
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.Staking,
+                    params: {
+                      screen: StakingRoutes.StakingAmount,
+                      params: {
+                        networkId: token.networkId,
+                      },
+                    },
+                  });
+                }}
+              />
+              <PurchaseButton
+                isDisabled={!crypotoCurrency}
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.FiatPay,
+                    params: {
+                      screen: FiatPayRoutes.AmountInputModal,
+                      params: {
+                        token: crypotoCurrency as CurrencyType,
+                        type: 'Buy',
+                      },
+                    },
+                  });
+                }}
+              />
               <FavoritButton tokenItem={marketTokenItem} />
               {/* <BellButton tokenItem={marketTokenItem} /> */}
             </Box>

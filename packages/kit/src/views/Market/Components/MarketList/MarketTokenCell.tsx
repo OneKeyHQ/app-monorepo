@@ -32,6 +32,7 @@ import {
   formatMarketValueForInfo,
 } from '../../utils';
 import { Token } from '@onekeyhq/engine/src/types/token';
+import { useIntl } from 'react-intl';
 
 interface MarketTokenCellProps {
   onPress?: (marketTokenItem: MarketTokenItem) => void;
@@ -50,6 +51,7 @@ const MarketTokenSwapEnable = ({
   tokens?: Token[];
 }) => {
   const navigation = useNavigation<NavigationProps>();
+  const intl = useIntl();
   useEffect(() => {
     if (!tokens) {
       backgroundApiProxy.serviceMarket.fetchMarketTokenAllNetWorkTokens(
@@ -70,7 +72,7 @@ const MarketTokenSwapEnable = ({
           navigation.navigate(TabRoutes.Swap);
         }}
       >
-        Swap
+        {intl.formatMessage({ id: 'title__swap' })}
       </Button>
     );
   }

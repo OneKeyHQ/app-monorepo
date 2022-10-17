@@ -36,7 +36,7 @@ export const useMarketSearchSelectedCategory = () => {
     if (!searchTabCategoryId) {
       if (searchCategory.length > 0) {
         backgroundApiProxy.serviceMarket.setMarketSearchTab(
-          searchCategory[0].name,
+          searchCategory[0].categoryId,
         );
       }
     } else {
@@ -47,10 +47,7 @@ export const useMarketSearchSelectedCategory = () => {
       });
     }
   }, [searchTabCategoryId, searchCategory]);
-  return useMemo(
-    () => (searchTabCategoryId ? categorys[searchTabCategoryId].name : ''),
-    [categorys, searchTabCategoryId],
-  );
+  return useMemo(() => searchTabCategoryId, [searchTabCategoryId]);
 };
 
 export const useMarketSearchContainerStyle = () => {

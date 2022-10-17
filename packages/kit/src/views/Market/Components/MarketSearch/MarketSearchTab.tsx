@@ -13,6 +13,8 @@ import {
   Box,
   FlatList,
   Pressable,
+  Center,
+  Spinner,
   useIsVerticalLayout,
   useThemeValue,
 } from '@onekeyhq/components/src';
@@ -46,8 +48,15 @@ const MarketSearchTabs: FC<{
       }}
     >
       {searchCategorys.map((c) => (
-        <Tabs.Tab key={c.categoryId} name={c.name ?? ''}>
-          <MarketSearchList data={c.coingeckoIds} onPress={onPress} />
+        <Tabs.Tab key={c.categoryId} name={c.categoryId} label={c.name ?? ''}>
+          {!c.coingeckoIds ||
+          (c.coingeckoIds && c.coingeckoIds.length === 0) ? (
+            <Center h={200}>
+              <Spinner size="lg" />
+            </Center>
+          ) : (
+            <MarketSearchList data={c.coingeckoIds} onPress={onPress} />
+          )}
         </Tabs.Tab>
       ))}
     </Tabs.Container>
