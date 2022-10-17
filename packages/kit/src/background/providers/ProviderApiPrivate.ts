@@ -14,6 +14,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import extUtils from '../../utils/extUtils';
+import { timeout } from '../../utils/helper';
+import { scanFromURLAsync } from '../../views/ScanQrcode/scanFromURLAsync';
 import { backgroundClass, providerApiMethod } from '../decorators';
 
 import ProviderApiBase, {
@@ -42,6 +44,24 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // ----------------------------------------------
+  @providerApiMethod()
+  async wallet_scanQrcode(
+    request: IJsonRpcRequest,
+    { base64 }: { base64: string },
+  ): Promise<{ result: string; base64?: string; error?: string }> {
+    try {
+      const result = await timeout(
+        scanFromURLAsync(base64),
+        3000,
+        'wallet_scanQrcode timeout',
+      );
+      return { result: result || '', base64 };
+    } catch (error) {
+      console.error(error);
+      return { result: '', base64, error: (error as Error)?.message };
+    }
+  }
+
   @providerApiMethod()
   async wallet_connectToWalletConnect(
     request: IJsonRpcRequest,
