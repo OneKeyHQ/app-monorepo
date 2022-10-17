@@ -56,7 +56,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-const DEFAULT_BLOCK_NUMS = [10, 5, 2];
+const DEFAULT_BLOCK_NUMS = [10, 5, 3];
 const DEFAULT_BLOCK_TIME = 60;
 
 export default class Vault extends VaultBase {
