@@ -5,7 +5,7 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_ETH as COIN_TYPE, IMPL_EVM } from '../../../constants';
@@ -26,12 +26,13 @@ const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
     const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     return OneKeyHardware.ethereumSignTransaction(
+      HardwareSDK,
       connectId,
       deviceId,
       path,
@@ -45,12 +46,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     messages: IUnsignedMessageEvm[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     return Promise.all(
       messages.map((message) =>
         OneKeyHardware.ethereumSignMessage({
+          HardwareSDK,
           connectId,
           deviceId,
           passphraseState,
@@ -64,7 +67,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const { indexes, names, type } = params;
@@ -101,6 +104,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     } else {
       const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
       addressInfos = await OneKeyHardware.getXpubs(
+        HardwareSDK,
         IMPL_EVM,
         paths,
         'address',
@@ -131,10 +135,11 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async getAddress(params: IGetAddressParams): Promise<string> {
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const address = await OneKeyHardware.ethereumGetAddress(
+      HardwareSDK,
       connectId,
       deviceId,
       params.path,

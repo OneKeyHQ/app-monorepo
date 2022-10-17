@@ -6,7 +6,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient, BCS } from 'aptos';
 
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
@@ -31,6 +31,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     paths: Array<string>,
   ): Promise<Array<string>> {
     let response;
+    const HardwareSDK = await this.getHardwareSDKInstance();
     try {
       response = await HardwareSDK.batchGetPublicKey(connectId, deviceId, {
         paths,
@@ -60,7 +61,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'/0'/0'`);
     const isSearching = type === 'SEARCH_ACCOUNTS';
     const showOnOneKey = false;
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
@@ -114,7 +115,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async getAddress(params: IHardwareGetAddressParams): Promise<string> {
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.aptosGetAddress(connectId, deviceId, {
@@ -144,7 +145,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const response = await HardwareSDK.aptosSignTransaction(
       connectId,
       deviceId,

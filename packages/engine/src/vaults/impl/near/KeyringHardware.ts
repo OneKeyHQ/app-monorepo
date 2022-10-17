@@ -6,7 +6,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import * as nearApiJs from 'near-api-js';
 
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_NEAR as COIN_TYPE } from '../../../constants';
@@ -36,7 +36,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     _options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     const dbAccount = await this.getDbAccount();
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
@@ -90,7 +90,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { indexes, names } = params;
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'`);
     const showOnOneKey = false;
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
@@ -129,7 +129,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override async getAddress(params: IGetAddressParams): Promise<string> {
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.nearGetAddress(connectId, deviceId, {
