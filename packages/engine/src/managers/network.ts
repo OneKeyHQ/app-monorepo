@@ -1,5 +1,6 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import qs from 'qs';
 
 import { IMPL_EVM, IMPL_STC, SEPERATOR } from '../constants';
 import { getFiatEndpoint } from '../endpoint';
@@ -212,13 +213,12 @@ function generateNetworkIdByChainId({
 export const fetchChainList = async (params: {
   query: string;
   showTestNet: boolean;
+  page: number;
+  pageSize: number;
 }) => {
   const endpoint = getFiatEndpoint();
-  const { query, showTestNet } = params;
   const { data } = await axios.get<ChainListConfig[]>(
-    `${endpoint}/network/chainlist?query=${query}&showTestNet=${Number(
-      showTestNet,
-    )}`,
+    `${endpoint}/network/chainlist?${qs.stringify(params)}`,
   );
   return data;
 };
