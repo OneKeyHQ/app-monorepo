@@ -39,6 +39,7 @@ const WalletTabs: FC = () => {
     'background-default',
     'border-subdued',
   ]);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network, accountId, networkId } =
@@ -123,6 +124,7 @@ const WalletTabs: FC = () => {
         >
           <>
             <AssetsList
+              hideSmallBalance={hideSmallBalance}
               accountId={accountId}
               networkId={networkId}
               ListFooterComponent={<Box h={16} />}

@@ -32,7 +32,7 @@ import { useActiveSideAccount } from '../../../hooks';
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
-import EmptyList from './EmptyList';
+import EmptyList, { EmptyListOfAccount } from './EmptyList';
 import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
@@ -56,6 +56,7 @@ export type IAssetsListProps = Omit<
   flatStyle?: boolean;
   accountId: string;
   networkId: string;
+  hideSmallBalance?: boolean;
 };
 function AssetsList({
   showRoundTop,
@@ -69,13 +70,12 @@ function AssetsList({
   flatStyle,
   accountId,
   networkId,
+  hideSmallBalance,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const { accountTokens, balances, prices, loading } = useManageTokensOfAccount(
     { accountId, networkId },
   );
-
-  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
   const { account, network } = useActiveSideAccount({
     accountId,
@@ -213,7 +213,11 @@ function AssetsList({
             )
       }
       ItemSeparatorComponent={Divider}
-      ListEmptyComponent={loading ? AssetsListSkeleton : EmptyList}
+      ListEmptyComponent={
+        loading
+          ? AssetsListSkeleton
+          : () => <EmptyListOfAccount network={network} />
+      }
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}
