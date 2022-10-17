@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -87,7 +87,7 @@ function Header({
   );
 
   const rpcStatusElement = useMemo(() => {
-    if (!status || loading || typeof status.responseTime !== 'number') {
+    if (!status || loading) {
       return <Spinner size="sm" />;
     }
     return (
@@ -111,7 +111,9 @@ function Header({
           <Box>
             <Pressable onPress={toCheckNodePage}>
               <Text typography="Caption" isTruncated color={status.color}>
-                {`${status.responseTime} ms`}
+                {typeof status.responseTime === 'number'
+                  ? `${status.responseTime} ms`
+                  : intl.formatMessage({ id: 'content__not_available' })}
               </Text>
             </Pressable>
           </Box>
