@@ -9,8 +9,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
-import { webviewRefs } from '../explorerUtils';
 
+import { useCurrentWebviewRef } from './useCurrentWebviewRef';
 import { useWebTab } from './useWebTabs';
 
 const notifyChanges = throttle(
@@ -46,8 +46,21 @@ export const useNotifyChanges = () => {
 
   const isMountedRef = useIsMounted();
   const tab = useWebTab();
-  const ref = tab ? webviewRefs[tab.id] : null;
+  const webviewRef = useCurrentWebviewRef({
+    currentTabId: tab?.id,
+  });
   const tabUrl = tab?.url;
+
+  const jsBridge = webviewRef?.jsBridge;
+  useEffect(() => {
+    if (!jsBridge) {
+      return;
+    }
+    // only enable message for current focused webview
+    jsBridge.globalOnMessageEnabled = true;
+    // connect background jsBridge
+    backgroundApiProxy.connectBridge(jsBridge);
+  }, [jsBridge]);
 
   useEffect(() => {
     if (!isMountedRef.current) {
@@ -56,24 +69,15 @@ export const useNotifyChanges = () => {
     if (!tabUrl || !isFocusedInDiscoverTab) {
       return;
     }
-    if (!ref) {
+    if (!webviewRef) {
       return;
     }
-    const { jsBridge } = ref;
-    if (jsBridge) {
-      // only enable message for current focused webview
-      jsBridge.globalOnMessageEnabled = true;
-    } else {
-      return;
-    }
-    debugLogger.webview.info('webview isFocused and connectBridge', tabUrl);
-    // connect background jsBridge
-    backgroundApiProxy.connectBridge(jsBridge);
+    debugLogger.webview.info('webview isFocused and notifyChanges', tabUrl);
 
     if (platformEnv.isNative) {
       notifyChanges(tabUrl, 'immediately');
     } else {
-      const innerRef = ref.innerRef as IElectronWebView;
+      const innerRef = webviewRef.innerRef as IElectronWebView;
       // @ts-ignore
       if (innerRef.__domReady) {
         notifyChanges(tabUrl, 'immediately');
@@ -96,5 +100,5 @@ export const useNotifyChanges = () => {
         };
       }
     }
-  }, [navigation, isFocusedInDiscoverTab, isMountedRef, tabUrl, ref]);
+  }, [isFocusedInDiscoverTab, isMountedRef, tabUrl, webviewRef]);
 };
