@@ -14,13 +14,17 @@ const BTC_PER_KBYTES_TO_SAT_PER_BYTE = 10 ** 5;
 
 type RequestError = AxiosError<{ message: string }>;
 
+type ClientInfo = {
+  bestBlockNumber: number;
+  isReady: boolean;
+};
+
 class BlockBook {
   readonly request: AxiosInstance;
 
-  constructor(chainInfo: ChainInfo) {
-    const baseURL = chainInfo.clients?.[0].args?.[0];
+  constructor(url: string) {
     this.request = axios.create({
-      baseURL,
+      baseURL: url,
       timeout: 10000,
     });
   }
@@ -50,6 +54,15 @@ class BlockBook {
   }
 
   setChainInfo() {}
+
+  async getInfo(): Promise<ClientInfo> {
+    const res = await this.request.get('/api/v2').then((i) => i.data);
+    const bestBlockNumber = Number(res.backend.blocks);
+    return {
+      bestBlockNumber,
+      isReady: Number.isFinite(bestBlockNumber) && bestBlockNumber > 0,
+    };
+  }
 
   async estimateFee(waitingBlock: number): Promise<number> {
     const resp = await this.request
@@ -148,6 +161,6 @@ class BlockBook {
 }
 
 const getBlockBook = (chainInfo: ChainInfo) =>
-  Promise.resolve(new BlockBook(chainInfo));
+  Promise.resolve(new BlockBook(chainInfo.clients?.[0].args?.[0]));
 
 export { BlockBook, getBlockBook };

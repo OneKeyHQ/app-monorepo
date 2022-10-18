@@ -656,7 +656,7 @@ export default class VaultBtcFork extends VaultBase {
 
   // @ts-expect-error
   createClientFromURL(url: string): BlockBook | undefined {
-    throw new NotImplemented();
+    return new BlockBook(url);
   }
 
   fetchTokenInfos(
