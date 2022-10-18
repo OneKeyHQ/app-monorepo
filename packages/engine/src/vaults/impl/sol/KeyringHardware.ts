@@ -6,7 +6,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { PublicKey, Transaction } from '@solana/web3.js';
 
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_SOL as COIN_TYPE } from '../../../constants';
@@ -28,7 +28,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     _options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     const dbAccount = await this.getDbAccount();
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const { nativeTx: transaction, feePayer } = unsignedTx.payload as {
@@ -69,7 +69,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { indexes, names } = params;
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'/0'`);
     const showOnOneKey = false;
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
@@ -102,7 +102,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override async getAddress(params: IGetAddressParams): Promise<string> {
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.solGetAddress(connectId, deviceId, {

@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
@@ -40,13 +40,13 @@ const Explorer: FC = () => {
     goBack,
     goForward,
   } = useWebController();
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const { loading, canGoBack, canGoForward } = currentTab!;
+  const { loading, canGoBack, canGoForward } = currentTab;
 
   const isVerticalLayout = useIsVerticalLayout();
 
   const [visibleMore, setVisibleMore] = useState(false);
-  const [refreshKey, setRefreshKey] = useState<string | undefined>(undefined);
+  const [refreshId, setRefreshId] = useState<string>('');
+  const refreshKey = useRef('');
 
   useNotifyChanges();
 
@@ -66,20 +66,26 @@ const Explorer: FC = () => {
     openMatchDApp(dapp);
   };
 
-  const onRefresh = useCallback(() => setRefreshKey(String(Date.now())), []);
+  const onRefresh = useCallback(() => {
+    refreshKey.current = Date.now().toString();
+    setRefreshId(currentTab.id);
+  }, [currentTab.id]);
 
   const explorerContent = useMemo(
     () =>
       tabs.map((tab) => (
-        <Freeze key={tab.id} freeze={!tab.isCurrent}>
-          <WebContent key={tab.isCurrent ? refreshKey : undefined} {...tab} />
+        <Freeze
+          key={refreshId === tab.id ? refreshKey.current : tab.id}
+          freeze={!tab.isCurrent}
+        >
+          <WebContent {...tab} />
         </Freeze>
       )),
-    [refreshKey, tabs],
+    [refreshId, tabs],
   );
 
   const moreViewContent = useMemo(() => {
-    const getCurrentUrl = () => currentTab?.url ?? '';
+    const getCurrentUrl = () => currentTab.url ?? '';
 
     const onCopyUrlToClipboard = () => {
       copyToClipboard(getCurrentUrl());

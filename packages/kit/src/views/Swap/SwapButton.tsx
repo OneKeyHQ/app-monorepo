@@ -226,10 +226,7 @@ const ExchangeButton = () => {
                 .multipliedBy(1.5)
                 .toFixed(),
         })) as IEncodedTxEvm;
-      const nonce = await backgroundApiProxy.engine.getEvmNextNonce({
-        networkId: params.tokenIn.networkId,
-        accountId: sendingAccount.id,
-      });
+
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -246,7 +243,6 @@ const ExchangeButton = () => {
             skipSaveHistory: true,
             encodedTx: {
               ...encodedApproveTx,
-              nonce,
               from: sendingAccount?.address,
             },
             onSuccess: async () => {
@@ -259,7 +255,7 @@ const ExchangeButton = () => {
                   await backgroundApiProxy.serviceSwap.sendTransaction({
                     accountId: sendingAccount.id,
                     networkId: targetNetworkId,
-                    encodedTx: { ...encodedEvmTx, nonce: nonce + 1 },
+                    encodedTx: { ...encodedEvmTx },
                     payload: {
                       type: 'InternalSwap',
                       swapInfo,
