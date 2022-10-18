@@ -13,6 +13,7 @@ import {
   Searchbar,
   Spinner,
   Switch,
+  Token,
   Typography,
 } from '@onekeyhq/components';
 import type { ChainListConfig } from '@onekeyhq/engine/src/managers/network';
@@ -177,9 +178,12 @@ export const ManageNetworkQuickAdd: FC = () => {
         ListFooterComponent={empty}
         renderItem={({ item }) => (
           <ListItem onPress={() => toAddChainPage(item)} flex={1}>
-            <ListItem.Column
-              image={{ src: item.logoURI, borderRadius: 'full', size: 8 }}
-            />
+            <ListItem.Column>
+              <Token
+                size={8}
+                token={{ logoURI: item.logoURI, name: item.name }}
+              />
+            </ListItem.Column>
             <ListItem.Column
               text={{
                 label: item.name,

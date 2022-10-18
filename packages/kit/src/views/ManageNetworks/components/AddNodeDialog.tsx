@@ -28,7 +28,7 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
 
-  const { custom } = useRPCUrls(networkId);
+  const { custom, preset } = useRPCUrls(networkId);
   const [isLoading, setIsLoading] = React.useState(false);
 
   const { control, handleSubmit, setError } = useForm<FieldValues>({
@@ -89,7 +89,7 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
               }),
             },
             validate: (value) => {
-              if (custom.includes(value)) {
+              if (custom.includes(value) || preset.includes(value)) {
                 return intl.formatMessage({
                   id: 'content__existing',
                 });
