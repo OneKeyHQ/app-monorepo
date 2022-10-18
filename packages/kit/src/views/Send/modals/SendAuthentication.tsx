@@ -35,6 +35,7 @@ import { BaseSendModal } from '../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
 import {
   ISendAuthenticationModalTitleInfo,
+  SendConfirmPayloadInfo,
   SendRoutes,
   SendRoutesParams,
 } from '../types';
@@ -244,6 +245,14 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       }
 
       if (result) {
+        let txPayload = payload as SendConfirmPayloadInfo | undefined;
+        if (
+          txPayload?.type === 'InternalSwap' &&
+          txPayload?.swapInfo &&
+          txPayload?.swapInfo?.isApprove
+        ) {
+          txPayload = undefined;
+        }
         onSuccess?.(result, {
           signedTx,
           encodedTx: submitEncodedTx,
@@ -255,7 +264,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
                   networkId,
                   accountId,
                   encodedTx: submitEncodedTx,
-                  payload,
+                  payload: txPayload,
                   interactInfo,
                 })
               ).decodedTx
