@@ -1,9 +1,9 @@
-import { FC, useMemo, useState } from 'react';
+import { FC, useState } from 'react';
 
+import { Freeze } from 'react-freeze';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
@@ -22,24 +22,18 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
 
   const showHome =
     (id === 'home' && webHandler === 'tabbedWebview') || url === '';
-  const refreshCondition = platformEnv.isNative
-    ? url
-    : // electron is using loadURL() to load url
-      // instead of url props changing
-      // so only refresh when url changed from '' to non-empty
-      // that is, from DiscoverHome to other pages
-      url === '';
-  return useMemo(
-    () =>
-      showHome ? (
-        // TODO avoid rerender, maybe singleton
+
+  return (
+    <>
+      <Freeze freeze={!showHome}>
         <DiscoverHome
           onItemSelect={(dapp) => {
             openMatchDApp({ id: dapp._id, dapp });
           }}
           onItemSelectHistory={openMatchDApp}
         />
-      ) : (
+      </Freeze>
+      <Freeze freeze={showHome}>
         <WebView
           src={url}
           onWebViewRef={(ref) => {
@@ -55,9 +49,8 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
           onNavigationStateChange={setNavigationStateChangeEvent}
           allowpopups
         />
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshCondition],
+      </Freeze>
+    </>
   );
 };
 
