@@ -16,6 +16,7 @@ import { homeTab, setWebTabData } from '../../../store/reducers/webTabs';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
+import { useNotifyChanges } from './Controller/useNotifyChanges';
 import { useWebController } from './Controller/useWebController';
 import { MatchDAppItemType, webHandler } from './explorerUtils';
 import MoreView from './MoreMenu';
@@ -46,6 +47,8 @@ const Explorer: FC = () => {
 
   const [visibleMore, setVisibleMore] = useState(false);
   const [refreshKey, setRefreshKey] = useState<string | undefined>(undefined);
+
+  useNotifyChanges();
 
   useFocusEffect(
     useCallback(() => {

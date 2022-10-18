@@ -14,6 +14,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { fetchCurrencies } from '../views/FiatPay/Service';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
 const AppLoading: FC = ({ children }) => {
@@ -32,11 +33,12 @@ const AppLoading: FC = ({ children }) => {
 
   useEffect(() => {
     async function main() {
-      await Promise.all([
-        serviceApp.waitForAppInited({
-          logName: 'AppLoading',
-        }),
-      ]);
+      // TODO initApp too slow, maybe do not need waiting for initApp in UI
+      // await Promise.all([
+      //   serviceApp.waitForAppInited({
+      //     logName: 'AppLoading',
+      //   }),
+      // ]);
       await waitForDataLoaded({
         logName: 'WaitBackgroundReady @ AppLoading',
         wait: 300,
