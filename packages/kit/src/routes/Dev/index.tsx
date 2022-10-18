@@ -13,6 +13,7 @@ import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
+import CollapseGallery from '@onekeyhq/kit/src/views/Components/stories/Collapse';
 import ContainerGallery from '@onekeyhq/kit/src/views/Components/stories/Container';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
@@ -116,6 +117,7 @@ export enum StackRoutes {
   ComponentTypeWriter = 'component/TypeWriter',
   ComponentHomescreen = 'component/homescreen',
   ComponentToggleButtonGroup = 'component/ToggleButtonGroup',
+  ComponentCollapse = 'component/Collapse',
 }
 
 export type StackBasicRoutesParams = {
@@ -176,6 +178,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentNFTImage]: undefined;
   [StackRoutes.ComponentList]: undefined;
   [StackRoutes.ComponentToggleButtonGroup]: undefined;
+  [StackRoutes.ComponentCollapse]: undefined;
 };
 
 export const stackScreenList = [
@@ -260,6 +263,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentToggleButtonGroup,
     component: ToggleButtonGroupGallery,
+  },
+  {
+    name: StackRoutes.ComponentCollapse,
+    component: CollapseGallery,
   },
 ];
 
