@@ -12,13 +12,17 @@ import type {
 
 const BTC_PER_KBYTES_TO_SAT_PER_BYTE = 10 ** 5;
 
-type RequestError = AxiosError<{ error: string }>;
+type RequestError = AxiosError<{ message: string }>;
 
 class BlockBook {
   readonly request: AxiosInstance;
 
-  constructor(url: string) {
-    this.request = axios.create({});
+  constructor(chainInfo: ChainInfo) {
+    const baseURL = chainInfo.clients?.[0].args?.[0];
+    this.request = axios.create({
+      baseURL,
+      timeout: 10000,
+    });
   }
 
   async batchCall2SingleCall<T, R>(
@@ -104,7 +108,9 @@ class BlockBook {
     } catch (e: unknown) {
       const err = e as RequestError;
       if (
-        err.response?.data.error.includes('transaction already in block chain')
+        err.response?.data?.message?.includes(
+          'transaction already in block chain',
+        )
       ) {
         throw new Error('Transaction already in block');
       }
@@ -132,7 +138,7 @@ class BlockBook {
         : TransactionStatus.PENDING;
     } catch (e) {
       const err = e as RequestError;
-      if (err.response?.data.error.includes('not found')) {
+      if (err.response?.data?.message?.includes('not found')) {
         return TransactionStatus.NOT_FOUND;
       }
 
@@ -142,6 +148,6 @@ class BlockBook {
 }
 
 const getBlockBook = (chainInfo: ChainInfo) =>
-  Promise.resolve(new BlockBook(chainInfo.clients[0].name));
+  Promise.resolve(new BlockBook(chainInfo));
 
 export { BlockBook, getBlockBook };
