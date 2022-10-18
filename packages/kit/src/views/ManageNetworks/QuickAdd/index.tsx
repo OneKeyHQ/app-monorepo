@@ -36,6 +36,9 @@ export const ManageNetworkQuickAdd: FC = () => {
   const [search, setSearch] = useState('');
   const { allNetworks } = useManageNetworks();
   const [loading, setLoading] = useState(false);
+  const [currentChain, setCurrentChain] = useState<ChainListConfig | null>(
+    null,
+  );
   const [chains, setChains] = useState<ChainListConfig[]>([]);
   const [showTestNet, setShowTestNet] = useState(false);
   const navigation = useNavigation<NavigationProps>();
@@ -84,6 +87,7 @@ export const ManageNetworkQuickAdd: FC = () => {
 
   const toAddChainPage = useCallback(
     async (chain: ChainListConfig) => {
+      setCurrentChain(chain);
       let rpc = chain.rpc?.[0] ?? '';
       for (const url of chain.rpc) {
         try {
@@ -96,6 +100,7 @@ export const ManageNetworkQuickAdd: FC = () => {
           debugLogger.http.warn(`preAddNetwork error: `, error);
         }
       }
+      setCurrentChain(null);
       navigation.navigate(ManageNetworkRoutes.AddNetwork, {
         mode: 'add',
         network: {
@@ -118,7 +123,7 @@ export const ManageNetworkQuickAdd: FC = () => {
     if (loading) {
       return (
         <Center h="full">
-          <Spinner size="lg" />
+          <Spinner />
         </Center>
       );
     }
@@ -147,21 +152,6 @@ export const ManageNetworkQuickAdd: FC = () => {
       hideSecondaryAction
       hidePrimaryAction
     >
-      <HStack w="full" mb="4">
-        <Searchbar
-          flex="1"
-          placeholder={intl.formatMessage({ id: 'content__search' })}
-          value={search}
-          onChangeText={updateSearch}
-          onClear={() => updateSearch('')}
-          mr="1"
-        />
-        <Switch
-          label={intl.formatMessage({ id: 'form__testnets' })}
-          isChecked={showTestNet}
-          onToggle={toggleShowTestNet}
-        />
-      </HStack>
       <List
         onEndReached={() => {
           if (hasMore && !loading) {
@@ -169,6 +159,23 @@ export const ManageNetworkQuickAdd: FC = () => {
           }
         }}
         data={chains}
+        ListHeaderComponent={() => (
+          <HStack w="full" mb="4">
+            <Searchbar
+              flex="1"
+              placeholder={intl.formatMessage({ id: 'content__search' })}
+              value={search}
+              onChangeText={updateSearch}
+              onClear={() => updateSearch('')}
+              mr="1"
+            />
+            <Switch
+              label={intl.formatMessage({ id: 'form__testnets' })}
+              isChecked={showTestNet}
+              onToggle={toggleShowTestNet}
+            />
+          </HStack>
+        )}
         ListFooterComponent={empty}
         renderItem={({ item }) => (
           <ListItem onPress={() => toAddChainPage(item)} flex={1}>
@@ -197,6 +204,11 @@ export const ManageNetworkQuickAdd: FC = () => {
               }}
               flex={1}
             />
+            {item.chainId === currentChain?.chainId ? (
+              <ListItem.Column>
+                <Spinner />
+              </ListItem.Column>
+            ) : null}
           </ListItem>
         )}
         keyExtractor={(item, index) =>
