@@ -8,15 +8,12 @@ import WebView from '@onekeyhq/kit/src/components/WebView';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
-import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler, webviewRefs } from '../explorerUtils';
 
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
-
-  useNotifyChanges();
 
   const { openMatchDApp } = useWebController({
     id,

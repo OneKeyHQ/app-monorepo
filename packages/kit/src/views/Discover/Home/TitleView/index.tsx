@@ -47,7 +47,9 @@ export const SectionTitle: FC<SectionDataType> = ({
       pr={isSmallScreen ? '8px' : '32px'}
       mb="14px"
     >
-      <Typography.Heading>{title}</Typography.Heading>
+      <Box flex={1}>
+        <Typography.Heading numberOfLines={1}>{title}</Typography.Heading>
+      </Box>
       <Button
         onPress={() => {
           navigation.navigate(HomeRoutes.DAppListScreen, {

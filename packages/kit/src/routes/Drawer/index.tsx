@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useState } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 
 import { useThemeValue } from '@onekeyhq/components';
 import { WalletSelectorMobile } from '@onekeyhq/kit/src/components/WalletSelector';
@@ -46,7 +47,14 @@ const DrawerStackNavigator = () => {
       // drawerContent={(props) => <AccountSelectorMobile {...props} />}
       drawerContent={(props) => <WalletSelectorMobile {...props} />}
     >
-      <DrawerStack.Screen name={RootRoutes.Tab} component={Tab} />
+      <DrawerStack.Screen
+        name={RootRoutes.Tab}
+        component={Tab}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route);
+          return { swipeEnabled: routeName !== 'discover' };
+        }}
+      />
     </DrawerStack.Navigator>
   );
 };

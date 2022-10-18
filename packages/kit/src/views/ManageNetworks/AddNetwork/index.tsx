@@ -5,6 +5,7 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Divider,
   Form,
   Icon,
@@ -20,7 +21,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../../hooks';
+import { useActiveWalletAccount, useDebounce } from '../../../hooks';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -61,7 +62,8 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const route = useRoute<RouteProps>();
   const { network, mode } = route.params;
   const isSmallScreen = useIsVerticalLayout();
-
+  const { network: activeNetwork } = useActiveWalletAccount();
+  const [removeOpend, setRemoveOpened] = useState(false);
   const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
     connected: false,
   });
@@ -166,20 +168,22 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
     [toast, intl, serviceNetwork, navigation, route, network?.id],
   );
 
+  const onShowRemoveModal = useCallback(() => {
+    setRemoveOpened(true);
+  }, []);
+
   const toQuickAddPage = useCallback(() => {
     navigation.navigate(ManageNetworkRoutes.QuickAdd);
   }, [navigation]);
 
-  const deleteNetwork = useCallback(() => {
-    if (!network?.id) {
-      return;
+  const onRemove = useCallback(async () => {
+    await serviceNetwork.deleteNetwork(network?.id ?? '');
+    setRemoveOpened(false);
+    toast.show({ title: intl.formatMessage({ id: 'msg__network_removed' }) });
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
     }
-    serviceNetwork.deleteNetwork(network?.id).then(() => {
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      }
-    });
-  }, [navigation, network, serviceNetwork]);
+  }, [intl, toast, serviceNetwork, network?.id, navigation]);
 
   const quickAddButton = useMemo(() => {
     if (mode === 'add' && network) {
@@ -373,12 +377,14 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
                   </Form.Item>
                 </Form>
-                {mode === 'edit' && network?.id ? (
+                {mode === 'edit' &&
+                network?.id &&
+                network?.id !== activeNetwork?.id ? (
                   <IconButton
                     name="TrashSolid"
                     mt={6}
                     type="outline"
-                    onPress={deleteNetwork}
+                    onPress={onShowRemoveModal}
                   >
                     {intl.formatMessage({ id: 'action__remove' })}
                   </IconButton>
@@ -386,6 +392,36 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
               </VStack>
             </KeyboardDismissView>
           ),
+        }}
+      />
+
+      <Dialog
+        visible={removeOpend}
+        onClose={() => setRemoveOpened(false)}
+        contentProps={{
+          iconType: 'danger',
+          title: intl.formatMessage({
+            id: 'dialog__remove_network_title',
+            defaultMessage: 'Remove Network',
+          }),
+          content: intl.formatMessage(
+            {
+              id: 'dialog__remove_network_desc',
+              defaultMessage: '“{0}” will be removed from your networks list.',
+            },
+            { 0: network?.name || '' },
+          ),
+        }}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__remove',
+          primaryActionProps: {
+            type: 'destructive',
+            size: 'lg',
+            onPromise: onRemove,
+          },
+          secondaryActionProps: {
+            size: 'lg',
+          },
         }}
       />
     </>
