@@ -32,10 +32,12 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<Array<string>> {
     let response;
     const HardwareSDK = await this.getHardwareSDKInstance();
+    const passphraseState = await this.getWalletPassphraseState();
     try {
       response = await HardwareSDK.batchGetPublicKey(connectId, deviceId, {
         paths,
         ecdsaCurveName: 'ed25519',
+        ...passphraseState,
       });
     } catch (error: any) {
       debugLogger.common.error(error);
