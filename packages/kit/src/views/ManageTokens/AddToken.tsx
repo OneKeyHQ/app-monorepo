@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
@@ -29,7 +30,6 @@ import { wait } from '../../utils/helper';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 type RouteProps = RouteProp<
   ManageTokenRoutesParams,
