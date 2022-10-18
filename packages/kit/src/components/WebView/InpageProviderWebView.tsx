@@ -31,7 +31,7 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// injected hot-reload cache update: 213344000
+// injected hot-reload cache update: 21334400088746
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
 
@@ -44,7 +44,9 @@ const USER_AGENT_IOS =
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const USER_AGENT_ANDROID =
   'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36';
-const DESKTOP_USER_AGENT_MOCK = USER_AGENT_ANDROID;
+// const DESKTOP_USER_AGENT_MOCK = USER_AGENT_ANDROID;
+// const DESKTOP_USER_AGENT_MOCK = USER_AGENT_IOS;
+const DESKTOP_USER_AGENT_MOCK = undefined;
 
 export type InpageProviderWebViewProps = InpageWebViewProps & {
   onNavigationStateChange?: (event: any) => void;

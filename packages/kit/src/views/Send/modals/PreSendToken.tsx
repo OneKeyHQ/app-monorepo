@@ -60,6 +60,7 @@ function PreSendToken() {
               if (accountId) {
                 return (
                   <AssetsList
+                    hideSmallBalance={false}
                     accountId={accountId}
                     networkId={networkId}
                     showRoundTop

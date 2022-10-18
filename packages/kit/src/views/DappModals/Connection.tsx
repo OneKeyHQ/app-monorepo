@@ -80,6 +80,7 @@ function ConnectionContent({
   hostname,
   account,
   network,
+  origin,
 }: {
   hostname: string;
   account: IAccount | null;
@@ -87,6 +88,7 @@ function ConnectionContent({
   isWalletConnectPreloading: boolean;
   walletConnectError: string;
   getWalletConnectBridge: () => string;
+  origin: string;
 }) {
   const intl = useIntl();
   if (isWalletConnectPreloading) {
@@ -401,6 +403,7 @@ const Connection = () => {
               network={network}
               account={account}
               hostname={hostname}
+              origin={origin}
             />
           ),
         }}

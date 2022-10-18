@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -27,10 +28,12 @@ function DecodeTxButtonTest({
   accountId,
   networkId,
   encodedTx,
+  feeInfoPayload,
 }: {
   accountId: string;
   networkId: string;
   encodedTx: any;
+  feeInfoPayload?: IFeeInfoPayload | null;
 }) {
   const navigation = useAppNavigation();
 
@@ -78,6 +81,8 @@ function DecodeTxButtonTest({
       interactInfo,
     });
     console.log('decodeTxTest >>>> ', {
+      feeInfoPayload,
+      feeInfoValue: feeInfoPayload?.current?.value,
       routeParams: route.params,
       encodedTx,
       decodedTx,
@@ -86,6 +91,7 @@ function DecodeTxButtonTest({
       _nativeTxFromRawTx: nativeTxFromRawTx,
     });
   }, [
+    feeInfoPayload,
     networkId,
     accountId,
     engine,

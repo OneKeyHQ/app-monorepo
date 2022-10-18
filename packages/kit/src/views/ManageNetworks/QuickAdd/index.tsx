@@ -31,9 +31,14 @@ type NavigationProps = NativeStackNavigationProp<
 
 export const ManageNetworkQuickAdd: FC = () => {
   const intl = useIntl();
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const { allNetworks } = useManageNetworks();
   const [loading, setLoading] = useState(false);
+  const [currentChain, setCurrentChain] = useState<ChainListConfig | null>(
+    null,
+  );
   const [chains, setChains] = useState<ChainListConfig[]>([]);
   const [showTestNet, setShowTestNet] = useState(false);
   const navigation = useNavigation<NavigationProps>();
@@ -41,33 +46,48 @@ export const ManageNetworkQuickAdd: FC = () => {
   const { serviceNetwork } = backgroundApiProxy;
 
   const toggleShowTestNet = useCallback(() => {
+    setPage(0);
+    setHasMore(true);
     setShowTestNet(!showTestNet);
   }, [showTestNet]);
 
-  const clearSearch = useCallback(() => {
-    setSearch('');
+  const updateSearch = useCallback((s: string) => {
+    setPage(0);
+    setHasMore(true);
+    setSearch(s);
   }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const list = await serviceNetwork.fetchChainList({
+        page,
+        pageSize: 50,
         query: search,
         showTestNet,
       });
-      setChains(
-        list.filter(
-          (item) => !allNetworks.find((n) => n.id === `evm--${item.chainId}`),
-        ),
+      const data = list.filter(
+        (item) => !allNetworks.find((n) => n.id === `evm--${item.chainId}`),
       );
+      if (list.length < 50) {
+        setHasMore(false);
+      }
+      if (page > 0) {
+        setChains((c) => [...c, ...data]);
+      } else {
+        setChains(data);
+      }
     } catch (error) {
       // pass
     }
-    setLoading(false);
-  }, [allNetworks, serviceNetwork, search, showTestNet]);
+    setTimeout(() => {
+      setLoading(false);
+    }, 500);
+  }, [allNetworks, serviceNetwork, search, showTestNet, page]);
 
   const toAddChainPage = useCallback(
     async (chain: ChainListConfig) => {
+      setCurrentChain(chain);
       let rpc = chain.rpc?.[0] ?? '';
       for (const url of chain.rpc) {
         try {
@@ -80,6 +100,7 @@ export const ManageNetworkQuickAdd: FC = () => {
           debugLogger.http.warn(`preAddNetwork error: `, error);
         }
       }
+      setCurrentChain(null);
       navigation.navigate(ManageNetworkRoutes.AddNetwork, {
         mode: 'add',
         network: {
@@ -102,22 +123,25 @@ export const ManageNetworkQuickAdd: FC = () => {
     if (loading) {
       return (
         <Center h="full">
-          <Spinner size="lg" />
+          <Spinner />
         </Center>
       );
     }
-    return (
-      <Center h="full">
-        <Empty
-          emoji="🔍"
-          title={intl.formatMessage({
-            id: 'content__no_results',
-            defaultMessage: 'No Result',
-          })}
-        />
-      </Center>
-    );
-  }, [intl, loading]);
+    if (!chains.length) {
+      return (
+        <Center h="full">
+          <Empty
+            emoji="🔍"
+            title={intl.formatMessage({
+              id: 'content__no_results',
+              defaultMessage: 'No Result',
+            })}
+          />
+        </Center>
+      );
+    }
+    return null;
+  }, [intl, loading, chains]);
 
   return (
     <Modal
@@ -128,60 +152,69 @@ export const ManageNetworkQuickAdd: FC = () => {
       hideSecondaryAction
       hidePrimaryAction
     >
-      <HStack w="full" mb="4">
-        <Searchbar
-          flex="1"
-          placeholder={intl.formatMessage({ id: 'content__search' })}
-          value={search}
-          onChangeText={setSearch}
-          onClear={clearSearch}
-          mr="1"
-        />
-        <Switch
-          label={intl.formatMessage({ id: 'form__testnets' })}
-          isChecked={showTestNet}
-          onToggle={toggleShowTestNet}
-        />
-      </HStack>
-      {chains.length > 0 ? (
-        <List
-          data={chains}
-          renderItem={({ item }) => (
-            <ListItem onPress={() => toAddChainPage(item)} flex={1}>
-              <ListItem.Column
-                image={{ src: item.logoURI, borderRadius: 'full', size: 8 }}
-              />
-              <ListItem.Column
-                text={{
-                  label: item.name,
-                  description: (
-                    <HStack>
-                      <Typography.Caption>
-                        {intl.formatMessage({ id: 'content__currency' })}:
-                      </Typography.Caption>
-                      <Typography.Caption color="text-default" ml="1">
-                        {item.nativeCurrency?.symbol ?? ''}
-                      </Typography.Caption>
-                      <Typography.Caption ml="6">
-                        {intl.formatMessage({ id: 'form__chain_id' })}:
-                      </Typography.Caption>
-                      <Typography.Caption color="text-default" ml="1">
-                        {item.chainId ?? ''}
-                      </Typography.Caption>
-                    </HStack>
-                  ),
-                }}
-                flex={1}
-              />
-            </ListItem>
-          )}
-          keyExtractor={(item, index) =>
-            `${item.name ?? ''}_${item.chainId}_${index}`
+      <List
+        onEndReached={() => {
+          if (hasMore && !loading) {
+            setPage(page + 1);
           }
-        />
-      ) : (
-        empty
-      )}
+        }}
+        data={chains}
+        ListHeaderComponent={() => (
+          <HStack w="full" mb="4">
+            <Searchbar
+              flex="1"
+              placeholder={intl.formatMessage({ id: 'content__search' })}
+              value={search}
+              onChangeText={updateSearch}
+              onClear={() => updateSearch('')}
+              mr="1"
+            />
+            <Switch
+              label={intl.formatMessage({ id: 'form__testnets' })}
+              isChecked={showTestNet}
+              onToggle={toggleShowTestNet}
+            />
+          </HStack>
+        )}
+        ListFooterComponent={empty}
+        renderItem={({ item }) => (
+          <ListItem onPress={() => toAddChainPage(item)} flex={1}>
+            <ListItem.Column
+              image={{ src: item.logoURI, borderRadius: 'full', size: 8 }}
+            />
+            <ListItem.Column
+              text={{
+                label: item.name,
+                description: (
+                  <HStack>
+                    <Typography.Caption>
+                      {intl.formatMessage({ id: 'content__currency' })}:
+                    </Typography.Caption>
+                    <Typography.Caption color="text-default" ml="1">
+                      {item.nativeCurrency?.symbol ?? ''}
+                    </Typography.Caption>
+                    <Typography.Caption ml="6">
+                      {intl.formatMessage({ id: 'form__chain_id' })}:
+                    </Typography.Caption>
+                    <Typography.Caption color="text-default" ml="1">
+                      {item.chainId ?? ''}
+                    </Typography.Caption>
+                  </HStack>
+                ),
+              }}
+              flex={1}
+            />
+            {item.chainId === currentChain?.chainId ? (
+              <ListItem.Column>
+                <Spinner />
+              </ListItem.Column>
+            ) : null}
+          </ListItem>
+        )}
+        keyExtractor={(item, index) =>
+          `${item.name ?? ''}_${item.chainId}_${index}`
+        }
+      />
     </Modal>
   );
 };

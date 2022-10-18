@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../../hooks';
@@ -123,7 +122,13 @@ function List({
   );
 }
 
-function SendButton() {
+function SendButton({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
   const isVerticalLayout = useIsVerticalLayout();
 
   const content = useSendNFTContent();
@@ -143,7 +148,6 @@ function SendButton() {
     if (multiSelect === false) {
       const asset = listData.find((item) => item.selected === true);
       if (asset) {
-        const { accountId, networkId } = getActiveWalletAccount();
         const params: PreSendParams = {
           accountId,
           networkId,
@@ -236,7 +240,7 @@ function SendNFTList({
   return allAssets.length > 0 ? (
     <SendNFTContentProvider listData={allAssets} multiSelect={false}>
       <List accountId={accountId} networkId={networkId} />
-      <SendButton />
+      <SendButton accountId={accountId} networkId={networkId} />
     </SendNFTContentProvider>
   ) : (
     <Box flex={1} justifyContent="center" alignItems="center">
