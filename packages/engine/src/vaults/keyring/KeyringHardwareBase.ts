@@ -25,6 +25,9 @@ export abstract class KeyringHardwareBase extends KeyringBase {
   }
 
   async getHardwareSDKInstance() {
+    // Since the sdk instance can not pass the serializable testing in backgroundApiProxy
+    // The direct call to backgroundApi is used here
+    // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
       // @ts-ignore
       await backgroundApiProxy?.backgroundApi?.serviceHardware.getSDKInstance();
