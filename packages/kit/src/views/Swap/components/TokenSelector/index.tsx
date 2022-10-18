@@ -252,9 +252,19 @@ const TokenSelector: FC<TokenSelectorProps> = ({
   const swappableNativeTokens = useSwappableNativeTokens();
   const networkTokens = useNetworkTokens(activeNetworkId);
 
+  const list = useMemo(() => {
+    const items = [...networkTokens];
+    const index = items.findIndex((o) => !o.tokenIdOnNetwork);
+    if (index > 0) {
+      const deleted = items.splice(index, 1);
+      return deleted.concat(items);
+    }
+    return items;
+  }, [networkTokens]);
+
   const tokens = useMemo(
-    () => (!activeNetworkId ? swappableNativeTokens ?? [] : networkTokens),
-    [swappableNativeTokens, activeNetworkId, networkTokens],
+    () => (!activeNetworkId ? swappableNativeTokens ?? [] : list),
+    [swappableNativeTokens, activeNetworkId, list],
   );
 
   const restrictedTokens = useRestrictedTokens(tokens, included, excluded);
