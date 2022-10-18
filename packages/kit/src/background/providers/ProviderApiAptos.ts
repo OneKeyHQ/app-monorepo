@@ -6,7 +6,7 @@ import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { BCS, TxnBuilderTypes, Types } from 'aptos';
+import { BCS, TxnBuilderTypes } from 'aptos';
 
 import { IMPL_APTOS } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -225,11 +225,12 @@ class ProviderApiAptos extends ProviderApiBase {
 
     return {
       sender: hexlify(transaction?.sender?.address),
-      sequence_number: transaction?.sequence_number,
-      max_gas_amount: transaction?.max_gas_amount,
-      gas_unit_price: transaction?.gas_unit_price,
-      expiration_timestamp_secs: transaction?.expiration_timestamp_secs,
-      chain_id: transaction?.chain_id,
+      sequence_number: transaction?.sequence_number?.toString(),
+      max_gas_amount: transaction?.max_gas_amount?.toString(),
+      gas_unit_price: transaction?.gas_unit_price?.toString(),
+      expiration_timestamp_secs:
+        transaction?.expiration_timestamp_secs?.toString(),
+      chain_id: transaction?.chain_id?.value,
 
       bscTxn: hexBcsTxn,
 
@@ -263,7 +264,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
-      // @ts-expect-error
       { encodedTx: encodeTx },
     )) as string;
 
@@ -292,7 +292,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
-      // @ts-expect-error
       { encodedTx: encodeTx, signOnly: true },
     )) as string;
 
@@ -324,15 +323,13 @@ class ProviderApiAptos extends ProviderApiBase {
   @providerApiMethod()
   public async signTransaction(
     request: IJsBridgeMessagePayload,
-    params: Types.TransactionPayload,
+    params: IEncodedTxAptos,
   ) {
     debugLogger.providerApi.info('aptos signTransaction', params);
-    const encodeTx = params;
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
-      // @ts-expect-error
-      { encodedTx: encodeTx, signOnly: true },
+      { encodedTx: params, signOnly: true },
     )) as string;
 
     return Promise.resolve(result);
@@ -393,7 +390,7 @@ class ProviderApiAptos extends ProviderApiBase {
   ): Promise<string> {
     debugLogger.providerApi.info('aptos signGenericTransaction', params);
 
-    const encodeTx = {
+    const encodeTx: IEncodedTxAptos = {
       type: 'entry_function_payload',
       function: params.func,
       arguments: params.args,
@@ -402,7 +399,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
-      // @ts-expect-error
       { encodedTx: encodeTx },
     )) as string;
 
