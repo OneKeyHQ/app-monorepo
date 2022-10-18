@@ -40,8 +40,10 @@ export function HardwareSwapContinue() {
   }, [closeModal, route?.params]);
 
   useEffect(() => {
+    appUIEventBus.on(AppUIEventBusNames.SwapError, doClose);
     appUIEventBus.on(AppUIEventBusNames.SwapCompleted, doClose);
     return () => {
+      appUIEventBus.off(AppUIEventBusNames.SwapError, doClose);
       appUIEventBus.off(AppUIEventBusNames.SwapCompleted, doClose);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

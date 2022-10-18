@@ -81,23 +81,18 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokensIfEmpty({
-    activeAccountId,
-    activeNetworkId,
-  }: {
-    activeAccountId: string;
-    activeNetworkId: string;
-  }) {
-    const { appSelector } = this.backgroundApi;
+  async fetchTokensIfEmpty({ activeNetworkId }: { activeNetworkId: string }) {
+    const { appSelector, engine, dispatch } = this.backgroundApi;
     const tokens = appSelector((s) => s.tokens.tokens);
     const networkTokens = tokens[activeNetworkId];
     if (activeNetworkId && (!networkTokens || networkTokens.length === 0)) {
-      await this.fetchTokens({
-        activeAccountId,
-        activeNetworkId,
-        withBalance: true,
-        withPrice: true,
-      });
+      const data = await engine.getTokens(activeNetworkId);
+      dispatch(
+        setNetworkTokens({
+          activeNetworkId,
+          tokens: data.slice(0, 50),
+        }),
+      );
     }
   }
 

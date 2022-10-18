@@ -104,7 +104,7 @@ const MobileModal: FC<ModalProps> = ({
             {platformEnv.isDev ? (
               <Pressable
                 onPress={() => {
-                  console.log('Modal route params:', route.params);
+                  console.log('Modal route params:', route.params, route.name);
                 }}
               >
                 {headerTitleView}

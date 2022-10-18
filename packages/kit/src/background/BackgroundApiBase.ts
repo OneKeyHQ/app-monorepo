@@ -60,6 +60,7 @@ function isPrivateAllowedMethod(method?: string) {
       'wallet_connectToWalletConnect',
       'wallet_getConnectWalletInfo',
       'wallet_sendSiteMetadata',
+      'wallet_scanQrcode',
     ].includes(method || '')
   );
 }

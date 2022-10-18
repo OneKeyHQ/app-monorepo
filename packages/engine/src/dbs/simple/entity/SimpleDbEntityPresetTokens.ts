@@ -18,7 +18,7 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   localTokens = new SimpleDbEntityLocalTokens();
 
-  override enableCache = false;
+  override enableCache = true;
 
   private defaultStableTokens: {
     [networkId: string]: string[];

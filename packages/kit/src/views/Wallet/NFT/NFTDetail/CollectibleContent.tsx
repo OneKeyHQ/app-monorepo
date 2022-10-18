@@ -15,7 +15,7 @@ import NFTAudio from '../../../../components/NFTAudio';
 import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
 import NFTSVG from '../../../../components/NFTSVG';
 import NFTVideo from '../../../../components/NFTVideo';
-import CollectibleListImage from '../NFTList/CollectibleListImage';
+import NFTListImage from '../NFTList/NFTListImage';
 
 import useUniqueToken, { ComponentType } from './useUniqueToken';
 
@@ -37,7 +37,7 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
     }
     if (componentType === ComponentType.Image) {
       return (
-        <CollectibleListImage
+        <NFTListImage
           url={uri}
           asset={asset}
           thumbnail={false}

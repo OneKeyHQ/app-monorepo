@@ -1,6 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
-import { nanoid } from '@reduxjs/toolkit';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { DialogManager } from '@onekeyhq/components';
@@ -9,33 +8,22 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
 import { appSelector } from '../../../../store';
+import { updateFirstRemindDAPP } from '../../../../store/reducers/discover';
 import {
-  addWebSiteHistory,
-  setDappHistory,
-  updateFirstRemindDAPP,
-  updateHistory,
-} from '../../../../store/reducers/discover';
-import {
-  addWebTab,
-  closeWebTab,
   homeTab,
   setIncomingUrl,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
-import { openUrl } from '../../../../utils/openUrl';
-import { WebSiteHistory } from '../../type';
 import DappOpenHintDialog from '../DappOpenHintDialog';
 import {
   MatchDAppItemType,
   OnWebviewNavigation,
-  validateUrl,
-  webHandler,
   webviewRefs,
 } from '../explorerUtils';
 
+import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 
-let lastNewUrlTimestamp = Date.now();
 export const useWebController = ({
   id,
   navigationStateChangeEvent,
@@ -47,92 +35,19 @@ export const useWebController = ({
   | undefined = {}) => {
   const { dispatch } = backgroundApiProxy;
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
-  const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
   const curId = id || currentTabId;
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
-
+  const lastNewUrlTimestamp = useRef(Date.now());
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
+
   const clearIncomingUrl = useCallback(
     () => dispatch(setIncomingUrl('')),
     [dispatch],
   );
-  const gotoSite = useCallback(
-    ({
-      url,
-      title,
-      favicon,
-      dAppId,
-      isNewWindow,
-      isInPlace,
-    }: WebSiteHistory & {
-      dAppId?: string;
-      isNewWindow?: boolean;
-      isInPlace?: boolean;
-    }) => {
-      if (url) {
-        const validatedUrl = validateUrl(url);
-        if (!validatedUrl) {
-          return;
-        }
-        if (webHandler === 'browser') {
-          return openUrl(validatedUrl);
-        }
-        const isNewTab =
-          (isNewWindow || curId === 'home') && webHandler === 'tabbedWebview';
-
-        const tabId = isNewTab ? nanoid() : curId;
-        if (dAppId) {
-          dispatch(setDappHistory(dAppId));
-        }
-        const isBookmarked = dappFavorites?.includes(url);
-
-        dispatch(
-          isNewTab
-            ? addWebTab({
-                id: tabId,
-                title,
-                url: validatedUrl,
-                favicon,
-                isCurrent: true,
-                isBookmarked,
-              })
-            : setWebTabData({
-                id: tabId,
-                url: validatedUrl,
-                title,
-                favicon,
-                isBookmarked,
-              }),
-          dAppId
-            ? updateHistory(dAppId)
-            : addWebSiteHistory({
-                webSite: { url: validatedUrl, title, favicon },
-              }),
-        );
-
-        if (
-          !isNewTab &&
-          !isInPlace &&
-          tab?.url !== '' &&
-          platformEnv.isDesktop
-        ) {
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          getInnerRef()?.loadURL(validatedUrl);
-        }
-
-        // close deep link tab after 1s
-        if (!validatedUrl.startsWith('http')) {
-          setTimeout(() => {
-            dispatch(closeWebTab(tabId));
-          }, 1000);
-        }
-        return true;
-      }
-      return false;
-    },
-    [curId, dispatch, getInnerRef, tab?.url, dappFavorites],
-  );
+  const gotoSite = useGotoSite({
+    tab,
+    getInnerRef,
+  });
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
       if (webSite) {
@@ -200,11 +115,11 @@ export const useWebController = ({
         isValidNewUrl = url !== tab?.url;
       }
       if (isValidNewUrl) {
-        if (Date.now() - lastNewUrlTimestamp < 500) {
+        if (Date.now() - lastNewUrlTimestamp.current < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
-        lastNewUrlTimestamp = Date.now();
+        lastNewUrlTimestamp.current = Date.now();
         gotoSite({ url, title, favicon, isNewWindow, isInPlace });
       }
 

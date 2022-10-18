@@ -16,8 +16,8 @@ import { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 
-import CollectibleListImage from './CollectibleListImage';
 import { useNFTListContent } from './NFTListContent';
+import NFTListImage from './NFTListImage';
 
 type Props = ComponentProps<typeof Box> & {
   collectible: Collection;
@@ -49,7 +49,7 @@ const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
   const filterAssets = collectible.assets.filter((item, index) => index < 4);
   if (filterAssets.length === 1) {
     return (
-      <CollectibleListImage
+      <NFTListImage
         asset={collectible.assets[0]}
         borderRadius="6px"
         size={width}
@@ -67,8 +67,8 @@ const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
         const marginRight = !(itemIndex % 2 === 0) ? 0 : 9;
         const marginBottom = itemIndex < 2 ? 9 : 0;
         return (
-          <CollectibleListImage
-            key={`CollectibleListImage${
+          <NFTListImage
+            key={`NFTListImage${
               asset.tokenId ?? asset.tokenAddress ?? ''
             }${itemIndex}`}
             asset={asset}

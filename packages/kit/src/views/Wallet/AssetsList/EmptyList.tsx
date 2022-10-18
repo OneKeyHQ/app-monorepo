@@ -1,19 +1,21 @@
-import { FC } from 'react';
-
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
+import { INetwork } from '@onekeyhq/engine/src/types';
 
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { ManageTokenRoutes } from '../../../routes/Modal/ManageToken';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 
-const EmptyList: FC = () => {
+function EmptyListOfAccount({
+  network,
+}: {
+  network: INetwork | null | undefined;
+}) {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { network } = useActiveWalletAccount();
 
   return (
     <Box flexDirection="row" justifyContent="space-between">
@@ -99,6 +101,13 @@ const EmptyList: FC = () => {
       </Button>
     </Box>
   );
-};
+}
 
+function EmptyList() {
+  const { network } = useActiveWalletAccount();
+
+  return <EmptyListOfAccount network={network} />;
+}
+
+export { EmptyListOfAccount };
 export default EmptyList;

@@ -73,6 +73,9 @@ export type SettingsState = {
     updateLatestVersion: string | null;
     updateLatestTimeStamp: number | null;
   };
+  customNetworkRpcMap?: {
+    [networkId: string]: string[];
+  };
 };
 
 export const defaultPushNotification = {
@@ -123,6 +126,7 @@ const initialState: SettingsState = {
     updateLatestTimeStamp: null,
   },
   disableSwapExactApproveAmount: false,
+  customNetworkRpcMap: {},
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -324,6 +328,28 @@ export const settingsSlice = createSlice({
     setDisableSwapExactApproveAmount(state, action: PayloadAction<boolean>) {
       state.disableSwapExactApproveAmount = action.payload;
     },
+    updateCustomNetworkRpc: (
+      state,
+      action: PayloadAction<{
+        networkId: string;
+        type: 'add' | 'remove';
+        rpc: string;
+      }>,
+    ) => {
+      const { type, networkId, rpc } = action.payload;
+      const map = {
+        ...(state.customNetworkRpcMap || {}),
+      };
+      if (!Array.isArray(map[networkId])) {
+        map[networkId] = [];
+      }
+      if (type === 'add') {
+        map[networkId].push(rpc);
+      } else if (type === 'remove') {
+        map[networkId] = map[networkId].filter((n) => n !== rpc);
+      }
+      state.customNetworkRpcMap = map;
+    },
   },
 });
 
@@ -355,6 +381,7 @@ export const {
   setHideBalance,
   setUpdateSetting,
   setDisableSwapExactApproveAmount,
+  updateCustomNetworkRpc,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

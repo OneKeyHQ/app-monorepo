@@ -8,7 +8,6 @@ import {
   Divider,
   IconButton,
   Modal,
-  Switch,
   Typography,
   useIsVerticalLayout,
   useToast,
@@ -17,76 +16,64 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 
 import { DiscardAlert } from './DiscardAlert';
 import { NetworkIcon } from './NetworkIcon';
 
-type SortableViewProps = {
-  onPress: () => void;
-};
-
 type ItemRowProps = {
   index: number;
   total: number;
-  initialValue: boolean;
   network: Network;
   onDrag: () => void;
-  onChange?: (networkid: string, enabled: boolean) => void;
+  onFixTop: () => void;
 };
 
 const ItemRow: FC<ItemRowProps> = ({
   index,
   total,
-  initialValue,
   network,
   onDrag,
-  onChange,
-}) => {
-  const [isChecked, setChecked] = useState(initialValue);
-  const { network: activeNetwork } = useActiveWalletAccount();
-  const onToggle = useCallback(() => {
-    setChecked(!isChecked);
-    onChange?.(network.id, !isChecked);
-  }, [onChange, isChecked, network.id]);
-  return (
-    <Box
-      bg="surface-default"
-      display="flex"
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      p="4"
-      borderTopRadius={index === 0 ? '12' : 0}
-      borderBottomRadius={total - 1 === index ? '12' : 0}
-    >
-      <Box flex="1" display="flex" flexDirection="row" alignItems="center">
-        <IconButton
-          mr="2"
-          type="plain"
-          name="MenuOutline"
-          iconSize={16}
-          onPressIn={() => onDrag()}
-        />
-        <NetworkIcon network={network} />
-        <Typography.Body1Strong flex="1" mr="3" numberOfLines={2} isTruncated>
-          {network.name}
-        </Typography.Body1Strong>
-      </Box>
-      <Switch
-        isDisabled={network.id === activeNetwork?.id}
-        isChecked={isChecked}
-        labelType="false"
-        onToggle={onToggle}
-      />
+  onFixTop,
+}) => (
+  <Box
+    bg="surface-default"
+    display="flex"
+    flexDirection="row"
+    justifyContent="space-between"
+    alignItems="center"
+    p="4"
+    borderTopRadius={index === 0 ? '12' : 0}
+    borderBottomRadius={total - 1 === index ? '12' : 0}
+  >
+    <Box flex="1" display="flex" flexDirection="row" alignItems="center">
+      <NetworkIcon network={network} size={8} />
+      <Typography.Body1Strong flex="1" mr="3" numberOfLines={2} isTruncated>
+        {network.name}
+      </Typography.Body1Strong>
     </Box>
-  );
-};
+    {index > 0 ? (
+      <IconButton
+        mr="2"
+        type="plain"
+        name="ArrowUpOutline"
+        iconSize={16}
+        onPress={onFixTop}
+      />
+    ) : null}
+    <IconButton
+      mr="2"
+      type="plain"
+      name="MenuOutline"
+      iconSize={16}
+      onPressIn={() => onDrag()}
+    />
+  </Box>
+);
 
 // eslint-disable-next-line
 type RenderItemProps = { item: Network; index: number; drag: () => void };
 
-export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
+export const SortableView: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
@@ -118,11 +105,11 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
     return result;
   });
 
-  const onChange = useCallback(
-    (networkid: string, enabled: boolean) => {
-      networksIdMap[networkid] = enabled;
+  const handleFixTop = useCallback(
+    (item: Network) => {
+      setList([item, ...list.filter((li) => li.id !== item.id)]);
     },
-    [networksIdMap],
+    [list],
   );
 
   const renderItem = useCallback(
@@ -132,12 +119,11 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
         key={item.id}
         total={list.length}
         network={item}
-        initialValue={networksIdMap[item.id]}
         onDrag={drag}
-        onChange={onChange}
+        onFixTop={() => handleFixTop(item)}
       />
     ),
-    [onChange, networksIdMap, list.length],
+    [list.length, handleFixTop],
   ) as any;
 
   const onPromise = useCallback(async () => {
@@ -150,8 +136,19 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
       );
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
     }
-    onPress?.();
-  }, [networksIdMap, list, onPress, initialData, serviceNetwork, toast, intl]);
+    if (navigation?.canGoBack?.()) {
+      refData.current.isDiscard = true;
+      navigation.goBack();
+    }
+  }, [
+    networksIdMap,
+    list,
+    initialData,
+    serviceNetwork,
+    toast,
+    intl,
+    navigation,
+  ]);
 
   const onBeforeRemove = useCallback(
     (e) => {
@@ -184,7 +181,7 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   return (
     <>
       <Modal
-        header={intl.formatMessage({ id: 'action__customize_network' })}
+        header={intl.formatMessage({ id: 'modal__sort' })}
         height="560px"
         hidePrimaryAction
         secondaryActionProps={{

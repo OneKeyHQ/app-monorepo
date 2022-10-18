@@ -56,7 +56,7 @@ export function useTokenAmount(token?: Token, amount?: string) {
     const decimals = new BigNumber(token.decimals);
     const base = new BigNumber(10);
     const value = bn.dividedBy(base.exponentiatedBy(decimals));
-    return new TokenAmount(token, value.toString());
+    return new TokenAmount(token, value.toFixed());
   }, [token, amount]);
 }
 

@@ -7,6 +7,7 @@ let appUIEventBus: CrossEventEmitter;
 
 enum AppUIEventBusNames {
   SwapCompleted = 'SwapCompleted',
+  SwapError = 'SwapError',
   RemoveAccount = 'RemoveAccount',
 }
 

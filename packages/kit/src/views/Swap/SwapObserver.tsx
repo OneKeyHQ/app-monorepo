@@ -66,7 +66,6 @@ const AccountsObserver = () => {
 };
 
 const TokenUpdater = () => {
-  const { accountId } = useActiveWalletAccount();
   const enabledNetworks = useEnabledSwappableNetworks();
   useEffect(() => {
     backgroundApiProxy.serviceToken.getEnabledNativeTokens({
@@ -78,17 +77,12 @@ const TokenUpdater = () => {
       for (let i = 0; i < enabledNetworks.length; i += 1) {
         const network = enabledNetworks[i];
         await backgroundApiProxy.serviceToken.fetchTokensIfEmpty({
-          activeAccountId: accountId,
-          activeNetworkId: network.id,
-        });
-        await backgroundApiProxy.serviceToken.fetchAccountTokensIfEmpty({
-          activeAccountId: accountId,
           activeNetworkId: network.id,
         });
       }
     }
     main();
-  }, [accountId, enabledNetworks]);
+  }, [enabledNetworks]);
   return null;
 };
 

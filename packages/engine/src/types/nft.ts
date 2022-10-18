@@ -7,6 +7,7 @@ export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.polygon]: 'polygon',
   [OnekeyNetwork.arbitrum]: 'arbitrum',
   [OnekeyNetwork.sol]: 'sol',
+  [OnekeyNetwork.avalanche]: 'avalanche',
 };
 
 export const NFTSymbolMap: Record<string, string> = {
@@ -16,6 +17,7 @@ export const NFTSymbolMap: Record<string, string> = {
   [OnekeyNetwork.polygon]: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619', // weth
   [OnekeyNetwork.arbitrum]: 'main',
   [OnekeyNetwork.sol]: 'main',
+  [OnekeyNetwork.avalanche]: 'main',
 };
 
 export type ERCType = 'erc721' | 'erc1155';
