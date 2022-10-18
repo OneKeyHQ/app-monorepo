@@ -36,6 +36,8 @@ export const APTOS_COIN_INFO = '0x1::coin::CoinInfo';
 
 // Move Action Module
 export const APTOS_PUBLISH_MODULE = '0x1::code::publish_package_txn';
+/** Automatic Account Activation */
+export const APTOS_NATIVE_TRANSFER_FUNC = '0x1::aptos_account::transfer';
 export const APTOS_TRANSFER_FUNC = '0x1::coin::transfer';
 export const APTOS_TOKEN_REGISTER = '0x1::managed_coin::register';
 export const APTOS_NFT_CREATE = '0x3::token::create_token_script';
@@ -64,6 +66,9 @@ export function getTransactionTypeByPayload({
   args?: any[];
 }) {
   if (type === 'entry_function_payload') {
+    if (function_name === APTOS_NATIVE_TRANSFER_FUNC) {
+      return IDecodedTxActionType.NATIVE_TRANSFER;
+    }
     if (function_name === APTOS_TRANSFER_FUNC) {
       const [tokenName] = type_arguments || [];
       if (tokenName === APTOS_NATIVE_COIN) {
@@ -527,11 +532,17 @@ export function generateTransferCoin(
   amount: string,
   tokenAddress?: string,
 ): TxPayload {
+  const transferFun = tokenAddress
+    ? APTOS_TRANSFER_FUNC
+    : APTOS_NATIVE_TRANSFER_FUNC;
+
+  const typeArgs = tokenAddress ? [tokenAddress] : [];
+
   return {
     type: 'entry_function_payload',
-    function: APTOS_TRANSFER_FUNC,
+    function: transferFun,
     arguments: [to, amount],
-    type_arguments: [tokenAddress ?? APTOS_NATIVE_COIN],
+    type_arguments: typeArgs,
   };
 }
 

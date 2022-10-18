@@ -9,13 +9,13 @@ import {
   PartialTokenInfo,
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient, BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
+import { AptosClient, BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { get, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
-import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import { getTimeStamp, isHexString } from '@onekeyhq/kit/src/utils/helper';
 import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -44,7 +44,6 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
-  ISignCredentialOptions,
   ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
@@ -64,11 +63,13 @@ import settings from './settings';
 import { IEncodedTxAptos } from './types';
 import {
   APTOS_NATIVE_COIN,
+  APTOS_NATIVE_TRANSFER_FUNC,
   APTOS_TRANSFER_FUNC,
   DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
   DEFAULT_GAS_LIMIT_TRANSFER,
   buildSignedTx,
   generateRegisterToken,
+  generateTransferCoin,
   generateUnsignedTransaction,
   getAccountCoinResource,
   getTokenInfo,
@@ -135,17 +136,18 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string) {
-    // if (isHexString(address) && stripHexPrefix(address).length !== 64) {
-    //   return await Promise.reject(new InvalidAddress());
-    // }
-    try {
-      const exists = await this.checkAccountExistence(address);
-      if (!exists) return await Promise.reject(new InvalidAccount());
-      return await Promise.resolve(address);
-    } catch (e: any) {
-      if (e instanceof InvalidAccount) return Promise.reject(e);
+    if (isHexString(address) && stripHexPrefix(address).length !== 64) {
       return Promise.reject(new InvalidAddress());
     }
+    return Promise.resolve(address);
+    // try {
+    //   const exists = await this.checkAccountExistence(address);
+    //   if (!exists) return await Promise.reject(new InvalidAccount());
+    //   return await Promise.resolve(address);
+    // } catch (e: any) {
+    //   if (e instanceof InvalidAccount) return Promise.reject(e);
+    //   return Promise.reject(new InvalidAddress());
+    // }
   }
 
   override validateWatchingCredential(input: string) {
@@ -423,7 +425,7 @@ export default class Vault extends VaultBase {
     const { address: from } = await this.getDbAccount();
 
     let amountValue;
-    let argumentsType: any[];
+
     if (tokenAddress && tokenAddress !== '') {
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
@@ -435,18 +437,13 @@ export default class Vault extends VaultBase {
       }
 
       amountValue = new BigNumber(amount).shiftedBy(token.decimals).toFixed();
-      argumentsType = [tokenAddress];
     } else {
       const network = await this.getNetwork();
       amountValue = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
-      argumentsType = [APTOS_NATIVE_COIN];
     }
 
     const encodedTx: IEncodedTxAptos = {
-      type: 'entry_function_payload',
-      function: APTOS_TRANSFER_FUNC,
-      arguments: [to, amountValue],
-      type_arguments: argumentsType,
+      ...generateTransferCoin(to, amountValue, tokenAddress),
       sender: from,
     };
 
@@ -478,7 +475,9 @@ export default class Vault extends VaultBase {
     // max native token transfer update
     if (
       options.type === 'transfer' &&
-      encodedTx.function === APTOS_TRANSFER_FUNC
+      [APTOS_NATIVE_TRANSFER_FUNC, APTOS_TRANSFER_FUNC].includes(
+        encodedTx?.function ?? '',
+      )
     ) {
       const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
       const { amount } = payload as IEncodedTxUpdatePayloadTransfer;

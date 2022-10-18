@@ -27,7 +27,7 @@
     "@metamask/eth-sig-util": "^4.0.0",
     "@onekeyfe/blockchain-libs": "0.0.45",
     "@onekeyfe/js-sdk": "1.1.5",
-    "@onekeyfe/network-list": "1.6.7",
+    "@onekeyfe/network-list": "1.6.8",
     "@solana/spl-token": "^0.3.0",
     "@solana/web3.js": "^1.53.0",
     "@noble/hashes": "1.1.2",

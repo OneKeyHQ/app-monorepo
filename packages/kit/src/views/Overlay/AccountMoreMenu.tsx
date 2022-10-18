@@ -14,6 +14,7 @@ import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
 import {
+  IMPL_APTOS,
   IMPL_EVM,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/engine/src/constants';
@@ -61,6 +62,10 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         network.id,
       );
+      // temp
+      if (network.impl === IMPL_APTOS && !network.isTestnet) {
+        return false;
+      }
       setNeedActivateAccount(
         !!vaultSettings?.activateAccountRequired && wallet?.type !== 'watching',
       );
