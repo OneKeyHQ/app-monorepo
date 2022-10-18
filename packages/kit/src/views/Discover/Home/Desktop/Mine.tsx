@@ -1,82 +1,42 @@
 import { FC, useCallback, useContext, useLayoutEffect, useMemo } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import {
   Box,
   Button,
+  Empty,
   FlatList,
   Image,
   Pressable,
   Typography,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
-import DAppIcon from '../DAppIcon';
-import { useDiscoverFavorites, useDiscoverHistory } from '../hooks';
+import { useAppSelector } from '../../../../hooks';
+import { HomeRoutes, HomeRoutesParams } from '../../../../routes/types';
+import DAppIcon from '../../DAppIcon';
+import {
+  useDiscoverFavorites,
+  useDiscoverHistory,
+  useTaggedDapps,
+} from '../../hooks';
+import CardView from '../CardView';
+import { DiscoverContext } from '../context';
 
-import CardView from './CardView';
-import { DiscoverContext } from './context';
-import { ListEmptyComponent } from './DiscoverDesktopEmptyComponent';
+import { DAppCategories } from './DAppCategories';
+import { EmptySkeleton } from './EmptySkeleton';
 
-import type { MatchDAppItemType } from '../Explorer/explorerUtils';
-import type { SectionDataType } from '../type';
+import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
+import type { SectionDataType } from '../../type';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
   HomeRoutes.DAppListScreen
 >;
-
-const ListHeaderLabels = () => {
-  const { categoryId, setCategoryId } = useContext(DiscoverContext);
-  const categories = useAppSelector((s) => s.discover.categories);
-
-  const data = useMemo(() => {
-    if (!categories) {
-      return [];
-    }
-    return [{ name: 'Mine', _id: '' }].concat(categories);
-  }, [categories]);
-
-  const renderItem: ListRenderItem<{ name: string; _id: string }> = ({
-    item,
-  }) => (
-    <Pressable
-      py="2"
-      px="3"
-      bg={categoryId === item._id ? 'surface-selected' : undefined}
-      onPress={() => setCategoryId(item._id)}
-      borderRadius={12}
-    >
-      <Typography.Body2
-        color={categoryId === item._id ? 'text-default' : 'text-subdued'}
-      >
-        {item.name}
-      </Typography.Body2>
-    </Pressable>
-  );
-  if (!data.length) {
-    return null;
-  }
-  return (
-    <FlatList
-      horizontal
-      data={data}
-      renderItem={renderItem}
-      showsHorizontalScrollIndicator={platformEnv.isDesktop}
-      keyExtractor={(item) => item._id}
-      contentContainerStyle={{
-        paddingHorizontal: 32,
-      }}
-    />
-  );
-};
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
@@ -228,35 +188,34 @@ const ListHeaderItems = () => {
   );
 };
 
-const ListHeaderComponent = () => (
-  <Box>
-    <ListHeaderLabels />
-    {platformEnv.isWeb ? null : <ListHeaderItems />}
-  </Box>
-);
+const ListHeaderComponent = () => {
+  const dappItems = useAppSelector((s) => s.discover.dappItems);
+  if (!dappItems) {
+    return null;
+  }
+  return (
+    <Box>
+      <DAppCategories />
+      {platformEnv.isWeb ? null : <ListHeaderItems />}
+    </Box>
+  );
+};
 
-export const DiscoverDesktop: FC = () => {
+const ListEmptyComponent = () => {
+  const dappItems = useAppSelector((s) => s.discover.dappItems);
+  return !dappItems ? <EmptySkeleton /> : <Empty title="" />;
+};
+
+export const Mine: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const dapps = useAppSelector((s) => s.discover.dapps);
-  const { categoryId, onItemSelect } = useContext(DiscoverContext);
+  const dapps = useTaggedDapps();
+  const { onItemSelect } = useContext(DiscoverContext);
 
-  const data = useMemo(() => {
-    if (!dapps) return [];
-    if (!categoryId) {
-      return dapps.map((item) => ({ title: item.label, data: item.items }));
-    }
-
-    const items = dapps.map((item) => {
-      const result = item.items.filter((o) => {
-        const ids = o.categories.map((e) => e._id);
-        return ids.includes(categoryId);
-      });
-      return { title: item.label, data: result };
-    });
-
-    return items.filter((item) => item.data.length !== 0);
-  }, [dapps, categoryId]);
+  const data = useMemo(
+    () => dapps.map((item) => ({ title: item.label, data: item.items })),
+    [dapps],
+  );
 
   useLayoutEffect(() => {
     if (platformEnv.isNative) {
@@ -273,27 +232,18 @@ export const DiscoverDesktop: FC = () => {
     [onItemSelect],
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceDiscover.getDapps();
-    }, []),
-  );
-
-  if (data.length === 0) {
-    return <ListEmptyComponent />;
-  }
-
   return (
     <Box flex="1" bg="background-default">
       <FlatList
         contentContainerStyle={{
-          paddingBottom: 24,
-          paddingTop: 24,
+          paddingBottom: 12,
+          paddingTop: 12,
         }}
         data={data}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
         ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={ListEmptyComponent}
       />
     </Box>
   );
