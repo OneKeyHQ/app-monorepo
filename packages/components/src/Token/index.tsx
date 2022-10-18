@@ -273,7 +273,7 @@ const Token: FC<TokenProps> = ({
     <Box display="flex" flexDirection="row" alignItems="center" {...boxProps}>
       <TokenIcon size={size} token={token} showNetworkIcon={showNetworkIcon} />
       {showInfo && (
-        <Box display="flex" ml="3">
+        <Box display="flex" ml="3" flex="1">
           {nameView}
           {descView}
           {extraView}
