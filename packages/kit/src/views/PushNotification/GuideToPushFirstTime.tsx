@@ -17,9 +17,7 @@ import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useAppNavigation, {
-  useNavigationBack,
-} from '../../hooks/useAppNavigation';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setGuideToPushFistTime } from '../../store/reducers/status';
@@ -60,7 +58,6 @@ export function GuideToPushFirstTimeCheck() {
 const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
 
-  const goBack = useNavigationBack();
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
 
@@ -89,21 +86,26 @@ const GuideToPushFirstTime: FC = () => {
     }
   }, [wallets, serviceNotification]);
 
-  const onPrimaryActionPress = useCallback(() => {
-    dispatch(
-      setPushNotificationConfig({
-        pushEnable: true,
-        priceAlertEnable: true,
-        btcAndEthPriceAlertEnable: true,
-        favoriteTokensPriceAlertEnable: true,
-        accountActivityPushEnable: true,
-      }),
-    );
-    serviceNotification
-      .syncPushNotificationConfig()
-      .finally(addAccountDynamics)
-      .finally(goBack);
-  }, [goBack, dispatch, addAccountDynamics, serviceNotification]);
+  const onPrimaryActionPress = useCallback(
+    ({ close }: { close: () => void }) => {
+      dispatch(
+        setPushNotificationConfig({
+          pushEnable: true,
+          priceAlertEnable: true,
+          btcAndEthPriceAlertEnable: true,
+          favoriteTokensPriceAlertEnable: true,
+          accountActivityPushEnable: true,
+        }),
+      );
+      serviceNotification
+        .syncPushNotificationConfig()
+        .finally(addAccountDynamics)
+        .finally(() => {
+          close?.();
+        });
+    },
+    [dispatch, addAccountDynamics, serviceNotification],
+  );
 
   const configs = useMemo(
     () => [

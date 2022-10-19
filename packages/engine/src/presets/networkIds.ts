@@ -6,6 +6,7 @@
 export const OnekeyNetwork = {
   'algo': 'algo--0',
   'talgo': 'algo--1',
+  'apt': 'aptos--1',
   'tapt': 'aptos--2',
   'btc': 'btc--0',
   'cfx': 'cfx--1029',

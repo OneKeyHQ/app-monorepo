@@ -3,7 +3,7 @@ import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/pro
 import { getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
 import {
@@ -61,7 +61,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const prevTxs = await provider.collectTxs(prevTxids);
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
 
     const response = await HardwareSDK.btcSignTransaction(connectId, deviceId, {
       // useEmptyPassphrase: true,
@@ -106,7 +106,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     try {
       const { connectId, deviceId } = await this.getHardwareInfo();
       const passphraseState = await this.getWalletPassphraseState();
-      await this.getHardwareSDKInstance();
+      const HardwareSDK = await this.getHardwareSDKInstance();
       response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
         bundle: usedIndexes.map((index) => ({
           path: `m/${usedPurpose}'/${COIN_TYPE}'/${index}'`,
@@ -240,7 +240,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       return '';
     }
 
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.btcGetAddress(connectId, deviceId, {

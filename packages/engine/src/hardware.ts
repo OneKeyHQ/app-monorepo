@@ -15,7 +15,7 @@ import { BigNumber } from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
 
 import { IMPL_EVM } from './constants';
@@ -29,7 +29,11 @@ import { ETHMessageTypes } from './types/message';
 
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import type { WalletPassphraseState } from './vaults/keyring/KeyringHardwareBase';
-import type { EVMTransaction, EVMTransactionEIP1559 } from '@onekeyfe/hd-core';
+import type {
+  CoreApi,
+  EVMTransaction,
+  EVMTransactionEIP1559,
+} from '@onekeyfe/hd-core';
 
 /**
  * get Eth address from the hardware wallet with the specified derivation path
@@ -39,6 +43,7 @@ import type { EVMTransaction, EVMTransactionEIP1559 } from '@onekeyfe/hd-core';
  * @throws {OneKeyHardwareError}
  */
 export async function ethereumGetAddress(
+  HardwareSDK: CoreApi,
   connectId: string,
   deviceId: string,
   path: string | number[],
@@ -119,12 +124,14 @@ function getResultFromResponse<T>(response: Unsuccessful | Success<T>): T {
 }
 
 export async function ethereumSignMessage({
+  HardwareSDK,
   connectId,
   deviceId,
   passphraseState,
   path,
   message,
 }: {
+  HardwareSDK: CoreApi;
   connectId: string;
   deviceId: string;
   passphraseState?: WalletPassphraseState;
@@ -221,6 +228,7 @@ export async function ethereumSignMessage({
  * @throws {OneKeyHardwareError}
  */
 export async function ethereumSignTransaction(
+  HardwareSDK: CoreApi,
   connectId: string,
   deviceId: string,
   path: string,
@@ -322,6 +330,7 @@ export async function ethereumSignTransaction(
 }
 
 export async function getXpubs(
+  HardwareSDK: CoreApi,
   impl: string,
   paths: Array<string>,
   outputFormat: 'xpub' | 'pub' | 'address',

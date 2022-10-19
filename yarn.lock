@@ -3706,10 +3706,10 @@
     "@onekeyfe/cross-inpage-provider-core" "1.1.1"
     "@onekeyfe/cross-inpage-provider-types" "1.1.1"
 
-"@onekeyfe/network-list@1.6.7":
-  version "1.6.7"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.6.7.tgz#38087932e649e04bda576837ebcf4ad648dfc74d"
-  integrity sha512-nAAeecOQUcskARHckixR671r0pbw+ytMGUHVZX+ROSkXkwp78S+kn8TiviYPoNrDBw3Gvx1NLwGI/hdDYpNYwg==
+"@onekeyfe/network-list@1.6.8":
+  version "1.6.8"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.6.8.tgz#1bd1324976b312a9673eacc79812b5421a865950"
+  integrity sha512-HOW/fToRKNwZrJWwswLrTKgHLaxgo0xm4pahC0lwovwbJZkabEdILMbTpVrT6n/7nCMthXtGRPm8IOfdY8oF+A==
 
 "@onekeyfe/onekey-aptos-provider@1.1.1":
   version "1.1.1"
@@ -6292,9 +6292,9 @@
   integrity sha512-oxnCNGj88fL+xzV+dacXs44HcDwf1ovs3AuEzvP7mqXw7fQntqIhQ1BRmynh4qEKQSSSRSWVyXRjmTbZIX9V2Q==
 
 "@xmldom/xmldom@~0.7.0":
-  version "0.7.5"
-  resolved "https://registry.yarnpkg.com/@xmldom/xmldom/-/xmldom-0.7.5.tgz#09fa51e356d07d0be200642b0e4f91d8e6dd408d"
-  integrity sha512-V3BIhmY36fXZ1OtVcI9W+FxQqxVLsPKcNjWigIaa81dLC9IolJl5Mt4Cvhmr0flUnjSpTdrbMTSbXqYqV5dT6A==
+  version "0.7.6"
+  resolved "https://registry.yarnpkg.com/@xmldom/xmldom/-/xmldom-0.7.6.tgz#6f55073fa73e65776bd85826958b98c8cd1457b5"
+  integrity sha512-HHXP9hskkFQHy8QxxUXkS7946FFIhYVfGqsk0WLwllmexN9x/+R4UBLvurHEuyXRfVEObVR8APuQehykLviwSQ==
 
 "@xtuc/ieee754@^1.2.0":
   version "1.2.0"

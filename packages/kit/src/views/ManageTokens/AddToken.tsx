@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
@@ -24,6 +25,7 @@ import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
+import { wait } from '../../utils/helper';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -224,6 +226,7 @@ function AddTokenModal() {
     network: activeNetwork,
   } = useActiveWalletAccount();
   const intl = useIntl();
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { address, logoURI } = useRouteParams();
   const queryInfo = useDappParams();
@@ -234,7 +237,11 @@ function AddTokenModal() {
 
   const addAccountToken = useCallback(
     async ({ close } = {}) => {
-      if (activeAccount && activeNetwork) {
+      if (!activeAccount || !activeNetwork) {
+        return;
+      }
+      try {
+        setLoading(true);
         const addedToken =
           await backgroundApiProxy.serviceToken.addAccountToken(
             activeNetwork.id,
@@ -242,20 +249,32 @@ function AddTokenModal() {
             address,
             logoURI,
           );
-        setTimeout(
-          () =>
-            toast.show({
-              title: intl.formatMessage({
-                id: 'msg__token_added',
-                defaultMessage: 'Token Added',
-              }),
-            }),
-          200,
-        );
+        await wait(1000);
         await dappApprove.resolve({ close, result: addedToken });
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        }
+        toast.show({
+          title: intl.formatMessage({
+            id: 'msg__token_added',
+            defaultMessage: 'Token Added',
+          }),
+        });
+      } catch (error) {
+        debugLogger.common.error('add token faild', error, address);
       }
+      setLoading(false);
     },
-    [activeAccount, activeNetwork, address, toast, intl, dappApprove, logoURI],
+    [
+      activeAccount,
+      activeNetwork,
+      address,
+      toast,
+      intl,
+      dappApprove,
+      logoURI,
+      navigation,
+    ],
   );
 
   const onPrimaryActionPress = useCallback(async () => {
@@ -293,6 +312,9 @@ function AddTokenModal() {
       primaryActionTranslationId="action__confirm"
       onModalClose={() => {
         dappApprove.reject();
+      }}
+      primaryActionProps={{
+        isLoading: loading,
       }}
       onPrimaryActionPress={onPrimaryActionPress}
     />

@@ -4,7 +4,13 @@ import qs from 'qs';
 import { ServerToken, Token } from '@onekeyhq/kit/src/store/typings';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { IMPL_SOL, IMPL_STC, IMPL_TRON, SEPERATOR } from '../constants';
+import {
+  IMPL_APTOS,
+  IMPL_SOL,
+  IMPL_STC,
+  IMPL_TRON,
+  SEPERATOR,
+} from '../constants';
 import { getFiatEndpoint } from '../endpoint';
 import { OneKeyInternalError } from '../errors';
 
@@ -30,7 +36,12 @@ export type TokenDetailQuery = {
   address: string;
 };
 
-export const caseSensitiveImpls = new Set([IMPL_SOL, IMPL_STC, IMPL_TRON]);
+export const caseSensitiveImpls = new Set([
+  IMPL_SOL,
+  IMPL_STC,
+  IMPL_TRON,
+  IMPL_APTOS,
+]);
 
 let cachedTokenSourceList: TokenSource[] = [];
 

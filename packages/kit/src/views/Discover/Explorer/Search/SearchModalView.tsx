@@ -1,15 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { FC, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
 import {
   Box,
-  Center,
   Divider,
-  Icon,
-  Image,
   Modal,
   Pressable,
   Text,
@@ -24,7 +19,6 @@ import {
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
-import { DAppItemType } from '../../type';
 import { MatchDAppItemType } from '../explorerUtils';
 
 import { Header, ListEmptyComponent } from './Header';
@@ -36,7 +30,7 @@ type RouteProps = RouteProp<
   DiscoverModalRoutes.SearchHistoryModal
 >;
 
-const SearchModalView: FC = () => {
+export const SearchModalView: FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { url, onSelectorItem } = route.params;
@@ -128,5 +122,3 @@ const SearchModalView: FC = () => {
     />
   );
 };
-
-export { SearchModalView };

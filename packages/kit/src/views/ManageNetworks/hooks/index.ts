@@ -5,20 +5,36 @@ import { SpeedindicatorColors } from '../../../components/NetworkAccountSelector
 import { useNetwork } from '../../../hooks/useNetwork';
 import { getTimeDurationMs } from '../../../utils/helper';
 
+export enum RpcSpeed {
+  Fast = 0,
+  Slow,
+  Unavailable,
+}
+
 export type MeasureResult = {
   responseTime?: number;
   color: SpeedindicatorColors;
   latestBlock?: number;
+  speed: RpcSpeed;
 };
 
-const getColor = (speed?: number) => {
+const getRpcStatusByResponseTime = (speed?: number) => {
   if (typeof speed === 'undefined') {
-    return SpeedindicatorColors.Unavailable;
+    return {
+      color: SpeedindicatorColors.Unavailable,
+      speed: RpcSpeed.Unavailable,
+    };
   }
   if (speed <= 300) {
-    return SpeedindicatorColors.Fast;
+    return {
+      color: SpeedindicatorColors.Fast,
+      speed: RpcSpeed.Fast,
+    };
   }
-  return SpeedindicatorColors.Slow;
+  return {
+    color: SpeedindicatorColors.Slow,
+    speed: RpcSpeed.Slow,
+  };
 };
 
 export const measureRpc = async (networkId: string, url: string) => {
@@ -32,7 +48,7 @@ export const measureRpc = async (networkId: string, url: string) => {
     return {
       latestBlock,
       responseTime,
-      color: getColor(responseTime),
+      ...getRpcStatusByResponseTime(responseTime),
     };
   } catch (error) {
     // pass
@@ -41,6 +57,7 @@ export const measureRpc = async (networkId: string, url: string) => {
     latestBlock: undefined,
     responseTime: undefined,
     color: SpeedindicatorColors.Unavailable,
+    speed: RpcSpeed.Unavailable,
   };
 };
 

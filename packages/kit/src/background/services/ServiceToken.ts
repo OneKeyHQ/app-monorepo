@@ -86,11 +86,13 @@ export default class ServiceToken extends ServiceBase {
     const tokens = appSelector((s) => s.tokens.tokens);
     const networkTokens = tokens[activeNetworkId];
     if (activeNetworkId && (!networkTokens || networkTokens.length === 0)) {
-      const data = await engine.getTokens(activeNetworkId);
+      await engine.getTokens(activeNetworkId);
+      const topTokens = await engine.getTopTokensOnNetwork(activeNetworkId, 50);
       dispatch(
         setNetworkTokens({
           activeNetworkId,
-          tokens: data.slice(0, 50),
+          tokens: topTokens,
+          keepAutoDetected: true,
         }),
       );
     }

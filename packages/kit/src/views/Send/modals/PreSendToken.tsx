@@ -11,6 +11,7 @@ import SendNFTList from '../../Wallet/NFT/SendNFTList';
 import { BaseSendModal } from '../components/BaseSendModal';
 import SendTokenTabView from '../components/SendTokenTabView';
 import { SendRoutes, SendRoutesParams } from '../types';
+import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -20,14 +21,15 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendToken>;
 
-function PreSendToken() {
+function PreSendTokenScreen() {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
-
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const transferInfo = useMemo(() => ({ ...route.params }), [route.params]);
   const { accountId, networkId } = transferInfo;
+  useReloadAccountBalance({ accountId, networkId });
+
   const padding = isSmallScreen ? '16px' : '24px';
   const emptyView = useMemo(
     () => (
@@ -112,5 +114,7 @@ function PreSendToken() {
     </BaseSendModal>
   );
 }
+
+const PreSendToken = React.memo(PreSendTokenScreen);
 
 export { PreSendToken };

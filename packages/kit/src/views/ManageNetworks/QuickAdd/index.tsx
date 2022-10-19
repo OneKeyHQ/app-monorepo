@@ -13,6 +13,7 @@ import {
   Searchbar,
   Spinner,
   Switch,
+  Token,
   Typography,
 } from '@onekeyhq/components';
 import type { ChainListConfig } from '@onekeyhq/engine/src/managers/network';
@@ -152,6 +153,21 @@ export const ManageNetworkQuickAdd: FC = () => {
       hideSecondaryAction
       hidePrimaryAction
     >
+      <HStack w="full" mb="4">
+        <Searchbar
+          flex="1"
+          placeholder={intl.formatMessage({ id: 'content__search' })}
+          value={search}
+          onChangeText={updateSearch}
+          onClear={() => updateSearch('')}
+          mr="1"
+        />
+        <Switch
+          label={intl.formatMessage({ id: 'form__testnets' })}
+          isChecked={showTestNet}
+          onToggle={toggleShowTestNet}
+        />
+      </HStack>
       <List
         onEndReached={() => {
           if (hasMore && !loading) {
@@ -159,29 +175,15 @@ export const ManageNetworkQuickAdd: FC = () => {
           }
         }}
         data={chains}
-        ListHeaderComponent={() => (
-          <HStack w="full" mb="4">
-            <Searchbar
-              flex="1"
-              placeholder={intl.formatMessage({ id: 'content__search' })}
-              value={search}
-              onChangeText={updateSearch}
-              onClear={() => updateSearch('')}
-              mr="1"
-            />
-            <Switch
-              label={intl.formatMessage({ id: 'form__testnets' })}
-              isChecked={showTestNet}
-              onToggle={toggleShowTestNet}
-            />
-          </HStack>
-        )}
         ListFooterComponent={empty}
         renderItem={({ item }) => (
           <ListItem onPress={() => toAddChainPage(item)} flex={1}>
-            <ListItem.Column
-              image={{ src: item.logoURI, borderRadius: 'full', size: 8 }}
-            />
+            <ListItem.Column>
+              <Token
+                size={8}
+                token={{ logoURI: item.logoURI, name: item.name }}
+              />
+            </ListItem.Column>
             <ListItem.Column
               text={{
                 label: item.name,
