@@ -5035,7 +5035,7 @@
 
 "@solana/web3.js@1.47.3", "@solana/web3.js@^1.21.0", "@solana/web3.js@^1.29.2", "@solana/web3.js@^1.32.0", "@solana/web3.js@^1.41.0", "@solana/web3.js@^1.41.3", "@solana/web3.js@^1.53.0":
   version "1.47.3"
-  resolved "https://registry.npmjs.org/@solana/web3.js/-/web3.js-1.47.3.tgz#ec13f2cf4f9f54cc4fbd26d20be1e026c6e2279c"
+  resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.47.3.tgz#ec13f2cf4f9f54cc4fbd26d20be1e026c6e2279c"
   integrity sha512-TQJulaN/+b0xXq5EhQAYFwVyOORxSyVJn1EiXupClZm8DY7f9EeUG6vl0FzSAgwEAwXKsgK3sVs/3px2e7H7dQ==
   dependencies:
     "@babel/runtime" "^7.12.5"
@@ -9324,7 +9324,7 @@ csstype@^3.0.10, csstype@^3.0.2:
 
 ctx-polyfill@^1.1.4:
   version "1.1.4"
-  resolved "https://registry.npmmirror.com/ctx-polyfill/-/ctx-polyfill-1.1.4.tgz#08420bc5c540d08ac36d05720ca503c65e302d65"
+  resolved "https://registry.yarnpkg.com/ctx-polyfill/-/ctx-polyfill-1.1.4.tgz#08420bc5c540d08ac36d05720ca503c65e302d65"
   integrity sha512-tz65F3/zmZ2+CMtn4MhNhYi/yIN9dKnItMKzSkH2GE6dBpAIbUR0K5pSHWqUL3OuNBCA70DKlWZYUClHfydIXg==
 
 cycle@^1.0.3:
@@ -12574,7 +12574,7 @@ globrex@^0.1.2:
 
 got@9.6.0, got@^11.8.0, got@^11.8.5, got@^7.1.0, got@^9.6.0:
   version "11.8.5"
-  resolved "https://registry.npmjs.org/got/-/got-11.8.5.tgz#ce77d045136de56e8f024bebb82ea349bc730046"
+  resolved "https://registry.yarnpkg.com/got/-/got-11.8.5.tgz#ce77d045136de56e8f024bebb82ea349bc730046"
   integrity sha512-o0Je4NvQObAuZPHLFoRSkdG2lTgtcynqymzg2Vupdx6PorhaT5MCbIyXG6d4D94kk8ZG57QeosgdiqfJWhEhlQ==
   dependencies:
     "@sindresorhus/is" "^4.0.0"
@@ -13265,7 +13265,7 @@ immediate@~3.0.5:
 
 immer@8.0.1, immer@^9, immer@^9.0.6:
   version "9.0.15"
-  resolved "https://registry.npmjs.org/immer/-/immer-9.0.15.tgz#0b9169e5b1d22137aba7d43f8a81a495dd1b62dc"
+  resolved "https://registry.yarnpkg.com/immer/-/immer-9.0.15.tgz#0b9169e5b1d22137aba7d43f8a81a495dd1b62dc"
   integrity sha512-2eB/sswms9AEUSkOm4SbV5Y7Vmt/bKRwByd52jfLkW4OLYeaTP3EEiJ9agqU0O/tq6Dk62Zfj+TJSqfm1rLVGQ==
 
 import-fresh@^2.0.0:
@@ -15718,7 +15718,7 @@ metro-minify-uglify@0.67.0:
 
 metro-react-native-babel-preset@0.67.0, metro-react-native-babel-preset@0.70.0, metro-react-native-babel-preset@~0.64.0, metro-react-native-babel-preset@~0.67.0:
   version "0.70.0"
-  resolved "https://registry.npmjs.org/metro-react-native-babel-preset/-/metro-react-native-babel-preset-0.70.0.tgz#e1eaafdc4552ac52a9b46696a25a68bacc28c426"
+  resolved "https://registry.yarnpkg.com/metro-react-native-babel-preset/-/metro-react-native-babel-preset-0.70.0.tgz#e1eaafdc4552ac52a9b46696a25a68bacc28c426"
   integrity sha512-MoOK5/rdDE2bABA+KpbXV6w0Q96sZeZiE9Ct89NYp9nPwXIaY7ylulLsjW3+rT6BdecKuNPUVwvtO0vYIQwvRw==
   dependencies:
     "@babel/core" "^7.14.0"
@@ -16543,7 +16543,7 @@ node-dir@^0.1.17:
 
 node-fetch@2, node-fetch@2.6.7, node-fetch@^2, node-fetch@^2.2.0, node-fetch@^2.6.0, node-fetch@^2.6.1, node-fetch@^2.6.7, node-fetch@^3.2.6:
   version "2.6.7"
-  resolved "https://registry.npmjs.org/node-fetch/-/node-fetch-2.6.7.tgz#24de9fba827e3b4ae44dc8b20256a379160052ad"
+  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.6.7.tgz#24de9fba827e3b4ae44dc8b20256a379160052ad"
   integrity sha512-ZjMPFEfVx5j+y2yF35Kzx5sF7kDzxuDj6ziH4FFbOp87zKDZNx8yExJIb05OGF4Nlt9IHFIMBkRl41VdvcNdbQ==
   dependencies:
     whatwg-url "^5.0.0"
@@ -18527,7 +18527,7 @@ react-native-camera@4.2.1:
 
 react-native-canvas@^0.1.38:
   version "0.1.38"
-  resolved "https://registry.npmmirror.com/react-native-canvas/-/react-native-canvas-0.1.38.tgz#d2d76f1a105cd4711792271f265b72bd5699acf0"
+  resolved "https://registry.yarnpkg.com/react-native-canvas/-/react-native-canvas-0.1.38.tgz#d2d76f1a105cd4711792271f265b72bd5699acf0"
   integrity sha512-DjtN921PKoa2liYF8hKq1263xg2o47Bj/1E/+l75GPicT2RV/x/Y1HBrLvFVCR3OO+UslXEC5BtRjfxDoh/Bug==
   dependencies:
     ctx-polyfill "^1.1.4"
@@ -18694,7 +18694,7 @@ react-native-pager-view@5.4.25:
 
 react-native-qrcode-svg@6.0.6, react-native-qrcode-svg@6.1.2:
   version "6.1.2"
-  resolved "https://registry.npmjs.org/react-native-qrcode-svg/-/react-native-qrcode-svg-6.1.2.tgz#a7cb6c10199ab01418a7f7700ce17a6a014f544e"
+  resolved "https://registry.yarnpkg.com/react-native-qrcode-svg/-/react-native-qrcode-svg-6.1.2.tgz#a7cb6c10199ab01418a7f7700ce17a6a014f544e"
   integrity sha512-lMbbxoPVybXCp9SYm73Aj/0iZ9OlSZl2u+zpdbjgC4DYHBm9m9tDQxISNg1OPeR7AAzmyx8IV4JTFmk8G5R22g==
   dependencies:
     prop-types "^15.7.2"
@@ -18767,7 +18767,7 @@ react-native-share@^7.6.6:
 
 react-native-svg@12.3.0, react-native-svg@9.6.4, react-native-svg@^12.1.0, react-native-svg@^12.3.0:
   version "12.3.0"
-  resolved "https://registry.npmjs.org/react-native-svg/-/react-native-svg-12.3.0.tgz#40f657c5d1ee366df23f3ec8dae76fd276b86248"
+  resolved "https://registry.yarnpkg.com/react-native-svg/-/react-native-svg-12.3.0.tgz#40f657c5d1ee366df23f3ec8dae76fd276b86248"
   integrity sha512-ESG1g1j7/WLD7X3XRFTQHVv0r6DpbHNNcdusngAODIxG88wpTWUZkhcM3A2HJTb+BbXTFDamHv7FwtRKWQ/ALg==
   dependencies:
     css-select "^4.2.1"
@@ -21505,7 +21505,7 @@ tsconfig-paths@^3.11.0:
 
 tslib@2.1.0, tslib@2.4.0, tslib@^1.10.0, tslib@^1.8.1, tslib@^1.9.0, tslib@^1.9.3, tslib@^2.0.0, tslib@^2.0.1, tslib@^2.0.3, tslib@^2.1.0, tslib@^2.3.1, tslib@^2.4.0:
   version "2.4.0"
-  resolved "https://registry.npmjs.org/tslib/-/tslib-2.4.0.tgz#7cecaa7f073ce680a05847aa77be941098f36dc3"
+  resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.4.0.tgz#7cecaa7f073ce680a05847aa77be941098f36dc3"
   integrity sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==
 
 tsutils@^3.21.0:

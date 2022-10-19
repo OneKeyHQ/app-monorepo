@@ -37,6 +37,7 @@ const MarketSearchList: FC<{
   return (
     <FlatList
       data={data}
+      contentContainerStyle={{ paddingTop: 24 }}
       renderItem={renderItem}
       ListEmptyComponent={
         <Empty

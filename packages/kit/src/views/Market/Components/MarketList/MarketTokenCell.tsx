@@ -43,23 +43,9 @@ interface MarketTokenCellProps {
 
 type NavigationProps = NativeStackNavigationProp<TabRoutesParams>;
 
-const MarketTokenSwapEnable = ({
-  marketTokenId,
-  tokens,
-}: {
-  marketTokenId: string;
-  tokens?: Token[];
-}) => {
+const MarketTokenSwapEnable = ({ tokens }: { tokens?: Token[] }) => {
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
-  useEffect(() => {
-    if (!tokens) {
-      backgroundApiProxy.serviceMarket.fetchMarketTokenAllNetWorkTokens(
-        marketTokenId,
-      );
-    }
-  }, [marketTokenId, tokens]);
-
   if (tokens) {
     return (
       <Button
@@ -101,6 +87,13 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
       ),
     [marketTokenItem],
   );
+
+  useEffect(() => {
+    if (marketTokenItem && !marketTokenItem.logoURI) {
+      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(marketTokenId);
+    }
+  }, [marketTokenId, marketTokenItem]);
+
   return (
     <ListItem
       borderRadius={0}
@@ -163,19 +156,19 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             return (
               <ListItem.Column key={tag.id}>
                 <HStack alignItems="center" flex={1} space={3}>
-                  {marketTokenItem && marketTokenItem.image ? (
+                  {marketTokenItem && marketTokenItem.logoURI ? (
                     <Image
                       borderRadius={16}
-                      src={marketTokenItem.image}
-                      alt={marketTokenItem.image}
-                      key={marketTokenItem.image}
+                      src={marketTokenItem.logoURI}
+                      alt={marketTokenItem.logoURI}
+                      key={marketTokenItem.logoURI}
                       size={8}
                       fallbackElement={
                         <Icon name="QuestionMarkOutline" size={32} />
                       }
                     />
                   ) : (
-                    <Skeleton shape="Avatar" size={32} />
+                    <Skeleton shape="Avatar" w="32px" h="32px" />
                   )}
                   <Box>
                     {marketTokenItem && marketTokenItem.symbol !== undefined ? (
@@ -394,10 +387,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column key={tag.id}>
                 <Box flexDirection="row" flex={1} ref={moreButtonRef}>
                   {marketTokenItem ? (
-                    <MarketTokenSwapEnable
-                      tokens={marketTokenItem.tokens}
-                      marketTokenId={marketTokenId}
-                    />
+                    <MarketTokenSwapEnable tokens={marketTokenItem.tokens} />
                   ) : (
                     <Skeleton shape="Caption" />
                   )}

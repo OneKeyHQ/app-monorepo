@@ -1,4 +1,4 @@
-import { cloneDeep } from 'lodash';
+import { cloneDeep, uniqBy } from 'lodash';
 
 import { MARKET_SEARCH_HISTORY_MAX } from '@onekeyhq/kit/src/store/reducers/market';
 
@@ -30,16 +30,9 @@ export class SimpleDbEntityMarket extends SimpleDbEntityBase<ISimpleDbEntityMark
   async saveMarketSearchHistoryToken(token: ISimpleSearchHistoryToken) {
     const data = await this.getRawDateWithDefault();
     const searchHistory = data.searchHistory ? [...data.searchHistory] : [];
-    const findIndex = searchHistory.findIndex(
-      (t) => t.coingeckoId === token.coingeckoId,
-    );
-    if (findIndex !== -1) {
-      searchHistory.splice(findIndex, 1);
-    }
-    if (searchHistory.length >= MARKET_SEARCH_HISTORY_MAX) {
-      searchHistory.pop();
-    }
     data.searchHistory = [token, ...searchHistory];
+    data.searchHistory = uniqBy(data.searchHistory, 'coingeckoId');
+    data.searchHistory = data.searchHistory.slice(0, MARKET_SEARCH_HISTORY_MAX);
     this.setRawData(data);
   }
 

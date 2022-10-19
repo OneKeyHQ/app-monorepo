@@ -25,7 +25,7 @@ export interface ToggleButtonProps {
   text: string;
   leftIcon?: ICON_NAMES;
   leftImage?: string;
-  leftComponent?: () => ReactElement;
+  leftComponentRender?: () => ReactElement;
 }
 
 interface ToggleButtonGroupProps {
@@ -45,7 +45,7 @@ const ToggleButton: FC<
   text,
   leftIcon,
   leftImage,
-  leftComponent,
+  leftComponentRender,
   isCurrent,
   onPress,
   leftIconSize,
@@ -83,7 +83,7 @@ const ToggleButton: FC<
           )}
         </Center>
       )}
-      {leftComponent?.()}
+      {leftComponentRender?.()}
       <Typography.Body2Strong
         maxW="82px"
         isTruncated

@@ -11,6 +11,7 @@ import {
   Typography,
   useThemeValue,
   useIsVerticalLayout,
+  Input,
 } from '@onekeyhq/components/src';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
@@ -25,17 +26,22 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const Header: React.FC = () => {
   const intl = useIntl();
-  const searchBarRef = useRef();
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   const [searchInput, setSearchInput] = useState(() => '');
   const [searchFocused, setSearchFocused] = useState(() => false);
-  const [autoFocused, setAutoFocused] = useState(() => false);
+  const [blurCount, setBlurCount] = useState(0);
+  const rightIconName = searchInput ? 'CloseCircleSolid' : undefined;
+  const inputRef = useRef(null);
+  const searchBarRef = useRef();
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isRuntimeBrowser) {
         const triggleerSearch = (e: KeyboardEvent) => {
           if (e.code === 'KeyF' && !searchFocused) {
-            setAutoFocused(true);
+            if (inputRef?.current) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              inputRef.current.focus();
+            }
           }
         };
         document.addEventListener('keydown', triggleerSearch);
@@ -45,28 +51,42 @@ const Header: React.FC = () => {
       }
     }, [searchFocused]),
   );
+
   return (
     <Box flexDirection="column">
       <Box mt="3" ml="6" ref={searchBarRef} width="360px">
-        <Searchbar
-          autoFocus={autoFocused}
+        <Input
+          ref={inputRef}
           placeholder={intl.formatMessage({ id: 'form__search_tokens' })}
           w="full"
+          rightIconName={rightIconName}
+          leftIconName="SearchOutline"
           value={searchInput}
           onChangeText={(text) => {
             setSearchInput(text);
             searchOnChangeDebounce(text);
           }}
-          onClear={() => {
+          onPressRightIcon={() => {
             setSearchInput('');
             searchOnChangeDebounce('');
           }}
           onFocus={() => {
-            setSearchFocused(true);
-            showMarketSearch({ triggerEle: searchBarRef.current });
+            if (!searchFocused) {
+              console.log('set', searchFocused);
+              setSearchFocused(true);
+              showMarketSearch({ triggerEle: searchBarRef?.current });
+            }
           }}
           onBlur={() => {
-            setAutoFocused(false);
+            if (blurCount <= 1) {
+              if (inputRef?.current) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                inputRef.current.focus();
+                setBlurCount((pre) => pre + 1);
+                return;
+              }
+            }
+            setBlurCount(0);
             setSearchFocused(false);
           }}
         />

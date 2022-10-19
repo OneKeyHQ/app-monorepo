@@ -95,6 +95,9 @@ const MarketList: FC = () => {
           p={4}
           bg="background-default"
           onScroll={onScroll}
+          contentContainerStyle={{
+            paddingBottom: 24,
+          }}
         >
           <MarketCategoryToggles categorys={categorys} />
           {selectedCategory.categoryId === MARKET_FAVORITES_CATEGORYID &&

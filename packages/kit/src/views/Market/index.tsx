@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useLayoutEffect, useMemo } from 'react';
+
+import { useNavigation } from '@react-navigation/core';
 
 import { Box } from '@onekeyhq/components/src';
 
@@ -9,8 +11,13 @@ import MarketHeader from './Components/MarketList/MarketTopHeader';
 import { useMarketTopTabName } from './hooks/useMarketList';
 import MarketList from './MarketList';
 
+
 const Market = () => {
+  const navigation = useNavigation();
   const marketTopTabName = useMarketTopTabName();
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
   const contentComponent = useMemo(() => {
     switch (marketTopTabName) {
       case MARKET_TAB_NAME:

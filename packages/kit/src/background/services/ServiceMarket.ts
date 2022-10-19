@@ -21,7 +21,7 @@ import {
   syncMarketSearchTokenHistorys,
   updateMarketChats,
   updateMarketListSort,
-  updateMarketTokenAllNetworkTokens,
+  updateMarketTokenBaseInfo,
   updateMarketTokenDetail,
   updateMarketTokens,
   updateSearchKeyword,
@@ -33,6 +33,7 @@ import { getDefaultLocale } from '../../utils/locale';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
+import { ServerToken } from '../../store/typings';
 
 @backgroundClass()
 export default class ServiceMarket extends ServiceBase {
@@ -109,12 +110,19 @@ export default class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketTokenAllNetWorkTokens(marketTokenId: string) {
-    const path = '/market/token/tokens/';
-    const data = await this.fetchData(path, { coingeckoId: marketTokenId }, []);
-    const tokens = data.map((t) => formatServerToken(t));
+  async fetchMarketTokenBaseInfo(marketTokenId: string) {
+    const path = '/market/token/base/';
+    const data = await this.fetchData<{
+      tokens: ServerToken[];
+      logoURI?: string;
+    }>(path, { coingeckoId: marketTokenId }, { tokens: [] });
+    const tokens = data.tokens.map((t) => formatServerToken(t));
     this.backgroundApi.dispatch(
-      updateMarketTokenAllNetworkTokens({ marketTokenId, tokens }),
+      updateMarketTokenBaseInfo({
+        marketTokenId,
+        tokens,
+        logoURI: data.logoURI,
+      }),
     );
     return tokens;
   }

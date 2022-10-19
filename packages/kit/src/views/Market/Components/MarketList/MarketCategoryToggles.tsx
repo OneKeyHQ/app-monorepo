@@ -6,14 +6,22 @@ import { MarketCategoryHeadProps } from '../../types';
 
 import { MARKET_FAVORITES_CATEGORYID } from '../../../../store/reducers/market';
 import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
+import {
+  useMarketSelectedCategory,
+  useMarketSelectedCategoryId,
+} from '../../hooks/useMarketCategory';
 
 const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
   categorys,
 }) => {
+  const selectedCategoryId = useMarketSelectedCategoryId();
   const defaultSelectedIndex = useMemo(() => {
+    if (selectedCategoryId) {
+      return categorys.findIndex((c) => c.categoryId === selectedCategoryId);
+    }
     const findIndex = categorys.findIndex((c) => c.defaultSelected);
     return findIndex !== -1 ? findIndex : 0;
-  }, [categorys]);
+  }, [categorys, selectedCategoryId]);
 
   const buttons = useMemo(
     () =>
@@ -22,7 +30,7 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
           text: c.name ?? '',
         };
         if (c.categoryId === MARKET_FAVORITES_CATEGORYID) {
-          buttonData.leftComponent = () => (
+          buttonData.leftComponentRender = () => (
             <Icon name="StarSolid" color="icon-warning" size={20} />
           );
           buttonData.text = '';

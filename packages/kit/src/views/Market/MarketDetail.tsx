@@ -164,9 +164,9 @@ const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
     <Box flexDirection="row" alignItems="center">
       <Image
         borderRadius={isVertical ? 12 : 16}
-        src={tokenItem?.image}
-        alt={tokenItem?.image}
-        key={tokenItem?.image}
+        src={tokenItem?.logoURI}
+        alt={tokenItem?.logoURI}
+        key={tokenItem?.logoURI}
         size={isVertical ? 6 : 8}
         fallbackElement={
           <Icon name="QuestionMarkOutline" size={isVertical ? 24 : 32} />
@@ -218,18 +218,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   }
 
   if (isVertical) {
-    return (
-      <Box
-        bg="background-default"
-        w="full"
-        h="full"
-        style={{ maxWidth: 768, marginHorizontal: 'auto' }}
-      >
-        <ScrollView flex={1} px="4">
-          {children}
-        </ScrollView>
-      </Box>
-    );
+    return children;
   }
   return (
     <Box bg="background-default" w="full" h="full" px="8">
@@ -237,7 +226,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
         <IconButton onPress={onBack} type="plain" name="ArrowLeftOutline" />
       </Box>
       <Box flex={1} flexDirection="row" justifyContent="center">
-        <ScrollView flex={1} maxW={SCREEN_SIZE.LARGE}>
+        <Box flex={1} maxW={SCREEN_SIZE.LARGE}>
           <Box
             display="flex"
             justifyContent="space-between"
@@ -295,7 +284,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
             </Box>
           </Box>
           {children}
-        </ScrollView>
+        </Box>
       </Box>
     </Box>
   );
@@ -307,7 +296,6 @@ const MarketDetail: FC = () => {
   const { tokenDetail } = useMarketDetail({ coingeckoId: marketTokenId });
   return (
     <MarketDetailLayout marketTokenId={marketTokenId}>
-      <MarketPriceChart coingeckoId={marketTokenId} />
       <MarketDetailTab
         tokenDetail={tokenDetail}
         marketTokenId={marketTokenId}

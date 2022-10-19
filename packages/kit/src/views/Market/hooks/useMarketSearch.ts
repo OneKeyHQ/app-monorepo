@@ -30,7 +30,6 @@ export const useMarketSearchSelectedCategory = () => {
   const searchTabCategoryId = useAppSelector(
     (s) => s.market.searchTabCategoryId,
   );
-  const categorys = useAppSelector((s) => s.market.categorys);
   const searchCategory = useMarketSearchCategoryList();
   useEffect(() => {
     if (!searchTabCategoryId) {
@@ -55,7 +54,7 @@ export const useMarketSearchContainerStyle = () => {
   const { screenHeight } = useUserDevice();
   const [desktopBgColor, verticalBgColor] = useThemeValue([
     'surface-default',
-    'background-default',
+    'surface-subdued',
   ]);
   const w = useMemo(() => (isVertical ? 'full' : 360), [isVertical]);
   const h = useMemo(

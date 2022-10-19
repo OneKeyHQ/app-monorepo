@@ -65,7 +65,7 @@ export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
   );
   return (
     <Box>
-      <FlatList data={news} renderItem={renderItem} />
+      <FlatList data={news} renderItem={renderItem} scrollEnabled={false} />
     </Box>
   );
 };

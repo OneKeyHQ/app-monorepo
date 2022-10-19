@@ -20,11 +20,11 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   useMarketSearchContainerStyle,
   useMarketSearchHistory,
+  useMarketSearchSelectedCategory,
   useMarketSearchTokenChange,
   useMarketSearchTokens,
 } from './hooks/useMarketSearch';
 import TokenTag from './Components/MarketSearch/TokenTag';
-import MarketSearchTab from './Components/MarketSearch/MarketSearchTab';
 import { showOverlay } from '../../utils/overlayUtils';
 import { OverlayPanel } from '../Overlay/OverlayPanel';
 import { SelectProps } from '@onekeyhq/components/src/Select';
@@ -36,6 +36,8 @@ import { MarketTokenItem } from '../../store/reducers/market';
 import MarketSearchList from './Components/MarketSearch/MarketSearchList';
 import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
 import { useIntl } from 'react-intl';
+import SendTokenTabView from '../Send/components/SendTokenTabView';
+import MarketSearchTabView from './Components/MarketSearch/MarketSearchTabView';
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketSearch: FC<{
@@ -45,6 +47,7 @@ const MarketSearch: FC<{
   const isVertical = useIsVerticalLayout();
   const searchHistory = useMarketSearchHistory();
   const searchCategorys = useMarketSearchCategoryList();
+  const searchSelectedCategory = useMarketSearchSelectedCategory();
   const { searchTokens, searchKeyword } = useMarketSearchTokens();
   const style = useMarketSearchContainerStyle();
   const navigation = useNavigation<NavigationProps>();
@@ -56,11 +59,38 @@ const MarketSearch: FC<{
       });
       backgroundApiProxy.serviceMarket.saveSearchHistory({
         coingeckoId: marketTokenItem.coingeckoId,
-        iconUrl: marketTokenItem.image ?? '',
+        iconUrl: marketTokenItem.logoURI ?? '',
         symbol: marketTokenItem.symbol ?? '',
       });
     },
     [navigation, closeOverlay],
+  );
+
+  const options = useMemo(
+    () =>
+      searchCategorys.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+        view: () => {
+          if (c.coingeckoIds && c.coingeckoIds.length > 0) {
+            return (
+              <MarketSearchList onPress={onTokenPress} data={c.coingeckoIds} />
+            );
+          }
+          return (
+            <Center h="200px">
+              <Spinner size="lg" />
+            </Center>
+          );
+        },
+      })),
+    [onTokenPress, searchCategorys],
+  );
+
+  const searchSelectedCategoryIndex = useMemo(
+    () =>
+      searchCategorys.findIndex((c) => c.categoryId === searchSelectedCategory),
+    [searchCategorys, searchSelectedCategory],
   );
 
   const searchContent = useMemo(() => {
@@ -68,7 +98,6 @@ const MarketSearch: FC<{
       return (
         <Box mt="3">
           <Typography.Subheading mb="3">
-            {' '}
             {intl.formatMessage({ id: 'form__search_results_uppercase' })}
           </Typography.Subheading>
           {searchTokens ? (
@@ -84,7 +113,7 @@ const MarketSearch: FC<{
     return (
       <>
         {searchCategorys && searchCategorys.length > 0 ? (
-          <Box>
+          <Box flex={1}>
             <Box flexDirection="row" justifyContent="space-between" mb={1}>
               <Typography.Subheading>
                 {intl.formatMessage({ id: 'form__recent_searched_uppercase' })}
@@ -123,7 +152,17 @@ const MarketSearch: FC<{
                 ))}
               </Box>
             ) : null}
-            <MarketSearchTab onPress={onTokenPress} />
+            {searchSelectedCategoryIndex >= 0 ? (
+              <MarketSearchTabView
+                onTabChange={(index) => {
+                  backgroundApiProxy.serviceMarket.setMarketSearchTab(
+                    searchCategorys[index].categoryId,
+                  );
+                }}
+                options={options}
+                navigationStateIndex={searchSelectedCategoryIndex}
+              />
+            ) : null}
           </Box>
         ) : (
           <Center flex={1}>
@@ -141,10 +180,12 @@ const MarketSearch: FC<{
   }, [
     searchKeyword,
     searchCategorys,
-    searchHistory,
     intl,
-    onTokenPress,
+    searchHistory,
+    searchSelectedCategoryIndex,
+    options,
     searchTokens,
+    onTokenPress,
   ]);
   const [searchInput, setSearchInput] = useState(() => '');
   const searchOnChangeDebounce = useMarketSearchTokenChange();
@@ -167,7 +208,7 @@ const MarketSearch: FC<{
           }}
         />
       ) : null}
-      <ScrollView flex={1}>{searchContent}</ScrollView>
+      {searchContent}
     </Box>
   );
 };

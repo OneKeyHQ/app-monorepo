@@ -1,40 +1,41 @@
-import React, { FC, useState, useEffect, useCallback } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
+import { useIntl } from 'react-intl';
+import {
+  Box,
+  Button,
+  Center,
+  IconButton,
+  ScrollView,
+  Spinner,
+  useIsVerticalLayout,
+  useThemeValue,
+  useUserDevice,
+} from '@onekeyhq/components/src';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import {
   MarketTokenDetail,
   SWAP_TAB_NAME,
 } from '@onekeyhq/kit/src/store/reducers/market';
 
-import {
-  useThemeValue,
-  Center,
-  Spinner,
-  IconButton,
-  Button,
-  Box,
-  useUserDevice,
-  useIsVerticalLayout,
-} from '@onekeyhq/components/src';
-import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
-
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { MarketInfoContent } from './MarketInfoContent';
-import { MarketStatsContent } from './MarketStatsContent';
-
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
-
+import { MarketInfoContent } from './MarketInfoContent';
+import MarketPriceChart from './MarketPriceChart';
+import { MarketStatsContent } from './MarketStatsContent';
 import { showMarketDetailActionMoreMenu } from './MarketDetailActionMore';
-import { useIntl } from 'react-intl';
+
+import NFTList from '../../../Wallet/NFT/NFTList';
 
 const MarketDetailActionButton = ({
   marketTokenId,
 }: {
   marketTokenId: string;
 }) => {
+  const intl = useIntl();
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
   const navigation = useNavigation();
   const onBack = useCallback(() => {
@@ -43,15 +44,14 @@ const MarketDetailActionButton = ({
       navigation?.goBack();
     }
   }, [navigation]);
-  useEffect(() => {
-    if (!marketTokenItem.tokens) {
-      backgroundApiProxy.serviceMarket.fetchMarketTokenAllNetWorkTokens(
-        marketTokenId,
-      );
-    }
-  }, [marketTokenId, marketTokenItem.tokens]);
+  const isDisabledSwap = useMemo(
+    () =>
+      !marketTokenItem.tokens ||
+      (marketTokenItem.tokens && marketTokenItem.tokens.length === 0),
+    [marketTokenItem],
+  );
   return (
-    <Box flex={1} flexDirection="row" alignItems="center" pb={12}>
+    <Box flexDirection="row" alignItems="center" py="24px">
       <Button
         flex={1}
         type="basic"
@@ -64,9 +64,9 @@ const MarketDetailActionButton = ({
             onBack();
           }
         }}
-        isDisabled={!marketTokenItem.tokens}
+        isDisabled={isDisabledSwap}
       >
-        Buy
+        {intl.formatMessage({ id: 'action__buy' })}
       </Button>
       <Button
         flex={1}
@@ -81,15 +81,17 @@ const MarketDetailActionButton = ({
             onBack();
           }
         }}
-        isDisabled={!marketTokenItem.tokens}
+        isDisabled={isDisabledSwap}
       >
-        Sell
+        {intl.formatMessage({ id: 'action__sell' })}
       </Button>
       <IconButton
         ml={2}
         name="DotsHorizontalSolid"
         onPress={() => {
-          showMarketDetailActionMoreMenu(marketTokenItem, { header: 'More' });
+          showMarketDetailActionMoreMenu(marketTokenItem, {
+            header: intl.formatMessage({ id: 'action__more' }),
+          });
         }}
         isDisabled={!marketTokenItem}
       />
@@ -107,6 +109,9 @@ enum MarketDetailTabName {
   Stats = 'stats',
 }
 
+const MARKET_DETAIL_TAB_HEADER_H_VERTICAL = 408;
+const MARKET_DETAIL_TAB_HEADER_H = 360;
+
 const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   marketTokenId,
   tokenDetail,
@@ -121,8 +126,16 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
+  const [refreshing, setRefreshing] = useState(false);
   return (
     <Tabs.Container
+      // @ts-ignore fix type when remove react-native-collapsible-tab-view
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        await backgroundApiProxy.serviceMarket.fetchMarketDetail(marketTokenId);
+        setRefreshing(false);
+      }}
       initialTabName={detailTabName}
       onTabChange={({ tabName }) => {
         setDetailTabName(tabName);
@@ -146,31 +159,49 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
       }}
       renderHeader={() =>
         isVerticalLayout ? (
-          <MarketDetailActionButton marketTokenId={marketTokenId} />
-        ) : null
+          <Box px="4">
+            <MarketPriceChart coingeckoId={marketTokenId} />
+            <MarketDetailActionButton marketTokenId={marketTokenId} />
+          </Box>
+        ) : (
+          <Box px="4">
+            <MarketPriceChart coingeckoId={marketTokenId} />
+          </Box>
+        )
       }
-      headerHeight={isVerticalLayout ? 90 : 1}
+      headerHeight={
+        isVerticalLayout
+          ? MARKET_DETAIL_TAB_HEADER_H_VERTICAL
+          : MARKET_DETAIL_TAB_HEADER_H
+      }
     >
       <Tabs.Tab
         name={MarketDetailTabName.Info}
         label={intl.formatMessage({ id: 'content__info' })}
       >
         {!tokenDetail ? (
-          <Center w="full" h={200}>
+          <Center w="full" h="200px">
             <Spinner size="lg" />
           </Center>
         ) : (
-          <MarketInfoContent
-            low24h={tokenDetail.stats?.low24h}
-            high24h={tokenDetail.stats?.high24h}
-            low7d={tokenDetail.stats?.low7d}
-            high7d={tokenDetail.stats?.high7d}
-            marketCap={tokenDetail.stats?.marketCap}
-            volume24h={tokenDetail.stats?.volume24h}
-            news={tokenDetail.news}
-            expolorers={tokenDetail.explorers}
-            about={tokenDetail.about}
-          />
+          <ScrollView
+            p="4"
+            contentContainerStyle={{
+              paddingBottom: 24,
+            }}
+          >
+            <MarketInfoContent
+              low24h={tokenDetail.stats?.low24h}
+              high24h={tokenDetail.stats?.high24h}
+              low7d={tokenDetail.stats?.low7d}
+              high7d={tokenDetail.stats?.high7d}
+              marketCap={tokenDetail.stats?.marketCap}
+              volume24h={tokenDetail.stats?.volume24h}
+              news={tokenDetail.news}
+              expolorers={tokenDetail.explorers}
+              about={tokenDetail.about}
+            />
+          </ScrollView>
         )}
       </Tabs.Tab>
       <Tabs.Tab
@@ -178,11 +209,18 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         label={intl.formatMessage({ id: 'title__stats' })}
       >
         {!tokenDetail ? (
-          <Center w="full" h={200}>
+          <Center w="full" h="200px">
             <Spinner size="lg" />
           </Center>
         ) : (
-          <MarketStatsContent {...tokenDetail.stats} />
+          <ScrollView
+            p="4"
+            contentContainerStyle={{
+              paddingBottom: 24,
+            }}
+          >
+            <MarketStatsContent {...tokenDetail.stats} />
+          </ScrollView>
         )}
       </Tabs.Tab>
     </Tabs.Container>

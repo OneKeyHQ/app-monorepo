@@ -8,7 +8,8 @@ import {
   Skeleton,
   Center,
 } from '@onekeyhq/components/src';
-import React, { FC } from 'react';
+import React, { FC, useEffect } from 'react';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MarketTokenItem } from '../../../../store/reducers/market';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
@@ -17,6 +18,11 @@ const MarketSearchTokenDestopCell: FC<{
   onPress: (marketTokenItem: MarketTokenItem) => void;
 }> = ({ marketTokenId, onPress }) => {
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
+  useEffect(() => {
+    if (marketTokenItem && !marketTokenItem.logoURI) {
+      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(marketTokenId);
+    }
+  }, [marketTokenId, marketTokenItem]);
   return (
     <Pressable
       onPress={() => {
@@ -37,14 +43,20 @@ const MarketSearchTokenDestopCell: FC<{
         >
           {marketTokenItem ? (
             <HStack space={3} alignItems="center" justifyContent="center">
-              <Image
-                borderRadius={16}
-                src={marketTokenItem.image}
-                alt={marketTokenItem.image}
-                key={marketTokenItem.image}
-                size={8}
-                fallbackElement={<Icon name="QuestionMarkOutline" size={32} />}
-              />
+              {marketTokenItem.logoURI ? (
+                <Image
+                  borderRadius={16}
+                  src={marketTokenItem.logoURI}
+                  alt={marketTokenItem.logoURI}
+                  key={marketTokenItem.logoURI}
+                  size={8}
+                  fallbackElement={
+                    <Icon name="QuestionMarkOutline" size={32} />
+                  }
+                />
+              ) : (
+                <Skeleton shape="Avatar" width="32px" height="32px" />
+              )}
               <Typography.Body2Strong>
                 {marketTokenItem.symbol}
               </Typography.Body2Strong>

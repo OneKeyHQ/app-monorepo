@@ -72,7 +72,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
 }) => {
   const intl = useIntl();
   return (
-    <Box flex={1}>
+    <Box>
       <VStack space={3} mt="6">
         <Box>
           <Typography.Heading mb="3">
@@ -81,7 +81,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
           <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
             <DataViewComponent
               index={0}
-              title={intl.formatMessage({ id: 'form__str_h' }, { 0: 1 })}
+              title={intl.formatMessage({ id: 'form__str_hour' }, { 0: 1 })}
               value={`${formatMarketValueForFiexd(
                 performance?.priceChangePercentage1h,
               )}%`}
@@ -94,7 +94,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
             />
             <DataViewComponent
               index={1}
-              title={intl.formatMessage({ id: 'form__str_h' }, { 0: 24 })}
+              title={intl.formatMessage({ id: 'form__str_hour' }, { 0: 24 })}
               value={`${formatMarketValueForFiexd(
                 performance?.priceChangePercentage24h,
               )}%`}
@@ -107,7 +107,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
             />
             <DataViewComponent
               index={2}
-              title={intl.formatMessage({ id: 'form__str_d' }, { 0: 7 })}
+              title={intl.formatMessage({ id: 'form__str_day' }, { 0: 7 })}
               value={`${formatMarketValueForFiexd(
                 performance?.priceChangePercentage7d,
               )}%`}
@@ -120,7 +120,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
             />
             <DataViewComponent
               index={3}
-              title={intl.formatMessage({ id: 'form__str_d' }, { 0: 14 })}
+              title={intl.formatMessage({ id: 'form__str_day' }, { 0: 14 })}
               value={`${formatMarketValueForFiexd(
                 performance?.priceChangePercentage14d,
               )}%`}
@@ -133,7 +133,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
             />
             <DataViewComponent
               index={4}
-              title={intl.formatMessage({ id: 'form__str_d' }, { 0: 30 })}
+              title={intl.formatMessage({ id: 'form__str_day' }, { 0: 30 })}
               value={`${formatMarketValueForFiexd(
                 performance?.priceChangePercentage30d,
               )}%`}
@@ -178,7 +178,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__trading_volume' })}
-              value={`$${trandingVolume ?? 0}`}
+              value={`${trandingVolume ?? 0}`}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__7d_low' })}

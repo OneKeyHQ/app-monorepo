@@ -9,7 +9,7 @@ import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
 
 const BaseInfo = ({ title, value }: { title: string; value: string }) => (
-  <Box my="2" justifyContent="space-between" w="115px" h="52px">
+  <Box my="2" justifyContent="space-between" w="100px" h="55px">
     <Typography.Body2 color="text-subdued">{title}</Typography.Body2>
     <Typography.Heading>{value}</Typography.Heading>
   </Box>
@@ -41,11 +41,13 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   const { gotoSite } = useWebController();
   const intl = useIntl();
   return (
-    <Box flex={1}>
+    <Box>
       <VStack space={6} mt="6">
         <Box>
-          <Typography.Heading>Info</Typography.Heading>
-          <HStack space={6} flexWrap="wrap">
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'content__info' })}
+          </Typography.Heading>
+          <HStack space={4} flexWrap="wrap">
             <BaseInfo
               title={intl.formatMessage({ id: 'form__24h_high' })}
               value={`$${formatMarketValueForInfo(high24h)}`}

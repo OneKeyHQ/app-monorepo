@@ -40,6 +40,7 @@ export type MarketTokenItem = {
   // serialNumber?: number; // token 序号
   coingeckoId: CoingeckoId;
   image?: string;
+  logoURI?: string;
   price?: number;
   priceChangePercentage24H?: number;
   sparkline?: number[];
@@ -122,9 +123,10 @@ type MarketTokenDetailPayloadAction = {
   data: MarketTokenDetail;
 };
 
-type MarketTokenAllNetworkTokensPayloadAction = {
+type MarketTokenBasePayloadAction = {
   marketTokenId: CoingeckoId;
   tokens: Token[];
+  logoURI?: string;
 };
 
 type SearchHistoryPayloadAction = {
@@ -347,12 +349,18 @@ export const MarketSlicer = createSlice({
         }
       }
     },
-    updateMarketTokenAllNetworkTokens(
+    updateMarketTokenBaseInfo(
       state,
-      action: PayloadAction<MarketTokenAllNetworkTokensPayloadAction>,
+      action: PayloadAction<MarketTokenBasePayloadAction>,
     ) {
-      const { marketTokenId, tokens } = action.payload;
+      const { marketTokenId, tokens, logoURI } = action.payload;
       state.marketTokens[marketTokenId].tokens = tokens;
+      if (logoURI && logoURI.length > 0) {
+        state.marketTokens[marketTokenId].logoURI = logoURI;
+      } else {
+        state.marketTokens[marketTokenId].logoURI =
+          state.marketTokens[marketTokenId].image;
+      }
     },
     switchMarketTopTab(state, action: PayloadAction<MarketTopTabName>) {
       state.marktTobTapName = action.payload;
@@ -404,7 +412,7 @@ export const {
   saveMarketFavorite,
   moveTopMarketFavorite,
   updateMarketListSort,
-  updateMarketTokenAllNetworkTokens,
+  updateMarketTokenBaseInfo,
   switchMarketTopTab,
   syncMarketSearchTokenHistorys,
   clearMarketSearchTokenHistory,
