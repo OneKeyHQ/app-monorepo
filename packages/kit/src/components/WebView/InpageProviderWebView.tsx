@@ -1,6 +1,7 @@
 import {
   FC,
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -126,14 +127,14 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [webviewRef.current, webviewRef.current?.innerRef]);
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(() => {
       try {
         setKey(Math.random().toString());
         setDesktopLoadError(false);
       } catch (error) {
         console.warn(error);
       }
-    };
+    }, []);
 
     type ErrorViewProps = {
       error?: string | undefined;
@@ -224,29 +225,28 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       <Box flex={1}>
         {progressLoading}
         <Box flex={1}>
-          {isDesktop &&
-            (desktopLoadError ? (
-              <ErrorView />
-            ) : (
-              <DesktopWebView
-                key={key}
-                ref={setWebViewRef}
-                src={src}
-                onSrcChange={onSrcChange}
-                receiveHandler={receiveHandler}
-                // Warning: any string work, any bool not work
-                // @ts-expect-error
-                allowpopups={allowpopups ? 'true' : false}
-                useragent={
-                  // TODO move it to Developer Settings
-                  // we can resize desktop to vertical only in DEV env currently
-                  platformEnv.isDev && isVertical
-                    ? // sim mobile app UA
-                      DESKTOP_USER_AGENT_MOCK
-                    : undefined
-                }
-              />
-            ))}
+          {isDesktop && (
+            <DesktopWebView
+              key={key}
+              ref={setWebViewRef}
+              src={src}
+              onSrcChange={onSrcChange}
+              receiveHandler={receiveHandler}
+              // Warning: any string work, any bool not work
+              // @ts-expect-error
+              allowpopups={allowpopups ? 'true' : false}
+              useragent={
+                // TODO move it to Developer Settings
+                // we can resize desktop to vertical only in DEV env currently
+                platformEnv.isDev && isVertical
+                  ? // sim mobile app UA
+                    DESKTOP_USER_AGENT_MOCK
+                  : undefined
+              }
+            />
+          )}
+          {desktopLoadError ? <ErrorView /> : null}
+
           {isApp && (
             <NativeWebView
               key={key}
