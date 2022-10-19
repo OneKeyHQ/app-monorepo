@@ -81,8 +81,11 @@ const Explorer: FC = () => {
   const explorerContent = useMemo(
     () =>
       tabs.map((tab) => (
-        <Freeze key={tab.id} freeze={!tab.isCurrent}>
-          <WebContent {...tab} />
+        <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
+          <WebContent
+            // key={`${tab.id}-WebContent`} // key cause bridge connect delay
+            {...tab}
+          />
         </Freeze>
       )),
     [tabs],

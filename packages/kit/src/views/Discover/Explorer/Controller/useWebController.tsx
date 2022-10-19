@@ -21,6 +21,7 @@ import {
   webviewRefs,
 } from '../explorerUtils';
 
+import { useCurrentWebviewRef } from './useCurrentWebviewRef';
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 
@@ -37,6 +38,9 @@ export const useWebController = ({
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
+  const webviewRef = useCurrentWebviewRef({
+    currentTabId: curId,
+  });
   const lastNewUrlTimestamp = useRef(Date.now());
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs])!;
@@ -47,7 +51,7 @@ export const useWebController = ({
   );
   const gotoSite = useGotoSite({
     tab,
-    getInnerRef,
+    webviewRef,
   });
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -140,8 +144,10 @@ export const useWebController = ({
   const { goBack, goForward, stopLoading } = useWebviewRef({
     // @ts-expect-error
     ref: getInnerRef(),
+    wrapperRef: webviewRef,
     onNavigation,
     navigationStateChangeEvent,
+    tabId: curId,
   });
 
   return {

@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
+import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview/dist/useWebViewBridge';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OnWebviewNavigation } from '../explorerUtils';
+import { OnWebviewNavigation, webviewKeys } from '../explorerUtils';
 
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 export const useWebviewRef = ({
   ref,
+  wrapperRef,
   onNavigation,
+  tabId,
 }: {
   ref?: IElectronWebView;
+  wrapperRef?: IWebViewWrapperRef | null;
   onNavigation: OnWebviewNavigation;
+  tabId: string;
   navigationStateChangeEvent?: WebViewNavigation;
 }) => {
   const isDomReady = useRef(false);
@@ -142,9 +147,25 @@ export const useWebviewRef = ({
     }
   }, [ref]);
 
+  const reload = useCallback(() => {
+    // cross-platform reload()
+    wrapperRef?.reload();
+  }, [wrapperRef]);
+
+  const loadURL = useCallback(
+    (...args: any[]) => {
+      // cross-platform loadURL()
+      wrapperRef?.loadURL(...args);
+      if (tabId) webviewKeys[tabId] = new Date().getTime().toString(10);
+    },
+    [tabId, wrapperRef],
+  );
+
   return {
     goBack,
     goForward,
     stopLoading,
+    loadURL,
+    reload,
   };
 };

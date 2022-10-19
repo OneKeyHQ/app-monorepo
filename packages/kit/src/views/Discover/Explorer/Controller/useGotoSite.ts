@@ -20,14 +20,14 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import { WebSiteHistory } from '../../type';
-import { validateUrl, webHandler } from '../explorerUtils';
+import { validateUrl, webHandler, webviewKeys } from '../explorerUtils';
 
 export const useGotoSite = ({
   tab,
-  getInnerRef,
+  webviewRef,
 }: {
   tab?: WebTab;
-  getInnerRef?: () => IWebViewWrapperRef['innerRef'];
+  webviewRef?: IWebViewWrapperRef | null;
 }) => {
   const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
   return useCallback(
@@ -52,7 +52,8 @@ export const useGotoSite = ({
           return openUrl(validatedUrl);
         }
         const { dispatch } = backgroundApiProxy;
-        const isDeepLink = !validatedUrl.startsWith('http');
+        const isDeepLink =
+          !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
         const isNewTab =
           (isNewWindow || tab.id === 'home' || isDeepLink) &&
           webHandler === 'tabbedWebview';
@@ -93,9 +94,13 @@ export const useGotoSite = ({
           tab?.url !== '' &&
           platformEnv.isDesktop
         ) {
-          // @ts-expect-error
+          // IWebViewWrapperRef has cross-platform loadURL()
+          //    will trigger webview.onSrcChange
+          webviewRef?.loadURL(validatedUrl);
+          if (tabId) webviewKeys[tabId] = new Date().getTime().toString(10);
+
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          getInnerRef()?.loadURL(validatedUrl);
+          // getInnerRef()?.loadURL(validatedUrl);
         }
 
         // close deep link tab after 1s
@@ -108,6 +113,6 @@ export const useGotoSite = ({
       }
       return false;
     },
-    [tab, dappFavorites, getInnerRef],
+    [tab, dappFavorites, webviewRef],
   );
 };
