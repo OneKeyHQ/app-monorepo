@@ -129,7 +129,6 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   return (
     <Tabs.Container
       // @ts-ignore fix type when remove react-native-collapsible-tab-view
-      p={isVerticalLayout ? '4' : '0'}
       refreshing={refreshing}
       onRefresh={async () => {
         setRefreshing(true);
@@ -149,6 +148,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         backgroundColor: tabbarBgColor,
         alignSelf: 'center',
         flex: 1,
+        padding: isVerticalLayout ? '16px' : '0px',
       }}
       headerContainerStyle={{
         shadowOffset: { width: 0, height: 0 },

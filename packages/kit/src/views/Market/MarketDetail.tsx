@@ -1,51 +1,42 @@
-import React, {
-  FC,
-  ReactElement,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-} from 'react';
+import React, { FC, ReactElement, useCallback, useLayoutEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
 import {
   Box,
   Icon,
   IconButton,
-  ICON_NAMES,
   Image,
-  ScrollView,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-import MarketPriceChart from './Components/MarketDetail/MarketPriceChart';
+import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount, useManageTokens } from '../../hooks';
+import { useFiatPay } from '../../hooks/redux';
+import {
+  FiatPayModalRoutesParams,
+  FiatPayRoutes,
+} from '../../routes/Modal/FiatPay';
 import {
   HomeRoutes,
   HomeRoutesParams,
+  ModalRoutes,
   ModalScreenProps,
+  RootRoutes,
   TabRoutes,
   TabRoutesParams,
-  RootRoutes,
-  ModalRoutes,
 } from '../../routes/types';
-import { RouteProp, useRoute } from '@react-navigation/core';
-
-import { useMarketDetail } from './hooks/useMarketDetail';
-import { useMarketTokenItem } from './hooks/useMarketToken';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { MarketTokenItem } from '../../store/reducers/market';
-import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
-import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import { FiatPayModalRoutesParams } from '../../routes/Modal/FiatPay';
-
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
-import { useActiveWalletAccount, useManageTokens } from '../../hooks';
-import { useFiatPay } from '../../hooks/redux';
 import { CurrencyType } from '../FiatPay/types';
 import { StakingRoutes } from '../Staking/typing';
+
+import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
+import { useMarketDetail } from './hooks/useMarketDetail';
+import { useMarketTokenItem } from './hooks/useMarketToken';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 

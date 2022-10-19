@@ -1,5 +1,6 @@
-import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components/src';
 import { useMemo } from 'react';
+
+import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components/src';
 
 export const GRID_MAX_WIDTH = 700;
 export const useGridBoxStyle = ({

@@ -11,7 +11,6 @@ import MarketHeader from './Components/MarketList/MarketTopHeader';
 import { useMarketTopTabName } from './hooks/useMarketList';
 import MarketList from './MarketList';
 
-
 const Market = () => {
   const navigation = useNavigation();
   const marketTopTabName = useMarketTopTabName();

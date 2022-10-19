@@ -1,19 +1,28 @@
-import { Box, HStack, Typography, VStack } from '@onekeyhq/components/src';
+import { FC, useMemo } from 'react';
 
-import { FC } from 'react';
 import { useIntl } from 'react-intl';
-import { MarketEXplorer, MarketNews } from '../../../../store/reducers/market';
-import { openUrl } from '../../../../utils/openUrl';
+
+import { Box, HStack, Typography, VStack } from '@onekeyhq/components/src';
+import {
+  MarketEXplorer,
+  MarketNews,
+} from '@onekeyhq/kit/src/store/reducers/market';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+
 import { formatMarketValueForInfo } from '../../utils';
+
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
 
-const BaseInfo = ({ title, value }: { title: string; value: string }) => (
-  <Box my="2" justifyContent="space-between" w="100px" h="55px">
-    <Typography.Body2 color="text-subdued">{title}</Typography.Body2>
-    <Typography.Heading>{value}</Typography.Heading>
-  </Box>
-);
+const BaseInfo = ({ title, value }: { title: string; value: string }) => {
+  const boxH = useMemo(() => (value.length > 9 ? '85px' : '55px'), [value]);
+  return (
+    <Box my="2" justifyContent="space-between" w="110px" h={boxH}>
+      <Typography.Body2 color="text-subdued">{title}</Typography.Body2>
+      <Typography.Heading numberOfLines={2}>{value}</Typography.Heading>
+    </Box>
+  );
+};
 
 type MarketInfoContentProps = {
   low24h?: number;
@@ -46,7 +55,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
           <Typography.Heading>
             {intl.formatMessage({ id: 'content__info' })}
           </Typography.Heading>
-          <HStack space={4} flexWrap="wrap">
+          <HStack space={0} flexWrap="wrap">
             <BaseInfo
               title={intl.formatMessage({ id: 'form__24h_high' })}
               value={`$${formatMarketValueForInfo(high24h)}`}

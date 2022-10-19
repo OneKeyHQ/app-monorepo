@@ -1,12 +1,12 @@
+import React, { FC } from 'react';
+
 import {
+  Box,
   Image,
   Pressable,
-  Box,
   Typography,
   useThemeValue,
 } from '@onekeyhq/components/src';
-
-import React, { FC } from 'react';
 
 type TokenTagProps = {
   logoURI?: string;

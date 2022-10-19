@@ -1,13 +1,17 @@
 import { useEffect, useMemo } from 'react';
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { useIsFocused } from '@react-navigation/core';
-import { useMarketSelectedCategory } from './useMarketCategory';
+
 import { useIsVerticalLayout } from '@onekeyhq/components/src';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import {
   MARKET_FAVORITES_CATEGORYID,
   MARKET_TAB_NAME,
 } from '../../../store/reducers/market';
+
+import { useMarketSelectedCategory } from './useMarketCategory';
 
 export const useListSort = () => {
   const listSort = useAppSelector((s) => s.market.listSort);

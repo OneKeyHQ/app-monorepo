@@ -1,5 +1,7 @@
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Divider,
@@ -8,11 +10,10 @@ import {
   Pressable,
   Typography,
 } from '@onekeyhq/components/src';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { ListHeadTagType } from '../../types';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useListSort } from '../../hooks/useMarketList';
-import { useIntl } from 'react-intl';
+import { ListHeadTagType } from '../../types';
 
 interface MarketListHeaderProps {
   headTags: ListHeadTagType[];

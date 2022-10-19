@@ -1,4 +1,7 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef } from 'react';
+
+import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -13,26 +16,24 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
+import { Token } from '@onekeyhq/engine/src/types/token';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 
-import { MarketTokenItem } from '../../../../store/reducers/market';
-import { ListHeadTagType } from '../../types';
-import SparklineChart from './SparklineChart';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
-import { showHomeMoreMenu } from '../../../Overlay/HomeMoreMenu';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
-import { useNavigation } from '@react-navigation/core';
-import { TabRoutes } from '../../../../routes/routesEnum';
-import { TabRoutesParams } from '../../../../routes/types';
-
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ListHeadTagType } from '../../types';
 import {
   formatMarketValueForComma,
   formatMarketValueForFiexd,
   formatMarketValueForInfo,
 } from '../../utils';
-import { Token } from '@onekeyhq/engine/src/types/token';
-import { useIntl } from 'react-intl';
+
+import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
+import SparklineChart from './SparklineChart';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 interface MarketTokenCellProps {
   onPress?: (marketTokenItem: MarketTokenItem) => void;

@@ -1,12 +1,10 @@
 // @ts-gnore
 import React, { useCallback } from 'react';
 
-import { Platform } from 'react-native';
 import Canvas, { CanvasRenderingContext2D } from 'react-native-canvas';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Box } from '@onekeyhq/components/src';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type SparkLineChartProps = {
   data?: number[];

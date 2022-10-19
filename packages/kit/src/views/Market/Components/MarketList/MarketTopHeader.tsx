@@ -1,28 +1,28 @@
 import React, { useCallback, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
   Divider,
   IconButton,
-  Pressable,
-  Searchbar,
-  Typography,
-  useThemeValue,
-  useIsVerticalLayout,
   Input,
+  Pressable,
+  Typography,
+  useIsVerticalLayout,
+  useThemeValue,
 } from '@onekeyhq/components/src';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   MARKET_TAB_NAME,
   SWAP_TAB_NAME,
-} from '../../../../store/reducers/market';
-import { useMarketTopTabName } from '../../hooks/useMarketList';
-import { showMarketSearch } from '../../MarketSearch';
-import { useMarketSearchTokenChange } from '../../hooks/useMarketSearch';
-import { useIntl } from 'react-intl';
+} from '@onekeyhq/kit/src/store/reducers/market';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useMarketTopTabName } from '../../hooks/useMarketList';
+import { useMarketSearchTokenChange } from '../../hooks/useMarketSearch';
+import { showMarketSearch } from '../../MarketSearch';
 
 const Header: React.FC = () => {
   const intl = useIntl();
@@ -78,7 +78,7 @@ const Header: React.FC = () => {
         />
       </Box>
       <Divider mt="3" />
-      <Typography.DisplayLarge ml="3" mt="6">
+      <Typography.DisplayLarge ml="6" mt="6">
         {intl.formatMessage({ id: 'title__market' })}
       </Typography.DisplayLarge>
     </Box>
@@ -92,7 +92,7 @@ const HeaderSmall: React.FC = () => {
   const marketTopTabName = useMarketTopTabName();
   return (
     <Box
-      p="3"
+      p="4"
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"

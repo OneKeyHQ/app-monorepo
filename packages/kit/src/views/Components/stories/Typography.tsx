@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Center, Typography } from '@onekeyhq/components';
+import { Center,Box, Typography } from '@onekeyhq/components';
 
 const TypographyGallery = () => (
   <Center flex="1" bg="background-hovered">
@@ -31,6 +31,12 @@ const TypographyGallery = () => (
     <Typography.Body2Underline>Body2Underline</Typography.Body2Underline>
     <Typography.CaptionStrong>CaptionStrong</Typography.CaptionStrong>
     <Typography.CaptionUnderline>CaptionUnderline</Typography.CaptionUnderline>
+    <Box my="2" justifyContent="space-between" w="110px" h="85px">
+      <Typography.Body2 color="text-subdued">title</Typography.Body2>
+      <Typography.Heading numberOfLines={2}>
+        0.00000000000123
+      </Typography.Heading>
+    </Box>
   </Center>
 );
 

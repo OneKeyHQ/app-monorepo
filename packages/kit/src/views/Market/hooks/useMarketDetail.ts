@@ -1,5 +1,5 @@
-import { useIsFocused } from '@react-navigation/core';
 import { useEffect, useMemo } from 'react';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 

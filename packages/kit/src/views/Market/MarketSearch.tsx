@@ -6,15 +6,18 @@ import { ModalizeProps } from 'react-native-modalize';
 import {
   Box,
   Button,
+  Center,
   Empty,
   Searchbar,
-  Typography,
   Spinner,
-  Center,
+  Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
+import { OverlayPanel } from '../Overlay/OverlayPanel';
+import TokenTag from './Components/MarketSearch/TokenTag';
 import {
   useMarketSearchContainerStyle,
   useMarketSearchHistory,
@@ -22,9 +25,7 @@ import {
   useMarketSearchTokenChange,
   useMarketSearchTokens,
 } from './hooks/useMarketSearch';
-import TokenTag from './Components/MarketSearch/TokenTag';
 import { showOverlay } from '../../utils/overlayUtils';
-import { OverlayPanel } from '../Overlay/OverlayPanel';
 import { SelectProps } from '@onekeyhq/components/src/Select';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

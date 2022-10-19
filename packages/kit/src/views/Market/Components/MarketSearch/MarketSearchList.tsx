@@ -1,18 +1,20 @@
 import React, { FC, useCallback } from 'react';
-import MarketTokenCell from '../MarketList/MarketTokenCell';
-import MarketSearchDesktopCell from './MarketSearchDesktopCell';
-import { ListHeadTagsForSearch, SUBMIT_TOKEN_URL } from '../../config';
-import {
-  useIsVerticalLayout,
-  FlatList,
-  Box,
-  Icon,
-  Empty,
-} from '@onekeyhq/components/src';
-import { MarketTokenItem } from '../../../../store/reducers/market';
 
 import { useIntl } from 'react-intl';
-import { openUrl } from '../../../../utils/openUrl';
+
+import {
+  Empty,
+  FlatList,
+  Icon,
+  useIsVerticalLayout,
+} from '@onekeyhq/components/src';
+import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+
+import { ListHeadTagsForSearch, SUBMIT_TOKEN_URL } from '../../config';
+import MarketTokenCell from '../MarketList/MarketTokenCell';
+
+import MarketSearchDesktopCell from './MarketSearchDesktopCell';
 
 const MarketSearchList: FC<{
   data?: string[];

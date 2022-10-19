@@ -1,18 +1,17 @@
+import { useCallback, useEffect, useMemo } from 'react';
+
+import { debounce } from 'lodash';
+
 import {
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components/src';
-import { useCallback, useEffect, useMemo } from 'react';
-import { debounce } from 'lodash';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
-import { useMarketSearchCategoryList } from './useMarketCategory';
 
-import MarketTokenCell from '../Components/MarketList/MarketTokenCell';
-import MarketSearchDesktopCell from '../Components/MarketSearch/MarketSearchDesktopCell';
-import { MarketTokenItem } from '../../../store/reducers/market';
+import { useMarketSearchCategoryList } from './useMarketCategory';
 
 const MARKET_SEARCH_CHANGE_DELAY = 500;
 

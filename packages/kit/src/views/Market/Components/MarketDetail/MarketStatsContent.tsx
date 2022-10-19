@@ -1,9 +1,11 @@
-import { Box, Divider, Typography, VStack } from '@onekeyhq/components/src';
-import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { FC } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { MarketStats } from '../../../../store/reducers/market';
+import { Box, Divider, Typography, VStack } from '@onekeyhq/components/src';
+import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+import { MarketStats } from '@onekeyhq/kit/src/store/reducers/market';
+
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import {
   formatLocalDate,

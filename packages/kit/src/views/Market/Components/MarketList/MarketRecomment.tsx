@@ -1,5 +1,7 @@
 import React, { FC, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Button,
@@ -7,11 +9,11 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
+import { GRID_MAX_WIDTH } from '../../hooks/useMarketLayout';
 
 import RecommendedTokenBox from './RecommendedToken';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { GRID_MAX_WIDTH } from '../../hooks/useMarketLayout';
-import { useIntl } from 'react-intl';
 
 type RecomentTokenType = {
   iconUrl?: string;

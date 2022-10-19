@@ -1,9 +1,10 @@
 import { FC } from 'react';
 
 import { Box, Icon, Pressable, Typography } from '@onekeyhq/components/src';
-import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
+
+import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 
 type MarketInfoExplorerProps = {
   name?: string;

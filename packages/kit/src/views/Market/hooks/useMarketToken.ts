@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
+
 import { useIsFocused } from '@react-navigation/core';
 
-import { useAppSelector } from '../../../hooks';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../../hooks';
 
 export const useMarketTokenChart = ({
   coingeckoId,

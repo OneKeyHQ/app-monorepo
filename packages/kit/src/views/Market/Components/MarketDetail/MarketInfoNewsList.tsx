@@ -1,11 +1,12 @@
-import { Box, FlatList, ListItem, Typography } from '@onekeyhq/components/src';
-import { Image } from '@onekeyhq/components/src/NetImage';
 import { FC, useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { MarketNews } from '../../../../store/reducers/market';
-import { openUrl } from '../../../../utils/openUrl';
+import { Box, FlatList, ListItem, Typography } from '@onekeyhq/components/src';
+import { Image } from '@onekeyhq/components/src/NetImage';
+import { MarketNews } from '@onekeyhq/kit/src/store/reducers/market';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 type NewsItemProps = {
   title?: string;

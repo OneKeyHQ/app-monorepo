@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 import {
   ListRenderItem,
   NativeScrollEvent,
@@ -19,6 +20,7 @@ import {
   Spinner,
 } from '@onekeyhq/components/src';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import {
@@ -27,6 +29,7 @@ import {
 } from '../../store/reducers/market';
 
 import MarketCategoryToggles from './Components/MarketList/MarketCategoryToggles';
+import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMenu';
 import MarketListHeader from './Components/MarketList/MarketListHeader';
 import MarketRecomment from './Components/MarketList/MarketRecomment';
 import MarketTokenCell from './Components/MarketList/MarketTokenCell';
@@ -39,9 +42,6 @@ import {
 import { useMarketList } from './hooks/useMarketList';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMenu';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { useIntl } from 'react-intl';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
@@ -91,8 +91,8 @@ const MarketList: FC = () => {
       ) : (
         <ScrollView
           ref={scrollRef}
-          mt={6}
-          p={4}
+          mt={4}
+          p={isVerticalLayout ? 4 : 6}
           bg="background-default"
           onScroll={onScroll}
           contentContainerStyle={{

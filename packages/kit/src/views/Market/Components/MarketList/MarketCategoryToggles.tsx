@@ -1,15 +1,12 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+
 import { Box, Icon, ToggleButtonGroup } from '@onekeyhq/components/src';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { MarketCategoryHeadProps } from '../../types';
-
-import { MARKET_FAVORITES_CATEGORYID } from '../../../../store/reducers/market';
 import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
-import {
-  useMarketSelectedCategory,
-  useMarketSelectedCategoryId,
-} from '../../hooks/useMarketCategory';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
+
+import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
+import { MarketCategoryHeadProps } from '../../types';
 
 const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
   categorys,

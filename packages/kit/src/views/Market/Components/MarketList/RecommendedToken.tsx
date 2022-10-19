@@ -1,8 +1,7 @@
 import React from 'react';
 
-import { useWindowDimensions } from 'react-native';
-
 import { Box, CheckBox, Image, Typography } from '@onekeyhq/components/src';
+
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 
 type RecomendedTokenProps = {

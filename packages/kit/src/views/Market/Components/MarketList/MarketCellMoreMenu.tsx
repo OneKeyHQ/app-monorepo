@@ -1,27 +1,27 @@
-import {
-  ICON_NAMES,
-  useIsVerticalLayout,
-  Text,
-  Icon,
-  Box,
-} from '@onekeyhq/components/src';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { FC, useMemo } from 'react';
-import {
-  MarketTokenItem,
-  MARKET_FAVORITES_CATEGORYID,
-} from '../../../../store/reducers/market';
-import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
-import { showOverlay } from '../../../../utils/overlayUtils';
-import { SelectProps } from '@onekeyhq/components/src/Select';
-import { OverlayPanel } from '../../../Overlay/OverlayPanel';
-import { ColorType } from 'lightweight-charts';
-import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
+
 import { useIntl } from 'react-intl';
-// favorites 1.remove from Favorites  2.move to top
-// !favorites add to favorites
+
+import {
+  Box,
+  ICON_NAMES,
+  Icon,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components/src';
+import { ModalProps } from '@onekeyhq/components/src/Modal';
+import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import { SelectProps } from '@onekeyhq/components/src/Select';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  MARKET_FAVORITES_CATEGORYID,
+  MarketTokenItem,
+} from '@onekeyhq/kit/src/store/reducers/market';
+import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+
+import { OverlayPanel } from '../../../Overlay/OverlayPanel';
+import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 
 type MarketCellMoreMenuOption = {
   id: string;
