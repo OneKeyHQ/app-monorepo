@@ -9,7 +9,7 @@ export interface SectionHeaderProps extends ComponentProps<typeof HStack> {
 }
 
 const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
-  <HStack alignItems="center" p={2} {...rest}>
+  <HStack alignItems="center" p={2} pb={0} {...rest}>
     <Typography.Subheading color="text-subdued" flex={1} mr={3}>
       {title}
     </Typography.Subheading>

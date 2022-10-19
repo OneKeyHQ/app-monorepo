@@ -8,19 +8,23 @@ import {
   removeDappHistory,
   removeFavorite,
   removeWebSiteHistory,
+  setCategories,
+  setCategoryItems,
   setDappHistory,
-  setData,
+  setDappItems,
+  setTagItems,
+  setTags,
 } from '../../store/reducers/discover';
 import { WebTab, setWebTabData } from '../../store/reducers/webTabs';
 import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
-import { ItemsType } from '../../views/Discover/type';
+import { DAppItemType } from '../../views/Discover/type';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServicDiscover extends ServiceBase {
-  dappUpdatedAt = 0;
+  updatedAt = 0;
 
   get client() {
     return axios.create({ timeout: 60 * 1000 });
@@ -33,23 +37,49 @@ class ServicDiscover extends ServiceBase {
   @backgroundMethod()
   async getDapps() {
     const { dispatch, appSelector } = this.backgroundApi;
-    const dapps = appSelector((s) => s.discover.dapps);
+    const dapps = appSelector((s) => s.discover.dappItems);
     if (
       dapps &&
       dapps.length > 0 &&
-      Date.now() - this.dappUpdatedAt < 60 * 60 * 1000
+      Date.now() - this.updatedAt < 60 * 60 * 1000
     ) {
       return;
     }
-    const url = `${this.baseUrl}/tagged_dapps`;
+    const url = `${this.baseUrl}/get_listing`;
     const res = await this.client.get(url);
     const data = res.data as {
-      dapps: ItemsType[] | null;
+      dapps: DAppItemType[];
       tags: { name: string; _id: string }[];
       categories: { name: string; _id: string }[];
     };
-    dispatch(setData(data));
-    this.dappUpdatedAt = Date.now();
+    const categoryItems: Record<string, DAppItemType[]> = {};
+    const tagItems: Record<string, DAppItemType[]> = {};
+    data.dapps?.forEach((item) => {
+      const categoryIds = item.categories.map((a) => a._id);
+      categoryIds.forEach((id) => {
+        if (!categoryItems[id]) {
+          categoryItems[id] = [];
+        }
+        categoryItems[id].push(item);
+      });
+      const tagIds = item.tags.map((a) => a._id);
+      tagIds.forEach((id) => {
+        if (!tagItems[id]) {
+          tagItems[id] = [];
+        }
+        tagItems[id].push(item);
+      });
+    });
+
+    dispatch(
+      setDappItems(data.dapps),
+      setTags(data.tags),
+      setTagItems(tagItems),
+      setCategories(data.categories),
+      setCategoryItems(categoryItems),
+    );
+
+    this.updatedAt = Date.now();
   }
 
   @backgroundMethod()

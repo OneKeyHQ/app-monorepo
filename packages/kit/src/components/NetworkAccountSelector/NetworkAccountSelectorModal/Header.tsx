@@ -112,7 +112,7 @@ function Header({
         <Speedindicator
           mr="6px"
           borderWidth="0"
-          backgroundColor={status.color}
+          backgroundColor={status.iconColor}
         />
         <Tooltip
           isOpen={isOpen}
@@ -126,10 +126,8 @@ function Header({
           py="8px"
         >
           <Box>
-            <Text typography="Caption" isTruncated color={status.color}>
-              {typeof status.responseTime === 'number'
-                ? `${status.responseTime} ms`
-                : intl.formatMessage({ id: 'content__not_available' })}
+            <Text typography="Caption" isTruncated color={status.textColor}>
+              {intl.formatMessage({ id: status.text })}
             </Text>
           </Box>
         </Tooltip>

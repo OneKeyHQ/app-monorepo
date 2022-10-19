@@ -88,7 +88,7 @@ const ListEmptyComponentRenderItem = () => {
   );
 };
 
-export const ListEmptyComponent = () => (
+export const EmptySkeleton = () => (
   <FlatList
     contentContainerStyle={{
       paddingBottom: 24,

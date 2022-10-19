@@ -49,12 +49,12 @@
     "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "1.1.1",
-    "@onekeyfe/cross-inpage-provider-errors": "1.1.1",
-    "@onekeyfe/cross-inpage-provider-injected": "1.1.1",
-    "@onekeyfe/cross-inpage-provider-types": "1.1.1",
-    "@onekeyfe/extension-bridge-hosted": "1.1.1",
-    "@onekeyfe/onekey-cross-webview": "1.1.1",
+    "@onekeyfe/cross-inpage-provider-core": "1.1.2",
+    "@onekeyfe/cross-inpage-provider-errors": "1.1.2",
+    "@onekeyfe/cross-inpage-provider-injected": "1.1.2",
+    "@onekeyfe/cross-inpage-provider-types": "1.1.2",
+    "@onekeyfe/extension-bridge-hosted": "1.1.2",
+    "@onekeyfe/onekey-cross-webview": "1.1.2",
     "axios": "^0.26.0",
     "expo-device": "^4.3.0",
     "memoizee": "^0.4.15"

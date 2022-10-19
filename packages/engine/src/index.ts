@@ -1138,7 +1138,10 @@ class Engine {
   async findToken(params: { networkId: string; tokenIdOnNetwork: string }) {
     try {
       // needs await to try catch memoizee function
-      return await this._findTokenWithMemo(params);
+      // return a copy to ensure the cache will not be changed
+      return {
+        ...(await this._findTokenWithMemo(params)),
+      };
     } catch (error) {
       debugLogger.common.error(error);
       return Promise.resolve(undefined);
