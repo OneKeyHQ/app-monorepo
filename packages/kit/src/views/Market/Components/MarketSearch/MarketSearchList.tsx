@@ -11,8 +11,8 @@ import {
 } from '@onekeyhq/components/src';
 import { MarketTokenItem } from '../../../../store/reducers/market';
 
-import { useWebController } from '../../../Discover/Explorer/Controller/useWebController';
 import { useIntl } from 'react-intl';
+import { openUrl } from '../../../../utils/openUrl';
 
 const MarketSearchList: FC<{
   data?: string[];
@@ -20,7 +20,6 @@ const MarketSearchList: FC<{
 }> = ({ data, onPress }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const { gotoSite } = useWebController();
   const renderItem = useCallback(
     ({ item }) =>
       isVertical ? (
@@ -48,7 +47,11 @@ const MarketSearchList: FC<{
           emoji="🔍"
           actionTitle={intl.formatMessage({ id: 'action__submit_token' })}
           handleAction={() => {
-            gotoSite({ url: SUBMIT_TOKEN_URL });
+            openUrl(
+              SUBMIT_TOKEN_URL,
+              intl.formatMessage({ id: 'action__submit_token' }),
+              { modalMode: true },
+            );
           }}
           actionProps={{
             type: 'basic',

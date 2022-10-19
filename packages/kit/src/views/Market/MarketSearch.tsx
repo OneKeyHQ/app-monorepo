@@ -69,7 +69,7 @@ const MarketSearch: FC<{
     () =>
       searchCategorys.map((c) => ({
         tabId: c.categoryId,
-        name: c.name,
+        name: c.name ?? '',
         view: () => {
           if (c.coingeckoIds && c.coingeckoIds.length > 0) {
             return (

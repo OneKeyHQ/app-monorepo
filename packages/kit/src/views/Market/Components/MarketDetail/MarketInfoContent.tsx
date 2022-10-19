@@ -3,7 +3,7 @@ import { Box, HStack, Typography, VStack } from '@onekeyhq/components/src';
 import { FC } from 'react';
 import { useIntl } from 'react-intl';
 import { MarketEXplorer, MarketNews } from '../../../../store/reducers/market';
-import { useWebController } from '../../../Discover/Explorer/Controller/useWebController';
+import { openUrl } from '../../../../utils/openUrl';
 import { formatMarketValueForInfo } from '../../utils';
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
@@ -38,7 +38,6 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   news,
   about,
 }) => {
-  const { gotoSite } = useWebController();
   const intl = useIntl();
   return (
     <Box>
@@ -86,7 +85,11 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
                 name={e.name}
                 contractAddress={e.contractAddress}
                 onPress={() => {
-                  gotoSite({ url: e.url });
+                  openUrl(
+                    e.url ?? '',
+                    intl.formatMessage({ id: 'form__explorers' }),
+                    { modalMode: true },
+                  );
                 }}
               />
             ))}

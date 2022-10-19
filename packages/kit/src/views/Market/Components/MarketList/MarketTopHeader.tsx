@@ -29,7 +29,6 @@ const Header: React.FC = () => {
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   const [searchInput, setSearchInput] = useState(() => '');
   const [searchFocused, setSearchFocused] = useState(() => false);
-  const [blurCount, setBlurCount] = useState(0);
   const rightIconName = searchInput ? 'CloseCircleSolid' : undefined;
   const inputRef = useRef(null);
   const searchBarRef = useRef();
@@ -38,7 +37,9 @@ const Header: React.FC = () => {
       if (platformEnv.isRuntimeBrowser) {
         const triggleerSearch = (e: KeyboardEvent) => {
           if (e.code === 'KeyF' && !searchFocused) {
-            inputRef?.current?.focus();
+            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            inputRef?.current?.focus?.();
           }
         };
         document.addEventListener('keydown', triggleerSearch);
@@ -74,13 +75,6 @@ const Header: React.FC = () => {
             }
           }}
           onBlur={() => {
-            if (blurCount <= 1) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                inputRef.current?.focus();
-                setBlurCount((pre) => pre + 1);
-                return;
-            }
-            setBlurCount(0);
             setSearchFocused(false);
           }}
         />

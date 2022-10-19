@@ -1,10 +1,11 @@
 import { Box, FlatList, ListItem, Typography } from '@onekeyhq/components/src';
 import { Image } from '@onekeyhq/components/src/NetImage';
 import { FC, useCallback } from 'react';
+import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import { MarketNews } from '../../../../store/reducers/market';
-import { useWebController } from '../../../Discover/Explorer/Controller/useWebController';
+import { openUrl } from '../../../../utils/openUrl';
 
 type NewsItemProps = {
   title?: string;
@@ -48,7 +49,7 @@ type MarketInfoNewsListProps = {
 };
 
 export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
-  const { gotoSite } = useWebController();
+  const intl = useIntl();
   const renderItem: ListRenderItem<MarketNews> = useCallback(
     ({ item }) => (
       <NewsItem
@@ -57,11 +58,13 @@ export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
         date={item.date}
         imageUrl={item.imageUrl}
         onPress={() => {
-          gotoSite({ url: item.url });
+          openUrl(item.url ?? '', intl.formatMessage({ id: 'title__news' }), {
+            modalMode: true,
+          });
         }}
       />
     ),
-    [gotoSite],
+    [],
   );
   return (
     <Box>
