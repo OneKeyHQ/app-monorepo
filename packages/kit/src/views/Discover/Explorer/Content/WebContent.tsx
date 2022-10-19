@@ -91,7 +91,7 @@ const WebContent = React.memo(({ id, url }: WebTab) => {
         <WebView
           // key={webviewKey}
           src={localUrl}
-          // wrapperRef?.loadURL required onSrcChange
+          // wrapperRef?.loadURL() will trigger onSrcChange
           onSrcChange={onSrcChange}
           onWebViewRef={onWebViewRef}
           onNavigationStateChange={setNavigationStateChangeEvent}

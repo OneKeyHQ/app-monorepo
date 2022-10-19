@@ -3,11 +3,33 @@ import { useCallback, useEffect, useRef } from 'react';
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview/dist/useWebViewBridge';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OnWebviewNavigation, webviewKeys } from '../explorerUtils';
 
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+
+export function crossWebviewLoadUrl({
+  wrapperRef,
+  url,
+  tabId,
+}: {
+  wrapperRef: IWebViewWrapperRef;
+  url: string;
+  tabId?: string;
+}) {
+  debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
+  // loadURL: (url: string)
+  if (platformEnv.isDesktop) {
+    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
+  } else {
+    // IWebViewWrapperRef has cross-platform loadURL()
+    //    will trigger webview.onSrcChange props
+    wrapperRef?.loadURL(url);
+  }
+  if (tabId) webviewKeys[tabId] = new Date().getTime().toString(10);
+}
 
 export const useWebviewRef = ({
   ref,
@@ -40,12 +62,14 @@ export const useWebviewRef = ({
           isMainFrame: boolean;
         }) => {
           if (isMainFrame) {
+            // TODO cycle loadUrl when did-start-navigation?
+            const isInPlaceFinal = platformEnv.isDesktop ? true : isInPlace;
             onNavigation({
               url,
               // @ts-ignore
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call
               title: ref.getTitle(),
-              isInPlace,
+              isInPlace: isInPlaceFinal,
               canGoBack:
                 isDomReady.current && // @ts-ignore
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -153,10 +177,13 @@ export const useWebviewRef = ({
   }, [wrapperRef]);
 
   const loadURL = useCallback(
-    (...args: any[]) => {
-      // cross-platform loadURL()
-      wrapperRef?.loadURL(...args);
-      if (tabId) webviewKeys[tabId] = new Date().getTime().toString(10);
+    (url: string) => {
+      if (wrapperRef)
+        crossWebviewLoadUrl({
+          wrapperRef,
+          url,
+          tabId,
+        });
     },
     [tabId, wrapperRef],
   );

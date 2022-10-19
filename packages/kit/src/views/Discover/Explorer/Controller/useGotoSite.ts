@@ -22,6 +22,8 @@ import { openUrl } from '../../../../utils/openUrl';
 import { WebSiteHistory } from '../../type';
 import { validateUrl, webHandler, webviewKeys } from '../explorerUtils';
 
+import { crossWebviewLoadUrl } from './useWebviewRef';
+
 export const useGotoSite = ({
   tab,
   webviewRef,
@@ -94,13 +96,13 @@ export const useGotoSite = ({
           tab?.url !== '' &&
           platformEnv.isDesktop
         ) {
-          // IWebViewWrapperRef has cross-platform loadURL()
-          //    will trigger webview.onSrcChange
-          webviewRef?.loadURL(validatedUrl);
-          if (tabId) webviewKeys[tabId] = new Date().getTime().toString(10);
-
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          // getInnerRef()?.loadURL(validatedUrl);
+          if (webviewRef) {
+            crossWebviewLoadUrl({
+              wrapperRef: webviewRef,
+              url: validatedUrl,
+              tabId,
+            });
+          }
         }
 
         // close deep link tab after 1s
