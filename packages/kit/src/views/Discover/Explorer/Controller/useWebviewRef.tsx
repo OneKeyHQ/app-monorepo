@@ -5,7 +5,7 @@ import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OnWebviewNavigation, webviewKeys } from '../explorerUtils';
+import { OnWebviewNavigation } from '../explorerUtils';
 
 import { getWebviewWrapperRef } from './getWebviewWrapperRef';
 
@@ -22,16 +22,14 @@ export function crossWebviewLoadUrl({
     tabId,
   });
   debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
-  // loadURL: (url: string)
   if (platformEnv.isDesktop) {
-    // TODO wait wrapperRef, innerRef, dom-ready
+    // TODO wait wrapperRef, innerRef, dom-ready then loadURL
     (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
   } else {
     // IWebViewWrapperRef has cross-platform loadURL()
     //    will trigger webview.onSrcChange props
     wrapperRef?.loadURL(url);
   }
-  if (tabId) webviewKeys[tabId] = new Date().getTime().toString(10);
 }
 
 export const useWebviewRef = ({
@@ -52,7 +50,34 @@ export const useWebviewRef = ({
         if (!ref) {
           return;
         }
-        const handleFinishLoading = () => onNavigation({ loading: false });
+        const getNavStatusInfo = () => {
+          if (!ref || !isDomReady.current) {
+            return undefined;
+          }
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const title = ref.getTitle();
+          const canGoBack =
+            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            ref.canGoBack();
+          const canGoForward =
+            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            ref.canGoForward();
+          return {
+            title,
+            canGoBack,
+            canGoForward,
+          };
+        };
+        const handleFinishLoading = () =>
+          onNavigation({
+            // loading
+            loading: false,
+            ...getNavStatusInfo(),
+          });
+        // did-start-navigation
         const handleNavigation = ({
           url,
           isInPlace,
@@ -67,18 +92,9 @@ export const useWebviewRef = ({
             const isInPlaceFinal = platformEnv.isDesktop ? true : isInPlace;
             onNavigation({
               url,
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              title: ref.getTitle(),
+              loading: true,
               isInPlace: isInPlaceFinal,
-              canGoBack:
-                isDomReady.current && // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                ref.canGoBack(),
-              canGoForward:
-                isDomReady.current && // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                ref.canGoForward(),
+              ...getNavStatusInfo(),
             });
           }
         };
@@ -89,7 +105,12 @@ export const useWebviewRef = ({
           ref.__domReady = true;
         };
 
-        const handleStartLoadingMessage = () => onNavigation({ loading: true });
+        const handleStartLoadingMessage = () =>
+          onNavigation({
+            // loading
+            loading: true,
+            ...getNavStatusInfo(),
+          });
 
         const handleTitleMessage = ({ title }: { title: string }) => {
           if (title) {

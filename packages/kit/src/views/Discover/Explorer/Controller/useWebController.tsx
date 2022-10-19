@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { DialogManager } from '@onekeyhq/components';
@@ -137,6 +138,8 @@ export const useWebController = ({
     },
     [curId, dispatch, gotoSite, tab?.url],
   );
+
+  // TODO event not working when loading initial url as getInnerRef is null
   const { goBack, goForward, stopLoading } = useWebviewRef({
     // @ts-expect-error
     ref: getInnerRef(),
@@ -152,7 +155,16 @@ export const useWebController = ({
     gotoSite,
     openMatchDApp,
     goBack: () => {
-      if (tab?.canGoBack) {
+      const wrapperRef = getWebviewWrapperRef({ tabId: tab.id });
+      let canGoBack = tab?.canGoBack;
+      if (platformEnv.isDesktop && wrapperRef?.innerRef) {
+        const innerRef = wrapperRef?.innerRef as IElectronWebView;
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        canGoBack = innerRef.canGoBack();
+      }
+      // TODO not working when initial url loaded
+      if (canGoBack) {
         goBack();
       } else {
         dispatch(

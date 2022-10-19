@@ -92,9 +92,6 @@ export const validateUrl = (url: string) => {
 };
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
-export const webviewKeys: {
-  [tabId: string]: string;
-} = {};
 
 export type OnWebviewNavigation = ({
   url,
