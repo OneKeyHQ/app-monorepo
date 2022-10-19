@@ -38,7 +38,8 @@ export const useWebController = ({
   const curId = id || currentTabId;
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
   const lastNewUrlTimestamp = useRef(Date.now());
-  const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs]);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs])!;
 
   const clearIncomingUrl = useCallback(
     () => dispatch(setIncomingUrl('')),

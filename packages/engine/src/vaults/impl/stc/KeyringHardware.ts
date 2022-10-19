@@ -10,7 +10,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
 import { starcoin_types, utils } from '@starcoin/starcoin';
 
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
@@ -54,7 +54,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const response = await HardwareSDK.starcoinSignTransaction(
       connectId,
       deviceId,
@@ -85,7 +85,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
 
     return Promise.all(
       _messages.map(async (message) => {
@@ -136,7 +136,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'`);
     const isSearching = type === 'SEARCH_ACCOUNTS';
     const showOnOneKey = false;
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
@@ -204,7 +204,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async getAddress(params: IGetAddressParams): Promise<string> {
-    await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.starcoinGetAddress(connectId, deviceId, {

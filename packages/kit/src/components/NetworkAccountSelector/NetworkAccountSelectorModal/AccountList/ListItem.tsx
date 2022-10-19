@@ -1,8 +1,6 @@
 /* eslint-disable no-nested-ternary */
 import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
 
-import { InteractionManager } from 'react-native';
-
 import {
   Box,
   Pressable,
@@ -94,7 +92,7 @@ const ListItem: FC<ListItemProps> = ({
     ],
   );
 
-  const onPress = useCallback(() => {
+  const onPress = useCallback(async () => {
     closeModal();
     closeWalletSelector();
     const accountId = account?.id || '';
@@ -118,25 +116,23 @@ const ListItem: FC<ListItemProps> = ({
     if (accountSelectorMode === EAccountSelectorMode.Wallet) {
       dispatch(updateIsRefreshDisabled(true));
 
-      InteractionManager.runAfterInteractions(async () => {
-        try {
-          if (isVertical) {
-            await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
-          }
-
-          if (networkId) {
-            await serviceNetwork.changeActiveNetwork(networkId);
-          }
-          await serviceAccount.changeActiveAccount({
-            accountId,
-            walletId: walletId ?? '',
-          });
-          await serviceAccountSelector.setSelectedWalletToActive();
-        } finally {
-          await wait(100);
-          dispatch(updateIsRefreshDisabled(false));
+      try {
+        if (isVertical) {
+          await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
         }
-      });
+
+        if (networkId) {
+          await serviceNetwork.changeActiveNetwork(networkId);
+        }
+        await serviceAccount.changeActiveAccount({
+          accountId,
+          walletId: walletId ?? '',
+        });
+        await serviceAccountSelector.setSelectedWalletToActive();
+      } finally {
+        await wait(100);
+        dispatch(updateIsRefreshDisabled(false));
+      }
     }
   }, [
     account?.id,

@@ -6,9 +6,10 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Divider,
+  HStack,
   IconButton,
   Modal,
-  Typography,
+  Token,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
@@ -18,7 +19,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useManageNetworks } from '../../../hooks';
 
 import { DiscardAlert } from './DiscardAlert';
-import { NetworkIcon } from './NetworkIcon';
 
 type ItemRowProps = {
   index: number;
@@ -45,28 +45,35 @@ const ItemRow: FC<ItemRowProps> = ({
     borderTopRadius={index === 0 ? '12' : 0}
     borderBottomRadius={total - 1 === index ? '12' : 0}
   >
-    <Box flex="1" display="flex" flexDirection="row" alignItems="center">
-      <NetworkIcon network={network} size={8} />
-      <Typography.Body1Strong flex="1" mr="3" numberOfLines={2} isTruncated>
-        {network.name}
-      </Typography.Body1Strong>
-    </Box>
-    {index > 0 ? (
+    <Token
+      size={8}
+      flex={1}
+      token={{
+        logoURI: network.logoURI,
+        name: network.name,
+        symbol: network.name,
+      }}
+      showInfo
+      showDescription={false}
+    />
+    <HStack alignItems="center">
+      {index > 0 ? (
+        <IconButton
+          mr="2"
+          type="plain"
+          name="ArrowUpOutline"
+          iconSize={16}
+          onPress={onFixTop}
+        />
+      ) : null}
       <IconButton
         mr="2"
         type="plain"
-        name="ArrowUpOutline"
+        name="MenuOutline"
         iconSize={16}
-        onPress={onFixTop}
+        onPressIn={() => onDrag()}
       />
-    ) : null}
-    <IconButton
-      mr="2"
-      type="plain"
-      name="MenuOutline"
-      iconSize={16}
-      onPressIn={() => onDrag()}
-    />
+    </HStack>
   </Box>
 );
 
@@ -82,8 +89,8 @@ export const SortableView: FC = () => {
   const ref = useRef<any>();
   const isSmallScreen = useIsVerticalLayout();
   const [visible, setVisible] = useState(false);
-  const { allNetworks } = useManageNetworks();
-  const [list, setList] = useState<Network[]>(allNetworks ?? []);
+  const { enabledNetworks } = useManageNetworks();
+  const [list, setList] = useState<Network[]>(enabledNetworks ?? []);
 
   const [initialData] = useState(() =>
     JSON.stringify(list.map((i) => [i.id, i.enabled])),
@@ -99,7 +106,7 @@ export const SortableView: FC = () => {
 
   const [networksIdMap] = useState<Record<string, boolean>>(() => {
     const result: Record<string, boolean> = {};
-    allNetworks.forEach((network) => {
+    enabledNetworks.forEach((network) => {
       result[network.id] = network.enabled;
     });
     return result;

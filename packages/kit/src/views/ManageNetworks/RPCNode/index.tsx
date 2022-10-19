@@ -178,7 +178,10 @@ export const ManageNetworkRPCNode: FC = () => {
         renderItem={({ item }) => {
           const checked = item === network?.rpcURL;
           return (
-            <ListItem flex={1} onPress={() => selectRpc(item)}>
+            <ListItem
+              flex={1}
+              onPress={checked ? undefined : () => selectRpc(item)}
+            >
               <ListItem.Column>
                 <RPCItem
                   url={item}

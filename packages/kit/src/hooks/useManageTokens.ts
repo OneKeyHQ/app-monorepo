@@ -27,7 +27,7 @@ export const useManageTokensOfAccount = ({
   networkId,
 }: {
   pollingInterval?: number;
-  fetchTokensOnMount?: boolean;
+  fetchTokensOnMount?: boolean; // fetch tokens with price and balance onMount
   accountId: string;
   networkId: string;
 }) => {

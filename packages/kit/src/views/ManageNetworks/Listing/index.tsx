@@ -14,6 +14,7 @@ import {
   Pressable,
   Searchbar,
   Switch,
+  Token,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -104,9 +105,16 @@ export const Listing: FC = () => {
               flex={1}
               onPress={item.preset ? undefined : () => onPress(item, 'edit')}
             >
-              <ListItem.Column
-                image={{ src: item.logoURI, borderRadius: 'full', size: 8 }}
-              />
+              <ListItem.Column>
+                <Token
+                  size={8}
+                  token={{
+                    logoURI: item.logoURI,
+                    name: item.name,
+                    symbol: item.name,
+                  }}
+                />
+              </ListItem.Column>
               <ListItem.Column
                 text={{
                   label: item.name,
