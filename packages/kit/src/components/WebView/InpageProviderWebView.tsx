@@ -20,6 +20,7 @@ import {
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
+import { Freeze } from 'react-freeze';
 import { useIntl } from 'react-intl';
 import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
@@ -100,6 +101,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     useImperativeHandle(ref, (): IWebViewWrapperRef | null =>
       isRenderAsIframe ? iframeWebviewRef.current : webviewRef.current,
     );
+
+    useEffect(() => {
+      if (platformEnv.isDesktop) {
+        setDesktopLoadError(false);
+      }
+    }, [src]);
 
     useEffect(() => {
       const webview = webviewRef.current?.innerRef;
@@ -226,26 +233,28 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         {progressLoading}
         <Box flex={1}>
           {isDesktop && (
-            <DesktopWebView
-              key={key}
-              ref={setWebViewRef}
-              src={src}
-              onSrcChange={onSrcChange}
-              receiveHandler={receiveHandler}
-              // Warning: any string work, any bool not work
-              // @ts-expect-error
-              allowpopups={allowpopups ? 'true' : false}
-              useragent={
-                // TODO move it to Developer Settings
-                // we can resize desktop to vertical only in DEV env currently
-                platformEnv.isDev && isVertical
-                  ? // sim mobile app UA
-                    DESKTOP_USER_AGENT_MOCK
-                  : undefined
-              }
-            />
+            <Freeze freeze={desktopLoadError}>
+              <DesktopWebView
+                key={key}
+                ref={setWebViewRef}
+                src={src}
+                onSrcChange={onSrcChange}
+                receiveHandler={receiveHandler}
+                // Warning: any string work, any bool not work
+                // @ts-expect-error
+                allowpopups={allowpopups ? 'true' : false}
+                useragent={
+                  // TODO move it to Developer Settings
+                  // we can resize desktop to vertical only in DEV env currently
+                  platformEnv.isDev && isVertical
+                    ? // sim mobile app UA
+                      DESKTOP_USER_AGENT_MOCK
+                    : undefined
+                }
+              />
+            </Freeze>
           )}
-          {desktopLoadError ? <ErrorView /> : null}
+          {desktopLoadError && <ErrorView />}
 
           {isApp && (
             <NativeWebView

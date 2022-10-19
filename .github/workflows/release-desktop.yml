@@ -127,28 +127,28 @@ jobs:
         run: 'cd packages/desktop && yarn build'
 
       - name: Upload Artifacts Mac
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: onekey-desktop-mac
           path: |
             ./packages/desktop/build-electron/*.dmg
 
       - name: Upload Artifacts Windows
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: onekey-desktop-windows
           path: |
             ./packages/desktop/build-electron/*.exe
 
       - name: Upload Artifacts Linux
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: onekey-desktop-linux
           path: |
             ./packages/desktop/build-electron/*.AppImage
 
       - name: Upload Artifacts Release
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: release
           path: |
