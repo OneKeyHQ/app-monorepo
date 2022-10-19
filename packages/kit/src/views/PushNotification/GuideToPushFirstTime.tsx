@@ -14,6 +14,7 @@ import {
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -87,7 +88,8 @@ const GuideToPushFirstTime: FC = () => {
   }, [wallets, serviceNotification]);
 
   const onPrimaryActionPress = useCallback(
-    ({ close }: { close: () => void }) => {
+    async ({ close }: { close: () => void }) => {
+      close?.();
       dispatch(
         setPushNotificationConfig({
           pushEnable: true,
@@ -97,12 +99,15 @@ const GuideToPushFirstTime: FC = () => {
           accountActivityPushEnable: true,
         }),
       );
-      serviceNotification
-        .syncPushNotificationConfig()
-        .finally(addAccountDynamics)
-        .finally(() => {
-          close?.();
-        });
+      try {
+        await serviceNotification.syncPushNotificationConfig();
+        await addAccountDynamics();
+      } catch (error) {
+        debugLogger.notification.error(
+          'close notification addAccountDynamics error',
+          error,
+        );
+      }
     },
     [dispatch, addAccountDynamics, serviceNotification],
   );
