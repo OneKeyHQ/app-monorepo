@@ -15,8 +15,8 @@ const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
     </Typography.Subheading>
     {actions?.length ? (
       <HStack space={6}>
-        {actions.map((item) => (
-          <Pressable onPress={item.onPress} hitSlop={8}>
+        {actions.map((item, index) => (
+          <Pressable key={String(index)} onPress={item.onPress} hitSlop={8}>
             {({ isHovered, isPressed }) => (
               <Box m={-2}>
                 <Box
