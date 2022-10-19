@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 
+import { MotiView } from 'moti';
 import { HStack, Pressable } from 'native-base';
 import Collapsible from 'react-native-collapsible';
 import { GestureResponderEvent } from 'react-native-modal/dist/types';
@@ -45,12 +46,19 @@ const Collapse = ({
       return renderCustomTrigger(toggleCollapsed);
     }
     return (
-      <Pressable onPress={toggleCollapsed}>
+      <Pressable
+        onPress={toggleCollapsed}
+        borderRadius="12px"
+        _hover={{ bgColor: 'surface-hovered' }}
+        _pressed={{ bgColor: 'surface-pressed' }}
+      >
         <HStack alignItems="center" {...rest}>
-          <Icon
-            name={collapsed ? 'ChevronRightSolid' : 'ChevronDownSolid'}
-            size={20}
-          />
+          <MotiView
+            from={{ rotate: '90deg' }}
+            animate={{ rotate: collapsed ? '0deg' : '90deg' }}
+          >
+            <Icon name="ChevronRightSolid" size={20} />
+          </MotiView>
           <Box ml="7px">{trigger}</Box>
         </HStack>
       </Pressable>

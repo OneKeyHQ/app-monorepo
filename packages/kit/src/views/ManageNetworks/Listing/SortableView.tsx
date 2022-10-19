@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Divider,
   HStack,
   IconButton,
   Modal,
@@ -28,22 +27,12 @@ type ItemRowProps = {
   onFixTop: () => void;
 };
 
-const ItemRow: FC<ItemRowProps> = ({
-  index,
-  total,
-  network,
-  onDrag,
-  onFixTop,
-}) => (
+const ItemRow: FC<ItemRowProps> = ({ index, network, onDrag, onFixTop }) => (
   <Box
-    bg="surface-default"
-    display="flex"
     flexDirection="row"
     justifyContent="space-between"
     alignItems="center"
-    p="4"
-    borderTopRadius={index === 0 ? '12' : 0}
-    borderBottomRadius={total - 1 === index ? '12' : 0}
+    py={2}
   >
     <Token
       size={8}
@@ -56,21 +45,19 @@ const ItemRow: FC<ItemRowProps> = ({
       showInfo
       showDescription={false}
     />
-    <HStack alignItems="center">
+    <HStack alignItems="center" space={2}>
       {index > 0 ? (
         <IconButton
-          mr="2"
           type="plain"
-          name="ArrowUpOutline"
-          iconSize={16}
+          circle
+          name="ArrowUpTopSolid"
           onPress={onFixTop}
         />
       ) : null}
       <IconButton
-        mr="2"
         type="plain"
+        circle
         name="MenuOutline"
-        iconSize={16}
         onPressIn={() => onDrag()}
       />
     </HStack>
@@ -196,7 +183,7 @@ export const SortableView: FC = () => {
           onPromise,
           w: isSmallScreen ? 'full' : undefined,
         }}
-        secondaryActionTranslationId="action__done"
+        secondaryActionTranslationId="action__save"
         sortableListProps={{
           showsVerticalScrollIndicator: false,
           ref,
@@ -206,12 +193,9 @@ export const SortableView: FC = () => {
           renderItem,
           // eslint-disable-next-line
           onDragEnd: ({ data }: any) => setList(data),
-          ItemSeparatorComponent: () => <Divider />,
           contentContainerStyle: {
-            paddingBottom: 24,
-            paddingTop: 24,
-            paddingLeft: 24,
-            paddingRight: 24,
+            paddingHorizontal: isSmallScreen ? 16 : 24,
+            paddingVertical: isSmallScreen ? 8 : 16,
           },
         }}
       />

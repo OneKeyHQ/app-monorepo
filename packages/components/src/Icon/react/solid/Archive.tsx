@@ -1,7 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgArchive = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M4 3a2 2 0 1 0 0 4h12a2 2 0 1 0 0-4H4z" />
     <Path
       fillRule="evenodd"
@@ -10,5 +14,4 @@ const SvgArchive = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgArchive;

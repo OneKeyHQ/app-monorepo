@@ -1,7 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgActivity = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="none" {...props}>
+  <Svg viewBox="0 0 20 20" fill="none" accessibilityRole="image" {...props}>
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
@@ -10,5 +9,4 @@ const SvgActivity = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgActivity;

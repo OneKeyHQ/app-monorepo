@@ -1,7 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgBrandLogo = (props: SvgProps) => (
-  <Svg viewBox="0 0 27 27" fill="none" {...props}>
+  <Svg viewBox="0 0 27 27" fill="none" accessibilityRole="image" {...props}>
     <Path
       d="M13.459 19.272a2.331 2.331 0 1 0 0-4.663 2.331 2.331 0 0 0 0 4.663Z"
       fill="#00B812"
@@ -14,5 +13,4 @@ const SvgBrandLogo = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgBrandLogo;

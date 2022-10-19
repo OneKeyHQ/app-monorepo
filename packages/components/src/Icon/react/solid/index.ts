@@ -19,6 +19,7 @@ export { default as ArrowSmDown } from './ArrowSmDown';
 export { default as ArrowSmLeft } from './ArrowSmLeft';
 export { default as ArrowSmRight } from './ArrowSmRight';
 export { default as ArrowSmUp } from './ArrowSmUp';
+export { default as ArrowUpTop } from './ArrowUpTop';
 export { default as ArrowUp } from './ArrowUp';
 export { default as ArrowsExpand } from './ArrowsExpand';
 export { default as AtSymbol } from './AtSymbol';

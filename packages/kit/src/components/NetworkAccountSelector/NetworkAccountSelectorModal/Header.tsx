@@ -122,46 +122,46 @@ function Header({
           })}
           bg="interactive-default"
           _text={{ color: 'text-on-primary', fontSize: '14px' }}
-          px="4"
-          py="2"
+          px="16px"
+          py="8px"
         >
           <Box>
-            <Pressable onPress={toCheckNodePage}>
-              <Text typography="Caption" isTruncated color={status.color}>
-                {typeof status.responseTime === 'number'
-                  ? `${status.responseTime} ms`
-                  : intl.formatMessage({ id: 'content__not_available' })}
-              </Text>
-            </Pressable>
+            <Text typography="Caption" isTruncated color={status.color}>
+              {typeof status.responseTime === 'number'
+                ? `${status.responseTime} ms`
+                : intl.formatMessage({ id: 'content__not_available' })}
+            </Text>
           </Box>
         </Tooltip>
       </>
     );
-  }, [status, intl, isOpen, toCheckNodePage, loading]);
+  }, [status, intl, isOpen, loading]);
 
   return (
     <Box pr={3.5}>
       <Box flexDirection="row" alignItems="center" pt={3.5} pl={4}>
         <VStack flex={1} mr={3}>
-          <Box flexDirection="row" alignItems="center">
-            <Text typography="Heading" isTruncated>
-              {selectedNetwork?.name || '-'}
-            </Text>
+          <Pressable onPress={toCheckNodePage}>
+            <Box flexDirection="row" alignItems="center">
+              <Text typography="Heading" isTruncated>
+                {selectedNetwork?.name || '-'}
+              </Text>
 
-            {isLoading ? (
-              <Pressable
-                ml={2}
-                onPress={() => {
-                  dispatch(updateIsLoading(false));
-                }}
-              >
-                <Spinner size="sm" />
-              </Pressable>
-            ) : null}
-          </Box>
-          <HStack alignItems="center" position="relative" pb="2">
-            {rpcStatusElement}
-          </HStack>
+              {isLoading ? (
+                <Pressable
+                  ml={2}
+                  onPress={() => {
+                    dispatch(updateIsLoading(false));
+                  }}
+                >
+                  <Spinner size="sm" />
+                </Pressable>
+              ) : null}
+            </Box>
+            <HStack alignItems="center" position="relative" pb="2">
+              {rpcStatusElement}
+            </HStack>
+          </Pressable>
         </VStack>
         <IconButton
           name="CloseSolid"

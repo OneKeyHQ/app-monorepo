@@ -166,8 +166,9 @@ export const ManageNetworkRPCNode: FC = () => {
                 {intl.formatMessage({ id: 'content__what_is_node_height' })}
               </Typography.Body2Strong>
             }
+            p="8px"
           >
-            <Typography.Body2>
+            <Typography.Body2 px="8px" color="text-subdued">
               {intl.formatMessage({
                 id: 'content__what_is_node_height_desc',
               })}
