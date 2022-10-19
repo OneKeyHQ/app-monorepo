@@ -110,7 +110,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
                       top={size === 'sm' ? '-4px' : '-2px'}
                       right={size === 'sm' ? '-4px' : '-2px'}
                       size="10px"
-                      backgroundColor={rpcStatus?.color}
+                      backgroundColor={rpcStatus?.iconColor}
                     />
                   )}
                 </Box>
