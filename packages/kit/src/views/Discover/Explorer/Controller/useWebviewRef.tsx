@@ -1,27 +1,30 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview/dist/useWebViewBridge';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OnWebviewNavigation, webviewKeys } from '../explorerUtils';
 
+import { getWebviewWrapperRef } from './getWebviewWrapperRef';
+
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 export function crossWebviewLoadUrl({
-  wrapperRef,
   url,
   tabId,
 }: {
-  wrapperRef: IWebViewWrapperRef;
   url: string;
   tabId?: string;
 }) {
+  const wrapperRef = getWebviewWrapperRef({
+    tabId,
+  });
   debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
   // loadURL: (url: string)
   if (platformEnv.isDesktop) {
+    // TODO wait wrapperRef, innerRef, dom-ready
     (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
   } else {
     // IWebViewWrapperRef has cross-platform loadURL()
@@ -33,12 +36,10 @@ export function crossWebviewLoadUrl({
 
 export const useWebviewRef = ({
   ref,
-  wrapperRef,
   onNavigation,
   tabId,
 }: {
   ref?: IElectronWebView;
-  wrapperRef?: IWebViewWrapperRef | null;
   onNavigation: OnWebviewNavigation;
   tabId: string;
   navigationStateChangeEvent?: WebViewNavigation;
@@ -172,20 +173,21 @@ export const useWebviewRef = ({
   }, [ref]);
 
   const reload = useCallback(() => {
+    const wrapperRef = getWebviewWrapperRef({
+      tabId,
+    });
     // cross-platform reload()
     wrapperRef?.reload();
-  }, [wrapperRef]);
+  }, [tabId]);
 
   const loadURL = useCallback(
     (url: string) => {
-      if (wrapperRef)
-        crossWebviewLoadUrl({
-          wrapperRef,
-          url,
-          tabId,
-        });
+      crossWebviewLoadUrl({
+        url,
+        tabId,
+      });
     },
-    [tabId, wrapperRef],
+    [tabId],
   );
 
   return {

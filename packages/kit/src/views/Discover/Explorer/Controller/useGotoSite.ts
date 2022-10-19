@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { nanoid } from '@reduxjs/toolkit';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -24,13 +23,7 @@ import { validateUrl, webHandler } from '../explorerUtils';
 
 import { crossWebviewLoadUrl } from './useWebviewRef';
 
-export const useGotoSite = ({
-  tab,
-  webviewRef,
-}: {
-  tab?: WebTab;
-  webviewRef?: IWebViewWrapperRef | null;
-}) => {
+export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
   const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
   return useCallback(
     ({
@@ -96,13 +89,10 @@ export const useGotoSite = ({
           tab?.url !== '' &&
           platformEnv.isDesktop
         ) {
-          if (webviewRef) {
-            crossWebviewLoadUrl({
-              wrapperRef: webviewRef,
-              url: validatedUrl,
-              tabId,
-            });
-          }
+          crossWebviewLoadUrl({
+            url: validatedUrl,
+            tabId,
+          });
         }
 
         // close deep link tab after 1s
@@ -115,6 +105,6 @@ export const useGotoSite = ({
       }
       return false;
     },
-    [tab, dappFavorites, webviewRef],
+    [tab, dappFavorites],
   );
 };

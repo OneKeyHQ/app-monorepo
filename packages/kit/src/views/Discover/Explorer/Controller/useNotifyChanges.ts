@@ -10,7 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 
-import { useCurrentWebviewRef } from './useCurrentWebviewRef';
+import { getWebviewWrapperRef } from './getWebviewWrapperRef';
 import { useWebTab } from './useWebTabs';
 
 const notifyChanges = throttle(
@@ -46,12 +46,16 @@ export const useNotifyChanges = () => {
 
   const isMountedRef = useIsMounted();
   const tab = useWebTab();
-  const webviewRef = useCurrentWebviewRef({
-    currentTabId: tab?.id,
-  });
-  const tabUrl = tab?.url;
 
+  const tabUrl = tab?.url;
+  const tabId = tab?.id;
+
+  const webviewRef = getWebviewWrapperRef({
+    tabId,
+  });
   const jsBridge = webviewRef?.jsBridge;
+  const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
+
   useEffect(() => {
     if (!jsBridge) {
       return;
@@ -77,7 +81,9 @@ export const useNotifyChanges = () => {
     if (platformEnv.isNative) {
       notifyChanges(tabUrl, 'immediately');
     } else {
-      const innerRef = webviewRef.innerRef as IElectronWebView;
+      if (!innerRef) {
+        return;
+      }
       // @ts-ignore
       if (innerRef.__domReady) {
         notifyChanges(tabUrl, 'immediately');
@@ -100,5 +106,5 @@ export const useNotifyChanges = () => {
         };
       }
     }
-  }, [isFocusedInDiscoverTab, isMountedRef, tabUrl, webviewRef]);
+  }, [innerRef, isFocusedInDiscoverTab, isMountedRef, tabUrl, webviewRef]);
 };
