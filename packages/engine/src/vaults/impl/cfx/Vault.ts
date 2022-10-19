@@ -105,10 +105,10 @@ export default class Vault extends VaultBase {
     return this.getApiExplorerCache(baseURL);
   }
 
-  async getClient() {
+  async getClient(url?: string) {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     const chainId = await this.getNetworkChainId();
-    return this.getClientCache(rpcURL, chainId);
+    return this.getClientCache(url ?? rpcURL, chainId);
   }
 
   getConfluxClient(url: string, chainId: string) {
@@ -694,7 +694,16 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override createClientFromURL(_url: string): BaseClient {
+  override async getClientEndpointStatus(
+    url: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    const client = await this.getClient(url);
+    const start = performance.now();
+    const latestBlock = await client.getEpochNumber();
+    return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+
+  createClientFromURL(url: string): BaseClient {
     throw new NotImplemented();
   }
 
