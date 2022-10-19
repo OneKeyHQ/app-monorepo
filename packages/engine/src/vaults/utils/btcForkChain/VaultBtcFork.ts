@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
@@ -654,9 +655,8 @@ export default class VaultBtcFork extends VaultBase {
     },
   );
 
-  // @ts-expect-error
-  createClientFromURL(url: string): BlockBook | undefined {
-    return new BlockBook(url);
+  createClientFromURL(url: string) {
+    return new BlockBook(url) as unknown as BaseClient;
   }
 
   fetchTokenInfos(
