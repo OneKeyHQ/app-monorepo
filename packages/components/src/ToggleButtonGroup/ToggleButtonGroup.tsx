@@ -104,10 +104,12 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   const [showRightArrow, setShowRightArrow] = useState(false);
   const buttonLayouts = useRef<{ x: number; width: number }[]>([]);
   const scrollTo = useCallback((index: number) => {
-    scrollRef.current?.scrollTo({
-      x: buttonLayouts.current[index - 1 < 0 ? 0 : index - 1].x,
-      animated: true,
-    });
+    if (scrollRef?.current) {
+      scrollRef.current?.scrollTo({
+        x: buttonLayouts.current[index - 1 < 0 ? 0 : index - 1].x,
+        animated: true,
+      });
+    }
   }, []);
   useEffect(() => {
     setTimeout(() => {

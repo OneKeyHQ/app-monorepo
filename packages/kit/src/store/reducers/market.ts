@@ -1,8 +1,10 @@
-import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-
 import natsort from 'natsort';
+
+import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
+
 import { Token } from '../typings';
+
 import { TokenChartData } from './tokens';
 
 export const MARKET_FAVORITES_CATEGORYID = 'favorites';

@@ -1,10 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { Box, Icon, ToggleButtonGroup } from '@onekeyhq/components/src';
+import {
+  Box,
+  CustomSkeleton,
+  Icon,
+  ToggleButtonGroup,
+} from '@onekeyhq/components/src';
 import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { MARKET_FAKE_SKELETON_CATEGORY_ARRAY } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { MarketCategoryHeadProps } from '../../types';
 
@@ -57,12 +63,22 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
   return (
     <Box>
       <Box flex={1} width="full">
-        <ToggleButtonGroup
-          leftIconSize={0}
-          buttons={buttons}
-          selectedIndex={toggleIndex}
-          onButtonPress={toggleCategory}
-        />
+        {categorys.length > 0 ? (
+          <ToggleButtonGroup
+            leftIconSize={0}
+            buttons={buttons}
+            selectedIndex={toggleIndex}
+            onButtonPress={toggleCategory}
+          />
+        ) : (
+          <Box flex={1} width="full" flexDirection="row">
+            {MARKET_FAKE_SKELETON_CATEGORY_ARRAY.map(() => (
+              <Box mr="6" w="16" h="6" borderRadius="9999px" overflow="hidden">
+                <CustomSkeleton />
+              </Box>
+            ))}
+          </Box>
+        )}
       </Box>
     </Box>
   );

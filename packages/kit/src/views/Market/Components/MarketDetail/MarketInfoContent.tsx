@@ -2,7 +2,13 @@ import { FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, Typography, VStack } from '@onekeyhq/components/src';
+import {
+  Box,
+  HStack,
+  Skeleton,
+  Typography,
+  VStack,
+} from '@onekeyhq/components/src';
 import {
   MarketEXplorer,
   MarketNews,
@@ -14,9 +20,22 @@ import { formatMarketValueForInfo } from '../../utils';
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
 
-const BaseInfo = ({ title, value }: { title: string; value: string }) => {
+const BaseInfo = ({
+  title,
+  value,
+  isFetching,
+}: {
+  title: string;
+  value: string;
+  isFetching: boolean;
+}) => {
   const boxH = useMemo(() => (value.length > 9 ? '85px' : '55px'), [value]);
-  return (
+  return isFetching ? (
+    <Box my="2" justifyContent="space-between" w="110px" h={boxH}>
+      <Skeleton shape="Body2" />
+      <Skeleton shape="Heading" />
+    </Box>
+  ) : (
     <Box my="2" justifyContent="space-between" w="110px" h={boxH}>
       <Typography.Body2 color="text-subdued">{title}</Typography.Body2>
       <Typography.Heading numberOfLines={2}>{value}</Typography.Heading>
@@ -57,53 +76,61 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
           </Typography.Heading>
           <HStack space={0} flexWrap="wrap">
             <BaseInfo
+              isFetching={high24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_high' })}
               value={`$${formatMarketValueForInfo(high24h)}`}
             />
             <BaseInfo
+              isFetching={low24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_low' })}
               value={`$${formatMarketValueForInfo(low24h)}`}
             />
             <BaseInfo
+              isFetching={volume24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_volume' })}
               value={`$${formatMarketValueForInfo(volume24h)}`}
             />
             <BaseInfo
+              isFetching={high7d === undefined}
               title={intl.formatMessage({ id: 'form__7d_high' })}
               value={`$${formatMarketValueForInfo(high7d)}`}
             />
             <BaseInfo
+              isFetching={low7d === undefined}
               title={intl.formatMessage({ id: 'form__7d_low' })}
               value={`$${formatMarketValueForInfo(low7d)}`}
             />
             <BaseInfo
+              isFetching={marketCap === undefined}
               title={intl.formatMessage({ id: 'form__market_cap' })}
               value={`$${formatMarketValueForInfo(marketCap)}`}
             />
           </HStack>
         </Box>
-        <Box>
-          <Typography.Heading>
-            {intl.formatMessage({ id: 'form__explorers' })}
-          </Typography.Heading>
-          <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
-            {expolorers?.map((e, i) => (
-              <MarketInfoExplorer
-                key={i}
-                index={i}
-                name={e.name}
-                contractAddress={e.contractAddress}
-                onPress={() => {
-                  openUrl(
-                    e.url ?? '',
-                    intl.formatMessage({ id: 'form__explorers' }),
-                    { modalMode: true },
-                  );
-                }}
-              />
-            ))}
+        {expolorers && expolorers.length > 0 ? (
+          <Box>
+            <Typography.Heading>
+              {intl.formatMessage({ id: 'form__explorers' })}
+            </Typography.Heading>
+            <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
+              {expolorers?.map((e, i) => (
+                <MarketInfoExplorer
+                  key={i}
+                  index={i}
+                  name={e.name}
+                  contractAddress={e.contractAddress}
+                  onPress={() => {
+                    openUrl(
+                      e.url ?? '',
+                      intl.formatMessage({ id: 'form__explorers' }),
+                      { modalMode: true },
+                    );
+                  }}
+                />
+              ))}
+            </Box>
           </Box>
-        </Box>
+        ) : null}
         {about && about.length > 0 ? (
           <Box>
             <Typography.Heading mb="3">

@@ -179,47 +179,47 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         name={MarketDetailTabName.Info}
         label={intl.formatMessage({ id: 'content__info' })}
       >
-        {!tokenDetail ? (
+        {/* {!tokenDetail ? (
           <Center w="full" h="200px">
             <Spinner size="lg" />
           </Center>
-        ) : (
-          <ScrollView
-            contentContainerStyle={{
-              paddingBottom: 24,
-            }}
-          >
-            <MarketInfoContent
-              low24h={tokenDetail.stats?.low24h}
-              high24h={tokenDetail.stats?.high24h}
-              low7d={tokenDetail.stats?.low7d}
-              high7d={tokenDetail.stats?.high7d}
-              marketCap={tokenDetail.stats?.marketCap}
-              volume24h={tokenDetail.stats?.volume24h}
-              news={tokenDetail.news}
-              expolorers={tokenDetail.explorers}
-              about={tokenDetail.about}
-            />
-          </ScrollView>
-        )}
+        ) : ( */}
+        <ScrollView
+          contentContainerStyle={{
+            paddingBottom: 24,
+          }}
+        >
+          <MarketInfoContent
+            low24h={tokenDetail?.stats?.low24h}
+            high24h={tokenDetail?.stats?.high24h}
+            low7d={tokenDetail?.stats?.low7d}
+            high7d={tokenDetail?.stats?.high7d}
+            marketCap={tokenDetail?.stats?.marketCap}
+            volume24h={tokenDetail?.stats?.volume24h}
+            news={tokenDetail?.news}
+            expolorers={tokenDetail?.explorers}
+            about={tokenDetail?.about}
+          />
+        </ScrollView>
+        {/* )} */}
       </Tabs.Tab>
       <Tabs.Tab
         name={MarketDetailTabName.Stats}
         label={intl.formatMessage({ id: 'title__stats' })}
       >
-        {!tokenDetail ? (
+        {/* {!tokenDetail ? (
           <Center w="full" h="200px">
             <Spinner size="lg" />
           </Center>
-        ) : (
-          <ScrollView
-            contentContainerStyle={{
-              paddingBottom: 24,
-            }}
-          >
-            <MarketStatsContent {...tokenDetail.stats} />
-          </ScrollView>
-        )}
+        ) : ( */}
+        <ScrollView
+          contentContainerStyle={{
+            paddingBottom: 24,
+          }}
+        >
+          <MarketStatsContent {...tokenDetail?.stats} />
+        </ScrollView>
+        {/* )} */}
       </Tabs.Tab>
     </Tabs.Container>
   );

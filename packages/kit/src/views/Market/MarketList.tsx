@@ -11,16 +11,12 @@ import {
 
 import {
   Box,
-  Center,
   Divider,
-  Empty,
   FlatList,
   IconButton,
   ScrollView,
-  Spinner,
 } from '@onekeyhq/components/src';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import {
@@ -33,7 +29,7 @@ import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMe
 import MarketListHeader from './Components/MarketList/MarketListHeader';
 import MarketRecomment from './Components/MarketList/MarketRecomment';
 import MarketTokenCell from './Components/MarketList/MarketTokenCell';
-import { ListHeadTags } from './config';
+import { ListHeadTags, MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
 import {
   useMarketCategoryList,
   useMarketFavoriteCategoryTokenIds,
@@ -77,71 +73,44 @@ const MarketList: FC = () => {
   );
   const [goToTopBtnShow, setGoToTopBtnShow] = useState(false);
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetHeight = platformEnv.isNativeIOS
-      ? e.nativeEvent.targetContentOffset?.y
-      : e.nativeEvent.contentOffset.y;
+    const offsetHeight = e.nativeEvent.contentOffset.y;
     setGoToTopBtnShow((offsetHeight ?? 0) > 200);
   }, []);
   return (
     <Box flex={1}>
-      {!selectedCategory ? (
-        <Center flex={1}>
-          <Spinner size="lg" />
-        </Center>
-      ) : (
-        <ScrollView
-          ref={scrollRef}
-          mt={4}
-          p={isVerticalLayout ? 4 : 6}
-          bg="background-default"
-          onScroll={onScroll}
-          contentContainerStyle={{
-            paddingBottom: 24,
-          }}
-        >
-          <MarketCategoryToggles categorys={categorys} />
-          {selectedCategory.categoryId === MARKET_FAVORITES_CATEGORYID &&
-          favoriteTokens.length === 0 &&
-          recommendedTokens.length > 0 ? (
-            <MarketRecomment tokens={recommendedTokens} />
-          ) : (
-            <>
-              {selectedCategory.coingeckoIds &&
-              selectedCategory.coingeckoIds.length > 0 ? (
-                <FlatList
-                  data={selectedCategory.coingeckoIds}
-                  renderItem={renderItem}
-                  ListHeaderComponent={() => (
-                    <MarketListHeader headTags={listHeadTags} />
-                  )}
-                  ItemSeparatorComponent={Divider}
-                  ListEmptyComponent={
-                    <Center flex={1}>
-                      <Empty
-                        emoji={
-                          selectedCategory.categoryId ===
-                          MARKET_FAVORITES_CATEGORYID
-                            ? '⭐️'
-                            : '🤷'
-                        }
-                        title={intl.formatMessage({ id: 'empty__no_tokens' })}
-                        subTitle={intl.formatMessage(
-                          { id: 'empty__no_tokens_desc' },
-                          { 0: selectedCategory.name },
-                        )}
-                      />
-                    </Center>
-                  }
-                />
-              ) : (
-                <Center h="200px">
-                  <Spinner size="lg" />
-                </Center>
-              )}
-            </>
-          )}
-        </ScrollView>
-      )}
+      <ScrollView
+        ref={scrollRef}
+        mt={4}
+        p={isVerticalLayout ? 4 : 6}
+        bg="background-default"
+        onScroll={onScroll}
+        contentContainerStyle={{
+          paddingBottom: 24,
+        }}
+      >
+        <MarketCategoryToggles categorys={categorys} />
+        {selectedCategory &&
+        selectedCategory.categoryId === MARKET_FAVORITES_CATEGORYID &&
+        favoriteTokens.length === 0 &&
+        recommendedTokens.length > 0 ? (
+          <MarketRecomment tokens={recommendedTokens} />
+        ) : (
+          <FlatList
+            data={
+              !selectedCategory ||
+              !selectedCategory.coingeckoIds ||
+              selectedCategory.coingeckoIds.length === 0
+                ? MARKET_FAKE_SKELETON_LIST_ARRAY
+                : selectedCategory.coingeckoIds
+            }
+            renderItem={renderItem}
+            ListHeaderComponent={() => (
+              <MarketListHeader headTags={listHeadTags} />
+            )}
+            ItemSeparatorComponent={Divider}
+          />
+        )}
+      </ScrollView>
       {goToTopBtnShow ? (
         <IconButton
           circle

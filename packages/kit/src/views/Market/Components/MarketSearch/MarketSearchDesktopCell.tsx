@@ -1,14 +1,16 @@
+import React, { FC, useEffect } from 'react';
+
 import {
+  Box,
+  Center,
   HStack,
-  Typography,
+  Icon,
   Image,
   Pressable,
-  Icon,
-  Box,
   Skeleton,
-  Center,
+  Typography,
 } from '@onekeyhq/components/src';
-import React, { FC, useEffect } from 'react';
+
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MarketTokenItem } from '../../../../store/reducers/market';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
@@ -55,7 +57,7 @@ const MarketSearchTokenDestopCell: FC<{
                   }
                 />
               ) : (
-                <Skeleton shape="Avatar" width="32px" height="32px" />
+                <Skeleton shape="Avatar" size={32} />
               )}
               <Typography.Body2Strong>
                 {marketTokenItem.symbol}

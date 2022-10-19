@@ -1,8 +1,9 @@
 import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-
+import { useIntl } from 'react-intl';
 import { ModalizeProps } from 'react-native-modalize';
+
 import {
   Box,
   Button,
@@ -13,11 +14,20 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-
+import { ModalProps } from '@onekeyhq/components/src/Modal';
+import { SelectProps } from '@onekeyhq/components/src/Select';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-
+import { MarketTokenItem } from '../../store/reducers/market';
+import { showOverlay } from '../../utils/overlayUtils';
 import { OverlayPanel } from '../Overlay/OverlayPanel';
+
+import MarketSearchList from './Components/MarketSearch/MarketSearchList';
+import MarketSearchTabView, {
+  SearchTabItem,
+} from './Components/MarketSearch/MarketSearchTabView';
 import TokenTag from './Components/MarketSearch/TokenTag';
+import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
 import {
   useMarketSearchContainerStyle,
   useMarketSearchHistory,
@@ -25,19 +35,10 @@ import {
   useMarketSearchTokenChange,
   useMarketSearchTokens,
 } from './hooks/useMarketSearch';
-import { showOverlay } from '../../utils/overlayUtils';
-import { SelectProps } from '@onekeyhq/components/src/Select';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { MarketTokenItem } from '../../store/reducers/market';
-import MarketSearchList from './Components/MarketSearch/MarketSearchList';
-import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
-import { useIntl } from 'react-intl';
-import MarketSearchTabView, {
-  SearchTabItem,
-} from './Components/MarketSearch/MarketSearchTabView';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
+
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketSearch: FC<{
@@ -71,18 +72,16 @@ const MarketSearch: FC<{
       searchCategorys.map((c) => ({
         tabId: c.categoryId,
         name: c.name ?? '',
-        view: () => {
-          if (c.coingeckoIds && c.coingeckoIds.length > 0) {
-            return (
-              <MarketSearchList onPress={onTokenPress} data={c.coingeckoIds} />
-            );
-          }
-          return (
-            <Center h="200px">
-              <Spinner size="lg" />
-            </Center>
-          );
-        },
+        view: () => (
+          <MarketSearchList
+            onPress={onTokenPress}
+            data={
+              !c.coingeckoIds || c.coingeckoIds.length === 0
+                ? MARKET_FAKE_SKELETON_LIST_ARRAY
+                : c.coingeckoIds
+            }
+          />
+        ),
       })),
     [onTokenPress, searchCategorys],
   );

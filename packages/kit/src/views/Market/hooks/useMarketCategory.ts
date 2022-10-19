@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import {
-  MarketCategoryType,
   MARKET_FAVORITES_CATEGORYID,
+  MarketCategoryType,
 } from '../../../store/reducers/market';
 
 export const useMarketSelectedCategory = () => {
