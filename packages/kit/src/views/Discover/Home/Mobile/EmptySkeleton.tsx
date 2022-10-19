@@ -1,7 +1,7 @@
 import { Box, CustomSkeleton, FlatList } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const ListEmptyComponent = () => (
+export const EmptySkeleton = () => (
   <FlatList
     contentContainerStyle={{
       paddingBottom: 24,

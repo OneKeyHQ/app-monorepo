@@ -6,16 +6,8 @@ import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { DAppItemType, WebSiteHistory } from '../type';
 
 export function useAllDapps(): DAppItemType[] {
-  const dapps = useAppSelector((s) => s.discover.dapps);
-  return useMemo(() => {
-    if (!dapps) {
-      return [];
-    }
-    return dapps.reduce(
-      (result, item) => result.concat(item.items),
-      [] as DAppItemType[],
-    );
-  }, [dapps]);
+  const dapps = useAppSelector((s) => s.discover.dappItems);
+  return useMemo(() => dapps || [], [dapps]);
 }
 
 export function useAllDappMap(): {
@@ -107,4 +99,42 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
       })
       .filter(Boolean);
   }, [dappFavorites, dappHostMap, webSiteHostMap]);
+}
+
+export function useTaggedDapps() {
+  const tagItems = useAppSelector((s) => s.discover.tagItems);
+  const tags = useAppSelector((s) => s.discover.tags);
+  return useMemo(() => {
+    if (!tagItems || !tags || tags.length === 0) {
+      return [];
+    }
+    return tags
+      .map((tag) => ({ label: tag.name, items: tagItems[tag._id] ?? [] }))
+      .filter((item) => item.items.length > 0);
+  }, [tagItems, tags]);
+}
+
+export function useCategoryDapps(categoryId?: string) {
+  const dappItems = useAppSelector((s) => s.discover.dappItems);
+  return useMemo(() => {
+    if (!categoryId || !dappItems) {
+      return [];
+    }
+    return dappItems?.filter((item) =>
+      item.categories.map((o) => o._id).includes(categoryId),
+    );
+  }, [categoryId, dappItems]);
+}
+
+export function useCategories() {
+  const categories = useAppSelector((s) => s.discover.categories);
+  const categoryItems = useAppSelector((s) => s.discover.categoryItems);
+  return useMemo(() => {
+    if (!categories || !categoryItems) {
+      return [];
+    }
+    return categories.filter(
+      (item) => categoryItems[item._id] && categoryItems[item._id].length > 0,
+    );
+  }, [categories, categoryItems]);
 }
