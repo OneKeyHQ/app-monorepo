@@ -62,7 +62,6 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { IEncodedTxAptos } from './types';
 import {
-  APTOS_NATIVE_COIN,
   APTOS_NATIVE_TRANSFER_FUNC,
   APTOS_TRANSFER_FUNC,
   DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
@@ -586,7 +585,8 @@ export default class Vault extends VaultBase {
         const simulationTx = tx?.[0];
 
         const gasUsed = new BigNumber(simulationTx.gas_used);
-        if (gasUsed.isEqualTo(0) || !simulationTx.success) {
+        // Compatible maximum sending amount
+        if (gasUsed.isEqualTo(0)) {
           // Exec failure
           throw new OneKeyError();
         }
@@ -608,7 +608,10 @@ export default class Vault extends VaultBase {
         throw error;
       }
 
-      if (encodedTx.function === APTOS_NATIVE_COIN) {
+      if (
+        encodedTx.function === APTOS_NATIVE_TRANSFER_FUNC ||
+        encodedTx.function === APTOS_TRANSFER_FUNC
+      ) {
         // Native transfer, give a default limit.
         limit = DEFAULT_GAS_LIMIT_NATIVE_TRANSFER;
       } else {
