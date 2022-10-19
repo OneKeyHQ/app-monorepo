@@ -89,6 +89,7 @@ const WebContent = React.memo(({ id, url }: WebTab) => {
       </Freeze>
       <Freeze freeze={showHome}>
         <WebView
+          // TODO update key will break browser history
           // key={webviewKey}
           src={localUrl}
           // wrapperRef?.loadURL() will trigger onSrcChange

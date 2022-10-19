@@ -20,7 +20,7 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import { WebSiteHistory } from '../../type';
-import { validateUrl, webHandler, webviewKeys } from '../explorerUtils';
+import { validateUrl, webHandler } from '../explorerUtils';
 
 import { crossWebviewLoadUrl } from './useWebviewRef';
 
