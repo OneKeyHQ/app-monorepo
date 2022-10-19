@@ -64,6 +64,7 @@ const MarketSearchTabView: FC<Props> = ({
     <RNTabView
       navigationState={{ index, routes }}
       renderScene={renderScene}
+      keyboardDismissMode="on-drag"
       renderTabBar={() => (
         <SegmentedControl
           selectedIndex={index}

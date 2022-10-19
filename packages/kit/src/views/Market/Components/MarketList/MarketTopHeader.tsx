@@ -69,10 +69,8 @@ const Header: React.FC = () => {
             searchOnChangeDebounce('');
           }}
           onFocus={() => {
-            if (!searchFocused) {
-              setSearchFocused(true);
-              showMarketSearch({ triggerEle: searchBarRef?.current });
-            }
+            setSearchFocused(true);
+            showMarketSearch({ triggerEle: searchBarRef?.current });
           }}
           onBlur={() => {
             setSearchFocused(false);
