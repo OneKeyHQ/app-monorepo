@@ -1,40 +1,45 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { SpeedindicatorColors } from '../../../components/NetworkAccountSelector/NetworkAccountSelectorModal/SpeedIndicator';
 import { useNetwork } from '../../../hooks/useNetwork';
 import { getTimeDurationMs } from '../../../utils/helper';
 
-export enum RpcSpeed {
-  Fast = 0,
-  Slow,
-  Unavailable,
-}
+export const RpcSpeed = {
+  Fast: {
+    iconColor: 'icon-success',
+    textColor: 'text-success',
+    text: 'content__fast',
+  },
+  Slow: {
+    iconColor: 'icon-warning',
+    textColor: 'text-warning',
+    text: 'content__slow',
+  },
+  Unavailable: {
+    iconColor: 'icon-critical',
+    textColor: 'text-critical',
+    text: 'content__check_node',
+  },
+} as const;
 
 export type MeasureResult = {
   responseTime?: number;
-  color: SpeedindicatorColors;
   latestBlock?: number;
-  speed: RpcSpeed;
+  iconColor: 'icon-success' | 'icon-warning' | 'icon-critical';
+  textColor: ThemeToken;
+  text: 'content__fast' | 'content__slow' | 'content__check_node';
 };
 
 const getRpcStatusByResponseTime = (speed?: number) => {
   if (typeof speed === 'undefined') {
-    return {
-      color: SpeedindicatorColors.Unavailable,
-      speed: RpcSpeed.Unavailable,
-    };
+    return RpcSpeed.Unavailable;
   }
   if (speed <= 300) {
-    return {
-      color: SpeedindicatorColors.Fast,
-      speed: RpcSpeed.Fast,
-    };
+    return RpcSpeed.Fast;
   }
-  return {
-    color: SpeedindicatorColors.Slow,
-    speed: RpcSpeed.Slow,
-  };
+  return RpcSpeed.Slow;
 };
 
 export const measureRpc = async (networkId: string, url: string) => {
@@ -56,8 +61,7 @@ export const measureRpc = async (networkId: string, url: string) => {
   return {
     latestBlock: undefined,
     responseTime: undefined,
-    color: SpeedindicatorColors.Unavailable,
-    speed: RpcSpeed.Unavailable,
+    ...RpcSpeed.Unavailable,
   };
 };
 
