@@ -1,8 +1,8 @@
 import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-
 import { useIntl } from 'react-intl';
+
 import {
   Box,
   Button,
@@ -23,12 +23,11 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
+
+import { showMarketDetailActionMoreMenu } from './MarketDetailActionMore';
 import { MarketInfoContent } from './MarketInfoContent';
 import MarketPriceChart from './MarketPriceChart';
 import { MarketStatsContent } from './MarketStatsContent';
-import { showMarketDetailActionMoreMenu } from './MarketDetailActionMore';
-
-import NFTList from '../../../Wallet/NFT/NFTList';
 
 const MarketDetailActionButton = ({
   marketTokenId,
@@ -130,6 +129,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   return (
     <Tabs.Container
       // @ts-ignore fix type when remove react-native-collapsible-tab-view
+      p={isVerticalLayout ? '4' : '0'}
       refreshing={refreshing}
       onRefresh={async () => {
         setRefreshing(true);
@@ -159,12 +159,12 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
       }}
       renderHeader={() =>
         isVerticalLayout ? (
-          <Box px="4">
+          <Box>
             <MarketPriceChart coingeckoId={marketTokenId} />
             <MarketDetailActionButton marketTokenId={marketTokenId} />
           </Box>
         ) : (
-          <Box px="4">
+          <Box>
             <MarketPriceChart coingeckoId={marketTokenId} />
           </Box>
         )
@@ -185,7 +185,6 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
           </Center>
         ) : (
           <ScrollView
-            p="4"
             contentContainerStyle={{
               paddingBottom: 24,
             }}
@@ -214,7 +213,6 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
           </Center>
         ) : (
           <ScrollView
-            p="4"
             contentContainerStyle={{
               paddingBottom: 24,
             }}

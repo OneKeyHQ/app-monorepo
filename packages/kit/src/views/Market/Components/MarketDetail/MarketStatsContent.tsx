@@ -7,8 +7,8 @@ import { MarketStats } from '../../../../store/reducers/market';
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import {
   formatLocalDate,
+  formatMarketValueForComma,
   formatMarketValueForFiexd,
-  parseExponential,
 } from '../../utils';
 
 type DataViewComponentProps = {
@@ -30,6 +30,7 @@ const DataViewComponent: FC<DataViewComponentProps> = ({
     outPadding: 32,
     maxW: SCREEN_SIZE.LARGE,
   });
+  console.log('gridBoxStyle', gridBoxStyle);
   return (
     <Box {...gridBoxStyle}>
       <Box
@@ -166,7 +167,7 @@ export const MarketStatsContent: FC<MarketStats> = ({
           <Box>
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__market_cap' })}
-              value={`$${parseExponential(marketCap)}`}
+              value={`$${formatMarketValueForComma(marketCap)}`}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__market_cap_dominance' })}
@@ -190,20 +191,20 @@ export const MarketStatsContent: FC<MarketStats> = ({
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__24h_low' })}
-              value={`$${parseExponential(low24h)}`}
+              value={`$${formatMarketValueForComma(low24h)}`}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__24h_high' })}
-              value={`$${parseExponential(high24h)}`}
+              value={`$${formatMarketValueForComma(high24h)}`}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__all_time_low' })}
-              value={`$${parseExponential(atl?.value)}`}
+              value={`$${formatMarketValueForComma(atl?.value)}`}
               subValue={formatLocalDate(atl?.time)}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__all_time_high' })}
-              value={`$${parseExponential(ath?.value)}`}
+              value={`$${formatMarketValueForComma(ath?.value)}`}
               subValue={formatLocalDate(ath?.time)}
             />
           </Box>

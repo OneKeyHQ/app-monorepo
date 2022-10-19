@@ -168,7 +168,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       }
                     />
                   ) : (
-                    <Skeleton shape="Avatar" w="32px" h="32px" />
+                    <Skeleton shape="Avatar" width={32} height={32} />
                   )}
                   <Box>
                     {marketTokenItem && marketTokenItem.symbol !== undefined ? (

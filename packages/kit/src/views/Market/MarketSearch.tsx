@@ -6,7 +6,6 @@ import { ModalizeProps } from 'react-native-modalize';
 import {
   Box,
   Button,
-  ScrollView,
   Empty,
   Searchbar,
   Typography,
@@ -14,7 +13,6 @@ import {
   Center,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-import { debounce } from 'lodash';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
@@ -36,8 +34,9 @@ import { MarketTokenItem } from '../../store/reducers/market';
 import MarketSearchList from './Components/MarketSearch/MarketSearchList';
 import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
 import { useIntl } from 'react-intl';
-import SendTokenTabView from '../Send/components/SendTokenTabView';
-import MarketSearchTabView from './Components/MarketSearch/MarketSearchTabView';
+import MarketSearchTabView, {
+  SearchTabItem,
+} from './Components/MarketSearch/MarketSearchTabView';
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketSearch: FC<{
@@ -66,7 +65,7 @@ const MarketSearch: FC<{
     [navigation, closeOverlay],
   );
 
-  const options = useMemo(
+  const options = useMemo<SearchTabItem[]>(
     () =>
       searchCategorys.map((c) => ({
         tabId: c.categoryId,
@@ -114,7 +113,7 @@ const MarketSearch: FC<{
       <>
         {searchCategorys && searchCategorys.length > 0 ? (
           <Box flex={1}>
-            <Box flexDirection="row" justifyContent="space-between" mb={1}>
+            <Box flexDirection="row" justifyContent="space-between" mb={2}>
               <Typography.Subheading>
                 {intl.formatMessage({ id: 'form__recent_searched_uppercase' })}
               </Typography.Subheading>

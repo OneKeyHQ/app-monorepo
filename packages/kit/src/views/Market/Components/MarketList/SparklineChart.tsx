@@ -77,16 +77,16 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
             grad.addColorStop(1, 'rgba(255,255,255,0)');
             ctx.fillStyle = grad;
             ctx.fill();
-            xPoint -= xSpath;
-            // clear last 2 line
-            ctx.clearRect(xPoint - xSpath, 0, xSpath, height + offsetHeight);
-            ctx.clearRect(
-              0,
-              height + offsetHeight - lineWidth,
-              width + xSpath,
-              lineWidth,
-            );
           }
+          xPoint -= xSpath;
+          // clear last 2 line
+          ctx.clearRect(xPoint - xSpath, 0, xSpath, height + offsetHeight);
+          ctx.clearRect(
+            0,
+            height + offsetHeight - lineWidth,
+            width + xSpath,
+            lineWidth,
+          );
         }
       }
     },

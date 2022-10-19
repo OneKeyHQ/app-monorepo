@@ -38,10 +38,7 @@ const Header: React.FC = () => {
       if (platformEnv.isRuntimeBrowser) {
         const triggleerSearch = (e: KeyboardEvent) => {
           if (e.code === 'KeyF' && !searchFocused) {
-            if (inputRef?.current) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              inputRef.current.focus();
-            }
+            inputRef?.current?.focus();
           }
         };
         document.addEventListener('keydown', triggleerSearch);
@@ -54,7 +51,7 @@ const Header: React.FC = () => {
 
   return (
     <Box flexDirection="column">
-      <Box mt="3" ml="6" ref={searchBarRef} width="360px">
+      <Box mt="8" ml="6" ref={searchBarRef} width="360px">
         <Input
           ref={inputRef}
           placeholder={intl.formatMessage({ id: 'form__search_tokens' })}
@@ -72,19 +69,16 @@ const Header: React.FC = () => {
           }}
           onFocus={() => {
             if (!searchFocused) {
-              console.log('set', searchFocused);
               setSearchFocused(true);
               showMarketSearch({ triggerEle: searchBarRef?.current });
             }
           }}
           onBlur={() => {
             if (blurCount <= 1) {
-              if (inputRef?.current) {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                inputRef.current.focus();
+                inputRef.current?.focus();
                 setBlurCount((pre) => pre + 1);
                 return;
-              }
             }
             setBlurCount(0);
             setSearchFocused(false);
@@ -103,6 +97,7 @@ const HeaderSmall: React.FC = () => {
   const tabName = useMarketTopTabName();
   const handleBg = useThemeValue('icon-subdued');
   const intl = useIntl();
+  const marketTopTabName = useMarketTopTabName();
   return (
     <Box
       p="3"
@@ -140,24 +135,26 @@ const HeaderSmall: React.FC = () => {
         </Pressable>
       </Box>
       <Box>
-        <IconButton
-          size="base"
-          name="SearchSolid"
-          iconSize={16}
-          onPress={() => {
-            showMarketSearch({
-              modalProps: {
-                headerShown: false,
-                hideBackButton: true,
-              },
-              modalLizeProps: {
-                handleStyle: { backgroundColor: handleBg },
-                withHandle: true,
-                handlePosition: 'inside',
-              },
-            });
-          }}
-        />
+        {marketTopTabName === MARKET_TAB_NAME ? (
+          <IconButton
+            size="base"
+            name="SearchSolid"
+            iconSize={16}
+            onPress={() => {
+              showMarketSearch({
+                modalProps: {
+                  headerShown: false,
+                  hideBackButton: true,
+                },
+                modalLizeProps: {
+                  handleStyle: { backgroundColor: handleBg },
+                  withHandle: true,
+                  handlePosition: 'inside',
+                },
+              });
+            }}
+          />
+        ) : null}
       </Box>
     </Box>
   );

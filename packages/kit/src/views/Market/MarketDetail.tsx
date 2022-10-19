@@ -1,4 +1,10 @@
-import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
+import React, {
+  FC,
+  ReactElement,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
@@ -52,6 +58,7 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
     <Box>
       <IconButton
         ml={4}
+        mr={2}
         type={isVertical ? 'plain' : 'basic'}
         name={isVertical ? 'StarOutline' : 'StarSolid'}
         size={isVertical ? 'xl' : 'base'}
@@ -179,6 +186,7 @@ const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
 
 type MarketDetailLayoutProps = {
   marketTokenId: string;
+  children: ReactElement<any, any>;
 };
 const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   marketTokenId,
@@ -218,10 +226,10 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   }
 
   if (isVertical) {
-    return children;
+    return children ?? null;
   }
   return (
-    <Box bg="background-default" w="full" h="full" px="8">
+    <Box bg="background-default" w="full" h="full" p="4">
       <Box w="full" flexDirection="row" alignItems="center" py="5">
         <IconButton onPress={onBack} type="plain" name="ArrowLeftOutline" />
       </Box>

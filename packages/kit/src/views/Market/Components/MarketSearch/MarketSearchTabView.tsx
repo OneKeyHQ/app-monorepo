@@ -15,7 +15,7 @@ import { SceneMap, SegmentedControl } from '@onekeyhq/components';
 
 import { useMarketSearchContainerStyle } from '../../hooks/useMarketSearch';
 
-type TabViewItem = {
+export type SearchTabItem = {
   tabId: string;
   name: string;
   view: ComponentType<any>;
@@ -23,7 +23,7 @@ type TabViewItem = {
 type Props = {
   navigationStateIndex: number;
   onTabChange?: (index: number) => void;
-  options: TabViewItem[];
+  options: SearchTabItem[];
 };
 
 const MarketSearchTabView: FC<Props> = ({
