@@ -67,6 +67,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     const connector = await this.createConnector(
       {
         uri,
+        networkImpl: network,
       },
       {
         shouldDisconnectStorageSession: true,

@@ -496,6 +496,24 @@ class ProviderApiAptos extends ProviderApiBase {
 
     return Promise.resolve(result);
   }
+
+  @providerApiMethod()
+  @providerApiMethod()
+  public async getChainId() {
+    debugLogger.providerApi.info('aptos getChainId');
+
+    const { networkId, networkImpl, accountId } = getActiveWalletAccount();
+    if (networkImpl !== IMPL_APTOS) {
+      return undefined;
+    }
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultAptos;
+
+    const chainId = await (await vault.getClient()).getChainId();
+    return Promise.resolve({ chainId });
+  }
 }
 
 export default ProviderApiAptos;
