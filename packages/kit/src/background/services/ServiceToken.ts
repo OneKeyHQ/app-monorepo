@@ -85,8 +85,11 @@ export default class ServiceToken extends ServiceBase {
     const { appSelector, engine, dispatch } = this.backgroundApi;
     const tokens = appSelector((s) => s.tokens.tokens);
     const networkTokens = tokens[activeNetworkId];
-    if (activeNetworkId && (!networkTokens || networkTokens.length === 0)) {
-      await engine.getTokens(activeNetworkId);
+    const isEmpty = !networkTokens || networkTokens.length === 0;
+    const notIncludeNative =
+      networkTokens && !networkTokens?.find((item) => !item.tokenIdOnNetwork);
+    if (isEmpty || notIncludeNative) {
+      await engine.getTokens(activeNetworkId, undefined, true, true, true);
       const topTokens = await engine.getTopTokensOnNetwork(activeNetworkId, 50);
       dispatch(
         setNetworkTokens({
@@ -95,31 +98,6 @@ export default class ServiceToken extends ServiceBase {
           keepAutoDetected: true,
         }),
       );
-    }
-  }
-
-  @backgroundMethod()
-  async fetchAccountTokensIfEmpty({
-    activeAccountId,
-    activeNetworkId,
-  }: {
-    activeAccountId: string;
-    activeNetworkId: string;
-  }) {
-    const { appSelector } = this.backgroundApi;
-    const accountTokens = appSelector((s) => s.tokens.accountTokens);
-    const userTokens = accountTokens[activeNetworkId]?.[activeAccountId];
-    if (
-      activeAccountId &&
-      activeNetworkId &&
-      (!userTokens || userTokens.length === 0)
-    ) {
-      await this.fetchAccountTokens({
-        activeAccountId,
-        activeNetworkId,
-        withBalance: true,
-        withPrice: true,
-      });
     }
   }
 

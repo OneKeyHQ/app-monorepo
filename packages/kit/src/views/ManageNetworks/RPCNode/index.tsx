@@ -97,6 +97,22 @@ export const ManageNetworkRPCNode: FC = () => {
     [networkId, refresh],
   );
 
+  const editCustomRpcButton = useMemo(() => {
+    if (!custom.length) {
+      return null;
+    }
+    return isEdit ? (
+      intl.formatMessage({ id: 'action__done' })
+    ) : (
+      <HStack alignItems="center">
+        <Icon name="PencilSolid" size={16} />
+        <Typography.CaptionStrong ml="2">
+          {intl.formatMessage({ id: 'action__edit' })}
+        </Typography.CaptionStrong>
+      </HStack>
+    );
+  }, [custom, isEdit, intl]);
+
   const GroupingListData = useMemo(
     () => [
       {
@@ -104,16 +120,7 @@ export const ManageNetworkRPCNode: FC = () => {
           title: intl.formatMessage({ id: 'content__custom' }),
           actions: [
             {
-              label: isEdit ? (
-                intl.formatMessage({ id: 'action__done' })
-              ) : (
-                <HStack alignItems="center">
-                  <Icon name="PencilSolid" size={16} />
-                  <Typography.CaptionStrong ml="2">
-                    {intl.formatMessage({ id: 'action__edit' })}
-                  </Typography.CaptionStrong>
-                </HStack>
-              ),
+              label: editCustomRpcButton,
               onPress: toggleEditMode,
             },
           ],
@@ -134,7 +141,15 @@ export const ManageNetworkRPCNode: FC = () => {
         data: sort(preset),
       },
     ],
-    [custom, preset, intl, sort, showAddNodeDialog, isEdit, toggleEditMode],
+    [
+      custom,
+      preset,
+      intl,
+      sort,
+      showAddNodeDialog,
+      toggleEditMode,
+      editCustomRpcButton,
+    ],
   );
 
   useEffect(() => {

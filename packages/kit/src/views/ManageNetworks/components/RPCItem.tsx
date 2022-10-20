@@ -31,22 +31,22 @@ export const RPCItem = ({
   onRemove: (url: string) => void;
 }) => {
   const intl = useIntl();
-  const { responseTime, color, latestBlock } = measure || {};
+  const { responseTime, iconColor, latestBlock } = measure || {};
   const responseTimeSection = useMemo(() => {
     if (!measure) {
       return <Skeleton shape="Caption" />;
     }
     return (
       <>
-        <Speedindicator borderWidth={0} backgroundColor={color} />
-        <Typography.Caption color={color} ml="2">
+        <Speedindicator borderWidth={0} backgroundColor={iconColor} />
+        <Typography.Caption color={iconColor} ml="2">
           {typeof responseTime === 'number'
             ? `${responseTime} ms`
             : intl.formatMessage({ id: 'content__not_available' })}
         </Typography.Caption>
       </>
     );
-  }, [measure, color, intl, responseTime]);
+  }, [measure, iconColor, intl, responseTime]);
 
   const blockHeightSection = useMemo(() => {
     if (!measure) {
