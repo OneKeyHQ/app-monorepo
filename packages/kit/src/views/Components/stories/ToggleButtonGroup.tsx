@@ -24,7 +24,7 @@ const buttons: ToggleButtonProps[] = [
 const ToggleButtonGroupGallery = () => {
   const [selectedIndex1, setSelectedIndex1] = useState(2);
 
-  const [selectedIndex2, setSelectedIndex2] = useState(1);
+  const [selectedIndex2, setSelectedIndex2] = useState(10);
   return (
     <>
       <ToggleButtonGroup
@@ -34,7 +34,7 @@ const ToggleButtonGroupGallery = () => {
       />
 
       <ToggleButtonGroup
-        buttons={buttons.concat(buttons).concat(buttons)}
+        buttons={buttons.concat(buttons).concat(buttons).concat(buttons)}
         selectedIndex={selectedIndex2}
         onButtonPress={setSelectedIndex2}
       />
