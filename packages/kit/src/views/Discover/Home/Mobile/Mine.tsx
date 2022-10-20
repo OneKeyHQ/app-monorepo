@@ -56,11 +56,11 @@ const ListHeaderItemsEmptyComponent = () => {
         justifyContent="center"
         alignItems="center"
       >
-        <Typography.Body1 textAlign="center" color="text-subdued">
+        <Typography.Body2 textAlign="center" color="text-subdued">
           {itemSource === 'Favorites'
             ? intl.formatMessage({ id: 'message__discover_favorite_is_empty' })
             : intl.formatMessage({ id: 'message__discover_history_is_empty' })}
-        </Typography.Body1>
+        </Typography.Body2>
       </Box>
     </Box>
   );
