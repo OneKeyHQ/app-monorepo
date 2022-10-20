@@ -130,6 +130,7 @@ function Header({
           _text={{ color: 'text-on-primary', fontSize: '14px' }}
           px="16px"
           py="8px"
+          borderRadius="12px"
         >
           <Box>
             <Text typography="Caption" isTruncated color={status.textColor}>
