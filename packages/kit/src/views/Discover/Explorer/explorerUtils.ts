@@ -8,8 +8,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DAppItemType } from '../type';
 
-import { getWebviewWrapperRef } from './Controller/getWebviewWrapperRef';
-
 import type { WebSiteHistory } from '../type';
 
 export interface WebSiteType {
@@ -116,6 +114,20 @@ export type OnWebviewNavigation = ({
   canGoForward?: boolean;
   loading?: boolean;
 }) => void;
+
+if (process.env.NODE_ENV !== 'production') {
+  // @ts-ignore
+  global.$$webviewRefs = webviewRefs;
+}
+export function getWebviewWrapperRef({
+  tabId,
+}: {
+  tabId: string | null | undefined;
+}) {
+  // DO NOT useMemo() here, as webviewRefs may be updated
+  const ref = tabId ? webviewRefs[tabId] : null;
+  return ref ?? null;
+}
 
 export function crossWebviewLoadUrl({
   url,

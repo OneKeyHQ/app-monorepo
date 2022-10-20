@@ -20,9 +20,9 @@ import {
   MatchDAppItemType,
   OnWebviewNavigation,
   webviewRefs,
+  getWebviewWrapperRef,
 } from '../explorerUtils';
 
-import { getWebviewWrapperRef } from './getWebviewWrapperRef';
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 

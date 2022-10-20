@@ -4,9 +4,11 @@ import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OnWebviewNavigation, crossWebviewLoadUrl } from '../explorerUtils';
-
-import { getWebviewWrapperRef } from './getWebviewWrapperRef';
+import {
+  OnWebviewNavigation,
+  crossWebviewLoadUrl,
+  getWebviewWrapperRef,
+} from '../explorerUtils';
 
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
