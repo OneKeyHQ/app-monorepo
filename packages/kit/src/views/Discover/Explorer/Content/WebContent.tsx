@@ -22,9 +22,7 @@ const WebContent = React.memo((tab: WebTab) => {
   const initialUrl = tab.url;
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
-  const [localUrl, setLocalUrl] = useState(
-    platformEnv.isDesktop ? aboutBlankUrl : initialUrl,
-  );
+  const [localUrl, setLocalUrl] = useState(aboutBlankUrl);
   const onSrcChange = useCallback((src: string) => {
     if (platformEnv.isDesktop) {
       // do nothing
