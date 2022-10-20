@@ -35,7 +35,6 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
-
 @backgroundClass()
 export default class ServiceMarket extends ServiceBase {
   @backgroundMethod()
