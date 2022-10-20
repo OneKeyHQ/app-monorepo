@@ -108,7 +108,6 @@ const Protected = () => {
                 id: 'form__create_delete_accounts',
               })}
               isChecked={validationSetting.Account}
-              divider
               onToggle={() =>
                 setValue(ValidationFields.Account, !validationSetting.Account)
               }
