@@ -66,6 +66,7 @@ export const useWebviewRef = ({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             ref.canGoForward();
           return {
+            // url: ref.getURL(), // TODO can not manual input text and navigate to new url
             title,
             canGoBack,
             canGoForward,
@@ -109,7 +110,9 @@ export const useWebviewRef = ({
           onNavigation({
             // loading
             loading: true,
-            ...getNavStatusInfo(),
+            // TODO dom-ready check not working when open new tab
+            //      webview is not mounted yet
+            // ...getNavStatusInfo(),
           });
 
         const handleTitleMessage = ({ title }: { title: string }) => {

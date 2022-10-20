@@ -115,7 +115,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         const handleMessage = (event: any) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (event.errorCode !== -3) {
-            setDesktopLoadError(true);
+            // TODO iframe error also show ErrorView
+            //      testing www.163.com
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (event.isMainFrame) {
+              setDesktopLoadError(true);
+            }
           }
         };
 
@@ -231,6 +236,8 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
             (desktopLoadError ? (
               <ErrorView />
             ) : (
+              // TODO do not unmount desktop webview when error occurs
+              //    Error: The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called.
               <DesktopWebView
                 key={key}
                 ref={setWebViewRef}

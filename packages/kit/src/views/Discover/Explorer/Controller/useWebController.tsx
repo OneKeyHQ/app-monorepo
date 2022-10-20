@@ -139,7 +139,8 @@ export const useWebController = ({
     [curId, dispatch, gotoSite, tab?.url],
   );
 
-  // TODO event not working when loading initial url as getInnerRef is null
+  // TODO add webview event listener `did-start-navigation` `dom-ready`
+  //      not working when loading initial url as getInnerRef() is null
   const { goBack, goForward, stopLoading } = useWebviewRef({
     // @ts-expect-error
     ref: getInnerRef(),
@@ -163,7 +164,7 @@ export const useWebController = ({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         canGoBack = innerRef.canGoBack();
       }
-      // TODO not working when initial url loaded
+      // TODO goBack() not working when initial url loaded
       if (canGoBack) {
         goBack();
       } else {

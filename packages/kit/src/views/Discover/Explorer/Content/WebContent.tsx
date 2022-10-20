@@ -106,6 +106,7 @@ const WebContent = React.memo((tab: WebTab) => {
       <Freeze freeze={showHome}>
         <Box testID={`webview: ${localUrl} - ${initialUrl}`} />
         {/* TODO show DiscoverHome in Webview if about:blank */}
+        {/* TODO do not unmount desktop webview when showHome */}
         <WebView
           // key={webviewKey} // set different key will break browser history
           src={localUrl}
