@@ -719,4 +719,13 @@ export default class Vault extends VaultBase {
       },
     );
   }
+
+  override async getClientEndpointStatus(
+    url: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    const cli: NearCli = await this._createNearCli(url, this.networkId);
+    const start = performance.now();
+    const { blockNumber: latestBlock } = await cli.getBestBlock();
+    return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
 }
