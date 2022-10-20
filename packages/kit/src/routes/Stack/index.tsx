@@ -18,6 +18,7 @@ import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
 import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import MarketDetail from '@onekeyhq/kit/src/views/Market/MarketDetail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
 import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
 import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
@@ -40,7 +41,6 @@ import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
 
 import renderCustomSubStackHeader from './Header';
-import MarketDetail from '../../views/Market/MarketDetail';
 
 export const stackScreenList = [
   {

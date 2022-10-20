@@ -1,3 +1,5 @@
+import { FC, useMemo } from 'react';
+
 import {
   Box,
   ICON_NAMES,
@@ -5,17 +7,14 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-
-import { FC, useMemo } from 'react';
-import { MarketTokenItem } from '../../../../store/reducers/market';
-import { showOverlay } from '../../../../utils/overlayUtils';
-import { SelectProps } from '@onekeyhq/components/src/Select';
-import { OverlayPanel } from '../../../Overlay/OverlayPanel';
-import { ColorType } from 'lightweight-charts';
-import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
+import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import { SelectProps } from '@onekeyhq/components/src/Select';
+import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+
+import { OverlayPanel } from '../../../Overlay/OverlayPanel';
 
 type MarketDetailActionMoreMenuOption = {
   id: string;

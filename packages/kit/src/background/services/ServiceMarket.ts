@@ -29,11 +29,12 @@ import {
   updateSearchTokens,
   updateSelectedCategory,
 } from '../../store/reducers/market';
+import { ServerToken } from '../../store/typings';
 import { getDefaultLocale } from '../../utils/locale';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
-import { ServerToken } from '../../store/typings';
+
 
 @backgroundClass()
 export default class ServiceMarket extends ServiceBase {

@@ -137,7 +137,6 @@ const PurchaseButton = ({
 );
 
 const BellButton = ({
-  tokenItem,
   onPress,
 }: {
   tokenItem?: MarketTokenItem;
@@ -279,7 +278,12 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                 }}
               />
               <FavoritButton tokenItem={marketTokenItem} />
-              {/* <BellButton tokenItem={marketTokenItem} /> */}
+              <BellButton
+                tokenItem={marketTokenItem}
+                onPress={() => {
+                  // TODO 价格提醒
+                }}
+              />
             </Box>
           </Box>
           {children}

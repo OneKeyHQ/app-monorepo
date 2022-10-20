@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { Center, SegmentedControl, VStack } from '@onekeyhq/components';
+import { Center, SegmentedControl } from '@onekeyhq/components';
 
 const SegmentedControlGallery = () => {
   const [selectIndex, setSelectedIndex] = useState(0);

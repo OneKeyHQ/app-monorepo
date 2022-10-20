@@ -117,7 +117,7 @@ class BackgroundApiProxy
   ) as ServicDiscover;
 
   serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
-  
+
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {
       throw new Error(`_createProxyService name duplicated. name=${name}`);

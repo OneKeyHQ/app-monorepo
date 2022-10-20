@@ -17,6 +17,7 @@ import {
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { SelectProps } from '@onekeyhq/components/src/Select';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { MarketTokenItem } from '../../store/reducers/market';
 import { showOverlay } from '../../utils/overlayUtils';
@@ -27,6 +28,7 @@ import MarketSearchTabView, {
   SearchTabItem,
 } from './Components/MarketSearch/MarketSearchTabView';
 import TokenTag from './Components/MarketSearch/TokenTag';
+import { MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
 import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
 import {
   useMarketSearchContainerStyle,
@@ -37,7 +39,6 @@ import {
 } from './hooks/useMarketSearch';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 

@@ -65,7 +65,7 @@ export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
         }}
       />
     ),
-    [],
+    [intl],
   );
   return (
     <Box>
