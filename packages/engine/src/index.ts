@@ -2039,10 +2039,24 @@ class Engine {
     if (rpcURL.length === 0) {
       throw new OneKeyInternalError('Empty RPC URL.');
     }
-
-    const vault = await this.getChainOnlyVault(networkId);
-    return vault.getClientEndpointStatus(rpcURL);
+    return {
+      ...(await this._getRPCEndpointStatus(rpcURL, networkId)),
+    };
   }
+
+  _getRPCEndpointStatus = memoizee(
+    async (rpcURL: string, networkId: string) => {
+      const vault = await this.getChainOnlyVault(networkId);
+      return vault.getClientEndpointStatus(rpcURL);
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 50,
+      normalizer: (args) => JSON.stringify(args),
+    },
+  );
 
   @backgroundMethod()
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
