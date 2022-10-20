@@ -16,6 +16,7 @@ export const Chains: FC<ChainsProps> = ({ networkIds }) => {
         <Box ml={i > 0 ? -1 : 0} key={item.id}>
           <Image
             size={4}
+            borderRadius="full"
             src={item.logoURI}
             fallbackElement={
               <Center
