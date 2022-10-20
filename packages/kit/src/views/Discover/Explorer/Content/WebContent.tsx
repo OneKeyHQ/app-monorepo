@@ -15,16 +15,15 @@ import { useGotoSite } from '../Controller/useGotoSite';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler, webviewRefs } from '../explorerUtils';
 
-// const aboutBlankUrl = '';
 const aboutBlankUrl = 'about:blank';
 
 const WebContent = React.memo((tab: WebTab) => {
   const { id } = tab;
+  const initialUrl = tab.url;
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
   const [localUrl, setLocalUrl] = useState(
-    aboutBlankUrl,
-    // platformEnv.isDesktop ? 'about:blank' : url,
+    platformEnv.isDesktop ? aboutBlankUrl : initialUrl,
   );
   const onSrcChange = useCallback((src: string) => {
     if (platformEnv.isDesktop) {
@@ -36,7 +35,6 @@ const WebContent = React.memo((tab: WebTab) => {
     }
   }, []);
 
-  const initialUrl = tab.url;
   const isInitUrlLoaded = useRef(false);
   const showHome = useMemo(() => {
     if (id === 'home' && webHandler === 'tabbedWebview') {
