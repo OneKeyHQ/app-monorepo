@@ -55,6 +55,7 @@ const ItemRow: FC<ItemRowProps> = ({
       }}
       showInfo
       showDescription={false}
+      infoBoxProps={{ flex: 1 }}
     />
     <HStack alignItems="center">
       {index > 0 ? (
