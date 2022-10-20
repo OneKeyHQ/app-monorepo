@@ -27,7 +27,6 @@ const Mobile: FC<ExplorerViewProps> = ({
   onMore,
   moreView,
   showExplorerBar,
-  canGoBack,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();

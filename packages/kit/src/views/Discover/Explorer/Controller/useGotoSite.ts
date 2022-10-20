@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { nanoid } from '@reduxjs/toolkit';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,15 +19,9 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import { WebSiteHistory } from '../../type';
-import { validateUrl, webHandler } from '../explorerUtils';
+import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
-export const useGotoSite = ({
-  tab,
-  getInnerRef,
-}: {
-  tab?: WebTab;
-  getInnerRef?: () => IWebViewWrapperRef['innerRef'];
-}) => {
+export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
   const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
   return useCallback(
     ({
@@ -52,7 +45,8 @@ export const useGotoSite = ({
           return openUrl(validatedUrl);
         }
         const { dispatch } = backgroundApiProxy;
-        const isDeepLink = !validatedUrl.startsWith('http');
+        const isDeepLink =
+          !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
         const isNewTab =
           (isNewWindow || tab.id === 'home' || isDeepLink) &&
           webHandler === 'tabbedWebview';
@@ -93,9 +87,10 @@ export const useGotoSite = ({
           tab?.url !== '' &&
           platformEnv.isDesktop
         ) {
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          getInnerRef()?.loadURL(validatedUrl);
+          crossWebviewLoadUrl({
+            url: validatedUrl,
+            tabId,
+          });
         }
 
         // close deep link tab after 1s
@@ -108,6 +103,6 @@ export const useGotoSite = ({
       }
       return false;
     },
-    [tab, dappFavorites, getInnerRef],
+    [tab, dappFavorites],
   );
 };

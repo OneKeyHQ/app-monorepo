@@ -67,7 +67,7 @@ const Explorer: FC = () => {
 
   const onRefresh = useCallback(() => {
     const webviewRef = getWebviewWrapperRef({
-      tabId: currentTab.id,
+      tabId: currentTab?.id,
     });
     // *** use key for refresh may cause multiple-tabbed webview bridge not working at production Desktop
     // refreshKey.current = Date.now().toString();
@@ -75,7 +75,7 @@ const Explorer: FC = () => {
 
     // *** use cross platform reload() method
     webviewRef?.reload();
-  }, [currentTab.id]);
+  }, [currentTab?.id]);
 
   const explorerContent = useMemo(
     () =>
