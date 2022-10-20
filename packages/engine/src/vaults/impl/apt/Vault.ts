@@ -135,7 +135,7 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string) {
-    if (isHexString(address) && stripHexPrefix(address).length !== 64) {
+    if (!isHexString(address) || stripHexPrefix(address).length !== 64) {
       return Promise.reject(new InvalidAddress());
     }
     return Promise.resolve(address);
