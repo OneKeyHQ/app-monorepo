@@ -1,9 +1,8 @@
 import React from 'react';
 
-import { NativeWebView } from '@onekeyfe/onekey-cross-webview';
-
 import { Modal } from '@onekeyhq/components';
 
+import { NativeWebView } from '../../../components/WebView/NativeWebView';
 import { swftcCustomerSupportUrl } from '../config';
 
 const SwapHelpCenter = () => {

@@ -240,6 +240,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
 
     if (scope) {
+      debugLogger.backgroundApi.info('_bridgeReceiveHandler', {
+        scope,
+        origin,
+        method,
+      });
       return this.handleProviderMethods(payload);
     }
 

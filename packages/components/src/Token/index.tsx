@@ -33,6 +33,7 @@ export type TokenProps = {
   nameProps?: ComponentProps<typeof Text>;
   descProps?: ComponentProps<typeof Body2>;
   extraProps?: ComponentProps<typeof Body2>;
+  infoBoxProps?: ComponentProps<typeof Box>;
 
   showInfo?: boolean;
   showName?: boolean;
@@ -203,6 +204,7 @@ const Token: FC<TokenProps> = ({
 
   nameProps,
   descProps,
+  infoBoxProps,
   extraProps: addressProps,
 
   showName = true,
@@ -273,7 +275,7 @@ const Token: FC<TokenProps> = ({
     <Box display="flex" flexDirection="row" alignItems="center" {...boxProps}>
       <TokenIcon size={size} token={token} showNetworkIcon={showNetworkIcon} />
       {showInfo && (
-        <Box display="flex" ml="3" flex="1">
+        <Box display="flex" ml="3" {...infoBoxProps}>
           {nameView}
           {descView}
           {extraView}
