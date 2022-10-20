@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { DialogManager } from '@onekeyhq/components';
@@ -22,7 +21,6 @@ import {
   webviewRefs,
 } from '../explorerUtils';
 
-import { getWebviewWrapperRef } from './getWebviewWrapperRef';
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 
@@ -49,6 +47,7 @@ export const useWebController = ({
   );
   const gotoSite = useGotoSite({
     tab,
+    getInnerRef,
   });
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -138,15 +137,11 @@ export const useWebController = ({
     },
     [curId, dispatch, gotoSite, tab?.url],
   );
-
-  // TODO add webview event listener `did-start-navigation` `dom-ready`
-  //      not working when loading initial url as getInnerRef() is null
   const { goBack, goForward, stopLoading } = useWebviewRef({
     // @ts-expect-error
     ref: getInnerRef(),
     onNavigation,
     navigationStateChangeEvent,
-    tabId: curId,
   });
 
   return {
@@ -156,16 +151,7 @@ export const useWebController = ({
     gotoSite,
     openMatchDApp,
     goBack: () => {
-      const wrapperRef = getWebviewWrapperRef({ tabId: tab.id });
-      let canGoBack = tab?.canGoBack;
-      if (platformEnv.isDesktop && wrapperRef?.innerRef) {
-        const innerRef = wrapperRef?.innerRef as IElectronWebView;
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        canGoBack = innerRef.canGoBack();
-      }
-      // TODO goBack() not working when initial url loaded
-      if (canGoBack) {
+      if (tab?.refReady && tab?.canGoBack) {
         goBack();
       } else {
         dispatch(

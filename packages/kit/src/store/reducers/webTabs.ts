@@ -26,9 +26,12 @@ export interface WebTabsInitialState {
 
 export const homeTab: WebTab = {
   id: 'home',
-  url: '',
+  url: 'about:blank',
   // TODO i18n
   title: 'OneKey',
+
+  canGoBack: false,
+  loading: false,
   isCurrent: true,
 };
 const initialState: WebTabsInitialState = {

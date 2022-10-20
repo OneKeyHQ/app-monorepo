@@ -14,6 +14,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { homeTab } from '../../../../store/reducers/webTabs';
 import { useWebTab } from '../Controller/useWebTabs';
 import { ExplorerViewProps, MatchDAppItemType } from '../explorerUtils';
 
@@ -26,6 +27,7 @@ const Mobile: FC<ExplorerViewProps> = ({
   onMore,
   moreView,
   showExplorerBar,
+  canGoBack,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -65,7 +67,7 @@ const Mobile: FC<ExplorerViewProps> = ({
           flexDirection="row"
           alignItems="center"
         >
-          {!url ? null : (
+          {url === homeTab.url ? null : (
             <IconButton
               onPress={onGoBack}
               name="ChevronLeftOutline"
