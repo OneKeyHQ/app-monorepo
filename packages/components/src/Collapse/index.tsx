@@ -48,11 +48,12 @@ const Collapse = ({
     return (
       <Pressable
         onPress={toggleCollapsed}
+        p="8px"
         borderRadius="12px"
         _hover={{ bgColor: 'surface-hovered' }}
         _pressed={{ bgColor: 'surface-pressed' }}
       >
-        <HStack alignItems="center" {...rest}>
+        <HStack alignItems="center">
           <MotiView
             from={{ rotate: '90deg' }}
             animate={{ rotate: collapsed ? '0deg' : '90deg' }}
@@ -63,12 +64,14 @@ const Collapse = ({
         </HStack>
       </Pressable>
     );
-  }, [trigger, renderCustomTrigger, collapsed, rest, toggleCollapsed]);
+  }, [trigger, renderCustomTrigger, collapsed, toggleCollapsed]);
 
   return (
     <>
-      {triggerView}
-      <Collapsible collapsed={collapsed}>{children}</Collapsible>
+      <Box {...rest}>
+        {triggerView}
+        <Collapsible collapsed={collapsed}>{children}</Collapsible>
+      </Box>
     </>
   );
 };

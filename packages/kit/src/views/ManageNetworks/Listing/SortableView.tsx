@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import {
@@ -23,49 +24,63 @@ type ItemRowProps = {
   index: number;
   total: number;
   network: Network;
+  isActive?: boolean;
   onDrag: () => void;
   onFixTop: () => void;
 };
 
-const ItemRow: FC<ItemRowProps> = ({ index, network, onDrag, onFixTop }) => (
-  <Box
-    flexDirection="row"
-    justifyContent="space-between"
-    alignItems="center"
-    py={2}
-  >
-    <Token
-      size={8}
-      flex={1}
-      token={{
-        logoURI: network.logoURI,
-        name: network.name,
-        symbol: network.name,
-      }}
-      showInfo
-      showDescription={false}
-    />
-    <HStack alignItems="center" space={2}>
-      {index > 0 ? (
+const ItemRow: FC<ItemRowProps> = ({
+  index,
+  network,
+  isActive,
+  onDrag,
+  onFixTop,
+}) => (
+  <MotiView from={{ scale: 1 }} animate={{ scale: isActive ? 1.05 : 1 }}>
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      py={2}
+    >
+      <Token
+        size={8}
+        flex={1}
+        token={{
+          logoURI: network.logoURI,
+          name: network.name,
+          symbol: network.name,
+        }}
+        showInfo
+        showDescription={false}
+      />
+      <HStack alignItems="center" space={2}>
+        {index > 0 ? (
+          <IconButton
+            type="plain"
+            circle
+            name="ArrowUpTopSolid"
+            onPress={onFixTop}
+          />
+        ) : null}
         <IconButton
           type="plain"
           circle
-          name="ArrowUpTopSolid"
-          onPress={onFixTop}
+          name="MenuOutline"
+          onPressIn={() => onDrag()}
         />
-      ) : null}
-      <IconButton
-        type="plain"
-        circle
-        name="MenuOutline"
-        onPressIn={() => onDrag()}
-      />
-    </HStack>
-  </Box>
+      </HStack>
+    </Box>
+  </MotiView>
 );
 
 // eslint-disable-next-line
-type RenderItemProps = { item: Network; index: number; drag: () => void };
+type RenderItemProps = {
+  item: Network;
+  index: number;
+  drag: () => void;
+  isActive: boolean;
+};
 
 export const SortableView: FC = () => {
   const intl = useIntl();
@@ -107,12 +122,13 @@ export const SortableView: FC = () => {
   );
 
   const renderItem = useCallback(
-    ({ item, drag, index }: RenderItemProps) => (
+    ({ item, drag, index, isActive }: RenderItemProps) => (
       <ItemRow
         index={index}
         key={item.id}
         total={list.length}
         network={item}
+        isActive={isActive}
         onDrag={drag}
         onFixTop={() => handleFixTop(item)}
       />

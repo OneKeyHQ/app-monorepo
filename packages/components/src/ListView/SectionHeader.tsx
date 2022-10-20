@@ -30,7 +30,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
                       : undefined
                   }
                 >
-                  <Typography.CaptionStrong color="text-subdued">
+                  <Typography.CaptionStrong color="text-subdued" display="flex">
                     {item.label}
                   </Typography.CaptionStrong>
                 </Box>

@@ -3,12 +3,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
 import {
   Box,
   HStack,
   IconButton,
   Pressable,
+  Skeleton,
   Spinner,
   Text,
   Tooltip,
@@ -105,7 +107,11 @@ function Header({
 
   const rpcStatusElement = useMemo(() => {
     if (!status || loading) {
-      return <Spinner size="sm" />;
+      return (
+        <>
+          <Skeleton shape="Caption" />
+        </>
+      );
     }
     return (
       <>
@@ -137,9 +143,9 @@ function Header({
 
   return (
     <Box pr={3.5}>
-      <Box flexDirection="row" alignItems="center" pt={3.5} pl={4}>
+      <Box flexDirection="row" alignItems="center" pt={2.5} pl={4}>
         <VStack flex={1} mr={3}>
-          <Pressable onPress={toCheckNodePage}>
+          <TouchableOpacity onPress={toCheckNodePage}>
             <Box flexDirection="row" alignItems="center">
               <Text typography="Heading" isTruncated>
                 {selectedNetwork?.name || '-'}
@@ -156,10 +162,10 @@ function Header({
                 </Pressable>
               ) : null}
             </Box>
-            <HStack alignItems="center" position="relative" pb="2">
+            <HStack alignItems="center" position="relative" pb="3">
               {rpcStatusElement}
             </HStack>
-          </Pressable>
+          </TouchableOpacity>
         </VStack>
         <IconButton
           name="CloseSolid"

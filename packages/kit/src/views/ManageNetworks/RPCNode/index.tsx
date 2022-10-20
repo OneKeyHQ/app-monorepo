@@ -101,16 +101,9 @@ export const ManageNetworkRPCNode: FC = () => {
     if (!custom.length) {
       return null;
     }
-    return isEdit ? (
-      intl.formatMessage({ id: 'action__done' })
-    ) : (
-      <HStack alignItems="center">
-        <Icon name="PencilSolid" size={16} />
-        <Typography.CaptionStrong ml="2">
-          {intl.formatMessage({ id: 'action__edit' })}
-        </Typography.CaptionStrong>
-      </HStack>
-    );
+    return isEdit
+      ? intl.formatMessage({ id: 'action__done' })
+      : intl.formatMessage({ id: 'action__edit' });
   }, [custom, isEdit, intl]);
 
   const GroupingListData = useMemo(
@@ -127,7 +120,7 @@ export const ManageNetworkRPCNode: FC = () => {
         },
         footerText: (
           <Center px="2" mt="4">
-            <Button w="full" onPress={showAddNodeDialog}>
+            <Button w="full" size="lg" onPress={showAddNodeDialog}>
               {intl.formatMessage({ id: 'action__add_node' })}
             </Button>
           </Center>
@@ -182,7 +175,7 @@ export const ManageNetworkRPCNode: FC = () => {
                 {intl.formatMessage({ id: 'content__what_is_node_height' })}
               </Typography.Body2Strong>
             }
-            p="8px"
+            pb="16px"
           >
             <Typography.Body2 px="8px" color="text-subdued">
               {intl.formatMessage({
@@ -191,6 +184,7 @@ export const ManageNetworkRPCNode: FC = () => {
             </Typography.Body2>
           </Collapse>
         )}
+        stickySectionHeadersEnabled={false}
         sections={GroupingListData}
         renderItem={({ item }) => {
           const checked = item === network?.rpcURL;

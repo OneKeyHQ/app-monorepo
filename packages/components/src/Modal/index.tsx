@@ -130,17 +130,17 @@ const Modal = ({
   const isVerticalLayout = useIsVerticalLayout();
 
   const bodyPadding = useMemo(() => {
-    if (isVerticalLayout) return '16px';
-    return '24px';
+    if (isVerticalLayout) return 16;
+    return 24;
   }, [isVerticalLayout]);
 
   const modalContent = useMemo(() => {
     let content = (
       <Box
         // eslint-disable-next-line no-nested-ternary
-        pt={headerShown ? (header ? bodyPadding : 0) : bodyPadding}
-        pb={bodyPadding}
-        px={bodyPadding}
+        pt={`${headerShown ? (header ? bodyPadding : 0) : bodyPadding}px`}
+        pb={`${bodyPadding}px`}
+        px={`${bodyPadding}px`}
         flex="1"
       >
         {rest.children}
@@ -155,7 +155,7 @@ const Modal = ({
             // eslint-disable-next-line no-nested-ternary
             paddingTop: headerShown ? (header ? bodyPadding : 0) : bodyPadding,
           }}
-          px={bodyPadding}
+          px={`${bodyPadding}px`}
           {...sectionListProps}
         />
       );
@@ -168,7 +168,7 @@ const Modal = ({
             // eslint-disable-next-line no-nested-ternary
             paddingTop: headerShown ? (header ? bodyPadding : 0) : bodyPadding,
           }}
-          px={bodyPadding}
+          px={`${bodyPadding}px`}
           {...flatListProps}
         />
       );
@@ -177,7 +177,7 @@ const Modal = ({
         <ScrollView
           testID="Modal-ScrollView-Container"
           keyboardShouldPersistTaps="handled"
-          px={bodyPadding}
+          px={`${bodyPadding}px`}
           {...scrollViewProps}
           contentContainerStyle={{
             paddingBottom: bodyPadding,
