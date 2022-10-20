@@ -1,9 +1,6 @@
-import { useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { ListRenderItem } from 'react-native';
-
-import { FlatList, Pressable, Typography } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box, ToggleButtonGroup } from '@onekeyhq/components';
 
 import { useCategories } from '../../hooks';
 import { DiscoverContext } from '../context';
@@ -19,36 +16,34 @@ export const DAppCategories = () => {
     return [{ name: 'Mine', _id: '' }].concat(categories);
   }, [categories]);
 
-  const renderItem: ListRenderItem<{ name: string; _id: string }> = ({
-    item,
-  }) => (
-    <Pressable
-      py="2"
-      px="3"
-      bg={categoryId === item._id ? 'surface-selected' : undefined}
-      onPress={() => setCategoryId(item._id)}
-      borderRadius={12}
-    >
-      <Typography.Body2
-        color={categoryId === item._id ? 'text-default' : 'text-subdued'}
-      >
-        {item.name}
-      </Typography.Body2>
-    </Pressable>
+  const [selectedIndex, setSelectedIndex] = useState(() =>
+    data.findIndex((item) => item._id === categoryId),
   );
+
+  const onButtonPress = useCallback(
+    (index: number) => {
+      const id = data[index]._id;
+      setCategoryId(id);
+      setSelectedIndex(index);
+    },
+    [data, setCategoryId],
+  );
+
+  const buttons = useMemo(
+    () => data.map((item) => ({ text: item.name }), []),
+    [data],
+  );
+
   if (!data.length) {
     return null;
   }
   return (
-    <FlatList
-      horizontal
-      data={data}
-      renderItem={renderItem}
-      showsHorizontalScrollIndicator={platformEnv.isDesktop}
-      keyExtractor={(item) => item._id}
-      contentContainerStyle={{
-        paddingHorizontal: 16,
-      }}
-    />
+    <Box px="8">
+      <ToggleButtonGroup
+        buttons={buttons}
+        selectedIndex={selectedIndex}
+        onButtonPress={onButtonPress}
+      />
+    </Box>
   );
 };
