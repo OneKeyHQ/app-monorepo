@@ -1,7 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgEye = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+  <Svg
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -16,5 +21,4 @@ const SvgEye = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgEye;

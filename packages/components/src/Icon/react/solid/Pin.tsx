@@ -1,7 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgPin = (props: SvgProps) => (
-  <Svg viewBox="0 0 16 16" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 16 16"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
@@ -10,5 +14,4 @@ const SvgPin = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgPin;

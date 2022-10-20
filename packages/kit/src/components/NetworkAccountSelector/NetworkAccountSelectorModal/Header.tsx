@@ -3,12 +3,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
 import {
   Box,
   HStack,
   IconButton,
   Pressable,
+  Skeleton,
   Spinner,
   Text,
   Tooltip,
@@ -105,7 +107,11 @@ function Header({
 
   const rpcStatusElement = useMemo(() => {
     if (!status || loading) {
-      return <Spinner size="sm" />;
+      return (
+        <>
+          <Skeleton shape="Caption" />
+        </>
+      );
     }
     return (
       <>
@@ -122,44 +128,45 @@ function Header({
           })}
           bg="interactive-default"
           _text={{ color: 'text-on-primary', fontSize: '14px' }}
-          px="4"
-          py="2"
+          px="16px"
+          py="8px"
+          borderRadius="12px"
         >
           <Box>
-            <Pressable onPress={toCheckNodePage}>
-              <Text typography="Caption" isTruncated color={status.textColor}>
-                {intl.formatMessage({ id: status.text })}
-              </Text>
-            </Pressable>
+            <Text typography="Caption" isTruncated color={status.textColor}>
+              {intl.formatMessage({ id: status.text })}
+            </Text>
           </Box>
         </Tooltip>
       </>
     );
-  }, [status, intl, isOpen, toCheckNodePage, loading]);
+  }, [status, intl, isOpen, loading]);
 
   return (
     <Box pr={3.5}>
-      <Box flexDirection="row" alignItems="center" pt={3.5} pl={4}>
+      <Box flexDirection="row" alignItems="center" pt={2.5} pl={4}>
         <VStack flex={1} mr={3}>
-          <Box flexDirection="row" alignItems="center">
-            <Text typography="Heading" isTruncated>
-              {selectedNetwork?.name || '-'}
-            </Text>
+          <TouchableOpacity onPress={toCheckNodePage}>
+            <Box flexDirection="row" alignItems="center">
+              <Text typography="Heading" isTruncated>
+                {selectedNetwork?.name || '-'}
+              </Text>
 
-            {isLoading ? (
-              <Pressable
-                ml={2}
-                onPress={() => {
-                  dispatch(updateIsLoading(false));
-                }}
-              >
-                <Spinner size="sm" />
-              </Pressable>
-            ) : null}
-          </Box>
-          <HStack alignItems="center" position="relative" pb="2">
-            {rpcStatusElement}
-          </HStack>
+              {isLoading ? (
+                <Pressable
+                  ml={2}
+                  onPress={() => {
+                    dispatch(updateIsLoading(false));
+                  }}
+                >
+                  <Spinner size="sm" />
+                </Pressable>
+              ) : null}
+            </Box>
+            <HStack alignItems="center" position="relative" pb="3">
+              {rpcStatusElement}
+            </HStack>
+          </TouchableOpacity>
         </VStack>
         <IconButton
           name="CloseSolid"

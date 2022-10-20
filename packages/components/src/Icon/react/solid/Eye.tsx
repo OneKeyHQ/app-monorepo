@@ -1,7 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgEye = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
     <Path
       fillRule="evenodd"
@@ -10,5 +14,4 @@ const SvgEye = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgEye;

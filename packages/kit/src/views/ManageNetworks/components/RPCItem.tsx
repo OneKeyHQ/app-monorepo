@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 
+import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Divider,
   HStack,
   Icon,
@@ -56,7 +58,7 @@ export const RPCItem = ({
       return null;
     }
     return (
-      <Typography.Caption>
+      <Typography.Caption color="text-subdued">
         {intl.formatMessage({ id: 'content__height' })}: {latestBlock}
       </Typography.Caption>
     );
@@ -64,18 +66,31 @@ export const RPCItem = ({
 
   const actionIcon = useMemo(() => {
     if (checked) {
-      return <Icon name="CheckSolid" size={20} color="interactive-default" />;
+      return (
+        <Box p="8px">
+          <Icon name="CheckSolid" size={20} color="interactive-default" />
+        </Box>
+      );
     }
     if (!isEdit || !canEdit) {
       return null;
     }
     return (
-      <IconButton
-        name="TrashSolid"
-        type="plain"
-        circle
-        onPress={() => onRemove(url)}
-      />
+      <AnimatePresence>
+        <MotiView
+          from={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0 }}
+          transition={{ type: 'timing', duration: 150 }}
+        >
+          <IconButton
+            name="TrashSolid"
+            type="plain"
+            circle
+            onPress={() => onRemove(url)}
+          />
+        </MotiView>
+      </AnimatePresence>
     );
   }, [checked, isEdit, canEdit, onRemove, url]);
 

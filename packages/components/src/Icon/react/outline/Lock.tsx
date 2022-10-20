@@ -1,7 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgLock = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="none" {...props}>
+  <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
     <Path
       d="M14.932 11.313H9.068c-.59 0-1.068.478-1.068 1.068v3.306c0 .59.478 1.068 1.068 1.068h5.864c.59 0 1.068-.478 1.068-1.068v-3.306c0-.59-.478-1.068-1.068-1.068ZM10 11.047V8.449a2.006 2.006 0 0 1 2-2 2.006 2.006 0 0 1 2 2v2.598"
       stroke="#8C8CA1"
@@ -18,5 +17,4 @@ const SvgLock = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgLock;

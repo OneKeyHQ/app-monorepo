@@ -1,7 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgWallet = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       d="M11.5 13a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1"
       strokeWidth={2}
@@ -16,5 +21,4 @@ const SvgWallet = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgWallet;

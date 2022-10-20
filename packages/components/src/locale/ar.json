@@ -266,6 +266,7 @@
   "content__allow_this_website_to_read_decrypted_messages_to_complete_your_action": "اسمح لموقع الويب هذا بقراءة الرسائل التي تم فك تشفيرها لإكمال عملك.",
   "content__allow_this_website_to_uppercase": "السماح لهذا الموقع:",
   "content__amount": "مقدار",
+  "content__amount_str": "المبلغ ( {0} )",
   "content__app_wallet_desc": "أضف محفظتك الصغيرة المعتادة.",
   "content__approving_will_redirect_to": "ستؤدي الموافقة إلى إعادة التوجيه إلى:",
   "content__asset": "أصل",
@@ -331,7 +332,11 @@
   "content__face_id_touch_id_can_be_used_instead_of": "يمكن استخدام Face ID / Touch ID بدلاً من إدخال كلمة مرور ، مما يجعلها أسرع وأكثر ملاءمة.",
   "content__fast": "سريع",
   "content__fee": "مصاريف",
+  "content__firmware_check_latest_resource": "التحقق من موارد النظام",
+  "content__firmware_download_resource": "تنزيل موارد النظام",
   "content__firmware_lowercase": "البرامج الثابتة للجهاز",
+  "content__firmware_starting_upgrade_mode": "يتم تنشيط وضع التحديث.",
+  "content__firmware_upload_resource": "يتم تحديث المورد ، من فضلك لا تقم بتشغيل الجهاز.",
   "content__firmware_version": "نسخة برنامج ثابت",
   "content__follow_instructions": "اتبع التعليمات",
   "content__follow_instructions_desc": "عد إلى هنا لاتباع التعليمات بعد إنشاء المحفظة بنجاح.",
@@ -576,10 +581,13 @@
   "empty__no_wallet_title": "لا توجد محفظة",
   "empty__not_supported": "غير مدعوم",
   "empty__not_supported_desc": "هذه الشبكة لا تدعم NFT حتى الآن",
+  "form__24h%_uppercase": "24 ساعة",
   "form__24h_high": "24 ساعة عالية",
   "form__24h_low": "24 ساعة منخفضة",
   "form__24h_volume": "حجم 24H",
   "form__24h_volume_uppercase": "حجم 24 ساعة",
+  "form__7d_high": "7d عالية",
+  "form__7d_low": "7d منخفض",
   "form___7d_volume": "حجم 7D",
   "form__about_uppercase": "حول",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
@@ -608,6 +616,8 @@
   "form__address_unspoorted_btc_address": "استيراد عناوين BTC غير مدعوم حاليًا",
   "form__alert_uppercase": "إنذار",
   "form__alerts_uppercase": "التنبيهات",
+  "form__all_time_high": "عالية على الإطلاق",
+  "form__all_time_low": "منخفض طوال الوقت",
   "form__allow_this_site_to_uppercase": "السماح لهذا الموقع بـ:",
   "form__always": "دائماً",
   "form__amount_invalid": "رصيد {0} غير كافٍ",
@@ -671,6 +681,7 @@
   "form__exact_amount_allowance_desc": "احذر من إعطاء الكثير من البدل لأي عقد. قد يؤدي استخدام وضع المبلغ المحدد إلى تقليل المخاطر بشكل كبير. يمكنك تبديله في أي وقت.",
   "form__expand_view": "قم بتوسيع العرض",
   "form__explorer": "إكسبلورر",
+  "form__explorers": "المستكشفون",
   "form__face_id": "معرف الوجه / معرف اللمس",
   "form__favorite_desc": "تقلبات كبيرة في أسعار الأصول المفضلة لديك",
   "form__fee_estimated": "الرسوم (تقديرية)",
@@ -720,6 +731,8 @@
   "form__manage": "يدير",
   "form__manage_threshold": "إدارة العتبة",
   "form__market_cap": "القيمة السوقية",
+  "form__market_cap_dominance": "هيمنة القيمة السوقية",
+  "form__market_cap_rank": "تصنيف القيمة السوقية",
   "form__market_cap_uppercase": "غطاء السوق",
   "form__market_uppercase": "سوق",
   "form__massage_uppercase": "رسالة",
@@ -761,6 +774,7 @@
   "form__password_invalid": "كلمة سر خاطئة.",
   "form__pay": "يدفع",
   "form__payment_address": "عنوان الدفع",
+  "form__performance": "أداء",
   "form__pin_error": "خطأ في رمز PIN. سيتم مسح بيانات هذا الجهاز بعد {0} المزيد من محاولات PIN الفاشلة.",
   "form__please_confirm_on_device": "الرجاء التأكيد على الجهاز ...",
   "form__price_alert": "تنبيه السعر",
@@ -819,7 +833,9 @@
   "form__start_with_wc_or_https_placeholder": "ابدأ بـ \"wc:\" أو \"https: //\"",
   "form__str_accounts": "{count} حسابات",
   "form__str_chain_uppercase": "سلسلة {0}",
+  "form__str_d": "{0} د",
   "form__str_day": "{0} أيام",
+  "form__str_h": "{0} ح",
   "form__str_hour": "{0} ساعات",
   "form__str_hours": "{0} ساعة",
   "form__str_hours_after_the_validator_is_made": "{0} ساعات بعد إجراء المدقق",
@@ -831,6 +847,7 @@
   "form__str_minute": "{0} دقيقة",
   "form__str_of_the_rewards": "{0} من المكافآت",
   "form__str_used": "{0} مستخدمة",
+  "form__str_y": "{0} ص",
   "form__submit_a_request": "تقديم طلب",
   "form__supports_multi_send_nfts_on_network_name": "يدعم الإرسال المتعدد NFTs على {network_name}",
   "form__swap_failed": "فشل المبادلة",
@@ -844,10 +861,12 @@
   "form__theme": "سمة",
   "form__third_party_provider": "مزود الطرف الثالث",
   "form__token_symbol": "رمز الرمز",
+  "form__tools": "أدوات",
   "form__top_50_tokens": "أفضل 50 توكينز",
   "form__top_searched": "الأكثر بحثا",
   "form__total_amount_fee": "الإجمالي (المبلغ + الرسوم)",
   "form__trading_time": "وقت التداول",
+  "form__trading_volume": "حجم التداول",
   "form__unconnected_account": "حساب غير متصل",
   "form__unconnected_account_desc": "عند تصفح موقع ويب مع تحديد حساب غير متصل",
   "form__unknown_tokens__uppercase": "رموز غير معروفة",
@@ -1073,10 +1092,12 @@
   "msg__hardware_device_need_restart": "فشل الاتصال بالأجهزة ، يرجى إعادة تشغيل الجهاز والمحاولة مرة أخرى",
   "msg__hardware_device_not_find_error": "لم يتم العثور على الأجهزة.",
   "msg__hardware_device_passphrase_state_error": "عبارة المرور لا تتطابق مع المحفظة الحالية ، يرجى المحاولة مرة أخرى.",
+  "msg__hardware_enter_boot_failure": "فشل بدء وضع التحديث.",
   "msg__hardware_failed_to_search_devices": "فشل البحث عن الأجهزة",
   "msg__hardware_firmware_download_error": "فشل تنزيل البرنامج الثابت",
   "msg__hardware_init_iframe_load_error": "فشلت تهيئة الأجهزة SDK ، يرجى إعادة تشغيل التطبيق والمحاولة مرة أخرى.",
   "msg__hardware_invalid_pin_error": "رقم التعريف الشخصي الذي تم إدخاله غير صالح",
+  "msg__hardware_manually_enter_boot": "تحتاج إلى إدخال التمهيد يدويًا.",
   "msg__hardware_not_opened_passphrase": "يرجى تشغيل عبارة المرور على جهازك لاستخدام المحفظة المخفية",
   "msg__hardware_not_same": "الجهاز غير متطابق ، يرجى توصيل الجهاز الصحيح",
   "msg__hardware_not_support": "هذه الطريقة بها مخاطر أمنية ، الأجهزة غير مدعومة حاليًا.",
@@ -1208,6 +1229,8 @@
   "title__address_book": "دليل العناوين",
   "title__all_nfts": "جميع NFTs",
   "title__all_tokens": "كل الرموز",
+  "title__allowance_checker": "أذونات العقد",
+  "title__allowance_checker_desc": "حماية الأصول الخاصة بك عن طريق إدارة أذونات العقد.",
   "title__app_update": "تحديث التطبيق",
   "title__approve": "يوافق",
   "title__approved": "وافق",
@@ -1268,6 +1291,7 @@
   "title__news": "أخبار",
   "title__nfc_data_has_been_read": "الانتعاش جاهز",
   "title__nfc_data_has_been_read_desc": "أدخل كلمة مرور التطبيق لإكمال استعادة المحفظة",
+  "title__nft": "NFT",
   "title__no_alert": "لا تنبيه",
   "title__no_alert_desc": "أضف تنبيهًا بالسعر ليتم إعلامك عندما يصل {0} إلى السعر المستهدف",
   "title__no_cantact": "لا اتصال",
@@ -1304,6 +1328,7 @@
   "title__recovery_phrase": "عبارة الاسترداد",
   "title__recovery_phrase_desc": "اقرأ ما يلي ، ثم احفظ العبارة بشكل آمن.",
   "title__request_details": "طلب تفاصيل",
+  "title__revoke": "Revoke",
   "title__scan_qr_code": "مسح رمز الاستجابة السريعة",
   "title__search_results": "نتائج البحث",
   "title__searching": "يبحث...",

@@ -47,6 +47,7 @@ function List<T>({
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
+      showsVerticalScrollIndicator={false}
       m={-2}
       {...rest}
     />
@@ -104,6 +105,7 @@ function GroupingList<T>({
         actions={section?.headerProps?.actions}
         // @ts-expect-error
         mt={section.__index !== 0 ? '16px' : 0}
+        {...section?.headerProps}
       />
     ),
     [],
@@ -128,6 +130,7 @@ function GroupingList<T>({
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
+      showsVerticalScrollIndicator={false}
       m={-2}
       sections={indexedSections}
       {...rest}

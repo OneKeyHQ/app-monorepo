@@ -86,7 +86,7 @@ export const Listing: FC = () => {
         type: 'primary',
         w: isSmallScreen ? 'full' : undefined,
       }}
-      primaryActionTranslationId="action__add_custom_chain"
+      primaryActionTranslationId="action__add_network"
       onPrimaryActionPress={() => onPress()}
     >
       <Searchbar

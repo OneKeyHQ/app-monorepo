@@ -1,11 +1,11 @@
 import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Divider,
   HStack,
   IconButton,
   Modal,
@@ -24,62 +24,64 @@ type ItemRowProps = {
   index: number;
   total: number;
   network: Network;
+  isActive?: boolean;
   onDrag: () => void;
   onFixTop: () => void;
 };
 
 const ItemRow: FC<ItemRowProps> = ({
   index,
-  total,
   network,
+  isActive,
   onDrag,
   onFixTop,
 }) => (
-  <Box
-    bg="surface-default"
-    display="flex"
-    flexDirection="row"
-    justifyContent="space-between"
-    alignItems="center"
-    p="4"
-    borderTopRadius={index === 0 ? '12' : 0}
-    borderBottomRadius={total - 1 === index ? '12' : 0}
-  >
-    <Token
-      size={8}
-      flex={1}
-      token={{
-        logoURI: network.logoURI,
-        name: network.name,
-        symbol: network.name,
-      }}
-      showInfo
-      showDescription={false}
-      infoBoxProps={{ flex: 1 }}
-    />
-    <HStack alignItems="center">
-      {index > 0 ? (
-        <IconButton
-          mr="2"
-          type="plain"
-          name="ArrowUpOutline"
-          iconSize={16}
-          onPress={onFixTop}
-        />
-      ) : null}
-      <IconButton
-        mr="2"
-        type="plain"
-        name="MenuOutline"
-        iconSize={16}
-        onPressIn={() => onDrag()}
+  <MotiView from={{ scale: 1 }} animate={{ scale: isActive ? 1.05 : 1 }}>
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      py={2}
+    >
+      <Token
+        size={8}
+        flex={1}
+        token={{
+          logoURI: network.logoURI,
+          name: network.name,
+          symbol: network.name,
+        }}
+        showInfo
+        showDescription={false}
+        infoBoxProps={{ flex: 1 }}
       />
-    </HStack>
-  </Box>
+      <HStack alignItems="center" space={2}>
+        {index > 0 ? (
+          <IconButton
+            type="plain"
+            circle
+            name="ArrowUpTopSolid"
+            onPress={onFixTop}
+          />
+        ) : null}
+        <IconButton
+          type="plain"
+          circle
+          name="MenuOutline"
+          onPressIn={() => onDrag()}
+        />
+      </HStack>
+    </Box>
+  </MotiView>
 );
 
 // eslint-disable-next-line
-type RenderItemProps = { item: Network; index: number; drag: () => void };
+type RenderItemProps = {
+  item: Network;
+  index: number;
+  drag: () => void;
+  isActive: boolean;
+};
 
 export const SortableView: FC = () => {
   const intl = useIntl();
@@ -121,12 +123,13 @@ export const SortableView: FC = () => {
   );
 
   const renderItem = useCallback(
-    ({ item, drag, index }: RenderItemProps) => (
+    ({ item, drag, index, isActive }: RenderItemProps) => (
       <ItemRow
         index={index}
         key={item.id}
         total={list.length}
         network={item}
+        isActive={isActive}
         onDrag={drag}
         onFixTop={() => handleFixTop(item)}
       />
@@ -197,7 +200,7 @@ export const SortableView: FC = () => {
           onPromise,
           w: isSmallScreen ? 'full' : undefined,
         }}
-        secondaryActionTranslationId="action__done"
+        secondaryActionTranslationId="action__save"
         sortableListProps={{
           showsVerticalScrollIndicator: false,
           ref,
@@ -207,12 +210,9 @@ export const SortableView: FC = () => {
           renderItem,
           // eslint-disable-next-line
           onDragEnd: ({ data }: any) => setList(data),
-          ItemSeparatorComponent: () => <Divider />,
           contentContainerStyle: {
-            paddingBottom: 24,
-            paddingTop: 24,
-            paddingLeft: 24,
-            paddingRight: 24,
+            paddingHorizontal: isSmallScreen ? 16 : 24,
+            paddingVertical: isSmallScreen ? 8 : 16,
           },
         }}
       />

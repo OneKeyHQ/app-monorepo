@@ -1,7 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgScan = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
@@ -10,5 +14,4 @@ const SvgScan = (props: SvgProps) => (
     <Path d="M7 10a1 1 0 0 1 1-1h4a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1Z" />
   </Svg>
 );
-
 export default SvgScan;

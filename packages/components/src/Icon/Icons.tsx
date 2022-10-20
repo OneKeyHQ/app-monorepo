@@ -292,6 +292,7 @@ import ArrowSmLeftSolid from "./react/solid/ArrowSmLeft";
 import ArrowSmRightSolid from "./react/solid/ArrowSmRight";
 import ArrowSmUpSolid from "./react/solid/ArrowSmUp";
 import ArrowUpSolid from "./react/solid/ArrowUp";
+import ArrowUpTopSolid from "./react/solid/ArrowUpTop";
 import ArrowsExpandSolid from "./react/solid/ArrowsExpand";
 import AtSymbolSolid from "./react/solid/AtSymbol";
 import BackspaceSolid from "./react/solid/Backspace";
@@ -820,6 +821,7 @@ const icons = {
   ArrowSmRightSolid,
   ArrowSmUpSolid,
   ArrowUpSolid,
+  ArrowUpTopSolid,
   ArrowsExpandSolid,
   AtSymbolSolid,
   BackspaceSolid,
