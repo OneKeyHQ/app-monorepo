@@ -76,7 +76,7 @@ const MarketSearch: FC<{
           <MarketSearchList
             onPress={onTokenPress}
             data={
-              !c.coingeckoIds || c.coingeckoIds.length === 0
+              !c.coingeckoIds?.length
                 ? MARKET_FAKE_SKELETON_LIST_ARRAY
                 : c.coingeckoIds
             }

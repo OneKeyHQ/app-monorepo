@@ -44,9 +44,7 @@ const MarketDetailActionButton = ({
     }
   }, [navigation]);
   const isDisabledSwap = useMemo(
-    () =>
-      !marketTokenItem.tokens ||
-      (marketTokenItem.tokens && marketTokenItem.tokens.length === 0),
+    () => !marketTokenItem.tokens?.length,
     [marketTokenItem],
   );
   return (

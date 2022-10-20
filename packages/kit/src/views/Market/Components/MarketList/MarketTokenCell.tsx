@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,7 @@ import {
   Skeleton,
   Typography,
   useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components/src';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -51,7 +52,7 @@ const MarketTokenSwapEnable = ({ tokens }: { tokens?: Token[] }) => {
     return (
       <Button
         borderRadius={12}
-        isDisabled={tokens.length === 0}
+        isDisabled={!tokens.length}
         type="basic"
         size="xs"
         onPress={() => {
@@ -73,6 +74,8 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   onLongPress,
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
+  const { size } = useUserDevice();
+  const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
   });
@@ -182,8 +185,8 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       <Skeleton shape="Body2" />
                     )}
                     {marketTokenItem && marketTokenItem.totalVolume ? (
-                      <Typography.Body2 noOfLines={1} color="text-subdued">
-                        {tag.isVerticalLayout
+                      <Typography.Body2 numberOfLines={1} color="text-subdued">
+                        {isVerticalLayout || isNormalDevice
                           ? `Vol$${formatMarketValueForInfo(
                               marketTokenItem.totalVolume,
                             )}`
@@ -202,7 +205,11 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column
                 key={tag.id}
                 text={{
-                  label: `$${formatMarketValueForComma(marketTokenItem.price)}`,
+                  label: `$${
+                    marketTokenItem.price < 1
+                      ? formatMarketValueForInfo(marketTokenItem.price)
+                      : formatMarketValueForComma(marketTokenItem.price)
+                  }`,
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}

@@ -1,7 +1,6 @@
-import React, { FC, useCallback, useRef, useState } from 'react';
+import React, { FC, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 import {
   ListRenderItem,
   NativeScrollEvent,
@@ -16,7 +15,10 @@ import {
   IconButton,
   ScrollView,
 } from '@onekeyhq/components/src';
-import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+import {
+  useIsVerticalLayout,
+  useUserDevice,
+} from '@onekeyhq/components/src/Provider/hooks';
 
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import {
@@ -42,15 +44,22 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketList: FC = () => {
-  const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const { size } = useUserDevice();
+  const isNormal = useMemo(() => ['NORMAL'].includes(size), [size]);
   const categorys: MarketCategory[] = useMarketCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
   const favoriteTokens = useMarketFavoriteCategoryTokenIds();
   const { selectedCategory } = useMarketList();
-  const listHeadTags = isVerticalLayout
-    ? ListHeadTags.filter((t) => t.isVerticalLayout)
-    : ListHeadTags;
+  const listHeadTags = useMemo(() => {
+    if (isNormal) {
+      return ListHeadTags.filter((t) => t.showNorMalDevice);
+    }
+    if (isVerticalLayout) {
+      return ListHeadTags.filter((t) => t.showVerticalLayout);
+    }
+    return ListHeadTags;
+  }, [isNormal, isVerticalLayout]);
   const navigation = useNavigation<NavigationProps>();
   const scrollRef = useRef<ScrollViewType>(null);
   const renderItem: ListRenderItem<string> = useCallback(
@@ -91,15 +100,13 @@ const MarketList: FC = () => {
         <MarketCategoryToggles categorys={categorys} />
         {selectedCategory &&
         selectedCategory.categoryId === MARKET_FAVORITES_CATEGORYID &&
-        favoriteTokens.length === 0 &&
+        !favoriteTokens.length &&
         recommendedTokens.length > 0 ? (
           <MarketRecomment tokens={recommendedTokens} />
         ) : (
           <FlatList
             data={
-              !selectedCategory ||
-              !selectedCategory.coingeckoIds ||
-              selectedCategory.coingeckoIds.length === 0
+              !selectedCategory || !selectedCategory.coingeckoIds?.length
                 ? MARKET_FAKE_SKELETON_LIST_ARRAY
                 : selectedCategory.coingeckoIds
             }

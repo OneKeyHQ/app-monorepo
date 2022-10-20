@@ -1,6 +1,12 @@
 import React from 'react';
 
-import { Box, CheckBox, Image, Typography } from '@onekeyhq/components/src';
+import {
+  Box,
+  CheckBox,
+  Image,
+  Typography,
+  useIsVerticalLayout,
+} from '@onekeyhq/components/src';
 
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 
@@ -19,7 +25,8 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
   coingeckoId,
   index,
 }) => {
-  const boxStyle = useGridBoxStyle({ index, outPadding: 32 });
+  const isVertical = useIsVerticalLayout();
+  const boxStyle = useGridBoxStyle({ index, outPadding: isVertical ? 32 : 48 });
   return (
     <Box
       height="64px"
@@ -40,7 +47,7 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
           </Typography.Body2Strong>
         </Box>
       </Box>
-      <CheckBox mr="1" value={coingeckoId} />
+      <CheckBox value={coingeckoId} />
     </Box>
   );
 };

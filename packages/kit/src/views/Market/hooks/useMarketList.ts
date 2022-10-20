@@ -37,8 +37,7 @@ export const useMarketList = ({
   const checkFavoritesFetch = useMemo(() => {
     if (
       selectedCategory?.categoryId === MARKET_FAVORITES_CATEGORYID &&
-      (!selectedCategory.coingeckoIds ||
-        selectedCategory.coingeckoIds.length === 0)
+      !selectedCategory.coingeckoIds?.length
     ) {
       return false;
     }

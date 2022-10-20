@@ -83,7 +83,7 @@ const SwapButton = ({
   <Box>
     <IconButton
       ml={4}
-      isDisabled={tokenItem.tokens && tokenItem.tokens.length === 0}
+      isDisabled={!tokenItem.tokens?.length}
       type="basic"
       name="SwitchHorizontalSolid"
       size="base"
@@ -103,7 +103,7 @@ const StakeButton = ({
 }) => (
   <Box>
     <IconButton
-      isDisabled={tokenItem.tokens && tokenItem.tokens.length === 0}
+      isDisabled={!tokenItem.tokens?.length}
       ml={4}
       type="basic"
       name="SaveSolid"
