@@ -107,10 +107,10 @@ const DesktopModal = ({
     <Box
       testID="DesktopModalWrapper"
       position="absolute"
-      top="-1000px"
-      left="-1000px"
-      right="-1000px"
-      bottom="-1000px"
+      top="0px"
+      left="0px"
+      right="0px"
+      bottom="0px"
       justifyContent="center"
       alignItems="center"
     >
