@@ -2,28 +2,16 @@ import React, { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Icon,
-  Pressable,
-  Switch,
-  Typography,
-  utils,
-} from '@onekeyhq/components';
+import { Box, Icon, Pressable, Switch, Typography } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../store/reducers/settings';
-import { setRecipient } from '../../store/reducers/swap';
 
 import SwappingVia from './components/SwappingVia';
 import TransactionRate from './components/TransactionRate';
-import {
-  useSwapQuoteCallback,
-  useSwapRecipient,
-  useSwapState,
-} from './hooks/useSwap';
+import { useSwapState } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
 import { isNoCharge } from './utils';
 
@@ -89,72 +77,6 @@ const SwapExactAmoutAllowance = () => {
   );
 };
 
-const SwapReceiving = () => {
-  const intl = useIntl();
-  const navigation = useNavigation();
-  const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
-  const recipient = useSwapRecipient();
-  const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
-  const onPress = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Swap,
-      params: {
-        screen: SwapRoutes.PickRecipient,
-        params: {
-          networkId: outputTokenNetwork?.id,
-          onSelected: ({ address: selectedAddress, name: selectedName }) => {
-            backgroundApiProxy.dispatch(
-              setRecipient({
-                address: selectedAddress,
-                name: selectedName,
-                networkId: outputTokenNetwork?.id,
-                networkImpl: outputTokenNetwork?.impl,
-              }),
-            );
-            onSwapQuote();
-          },
-        },
-      },
-    });
-  }, [
-    navigation,
-    outputTokenNetwork?.id,
-    outputTokenNetwork?.impl,
-    onSwapQuote,
-  ]);
-
-  let text = '';
-  const { address, name } = recipient ?? {};
-  if (address && name) {
-    text = `${name}(${address.slice(-4)})`;
-  } else if (address) {
-    text = `${utils.shortenAddress(address)}`;
-  }
-
-  if (address) {
-    return (
-      <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
-        <Typography.Caption color="text-subdued" mr="1" numberOfLines={1}>
-          {text}
-        </Typography.Caption>
-        <Icon size={16} name="PencilAltOutline" />
-      </Pressable>
-    );
-  }
-  return (
-    <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
-      <Typography.Caption
-        color="action-critical-default"
-        mr="1"
-        numberOfLines={1}
-      >
-        {intl.formatMessage({ id: 'content__set_receiving_address' })}
-      </Typography.Caption>
-      <Icon size={16} name="PencilAltOutline" color="action-critical-default" />
-    </Pressable>
-  );
-};
-
 const SwapQuote = () => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -179,22 +101,6 @@ const SwapQuote = () => {
   return (
     <Box>
       {quote.needApproved ? <SwapExactAmoutAllowance /> : null}
-      <Box
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        mb="4"
-      >
-        <Typography.Caption color="text-disabled" mr="2">
-          {intl.formatMessage({ id: 'form__receiving_address' })}
-        </Typography.Caption>
-        <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <Box maxW="full">
-            <SwapReceiving />
-          </Box>
-        </Box>
-      </Box>
       <Box
         display="flex"
         flexDirection="row"
