@@ -20,8 +20,8 @@ import { useNotifyChanges } from './Controller/useNotifyChanges';
 import { useWebController } from './Controller/useWebController';
 import {
   MatchDAppItemType,
-  webHandler,
   getWebviewWrapperRef,
+  webHandler,
 } from './explorerUtils';
 import MoreView from './MoreMenu';
 
