@@ -104,7 +104,7 @@ const MoreView: FC<MoreViewProps> = ({
             id: 'action__add_to_favorites',
           }),
       value: currentTab?.isBookmarked ? 'unfavorites' : 'favorites',
-      iconProps: { name: 'StarSolid' },
+      iconProps: { name: 'StarOutline' },
     },
     {
       label: intl.formatMessage({
