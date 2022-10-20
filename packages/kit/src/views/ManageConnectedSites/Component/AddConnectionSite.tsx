@@ -9,6 +9,7 @@ import walletConnectUtils from '../../../components/WalletConnect/utils/walletCo
 import { useActiveWalletAccount } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import { AddConnectionSideDialogProps } from '../types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
   closeOverlay,
@@ -52,7 +53,11 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
                     },
                   );
                 if (!existsAccounts?.length) {
-                  backgroundApiProxy.serviceDapp.openConnectionModal({
+                  // Android platform  no await big probability ANR , but closeOverlay() + await still so ,so Android platform no fire closeOverlay
+                  if (!platformEnv.isNativeAndroid) {
+                    closeOverlay();
+                  }
+                  await backgroundApiProxy.serviceDapp.openConnectionModal({
                     origin,
                   });
                 } else {
@@ -92,7 +97,8 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
               ) : null
             }
             autoFocus
-            width="full"
+            w="full"
+            mt="2"
             type="text"
             placeholder={intl.formatMessage({
               id: 'form__start_with_wc_or_https_placeholder',
