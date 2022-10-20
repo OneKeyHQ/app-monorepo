@@ -229,8 +229,9 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   return (
     <>
       <Modal
-        header={intl.formatMessage({ id: 'action__add_custom_chain' })}
+        header={intl.formatMessage({ id: 'action__add_network' })}
         hidePrimaryAction
+        maxHeight="560px"
         secondaryActionTranslationId="action__save"
         secondaryActionProps={{
           type: 'primary',
