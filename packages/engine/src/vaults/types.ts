@@ -88,6 +88,7 @@ export type ISwapInfo = {
   receive: ISwapInfoSide;
 
   accountAddress: string;
+  receivingAddress?: string;
   slippagePercentage: string;
   independentField: 'INPUT' | 'OUTPUT';
   swapQuote: QuoteData;
