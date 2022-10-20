@@ -1,4 +1,4 @@
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
@@ -17,7 +17,6 @@ import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
 import { getWebviewWrapperRef } from './Controller/getWebviewWrapperRef';
-import { useGotoSite } from './Controller/useGotoSite';
 import { useNotifyChanges } from './Controller/useNotifyChanges';
 import { useWebController } from './Controller/useWebController';
 import { MatchDAppItemType, webHandler } from './explorerUtils';

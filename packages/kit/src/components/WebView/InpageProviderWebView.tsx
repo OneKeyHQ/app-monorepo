@@ -13,9 +13,7 @@ import {
   InpageProviderWebViewProps as InpageWebViewProps,
 } from '@onekeyfe/cross-inpage-provider-types';
 import {
-  DesktopWebView,
   IWebViewWrapperRef,
-  NativeWebView,
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
@@ -31,9 +29,14 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// eslint-disable-next-line import/order
+import { DesktopWebView } from './DesktopWebView';
+
 // injected hot-reload cache update: 21334400088746
+// eslint-disable-next-line import/order
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
+import { NativeWebView } from './NativeWebView';
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
