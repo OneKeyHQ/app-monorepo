@@ -70,7 +70,7 @@ const WebContent = React.memo((tab: WebTab) => {
       const { dispatch } = backgroundApiProxy;
       if (ref && ref.innerRef) {
         if (webviewRefs[id] === ref) {
-          return;
+          // return;
         }
         webviewRefs[id] = ref;
         // TODO check if equal before dispatch
@@ -78,7 +78,7 @@ const WebContent = React.memo((tab: WebTab) => {
         loadInitialUrl();
       } else {
         if (!webviewRefs[id]) {
-          return;
+          // return;
         }
         delete webviewRefs[id];
         // TODO check if equal before dispatch
