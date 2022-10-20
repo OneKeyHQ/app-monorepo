@@ -155,6 +155,7 @@ const Favorites = () => {
       data={data}
       renderItem={renderItem}
       numColumns={numColumns}
+      key={`key${numColumns}`}
       keyExtractor={(item) => `${numColumns}key${item.id}`}
       ListEmptyComponent={FavoratesListEmptyComponent}
     />
@@ -179,6 +180,7 @@ const History = () => {
       data={data}
       renderItem={renderItem}
       numColumns={numColumns}
+      key={`key${numColumns}`}
       keyExtractor={(item) => `${numColumns}key${item.id}`}
       ListEmptyComponent={HistoryListEmptyComponent}
     />

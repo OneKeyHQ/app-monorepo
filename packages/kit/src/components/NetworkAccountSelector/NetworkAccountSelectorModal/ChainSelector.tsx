@@ -147,17 +147,20 @@ function ChainSelector({
         showsVerticalScrollIndicator={false}
         style={{ flex: 1, padding: 4 }}
         ListFooterComponent={
-          <IconButton
-            type="plain"
-            iconSize={24}
-            name="SortAscendingOutline"
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageNetwork,
-                params: { screen: ManageNetworkRoutes.Sort },
-              });
-            }}
-          />
+          <Box p="4px">
+            <IconButton
+              type="plain"
+              size="xl"
+              circle
+              name="SortAscendingOutline"
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageNetwork,
+                  params: { screen: ManageNetworkRoutes.Sort },
+                });
+              }}
+            />
+          </Box>
         }
       />
       <Box

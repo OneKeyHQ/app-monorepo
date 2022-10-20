@@ -123,22 +123,21 @@ export const ManageNetworkQuickAdd: FC = () => {
   const empty = useMemo(() => {
     if (loading) {
       return (
-        <Center h="full">
-          <Spinner />
+        <Center py="144px">
+          <Spinner size="lg" />
         </Center>
       );
     }
     if (!chains.length) {
       return (
-        <Center h="full">
-          <Empty
-            emoji="🔍"
-            title={intl.formatMessage({
-              id: 'content__no_results',
-              defaultMessage: 'No Result',
-            })}
-          />
-        </Center>
+        <Empty
+          py="96px"
+          emoji="🔍"
+          title={intl.formatMessage({
+            id: 'content__no_results',
+            defaultMessage: 'No Result',
+          })}
+        />
       );
     }
     return null;
@@ -150,8 +149,7 @@ export const ManageNetworkQuickAdd: FC = () => {
         id: 'action__quick_add',
       })}
       height="560px"
-      hideSecondaryAction
-      hidePrimaryAction
+      footer={null}
     >
       <HStack w="full" mb="4">
         <Searchbar
@@ -189,16 +187,16 @@ export const ManageNetworkQuickAdd: FC = () => {
                 label: item.name,
                 description: (
                   <HStack>
-                    <Typography.Caption>
+                    <Typography.Caption color="text-subdued">
                       {intl.formatMessage({ id: 'content__currency' })}:
                     </Typography.Caption>
-                    <Typography.Caption color="text-default" ml="1">
+                    <Typography.Caption color="text-subdued" ml="1">
                       {item.nativeCurrency?.symbol ?? ''}
                     </Typography.Caption>
-                    <Typography.Caption ml="6">
+                    <Typography.Caption ml="16px" color="text-subdued">
                       {intl.formatMessage({ id: 'form__chain_id' })}:
                     </Typography.Caption>
-                    <Typography.Caption color="text-default" ml="1">
+                    <Typography.Caption color="text-subdued" ml="1">
                       {item.chainId ?? ''}
                     </Typography.Caption>
                   </HStack>

@@ -47,6 +47,7 @@ function List<T>({
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
+      showsVerticalScrollIndicator={false}
       m={-2}
       {...rest}
     />
@@ -85,6 +86,10 @@ function GroupingList<T>({
   sections,
   ...rest
 }: GroupingListProps<T>) {
+  const indexedSections = useMemo(
+    () => sections.map((section, index) => ({ ...section, __index: index })),
+    [sections],
+  );
   const header = useMemo(() => {
     if (ListHeaderComponent) return ListHeaderComponent();
     if (headerProps) {
@@ -99,10 +104,11 @@ function GroupingList<T>({
         title={section?.headerProps?.title}
         actions={section?.headerProps?.actions}
         // @ts-expect-error
-        mt={sections.indexOf(section) !== 0 ? '16px' : 0}
+        mt={section.__index !== 0 ? '16px' : 0}
+        {...section?.headerProps}
       />
     ),
-    [sections],
+    [],
   );
 
   const renderSectionFooterInner = useCallback(
@@ -124,8 +130,9 @@ function GroupingList<T>({
       ItemSeparatorComponent={() => (
         <ListItemSeparator showDivider={showDivider} />
       )}
+      showsVerticalScrollIndicator={false}
       m={-2}
-      sections={sections}
+      sections={indexedSections}
       {...rest}
     />
   );

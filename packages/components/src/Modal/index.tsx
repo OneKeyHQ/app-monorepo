@@ -129,13 +129,18 @@ const Modal = ({
 
   const isVerticalLayout = useIsVerticalLayout();
 
+  const bodyPadding = useMemo(() => {
+    if (isVerticalLayout) return 16;
+    return 24;
+  }, [isVerticalLayout]);
+
   const modalContent = useMemo(() => {
     let content = (
       <Box
         // eslint-disable-next-line no-nested-ternary
-        pt={headerShown ? (header ? 6 : 0) : 6}
-        pb={6}
-        px={{ base: 4, md: 6 }}
+        pt={`${headerShown ? (header ? bodyPadding : 0) : bodyPadding}px`}
+        pb={`${bodyPadding}px`}
+        px={`${bodyPadding}px`}
         flex="1"
       >
         {rest.children}
@@ -146,11 +151,11 @@ const Modal = ({
         <SectionList
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
-            paddingBottom: 24,
+            paddingBottom: bodyPadding,
             // eslint-disable-next-line no-nested-ternary
-            paddingTop: headerShown ? (header ? 24 : 0) : 24,
+            paddingTop: headerShown ? (header ? bodyPadding : 0) : bodyPadding,
           }}
-          px={{ base: 4, md: 6 }}
+          px={`${bodyPadding}px`}
           {...sectionListProps}
         />
       );
@@ -159,11 +164,11 @@ const Modal = ({
         <FlatList
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
-            paddingBottom: 24,
+            paddingBottom: bodyPadding,
             // eslint-disable-next-line no-nested-ternary
-            paddingTop: headerShown ? (header ? 24 : 0) : 24,
+            paddingTop: headerShown ? (header ? bodyPadding : 0) : bodyPadding,
           }}
-          px={{ base: 4, md: 6 }}
+          px={`${bodyPadding}px`}
           {...flatListProps}
         />
       );
@@ -172,12 +177,12 @@ const Modal = ({
         <ScrollView
           testID="Modal-ScrollView-Container"
           keyboardShouldPersistTaps="handled"
-          px={{ base: 4, md: 6 }}
+          px={`${bodyPadding}px`}
           {...scrollViewProps}
           contentContainerStyle={{
-            paddingBottom: 24,
+            paddingBottom: bodyPadding,
             // eslint-disable-next-line no-nested-ternary
-            paddingTop: headerShown ? (header ? 24 : 0) : 24,
+            paddingTop: headerShown ? (header ? bodyPadding : 0) : bodyPadding,
             ...(scrollViewProps.contentContainerStyle as any),
           }}
         />
@@ -190,8 +195,8 @@ const Modal = ({
               style={{ height: '100%' }}
               containerStyle={{ height: '100%' }}
               contentContainerStyle={{
-                paddingBottom: 24,
-                paddingTop: 24,
+                paddingBottom: bodyPadding,
+                paddingTop: bodyPadding,
               }}
               {...sortableListProps}
             />
@@ -207,14 +212,15 @@ const Modal = ({
     }
     return content;
   }, [
+    headerShown,
+    header,
+    bodyPadding,
+    rest.children,
     sectionListProps,
     flatListProps,
     scrollViewProps,
-    staticChildrenProps,
     sortableListProps,
-    rest.children,
-    header,
-    headerShown,
+    staticChildrenProps,
   ]);
 
   const modalContainer = useMemo(() => {

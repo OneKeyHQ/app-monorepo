@@ -133,12 +133,14 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
           type="plain"
           name="ArrowLeftOutline"
           disabled={!canGoBack}
+          isDisabled={!canGoBack}
           onPress={onGoBack}
         />
         <IconButton
           type="plain"
           name="ArrowRightOutline"
           disabled={!canGoForward}
+          isDisabled={!canGoForward}
           onPress={onNext}
         />
         <IconButton

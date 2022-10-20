@@ -6,9 +6,8 @@ import Svg, {
   LinearGradient,
   Stop,
 } from 'react-native-svg';
-
 const SvgDiamondBadge = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="none" {...props}>
+  <Svg viewBox="0 0 20 20" fill="none" accessibilityRole="image" {...props}>
     <Circle
       cx={10}
       cy={10}
@@ -64,5 +63,4 @@ const SvgDiamondBadge = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
-
 export default SvgDiamondBadge;

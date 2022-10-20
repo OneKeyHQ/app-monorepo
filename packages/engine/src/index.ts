@@ -1138,7 +1138,10 @@ class Engine {
   async findToken(params: { networkId: string; tokenIdOnNetwork: string }) {
     try {
       // needs await to try catch memoizee function
-      return await this._findTokenWithMemo(params);
+      // return a copy to ensure the cache will not be changed
+      return {
+        ...(await this._findTokenWithMemo(params)),
+      };
     } catch (error) {
       debugLogger.common.error(error);
       return Promise.resolve(undefined);
@@ -2036,10 +2039,24 @@ class Engine {
     if (rpcURL.length === 0) {
       throw new OneKeyInternalError('Empty RPC URL.');
     }
-
-    const vault = await this.getChainOnlyVault(networkId);
-    return vault.getClientEndpointStatus(rpcURL);
+    return {
+      ...(await this._getRPCEndpointStatus(rpcURL, networkId)),
+    };
   }
+
+  _getRPCEndpointStatus = memoizee(
+    async (rpcURL: string, networkId: string) => {
+      const vault = await this.getChainOnlyVault(networkId);
+      return vault.getClientEndpointStatus(rpcURL);
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 50,
+      normalizer: (args) => JSON.stringify(args),
+    },
+  );
 
   @backgroundMethod()
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {

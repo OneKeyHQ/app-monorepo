@@ -38,7 +38,7 @@ import walletConnectUtils from '../../components/WalletConnect/utils/walletConne
 import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
-import { useEffectUpdateOnly } from '../../hooks/useEffectUpdateOnly';
+import { useEffectOnUpdate } from '../../hooks/useEffectOnUpdate';
 import { refreshConnectedSites } from '../../store/reducers/refresher';
 
 import RugConfirmDialog from './RugConfirmDialog';
@@ -239,7 +239,7 @@ const Connection = () => {
   const closeModal = useModalClose();
 
   const isClosedDone = useRef(false);
-  useEffectUpdateOnly(() => {
+  useEffectOnUpdate(() => {
     if (isClosedDone.current) {
       return;
     }
