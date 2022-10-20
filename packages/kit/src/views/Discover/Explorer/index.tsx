@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
@@ -16,6 +16,7 @@ import { homeTab, setWebTabData } from '../../../store/reducers/webTabs';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
+import { getWebviewWrapperRef } from './Controller/getWebviewWrapperRef';
 import { useNotifyChanges } from './Controller/useNotifyChanges';
 import { useWebController } from './Controller/useWebController';
 import { MatchDAppItemType, webHandler } from './explorerUtils';
@@ -45,8 +46,6 @@ const Explorer: FC = () => {
   const isVerticalLayout = useIsVerticalLayout();
 
   const [visibleMore, setVisibleMore] = useState(false);
-  const [refreshId, setRefreshId] = useState<string>('');
-  const refreshKey = useRef('');
 
   useNotifyChanges();
 
@@ -67,21 +66,25 @@ const Explorer: FC = () => {
   };
 
   const onRefresh = useCallback(() => {
-    refreshKey.current = Date.now().toString();
-    setRefreshId(currentTab.id);
-  }, [currentTab.id]);
+    const webviewRef = getWebviewWrapperRef({
+      tabId: currentTab?.id,
+    });
+    // *** use key for refresh may cause multiple-tabbed webview bridge not working at production Desktop
+    // refreshKey.current = Date.now().toString();
+    // setRefreshId(currentTab.id);
+
+    // *** use cross platform reload() method
+    webviewRef?.reload();
+  }, [currentTab?.id]);
 
   const explorerContent = useMemo(
     () =>
       tabs.map((tab) => (
-        <Freeze
-          key={refreshId === tab.id ? refreshKey.current : tab.id}
-          freeze={!tab.isCurrent}
-        >
+        <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
           <WebContent {...tab} />
         </Freeze>
       )),
-    [refreshId, tabs],
+    [tabs],
   );
 
   const moreViewContent = useMemo(() => {

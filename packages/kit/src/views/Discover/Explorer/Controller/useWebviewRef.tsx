@@ -2,18 +2,44 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OnWebviewNavigation } from '../explorerUtils';
 
+import { getWebviewWrapperRef } from './getWebviewWrapperRef';
+
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+
+export function crossWebviewLoadUrl({
+  url,
+  tabId,
+}: {
+  url: string;
+  tabId?: string;
+}) {
+  const wrapperRef = getWebviewWrapperRef({
+    tabId,
+  });
+  debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
+  if (platformEnv.isDesktop) {
+    // TODO wait wrapperRef, innerRef, dom-ready then loadURL
+    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
+  } else {
+    // IWebViewWrapperRef has cross-platform loadURL()
+    //    will trigger webview.onSrcChange props
+    wrapperRef?.loadURL(url);
+  }
+}
 
 export const useWebviewRef = ({
   ref,
   onNavigation,
+  tabId,
 }: {
   ref?: IElectronWebView;
   onNavigation: OnWebviewNavigation;
+  tabId: string;
   navigationStateChangeEvent?: WebViewNavigation;
 }) => {
   const isDomReady = useRef(false);
@@ -24,7 +50,35 @@ export const useWebviewRef = ({
         if (!ref) {
           return;
         }
-        const handleFinishLoading = () => onNavigation({ loading: false });
+        const getNavStatusInfo = () => {
+          if (!ref || !isDomReady.current) {
+            return undefined;
+          }
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const title = ref.getTitle();
+          const canGoBack =
+            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            ref.canGoBack();
+          const canGoForward =
+            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            ref.canGoForward();
+          return {
+            // url: ref.getURL(), // TODO can not manual input text and navigate to new url
+            title,
+            canGoBack,
+            canGoForward,
+          };
+        };
+        const handleFinishLoading = () =>
+          onNavigation({
+            // loading
+            loading: false,
+            ...getNavStatusInfo(),
+          });
+        // did-start-navigation
         const handleNavigation = ({
           url,
           isInPlace,
@@ -35,20 +89,13 @@ export const useWebviewRef = ({
           isMainFrame: boolean;
         }) => {
           if (isMainFrame) {
+            // TODO cycle loadUrl when did-start-navigation?
+            const isInPlaceFinal = platformEnv.isDesktop ? true : isInPlace;
             onNavigation({
               url,
-              // @ts-ignore
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              title: ref.getTitle(),
-              isInPlace,
-              canGoBack:
-                isDomReady.current && // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                ref.canGoBack(),
-              canGoForward:
-                isDomReady.current && // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                ref.canGoForward(),
+              loading: true,
+              isInPlace: isInPlaceFinal,
+              ...getNavStatusInfo(),
             });
           }
         };
@@ -59,7 +106,14 @@ export const useWebviewRef = ({
           ref.__domReady = true;
         };
 
-        const handleStartLoadingMessage = () => onNavigation({ loading: true });
+        const handleStartLoadingMessage = () =>
+          onNavigation({
+            // loading
+            loading: true,
+            // TODO dom-ready check not working when open new tab
+            //      webview is not mounted yet
+            // ...getNavStatusInfo(),
+          });
 
         const handleTitleMessage = ({ title }: { title: string }) => {
           if (title) {
@@ -142,9 +196,29 @@ export const useWebviewRef = ({
     }
   }, [ref]);
 
+  const reload = useCallback(() => {
+    const wrapperRef = getWebviewWrapperRef({
+      tabId,
+    });
+    // cross-platform reload()
+    wrapperRef?.reload();
+  }, [tabId]);
+
+  const loadURL = useCallback(
+    (url: string) => {
+      crossWebviewLoadUrl({
+        url,
+        tabId,
+      });
+    },
+    [tabId],
+  );
+
   return {
     goBack,
     goForward,
     stopLoading,
+    loadURL,
+    reload,
   };
 };
