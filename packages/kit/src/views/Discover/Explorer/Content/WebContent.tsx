@@ -6,7 +6,6 @@ import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { Box } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
@@ -17,23 +16,11 @@ import { webHandler, webviewRefs } from '../explorerUtils';
 
 const aboutBlankUrl = 'about:blank';
 
-const WebContent = React.memo((tab: WebTab) => {
-  const { id } = tab;
-  const initialUrl = tab.url;
+const WebContent = (tab: WebTab) => {
+  const { id, url: initialUrl } = tab;
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
-  const [localUrl, setLocalUrl] = useState(
-    platformEnv.isDesktop ? aboutBlankUrl : initialUrl,
-  );
-  const onSrcChange = useCallback((src: string) => {
-    if (platformEnv.isDesktop) {
-      // do nothing
-    }
-    // native: wrapperRef?.loadURL()  -> onSrcChange -> setLocalUrl -> webview.src
-    if (platformEnv.isNative) {
-      setLocalUrl(src);
-    }
-  }, []);
+  const [localUrl] = useState(aboutBlankUrl);
 
   const isInitUrlLoaded = useRef(false);
   const showHome = useMemo(() => {
@@ -108,7 +95,6 @@ const WebContent = React.memo((tab: WebTab) => {
         <WebView
           // key={webviewKey} // set different key will break browser history
           src={localUrl}
-          onSrcChange={onSrcChange} // wrapperRef?.loadURL() will trigger onSrcChange
           onWebViewRef={onWebViewRef}
           onNavigationStateChange={setNavigationStateChangeEvent}
           allowpopups
@@ -116,7 +102,7 @@ const WebContent = React.memo((tab: WebTab) => {
       </Freeze>
     </>
   );
-});
+};
 
 WebContent.displayName = 'WebContent';
 

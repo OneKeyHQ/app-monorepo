@@ -16,10 +16,13 @@ import { homeTab, setWebTabData } from '../../../store/reducers/webTabs';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 import WebContent from './Content/WebContent';
-import { getWebviewWrapperRef } from './Controller/getWebviewWrapperRef';
 import { useNotifyChanges } from './Controller/useNotifyChanges';
 import { useWebController } from './Controller/useWebController';
-import { MatchDAppItemType, webHandler } from './explorerUtils';
+import {
+  MatchDAppItemType,
+  getWebviewWrapperRef,
+  webHandler,
+} from './explorerUtils';
 import MoreView from './MoreMenu';
 
 const showExplorerBar = webHandler !== 'browser';

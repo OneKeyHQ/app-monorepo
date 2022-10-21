@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
 
+import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DAppItemType } from '../type';
@@ -112,3 +114,38 @@ export type OnWebviewNavigation = ({
   canGoForward?: boolean;
   loading?: boolean;
 }) => void;
+
+if (process.env.NODE_ENV !== 'production') {
+  // @ts-ignore
+  global.$$webviewRefs = webviewRefs;
+}
+export function getWebviewWrapperRef({
+  tabId,
+}: {
+  tabId: string | null | undefined;
+}) {
+  // DO NOT useMemo() here, as webviewRefs may be updated
+  const ref = tabId ? webviewRefs[tabId] : null;
+  return ref ?? null;
+}
+
+export function crossWebviewLoadUrl({
+  url,
+  tabId,
+}: {
+  url: string;
+  tabId?: string;
+}) {
+  const wrapperRef = getWebviewWrapperRef({
+    tabId,
+  });
+  debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
+  if (platformEnv.isDesktop) {
+    // TODO wait wrapperRef, innerRef, dom-ready then loadURL
+    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
+  } else {
+    // IWebViewWrapperRef has cross-platform loadURL()
+    //    will trigger webview.onSrcChange props
+    wrapperRef?.loadURL(url);
+  }
+}

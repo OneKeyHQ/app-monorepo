@@ -19,10 +19,10 @@ import DappOpenHintDialog from '../DappOpenHintDialog';
 import {
   MatchDAppItemType,
   OnWebviewNavigation,
+  getWebviewWrapperRef,
   webviewRefs,
 } from '../explorerUtils';
 
-import { getWebviewWrapperRef } from './getWebviewWrapperRef';
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 
