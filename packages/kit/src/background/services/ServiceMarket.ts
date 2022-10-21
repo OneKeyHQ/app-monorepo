@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { Method } from 'axios';
 import qs from 'qs';
 
 import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
@@ -28,6 +28,7 @@ import {
   updateSearchTabCategory,
   updateSearchTokens,
   updateSelectedCategory,
+  updateMarketTokenPriceSubscribe,
 } from '../../store/reducers/market';
 import { ServerToken } from '../../store/typings';
 import { getDefaultLocale } from '../../utils/locale';
@@ -146,6 +147,64 @@ export default class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchMarketTokenPriceSubscribe() {
+    const path = '/notification/favorite';
+    const { dispatch, appSelector } = this.backgroundApi;
+    const instanceId = appSelector((s) => s.settings.instanceId);
+    const data = await this.fetchData(path, { instanceId }, []);
+    if (data.length > 0) {
+      const coingeckoIds = data.map(
+        (t: { coingeckoId: string }) => t.coingeckoId,
+      );
+      dispatch(updateMarketTokenPriceSubscribe({ coingeckoIds, enable: true }));
+    }
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenCancelPriceSubscribe(coingeckoId: string) {
+    const path = '/notification/favorite';
+    const { dispatch, appSelector } = this.backgroundApi;
+    const instanceId = appSelector((s) => s.settings.instanceId);
+    const data = await this.fetchData<{
+      acknowledged: boolean;
+      deletedCount: number;
+    } | null>(path, { instanceId, coingeckoId }, null, 'DELETE');
+    if (data && data.acknowledged) {
+      dispatch(
+        updateMarketTokenPriceSubscribe({
+          coingeckoIds: [coingeckoId],
+          enable: false,
+        }),
+      );
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(false); // { "acknowledged": true, "deletedCount": 1}
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenAddPriceSubscribe(coingeckoId: string, symbol: string) {
+    const path = '/notification/favorite';
+    const { dispatch, appSelector } = this.backgroundApi;
+    const instanceId = appSelector((s) => s.settings.instanceId);
+    const data = await this.fetchData<{ coingeckoId: string } | null>(
+      path,
+      { instanceId, coingeckoId, symbol },
+      null,
+      'POST',
+    );
+    if (data && data.coingeckoId) {
+      dispatch(
+        updateMarketTokenPriceSubscribe({
+          coingeckoIds: [data.coingeckoId],
+          enable: true,
+        }),
+      );
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(false);
+  }
+
+  @backgroundMethod()
   async fetchMarketTokenChart({
     coingeckoId,
     days = '1',
@@ -200,11 +259,17 @@ export default class ServiceMarket extends ServiceBase {
     path: string,
     query: Record<string, unknown> = {},
     fallback: T,
+    method: Method = 'GET',
   ): Promise<T> {
     const endpoint = getFiatEndpoint();
-    const apiUrl = `${endpoint}${path}?${qs.stringify(query)}`;
     try {
-      const { data } = await axios.get<T>(apiUrl);
+      const isPost = method === 'POST' || method === 'post';
+      const apiUrl = `${endpoint}${path}${
+        !isPost ? `?${qs.stringify(query)}` : ''
+      }`;
+      const postData = isPost ? query : undefined;
+      const requestConfig = { url: apiUrl, method, data: postData };
+      const { data } = await axios.request<T>(requestConfig);
       return data;
     } catch (e) {
       console.error(e);

@@ -57,6 +57,7 @@ export type MarketTokenDetail = {
   about?: string;
   explorers?: MarketEXplorer[];
   news?: MarketNews[];
+  priceSubscribe?: boolean;
 };
 
 export type MarketEXplorer = {
@@ -129,6 +130,11 @@ type MarketTokenBasePayloadAction = {
   marketTokenId: CoingeckoId;
   tokens: Token[];
   logoURI?: string;
+};
+
+type MarketTokenPriceSubscribeStatusAction = {
+  coingeckoIds: CoingeckoId[];
+  enable: boolean;
 };
 
 type SearchHistoryPayloadAction = {
@@ -284,7 +290,8 @@ export const MarketSlicer = createSlice({
       action: PayloadAction<MarketTokenDetailPayloadAction>,
     ) {
       const { coingeckoId, data } = action.payload;
-      state.details[coingeckoId] = data;
+      const detail = state.details[coingeckoId] || {};
+      state.details[coingeckoId] = { ...detail, ...data };
     },
     updateMarketListSort(
       state,
@@ -364,6 +371,17 @@ export const MarketSlicer = createSlice({
           state.marketTokens[marketTokenId].image;
       }
     },
+    updateMarketTokenPriceSubscribe(
+      state,
+      action: PayloadAction<MarketTokenPriceSubscribeStatusAction>,
+    ) {
+      const { coingeckoIds, enable } = action.payload;
+      coingeckoIds.forEach((id) => {
+        const detail = state.details[id] || {};
+        detail.priceSubscribe = enable;
+        state.details[id] = detail;
+      });
+    },
     switchMarketTopTab(state, action: PayloadAction<MarketTopTabName>) {
       state.marktTobTapName = action.payload;
     },
@@ -422,6 +440,7 @@ export const {
   updateSearchTabCategory,
   updateSearchTokens,
   updateSearchKeyword,
+  updateMarketTokenPriceSubscribe,
 } = MarketSlicer.actions;
 
 export default MarketSlicer.reducer;

@@ -1,6 +1,13 @@
-import React, { FC, ReactElement, useCallback, useLayoutEffect } from 'react';
+import React, {
+  FC,
+  ReactElement,
+  useCallback,
+  useLayoutEffect,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -9,6 +16,7 @@ import {
   Image,
   Typography,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components/src';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
@@ -33,10 +41,14 @@ import { CurrencyType } from '../FiatPay/types';
 import { StakingRoutes } from '../Staking/typing';
 
 import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
-import { useMarketDetail } from './hooks/useMarketDetail';
+import {
+  useMarketDetail,
+  useMarketTokenPriceSubscribeStatus,
+} from './hooks/useMarketDetail';
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 
@@ -136,24 +148,59 @@ const PurchaseButton = ({
   </Box>
 );
 
-const BellButton = ({
-  onPress,
-}: {
-  tokenItem?: MarketTokenItem;
-  onPress: () => void;
-}) => (
-  <Box>
-    <IconButton
-      ml={4}
-      type="basic"
-      name="BellSolid"
-      size="base"
-      circle
-      iconColor="icon-default" // get subscribe status
-      onPress={onPress}
-    />
-  </Box>
-);
+const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
+  const intl = useIntl();
+  const toast = useToast();
+  const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
+    coingeckoId: tokenItem.coingeckoId,
+  });
+  const [isFetchIng, setIsFetching] = useState(false);
+  const onPriceSubscribePress = useCallback(async () => {
+    let res: boolean;
+    setIsFetching(true);
+    if (priceSubscribeEnable) {
+      res =
+        await backgroundApiProxy.serviceMarket.fetchMarketTokenCancelPriceSubscribe(
+          tokenItem.coingeckoId,
+        );
+    } else {
+      res =
+        await backgroundApiProxy.serviceMarket.fetchMarketTokenAddPriceSubscribe(
+          tokenItem.coingeckoId,
+          tokenItem.symbol ?? 'unknow',
+        );
+    }
+    setIsFetching(false);
+    if (!res) return;
+    toast.show({
+      title: intl.formatMessage({
+        id: priceSubscribeEnable
+          ? 'msg__unsubscription_succeeded'
+          : 'msg__subscription_succeeded',
+      }),
+    });
+  }, [
+    intl,
+    priceSubscribeEnable,
+    toast,
+    tokenItem.coingeckoId,
+    tokenItem.symbol,
+  ]);
+  return (
+    <Box>
+      <IconButton
+        ml={4}
+        type="basic"
+        name="BellSolid"
+        size="base"
+        circle
+        iconColor={priceSubscribeEnable ? 'icon-warning' : 'icon-default'} // get subscribe status
+        onPress={onPriceSubscribePress}
+        isLoading={isFetchIng}
+      />
+    </Box>
+  );
+};
 
 const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
@@ -278,12 +325,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                 }}
               />
               <FavoritButton tokenItem={marketTokenItem} />
-              <BellButton
-                tokenItem={marketTokenItem}
-                onPress={() => {
-                  // TODO 价格提醒
-                }}
-              />
+              <BellButton tokenItem={marketTokenItem} />
             </Box>
           </Box>
           {children}
