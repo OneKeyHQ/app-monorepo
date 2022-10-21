@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ToggleButtonGroup } from '@onekeyhq/components';
+import { Box, ToggleButtonGroup } from '@onekeyhq/components';
 import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 
 const buttons: ToggleButtonProps[] = [
@@ -27,12 +27,14 @@ const ToggleButtonGroupGallery = () => {
   const [selectedIndex2, setSelectedIndex2] = useState(10);
   return (
     <>
+      <Box h="20px" />
       <ToggleButtonGroup
         buttons={buttons}
         selectedIndex={selectedIndex1}
         onButtonPress={setSelectedIndex1}
       />
 
+      <Box h="20px" />
       <ToggleButtonGroup
         buttons={buttons.concat(buttons).concat(buttons).concat(buttons)}
         selectedIndex={selectedIndex2}
