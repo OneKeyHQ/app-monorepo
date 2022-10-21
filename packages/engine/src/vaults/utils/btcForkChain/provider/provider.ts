@@ -415,7 +415,6 @@ class Provider {
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < inputs.length; ++i) {
-      console.log(i);
       const input = inputs[i];
       const utxo = input.utxo as UTXO;
       check(utxo);
@@ -530,7 +529,6 @@ class Provider {
       );
       batchTxids.forEach((txid, index) => (lookup[txid] = txs[index]));
     }
-    console.log('lookup: ', lookup);
     return lookup;
   }
 

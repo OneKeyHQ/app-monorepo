@@ -36,8 +36,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
-import { BtcForkImpl } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider';
-
 import {
   IMPL_ALGO,
   IMPL_BTC,
@@ -75,7 +73,6 @@ export const IMPL_MAPPINGS: Record<
   [IMPL_STC]: { defaultClient: 'StcClient' },
   [IMPL_CFX]: { defaultClient: 'Conflux' },
   [IMPL_BTC]: { defaultClient: 'BlockBook' },
-  [IMPL_DOGE]: { defaultClient: 'BlockBook' },
 };
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -395,10 +392,6 @@ class ProviderController extends BaseProviderController {
   }
 
   override requireChainImpl(impl: string): any {
-    // Migrating providers from blockchainlibs
-    if (impl === IMPL_DOGE) {
-      return BtcForkImpl[impl];
-    }
     return super.requireChainImpl(IMPL_MAPPINGS[impl]?.implName || impl);
   }
 

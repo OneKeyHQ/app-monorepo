@@ -16,7 +16,6 @@ import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { IGetAddressParams, IPrepareHardwareAccountsParams } from '../../types';
 
-import { Provider } from './provider';
 import { TxInput, TxOutput, UTXO } from './types';
 import { getAccountDefaultByPurpose } from './utils';
 
@@ -37,9 +36,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
     }
 
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as unknown as Provider;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
 
     const { inputs, outputs } = unsignedTx;
     const prevTxids = Array.from(
@@ -85,9 +84,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       usedPurpose,
       coinName,
     );
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as unknown as Provider;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
 
     let response;
     try {

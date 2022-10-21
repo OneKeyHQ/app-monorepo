@@ -8,15 +8,22 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import bs58check from 'bs58check';
 
-import { Provider } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import { IPrepareImportedAccountsParams } from '../../types';
+import {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
 
 import type BTCForkVault from './VaultBtcFork';
 
@@ -26,6 +33,26 @@ const deriver = new BaseBip32KeyDeriver(
 ) as Bip32KeyDeriver;
 
 export class KeyringImported extends KeyringImportedBase {
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const { password } = options;
+    if (typeof password === 'undefined') {
+      throw new OneKeyInternalError('Software signing requires a password.');
+    }
+    const signers = await this.getSigners(
+      password,
+      unsignedTx.inputs.map((input) => input.address),
+    );
+    debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);
+
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+    return provider.signTransaction(unsignedTx, signers);
+  }
+
   override async getSigners(
     password: string,
     addresses: string[],
@@ -87,9 +114,9 @@ export class KeyringImported extends KeyringImportedBase {
     params: IPrepareImportedAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const { privateKey, name } = params;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as unknown as Provider;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
     const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
 
     let xpub = '';

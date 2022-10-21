@@ -1,20 +1,47 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import bs58check from 'bs58check';
 
-import { Provider } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import { IPrepareSoftwareAccountsParams } from '../../types';
+import {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
 
 import { getAccountDefaultByPurpose } from './utils';
 
 import type BTCForkVault from './VaultBtcFork';
 
 export class KeyringHd extends KeyringHdBase {
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const { password } = options;
+    if (typeof password === 'undefined') {
+      throw new OneKeyInternalError('Software signing requires a password.');
+    }
+    const signers = await this.getSigners(
+      password,
+      unsignedTx.inputs.map((input) => input.address),
+    );
+    debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);
+
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+    return provider.signTransaction(unsignedTx, signers);
+  }
+
   override async getSigners(
     password: string,
     addresses: Array<string>,
@@ -65,9 +92,9 @@ export class KeyringHd extends KeyringHdBase {
       this.walletId,
       password,
     )) as ExportedSeedCredential;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as unknown as Provider;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
     const { network } = provider;
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
