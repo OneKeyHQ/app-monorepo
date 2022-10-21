@@ -1,7 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgFingerPrint = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       fillRule="evenodd"
       d="M6.625 2.655A9 9 0 0 1 19 11a1 1 0 1 1-2 0 7 7 0 0 0-9.625-6.492 1 1 0 1 1-.75-1.853zM4.662 4.959A1 1 0 0 1 4.75 6.37 6.97 6.97 0 0 0 3 11a1 1 0 1 1-2 0 8.97 8.97 0 0 1 2.25-5.953 1 1 0 0 1 1.412-.088z"
@@ -19,5 +23,4 @@ const SvgFingerPrint = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgFingerPrint;

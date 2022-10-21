@@ -70,20 +70,22 @@ const ToggleButton: FC<
       onPress={onPress}
       onLayout={onLayout}
     >
-      <Center borderRadius="9999px" w={iconSize} h={iconSize} mr="8px">
-        {!!leftIcon && (
-          <Icon
-            name={leftIcon}
-            color={isCurrent ? 'icon-hovered' : 'icon-default'}
-          />
-        )}
-        {!!leftImage && (
-          <NetImage height={iconSize} width={iconSize} src={leftImage} />
-        )}
-      </Center>
+      {!!leftIcon || !!leftImage ? (
+        <Center borderRadius="9999px" w={iconSize} h={iconSize} mr="8px">
+          {!!leftIcon && (
+            <Icon
+              name={leftIcon}
+              color={isCurrent ? 'icon-hovered' : 'icon-default'}
+            />
+          )}
+          {!!leftImage && (
+            <NetImage height={iconSize} width={iconSize} src={leftImage} />
+          )}
+        </Center>
+      ) : null}
       {!!leftComponent && leftComponent}
       <Typography.Body2Strong
-        maxW="82px"
+        // maxW="82px"
         isTruncated
         color={isCurrent ? 'text-default' : 'text-subdued'}
       >
@@ -102,10 +104,13 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   const [showRightArrow, setShowRightArrow] = useState(false);
   const buttonLayouts = useRef<{ x: number; width: number }[]>([]);
   const scrollTo = useCallback((index: number) => {
-    scrollRef.current?.scrollTo({
-      x: buttonLayouts.current[index - 1 < 0 ? 0 : index - 1].x,
-      animated: true,
-    });
+    const x = buttonLayouts.current[index - 1 < 0 ? 0 : index - 1]?.x;
+    if (x !== undefined) {
+      scrollRef.current?.scrollTo({
+        x,
+        animated: true,
+      });
+    }
   }, []);
   useEffect(() => {
     setTimeout(() => {

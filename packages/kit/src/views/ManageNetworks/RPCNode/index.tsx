@@ -97,6 +97,15 @@ export const ManageNetworkRPCNode: FC = () => {
     [networkId, refresh],
   );
 
+  const editCustomRpcButton = useMemo(() => {
+    if (!custom.length) {
+      return null;
+    }
+    return isEdit
+      ? intl.formatMessage({ id: 'action__done' })
+      : intl.formatMessage({ id: 'action__edit' });
+  }, [custom, isEdit, intl]);
+
   const GroupingListData = useMemo(
     () => [
       {
@@ -104,23 +113,14 @@ export const ManageNetworkRPCNode: FC = () => {
           title: intl.formatMessage({ id: 'content__custom' }),
           actions: [
             {
-              label: isEdit ? (
-                intl.formatMessage({ id: 'action__done' })
-              ) : (
-                <HStack alignItems="center">
-                  <Icon name="PencilSolid" size={16} />
-                  <Typography.CaptionStrong ml="2">
-                    {intl.formatMessage({ id: 'action__edit' })}
-                  </Typography.CaptionStrong>
-                </HStack>
-              ),
+              label: editCustomRpcButton,
               onPress: toggleEditMode,
             },
           ],
         },
         footerText: (
           <Center px="2" mt="4">
-            <Button w="full" onPress={showAddNodeDialog}>
+            <Button w="full" size="lg" onPress={showAddNodeDialog}>
               {intl.formatMessage({ id: 'action__add_node' })}
             </Button>
           </Center>
@@ -134,7 +134,15 @@ export const ManageNetworkRPCNode: FC = () => {
         data: sort(preset),
       },
     ],
-    [custom, preset, intl, sort, showAddNodeDialog, isEdit, toggleEditMode],
+    [
+      custom,
+      preset,
+      intl,
+      sort,
+      showAddNodeDialog,
+      toggleEditMode,
+      editCustomRpcButton,
+    ],
   );
 
   useEffect(() => {
@@ -154,6 +162,7 @@ export const ManageNetworkRPCNode: FC = () => {
         id: 'modal__rpc_node',
       })}
       height="560px"
+      footer={null}
       headerDescription={network?.name || ''}
       hideSecondaryAction
       hidePrimaryAction
@@ -166,14 +175,16 @@ export const ManageNetworkRPCNode: FC = () => {
                 {intl.formatMessage({ id: 'content__what_is_node_height' })}
               </Typography.Body2Strong>
             }
+            pb="16px"
           >
-            <Typography.Body2>
+            <Typography.Body2 px="8px" color="text-subdued">
               {intl.formatMessage({
                 id: 'content__what_is_node_height_desc',
               })}
             </Typography.Body2>
           </Collapse>
         )}
+        stickySectionHeadersEnabled={false}
         sections={GroupingListData}
         renderItem={({ item }) => {
           const checked = item === network?.rpcURL;

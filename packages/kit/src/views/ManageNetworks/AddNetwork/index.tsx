@@ -13,6 +13,7 @@ import {
   KeyboardDismissView,
   Modal,
   Pressable,
+  Text,
   Typography,
   VStack,
   useForm,
@@ -203,26 +204,34 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
           borderRadius="12px"
           borderColor="border-subdued"
           flexDirection="row"
-          px="3"
-          py="2"
+          px="16px"
+          py="8px"
           onPress={toQuickAddPage}
         >
-          <Icon name="LightningBoltOutline" size={24} />
-          <Typography.Body1Strong flex="1" ml="4">
+          <Icon
+            name={isSmallScreen ? 'LightningBoltOutline' : 'LightningBoltSolid'}
+            size={isSmallScreen ? 24 : 20}
+          />
+          <Text
+            typography={isSmallScreen ? 'Body1Strong' : 'Body2Strong'}
+            flex="1"
+            ml="4"
+          >
             {intl.formatMessage({ id: 'action__quick_add' })}
-          </Typography.Body1Strong>
+          </Text>
           <Icon name="ChevronRightSolid" size={20} />
         </Pressable>
         <Divider my="6" />
       </>
     );
-  }, [intl, mode, network, toQuickAddPage]);
+  }, [intl, isSmallScreen, mode, network, toQuickAddPage]);
 
   return (
     <>
       <Modal
-        header={intl.formatMessage({ id: 'action__add_custom_chain' })}
+        header={intl.formatMessage({ id: 'action__add_network' })}
         hidePrimaryAction
+        maxHeight="560px"
         secondaryActionTranslationId="action__save"
         secondaryActionProps={{
           type: 'primary',

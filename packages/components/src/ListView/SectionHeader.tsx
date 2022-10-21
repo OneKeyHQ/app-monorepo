@@ -9,14 +9,14 @@ export interface SectionHeaderProps extends ComponentProps<typeof HStack> {
 }
 
 const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
-  <HStack alignItems="center" p={2} {...rest}>
+  <HStack alignItems="center" p={2} pb={0} {...rest}>
     <Typography.Subheading color="text-subdued" flex={1} mr={3}>
       {title}
     </Typography.Subheading>
     {actions?.length ? (
       <HStack space={6}>
-        {actions.map((item) => (
-          <Pressable onPress={item.onPress} hitSlop={8}>
+        {actions.map((item, index) => (
+          <Pressable key={String(index)} onPress={item.onPress} hitSlop={8}>
             {({ isHovered, isPressed }) => (
               <Box m={-2}>
                 <Box
@@ -30,7 +30,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
                       : undefined
                   }
                 >
-                  <Typography.CaptionStrong color="text-subdued">
+                  <Typography.CaptionStrong color="text-subdued" display="flex">
                     {item.label}
                   </Typography.CaptionStrong>
                 </Box>

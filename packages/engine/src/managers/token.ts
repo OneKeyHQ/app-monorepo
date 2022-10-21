@@ -55,6 +55,8 @@ function getNetworkIdFromTokenId(tokenId: string): string {
   throw new OneKeyInternalError(`Invalid tokenId ${tokenId}.`);
 }
 
+export const isValidTokenId = (tokenId: string) => tokenId?.includes(SEPERATOR);
+
 export const formatServerToken = (token: ServerToken) => {
   const { address = '', logoURI, isNative } = token;
   const { impl, chainId } = token;

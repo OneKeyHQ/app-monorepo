@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -57,12 +57,44 @@ export function getTxActionSwapInfo(props: ITxActionCardProps) {
 
 export function TxActionSwap(props: ITxActionCardProps) {
   const { meta, decodedTx } = props;
-  const { swapInfo } = getTxActionSwapInfo(props);
-  const { send, receive, accountAddress } = swapInfo;
   const intl = useIntl();
+  const { swapInfo } = getTxActionSwapInfo(props);
+  const { send, receive, accountAddress, receivingAddress } = swapInfo;
+
+  const { network: sendingNetwork } = useNetwork({ networkId: send.networkId });
+  const { network: receivingNetwork } = useNetwork({
+    networkId: receive.networkId,
+  });
+
+  const sendTitle = useMemo(() => {
+    if (
+      sendingNetwork &&
+      receivingNetwork &&
+      sendingNetwork.id !== receivingNetwork.id
+    ) {
+      return `${intl.formatMessage({ id: 'action__send' }).toUpperCase()}  (${
+        sendingNetwork.shortName
+      })`;
+    }
+    return intl.formatMessage({ id: 'action__send' }).toUpperCase();
+  }, [sendingNetwork, receivingNetwork, intl]);
+
+  const receivingTitle = useMemo(() => {
+    if (
+      sendingNetwork &&
+      receivingNetwork &&
+      sendingNetwork.id !== receivingNetwork.id
+    ) {
+      return `${intl
+        .formatMessage({ id: 'action__receive' })
+        .toUpperCase()}  (${receivingNetwork.shortName})`;
+    }
+    return intl.formatMessage({ id: 'action__receive' }).toUpperCase();
+  }, [sendingNetwork, receivingNetwork, intl]);
+
   const details: ITxActionElementDetail[] = [
     {
-      title: intl.formatMessage({ id: 'action__send' }),
+      title: sendTitle,
       content: (
         <TxActionElementAmountLarge
           direction={IDecodedTxDirection.OUT}
@@ -73,7 +105,7 @@ export function TxActionSwap(props: ITxActionCardProps) {
       ),
     },
     {
-      title: intl.formatMessage({ id: 'action__receive' }),
+      title: receivingTitle,
       content: (
         <TxActionElementAmountLarge
           direction={IDecodedTxDirection.IN}
@@ -83,11 +115,22 @@ export function TxActionSwap(props: ITxActionCardProps) {
         />
       ),
     },
-    {
+  ];
+  if (receivingAddress && accountAddress !== receivingAddress) {
+    details.push({
+      title: intl.formatMessage({ id: 'content__from' }),
+      content: <TxActionElementAddressNormal address={accountAddress} />,
+    });
+    details.push({
+      title: intl.formatMessage({ id: 'content__to' }),
+      content: <TxActionElementAddressNormal address={receivingAddress} />,
+    });
+  } else {
+    details.push({
       title: intl.formatMessage({ id: 'form__account' }),
       content: <TxActionElementAddressNormal address={accountAddress} />,
-    },
-  ];
+    });
+  }
 
   return (
     <TxDetailActionBoxAutoTransform

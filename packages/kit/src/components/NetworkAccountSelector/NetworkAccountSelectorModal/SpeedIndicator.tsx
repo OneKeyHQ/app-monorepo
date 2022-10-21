@@ -1,15 +1,10 @@
 import React, { ComponentProps } from 'react';
 
 import { Box } from '@onekeyhq/components';
-
-export enum SpeedindicatorColors {
-  Fast = 'icon-success',
-  Slow = 'icon-warning',
-  Unavailable = 'icon-critical',
-}
+import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
 type Props = {
-  backgroundColor: SpeedindicatorColors;
+  backgroundColor: ThemeToken;
 } & ComponentProps<typeof Box>;
 
 const Speedindicator = (props: Props) => (

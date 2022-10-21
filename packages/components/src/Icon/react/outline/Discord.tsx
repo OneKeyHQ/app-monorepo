@@ -1,7 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgDiscord = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" stroke="currentColor" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
@@ -10,5 +15,4 @@ const SvgDiscord = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgDiscord;

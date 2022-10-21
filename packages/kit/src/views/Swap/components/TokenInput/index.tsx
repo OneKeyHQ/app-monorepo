@@ -81,8 +81,14 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
   if (account === null) {
     return (
       <Pressable onPress={createAccount}>
-        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
-          <Typography.CaptionStrong>
+        <Box
+          py="1"
+          px="2"
+          flexDirection="row"
+          bg="surface-neutral-subdued"
+          borderRadius="12"
+        >
+          <Typography.CaptionStrong color="text-default">
             {intl.formatMessage({ id: 'action__create_account' })}
           </Typography.CaptionStrong>
         </Box>
@@ -94,13 +100,13 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
     <Pressable onPress={onPickAccount}>
       {!account ? (
         <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
-          <Typography.CaptionStrong>
+          <Typography.CaptionStrong color="text-default">
             {intl.formatMessage({ id: 'title__choose_an_account' })}
           </Typography.CaptionStrong>
         </Box>
       ) : (
         <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
-          <Typography.Caption color="text-subdued" mr="1" numberOfLines={1}>
+          <Typography.Caption color="text-default" mr="1" numberOfLines={1}>
             {`${account.name}(${account.address.slice(-4)})`}
           </Typography.Caption>
         </Box>

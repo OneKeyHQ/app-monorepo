@@ -40,9 +40,16 @@ function convertToSwapInfo(options: {
   inputAmount: TokenAmount;
   outputAmount: TokenAmount;
   account: BaseAccount;
+  receivingAddress?: string;
 }): ISwapInfo {
-  const { swapQuote, quoteParams, inputAmount, outputAmount, account } =
-    options;
+  const {
+    swapQuote,
+    quoteParams,
+    inputAmount,
+    outputAmount,
+    account,
+    receivingAddress,
+  } = options;
   const {
     networkIn,
     networkOut,
@@ -53,6 +60,7 @@ function convertToSwapInfo(options: {
   } = quoteParams;
   const swapInfo: ISwapInfo = {
     accountAddress: account.address,
+    receivingAddress,
     send: {
       networkId: networkIn.id,
       tokenInfo: tokenIn,
@@ -146,6 +154,7 @@ const ExchangeButton = () => {
       outputAmount,
       swapQuote: quote,
       account: sendingAccount,
+      receivingAddress: recipient?.address,
     });
 
     let encodedTx: IEncodedTx | undefined;

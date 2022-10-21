@@ -1,6 +1,7 @@
 import {
   FC,
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -13,12 +14,11 @@ import {
   InpageProviderWebViewProps as InpageWebViewProps,
 } from '@onekeyfe/cross-inpage-provider-types';
 import {
-  DesktopWebView,
   IWebViewWrapperRef,
-  NativeWebView,
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
+import { Freeze } from 'react-freeze';
 import { useIntl } from 'react-intl';
 import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
@@ -31,9 +31,14 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// eslint-disable-next-line import/order
+import { DesktopWebView } from './DesktopWebView';
+
 // injected hot-reload cache update: 21334400088746
+// eslint-disable-next-line import/order
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
+import { NativeWebView } from './NativeWebView';
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
@@ -101,6 +106,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     );
 
     useEffect(() => {
+      if (platformEnv.isDesktop) {
+        setDesktopLoadError(false);
+      }
+    }, [src]);
+
+    useEffect(() => {
       const webview = webviewRef.current?.innerRef;
 
       if (!webview || !isDesktop) {
@@ -112,7 +123,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         const handleMessage = (event: any) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (event.errorCode !== -3) {
-            setDesktopLoadError(true);
+            // TODO iframe error also show ErrorView
+            //      testing www.163.com
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (event.isMainFrame) {
+              setDesktopLoadError(true);
+            }
           }
         };
 
@@ -126,14 +142,14 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [webviewRef.current, webviewRef.current?.innerRef]);
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(() => {
       try {
         setKey(Math.random().toString());
         setDesktopLoadError(false);
       } catch (error) {
         console.warn(error);
       }
-    };
+    }, []);
 
     type ErrorViewProps = {
       error?: string | undefined;
@@ -224,10 +240,8 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       <Box flex={1}>
         {progressLoading}
         <Box flex={1}>
-          {isDesktop &&
-            (desktopLoadError ? (
-              <ErrorView />
-            ) : (
+          {isDesktop && (
+            <Freeze freeze={desktopLoadError}>
               <DesktopWebView
                 key={key}
                 ref={setWebViewRef}
@@ -246,7 +260,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
                     : undefined
                 }
               />
-            ))}
+            </Freeze>
+          )}
+          {desktopLoadError ? <ErrorView /> : null}
+
           {isApp && (
             <NativeWebView
               key={key}

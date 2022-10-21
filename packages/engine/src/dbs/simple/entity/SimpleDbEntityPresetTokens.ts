@@ -1,9 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 // import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
-import { getSupportedImpls } from '../../../constants';
-import { parseNetworkId } from '../../../managers/network';
-import { formatServerToken } from '../../../managers/token';
+import { SEPERATOR } from '../../../constants';
+import { formatServerToken, isValidTokenId } from '../../../managers/token';
 import { ServerToken, Token } from '../../../types/token';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
@@ -76,9 +73,18 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
     const localAddedTokens = await this.localTokens.getUnknownAccountTokens(
       networkId,
     );
-    for (const localToken of localAddedTokens) {
-      if (!tokens.find((t) => t.id === localToken.id)) {
-        tokens.push(localToken);
+    for (const l of localAddedTokens) {
+      let localTokenId = l.id;
+      if (!isValidTokenId(l.id)) {
+        localTokenId = l.isNative
+          ? l.networkId
+          : `${l.networkId}${SEPERATOR}${l.tokenIdOnNetwork}`;
+      }
+      if (!tokens.find((t) => t.id === localTokenId)) {
+        tokens.push({
+          ...l,
+          id: localTokenId,
+        });
       }
     }
     const queryList = Object.entries(query || {});

@@ -4,19 +4,17 @@ import {
   DAppItemType,
   DiscoverHistory,
   HistoryItemData,
-  ItemsType,
   WebSiteHistory,
 } from '../../views/Discover/type';
 
 type InitialState = {
   dappHistory?: Record<string, HistoryItemData>;
-  dapps?: ItemsType[] | null;
-  allDapps?: DAppItemType[] | null;
-  allDappsMap?: Record<string, DAppItemType>;
+  dappItems?: DAppItemType[] | null;
   tags?: { name: string; _id: string }[];
   categories?: { name: string; _id: string }[];
   dappFavorites?: string[];
-
+  categoryItems?: Record<string, DAppItemType[]>;
+  tagItems?: Record<string, DAppItemType[]>;
   history: Record<string, DiscoverHistory>;
 
   firstRemindDAPP: boolean;
@@ -25,9 +23,6 @@ type InitialState = {
 const initialState: InitialState = {
   history: {},
   firstRemindDAPP: true,
-  tags: [],
-  categories: [],
-  dapps: [],
   dappHistory: {},
   dappFavorites: [],
 };
@@ -155,25 +150,26 @@ export const discoverSlice = createSlice({
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;
     },
-    setData: (
+    setTags(state, action: PayloadAction<{ name: string; _id: string }[]>) {
+      state.tags = action.payload;
+    },
+    setCategories(
       state,
-      action: PayloadAction<{
-        dapps: ItemsType[] | null;
-        tags: { name: string; _id: string }[];
-        categories: { name: string; _id: string }[];
-      }>,
-    ) => {
-      state.tags = action.payload.tags;
-      state.categories = action.payload.categories;
-      state.dapps = action.payload.dapps;
-      const { dapps } = action.payload;
-      if (dapps) {
-        const allDapps = dapps.reduce(
-          (result, item) => result.concat(item.items),
-          [] as DAppItemType[],
-        );
-        state.allDapps = allDapps;
-      }
+      action: PayloadAction<{ name: string; _id: string }[]>,
+    ) {
+      state.categories = action.payload;
+    },
+    setDappItems(state, action: PayloadAction<DAppItemType[]>) {
+      state.dappItems = action.payload;
+    },
+    setCategoryItems(
+      state,
+      action: PayloadAction<Record<string, DAppItemType[]>>,
+    ) {
+      state.categoryItems = action.payload;
+    },
+    setTagItems(state, action: PayloadAction<Record<string, DAppItemType[]>>) {
+      state.tagItems = action.payload;
     },
     setDappHistory(state, action: PayloadAction<string>) {
       if (!state.dappHistory) {
@@ -224,12 +220,16 @@ export const {
   updateFirstRemindDAPP,
   addWebSiteHistory,
   updateWebSiteHistory,
-  setData,
   setDappHistory,
   removeDappHistory,
   addFavorite,
   removeFavorite,
   removeWebSiteHistory,
+  setCategories,
+  setCategoryItems,
+  setTags,
+  setTagItems,
+  setDappItems,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;

@@ -44,7 +44,7 @@ export function TxActionElementAddress(
   const label = useAddressLabel({ address });
   let text = isShorten ? shortenAddress(address) : address;
   if (label && isLabelShow) {
-    text += ` (${label})`;
+    text = `${label}(${address.slice(-4)})`;
   }
   return (
     <TxActionElementPressable
