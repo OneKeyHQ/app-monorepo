@@ -9,7 +9,6 @@ import walletConnectUtils from '../../../components/WalletConnect/utils/walletCo
 import { useActiveWalletAccount } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import { AddConnectionSideDialogProps } from '../types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
   closeOverlay,
