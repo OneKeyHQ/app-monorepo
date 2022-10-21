@@ -34,6 +34,7 @@ interface ToggleButtonGroupProps {
   leftIconSize?: number;
   size?: 'sm' | 'lg';
   bg?: IBoxProps['bg'];
+  maxTextWidth?: number | string;
 }
 const ToggleButton: FC<
   ToggleButtonProps & {
@@ -42,6 +43,7 @@ const ToggleButton: FC<
     leftIconSize?: number | string;
     onLayout: (e: LayoutChangeEvent) => void;
     size?: 'sm' | 'lg';
+    maxTextWidth?: number | string;
   }
 > = ({
   text,
@@ -53,6 +55,7 @@ const ToggleButton: FC<
   leftIconSize,
   onLayout,
   size,
+  maxTextWidth,
 }) => {
   const isSmall = size === 'sm';
   const iconSize = leftIconSize || (isSmall ? '16px' : '20px');
@@ -93,7 +96,7 @@ const ToggleButton: FC<
       )}
       {leftComponentRender?.()}
       <Typography.Body2Strong
-        maxW="82px"
+        maxW={maxTextWidth}
         isTruncated
         color={isCurrent ? 'text-default' : 'text-subdued'}
       >
@@ -109,6 +112,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   onButtonPress,
   size = 'sm',
   bg = 'surface-default',
+  maxTextWidth,
 }) => {
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const showLeftArrow = useSharedValue(false);
@@ -214,6 +218,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
             isCurrent={selectedIndex === index}
             {...btn}
             size={size}
+            maxTextWidth={maxTextWidth}
             onPress={() => {
               scrollTo(index);
               onButtonPress(index);
