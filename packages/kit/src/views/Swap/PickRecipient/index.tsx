@@ -224,6 +224,7 @@ const MyWallet = () => {
       sections={sections}
       keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
+      stickySectionHeadersEnabled={false}
       ItemSeparatorComponent={() => (
         <Box mx={{ base: 4, md: 6 }}>
           <Divider />
@@ -252,7 +253,7 @@ const PickRecipient = () => {
   const addressbook = useMemo(() => <AddressBook />, []);
   return (
     <Modal
-      header={intl.formatMessage({ id: 'title__select_contact' })}
+      header={intl.formatMessage({ id: 'title__choose_an_account' })}
       hideSecondaryAction
       footer={selectedIndex === 0 ? undefined : null}
       primaryActionTranslationId="form__enter_address"

@@ -241,6 +241,7 @@ const MyWallet = () => {
   );
   return (
     <SectionList
+      stickySectionHeadersEnabled={false}
       sections={sections}
       contentContainerStyle={{ flexGrow: 1 }}
       keyExtractor={(item: Account, index) => `${item.address}${index}`}

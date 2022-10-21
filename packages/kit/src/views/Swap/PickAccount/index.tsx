@@ -108,6 +108,7 @@ const MyWallet = () => {
   );
   return (
     <SectionList
+      stickySectionHeadersEnabled={false}
       sections={sections}
       keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
