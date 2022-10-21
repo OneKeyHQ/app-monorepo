@@ -1,6 +1,5 @@
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 
-import { Freeze } from 'react-freeze';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -23,35 +22,40 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const showHome =
     (id === 'home' && webHandler === 'tabbedWebview') || url === '';
 
-  return (
-    <>
-      <Freeze freeze={!showHome}>
-        <DiscoverHome
-          onItemSelect={(dapp) => {
-            openMatchDApp({ id: dapp._id, dapp });
-          }}
-          onItemSelectHistory={openMatchDApp}
-        />
-      </Freeze>
-      <Freeze freeze={showHome}>
-        <WebView
-          src={url}
-          onWebViewRef={(ref) => {
-            const { dispatch } = backgroundApiProxy;
-            if (ref && ref.innerRef) {
-              webviewRefs[id] = ref;
-              dispatch(setWebTabData({ id, refReady: true }));
-            } else {
-              delete webviewRefs[id];
-              dispatch(setWebTabData({ id, refReady: false }));
-            }
-          }}
-          onNavigationStateChange={setNavigationStateChangeEvent}
-          allowpopups
-        />
-      </Freeze>
-    </>
+  const discoverHome = useMemo(
+    () => (
+      <DiscoverHome
+        onItemSelect={(dapp) => {
+          openMatchDApp({ id: dapp._id, dapp });
+        }}
+        onItemSelectHistory={openMatchDApp}
+      />
+    ),
+    [openMatchDApp],
   );
+
+  const webview = useMemo(
+    () => (
+      <WebView
+        src={url || 'about:blank'}
+        onWebViewRef={(ref) => {
+          const { dispatch } = backgroundApiProxy;
+          if (ref && ref.innerRef) {
+            webviewRefs[id] = ref;
+            dispatch(setWebTabData({ id, refReady: true }));
+          } else {
+            delete webviewRefs[id];
+            dispatch(setWebTabData({ id, refReady: false }));
+          }
+        }}
+        onNavigationStateChange={setNavigationStateChangeEvent}
+        allowpopups
+      />
+    ),
+    [id, url],
+  );
+
+  return showHome ? discoverHome : webview;
 };
 
 WebContent.displayName = 'WebContent';
