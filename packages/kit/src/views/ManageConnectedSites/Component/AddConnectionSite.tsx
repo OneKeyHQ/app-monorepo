@@ -53,13 +53,12 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
                     },
                   );
                 if (!existsAccounts?.length) {
-                  // Android platform  no await big probability ANR , but closeOverlay() + await still so ,so Android platform no fire closeOverlay
-                  if (!platformEnv.isNativeAndroid) {
-                    closeOverlay();
-                  }
-                  await backgroundApiProxy.serviceDapp.openConnectionModal({
-                    origin,
-                  });
+                  // use setTimeout fix android platform onpenModal ANR
+                  setTimeout(async () => {
+                    await backgroundApiProxy.serviceDapp.openConnectionModal({
+                      origin,
+                    });
+                  }, 20);
                 } else {
                   toast.show({
                     title: intl.formatMessage({
