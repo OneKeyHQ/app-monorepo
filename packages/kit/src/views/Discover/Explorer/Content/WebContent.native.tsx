@@ -25,31 +25,35 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
 
   return (
     <>
-      <Freeze freeze={!showHome}>
-        <DiscoverHome
-          onItemSelect={(dapp) => {
-            openMatchDApp({ id: dapp._id, dapp });
-          }}
-          onItemSelectHistory={openMatchDApp}
-        />
-      </Freeze>
-      <Freeze freeze={showHome}>
-        <WebView
-          src={url}
-          onWebViewRef={(ref) => {
-            const { dispatch } = backgroundApiProxy;
-            if (ref && ref.innerRef) {
-              webviewRefs[id] = ref;
-              dispatch(setWebTabData({ id, refReady: true }));
-            } else {
-              delete webviewRefs[id];
-              dispatch(setWebTabData({ id, refReady: false }));
-            }
-          }}
-          onNavigationStateChange={setNavigationStateChangeEvent}
-          allowpopups
-        />
-      </Freeze>
+      {showHome ? (
+        <Freeze freeze={!showHome}>
+          <DiscoverHome
+            onItemSelect={(dapp) => {
+              openMatchDApp({ id: dapp._id, dapp });
+            }}
+            onItemSelectHistory={openMatchDApp}
+          />
+        </Freeze>
+      ) : null}
+      {!showHome ? (
+        <Freeze freeze={showHome}>
+          <WebView
+            src={url}
+            onWebViewRef={(ref) => {
+              const { dispatch } = backgroundApiProxy;
+              if (ref && ref.innerRef) {
+                webviewRefs[id] = ref;
+                dispatch(setWebTabData({ id, refReady: true }));
+              } else {
+                delete webviewRefs[id];
+                dispatch(setWebTabData({ id, refReady: false }));
+              }
+            }}
+            onNavigationStateChange={setNavigationStateChangeEvent}
+            allowpopups
+          />
+        </Freeze>
+      ) : null}
     </>
   );
 };
