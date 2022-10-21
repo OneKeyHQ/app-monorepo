@@ -49,6 +49,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             .decodeCfxAddress(encodedTx.to)
             .hexAddress.toString('hex')}`
         : '',
+      storageLimit: toBigIntHex(new BigNumber(encodedTx.storageLimit ?? 0)),
       nonce: toBigIntHex(new BigNumber(encodedTx.nonce ?? 0)),
       gasPrice: toBigIntHex(new BigNumber(encodedTx.gasPrice ?? 0)),
       data: encodedTx.data ?? '0x',
