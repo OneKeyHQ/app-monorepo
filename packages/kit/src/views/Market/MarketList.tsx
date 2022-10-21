@@ -5,6 +5,7 @@ import {
   ListRenderItem,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  RefreshControl,
   ScrollView as ScrollViewType,
 } from 'react-native';
 
@@ -15,10 +16,7 @@ import {
   IconButton,
   ScrollView,
 } from '@onekeyhq/components/src';
-import {
-  useIsVerticalLayout,
-  useUserDevice,
-} from '@onekeyhq/components/src/Provider/hooks';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import {
@@ -37,6 +35,7 @@ import {
   useMarketFavoriteCategoryTokenIds,
   useMarketFavoriteRecommentedList,
 } from './hooks/useMarketCategory';
+import { useMarketMidLayout } from './hooks/useMarketLayout';
 import { useMarketList } from './hooks/useMarketList';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -45,21 +44,20 @@ type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketList: FC = () => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { size } = useUserDevice();
-  const isNormal = useMemo(() => ['NORMAL'].includes(size), [size]);
+  const isMidLayout = useMarketMidLayout();
   const categorys: MarketCategory[] = useMarketCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
   const favoriteTokens = useMarketFavoriteCategoryTokenIds();
-  const { selectedCategory } = useMarketList();
+  const { selectedCategory, onRefreshingMarketList } = useMarketList();
   const listHeadTags = useMemo(() => {
-    if (isNormal) {
+    if (isMidLayout) {
       return ListHeadTags.filter((t) => t.showNorMalDevice);
     }
     if (isVerticalLayout) {
       return ListHeadTags.filter((t) => t.showVerticalLayout);
     }
     return ListHeadTags;
-  }, [isNormal, isVerticalLayout]);
+  }, [isMidLayout, isVerticalLayout]);
   const navigation = useNavigation<NavigationProps>();
   const scrollRef = useRef<ScrollViewType>(null);
   const renderItem: ListRenderItem<string> = useCallback(
@@ -85,11 +83,21 @@ const MarketList: FC = () => {
     const offsetHeight = e.nativeEvent.contentOffset.y;
     setGoToTopBtnShow((offsetHeight ?? 0) > 200);
   }, []);
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    onRefreshingMarketList().finally(() => {
+      setRefreshing(false);
+    });
+  }, [onRefreshingMarketList]);
   return (
     <Box flex={1}>
       <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ref={scrollRef}
-        mt={4}
+        mt={2}
         p={isVerticalLayout ? 4 : 6}
         bg="background-default"
         onScroll={onScroll}

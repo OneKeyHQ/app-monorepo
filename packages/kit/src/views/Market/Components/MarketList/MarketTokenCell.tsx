@@ -85,18 +85,12 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
       showMarketCellMoreMenu(
         marketTokenItem,
         {
-          header: `${marketTokenItem.symbol ?? marketTokenItem.name ?? ''}`,
+          header: `${marketTokenItem?.symbol ?? marketTokenItem?.name ?? ''}`,
         },
         moreButtonRef.current,
       ),
     [marketTokenItem],
   );
-
-  useEffect(() => {
-    if (marketTokenItem && !marketTokenItem.logoURI) {
-      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(marketTokenId);
-    }
-  }, [marketTokenId, marketTokenItem]);
 
   return (
     <ListItem

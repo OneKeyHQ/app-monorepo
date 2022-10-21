@@ -1,4 +1,4 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC } from 'react';
 
 import {
   Box,
@@ -11,7 +11,6 @@ import {
   Typography,
 } from '@onekeyhq/components/src';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { MarketTokenItem } from '../../../../store/reducers/market';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
@@ -20,11 +19,6 @@ const MarketSearchTokenDestopCell: FC<{
   onPress: (marketTokenItem: MarketTokenItem) => void;
 }> = ({ marketTokenId, onPress }) => {
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
-  useEffect(() => {
-    if (marketTokenItem && !marketTokenItem.logoURI) {
-      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(marketTokenId);
-    }
-  }, [marketTokenId, marketTokenItem]);
   return (
     <Pressable
       onPress={() => {

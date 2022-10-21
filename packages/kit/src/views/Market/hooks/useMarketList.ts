@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
@@ -12,6 +12,7 @@ import {
 } from '../../../store/reducers/market';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
+import { useMarketMidLayout } from './useMarketLayout';
 
 export const useListSort = () => {
   const listSort = useAppSelector((s) => s.market.listSort);
@@ -31,8 +32,10 @@ export const useMarketList = ({
   const isFocused = useIsFocused();
   const selectedCategory = useMarketSelectedCategory();
   const isVerticalLlayout = useIsVerticalLayout();
+  const isMidLayout = useMarketMidLayout();
   const listSort = useListSort();
   const marktTopTabName = useMarketTopTabName();
+
   // if favorites is empty don't fetch
   const checkFavoritesFetch = useMemo(() => {
     if (
@@ -56,7 +59,7 @@ export const useMarketList = ({
           categoryId: selectedCategory.categoryId,
           vsCurrency: 'usd',
           ids: selectedCategory.coingeckoIds?.join(','),
-          sparkline: !isVerticalLlayout,
+          sparkline: !isVerticalLlayout && !isMidLayout,
         });
       }
       timer = setInterval(() => {
@@ -64,7 +67,7 @@ export const useMarketList = ({
           categoryId: selectedCategory.categoryId,
           vsCurrency: 'usd',
           ids: selectedCategory.coingeckoIds?.join(','),
-          sparkline: !isVerticalLlayout,
+          sparkline: !isVerticalLlayout && !isMidLayout,
         });
       }, pollingInterval * 1000);
     }
@@ -81,8 +84,23 @@ export const useMarketList = ({
     listSort,
     marktTopTabName,
     checkFavoritesFetch,
+    isMidLayout,
   ]);
+  const onRefreshingMarketList = useCallback(async () => {
+    if (selectedCategory) {
+      await backgroundApiProxy.serviceMarket.fetchMarketList({
+        categoryId: selectedCategory.categoryId,
+        vsCurrency: 'usd',
+        ids: selectedCategory.coingeckoIds?.join(','),
+        sparkline: !isVerticalLlayout && !isMidLayout,
+      });
+    } else {
+      await backgroundApiProxy.serviceMarket.fetchMarketCategorys();
+    }
+  }, [isMidLayout, isVerticalLlayout, selectedCategory]);
+
   return {
     selectedCategory,
+    onRefreshingMarketList,
   };
 };

@@ -61,7 +61,7 @@ const MarketSearch: FC<{
       });
       backgroundApiProxy.serviceMarket.saveSearchHistory({
         coingeckoId: marketTokenItem.coingeckoId,
-        iconUrl: marketTokenItem.logoURI ?? '',
+        iconUrl: marketTokenItem.logoURI ?? marketTokenItem.image ?? '',
         symbol: marketTokenItem.symbol ?? '',
       });
     },
@@ -94,7 +94,7 @@ const MarketSearch: FC<{
   );
 
   const searchContent = useMemo(() => {
-    if (searchKeyword && searchKeyword.length > 0) {
+    if (searchKeyword?.length) {
       return (
         <Box mt="3">
           <Typography.Subheading mb="3">
@@ -112,7 +112,7 @@ const MarketSearch: FC<{
     }
     return (
       <>
-        {searchCategorys && searchCategorys.length > 0 ? (
+        {searchCategorys?.length ? (
           <Box flex={1}>
             <Box flexDirection="row" justifyContent="space-between" mb={2}>
               <Typography.Subheading>
@@ -133,7 +133,7 @@ const MarketSearch: FC<{
                 </Button>
               ) : null}
             </Box>
-            {searchHistory && searchHistory.length > 0 ? (
+            {searchHistory?.length ? (
               <Box mb={2} flexDirection="row" flexWrap="wrap">
                 {searchHistory.map((t, i) => (
                   <TokenTag

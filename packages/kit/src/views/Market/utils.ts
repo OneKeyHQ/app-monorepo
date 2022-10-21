@@ -70,7 +70,12 @@ export function formatMarketValueForInfo(value?: number | string) {
     }
     const noRexponentail = parseExponential(parseValue);
     const effectIndex = noRexponentail.toString().search(/[^.0]/g);
-    return formatMarketValueForFiexd(parseValue, 3 + effectIndex - 2);
+    const zeroCount = effectIndex - 2;
+    const fiexdValue = formatMarketValueForFiexd(parseValue, 3 + zeroCount);
+    if (zeroCount >= 3) {
+      return `0.{${zeroCount}}${fiexdValue.toString().substring(effectIndex)}`;
+    }
+    return fiexdValue;
   }
   return 0;
 }

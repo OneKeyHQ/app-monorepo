@@ -42,7 +42,7 @@ const MarketDetailActionButton = ({
     }
   }, [navigation]);
   const isDisabledSwap = useMemo(
-    () => !marketTokenItem.tokens?.length,
+    () => !marketTokenItem?.tokens?.length,
     [marketTokenItem],
   );
   return (
@@ -52,7 +52,7 @@ const MarketDetailActionButton = ({
         type="basic"
         size="lg"
         onPress={() => {
-          if (marketTokenItem.tokens && marketTokenItem.tokens.length > 0) {
+          if (marketTokenItem?.tokens?.length) {
             backgroundApiProxy.serviceSwap.setOutputToken(
               marketTokenItem.tokens[0],
             );
@@ -69,7 +69,7 @@ const MarketDetailActionButton = ({
         type="basic"
         size="lg"
         onPress={() => {
-          if (marketTokenItem.tokens && marketTokenItem.tokens.length > 0) {
+          if (marketTokenItem?.tokens?.length) {
             backgroundApiProxy.serviceSwap.setInputToken(
               marketTokenItem.tokens[0],
             );
@@ -104,8 +104,8 @@ enum MarketDetailTabName {
   Stats = 'stats',
 }
 
-const MARKET_DETAIL_TAB_HEADER_H_VERTICAL = 408;
-const MARKET_DETAIL_TAB_HEADER_H = 360;
+const MARKET_DETAIL_TAB_HEADER_H_VERTICAL = 440;
+const MARKET_DETAIL_TAB_HEADER_H = 392;
 
 const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   marketTokenId,
@@ -144,7 +144,6 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         backgroundColor: tabbarBgColor,
         alignSelf: 'center',
         flex: 1,
-        padding: isVerticalLayout ? '16px' : '0px',
       }}
       headerContainerStyle={{
         shadowOffset: { width: 0, height: 0 },
@@ -155,12 +154,12 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
       }}
       renderHeader={() =>
         isVerticalLayout ? (
-          <Box>
+          <Box h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL} p="4">
             <MarketPriceChart coingeckoId={marketTokenId} />
             <MarketDetailActionButton marketTokenId={marketTokenId} />
           </Box>
         ) : (
-          <Box>
+          <Box h={MARKET_DETAIL_TAB_HEADER_H} p="4">
             <MarketPriceChart coingeckoId={marketTokenId} />
           </Box>
         )
@@ -175,12 +174,8 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         name={MarketDetailTabName.Info}
         label={intl.formatMessage({ id: 'content__info' })}
       >
-        {/* {!tokenDetail ? (
-          <Center w="full" h="200px">
-            <Spinner size="lg" />
-          </Center>
-        ) : ( */}
         <ScrollView
+          px="4"
           contentContainerStyle={{
             paddingBottom: 24,
           }}
@@ -209,6 +204,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
           </Center>
         ) : ( */}
         <ScrollView
+          px="4"
           contentContainerStyle={{
             paddingBottom: 24,
           }}

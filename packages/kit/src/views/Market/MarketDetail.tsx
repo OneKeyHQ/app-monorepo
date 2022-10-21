@@ -49,7 +49,6 @@ import { useMarketTokenItem } from './hooks/useMarketToken';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 
 type NavigationProps = NativeStackNavigationProp<TabRoutesParams> &
@@ -247,7 +246,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
       });
     }
   });
-  const token = marketTokenItem.tokens?.[0];
+  const token = marketTokenItem?.tokens?.[0];
   const { network } = useActiveWalletAccount();
   const currencies = useFiatPay(network?.id ?? '');
   let crypotoCurrency = currencies.find((item) => {

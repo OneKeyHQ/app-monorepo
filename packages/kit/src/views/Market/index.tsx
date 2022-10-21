@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
-import { Box } from '@onekeyhq/components/src';
+import { Box, useSafeAreaInsets } from '@onekeyhq/components/src';
 
 import { MARKET_TAB_NAME, SWAP_TAB_NAME } from '../../store/reducers/market';
 import Swap from '../Swap';
@@ -13,6 +13,7 @@ import MarketList from './MarketList';
 
 const Market = () => {
   const navigation = useNavigation();
+  const { top } = useSafeAreaInsets();
   const marketTopTabName = useMarketTopTabName();
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -27,7 +28,7 @@ const Market = () => {
     }
   }, [marketTopTabName]);
   return (
-    <Box flex={1}>
+    <Box flex={1} mt={top}>
       <MarketHeader />
       {contentComponent}
     </Box>

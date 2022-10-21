@@ -131,6 +131,7 @@ const HeaderSmall: React.FC = () => {
           <IconButton
             size="base"
             name="SearchSolid"
+            type="plain"
             iconSize={16}
             onPress={() => {
               showMarketSearch({

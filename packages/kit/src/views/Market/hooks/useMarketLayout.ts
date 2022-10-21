@@ -43,3 +43,8 @@ export const useGridBoxStyle = ({
   );
   return { ml, my, width };
 };
+
+export const useMarketMidLayout = () => {
+  const { size } = useUserDevice();
+  return useMemo(() => ['NORMAL'].includes(size), [size]);
+};

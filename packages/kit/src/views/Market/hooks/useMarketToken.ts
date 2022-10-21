@@ -2,8 +2,12 @@ import { useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
+import { useIsVerticalLayout } from '@onekeyhq/components/src';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+
+import { useMarketMidLayout } from './useMarketLayout';
 
 export const useMarketTokenChart = ({
   coingeckoId,
@@ -57,6 +61,22 @@ export const useMarketTokenItem = ({
 }: {
   coingeckoId: string;
 }) => {
+  const isVertical = useIsVerticalLayout();
+  const isMidLayout = useMarketMidLayout();
   const marketTokens = useAppSelector((s) => s.market.marketTokens);
+  const marketTokenItem = marketTokens[coingeckoId];
+  useEffect(() => {
+    if (!marketTokenItem) {
+      backgroundApiProxy.serviceMarket.fetchMarketList({
+        vsCurrency: 'usd',
+        ids: coingeckoId,
+        sparkline: !isVertical && !isMidLayout,
+      });
+      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
+    } else if (marketTokenItem && !marketTokenItem.logoURI) {
+      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
+    }
+  }, [coingeckoId, isMidLayout, isVertical, marketTokenItem]);
+
   return useMemo(() => marketTokens[coingeckoId], [marketTokens, coingeckoId]);
 };
