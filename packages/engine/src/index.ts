@@ -35,6 +35,7 @@ import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
+  IMPL_DOGE,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
@@ -719,6 +720,7 @@ class Engine {
       '501': OnekeyNetwork.sol,
       '195': OnekeyNetwork.trx,
       '637': OnekeyNetwork.tapt, // TODO temp
+      '3': OnekeyNetwork.doge,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -979,6 +981,7 @@ class Engine {
     try {
       switch (impl) {
         case IMPL_BTC:
+        case IMPL_DOGE:
           privateKey = bs58check.decode(credential);
           break;
         case IMPL_NEAR: {

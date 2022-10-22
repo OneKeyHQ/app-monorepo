@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import { ExtendedKey } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
   BaseBip32KeyDeriver,
@@ -12,14 +10,15 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import bs58check from 'bs58check';
 
-import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
+import { Provider } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider';
+
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 import { IPrepareImportedAccountsParams } from '../../types';
 
-import type BTCVault from './Vault';
+import type BTCForkVault from './VaultBtcFork';
 
 const deriver = new BaseBip32KeyDeriver(
   Buffer.from('Bitcoin seed'),
@@ -29,19 +28,19 @@ const deriver = new BaseBip32KeyDeriver(
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(
     password: string,
-    addresses: Array<string>,
+    addresses: string[],
   ): Promise<Record<string, Signer>> {
-    const relPathToAddresses: Record<string, string> = {};
-    const utxos = await (this.vault as BTCVault).collectUTXOs();
+    const relPathToAddress: Record<string, string> = {};
+    const utxos = await (this.vault as unknown as BTCForkVault).collectUTXOs();
     for (const utxo of utxos) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {
         const relPath = path.split('/').slice(-2).join('/');
-        relPathToAddresses[relPath] = address;
+        relPathToAddress[relPath] = address;
       }
     }
 
-    const relPaths = Object.keys(relPathToAddresses);
+    const relPaths = Object.keys(relPathToAddress);
     if (relPaths.length === 0) {
       throw new OneKeyInternalError('No signers would be chosen.');
     }
@@ -72,33 +71,29 @@ export class KeyringImported extends KeyringImportedBase {
         }
         parent = cache[currentPath];
       });
-      const address = relPathToAddresses[relPath];
+
+      const address = relPathToAddress[relPath];
       ret[address] = new Signer(
         encrypt(password, cache[relPath].key),
         password,
         'secp256k1',
       );
     });
+
     return ret;
   }
 
-  override async prepareAccounts(
+  async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<DBUTXOAccount>> {
+  ): Promise<DBUTXOAccount[]> {
     const { privateKey, name } = params;
     const provider = (await this.engine.providerManager.getProvider(
       this.networkId,
-    )) as Provider;
+    )) as unknown as Provider;
+    const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
+
     let xpub = '';
 
-    /* TODO: error in blockchain-libs, need to fix it.
-    try {
-      xpub = provider.xprvToXpub(bs58check.encode(privateKey));
-    } catch (e) {
-      console.error(e);
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-    */
     const { network } = provider;
     const xprvVersionBytesNum = parseInt(
       privateKey.slice(0, 4).toString('hex'),

@@ -1,20 +1,27 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { BlockBook } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/blockbook';
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
+
+import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  TxInput,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
-// @ts-ignore
+// @ts-expect-error
 import coinSelect from 'coinselect';
-// @ts-ignore
+// @ts-expect-error
 import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
+import {
+  IBlockBookTransaction,
+  IEncodedTxBtc,
+  IUTXOInput,
+  IUTXOOutput,
+  PartialTokenInfo,
+  TxInput,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { COINTYPE_BTC } from '../../../constants';
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
@@ -22,7 +29,9 @@ import {
   OneKeyInternalError,
 } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
-import { TxStatus } from '../../../types/covalent';
+import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
+import { KeyringBaseMock } from '../../keyring/KeyringBase';
+import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -36,79 +45,169 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
+  IVaultSettings,
 } from '../../types';
-import { VaultBase } from '../../VaultBase';
-import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
+import { IKeyringMapKey, VaultBase } from '../../VaultBase';
 
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
+import { Provider } from './provider';
+import { BlockBook } from './provider/blockbook';
 import { getAccountDefaultByPurpose } from './utils';
 
-import type { IBlockBookTransaction, IBtcUTXO, IEncodedTxBtc } from './types';
+export default class VaultBtcFork extends VaultBase {
+  keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
 
-const DEFAULT_BLOCK_NUMS = [5, 2, 1];
-const DEFAULT_BLOCK_TIME = 600; // Average block time is 10 minutes.
-const DEFAULT_PRESET_FEE_INDEX = 1; // Use medium fee rate by default.
+  settings = {} as IVaultSettings;
 
-export default class Vault extends VaultBase {
-  private getFeeRate = memoizee(
-    async () => {
-      const client = await (this.engineProvider as Provider).blockbook;
-      try {
-        return await Promise.all(
-          DEFAULT_BLOCK_NUMS.map((blockNum) =>
-            client
-              .estimateFee(blockNum)
-              .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
+  getDefaultPurpose() {
+    return 49;
+  }
+
+  getCoinName() {
+    return 'BTC';
+  }
+
+  getCoinType() {
+    return COINTYPE_BTC;
+  }
+
+  getXprvReg() {
+    return /^[xyz]prv/;
+  }
+
+  getXpubReg() {
+    return /^[xyz]pub/;
+  }
+
+  getDefaultBlockNums() {
+    return [5, 2, 1];
+  }
+
+  getDefaultBlockTime() {
+    return 600;
+  }
+
+  override validateImportedCredential(input: string): Promise<boolean> {
+    const xprvReg = this.getXprvReg();
+    let ret = false;
+    try {
+      ret =
+        this.settings.importedAccountEnabled &&
+        xprvReg.test(input) &&
+        (this.engineProvider as unknown as Provider).isValidXprv(input);
+    } catch {
+      // pass
+    }
+    return Promise.resolve(ret);
+  }
+
+  override validateWatchingCredential(input: string): Promise<boolean> {
+    const xpubReg = this.getXpubReg();
+    let ret = false;
+    try {
+      ret =
+        this.settings.watchingAccountEnabled &&
+        xpubReg.test(input) &&
+        (this.engineProvider as unknown as Provider).isValidXpub(input);
+    } catch {
+      // ignore
+    }
+    return Promise.resolve(ret);
+  }
+
+  override async checkAccountExistence(
+    accountIdOnNetwork: string,
+  ): Promise<boolean> {
+    let accountIsPresent = false;
+    try {
+      const provider = this.engineProvider as unknown as Provider;
+      const { txs } = (await provider.getAccount({
+        type: 'simple',
+        xpub: accountIdOnNetwork,
+      })) as {
+        txs: number;
+      };
+      accountIsPresent = txs > 0;
+    } catch (e) {
+      console.error(e);
+    }
+    return Promise.resolve(accountIsPresent);
+  }
+
+  override async getAccountBalance(tokenIds: Array<string>, withMain = true) {
+    // No token support on BTC.
+    const ret = tokenIds.map((id) => undefined);
+    if (!withMain) {
+      return ret;
+    }
+    const { xpub } = (await this.getDbAccount()) as DBUTXOAccount;
+    if (!xpub) {
+      return [new BigNumber('0'), ...ret];
+    }
+    const [mainBalance] = await this.getBalances([{ address: xpub }]);
+    return [mainBalance].concat(ret);
+  }
+
+  override getBalances(
+    requests: { address: string; tokenAddress?: string | undefined }[],
+  ): Promise<(BigNumber | undefined)[]> {
+    return (this.engineProvider as unknown as Provider).getBalances(requests);
+  }
+
+  async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+
+    if (dbAccount.id.startsWith('hd-')) {
+      const purpose = parseInt(dbAccount.path.split('/')[1]);
+      const { addressEncoding } = getAccountDefaultByPurpose(
+        purpose,
+        this.getCoinName(),
+      );
+      const { network } = this.engineProvider as unknown as Provider;
+      const { private: xprvVersionBytes } =
+        (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
+
+      const keyring = this.keyring as KeyringHdBase;
+      const [encryptedPrivateKey] = Object.values(
+        await keyring.getPrivateKeys(password),
+      );
+      return bs58check.encode(
+        bs58check
+          .decode(dbAccount.xpub)
+          .fill(
+            Buffer.from(xprvVersionBytes.toString(16).padStart(8, '0'), 'hex'),
+            0,
+            4,
+          )
+          .fill(
+            Buffer.concat([
+              Buffer.from([0]),
+              decrypt(password, encryptedPrivateKey),
+            ]),
+            45,
+            78,
           ),
-        );
-      } catch (e) {
-        console.error(e);
-        throw new OneKeyInternalError('Failed to get fee rates.');
+      );
+    }
+
+    if (dbAccount.id.startsWith('imported-')) {
+      // Imported accounts, crendetial is already xprv
+      const { privateKey } = (await this.engine.dbApi.getCredential(
+        this.accountId,
+        password,
+      )) as ExportedPrivateKeyCredential;
+      if (typeof privateKey === 'undefined') {
+        throw new OneKeyInternalError('Unable to get credential.');
       }
-    },
-    {
-      promise: true,
-      max: 1,
-      maxAge: 1000 * 30,
-    },
-  );
+      return bs58check.encode(decrypt(password, privateKey));
+    }
 
-  collectUTXOs = memoizee(
-    async () => {
-      const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-      const client = await (this.engineProvider as Provider).blockbook;
-      try {
-        // TODO: use updated blockchain-libs API
-        return await client.restful
-          .get(`/api/v2/utxo/${dbAccount.xpub}`)
-          .then((i) => i.json() as unknown as Array<IBtcUTXO>);
-      } catch (e) {
-        console.error(e);
-        throw new OneKeyInternalError('Failed to get UTXOs of the account.');
-      }
-    },
-    {
-      promise: true,
-      max: 1,
-      maxAge: 1000 * 60,
-    },
-  );
-
-  settings = settings;
-
-  keyringMap = {
-    hd: KeyringHd,
-    hw: KeyringHardware,
-    imported: KeyringImported,
-    watching: KeyringWatching,
-    external: KeyringWatching,
-  };
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
+  }
 
   attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxBtc;
@@ -217,7 +316,6 @@ export default class Vault extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const utxos = await this.collectUTXOs();
-    // const feeRate = '2';
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
     // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
@@ -226,28 +324,23 @@ export default class Vault extends VaultBase {
         ? new BigNumber(specifiedFeeRate)
             .shiftedBy(network.feeDecimals)
             .toFixed()
-        : (await this.getFeeRate())[DEFAULT_PRESET_FEE_INDEX];
+        : (await this.getFeeRate())[0];
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
       .lte(amount);
 
+    const unspentSelectFn = max ? coinSelectSplit : coinSelect;
     const {
       inputs,
       outputs,
       fee,
     }: {
-      inputs: Array<{
-        txId: string;
-        vout: number;
-        value: number;
-        address: string;
-        path: string;
-      }>;
-      outputs: Array<{ address: string; value: number }>;
+      inputs: IUTXOInput[];
+      outputs: IUTXOOutput[];
       fee: number;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    } = (max ? coinSelectSplit : coinSelect)(
+    } = unspentSelectFn(
       utxos.map(({ txid, vout, value, address, path }) => ({
         txId: txid,
         vout,
@@ -267,6 +360,7 @@ export default class Vault extends VaultBase {
       ],
       parseInt(feeRate),
     );
+
     if (!inputs || !outputs) {
       throw new InsufficientBalance('Failed to select UTXOs');
     }
@@ -314,7 +408,7 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const { inputs, outputs } = encodedTx;
 
-    const inputsInUnsignedTx: Array<TxInput> = [];
+    const inputsInUnsignedTx: TxInput[] = [];
     for (const input of inputs) {
       const value = new BigNumber(input.value);
       inputsInUnsignedTx.push({
@@ -334,6 +428,7 @@ export default class Vault extends VaultBase {
       payload: {},
       encodedTx,
     };
+
     return Promise.resolve(ret);
   }
 
@@ -350,14 +445,15 @@ export default class Vault extends VaultBase {
     const prices = (await this.getFeeRate()).map((price) =>
       new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
     );
+    const blockNums = this.getDefaultBlockNums();
     return {
       customDisabled: true,
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
-      waitingSeconds: DEFAULT_BLOCK_NUMS.map(
-        (numOfBlocks) => numOfBlocks * DEFAULT_BLOCK_TIME,
+      waitingSeconds: blockNums.map(
+        (numOfBlocks) => numOfBlocks * this.getDefaultBlockTime(),
       ),
-      defaultPresetIndex: DEFAULT_PRESET_FEE_INDEX.toString(),
+      defaultPresetIndex: '1',
       feeSymbol: 'BTC',
       feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
@@ -366,66 +462,29 @@ export default class Vault extends VaultBase {
     };
   }
 
-  async getExportedCredential(password: string): Promise<string> {
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-
-    if (dbAccount.id.startsWith('hd-')) {
-      const purpose = parseInt(dbAccount.path.split('/')[1]);
-      const { addressEncoding } = getAccountDefaultByPurpose(purpose);
-      const { network } = this.engineProvider as Provider;
-      const { private: xprvVersionBytes } =
-        (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
-
-      const keyring = this.keyring as KeyringHd;
-      const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
-      );
-      return bs58check.encode(
-        bs58check
-          .decode(dbAccount.xpub)
-          .fill(
-            Buffer.from(xprvVersionBytes.toString(16).padStart(8, '0'), 'hex'),
-            0,
-            4,
-          )
-          .fill(
-            Buffer.concat([
-              Buffer.from([0]),
-              decrypt(password, encryptedPrivateKey),
-            ]),
-            45,
-            78,
-          ),
-      );
-    }
-    if (dbAccount.id.startsWith('imported-')) {
-      // Imported accounts, crendetial is already xprv
-      const { privateKey } = (await this.engine.dbApi.getCredential(
-        this.accountId,
-        password,
-      )) as ExportedPrivateKeyCredential;
-      if (typeof privateKey === 'undefined') {
-        throw new OneKeyInternalError('Unable to get credential.');
-      }
-      return bs58check.encode(decrypt(password, privateKey));
-    }
-    throw new OneKeyInternalError(
-      'Only credential of HD or imported accounts can be exported',
-    );
+  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const txid = await (
+      this.engineProvider as unknown as Provider
+    ).broadcastTransaction(signedTx.rawTx);
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...signedTx,
+      txid,
+    };
   }
 
-  override async getAccountBalance(tokenIds: Array<string>, withMain = true) {
-    // No token support on BTC.
-    const ret = tokenIds.map((id) => undefined);
-    if (!withMain) {
-      return ret;
-    }
-    const { xpub } = (await this.getDbAccount()) as DBUTXOAccount;
-    if (!xpub) {
-      return [new BigNumber('0'), ...ret];
-    }
-    const [mainBalance] = await this.getBalances([{ address: xpub }]);
-    return [mainBalance].concat(ret);
+  override getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    return (this.engineProvider as unknown as Provider).getTransactionStatuses(
+      txids,
+    );
   }
 
   override async fetchOnChainHistory(options: {
@@ -441,7 +500,7 @@ export default class Vault extends VaultBase {
     try {
       txs =
         (
-          (await (this.engineProvider as Provider).getAccount({
+          (await (this.engineProvider as unknown as Provider).getAccount({
             type: 'history',
             xpub: dbAccount.xpub,
           })) as { transactions: Array<IBlockBookTransaction> }
@@ -515,14 +574,7 @@ export default class Vault extends VaultBase {
                 utxoFrom,
                 utxoTo,
                 from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
-                // For out and self transaction, use first address as to.
-                // For in transaction, use first owned address as to.
-                to:
-                  utxoTo.find((utxo) =>
-                    direction === IDecodedTxDirection.IN
-                      ? utxo.isMine
-                      : !!utxo.address,
-                  )?.address ?? '',
+                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
                 amount: amountValue.shiftedBy(-decimals).toFixed(),
                 amountValue: amountValue.toFixed(),
                 extraInfo: null,
@@ -559,189 +611,57 @@ export default class Vault extends VaultBase {
     return (await Promise.all(promises)).filter(Boolean);
   }
 
-  // TODO: BTC history type
-  async getHistory(): Promise<Array<EVMDecodedItem>> {
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-
-    const ret = [];
-    let txs;
-    try {
-      txs =
-        (
-          (await (this.engineProvider as Provider).getAccount({
-            type: 'history',
-            xpub: dbAccount.xpub,
-          })) as { transactions: Array<any> }
-        ).transactions ?? [];
-    } catch (e) {
-      console.error(e);
-      txs = [];
-    }
-
-    const network = await this.engine.getNetwork(this.networkId);
-
-    for (const tx of txs) {
+  collectUTXOs = memoizee(
+    async () => {
+      const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
       try {
-        const item = {} as EVMDecodedItem;
-        item.symbol = network.symbol;
-        item.network = network;
-        item.chainId = 0;
-        item.txStatus = TxStatus.Confirmed;
-        item.info = null;
-
-        const { value, valueIn, fees } = tx as {
-          value: string;
-          valueIn: string;
-          fees: string;
-        };
-        item.amount = new BigNumber(value)
-          .shiftedBy(-network.decimals)
-          .toFixed();
-        item.value = value;
-        item.total = new BigNumber(valueIn).toFixed();
-
-        item.txHash = (tx as { txid: string }).txid;
-        item.blockSignedAt = (tx as { blockTime: number }).blockTime * 1000;
-        item.data = (tx as { hex: string }).hex;
-
-        const txSize = item.data.length / 2;
-        const gasPrice = new BigNumber(fees).div(txSize).toFixed();
-
-        item.gasInfo = {
-          gasLimit: txSize,
-          gasPrice,
-          maxPriorityFeePerGas: '0',
-          maxFeePerGas: '0',
-          maxPriorityFeePerGasInGwei: '0',
-          maxFeePerGasInGwei: '0',
-          maxFeeSpend: '0',
-          feeSpend: new BigNumber(fees).shiftedBy(-network.decimals).toFixed(),
-          gasUsed: txSize,
-          gasUsedRatio: 1,
-          effectiveGasPrice: gasPrice,
-          effectiveGasPriceInGwei: gasPrice,
-        };
-
-        const isSend = (tx as { vin: Array<{ isOwn: boolean }> }).vin.some(
-          ({ isOwn }) => isOwn,
+        return await (this.engineProvider as unknown as Provider).getUTXOs(
+          dbAccount.xpub,
         );
-
-        if (isSend) {
-          item.fromType = 'OUT';
-          [item.toAddress] = (
-            tx as { vout: Array<{ addresses: Array<string> }> }
-          ).vout[0].addresses;
-          for (const input of (tx as { vin: Array<any> }).vin) {
-            const { isOwn, addresses } = input as {
-              isOwn: boolean;
-              addresses: Array<string>;
-            };
-            if (isOwn) {
-              [item.fromAddress] = addresses;
-              break;
-            }
-          }
-        } else {
-          item.fromType = 'IN';
-          [item.fromAddress] = (
-            tx as { vin: Array<{ addresses: Array<string> }> }
-          ).vin[0].addresses;
-          for (const output of (tx as { vout: Array<any> }).vout) {
-            const { isOwn, addresses } = output as {
-              isOwn: boolean;
-              addresses: Array<string>;
-            };
-            if (isOwn) {
-              [item.toAddress] = addresses;
-              break;
-            }
-          }
-        }
-
-        ret.push(item);
       } catch (e) {
         console.error(e);
+        throw new OneKeyInternalError('Failed to get UTXOs of the account.');
       }
-    }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 
-    return ret;
-  }
+  private getFeeRate = memoizee(
+    async () => {
+      const client = await (this.engineProvider as unknown as Provider)
+        .blockbook;
+      const blockNums = this.getDefaultBlockNums();
+      try {
+        return await Promise.all(
+          blockNums.map((blockNum) =>
+            client
+              .estimateFee(blockNum)
+              .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
+          ),
+        );
+      } catch (e) {
+        console.error(e);
+        throw new OneKeyInternalError('Failed to get fee rates.');
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 
-  // Chain only functionalities below.
-
-  override validateImportedCredential(input: string): Promise<boolean> {
-    let ret = false;
-    try {
-      ret =
-        this.settings.importedAccountEnabled &&
-        /^[xyz]prv/.test(input) &&
-        (this.engineProvider as Provider).isValidXprv(input);
-    } catch {
-      // pass
-    }
-    return Promise.resolve(ret);
-  }
-
-  override validateWatchingCredential(input: string): Promise<boolean> {
-    let ret = false;
-    try {
-      ret =
-        this.settings.watchingAccountEnabled &&
-        /^[xyz]pub/.test(input) &&
-        (this.engineProvider as Provider).isValidXpub(input);
-    } catch {
-      // pass
-    }
-    return Promise.resolve(ret);
-  }
-
-  createClientFromURL(url: string): BlockBook {
-    return new BlockBook(url);
+  createClientFromURL(url: string) {
+    return new BlockBook(url) as unknown as BaseClient;
   }
 
   fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
     throw new NotImplemented();
-  }
-
-  override async checkAccountExistence(
-    accountIdOnNetwork: string,
-  ): Promise<boolean> {
-    let accountIsPresent = false;
-    try {
-      const provider = this.engineProvider as Provider;
-      const { txs } = (await provider.getAccount({
-        type: 'simple',
-        xpub: accountIdOnNetwork,
-      })) as {
-        txs: number;
-      };
-      accountIsPresent = txs > 0;
-    } catch (e) {
-      console.error(e);
-    }
-    return Promise.resolve(accountIsPresent);
-  }
-
-  override async getBalances(
-    requests: Array<{ address: string; tokenAddress?: string }>,
-  ) {
-    const { restful } = await (this.engineProvider as Provider).blockbook;
-    return Promise.all(
-      requests.map(({ address }) =>
-        restful
-          .get(`/api/v2/xpub/${address}`, { details: 'basic' })
-          .then((r) => r.json())
-          .then((r: { balance: string; unconfirmedBalance: string }) => {
-            const balance = new BigNumber(r.balance);
-            const unconfirmedBalance = new BigNumber(r.unconfirmedBalance);
-            return !unconfirmedBalance.isNaN() && !unconfirmedBalance.isZero()
-              ? balance.plus(unconfirmedBalance)
-              : balance;
-          })
-          .catch(() => undefined),
-      ),
-    );
   }
 }

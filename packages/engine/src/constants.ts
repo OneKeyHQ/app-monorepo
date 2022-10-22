@@ -29,6 +29,9 @@ const COINTYPE_TRON = '195';
 const IMPL_APTOS = 'aptos';
 const COINTYPE_APTOS = '637';
 
+const IMPL_DOGE = 'doge';
+const COINTYPE_DOGE = '3';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -39,6 +42,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_STC,
   IMPL_TRON,
   IMPL_APTOS,
+  IMPL_DOGE,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -99,5 +103,7 @@ export {
   COINTYPE_TRON,
   IMPL_APTOS,
   COINTYPE_APTOS,
+  IMPL_DOGE,
+  COINTYPE_DOGE,
   getSupportedImpls,
 };

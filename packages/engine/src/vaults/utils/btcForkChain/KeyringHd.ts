@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import bs58check from 'bs58check';
 
-import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
+import { Provider } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider';
+
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
@@ -13,9 +12,7 @@ import { IPrepareSoftwareAccountsParams } from '../../types';
 
 import { getAccountDefaultByPurpose } from './utils';
 
-import type BTCVault from './Vault';
-
-const DEFAULT_PURPOSE = 49;
+import type BTCForkVault from './VaultBtcFork';
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(
@@ -23,7 +20,7 @@ export class KeyringHd extends KeyringHdBase {
     addresses: Array<string>,
   ): Promise<Record<string, Signer>> {
     const relPathToAddresses: Record<string, string> = {};
-    const utxos = await (this.vault as BTCVault).collectUTXOs();
+    const utxos = await (this.vault as unknown as BTCForkVault).collectUTXOs();
     for (const utxo of utxos) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {
@@ -48,24 +45,30 @@ export class KeyringHd extends KeyringHdBase {
 
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
-  ): Promise<Array<DBUTXOAccount>> {
+  ): Promise<DBUTXOAccount[]> {
     const { password, indexes, purpose, names } = params;
-    const usedPurpose = purpose || DEFAULT_PURPOSE;
+    console.log('BTC Fork prepareAccounts!');
+
+    const vault = this.vault as unknown as BTCForkVault;
+    const defaultPurpose = vault.getDefaultPurpose();
+    const coinName = vault.getCoinName();
+    const COIN_TYPE = vault.getCoinType();
+
+    const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { namePrefix, addressEncoding } =
-      getAccountDefaultByPurpose(usedPurpose);
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
-    const { network } = provider;
-    const { public: xpubVersionBytes } =
-      (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
-
+    const { addressEncoding } = getAccountDefaultByPurpose(
+      usedPurpose,
+      coinName,
+    );
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
+    const provider = (await this.engine.providerManager.getProvider(
+      this.networkId,
+    )) as unknown as Provider;
+    const { network } = provider;
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,
@@ -76,6 +79,9 @@ export class KeyringHd extends KeyringHdBase {
     if (pubkeyInfos.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
+
+    const { public: xpubVersionBytes } =
+      (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
     const ret = [];
     let index = 0;
@@ -100,7 +106,7 @@ export class KeyringHd extends KeyringHdBase {
       );
       const name =
         (names || [])[index - (ignoreFirst ? 1 : 0)] ||
-        `${namePrefix} #${usedIndexes[index] + 1}`;
+        `${coinName} #${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,
@@ -125,9 +131,12 @@ export class KeyringHd extends KeyringHdBase {
       )) as { txs: number };
       if (txs > 0) {
         index += 1;
-        // TODO: blockbook API rate limit.
+        // blockbook API rate limit.
         await new Promise((r) => setTimeout(r, 200));
       } else {
+        // Software should prevent a creation of an account
+        // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
+        // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
         break;
       }
     }
