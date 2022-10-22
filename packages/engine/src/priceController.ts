@@ -104,10 +104,13 @@ export class PriceController {
           if (points) {
             params.points = points;
           }
-          const marketData = await this.fetchApi<{
-            prices: [number, number][];
-          }>(`/market/chart`, params);
-          ret[address] = marketData.prices;
+          try {
+            const marketData = await this.fetchApi<{
+              prices: [number, number][];
+            }>(`/market/chart`, params);
+            ret[address] = marketData.prices;
+            // eslint-disable-next-line no-empty
+          } catch {}
         }),
       );
     } catch (e) {
