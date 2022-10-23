@@ -54,6 +54,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_STC,
   IMPL_TRON,
   IMPL_APTOS,
+  IMPL_DOGE,
 ]);
 
 export const HISTORY_CONSTS = {
