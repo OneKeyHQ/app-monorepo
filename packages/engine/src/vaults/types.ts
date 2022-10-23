@@ -76,6 +76,12 @@ export type IApproveInfo = {
   amount: string; // amount
   spender: string; // spender to authorize
 };
+export type ISetApprovalForAll = {
+  from: string; // token owner
+  to: string;
+  approved: boolean; // is approved
+  spender: string; // spender to authorize
+};
 export type ISwapInfoSide = {
   networkId: string;
   // token?: string; // tokenIdOnNetwork
