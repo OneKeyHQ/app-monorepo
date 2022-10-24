@@ -21,11 +21,11 @@ import { Box, Center, IconButton } from '@onekeyhq/components';
 import { useForwardRef } from '../utils/useForwardRef';
 
 export interface ScrollableButtonGroupProps extends IBoxProps {
-  selectedIndex: number;
+  selectedIndex?: number;
   renderLeftArrow?: ({ onPress }: { onPress: () => void }) => ReactElement;
   renderRightArrow?: ({ onPress }: { onPress: () => void }) => ReactElement;
-  leftButtonProps?: ComponentProps<typeof IconButton>;
-  rightButtonProps?: ComponentProps<typeof IconButton>;
+  leftButtonProps?: Partial<ComponentProps<typeof IconButton>>;
+  rightButtonProps?: Partial<ComponentProps<typeof IconButton>>;
 }
 const ScrollableButtonGroup = forwardRef<
   Animated.ScrollView,
@@ -49,14 +49,16 @@ const ScrollableButtonGroup = forwardRef<
     const showRightArrow = useSharedValue(false);
     const currentOffsetX = useSharedValue(0);
     const containerWidth = useSharedValue(0);
-    const onContentSizeChange = useCallback(
-      (contentWidth: number) => {
+    const contentWidth = useSharedValue(0);
+    const onContentSizeChange = useCallback((_contentWidth: number) => {
+      contentWidth.value = _contentWidth;
+      if (containerWidth.value) {
         showRightArrow.value =
-          Math.floor(contentWidth - currentOffsetX.value) >
+          Math.floor(contentWidth.value - currentOffsetX.value) >
           containerWidth.value;
-      },
-      [containerWidth.value, currentOffsetX.value, showRightArrow],
-    );
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const onScroll = useAnimatedScrollHandler(
       ({ contentOffset, contentSize }) => {
         currentOffsetX.value = contentOffset.x;
@@ -69,23 +71,21 @@ const ScrollableButtonGroup = forwardRef<
     );
     const itemLayouts = useRef<{ x: number; width: number }[]>([]);
     const lastestTodoScrollIndex = useRef<number>();
-    const scrollTo = useCallback(
-      (index: number) => {
-        if (scrollRef.current) {
-          const target = itemLayouts.current[index === 0 ? 0 : index - 1];
-          if (target) {
-            lastestTodoScrollIndex.current = undefined;
-            return scrollRef.current.scrollTo({
-              x: target.x,
-              animated: true,
-            });
-          }
+    const scrollTo = useCallback((index: number) => {
+      if (scrollRef.current) {
+        const target = itemLayouts.current[index === 0 ? 0 : index - 1];
+        if (target) {
+          lastestTodoScrollIndex.current = undefined;
+          return scrollRef.current.scrollTo({
+            x: target.x,
+            animated: true,
+          });
         }
-        // ref or layout not ready, record the index and scroll to it later
-        lastestTodoScrollIndex.current = index;
-      },
-      [scrollRef],
-    );
+      }
+      // ref or layout not ready, record the index and scroll to it later
+      lastestTodoScrollIndex.current = index;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const itemCount = Children.count(children);
 
@@ -96,7 +96,9 @@ const ScrollableButtonGroup = forwardRef<
     }, [itemCount]);
 
     useEffect(() => {
-      scrollTo(selectedIndex);
+      if (selectedIndex !== undefined) {
+        scrollTo(selectedIndex);
+      }
     }, [scrollTo, selectedIndex]);
 
     const onLeftArrowPress = useCallback(() => {
@@ -104,14 +106,16 @@ const ScrollableButtonGroup = forwardRef<
         x: currentOffsetX.value - containerWidth.value || 0,
         animated: true,
       });
-    }, [currentOffsetX.value, containerWidth.value, scrollRef]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const onRightArrowPress = useCallback(() => {
       scrollRef.current?.scrollTo({
         x: currentOffsetX.value + containerWidth.value,
         animated: true,
       });
-    }, [currentOffsetX.value, containerWidth.value, scrollRef]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
       <Box
@@ -123,6 +127,9 @@ const ScrollableButtonGroup = forwardRef<
           },
         }) => {
           containerWidth.value = width;
+          showRightArrow.value =
+            Math.floor(contentWidth.value - currentOffsetX.value) >
+            containerWidth.value;
         }}
       >
         <Animated.View
