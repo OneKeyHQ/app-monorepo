@@ -30,12 +30,10 @@ import {
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import {
-  SendRoutes,
-  SendRoutesParams,
-} from '@onekeyhq/kit/src/views/Send/types';
+import { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
@@ -187,6 +185,8 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { wallet, account } = useActiveWalletAccount();
   const moreButtonRef = useRef();
   const isVertical = useIsVerticalLayout();
+  const { sendToken } = useNavigationActions();
+
   return (
     <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
       <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
@@ -196,21 +196,9 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           name="ArrowUpOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
-          onPress={() => {
+          onPromise={async () => {
             const { accountId, networkId } = getActiveWalletAccount();
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Send,
-              params: {
-                screen: SendRoutes.PreSendToken,
-                params: {
-                  accountId,
-                  networkId,
-                  from: '',
-                  to: '',
-                  amount: '',
-                },
-              },
-            });
+            await sendToken({ accountId, networkId });
           }}
         />
         <Typography.CaptionStrong
