@@ -50,7 +50,10 @@
     "swr": "^1.1.2",
     "url-parse": "^1.5.10",
     "vision-camera-code-scanner": "^0.2.0",
-    "zbar.wasm": "^2.1.1"
+    "zbar.wasm": "^2.1.1",
+    "@0xsequence/multicall": "^0.36.8",
+    "eth-chains": "^1.0.0",
+    "@openzeppelin/contracts": "^4.5.0"
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",

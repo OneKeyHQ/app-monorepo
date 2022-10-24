@@ -114,7 +114,7 @@ const TokenIcon = ({
               platformEnv.isRuntimeChrome
                 ? {
                     display: 'inline-block',
-                    '-webkit-transform': `scale(${getScaleRate(size)})`,
+                    'WebkitTransform': `scale(${getScaleRate(size)})`,
                   }
                 : {}
             }

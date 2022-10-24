@@ -80,6 +80,7 @@ export enum HomeRoutes {
   PushNotificationManagePriceAlert = 'PushNotificationManagePriceAlert',
   PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
   MarketDetail = 'MarketDetail',
+  Revoke = 'Revoke',
 }
 export enum TabRoutes {
   // Overview = 'overview',

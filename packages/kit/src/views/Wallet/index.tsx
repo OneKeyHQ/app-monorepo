@@ -30,6 +30,7 @@ import AccountInfo, {
 import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import NFTList from './NFT/NFTList';
+import ToolsPage from './Tools';
 import { WalletHomeTabEnum } from './type';
 
 const WalletTabs: FC = () => {
@@ -149,6 +150,12 @@ const WalletTabs: FC = () => {
             isHomeTab
           />
           {/* )} */}
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={WalletHomeTabEnum.Tools}
+          label={intl.formatMessage({ id: 'form__tools' })}
+        >
+          <ToolsPage />
         </Tabs.Tab>
       </Tabs.Container>
       {backupToast()}

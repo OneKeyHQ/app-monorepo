@@ -17,11 +17,13 @@ import type ServiceDapp from './services/ServiceDapp';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceMarket from './services/ServiceMarket';
+import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNotification from './services/serviceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
+import type ServiceRevoke from './services/ServiceRevoke';
 import type ServiceSocket from './services/ServiceSocket';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
@@ -74,6 +76,8 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNotification: ServiceNotification;
   serviceSocket: ServiceSocket;
   serviceBootstrap: ServiceBootstrap;
+  serviceRevoke: ServiceRevoke;
+  serviceNameResolver: ServiceNameResolver;
   serviceMarket: ServiceMarket;
 }
 

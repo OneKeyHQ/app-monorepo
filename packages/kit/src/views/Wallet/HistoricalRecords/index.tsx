@@ -249,7 +249,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       }}
       // @ts-expect-error
       sections={transactionRecords}
-      // @ts-expect-error
+      // @ts-ignore
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListHeaderComponent={renderListHeader}

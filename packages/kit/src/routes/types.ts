@@ -128,6 +128,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.MarketDetail]: {
     marketTokenId: string;
   };
+  [HomeRoutes.Revoke]: undefined;
 };
 /** HomeStack */
 
