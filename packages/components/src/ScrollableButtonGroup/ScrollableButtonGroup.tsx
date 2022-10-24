@@ -117,21 +117,23 @@ const ScrollableButtonGroup = forwardRef<
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const onContainerLayout = useCallback(
+      ({
+        nativeEvent: {
+          layout: { width },
+        },
+      }) => {
+        containerWidth.value = width;
+        showRightArrow.value =
+          Math.floor(contentWidth.value - currentOffsetX.value) >
+          containerWidth.value;
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [],
+    );
+
     return (
-      <Box
-        bg={bg}
-        {...boxProps}
-        onLayout={({
-          nativeEvent: {
-            layout: { width },
-          },
-        }) => {
-          containerWidth.value = width;
-          showRightArrow.value =
-            Math.floor(contentWidth.value - currentOffsetX.value) >
-            containerWidth.value;
-        }}
-      >
+      <Box bg={bg} {...boxProps} onLayout={onContainerLayout}>
         <Animated.View
           style={[
             { position: 'absolute' },
