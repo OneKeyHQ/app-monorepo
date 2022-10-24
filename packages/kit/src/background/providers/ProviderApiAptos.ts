@@ -443,7 +443,6 @@ class ProviderApiAptos extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  @providerApiMethod()
   public async createToken(
     request: IJsBridgeMessagePayload,
     params: {
@@ -497,7 +496,6 @@ class ProviderApiAptos extends ProviderApiBase {
     return Promise.resolve(result);
   }
 
-  @providerApiMethod()
   @providerApiMethod()
   public async getChainId() {
     debugLogger.providerApi.info('aptos getChainId');
