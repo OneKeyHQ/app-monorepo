@@ -42,6 +42,7 @@ import {
   IMPL_CFX,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
@@ -95,7 +96,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   implOptions = { ...implOptions, chainId };
 
   let code = dbNetwork.id;
-  if (dbNetwork.impl === IMPL_BTC || dbNetwork.impl === IMPL_DOGE) {
+  if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC].includes(dbNetwork.impl)) {
     code = dbNetwork.impl;
   }
 

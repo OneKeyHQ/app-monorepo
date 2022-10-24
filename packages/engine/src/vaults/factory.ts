@@ -5,6 +5,7 @@ import {
   IMPL_CFX,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
@@ -28,6 +29,8 @@ import VaultDoge from './impl/doge/Vault';
 import VaultHelperDoge from './impl/doge/VaultHelper';
 import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
+import VaultLtc from './impl/ltc/Vault';
+import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultNear from './impl/near/Vault';
 import VaultHelperNear from './impl/near/VaultHelper';
 import VaultSol from './impl/sol/Vault';
@@ -72,6 +75,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_DOGE) {
     return new VaultHelperDoge(options);
+  }
+  if (impl === IMPL_LTC) {
+    return new VaultHelperLtc(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -142,6 +148,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_DOGE) {
     vault = new VaultDoge(options);
+  }
+  if (network.impl === IMPL_LTC) {
+    vault = new VaultLtc(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

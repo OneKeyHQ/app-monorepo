@@ -1,4 +1,3 @@
-import { COINTYPE_DOGE as COIN_TYPE } from '../../../constants';
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
@@ -15,6 +14,7 @@ export class KeyringWatching extends KeyringWatchingBase {
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
+    const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
 
     if (!provider.isValidXpub(target)) {
       throw new InvalidAddress();
