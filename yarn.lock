@@ -5600,7 +5600,15 @@
   dependencies:
     "@types/react" "*"
 
-"@types/react-native@^0.65", "@types/react-native@~0.68":
+"@types/react-native-canvas@^0.1.9":
+  version "0.1.9"
+  resolved "https://registry.yarnpkg.com/@types/react-native-canvas/-/react-native-canvas-0.1.9.tgz#7808744c7c905d36fca428eadc1f09ba5f378180"
+  integrity sha512-W02xK0lIt9vKk4LNYIOAMQfuW4nbMCeiqCNOdxvCnTyVVhnBjcChdBgELaedUlFk6y71mOOR6sfonOC1TqWeuw==
+  dependencies:
+    "@types/react" "*"
+    "@types/react-native" "*"
+
+"@types/react-native@*", "@types/react-native@^0.65", "@types/react-native@~0.68":
   version "0.68.7"
   resolved "https://registry.yarnpkg.com/@types/react-native/-/react-native-0.68.7.tgz#24f7d56cd405831e131da3b5b323d02a53256b19"
   integrity sha512-icGr0/iTPLsvIrUoLvu5uluDFBMZEir+DbwgrHnvazO3fJv1C/kpZZLGplQ3noYyDLjuBynwOUgoaZpGyFI4Iw==
@@ -9329,6 +9337,11 @@ csstype@^3.0.10, csstype@^3.0.2:
   version "3.0.10"
   resolved "https://registry.yarnpkg.com/csstype/-/csstype-3.0.10.tgz#2ad3a7bed70f35b965707c092e5f30b327c290e5"
   integrity sha512-2u44ZG2OcNUO9HDp/Jl8C07x6pU/eTR3ncV91SiK3dhG9TWvRVsCoJw14Ckx5DgWkzGA3waZWO3d7pgqpUI/XA==
+
+ctx-polyfill@^1.1.4:
+  version "1.1.4"
+  resolved "https://registry.yarnpkg.com/ctx-polyfill/-/ctx-polyfill-1.1.4.tgz#08420bc5c540d08ac36d05720ca503c65e302d65"
+  integrity sha512-tz65F3/zmZ2+CMtn4MhNhYi/yIN9dKnItMKzSkH2GE6dBpAIbUR0K5pSHWqUL3OuNBCA70DKlWZYUClHfydIXg==
 
 cycle@^1.0.3:
   version "1.0.3"
@@ -18577,6 +18590,13 @@ react-native-camera@4.2.1:
   integrity sha512-+Vkql24PFYQfsPRznJCvPwJQfyzCnjlcww/iZ4Ej80bgivKjL9eU0IMQIXp4yi6XCrKi4voWXxIDPMupQZKeIQ==
   dependencies:
     prop-types "^15.6.2"
+
+react-native-canvas@^0.1.38:
+  version "0.1.38"
+  resolved "https://registry.yarnpkg.com/react-native-canvas/-/react-native-canvas-0.1.38.tgz#d2d76f1a105cd4711792271f265b72bd5699acf0"
+  integrity sha512-DjtN921PKoa2liYF8hKq1263xg2o47Bj/1E/+l75GPicT2RV/x/Y1HBrLvFVCR3OO+UslXEC5BtRjfxDoh/Bug==
+  dependencies:
+    ctx-polyfill "^1.1.4"
 
 "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8":
   version "2.4.0"

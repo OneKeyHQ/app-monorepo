@@ -20,6 +20,7 @@ import type ServiceDapp from './services/ServiceDapp';
 import type ServicDiscover from './services/ServiceDiscover';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
+import type ServiceMarket from './services/ServiceMarket';
 import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
@@ -114,6 +115,8 @@ class BackgroundApiProxy
   serviceDiscover = this._createProxyService(
     'serviceDiscover',
   ) as ServicDiscover;
+
+  serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

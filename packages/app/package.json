@@ -60,6 +60,7 @@
     "react-native-ble-manager": "^8.1.0",
     "react-native-ble-plx": "^2.0.3",
     "react-native-camera": "4.2.1",
+    "react-native-canvas": "^0.1.38",
     "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8",
     "react-native-collapsible-tab-view": "4.5.2",
     "react-native-config": "^1.4.5",
@@ -98,6 +99,7 @@
     "@types/node": "^16.7.13",
     "@types/react": "~17.0.21",
     "@types/react-native": "~0.68",
+    "@types/react-native-canvas": "^0.1.9",
     "babel-plugin-module-resolver": "^4.1.0"
   },
   "private": true

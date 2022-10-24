@@ -44,6 +44,10 @@ const tabRoutesWhiteList: WhiteListItemList = [
     screen: `${TabRoutes.Swap}`,
     path: `/${RootRoutes.Tab}/${TabRoutes.Swap}`,
   },
+  {
+    screen: `${TabRoutes.Market}`,
+    path: `/${RootRoutes.Tab}/${TabRoutes.Market}`,
+  },
 ];
 
 const normalRouteWhiteList: WhiteListItemList = [

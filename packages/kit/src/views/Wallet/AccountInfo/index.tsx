@@ -35,8 +35,10 @@ import {
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
+import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
@@ -184,7 +186,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
   const moreButtonRef = useRef();
-
+  const isVertical = useIsVerticalLayout();
   return (
     <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
       <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
@@ -260,7 +262,14 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
-            navigation.getParent()?.navigate(TabRoutes.Swap);
+            if (isVertical) {
+              backgroundApiProxy.serviceMarket.switchMarketTopTab(
+                SWAP_TAB_NAME,
+              );
+              navigation.getParent()?.navigate(TabRoutes.Market);
+            } else {
+              navigation.getParent()?.navigate(TabRoutes.Swap);
+            }
           }}
         />
         <Typography.CaptionStrong
