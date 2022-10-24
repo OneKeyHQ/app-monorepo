@@ -1,12 +1,21 @@
 diff --git a/node_modules/@walletconnect/types/index.d.ts b/node_modules/@walletconnect/types/index.d.ts
-index 80a6c06..e250436 100644
+index 3c70bc5..c85c306 100644
 --- a/node_modules/@walletconnect/types/index.d.ts
 +++ b/node_modules/@walletconnect/types/index.d.ts
-@@ -246,6 +246,7 @@ export interface IWalletConnectOptions {
+@@ -235,6 +235,7 @@ export interface IWalletConnectSession {
+   peerMeta: IClientMeta | null;
+   handshakeId: number;
+   handshakeTopic: string;
++  networkImpl: string | null;
+ }
+ 
+ export interface IWalletConnectOptions {
+@@ -247,6 +248,8 @@ export interface IWalletConnectOptions {
    clientMeta?: IClientMeta;
    qrcodeModal?: IQRCodeModal;
    qrcodeModalOptions?: IQRCodeModalOptions;
 +  autoConnectLastSessionOnMount?: boolean;
++  networkImpl?: string | null;
  }
  
  export interface IConnectorOpts {
