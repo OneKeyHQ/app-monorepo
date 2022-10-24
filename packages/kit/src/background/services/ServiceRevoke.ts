@@ -48,8 +48,6 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
-// eslint-disable-next-line
-
 export const ERC20 = ERC20Artifact.abi;
 export const ERC721Metadata = ERC721MetadataArtifact.abi;
 
