@@ -186,7 +186,7 @@ export const ERC721TokenList: FC<{
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={isVertical ? undefined : () => Header}
+      ListHeaderComponent={isVertical ? undefined : Header}
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id || token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}
