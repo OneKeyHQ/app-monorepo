@@ -7,6 +7,7 @@ import bs58check from 'bs58check';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { COINTYPE_DOGE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
@@ -84,7 +85,7 @@ export class KeyringHd extends KeyringHdBase {
     const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { addressEncoding } = getAccountDefaultByPurpose(
+    const { addressEncoding, namePrefix } = getAccountDefaultByPurpose(
       usedPurpose,
       coinName,
     );
@@ -131,9 +132,9 @@ export class KeyringHd extends KeyringHdBase {
         xpub,
         [firstAddressRelPath],
       );
+      const prefix = COIN_TYPE === COINTYPE_DOGE ? coinName : namePrefix;
       const name =
-        (names || [])[index - (ignoreFirst ? 1 : 0)] ||
-        `${coinName} #${usedIndexes[index] + 1}`;
+        (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,
