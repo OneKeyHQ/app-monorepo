@@ -1,6 +1,5 @@
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { getDeviceType } from '@onekeyfe/hd-core';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -8,31 +7,39 @@ import { useIntl } from 'react-intl';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Modal, ToastManager } from '@onekeyhq/components';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HardwareUpdateModalRoutes,
   HardwareUpdateRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import { wait } from '../../../../utils/helper';
+import {
+  closeHardwarePopup,
+  setHardwarePopup,
+} from '../../../../store/reducers/hardware';
+import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup';
 
 import RunningView from './RunningView';
 import StateView, { StateViewTypeInfo } from './StateView';
 
 type ProgressStepType =
   | 'pre-check'
+  | 'check-latest-resource'
+  | 'download-latest-resource'
+  | 'upload-latest-resource'
   | 'check-device-status'
   | 'reboot-bootloader'
   | 'download-firmware'
   | 'installing'
   | 'done-step';
 
-type ProgressStateType = 'ready' | 'running' | 'done' | 'failure';
+type ProgressStateType = 'running' | 'done' | 'failure';
 export type FirmwareType = 'firmware' | 'ble';
 
 type NavigationProps = ModalScreenProps<HardwareUpdateRoutesParams>;
@@ -49,21 +56,31 @@ const UpdatingModal: FC = () => {
   const { device, onSuccess } = useRoute<RouteProps>().params;
   const deviceUpdates = useSettings().deviceUpdates || {};
   const { ble: bleFirmware, firmware } = deviceUpdates[device?.mac ?? ''] || {};
+  const updateEvent = useAppSelector((s) => s.hardware).updateFirmwareStep;
 
-  const [firmwareType, setFirmwareType] = useState<FirmwareType>('firmware');
+  const [firmwareType, setFirmwareType] = useState<FirmwareType>();
 
-  const [suspendStep, setSuspendStep] = useState<ProgressStepType>();
   const [progressStep, setProgressStep] = useState<ProgressStepType>();
+  const progressStepRef = useRef<ProgressStepType>();
   const [progressState, setProgressState] = useState<ProgressStateType>();
   const progressStateMemo = useDeepCompareMemo(
     () => progressState,
     [progressState],
   );
 
+  useEffect(() => {
+    progressStepRef.current = progressStep;
+  }, [progressStep]);
+
   // Prevents screen locking
   useKeepAwake();
 
   const connectId = useMemo(() => device?.mac ?? '', [device]);
+
+  const deviceType = useMemo(
+    () => device?.deviceType as IOneKeyDeviceType | undefined,
+    [device],
+  );
 
   const hasFailure = useMemo(
     () => progressStateMemo === 'failure',
@@ -73,8 +90,6 @@ const UpdatingModal: FC = () => {
     () => progressStep === 'done-step',
     [progressStep],
   );
-
-  const [downloadedFirmware, setDownloadedFirmware] = useState<string>();
 
   const [progress, setProgress] = useState(0);
   const progressMemo = useDeepCompareMemo(() => progress, [progress]);
@@ -88,6 +103,22 @@ const UpdatingModal: FC = () => {
         case 'check-device-status':
           return intl.formatMessage({
             id: 'action__checking',
+          });
+        case 'check-latest-resource':
+          return intl.formatMessage({
+            id: 'content__firmware_check_latest_resource',
+          });
+        case 'download-latest-resource':
+          return intl.formatMessage({
+            id: 'content__firmware_download_resource',
+          });
+        case 'upload-latest-resource':
+          return intl.formatMessage({
+            id: 'content__firmware_upload_resource',
+          });
+        case 'reboot-bootloader':
+          return intl.formatMessage({
+            id: 'content__firmware_starting_upgrade_mode',
           });
         case 'download-firmware':
           if (firmwareType === 'ble') {
@@ -109,7 +140,6 @@ const UpdatingModal: FC = () => {
             },
           );
 
-        case 'reboot-bootloader':
         case 'installing':
           if (firmwareType === 'ble') {
             return intl.formatMessage(
@@ -158,75 +188,167 @@ const UpdatingModal: FC = () => {
     };
   }, [firmwareType, maxProgress, progress]);
 
-  const handleErrors = (currentStep: ProgressStepType, error: OneKeyError) => {
+  useEffect(() => {
+    switch (updateEvent) {
+      case 'CheckLatestUiResource':
+        setMaxProgress(5);
+        setProgressStep('check-latest-resource');
+        break;
+      case 'DownloadLatestUiResource':
+        setMaxProgress(5);
+        setProgressStep('download-latest-resource');
+        break;
+      case 'DownloadLatestUiResourceSuccess':
+        setMaxProgress(10);
+        break;
+      case 'UpdateSysResource':
+        setProgressStep('upload-latest-resource');
+        break;
+      case 'UpdateSysResourceSuccess':
+        setMaxProgress(20);
+        setProgressStep('check-device-status');
+        break;
+      case 'AutoRebootToBootloader':
+        setMaxProgress(25);
+        setProgressStep('reboot-bootloader');
+        break;
+      case 'GoToBootloaderSuccess':
+        setMaxProgress(30);
+        break;
+      case 'DownloadFirmware':
+        setProgressStep('download-firmware');
+        break;
+      case 'DownloadFirmwareSuccess':
+        setProgressStep('installing');
+        break;
+      case 'ConfirmOnDevice':
+        setMaxProgress(35);
+        dispatch(
+          setHardwarePopup({
+            uiRequest: UI_REQUEST.REQUEST_BUTTON,
+            payload: {
+              deviceType,
+              deviceId: '',
+              deviceConnectId: connectId,
+            },
+          }),
+        );
+        break;
+      case 'FirmwareEraseSuccess':
+        setMaxProgress(90);
+        dispatch(closeHardwarePopup());
+        break;
+
+      default:
+        setProgressStep('pre-check');
+        break;
+    }
+  }, [deviceType, connectId, dispatch, updateEvent]);
+
+  const handleErrors = (error: OneKeyHardwareError) => {
     const { className, key, code } = error || {};
 
-    if (code === HardwareErrorCode.DeviceUnexpectedBootloaderMode) {
-      setSuspendStep(progressStep);
-      setProgressStep('reboot-bootloader');
-      setProgressState('ready');
-      return;
-    }
+    switch (code) {
+      case HardwareErrorCode.FirmwareUpdateLimitOneDevice:
+        setStateViewInfo({ type: 'device-not-only-ones' });
+        break;
+      case HardwareErrorCode.DeviceNotFound:
+        setStateViewInfo({ type: 'device-not-found' });
+        break;
 
-    if (code === HardwareErrorCode.FirmwareUpdateDownloadFailed) {
-      // Download failed. Download again
-      setProgressStep('download-firmware');
+      case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
+        setStateViewInfo({ type: 'reboot-bootloader-failure' });
+        break;
 
-      let typeContent = '';
-      if (firmwareType === 'ble') {
-        typeContent = intl.formatMessage({
-          id: 'content__bluetooth_firmware_lowercase',
+      case HardwareErrorCode.FirmwareUpdateDownloadFailed:
+        // eslint-disable-next-line no-case-declarations
+        let typeContent = '';
+        if (firmwareType === 'ble') {
+          typeContent = intl.formatMessage({
+            id: 'content__bluetooth_firmware_lowercase',
+          });
+        } else if (firmwareType === 'firmware') {
+          typeContent = intl.formatMessage({
+            id: 'content__firmware_lowercase',
+          });
+        }
+
+        setStateViewInfo({
+          type: 'download-failure',
+          content: {
+            title: intl.formatMessage(
+              { id: 'content__downloading_str' },
+              {
+                0: typeContent,
+              },
+            ),
+          },
         });
-      } else if (firmwareType === 'firmware') {
-        typeContent = intl.formatMessage({
-          id: 'content__firmware_lowercase',
+        break;
+      case HardwareErrorCode.BlePermissionError:
+        setStateViewInfo({ type: 'bluetooth-turned-off' });
+        break;
+      case HardwareErrorCode.FirmwareUpdateManuallyEnterBoot:
+        setStateViewInfo({
+          type: 'manually-enter-bootloader-one',
+          content: {
+            deviceType,
+            nextState:
+              deviceType === 'mini'
+                ? {
+                    type: 'manually-enter-bootloader-two',
+                    content: {
+                      deviceType,
+                      primaryActionTranslationId: 'action__continue',
+                    },
+                  }
+                : undefined,
+          },
         });
-      }
-
-      setStateViewInfo({
-        type: 'download-failure',
-        content: {
-          title: intl.formatMessage(
-            { id: 'content__downloading_str' },
-            {
-              0: typeContent,
+        break;
+      case HardwareErrorCode.ActionCancelled:
+      case HardwareErrorCode.PinCancelled:
+      case HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure:
+        if (progressStepRef.current === 'reboot-bootloader') {
+          setStateViewInfo({ type: 'reboot-bootloader-failure' });
+        } else {
+          setStateViewInfo({
+            type: 'common_error',
+            content: {
+              title: intl.formatMessage({
+                id: key,
+                defaultMessage: error.message,
+              }),
             },
-          ),
-        },
-      });
-    } else if (code === HardwareErrorCode.BlePermissionError) {
-      setStateViewInfo({ type: 'bluetooth-turned-off' });
-    } else if (currentStep === 'installing') {
-      setStateViewInfo({ type: 'install-failure' });
-    } else if (currentStep === 'reboot-bootloader') {
-      setStateViewInfo({ type: 'reboot-bootloader-failure' });
-    } else if (className === 'OneKeyHardwareError') {
-      setStateViewInfo({
-        type: 'common_error',
-        content: {
-          title: intl.formatMessage({
-            // @ts-expect-error
-            id: key,
-            defaultMessage: error.message,
-          }),
-        },
-      });
-    } else {
-      // other error
-      setStateViewInfo({
-        type: 'common_error',
-        content: {
-          title: `「${code}」${error.message}`,
-        },
-      });
+          });
+        }
+        break;
+      default:
+        if (className === 'OneKeyHardwareError') {
+          setStateViewInfo({
+            type: 'common_error',
+            content: {
+              title: intl.formatMessage({
+                id: key,
+                defaultMessage: error.message,
+              }),
+            },
+          });
+        } else {
+          // other error
+          setStateViewInfo({
+            type: 'common_error',
+            content: {
+              title: `「${code}」${error.message}`,
+            },
+          });
+        }
+        break;
     }
 
     ToastManager.show(
       {
-        title: intl.formatMessage({
-          // @ts-expect-error
-          id: key,
-        }),
+        title: intl.formatMessage({ id: key }),
       },
       { type: 'error' },
     );
@@ -234,242 +356,42 @@ const UpdatingModal: FC = () => {
     setProgressState('failure');
   };
 
-  const rebootBootSuccess = async () => {
-    // Waiting for the device to restart
-    if (device?.deviceType === 'touch') {
-      await wait(8000);
-    } else {
-      await wait(2000);
-    }
-    setProgressState('done');
-  };
+  const executeUpdate = () => {
+    if (!firmwareType) return;
 
-  const nextStep = (): boolean => {
-    if (suspendStep) {
-      setProgressStep(suspendStep);
-      setSuspendStep(undefined);
-      return true;
-    }
+    setProgressState('running');
+    setProgress(0);
+    serviceHardware
+      .autoUpdateFirmware(connectId, firmwareType)
+      .then((res) => {
+        if (res.success) {
+          // clear the upgrade status
+          dispatch(
+            setDeviceDoneUpdate({
+              connectId,
+              type: firmwareType,
+            }),
+          );
 
-    switch (progressStep) {
-      case 'pre-check':
-        setProgressStep('check-device-status');
-        break;
-
-      case 'check-device-status':
-        setProgressStep('download-firmware');
-        break;
-
-      case 'download-firmware':
-        setProgressStep('installing');
-        break;
-
-      case 'installing':
-        setProgressStep('done-step');
-        break;
-
-      case 'done-step':
-        // last step
-        return false;
-
-      default:
-        setProgressStep('pre-check');
-        return false;
-    }
-    return true;
-  };
-
-  const executeStep = () => {
-    switch (progressStep) {
-      case 'pre-check':
-        setMaxProgress(5);
-        if (platformEnv.isNative) return setProgressState('done');
-        serviceHardware
-          .searchDevices()
-          .then((response) => {
-            if (response.success) {
-              const devices = response.payload;
-              if (devices.length === 0) {
-                setStateViewInfo({ type: 'device-not-found' });
-                setProgressState('failure');
-              } else if (devices.length > 1) {
-                setStateViewInfo({ type: 'device-not-only-ones' });
-                setProgressState('failure');
-              } else {
-                setProgressState('done');
-              }
-              return;
-            }
-            setStateViewInfo({ type: 'pre-check-failure' });
-            setProgressState('failure');
-          })
-          .catch(() => {
-            setStateViewInfo({ type: 'pre-check-failure' });
-            setProgressState('failure');
+          engine.getWalletByDeviceId(device?.id ?? '').then((wallet) => {
+            wallet.forEach((w) => {
+              serviceHardware.cleanFeaturesCache(w.id);
+            });
           });
-        break;
-
-      case 'check-device-status':
-        setMaxProgress(5);
-        serviceHardware
-          .getFeatures(platformEnv.isNative ? connectId : '')
-          .then((response) => {
-            if (response) {
-              const deviceType = getDeviceType(response);
-              const isMini = deviceType === 'mini' && !response.bootloader_mode;
-              const isBoot183ClassicUpBle =
-                firmwareType === 'ble' &&
-                deviceType === 'classic' &&
-                !response.bootloader_mode &&
-                response.bootloader_version === '1.8.3';
-
-              if (isMini || isBoot183ClassicUpBle) {
-                setStateViewInfo({
-                  type: 'manually-enter-bootloader-one',
-                  content: {
-                    deviceType,
-                    nextState:
-                      deviceType === 'mini'
-                        ? {
-                            type: 'manually-enter-bootloader-two',
-                            content: {
-                              deviceType,
-                              primaryActionTranslationId: 'action__continue',
-                            },
-                          }
-                        : undefined,
-                  },
-                });
-                // TODO check OneKey mini bootloader_mode exceptional case
-                setProgressState('failure');
-                return;
-              }
-
-              if (deviceType !== device?.deviceType) {
-                setStateViewInfo({
-                  type: 'device-mismatch',
-                });
-                setProgressState('failure');
-                return;
-              }
-
-              setTimeout(() => {
-                setProgressState('done');
-              });
-              return;
-            }
-            setStateViewInfo({ type: 'pre-check-failure' });
-            setProgressState('failure');
-          })
-          .catch(() => {
-            setStateViewInfo({ type: 'pre-check-failure' });
-            setProgressState('failure');
-          });
-        break;
-
-      case 'download-firmware':
-        setMaxProgress(15);
-        setProgress(5);
-        serviceHardware
-          .downloadFirmware(
-            firmwareType === 'ble' ? bleFirmware?.webUpdate : firmware?.url,
-          )
-          .then((response) => {
-            setDownloadedFirmware(response);
-            setProgressState('done');
-          })
-          .catch(() => {
-            setStateViewInfo({ type: 'download-failure' });
-            setProgressState('failure');
-          });
-        break;
-
-      case 'reboot-bootloader':
-        setMaxProgress(20);
-        setProgress(15);
-        if (device?.deviceType === 'mini') {
-          // abnormal state，check the device status again
-          setSuspendStep('check-device-status');
-          setProgressState('failure');
+          setProgressState('done');
+          setProgressStep('done-step');
+          setStateViewInfo({ type: 'success' });
           return;
         }
-        serviceHardware
-          .rebootToBootloader(platformEnv.isNative ? connectId : '')
-          .then(() => {
-            rebootBootSuccess();
-          })
-          .catch((e) => {
-            const { code } = e;
-            if (code === HardwareErrorCode.DeviceUnexpectedBootloaderMode) {
-              return rebootBootSuccess();
-            }
-            handleErrors(progressStep, e);
-          });
-        break;
-
-      case 'installing':
-        setMaxProgress(95);
-        setProgress(20);
-        serviceHardware
-          .installFirmware(connectId, firmwareType, downloadedFirmware)
-          .then(() => {
-            // clear the upgrade status
-            dispatch(
-              setDeviceDoneUpdate({
-                connectId,
-                type: firmwareType,
-              }),
-            );
-            setProgressState('done');
-          })
-          .catch((e) => {
-            handleErrors(progressStep, e);
-          });
-        break;
-
-      case 'done-step':
-        setMaxProgress(100);
-        setProgress(100);
-        engine.getWalletByDeviceId(device?.id ?? '').then((wallet) => {
-          wallet.forEach((w) => {
-            serviceHardware.cleanFeaturesCache(w.id);
-          });
-        });
-        setProgressState('done');
-        setStateViewInfo({ type: 'success' });
-        break;
-
-      default:
-        break;
-    }
+        const error = deviceUtils.convertDeviceError(res.payload);
+        handleErrors(error);
+      })
+      .catch((e) => {
+        setStateViewInfo({ type: 'download-failure' });
+        setProgressState('failure');
+        handleErrors(e);
+      });
   };
-
-  const retryStep = () => {
-    setProgressState('ready');
-  };
-
-  // Control the overall flow of the update process
-  useEffect(() => {
-    switch (progressStateMemo) {
-      case 'ready':
-        setProgressState('running');
-        break;
-      case 'running':
-        executeStep();
-        break;
-      case 'done':
-        if (nextStep()) {
-          // auto next step
-          setProgressState('ready');
-        }
-        break;
-      case 'failure':
-        break;
-      default:
-        break;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progressStateMemo]);
 
   useEffect(() => {
     if (!device) {
@@ -483,10 +405,9 @@ const UpdatingModal: FC = () => {
       setFirmwareType('firmware');
     }
 
-    nextStep();
-    retryStep();
+    executeUpdate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [firmwareType]);
 
   useEffect(() => {
     const hint = generateProgressStepDesc(progressStep);
@@ -532,7 +453,7 @@ const UpdatingModal: FC = () => {
         } else if (stateViewInfo?.content?.nextState) {
           setStateViewInfo(stateViewInfo.content.nextState);
         } else {
-          retryStep();
+          executeUpdate();
         }
       }}
     >
