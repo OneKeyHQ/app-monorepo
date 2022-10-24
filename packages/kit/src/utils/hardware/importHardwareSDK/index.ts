@@ -1,4 +1,3 @@
-import type { CoreApi } from '@onekeyfe/hd-core';
+import HardwareSDK from '@onekeyfe/hd-web-sdk';
 
-export const importHardwareSDK = async () =>
-  (await import('@onekeyfe/hd-web-sdk')).default as unknown as CoreApi;
+export const importHardwareSDK = async () => Promise.resolve(HardwareSDK);

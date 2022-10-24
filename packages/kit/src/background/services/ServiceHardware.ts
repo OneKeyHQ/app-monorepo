@@ -302,7 +302,6 @@ class ServiceHardware extends ServiceBase {
     dispatch(setUpdateFirmwareStep(''));
 
     const hardwareSDK = await this.getSDKInstance();
-    console.log('autoUpdateFirmware', connectId, firmwareType, hardwareSDK);
 
     const listener = (data: any) => {
       dispatch(setUpdateFirmwareStep(get(data, 'data.message', '')));
