@@ -1,5 +1,5 @@
-import { defaultAbiCoder } from '@ethersproject/abi';
 import { providers as multicall } from '@0xsequence/multicall';
+import { defaultAbiCoder } from '@ethersproject/abi';
 import { Log } from '@ethersproject/abstract-provider';
 import ERC20Artifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
@@ -38,15 +38,15 @@ import {
 } from '@onekeyhq/engine/src/managers/revoke';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
+import { Erc721MethodSelectors } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/abi';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { ISetApprovalForAll } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appSelector } from '../../store';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { ISetApprovalForAll } from '@onekeyhq/engine/src/vaults/types';
-import { Erc721MethodSelectors } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/abi';
 
 // eslint-disable-next-line
 

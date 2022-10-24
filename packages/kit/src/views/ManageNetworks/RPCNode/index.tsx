@@ -9,8 +9,6 @@ import {
   Collapse,
   DialogManager,
   GroupingList,
-  HStack,
-  Icon,
   ListItem,
   Modal,
   Typography,
