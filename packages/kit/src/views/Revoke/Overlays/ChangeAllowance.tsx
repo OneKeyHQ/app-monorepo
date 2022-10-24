@@ -115,7 +115,10 @@ const ChangeAllowance: FC<
 
 const showChangeAllowanceOverlay = (props: Props) => {
   showOverlay((closeOverlay) => (
-    <BottomSheetSettings closeOverlay={closeOverlay}>
+    <BottomSheetSettings
+      closeOverlay={closeOverlay}
+      titleI18nKey="action__change_allowance"
+    >
       <ChangeAllowance {...props} closeOverlay={closeOverlay} />
     </BottomSheetSettings>
   ));

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import {
   ERC20TokenAllowance,
   ERC721TokenAllowance,
@@ -10,7 +8,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-export const useAddress = () => {
+export const useRevokeAddress = () => {
   const [address, setAddress] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
@@ -36,14 +34,14 @@ export const useERC20Allowances = (
 ) => {
   const [loading, setLoading] = useState(true);
   const [allowances, setAllowances] = useState<ERC20TokenAllowance[]>();
-  const [prices, setPrices] = useState<Record<string, BigNumber>>({});
+  const [prices, setPrices] = useState<Record<string, string>>({});
   const {
     address,
     updateAddress,
     loading: updateAddressLoading,
-  } = useAddress();
+  } = useRevokeAddress();
 
-  const fetch = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!address || !networkId) {
       setAllowances([]);
       return;
@@ -51,21 +49,13 @@ export const useERC20Allowances = (
     try {
       setLoading(true);
       setAllowances([]);
-      const res =
-        await backgroundApiProxy.serviceRevoke.fetchERC20TokenAllowedances(
+      const { allowance, prices: p } =
+        await backgroundApiProxy.serviceRevoke.fetchERC20TokenAllowences(
           networkId,
           address,
         );
-      const addresses = res
-        .map((r) => r.token.address?.toLowerCase())
-        .filter((a) => !!a) as string[];
-      const priceAndCharts = await backgroundApiProxy.engine.getPricesAndCharts(
-        networkId,
-        addresses,
-        false,
-      );
-      setPrices(priceAndCharts[0]);
-      setAllowances(res);
+      setPrices(p);
+      setAllowances(allowance);
     } catch (error) {
       debugLogger.http.error('getTransferEvents error', error);
     }
@@ -73,8 +63,8 @@ export const useERC20Allowances = (
   }, [address, networkId]);
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     updateAddress(addressOrName);
@@ -85,6 +75,7 @@ export const useERC20Allowances = (
     prices,
     loading: loading || updateAddressLoading,
     allowances,
+    refresh,
   };
 };
 
@@ -98,9 +89,9 @@ export const useERC721Allowances = (
     address,
     updateAddress,
     loading: updateAddressLoading,
-  } = useAddress();
+  } = useRevokeAddress();
 
-  const fetch = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!address || !networkId) {
       setAllowances([]);
       return;
@@ -109,7 +100,7 @@ export const useERC721Allowances = (
       setLoading(true);
       setAllowances([]);
       const res =
-        await backgroundApiProxy.serviceRevoke.fetchERC721TokenAllowedances(
+        await backgroundApiProxy.serviceRevoke.fetchERC721TokenAllowances(
           networkId,
           address,
         );
@@ -121,8 +112,8 @@ export const useERC721Allowances = (
   }, [address, networkId]);
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     updateAddress(addressOrName);
@@ -132,6 +123,7 @@ export const useERC721Allowances = (
     address,
     loading: loading || updateAddressLoading,
     allowances,
+    refresh,
   };
 };
 

@@ -11,6 +11,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { ADDRESS_ZERO } from '@onekeyhq/engine/src/managers/revoke';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -28,6 +29,7 @@ type Props = {
   networkId: string;
   accountAddress: string;
   tokenId?: string;
+  onRevokeSuccess: () => void;
 };
 
 export const ERC721Allowance: FC<Props> = ({
@@ -36,6 +38,7 @@ export const ERC721Allowance: FC<Props> = ({
   token,
   spender,
   tokenId,
+  onRevokeSuccess,
 }) => {
   const intl = useIntl();
   const toast = useToast();
@@ -62,17 +65,23 @@ export const ERC721Allowance: FC<Props> = ({
     if (!networkId) {
       return;
     }
-    // TODO: writeContract.functions.approve(ADDRESS_ZERO, tokenId);
-    // build approve transactions as revoke.cash does
     const encodedApproveTx =
-      await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromSetApprovalForAll(
-        {
-          from: accountAddress,
-          to: token.address ?? '',
-          approved: false,
-          spender,
-        },
-      );
+      tokenId === undefined
+        ? await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromSetApprovalForAll(
+            {
+              from: accountAddress,
+              to: token.address ?? '',
+              approved: false,
+              spender,
+            },
+          )
+        : await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromApprove({
+            from: accountAddress,
+            to: token.address ?? '',
+            approve: ADDRESS_ZERO,
+            tokenId,
+          });
+
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
@@ -83,17 +92,21 @@ export const ERC721Allowance: FC<Props> = ({
           feeInfoEditable: true,
           feeInfoUseFeeInTx: false,
           skipSaveHistory: false,
-          encodedTx: {
-            ...encodedApproveTx,
-            from: accountAddress,
-          },
-          onSuccess: () => {
-            alert('success');
-          },
+          encodedTx: encodedApproveTx,
+          onSuccess: onRevokeSuccess,
         },
       },
     });
-  }, [spender, account, networkId, navigation, accountAddress, token]);
+  }, [
+    tokenId,
+    spender,
+    account,
+    networkId,
+    navigation,
+    accountAddress,
+    token,
+    onRevokeSuccess,
+  ]);
 
   const onRevoke = useCallback(() => {
     update();
@@ -152,7 +165,7 @@ export const ERC721Allowance: FC<Props> = ({
         <Token
           token={{ name, symbol: label }}
           showInfo
-          size="5"
+          size={5}
           flex="1"
           infoBoxProps={{ flex: 1 }}
         />

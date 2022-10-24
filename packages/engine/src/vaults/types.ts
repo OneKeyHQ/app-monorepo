@@ -82,6 +82,12 @@ export type ISetApprovalForAll = {
   approved: boolean; // is approved
   spender: string; // spender to authorize
 };
+export type IERC721Approve = {
+  from: string; // token owner
+  to: string;
+  approve: string; // approve address
+  tokenId: string; // tokenId
+};
 export type ISwapInfoSide = {
   networkId: string;
   // token?: string; // tokenIdOnNetwork

@@ -95,7 +95,10 @@ const AllowanceDetail: FC<
 
 const showAllowanceDetailOverlay = (props: Props) => {
   showOverlay((closeOverlay) => (
-    <BottomSheetSettings closeOverlay={closeOverlay}>
+    <BottomSheetSettings
+      closeOverlay={closeOverlay}
+      titleI18nKey="content__details"
+    >
       <AllowanceDetail {...props} closeOverlay={closeOverlay} />
     </BottomSheetSettings>
   ));

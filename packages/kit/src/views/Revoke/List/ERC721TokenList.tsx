@@ -3,9 +3,11 @@ import React, { FC, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   HStack,
   List,
   ListItem,
+  Skeleton,
   Token,
   Typography,
   VStack,
@@ -16,7 +18,7 @@ import { ERC721TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
 import { Filter } from '../FilterBar';
 import { useERC721Allowances } from '../hooks';
 
-import { EmptyRecord, ListLoading } from './ERC20TokenList';
+import { EmptyRecord } from './ERC20TokenList';
 import { ERC721Allowance } from './ERC721Allowance';
 
 export const Header = () => {
@@ -32,14 +34,6 @@ export const Header = () => {
         w="300px"
       />
       <ListItem.Column
-        w="100px"
-        text={{
-          label: intl.formatMessage({
-            id: 'form__value',
-          }),
-        }}
-      />
-      <ListItem.Column
         text={{
           label: `${intl.formatMessage({
             id: 'form__project',
@@ -50,6 +44,37 @@ export const Header = () => {
     </ListItem>
   );
 };
+
+export const ListLoading = () => (
+  <>
+    {new Array(5).fill(1).map((_, idx) => (
+      <ListItem flex="1" key={String(idx)}>
+        <ListItem.Column>
+          <HStack w="300px" alignItems="center">
+            <Skeleton shape="Avatar" />
+            <VStack ml="2">
+              <Skeleton shape="Body1" />
+              <Skeleton shape="Body2" />
+            </VStack>
+          </HStack>
+        </ListItem.Column>
+        <ListItem.Column>
+          <Box flex="1">
+            <Skeleton shape="Body1" />
+          </Box>
+        </ListItem.Column>
+        <ListItem.Column>
+          <HStack>
+            <Skeleton shape="Caption" />
+            <Box ml="2">
+              <Skeleton shape="Caption" />
+            </Box>
+          </HStack>
+        </ListItem.Column>
+      </ListItem>
+    ))}
+  </>
+);
 
 export const ERC721TokenList: FC<{
   networkId: string;
@@ -63,6 +88,7 @@ export const ERC721TokenList: FC<{
     loading,
     allowances,
     address: accountAddress,
+    refresh,
   } = useERC721Allowances(networkId, addressOrName);
 
   const data = useMemo(
@@ -75,8 +101,6 @@ export const ERC721TokenList: FC<{
       }) ?? [],
     [filters, allowances],
   );
-
-  console.log(data, loading, accountAddress, allowances);
 
   const renderListItemDesktop = useCallback(
     ({ item }: { item: ERC721TokenAllowance }) => {
@@ -104,9 +128,6 @@ export const ERC721TokenList: FC<{
             />
           </ListItem.Column>
           <ListItem.Column>
-            <Typography.Body2Strong w="100px">N/A</Typography.Body2Strong>
-          </ListItem.Column>
-          <ListItem.Column>
             <VStack flex="1">
               {allowance.length === 0 ? (
                 <Typography.Body2Strong>
@@ -120,6 +141,7 @@ export const ERC721TokenList: FC<{
                     accountAddress={accountAddress}
                     spender={a.spender}
                     token={token}
+                    onRevokeSuccess={refresh}
                   />
                 ))
               )}
@@ -128,7 +150,7 @@ export const ERC721TokenList: FC<{
         </ListItem>
       );
     },
-    [intl, accountAddress, networkId],
+    [intl, accountAddress, networkId, refresh],
   );
 
   const renderListItemMobile = useCallback(
@@ -155,7 +177,6 @@ export const ERC721TokenList: FC<{
                   )}
                   flex="1"
                 />
-                <Typography.Body2Strong w="100px">N/A</Typography.Body2Strong>
               </HStack>
               <VStack flex="1">
                 {allowance.length === 0 ? (
@@ -170,6 +191,7 @@ export const ERC721TokenList: FC<{
                       accountAddress={accountAddress}
                       spender={a.spender}
                       token={token}
+                      onRevokeSuccess={refresh}
                     />
                   ))
                 )}
@@ -179,14 +201,14 @@ export const ERC721TokenList: FC<{
         </ListItem>
       );
     },
-    [intl, accountAddress, networkId],
+    [intl, accountAddress, networkId, refresh],
   );
 
   return (
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={isVertical ? undefined : Header}
+      ListHeaderComponent={isVertical ? undefined : () => <Header />}
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id || token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}

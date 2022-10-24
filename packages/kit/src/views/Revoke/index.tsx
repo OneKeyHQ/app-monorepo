@@ -26,7 +26,7 @@ const RevokePage: FC = () => {
   const [addressOrName, setAddressOrName] = useState<string>('');
   const { networkId, network } = useActiveWalletAccount();
 
-  const keyword = useDebounce(addressOrName, 500);
+  const keyword = useDebounce(addressOrName, 600);
 
   const navigation = useNavigation();
 

@@ -40,7 +40,10 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { Erc721MethodSelectors } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/abi';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { ISetApprovalForAll } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IERC721Approve,
+  ISetApprovalForAll,
+} from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appSelector } from '../../store';
@@ -409,7 +412,8 @@ export default class ServiceRevoke extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchERC20TokenAllowedances(networkId: string, address: string) {
+  async fetchERC20TokenAllowences(networkId: string, address: string) {
+    const { engine } = this.backgroundApi;
     const events = await this.getTransferEvents(networkId, address);
     const res = await this.getERC20TokenApprovals(networkId, address, events);
     const allowanceList = await Promise.all(
@@ -430,11 +434,26 @@ export default class ServiceRevoke extends ServiceBase {
       const balanceString = toFloat(Number(item.balance), item.token.decimals);
       return balanceString !== '0.000' || item.allowance.length !== 0;
     });
-    return result;
+    const addresses = result
+      .map((r) => r.token.address?.toLowerCase())
+      .filter((a) => !!a) as string[];
+    const priceAndCharts = await engine.getPricesAndCharts(
+      networkId,
+      addresses,
+      false,
+    );
+    const prices: Record<string, string> = {};
+    for (const [id, price] of Object.entries(priceAndCharts[0])) {
+      prices[id] = price.toString();
+    }
+    return {
+      allowance: result,
+      prices,
+    };
   }
 
   @backgroundMethod()
-  async fetchERC721TokenAllowedances(networkId: string, address: string) {
+  async fetchERC721TokenAllowances(networkId: string, address: string) {
     const events = await this.getTransferEvents(networkId, address);
     const res = await this.getERC721TokenApprovals(networkId, address, events);
     const allowanceList = await Promise.all(
@@ -477,6 +496,25 @@ export default class ServiceRevoke extends ServiceBase {
     const methodID = Erc721MethodSelectors.setApprovalForAll;
     const data = `${methodID}${defaultAbiCoder
       .encode(['address', 'bool'], [approveInfo.spender, approveInfo.approved])
+      .slice(2)}`;
+    return Promise.resolve({
+      from: approveInfo.from,
+      to: approveInfo.to,
+      value: '0x0',
+      data,
+    });
+  }
+
+  @backgroundMethod()
+  buildEncodedTxsFromApprove(
+    approveInfo: IERC721Approve,
+  ): Promise<IEncodedTxEvm> {
+    const methodID = Erc721MethodSelectors.Approval;
+    const data = `${methodID}${defaultAbiCoder
+      .encode(
+        ['address', 'uint256'],
+        [approveInfo.approve, approveInfo.tokenId],
+      )
       .slice(2)}`;
     return Promise.resolve({
       from: approveInfo.from,

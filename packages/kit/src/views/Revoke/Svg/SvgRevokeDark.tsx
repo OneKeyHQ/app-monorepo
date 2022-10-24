@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import Svg, { ClipPath, Defs, G, Path, Rect, SvgProps } from 'react-native-svg';
 
-export default function SvgRevoke(props: SvgProps) {
+export default function SvgRevokeDark(props: SvgProps) {
   return (
     <Svg width="238" height="99" viewBox="0 0 238 99" fill="none" {...props}>
       <Path

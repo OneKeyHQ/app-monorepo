@@ -35,10 +35,11 @@ type Props = {
   token: TokenType;
   networkId: string;
   balance: B;
-  price: B;
+  price: string;
   allowance: string;
   totalSupply: string;
   accountAddress: string;
+  onRevokeSuccess: () => void;
 };
 
 export const ERC20Allowance: FC<Props> = ({
@@ -50,6 +51,7 @@ export const ERC20Allowance: FC<Props> = ({
   accountAddress,
   token,
   spender,
+  onRevokeSuccess,
 }) => {
   const intl = useIntl();
   const toast = useToast();
@@ -92,8 +94,6 @@ export const ERC20Allowance: FC<Props> = ({
       if (!networkId) {
         return;
       }
-      // TODO: writeContract.functions.approve(ADDRESS_ZERO, tokenId);
-      // build approve transactions as revoke.cash does
       const encodedApproveTx =
         await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           amount,
@@ -112,18 +112,13 @@ export const ERC20Allowance: FC<Props> = ({
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
             skipSaveHistory: false,
-            encodedTx: {
-              ...(encodedApproveTx as IEncodedTxEvm),
-              from: accountAddress,
-            },
-            onSuccess: () => {
-              alert('success');
-            },
+            encodedTx: encodedApproveTx as IEncodedTxEvm,
+            onSuccess: onRevokeSuccess,
           },
         },
       });
     },
-    [spender, account, networkId, navigation, accountAddress, token],
+    [spender, account, networkId, navigation, token, onRevokeSuccess],
   );
 
   const onChangeAllowance = useCallback(() => {
@@ -233,7 +228,7 @@ export const ERC20Allowance: FC<Props> = ({
         <Token
           token={{ name, symbol: label }}
           showInfo
-          size="5"
+          size={5}
           flex="1"
           infoBoxProps={{ flex: 1 }}
         />
