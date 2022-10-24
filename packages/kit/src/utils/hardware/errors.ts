@@ -163,6 +163,29 @@ export class FirmwareDownloadFailed extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_firmware_download_error';
 }
 
+export class FirmwareUpdateManuallyEnterBoot extends OneKeyHardwareError {
+  override code = HardwareErrorCode.FirmwareUpdateManuallyEnterBoot;
+
+  override data = { reconnect: true };
+
+  override key: LocaleIds = 'msg__hardware_manually_enter_boot';
+}
+
+export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
+  override code = HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure;
+
+  override data = { reconnect: true };
+
+  override key: LocaleIds = 'msg__hardware_enter_boot_failure';
+}
+export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
+  override code = HardwareErrorCode.FirmwareUpdateLimitOneDevice;
+
+  override data = { reconnect: true };
+
+  override key: LocaleIds = 'modal__only_one_device_can_be_connected_desc';
+}
+
 export class DeviceNotSame extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 
@@ -170,7 +193,7 @@ export class DeviceNotSame extends OneKeyHardwareError {
 }
 
 export class DeviceNotFind extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleDeviceNotBonded;
+  override code = HardwareErrorCode.DeviceNotFound;
 
   override data = { reconnect: true };
 

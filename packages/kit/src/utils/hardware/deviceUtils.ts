@@ -362,6 +362,12 @@ class DeviceUtils {
         return new Error.InitIframeTimeout(payload);
       case HardwareErrorCode.FirmwareUpdateDownloadFailed:
         return new Error.FirmwareDownloadFailed(payload);
+      case HardwareErrorCode.FirmwareUpdateManuallyEnterBoot:
+        return new Error.FirmwareUpdateManuallyEnterBoot(payload);
+      case HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure:
+        return new Error.FirmwareUpdateAutoEnterBootFailure(payload);
+      case HardwareErrorCode.FirmwareUpdateLimitOneDevice:
+        return new Error.FirmwareUpdateLimitOneDevice(payload);
       case HardwareErrorCode.CallMethodNeedUpgradeFirmware:
         return new Error.FirmwareVersionTooLow(payload);
       case HardwareErrorCode.NetworkError:

@@ -67,7 +67,7 @@
     "react-native-crypto": "^2.2.0",
     "react-native-fast-image": "^8.6.1",
     "react-native-flipper": "^0.162.0",
-    "react-native-gesture-handler": "^2.7.1",
+    "react-native-gesture-handler": "^2.8.0",
     "react-native-get-random-values": "^1.8.0",
     "react-native-keyboard-manager": "^6.5.4-4",
     "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git",
