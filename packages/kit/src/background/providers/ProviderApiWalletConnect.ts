@@ -191,7 +191,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       if (connector.session.networkImpl === IMPL_APTOS) {
         const { address } = await this.aptosRequest<{ address: string }>(
           connector,
-          { method: 'connect' },
+          { method: 'account' },
         );
         accounts = [address];
       } else {
