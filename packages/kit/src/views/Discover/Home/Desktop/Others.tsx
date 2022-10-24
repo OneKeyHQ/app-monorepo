@@ -188,6 +188,7 @@ const DappsContainer = () => {
       data={data}
       renderItem={renderItem}
       numColumns={numColumns}
+      key={`key${numColumns}`}
       keyExtractor={(item) => item._id}
     />
   );

@@ -30,6 +30,8 @@ export const homeTab: WebTab = {
   // TODO i18n
   title: 'OneKey',
   isCurrent: true,
+  canGoBack: false,
+  loading: false,
 };
 const initialState: WebTabsInitialState = {
   tabs: [homeTab],

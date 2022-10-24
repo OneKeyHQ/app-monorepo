@@ -2,35 +2,15 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OnWebviewNavigation } from '../explorerUtils';
-
-import { getWebviewWrapperRef } from './getWebviewWrapperRef';
+import {
+  OnWebviewNavigation,
+  crossWebviewLoadUrl,
+  getWebviewWrapperRef,
+} from '../explorerUtils';
 
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
-
-export function crossWebviewLoadUrl({
-  url,
-  tabId,
-}: {
-  url: string;
-  tabId?: string;
-}) {
-  const wrapperRef = getWebviewWrapperRef({
-    tabId,
-  });
-  debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
-  if (platformEnv.isDesktop) {
-    // TODO wait wrapperRef, innerRef, dom-ready then loadURL
-    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
-  } else {
-    // IWebViewWrapperRef has cross-platform loadURL()
-    //    will trigger webview.onSrcChange props
-    wrapperRef?.loadURL(url);
-  }
-}
 
 export const useWebviewRef = ({
   ref,

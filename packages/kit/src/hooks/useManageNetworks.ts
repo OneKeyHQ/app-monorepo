@@ -13,7 +13,9 @@ const emptyArray = Object.freeze([]);
 
 export const { use: useManageNetworks, get: getManageNetworks } =
   makeSelector<IManageNetworks>((selector, { useMemo }) => {
-    const { enable: devModeEnable } = selector((s) => s.settings.devMode);
+    const { enable: devModeEnable } = selector(
+      (s) => s?.settings?.devMode || {},
+    );
     const networks = selector((s) => s.runtime.networks) ?? emptyArray;
 
     const [allNetworks, enabledNetworks] = useMemo(() => {

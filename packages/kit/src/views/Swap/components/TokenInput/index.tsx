@@ -81,7 +81,13 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
   if (account === null) {
     return (
       <Pressable onPress={createAccount}>
-        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+        <Box
+          py="1"
+          px="2"
+          flexDirection="row"
+          bg="surface-neutral-subdued"
+          borderRadius="12"
+        >
           <Typography.CaptionStrong color="text-default">
             {intl.formatMessage({ id: 'action__create_account' })}
           </Typography.CaptionStrong>

@@ -3,6 +3,7 @@ import {
   COINTYPE_APTOS,
   COINTYPE_BTC,
   COINTYPE_CFX,
+  COINTYPE_DOGE,
   COINTYPE_ETH,
   COINTYPE_NEAR,
   COINTYPE_SOL,
@@ -12,6 +13,7 @@ import {
   IMPL_APTOS,
   IMPL_BTC,
   IMPL_CFX,
+  IMPL_DOGE,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
@@ -30,6 +32,7 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_BTC]: [49, 44, 84],
   [IMPL_TRON]: [44],
   [IMPL_APTOS]: [44],
+  [IMPL_DOGE]: [44],
 };
 
 // derive path template by coin types.
@@ -46,6 +49,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_CFX]: `m/44'/${COINTYPE_CFX}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_BTC]: `m/${PURPOSE_TAG}'/${COINTYPE_BTC}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_TRON]: `m/44'/${COINTYPE_TRON}'/0'/0/${INCREMENT_LEVEL_TAG}`,
+  [COINTYPE_DOGE]: `m/44'/${COINTYPE_DOGE}'/${INCREMENT_LEVEL_TAG}'`,
 };
 
 function getDerivationPaths(

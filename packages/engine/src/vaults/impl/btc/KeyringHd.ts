@@ -5,7 +5,7 @@ import bs58check from 'bs58check';
 
 import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';

@@ -19,9 +19,7 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import { WebSiteHistory } from '../../type';
-import { validateUrl, webHandler } from '../explorerUtils';
-
-import { crossWebviewLoadUrl } from './useWebviewRef';
+import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
 export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
   const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);

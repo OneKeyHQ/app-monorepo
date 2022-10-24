@@ -9,8 +9,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
+import { getWebviewWrapperRef } from '../explorerUtils';
 
-import { getWebviewWrapperRef } from './getWebviewWrapperRef';
 import { useWebTab } from './useWebTabs';
 
 const notifyChanges = throttle(
