@@ -119,12 +119,20 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   const showRightArrow = useSharedValue(false);
   const currentOffsetX = useSharedValue(0);
   const containerWidth = useSharedValue(0);
+  const onContentSizeChange = useCallback(
+    (contentWidth: number) => {
+      showRightArrow.value =
+        Math.floor(contentWidth - currentOffsetX.value) > containerWidth.value;
+    },
+    [containerWidth.value, currentOffsetX.value, showRightArrow],
+  );
   const onScroll = useAnimatedScrollHandler(
     ({ contentOffset, contentSize }) => {
       currentOffsetX.value = contentOffset.x;
-      showLeftArrow.value = contentOffset.x > 0;
+      showLeftArrow.value = currentOffsetX.value > 0;
       showRightArrow.value =
-        Math.floor(contentSize.width - contentOffset.x) > containerWidth.value;
+        Math.floor(contentSize.width - currentOffsetX.value) >
+        containerWidth.value;
     },
     [],
   );
@@ -211,6 +219,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsHorizontalScrollIndicator={false}
+        onContentSizeChange={onContentSizeChange}
       >
         {buttons.map((btn, index) => (
           <ToggleButton
