@@ -75,7 +75,7 @@ export const webHandler: WebHandler = (() => {
 })();
 
 export const isValidDomain = (domain: string) =>
-  /\.(ai|app|art|co|com|club|dev|ee|finance|game|im|info|io|is|it|net|network|news|org|xyz)$/.test(
+  /\.(ai|app|art|co|com|club|dev|ee|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)$/.test(
     domain,
   );
 
