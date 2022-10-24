@@ -34,9 +34,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const passphraseState = await this.getWalletPassphraseState();
     try {
-      response = await HardwareSDK.batchGetPublicKey(connectId, deviceId, {
-        paths,
-        ecdsaCurveName: 'ed25519',
+      response = await HardwareSDK.aptosGetPublicKey(connectId, deviceId, {
+        bundle: paths.map((path) => ({ path })),
         ...passphraseState,
       });
     } catch (error: any) {

@@ -6,10 +6,10 @@
   "dependencies": {
     "@cloudinary/url-gen": "^1.8.0",
     "@gorhom/bottom-sheet": "^4",
-    "@onekeyfe/hd-ble-sdk": "0.1.53",
-    "@onekeyfe/hd-core": "0.1.53",
-    "@onekeyfe/hd-shared": "0.1.53",
-    "@onekeyfe/hd-web-sdk": "0.1.53",
+    "@onekeyfe/hd-ble-sdk": "0.1.57",
+    "@onekeyfe/hd-core": "0.1.57",
+    "@onekeyfe/hd-shared": "0.1.57",
+    "@onekeyfe/hd-web-sdk": "0.1.57",
     "@onekeyhq/components": "*",
     "@reduxjs/toolkit": "^1.6.2",
     "@types/redux-logger": "^3.0.9",
@@ -34,6 +34,7 @@
     "expo-secure-store": "^11.2.0",
     "fuse.js": "^6.5.3",
     "lightweight-charts": "^3.8.0",
+    "moti": "^0.20.0",
     "react-intl": "^5.21.2",
     "react-native-animated-splash-screen": "^2.0.5",
     "react-native-camera": "4.2.1",
@@ -45,12 +46,11 @@
     "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",
     "semver": "^7.3.7",
+    "socket.io-client": "^4.5.2",
     "swr": "^1.1.2",
     "url-parse": "^1.5.10",
     "vision-camera-code-scanner": "^0.2.0",
-    "zbar.wasm": "^2.1.1",
-    "socket.io-client": "^4.5.2",
-    "moti": "^0.20.0"
+    "zbar.wasm": "^2.1.1"
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
