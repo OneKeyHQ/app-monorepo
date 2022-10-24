@@ -83,39 +83,35 @@ export class PriceController {
     }
     const ret: Record<string, [number, number][]> = {};
 
-    try {
-      await Promise.all(
-        addresses.map(async (address) => {
-          const params: {
-            platform: string;
-            days: string;
-            vs_currency: string;
-            points?: string;
-            contract?: string;
-          } = {
-            platform: networkId,
-            days,
-            vs_currency,
-            contract: address,
-          };
-          if (!address || address === 'main') {
-            delete params.contract;
-          }
-          if (points) {
-            params.points = points;
-          }
-          try {
-            const marketData = await this.fetchApi<{
-              prices: [number, number][];
-            }>(`/market/chart`, params);
-            ret[address] = marketData.prices;
-            // eslint-disable-next-line no-empty
-          } catch {}
-        }),
-      );
-    } catch (e) {
-      console.error(e);
-    }
+    await Promise.all(
+      addresses.map(async (address) => {
+        const params: {
+          platform: string;
+          days: string;
+          vs_currency: string;
+          points?: string;
+          contract?: string;
+        } = {
+          platform: networkId,
+          days,
+          vs_currency,
+          contract: address,
+        };
+        if (!address || address === 'main') {
+          delete params.contract;
+        }
+        if (points) {
+          params.points = points;
+        }
+        try {
+          const marketData = await this.fetchApi<{
+            prices: [number, number][];
+          }>(`/market/chart`, params);
+          ret[address] = marketData.prices;
+          // eslint-disable-next-line no-empty
+        } catch {}
+      }),
+    );
     return ret;
   }
 

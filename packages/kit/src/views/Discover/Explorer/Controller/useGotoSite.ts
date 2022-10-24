@@ -95,9 +95,11 @@ export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
 
         // close deep link tab after 1s
         if (isDeepLink) {
-          setTimeout(() => {
-            dispatch(closeWebTab(tabId));
-          }, 1000);
+          if (webHandler === 'tabbedWebview') {
+            setTimeout(() => {
+              dispatch(closeWebTab(tabId));
+            }, 1000);
+          }
         }
         return true;
       }
