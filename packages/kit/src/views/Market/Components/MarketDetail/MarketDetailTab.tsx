@@ -122,6 +122,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
+  const contentPendding = isVerticalLayout ? 4 : 0;
   return (
     <Tabs.Container
       // @ts-ignore fix type when remove react-native-collapsible-tab-view
@@ -154,12 +155,12 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
       }}
       renderHeader={() =>
         isVerticalLayout ? (
-          <Box h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL} p="4">
+          <Box h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL} p={contentPendding}>
             <MarketPriceChart coingeckoId={marketTokenId} />
             <MarketDetailActionButton marketTokenId={marketTokenId} />
           </Box>
         ) : (
-          <Box h={MARKET_DETAIL_TAB_HEADER_H} p="4">
+          <Box h={MARKET_DETAIL_TAB_HEADER_H} p={contentPendding}>
             <MarketPriceChart coingeckoId={marketTokenId} />
           </Box>
         )
@@ -175,7 +176,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         label={intl.formatMessage({ id: 'content__info' })}
       >
         <ScrollView
-          px="4"
+          px={contentPendding}
           contentContainerStyle={{
             paddingBottom: 24,
           }}
@@ -204,7 +205,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
           </Center>
         ) : ( */}
         <ScrollView
-          px="4"
+          px={contentPendding}
           contentContainerStyle={{
             paddingBottom: 24,
           }}

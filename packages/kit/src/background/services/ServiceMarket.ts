@@ -10,6 +10,7 @@ import {
   MARKET_FAVORITES_CATEGORYID,
   MarketCategory,
   MarketListSortType,
+  MarketTokenItem,
   MarketTopTabName,
   cancleMarketFavorite,
   clearMarketSearchTokenHistory,
@@ -21,10 +22,10 @@ import {
   syncMarketSearchTokenHistorys,
   updateMarketChats,
   updateMarketListSort,
-  updateMarketTokenBaseInfo,
   updateMarketTokenDetail,
   updateMarketTokenPriceSubscribe,
   updateMarketTokens,
+  updateMarketTokensBaseInfo,
   updateSearchKeyword,
   updateSearchTabCategory,
   updateSearchTokens,
@@ -92,7 +93,7 @@ export default class ServiceMarket extends ServiceBase {
   }) {
     const path = '/market/tokens';
     const coingeckoIds = ids && ids.length > 0 ? ids : undefined;
-    const data = await this.fetchData(
+    const data = await this.fetchData<MarketTokenItem[]>(
       path,
       {
         category: categoryId,
@@ -105,27 +106,35 @@ export default class ServiceMarket extends ServiceBase {
     if (data.length === 0) {
       return;
     }
-    this.backgroundApi.dispatch(
-      updateMarketTokens({ categoryId, marketTokens: data }),
+    const { dispatch, appSelector } = this.backgroundApi;
+    dispatch(updateMarketTokens({ categoryId, marketTokens: data }));
+    // check token base(tokens & logoURI)
+    const marketTokens = appSelector((s) => s.market.marketTokens);
+    const imperfectMatketTokens = data.filter(
+      (t) => !marketTokens[t.coingeckoId]?.tokens,
     );
+    if (imperfectMatketTokens?.length) {
+      this.fetchMarketTokensBaseInfo(
+        imperfectMatketTokens.map((t) => t.coingeckoId).join(','),
+      );
+    }
   }
 
-  @backgroundMethod()
-  async fetchMarketTokenBaseInfo(marketTokenId: string) {
-    const path = '/market/token/base/';
-    const data = await this.fetchData<{
-      tokens: ServerToken[];
-      logoURI?: string;
-    }>(path, { coingeckoId: marketTokenId }, { tokens: [] });
-    const tokens = data.tokens.map((t) => formatServerToken(t));
-    this.backgroundApi.dispatch(
-      updateMarketTokenBaseInfo({
-        marketTokenId,
-        tokens,
-        logoURI: data.logoURI,
-      }),
-    );
-    return tokens;
+  async fetchMarketTokensBaseInfo(marketTokenIds: string) {
+    const path = '/market/tokens/base/';
+    const data = await this.fetchData<
+      {
+        coingeckoId: string;
+        tokens: ServerToken[];
+        logoURI?: string;
+      }[]
+    >(path, { coingeckoIds: marketTokenIds }, []);
+    const tokensBaseInfo = data.map((tokenBase) => {
+      const tokens = tokenBase.tokens.map((t) => formatServerToken(t));
+      return { ...tokenBase, tokens };
+    });
+    this.backgroundApi.dispatch(updateMarketTokensBaseInfo(tokensBaseInfo));
+    return tokensBaseInfo;
   }
 
   @backgroundMethod()
