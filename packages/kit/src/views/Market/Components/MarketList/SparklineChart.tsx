@@ -100,7 +100,7 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
     ],
   );
 
-  return platformEnv.isWeb || platformEnv.isExtension ? (
+  return !platformEnv.isNative ? (
     <div style={{ width, height: height + offsetHeight }}>
       <canvas ref={draw} />
     </div>
