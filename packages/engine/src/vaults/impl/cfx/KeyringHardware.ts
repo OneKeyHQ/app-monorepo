@@ -8,6 +8,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 import { Transaction, address as confluxAddress } from 'js-conflux-sdk';
+import { omitBy } from 'lodash';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
@@ -60,8 +61,8 @@ export class KeyringHardware extends KeyringHardwareBase {
       connectId,
       deviceId,
       {
-        // @ts-ignore
         path,
+        // @ts-ignore
         transaction,
         ...passphraseState,
       },
@@ -71,7 +72,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { r, s, v } = response.payload;
 
       const signedTransaction = new Transaction({
-        ...transaction,
+        ...omitBy(transaction, (t) => !t),
         r,
         s,
         v: new BigNumber(v).toNumber(),
