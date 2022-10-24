@@ -52,9 +52,12 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
                     },
                   );
                 if (!existsAccounts?.length) {
-                  backgroundApiProxy.serviceDapp.openConnectionModal({
-                    origin,
-                  });
+                  // use setTimeout fix android platform onpenModal ANR
+                  setTimeout(async () => {
+                    await backgroundApiProxy.serviceDapp.openConnectionModal({
+                      origin,
+                    });
+                  }, 20);
                 } else {
                   toast.show({
                     title: intl.formatMessage({
@@ -92,7 +95,8 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
               ) : null
             }
             autoFocus
-            width="full"
+            w="full"
+            mt="2"
             type="text"
             placeholder={intl.formatMessage({
               id: 'form__start_with_wc_or_https_placeholder',
