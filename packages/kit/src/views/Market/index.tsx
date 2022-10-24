@@ -28,7 +28,7 @@ const Market = () => {
     }
   }, [marketTopTabName]);
   return (
-    <Box flex={1} mt={top}>
+    <Box flex={1} mt={`${top}px`}>
       <MarketHeader />
       {contentComponent}
     </Box>

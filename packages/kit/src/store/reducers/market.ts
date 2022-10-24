@@ -221,7 +221,7 @@ export const MarketSlicer = createSlice({
         t.favorited =
           favoriteCategory &&
           favoriteCategory.coingeckoIds?.includes(t.coingeckoId);
-        t.symbol = t.symbol ? t.symbol.toLocaleUpperCase() : '';
+        t.symbol = t.symbol ? t.symbol.toUpperCase() : '';
         const cacheMarketToken = state.marketTokens[t.coingeckoId];
         if (cacheMarketToken) {
           Object.assign(cacheMarketToken, t);

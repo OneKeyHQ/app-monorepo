@@ -38,16 +38,24 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
       justifyContent="space-between"
       {...boxStyle}
     >
-      <Box ml="3" alignItems="center" flexDirection="row" width="100px">
+      <Box ml="3" alignItems="center" flexDirection="row" flex={1}>
         <Image borderRadius={16} src={icon} size={8} />
         <Box flexDirection="column" ml="2">
           <Typography.Body2Strong>{symbol}</Typography.Body2Strong>
-          <Typography.Body2Strong color="text-subdued">
+          <Typography.Body2Strong numberOfLines={1} color="text-subdued">
             {name}
           </Typography.Body2Strong>
         </Box>
       </Box>
-      <CheckBox value={coingeckoId} />
+      <Box
+        size={5}
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="center"
+        mr={1}
+      >
+        <CheckBox value={coingeckoId} />
+      </Box>
     </Box>
   );
 };

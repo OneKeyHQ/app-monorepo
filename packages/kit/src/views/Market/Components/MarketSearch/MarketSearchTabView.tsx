@@ -31,7 +31,7 @@ const MarketSearchTabView: FC<Props> = ({
   onTabChange,
   options,
 }) => {
-  const [index, setIndex] = useState(navigationStateIndex);
+  const [index, setIndex] = useState(0);
   const { bgColor } = useMarketSearchContainerStyle();
   const routes = useMemo(
     () =>
@@ -64,7 +64,7 @@ const MarketSearchTabView: FC<Props> = ({
     <RNTabView
       navigationState={{ index, routes }}
       renderScene={renderScene}
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode="none"
       renderTabBar={() => (
         <SegmentedControl
           selectedIndex={index}

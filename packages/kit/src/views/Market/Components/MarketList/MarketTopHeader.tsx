@@ -52,7 +52,7 @@ const Header: React.FC = () => {
 
   return (
     <Box flexDirection="column">
-      <Box mt="8" ml="6" ref={searchBarRef} width="360px">
+      <Box mt="3" ml="6" ref={searchBarRef} width="360px">
         <Input
           ref={inputRef}
           placeholder={intl.formatMessage({ id: 'form__search_tokens' })}
