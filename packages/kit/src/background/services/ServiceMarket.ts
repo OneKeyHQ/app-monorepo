@@ -23,12 +23,12 @@ import {
   updateMarketListSort,
   updateMarketTokenBaseInfo,
   updateMarketTokenDetail,
+  updateMarketTokenPriceSubscribe,
   updateMarketTokens,
   updateSearchKeyword,
   updateSearchTabCategory,
   updateSearchTokens,
   updateSelectedCategory,
-  updateMarketTokenPriceSubscribe,
 } from '../../store/reducers/market';
 import { ServerToken } from '../../store/typings';
 import { getDefaultLocale } from '../../utils/locale';

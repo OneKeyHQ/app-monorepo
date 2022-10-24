@@ -363,13 +363,16 @@ export const MarketSlicer = createSlice({
       action: PayloadAction<MarketTokenBasePayloadAction>,
     ) {
       const { marketTokenId, tokens, logoURI } = action.payload;
-      state.marketTokens[marketTokenId].tokens = tokens;
+      const token = state.marketTokens[marketTokenId] || {};
+      token.tokens = tokens;
       if (logoURI && logoURI.length > 0) {
-        state.marketTokens[marketTokenId].logoURI = logoURI;
+        token.logoURI = logoURI;
+      } else if (token.image) {
+        token.logoURI = token.image;
       } else {
-        state.marketTokens[marketTokenId].logoURI =
-          state.marketTokens[marketTokenId].image;
+        token.logoURI = '';
       }
+      state.marketTokens[marketTokenId] = token;
     },
     updateMarketTokenPriceSubscribe(
       state,

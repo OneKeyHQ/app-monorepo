@@ -324,7 +324,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                 }}
               />
               <FavoritButton tokenItem={marketTokenItem} />
-              <BellButton tokenItem={marketTokenItem} />
+              {/* <BellButton tokenItem={marketTokenItem} /> */}
             </Box>
           </Box>
           {children}

@@ -32,7 +32,6 @@ const DataViewComponent: FC<DataViewComponentProps> = ({
     outPadding: 32,
     maxW: SCREEN_SIZE.LARGE,
   });
-  console.log('gridBoxStyle', gridBoxStyle);
   return (
     <Box {...gridBoxStyle}>
       <Box

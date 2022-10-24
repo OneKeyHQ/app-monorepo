@@ -66,15 +66,17 @@ export const useMarketTokenItem = ({
   const marketTokens = useAppSelector((s) => s.market.marketTokens);
   const marketTokenItem = marketTokens[coingeckoId];
   useEffect(() => {
-    if (!marketTokenItem) {
-      backgroundApiProxy.serviceMarket.fetchMarketList({
-        vsCurrency: 'usd',
-        ids: coingeckoId,
-        sparkline: !isVertical && !isMidLayout,
-      });
-      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
-    } else if (marketTokenItem && !marketTokenItem.logoURI) {
-      backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
+    if (coingeckoId?.length) {
+      if (!marketTokenItem) {
+        backgroundApiProxy.serviceMarket.fetchMarketList({
+          vsCurrency: 'usd',
+          ids: coingeckoId,
+          sparkline: !isVertical && !isMidLayout,
+        });
+        backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
+      } else if (marketTokenItem && !marketTokenItem.logoURI) {
+        backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
+      }
     }
   }, [coingeckoId, isMidLayout, isVertical, marketTokenItem]);
 

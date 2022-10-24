@@ -80,7 +80,7 @@ const MarketDetailActionButton = ({
       >
         {intl.formatMessage({ id: 'action__sell' })}
       </Button>
-      <IconButton
+      {/* <IconButton
         ml={2}
         name="DotsHorizontalSolid"
         onPress={() => {
@@ -89,7 +89,7 @@ const MarketDetailActionButton = ({
           });
         }}
         isDisabled={!marketTokenItem}
-      />
+      /> */}
     </Box>
   );
 };

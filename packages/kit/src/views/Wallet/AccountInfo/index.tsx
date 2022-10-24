@@ -35,13 +35,13 @@ import {
   SendRoutesParams,
 } from '@onekeyhq/kit/src/views/Send/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useNFTPrice } from '../../../hooks/useTokens';
+import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
 import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;

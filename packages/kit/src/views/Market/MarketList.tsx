@@ -98,7 +98,7 @@ const MarketList: FC = () => {
         }
         ref={scrollRef}
         mt={2}
-        p={isVerticalLayout ? 4 : 6}
+        p={isVerticalLayout ? 2 : 3}
         bg="background-default"
         onScroll={onScroll}
         contentContainerStyle={{
