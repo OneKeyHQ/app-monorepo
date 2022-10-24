@@ -28,7 +28,7 @@
     "@noble/hashes": "1.1.2",
     "@onekeyfe/blockchain-libs": "0.0.45",
     "@onekeyfe/js-sdk": "1.1.5",
-    "@onekeyfe/network-list": "1.6.9",
+    "@onekeyfe/network-list": "1.6.10",
     "@solana/spl-token": "^0.3.0",
     "@solana/web3.js": "^1.53.0",
     "aptos": "^1.3.15",
