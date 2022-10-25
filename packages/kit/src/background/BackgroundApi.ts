@@ -13,6 +13,7 @@ import ServiceDapp from './services/ServiceDapp';
 import ServiceDiscover from './services/ServiceDiscover';
 import ServiceHardware from './services/ServiceHardware';
 import ServiceHistory from './services/ServiceHistory';
+import ServiceMarket from './services/ServiceMarket';
 import ServiceNameResolver from './services/ServiceNameResolver';
 import ServiceNetwork from './services/ServiceNetwork';
 import ServiceNFT from './services/ServiceNFT';
@@ -20,6 +21,7 @@ import ServiceNotification from './services/serviceNotification';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePassword from './services/ServicePassword';
 import ServicePromise from './services/ServicePromise';
+import ServiceRevoke from './services/ServiceRevoke';
 import ServiceSocket from './services/ServiceSocket';
 import ServiceStaking from './services/ServiceStaking';
 import ServiceSwap from './services/ServiceSwap';
@@ -122,6 +124,12 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceDiscover = new ServiceDiscover({
+    backgroundApi: this,
+  });
+
+  serviceMarket = new ServiceMarket({ backgroundApi: this });
+
+  serviceRevoke = new ServiceRevoke({
     backgroundApi: this,
   });
 }

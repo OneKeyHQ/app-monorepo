@@ -6,18 +6,15 @@ import { useIntl } from 'react-intl';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/BottomTabs';
 import { LayoutHeaderMobile } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderMobile';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from '../../components/LazyDisplayView';
+import { useNavigationActions } from '../../hooks';
 import { TabRoutes, TabRoutesParams } from '../types';
 
 import { getStackTabScreen, tabRoutes } from './routes';
@@ -27,6 +24,7 @@ const Tab = createBottomTabNavigator<TabRoutesParams>();
 const TabNavigator = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const { sendToken } = useNavigationActions();
   const {
     network: activeNetwork,
     wallet,
@@ -48,7 +46,23 @@ const TabNavigator = () => {
           navigationRef.current?.navigate(TabRoutes.Swap);
         },
         tabBarLabel: intl.formatMessage({ id: 'title__swap' }),
-        tabBarIcon: () => 'SwitchHorizontalOutline',
+        tabBarIcon: () => 'SwitchHorizontalSolid',
+        description: intl.formatMessage({
+          id: 'content__exchange_any_tokens',
+        }),
+        hideInHorizontalLayaout: true,
+      },
+      {
+        name: TabRoutes.Market,
+        foldable: true,
+        component: () => null,
+        disabled: wallet?.type === 'watching',
+        onPress: () => {
+          // @ts-expect-error
+          navigationRef.current?.navigate(TabRoutes.Market);
+        },
+        tabBarLabel: intl.formatMessage({ id: 'title__market' }),
+        tabBarIcon: () => 'ChartSquareLineOutline',
         description: intl.formatMessage({
           id: 'content__exchange_any_tokens',
         }),
@@ -61,19 +75,7 @@ const TabNavigator = () => {
         disabled: wallet?.type === 'watching',
         onPress: () => {
           // TODO show new standalone empty Modal if accountId is empty, as Send Modal require valid accountId
-          navigationRef.current?.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Send,
-            params: {
-              screen: SendRoutes.PreSendToken,
-              params: {
-                accountId,
-                networkId,
-                from: '',
-                to: '',
-                amount: '',
-              },
-            },
-          });
+          sendToken({ accountId, networkId });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__send' }),
         tabBarIcon: () => 'ArrowUpOutline',
@@ -123,26 +125,27 @@ const TabNavigator = () => {
         }),
       },
     ],
-    [accountId, activeNetwork?.id, intl, networkId, wallet?.type],
+    [accountId, activeNetwork?.id, intl, networkId, wallet?.type, sendToken],
   );
 
-  const tabRoutesList = useMemo(
-    () =>
-      tabRoutes.map((tab) => (
-        <Tab.Screen
-          key={tab.name}
-          name={tab.name}
-          component={
-            isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
-          }
-          options={{
-            tabBarIcon: tab.tabBarIcon,
-            tabBarLabel: intl.formatMessage({ id: tab.translationId }),
-          }}
-        />
-      )),
-    [intl, isVerticalLayout],
-  );
+  const tabRoutesList = useMemo(() => {
+    let tabs = tabRoutes;
+    if (isVerticalLayout)
+      tabs = tabRoutes.filter((t) => t.name !== TabRoutes.Swap);
+    return tabs.map((tab) => (
+      <Tab.Screen
+        key={tab.name}
+        name={tab.name}
+        component={
+          isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
+        }
+        options={{
+          tabBarIcon: tab.tabBarIcon,
+          tabBarLabel: intl.formatMessage({ id: tab.translationId }),
+        }}
+      />
+    ));
+  }, [intl, isVerticalLayout]);
 
   return useMemo(
     () => (

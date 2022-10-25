@@ -6,7 +6,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { ISessionStatus } from '@walletconnect/types';
 
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
@@ -45,15 +45,18 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         if (error || !payload || !connector) {
           return;
         }
+        const { networkImpl } = connector.session;
+        let request: Promise<any>;
+        if (networkImpl === IMPL_APTOS) {
+          request = this.aptosRequest(connector, payload);
+        } else {
+          request = this.ethereumRequest(connector, payload);
+        }
         // TODO active and focus desktop window
-        return this.responseCallRequest(
-          connector,
-          this.ethereumRequest(connector, payload),
-          {
-            error,
-            payload,
-          },
-        );
+        return this.responseCallRequest(connector, request, {
+          error,
+          payload,
+        });
       },
     );
   }
@@ -84,8 +87,31 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     return Promise.resolve(resp.result as T);
   }
 
-  // TODO check if current chain is EVM
+  async aptosRequest<T>(
+    connector: OneKeyWalletConnector,
+    data: any,
+  ): Promise<T> {
+    const { aptos } = IInjectedProviderNames;
+    const resp = await this.backgroundApi.handleProviderMethods<T>({
+      scope: aptos,
+      origin: this.getConnectorOrigin(connector),
+      data,
+    });
+    return Promise.resolve(resp.result as T);
+  }
+
+  // TODO Support for more chain
   async getChainIdInteger(connector: OneKeyWalletConnector) {
+    const { networkImpl } = connector.session;
+    if (networkImpl === IMPL_APTOS) {
+      const { chainId }: { chainId: number } = await this.aptosRequest(
+        connector,
+        { method: 'getChainId' },
+      );
+      return chainId;
+    }
+
+    // EVM
     return parseInt(
       await this.ethereumRequest(connector, { method: 'net_version' }),
       10,
@@ -101,11 +127,23 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         'getSessionStatusToApprove Error: connector not initialized',
       );
     }
+
+    const { networkImpl } = connector?.session;
     const { dispatch } = this.backgroundApi;
     dispatch(closeDappConnectionPreloading());
-    const result = await this.ethereumRequest<string[]>(connector, {
-      method: 'eth_requestAccounts',
-    });
+
+    let result: string[] = [];
+    if (networkImpl === IMPL_APTOS) {
+      const { address } = await this.aptosRequest<{ address: string }>(
+        connector,
+        { method: 'connect' },
+      );
+      result = [address];
+    } else {
+      result = await this.ethereumRequest<string[]>(connector, {
+        method: 'eth_requestAccounts',
+      });
+    }
 
     const chainId = await this.getChainIdInteger(connector);
     // walletConnect approve empty accounts is not allowed
@@ -149,9 +187,18 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       const prevAccounts = connector.accounts || [];
       const chainId = await this.getChainIdInteger(connector);
 
-      let accounts = await this.ethereumRequest<string[]>(connector, {
-        method: 'eth_accounts',
-      });
+      let accounts: string[] = [];
+      if (connector.session.networkImpl === IMPL_APTOS) {
+        const { address } = await this.aptosRequest<{ address: string }>(
+          connector,
+          { method: 'account' },
+        );
+        accounts = [address];
+      } else {
+        accounts = await this.ethereumRequest<string[]>(connector, {
+          method: 'eth_accounts',
+        });
+      }
       // TODO do not disconnect session, but keep prevAccount if wallet active account changed
       if (!accounts || !accounts.length) {
         accounts = prevAccounts;

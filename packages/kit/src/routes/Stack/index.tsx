@@ -18,6 +18,7 @@ import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
 import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import MarketDetail from '@onekeyhq/kit/src/views/Market/MarketDetail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
 import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
 import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
@@ -26,6 +27,7 @@ import Protected from '@onekeyhq/kit/src/views/Protected';
 import PushNotification from '@onekeyhq/kit/src/views/PushNotification';
 import PushNotificationManageAccountDynamic from '@onekeyhq/kit/src/views/PushNotification/AccountDynamic';
 import PushNotificationManagePriceAlert from '@onekeyhq/kit/src/views/PushNotification/PriceAlertListStack';
+import RevokePage from '@onekeyhq/kit/src/views/Revoke';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
@@ -113,6 +115,14 @@ export const stackScreenList = [
   {
     name: HomeRoutes.PushNotificationManageAccountDynamic,
     component: PushNotificationManageAccountDynamic,
+  },
+  {
+    name: HomeRoutes.MarketDetail,
+    component: MarketDetail,
+  },
+  {
+    name: HomeRoutes.Revoke,
+    component: RevokePage,
   },
 ];
 
