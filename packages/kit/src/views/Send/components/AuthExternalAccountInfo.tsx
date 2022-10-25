@@ -37,10 +37,25 @@ const AuthExternalAccountInfo = React.memo(
       accountInfo,
       client,
       setTitleInfo,
+      injectedConnectorInfo,
     } = props;
     const intl = useIntl();
     const navigation = useAppNavigation();
     const walletName = accountInfo?.walletName;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const externalAccountType = accountInfo?.type;
+    const wcSessionConnected = session?.connected;
+    const { connected } = useMemo(() => {
+      const $connected = injectedConnectorInfo
+        ? // TODO function computeIsActive({ chainId, accounts, activating }) {
+          //        return Boolean(chainId && accounts && !activating);
+          //      }
+          Boolean(injectedConnectorInfo?.store.getState().accounts?.length)
+        : wcSessionConnected;
+      return {
+        connected: $connected,
+      };
+    }, [injectedConnectorInfo, wcSessionConnected]);
 
     useEffect(() => {
       setTitleInfo({
@@ -56,7 +71,7 @@ const AuthExternalAccountInfo = React.memo(
 
     const [retryVisible, setRetryVisible] = useState(false);
     useEffect(() => {
-      if (session?.connected) {
+      if (connected && !injectedConnectorInfo) {
         const timer = setTimeout(
           () => setRetryVisible(true),
           WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY,
@@ -66,13 +81,16 @@ const AuthExternalAccountInfo = React.memo(
           setRetryVisible(false);
         };
       }
-    }, [session?.connected]);
+    }, [injectedConnectorInfo, connected]);
     const connectionIndicator = useMemo(() => {
       let color = 'icon-default';
       if (client?.connector?.isTransportOpen) {
         color = 'icon-warning';
       }
-      if (client?.connector?.isTransportOpen && session?.connected) {
+      if (client?.connector?.isTransportOpen && connected) {
+        color = 'interactive-default';
+      }
+      if (injectedConnectorInfo && connected) {
         color = 'interactive-default';
       }
       return (
@@ -88,7 +106,7 @@ const AuthExternalAccountInfo = React.memo(
           borderRadius="full"
         />
       );
-    }, [client?.connector?.isTransportOpen, session?.connected]);
+    }, [client?.connector?.isTransportOpen, connected, injectedConnectorInfo]);
     return (
       <VStack flex={1}>
         <HStack alignItems="center">

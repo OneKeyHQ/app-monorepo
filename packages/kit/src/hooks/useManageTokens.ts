@@ -55,14 +55,14 @@ export const useManageTokensOfAccount = ({
     let timer: ReturnType<typeof setInterval> | undefined;
     if (pollingInterval && isFocused && accountId && networkId) {
       // TODO may cause circular refresh in UI
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
+      backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
         activeAccountId: accountId,
         activeNetworkId: networkId,
         withBalance: true,
         withPrice: true,
       });
       timer = setInterval(() => {
-        backgroundApiProxy.serviceToken.fetchAccountTokens({
+        backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
           activeAccountId: accountId,
           activeNetworkId: networkId,
           withBalance: true,
@@ -80,7 +80,7 @@ export const useManageTokensOfAccount = ({
   useEffect(() => {
     if (fetchTokensOnMount && accountId && networkId) {
       // TODO may cause circular refresh in UI
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
+      backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
         activeAccountId: accountId,
         activeNetworkId: networkId,
         withBalance: true,

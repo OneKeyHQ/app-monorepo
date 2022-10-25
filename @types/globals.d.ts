@@ -16,7 +16,7 @@ declare global {
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
 
-  var $simpleDb: any;
+  var $$simpleDb: any;
   var $appEventBus: any;
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;

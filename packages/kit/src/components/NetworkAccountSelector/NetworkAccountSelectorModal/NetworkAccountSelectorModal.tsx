@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { LazyDisplayView } from '../../LazyDisplayView';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
 import AccountList from './AccountList';
@@ -56,13 +57,15 @@ function NetworkAccountSelectorModal() {
       }}
       height="560px"
     >
-      <Box flex={1} flexDirection="row">
-        <ChainSelector accountSelectorInfo={accountSelectorInfo} />
-        <Box alignSelf="stretch" flex={1}>
-          <Header accountSelectorInfo={accountSelectorInfo} />
-          <AccountList accountSelectorInfo={accountSelectorInfo} />
+      <LazyDisplayView delay={0}>
+        <Box flex={1} flexDirection="row">
+          <ChainSelector accountSelectorInfo={accountSelectorInfo} />
+          <Box alignSelf="stretch" flex={1}>
+            <Header accountSelectorInfo={accountSelectorInfo} />
+            <AccountList accountSelectorInfo={accountSelectorInfo} />
+          </Box>
         </Box>
-      </Box>
+      </LazyDisplayView>
     </Modal>
   );
 }

@@ -95,6 +95,7 @@ const ListItem: FC<ListItemProps> = ({
   const onPress = useCallback(async () => {
     closeModal();
     closeWalletSelector();
+    await wait(0);
     const accountId = account?.id || '';
 
     if (accountSelectorMode === EAccountSelectorMode.Transfer) {

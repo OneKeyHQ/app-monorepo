@@ -1,10 +1,13 @@
 // import type { WalletService } from '@walletconnect/react-native-dapp';
 // TODO rename IWalletConnectWalletService
+import type { IAccountInfoWalletImage } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+
 export type WalletService = {
   id: string;
   name: string;
   homepage: string;
   chains: string[];
+  image_url: IAccountInfoWalletImage | undefined;
   app: {
     browser: string;
     ios: string;

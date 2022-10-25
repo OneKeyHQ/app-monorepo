@@ -7,9 +7,13 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 import type { IWalletConnectSession } from '@walletconnect/types';
 
-type IAccountInfoWalletImage = { sm: string; md: string; lg: string };
-export type ISimpleDbWalletConnectAccountInfo = {
-  type: 'walletConnect' | 'injected' | 'offlineSigner';
+export type IAccountInfoWalletImage = { sm: string; md: string; lg: string };
+export type IExternalAccountType =
+  | 'walletConnect'
+  | 'injectedProvider' // only in Web
+  | 'offlineSigner';
+export type IBaseExternalAccountInfo = {
+  type?: IExternalAccountType;
   walletUrl: string;
   walletName: string;
   walletImg?: IAccountInfoWalletImage;
@@ -20,7 +24,7 @@ type ISimpleDbWalletConnectSessionInfo = {
   walletServiceId?: string;
   walletServiceName?: string;
 
-  accountInfo?: ISimpleDbWalletConnectAccountInfo;
+  accountInfo?: IBaseExternalAccountInfo;
   walletService?: WalletService;
 };
 export type ISimpleDbEntityWalletConnectData = {
@@ -41,7 +45,7 @@ export type ISimpleDbEntityWalletConnectData = {
 
   // { externalAccountId: { walletUrl } }
   externalAccounts: Partial<{
-    [externalAccountId: string]: ISimpleDbWalletConnectAccountInfo;
+    [externalAccountId: string]: IBaseExternalAccountInfo;
   }>;
 };
 
@@ -132,6 +136,18 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
     return walletService;
   }
 
+  getAccountInfoFromWalletService({
+    walletService,
+  }: {
+    walletService: WalletService;
+  }): IBaseExternalAccountInfo {
+    return {
+      walletUrl: walletService.homepage,
+      walletName: walletService.name,
+      walletImg: walletService.image_url,
+    };
+  }
+
   _getWalletImage({
     walletService,
     walletName,
@@ -157,12 +173,7 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
     }
 
     if (walletService) {
-      // @ts-ignore
-      img = (walletService?.image_url || img) as {
-        sm: string;
-        md: string;
-        lg: string;
-      };
+      img = walletService?.image_url || img;
     }
 
     const sessionPeerIcon = session?.peerMeta?.icons?.[0];
@@ -175,6 +186,18 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
     }
 
     return img;
+  }
+
+  async saveExternalAccountInfo({
+    accountId,
+    accountInfo,
+  }: {
+    accountId: string;
+    accountInfo: IBaseExternalAccountInfo;
+  }) {
+    const data = await this.getRawDataWithDefault();
+    data.externalAccounts[accountId] = accountInfo;
+    await this.setRawData(data);
   }
 
   async saveExternalAccountSession({

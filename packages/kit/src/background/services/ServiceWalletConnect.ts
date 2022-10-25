@@ -1,5 +1,6 @@
 import { IWalletConnectSession } from '@walletconnect/types';
 
+import { IExternalAccountType } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 
 import { WalletService } from '../../components/WalletConnect/types';
@@ -57,6 +58,26 @@ class ServiceWalletConnect extends ServiceBase {
       accountId,
       session,
       walletService,
+    });
+  }
+
+  @backgroundMethod()
+  async saveExternalAccountInfo({
+    accountId,
+    externalAccountType,
+    walletService,
+  }: {
+    accountId: string;
+    externalAccountType: IExternalAccountType;
+    walletService: WalletService;
+  }) {
+    const accountInfo = simpleDb.walletConnect.getAccountInfoFromWalletService({
+      walletService,
+    });
+    accountInfo.type = externalAccountType;
+    return simpleDb.walletConnect.saveExternalAccountInfo({
+      accountId,
+      accountInfo,
     });
   }
 }

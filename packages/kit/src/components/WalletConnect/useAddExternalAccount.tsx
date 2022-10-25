@@ -9,25 +9,27 @@ import { useActiveWalletAccount } from '../../hooks';
 import { IConnectToWalletResult } from './useWalletConnectQrcodeModal';
 
 export function useAddExternalAccount() {
-  const { serviceAccount } = backgroundApiProxy;
+  const { serviceAccount, serviceWalletConnect } = backgroundApiProxy;
   const { externalWallet } = useActiveWalletAccount();
+  const nextAccountId = externalWallet?.nextAccountIds?.global;
   const add = useCallback(
     async (result: IConnectToWalletResult) => {
-      const { status, session, client } = result;
+      const { status, session, client, walletService, injectedProviderState } =
+        result;
 
       debugLogger.walletConnect.info('Connect NewSession', {
         status,
         peerMeta: session?.peerMeta,
-        walletServiceUrl: client.walletService?.homepage,
+        walletServiceUrl: client?.walletService?.homepage,
       });
 
-      const { chainId } = status;
-      let address = status.accounts?.[0] || '';
+      const chainId = injectedProviderState?.chainId ?? status?.chainId ?? 1;
+      let address =
+        injectedProviderState?.accounts?.[0] || status?.accounts?.[0] || '';
       // EVM address should be lowerCase
       address = address.toLowerCase();
 
-      const id = externalWallet?.nextAccountIds?.global;
-      const accountName = id ? `External #${id}` : '';
+      const accountName = nextAccountId ? `External #${nextAccountId}` : '';
 
       const addedAccount = await serviceAccount.addExternalAccount({
         impl: IMPL_EVM,
@@ -37,11 +39,24 @@ export function useAddExternalAccount() {
       });
 
       const accountId = addedAccount.id;
-      client.watchAccountSessionChanged({ accountId });
-      if (session) {
-        await client.saveAccountSession({
+
+      // save walletconnect accountInfo
+      if (client) {
+        client.watchAccountSessionChanged({ accountId });
+        if (session) {
+          await client.saveAccountSession({
+            accountId,
+            session,
+          });
+        }
+      }
+
+      // save injectedProvider accountInfo
+      if (injectedProviderState && walletService) {
+        await serviceWalletConnect.saveExternalAccountInfo({
+          externalAccountType: 'injectedProvider',
           accountId,
-          session,
+          walletService,
         });
       }
 
@@ -51,7 +66,7 @@ export function useAddExternalAccount() {
 
       return addedAccount;
     },
-    [externalWallet?.nextAccountIds?.global, serviceAccount],
+    [nextAccountId, serviceAccount, serviceWalletConnect],
   );
 
   return add;

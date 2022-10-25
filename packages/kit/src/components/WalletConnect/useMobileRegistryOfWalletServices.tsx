@@ -7,6 +7,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { WalletService } from './types';
+import { WALLET_CONNECT_WALLET_NAMES } from './walletConnectConsts';
 
 // https://registry.walletconnect.org/data/wallets.json
 function buildEnabledWallets({
@@ -15,16 +16,16 @@ function buildEnabledWallets({
   isVerticalLayout: boolean;
 }) {
   let enabledWallets = [
-    'MetaMask',
-    'Trust Wallet',
-    'Rainbow',
-    'imToken',
-    'TokenPocket',
-    'BitKeep',
+    WALLET_CONNECT_WALLET_NAMES.MetaMask,
+    WALLET_CONNECT_WALLET_NAMES['Trust Wallet'],
+    WALLET_CONNECT_WALLET_NAMES.Rainbow,
+    WALLET_CONNECT_WALLET_NAMES.imToken,
+    WALLET_CONNECT_WALLET_NAMES.TokenPocket,
+    WALLET_CONNECT_WALLET_NAMES.BitKeep,
   ];
   const enabledWalletsInVerticalOnly = [
     //
-    'Zerion',
+    WALLET_CONNECT_WALLET_NAMES.Zerion,
   ];
   if (isVerticalLayout) {
     enabledWallets = enabledWallets.concat(enabledWalletsInVerticalOnly);

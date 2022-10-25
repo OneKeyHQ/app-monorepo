@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -27,6 +27,10 @@ import { wait } from '../../utils/helper';
 import { IWalletConnectExternalAccountInfo } from '../../views/Send/types';
 
 import ExternalAccountImg from './ExternalAccountImg';
+import {
+  IInjectedConnectorInfo,
+  getInjectedConnector,
+} from './injectedConnectors';
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';
 import { terminateWcConnection } from './utils/terminateWcConnection';
@@ -42,7 +46,7 @@ interface IDialogConfirmMismatchContinueInfo {
   myChainId: string;
   peerAddress: string;
   peerChainId: string;
-  accountInfo?: ISimpleDbWalletConnectAccountInfo | undefined;
+  accountInfo?: IBaseExternalAccountInfo | undefined;
   currentAccount: Account;
   currentNetwork: Network;
   isAddressMismatched: boolean;
@@ -165,7 +169,8 @@ function DialogConfirmMismatchOrContinue(
                   typography="Body2"
                   color={isChainMismatched ? 'text-critical' : 'text-default'}
                 >
-                  {peerNetwork?.shortName || `chainId=${peerChainId}`}
+                  {peerNetwork?.shortName ||
+                    (peerChainId ? `chainId=${peerChainId}` : '')}
                 </Text>
               </HStack>
             </VStack>
@@ -191,8 +196,10 @@ function DialogConfirmMismatchOrContinue(
 }
 
 type IGetExternalConnectorReturn = {
-  connector?: OneKeyWalletConnector;
+  injectedConnectorInfo?: IInjectedConnectorInfo;
+  wcConnector?: OneKeyWalletConnector | null;
   client?: WalletConnectClientForDapp;
+  accountInfo: IBaseExternalAccountInfo | undefined;
 };
 
 export function useWalletConnectSendInfo({
@@ -225,7 +232,7 @@ export function useWalletConnectSendInfo({
       shouldGoBack,
       ...others
     }: {
-      client: WalletConnectClientForDapp;
+      client: WalletConnectClientForDapp | undefined | null;
       walletUrl?: string;
       shouldTerminateConnection?: boolean;
       shouldGoBack?: boolean;
@@ -259,70 +266,125 @@ export function useWalletConnectSendInfo({
     [navigation],
   );
 
+  const getExternalAccountInfo = useCallback(async () => {
+    // TODO external wallet type check
+    // WalletConnect send tx (wallet-connect)
+    const { session, walletService, accountInfo } =
+      await serviceWalletConnect.getExternalAccountSession({ accountId });
+    const currentNetwork = await engine.getNetwork(networkId);
+    const currentAccount = await engine.getAccount(accountId, networkId);
+
+    const externalInfo: IWalletConnectExternalAccountInfo = {
+      accountInfo,
+      walletService,
+      session,
+      currentAccount,
+      currentNetwork,
+      client: undefined,
+      injectedConnectorInfo: undefined,
+    };
+    setExternalAccountInfo(externalInfo);
+    return externalInfo;
+  }, [accountId, engine, networkId, serviceWalletConnect]);
+
   const getExternalConnector =
     useCallback(async (): Promise<IGetExternalConnectorReturn> => {
-      // TODO external wallet type check
-      // WalletConnect send tx (wallet-connect)
       const {
         session: savedSession,
         walletService,
         accountInfo,
-      } = await serviceWalletConnect.getExternalAccountSession({ accountId });
-      const currentNetwork = await engine.getNetwork(networkId);
-      const currentAccount = await engine.getAccount(accountId, networkId);
-
-      const defaultReturn: IGetExternalConnectorReturn = {
-        connector: undefined,
-        client: undefined,
-      };
-
-      setExternalAccountInfo({
-        accountInfo,
-        session: savedSession,
-        walletService,
         currentAccount,
         currentNetwork,
+      } = await getExternalAccountInfo();
+      const isInjectedProvider = accountInfo?.type === 'injectedProvider';
+      const isWalletConnectProvider = accountInfo?.type === 'walletConnect';
+
+      const defaultReturn: IGetExternalConnectorReturn = {
+        accountInfo,
+        wcConnector: undefined,
         client: undefined,
-      });
+        injectedConnectorInfo: undefined,
+      };
 
-      if (!savedSession?.connected) {
-        await wait(WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY);
-        if (isUnmountedRef.current) {
-          return defaultReturn;
+      let wcConnector: OneKeyWalletConnector | undefined | null;
+      let client: WalletConnectClientForDapp | undefined;
+      let injectedConnectorInfo: IInjectedConnectorInfo | undefined;
+      let chainId: number | undefined = NaN;
+      let accounts: string[] | undefined = [];
+
+      if (isWalletConnectProvider) {
+        if (!savedSession?.connected) {
+          await wait(WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY);
+          if (isUnmountedRef.current) {
+            return defaultReturn;
+          }
         }
-      }
-      // { accounts, chainId, peerId, peerMeta }
-      const {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        status: connectorStatus,
-        session,
-        client,
-      } = await connectToWallet({
-        session: savedSession,
-        walletService,
-        accountId,
-      });
+        // { accounts, chainId, peerId, peerMeta }
+        const {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          status: connectorStatus,
+          session,
+          client: wcClient,
+        } = await connectToWallet({
+          session: savedSession,
+          walletService,
+          accountId,
+        });
+        client = wcClient;
 
-      setExternalAccountInfo((info) => {
-        if (info) {
-          return {
-            ...info,
-            session,
-            client,
-          };
+        setExternalAccountInfo((info) => {
+          if (info) {
+            return {
+              ...info,
+              session,
+              client,
+            };
+          }
+          return info;
+        });
+        wcConnector = client?.connector;
+        if (!wcConnector) {
+          throw new Error('WalletConnect Error: connector not initialized.');
         }
-        return info;
-      });
+        // TODO currentAccount type is external, get currentAccount peerMeta
+        // TODO connector.connect();
 
-      const { connector } = client;
-      if (!connector) {
-        throw new Error('WalletConnect Error: connector not initialized.');
+        chainId = wcConnector.chainId;
+        accounts = wcConnector.accounts;
       }
-      // TODO currentAccount type is external, get currentAccount peerMeta
-      // TODO connector.connect();
 
-      const peerChainId = `${connector.chainId}`;
-      const peerAddress = (connector.accounts?.[0] || '').toLowerCase();
+      if (isInjectedProvider) {
+        injectedConnectorInfo = getInjectedConnector({
+          name: accountInfo?.walletName,
+        });
+        const { store } = injectedConnectorInfo;
+
+        // init provider connection state by activate() or connectEagerly()
+        // connectEagerly won't reconnect if wallet disconnect dapp.
+        await injectedConnectorInfo.connector?.connectEagerly?.();
+
+        let state = store.getState();
+        if (!state?.accounts?.length) {
+          await injectedConnectorInfo.connector.activate();
+          state = store.getState();
+        }
+
+        chainId = state.chainId;
+        accounts = state.accounts;
+
+        setExternalAccountInfo((info) => {
+          if (info) {
+            return {
+              ...info,
+              injectedConnectorInfo,
+            };
+          }
+          return info;
+        });
+      }
+
+      const peerChainId = `${chainId ?? ''}`;
+      const peerAddress = (accounts?.[0] || '').toLowerCase();
       const myAddress = currentAccount.address;
       const myChainId = currentNetwork.extraInfo.networkVersion;
 
@@ -330,7 +392,11 @@ export function useWalletConnectSendInfo({
       const isChainMismatched = peerChainId !== myChainId;
 
       if (isAddressMismatched || isChainMismatched) {
-        await wait(WALLET_CONNECT_SEND_SHOW_MISMATCH_CONFIRM_DELAY);
+        await wait(
+          isWalletConnectProvider
+            ? WALLET_CONNECT_SEND_SHOW_MISMATCH_CONFIRM_DELAY
+            : 600,
+        );
         if (isUnmountedRef.current) {
           return defaultReturn;
         }
@@ -363,13 +429,16 @@ export function useWalletConnectSendInfo({
       if (isUnmountedRef.current) {
         return defaultReturn;
       }
-      return { connector, client };
+      return {
+        injectedConnectorInfo,
+        wcConnector,
+        client,
+        accountInfo,
+      };
     }, [
       accountId,
       connectToWallet,
-      engine,
-      networkId,
-      serviceWalletConnect,
+      getExternalAccountInfo,
       showMismatchConfirm,
     ]);
 

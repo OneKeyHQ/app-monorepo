@@ -14,6 +14,12 @@ import { useGotoSite } from '../Controller/useGotoSite';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler, webviewRefs } from '../explorerUtils';
 
+/*
+Desktop should load 'about:blank' first to avoid DAPP site load before webview message bridge established.
+
+Because Desktop webview message bridge is initialized after webview mounted with ref ready and ipc-message ready
+ */
+// const aboutBlankUrl = '';
 const aboutBlankUrl = 'about:blank';
 
 const WebContent = (tab: WebTab) => {

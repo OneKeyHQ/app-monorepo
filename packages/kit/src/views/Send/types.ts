@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { ModalProps } from '@onekeyhq/components/src/Modal';
-import type { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -21,6 +21,8 @@ import {
   IDecodedTxLegacy,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
+
+import { IInjectedConnectorInfo } from '../../components/WalletConnect/injectedConnectors';
 
 import { SendRoutes } from './enums';
 
@@ -139,9 +141,10 @@ export type SignMessageConfirmParams = SendConfirmSharedParams & {
   unsignedMessage: IUnsignedMessageEvm;
 };
 export type IWalletConnectExternalAccountInfo = {
-  accountInfo?: ISimpleDbWalletConnectAccountInfo;
+  accountInfo?: IBaseExternalAccountInfo;
   session?: IWalletConnectSession;
   client?: WalletConnectClientForDapp;
+  injectedConnectorInfo: IInjectedConnectorInfo | undefined;
   walletService?: WalletService;
   currentNetwork: Network;
   currentAccount: Account;

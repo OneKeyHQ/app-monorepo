@@ -9,6 +9,7 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
@@ -20,6 +21,7 @@ import {
   RootRoutes,
 } from '../../../routes/routesEnum';
 import { wait } from '../../../utils/helper';
+import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
 import { useAddExternalAccount } from '../../WalletConnect/useAddExternalAccount';
 import { useWalletConnectQrcodeModal } from '../../WalletConnect/useWalletConnectQrcodeModal';
 
@@ -127,9 +129,13 @@ export function useCreateAccountInWallet({
       showNotSupportToast();
       return;
     }
-    if (activeWallet?.type === 'external') {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const connectToWcWalletDirectly = async () => {
       let isConnected = false;
       let addedAccount: IAccount | undefined;
+      if (!activeWallet?.id) {
+        return;
+      }
       try {
         const result = await connectToWallet({
           isNewSession: true,
@@ -158,6 +164,20 @@ export function useCreateAccountInWallet({
           });
         }
       }
+    };
+    if (activeWallet?.type === 'external') {
+      // web can connect to injected and wallet-connect
+      if (platformEnv.isWeb) {
+        return navigation.navigate(RootRoutes.Onboarding, {
+          screen: EOnboardingRoutes.ConnectWallet,
+          params: {
+            disableAnimation: true,
+          },
+        });
+      }
+
+      // desktop and app can only connect wallet-connect
+      await connectToWcWalletDirectly();
       return;
     }
     if (activeWallet?.type === 'imported') {

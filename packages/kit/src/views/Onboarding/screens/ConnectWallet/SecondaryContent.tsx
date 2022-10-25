@@ -22,7 +22,7 @@ const SecondaryContent: FC = () => {
   const toast = useToast();
   const intl = useIntl();
 
-  const options = useMemo(
+  const thirdPartyHardwareOptions = useMemo(
     () => [
       {
         logo: LogoTrezor,
@@ -67,7 +67,7 @@ const SecondaryContent: FC = () => {
               });
             }}
           />
-          {options.map((option) => (
+          {thirdPartyHardwareOptions.map((option) => (
             <ConnectWalletListItem
               key={option.label}
               label={option.label}

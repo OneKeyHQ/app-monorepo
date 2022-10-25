@@ -18,10 +18,13 @@ export type IOnboardingBehindTheSceneParams =
 export type IOnboardingSetPasswordParams = {
   mnemonic?: string;
 };
+export type IOnboardingConnectWalletParams = {
+  disableAnimation?: boolean;
+};
 export type IOnboardingRoutesParams = {
   [EOnboardingRoutes.Welcome]: undefined;
 
-  [EOnboardingRoutes.ConnectWallet]: undefined;
+  [EOnboardingRoutes.ConnectWallet]: IOnboardingConnectWalletParams | undefined;
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;
 
   [EOnboardingRoutes.ImportWallet]: undefined;

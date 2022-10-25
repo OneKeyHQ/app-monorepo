@@ -12,6 +12,7 @@ import Protected, {
   ValidationFields,
 } from '../../../../../components/Protected';
 import { useData } from '../../../../../hooks/redux';
+import { wait } from '../../../../../utils/helper';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { IOnboardingRoutesParams } from '../../../routes/types';
@@ -50,7 +51,7 @@ function RedirectToRecoveryPhrase({
         const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
 
         // return;
-
+        await wait(600);
         navigation.replace(EOnboardingRoutes.RecoveryPhrase, {
           password,
           mnemonic,

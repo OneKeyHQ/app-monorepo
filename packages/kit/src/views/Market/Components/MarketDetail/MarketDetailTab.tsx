@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  IconButton,
   ScrollView,
   useIsVerticalLayout,
   useThemeValue,
@@ -22,7 +21,6 @@ import {
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
-import { showMarketDetailActionMoreMenu } from './MarketDetailActionMore';
 import { MarketInfoContent } from './MarketInfoContent';
 import MarketPriceChart from './MarketPriceChart';
 import { MarketStatsContent } from './MarketStatsContent';
