@@ -3799,10 +3799,10 @@
     "@onekeyfe/cross-inpage-provider-core" "1.1.2"
     "@onekeyfe/cross-inpage-provider-types" "1.1.2"
 
-"@onekeyfe/network-list@1.6.9":
-  version "1.6.9"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.6.9.tgz#2b5b25d05526551a173b9f4284253a7cd8dd7552"
-  integrity sha512-7G4t9ZzrxNLGQs3BFjj/gSs7ROkj50k3ypedGA8p5JQQMIyZNRtTh1JupY+cQArOjZp5KWfImfId1NV0Sa+MMg==
+"@onekeyfe/network-list@1.6.10":
+  version "1.6.10"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.6.10.tgz#3d9513557a33c702458d2b1c3055e1d08a6c0201"
+  integrity sha512-itaaJ5nOzB9qgjfeQz8eYCAz7cq+IhTlOwMDjuo13RstRkG6bo/3kgnANgfpIvA+J+skQKd3DYVFElZ3gSMCPg==
 
 "@onekeyfe/onekey-aptos-provider@1.1.2":
   version "1.1.2"

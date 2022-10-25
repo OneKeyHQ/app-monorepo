@@ -32,6 +32,9 @@ const COINTYPE_APTOS = '637';
 const IMPL_DOGE = 'doge';
 const COINTYPE_DOGE = '3';
 
+const IMPL_LTC = 'ltc';
+const COINTYPE_LTC = '2';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -43,6 +46,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_TRON,
   IMPL_APTOS,
   IMPL_DOGE,
+  IMPL_LTC,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -55,6 +59,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_TRON,
   IMPL_APTOS,
   IMPL_DOGE,
+  IMPL_LTC,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -106,5 +111,7 @@ export {
   COINTYPE_APTOS,
   IMPL_DOGE,
   COINTYPE_DOGE,
+  IMPL_LTC,
+  COINTYPE_LTC,
   getSupportedImpls,
 };

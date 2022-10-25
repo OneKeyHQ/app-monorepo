@@ -4,7 +4,13 @@ import * as bip39 from 'bip39';
 
 import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
-import { COINTYPE_BTC, IMPL_BTC, IMPL_DOGE, SEPERATOR } from './constants';
+import {
+  COINTYPE_BTC,
+  IMPL_BTC,
+  IMPL_DOGE,
+  IMPL_LTC,
+  SEPERATOR,
+} from './constants';
 import { DBAPI } from './dbs/base';
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
@@ -503,7 +509,7 @@ class Validators {
       this.engine.getWallet(walletId),
       this.engine.getNetwork(networkId),
     ]);
-    if (network.impl === IMPL_BTC || network.impl === IMPL_DOGE) {
+    if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC].includes(network.impl)) {
       const coinType = implToCoinTypes[network.impl] ?? COINTYPE_BTC;
       const accountPathPrefix = `${purpose}'/${coinType}'`;
       const nextAccountId = wallet.nextAccountIds[accountPathPrefix];

@@ -37,6 +37,7 @@ import {
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
   getSupportedImpls,
@@ -721,6 +722,7 @@ class Engine {
       '195': OnekeyNetwork.trx,
       '637': OnekeyNetwork.tapt, // TODO temp
       '3': OnekeyNetwork.doge,
+      '2': OnekeyNetwork.ltc,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -982,6 +984,7 @@ class Engine {
       switch (impl) {
         case IMPL_BTC:
         case IMPL_DOGE:
+        case IMPL_LTC:
           privateKey = bs58check.decode(credential);
           break;
         case IMPL_NEAR: {
