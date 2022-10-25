@@ -7,6 +7,7 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
+import { COINTYPE_DOGE } from '../../../constants';
 import {
   NotImplemented,
   OneKeyHardwareError,
@@ -80,7 +81,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { addressEncoding } = getAccountDefaultByPurpose(
+    const { addressEncoding, namePrefix } = getAccountDefaultByPurpose(
       usedPurpose,
       coinName,
     );
@@ -123,8 +124,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         xpub,
         [firstAddressRelPath],
       );
+      const prefix = COIN_TYPE === COINTYPE_DOGE ? coinName : namePrefix;
       const name =
-        (names || [])[index] || `${coinName} #${usedIndexes[index] + 1}`;
+        (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,
