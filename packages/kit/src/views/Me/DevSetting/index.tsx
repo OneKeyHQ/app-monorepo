@@ -100,6 +100,11 @@ export const DevSettingSection = () => {
             />
           </Container.Item>
           <Container.Item
+            title="Build Hash"
+            titleColor="text-critical"
+            subDescribe={[`${process.env.GITHUB_SHA ?? '--'}`]}
+          />
+          <Container.Item
             title={intl.formatMessage({ id: 'form__dev_pre_update' })}
             titleColor="text-critical"
           >

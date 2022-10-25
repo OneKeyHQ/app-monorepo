@@ -4,6 +4,8 @@ import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 
+import ServiceExternalAccount from './services/ServiceExternalAccount';
+
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
@@ -62,6 +64,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePromise: ServicePromise;
   serviceDapp: ServiceDapp;
   serviceAccount: ServiceAccount;
+  serviceExternalAccount: ServiceExternalAccount;
   serviceNetwork: ServiceNetwork;
   serviceApp: ServiceApp;
   serviceAccountSelector: ServiceAccountSelector;

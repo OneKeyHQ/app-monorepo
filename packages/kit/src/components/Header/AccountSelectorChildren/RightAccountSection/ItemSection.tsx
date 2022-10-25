@@ -23,7 +23,7 @@ import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/Remov
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
-import ExternalAccountImg from '../../../WalletConnect/ExternalAccountImg';
+import ExternalAccountImg from '../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../accountSelectorConsts';
 
 import ItemActionButton from './ItemActionButton';

@@ -79,6 +79,19 @@ jobs:
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
 
+
+      - name: Inject Environment Variables
+        env:
+          CLOUNDINARY_NAME: ${{ secrets.CLOUNDINARY_NAME }}
+          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+          MOONPAY_KEY: ${{ secrets.MOONPAY_KEY }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          echo "CLOUNDINARY_NAME=${{ env.CLOUNDINARY_NAME }}" >> .env
+          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
+          echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
+          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
         run: |

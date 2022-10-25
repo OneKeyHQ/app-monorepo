@@ -9,7 +9,6 @@ import React, {
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { cloneDeep, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Spinner, useToast } from '@onekeyhq/components';
@@ -18,19 +17,17 @@ import {
   OneKeyError,
   OneKeyErrorClassNames,
 } from '@onekeyhq/engine/src/errors';
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../../components/Protected';
-import { useWalletConnectSendInfo } from '../../../components/WalletConnect/useWalletConnectSendInfo';
 import { useDecodedTx, useInteractWithInfo } from '../../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
-import { AuthExternalAccountInfo } from '../components/AuthExternalAccountInfo';
+import { AuthExternalAccountInfo } from '../../ExternalAccount/SendConfirm/AuthExternalAccountInfo';
+import { useSignOrSendOfExternalAccount } from '../../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
 import {
@@ -55,7 +52,6 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
   setTitleInfo,
 }) => {
   const navigation = useNavigation<NavigationProps>();
-  const { validator } = backgroundApiProxy;
   const toast = useToast();
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -71,14 +67,9 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     payloadInfo,
     backRouteName,
     sourceInfo,
-    signOnly = false,
+    signOnly = false, // sign tx only but not send it
   } = route.params;
   const payload = payloadInfo || route.params.payload;
-  const { getExternalConnector, externalAccountInfo } =
-    useWalletConnectSendInfo({
-      accountId,
-      networkId,
-    });
 
   const { decodedTx } = useDecodedTx({
     accountId,
@@ -92,71 +83,18 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     [accountId],
   );
 
-  const sendTxForExternalAccount = useCallback(async () => {
-    if (!encodedTx) {
-      throw new Error('encodedTx is missing!');
-    }
-    const { connector } = await getExternalConnector();
-    if (!connector) {
-      return;
-    }
-    const txid = await connector.sendTransaction(encodedTx as IEncodedTxEvm);
-
-    debugLogger.walletConnect.info(
-      'sendTxForExternalAccount -> sendTransaction txid: ',
-      txid,
-    );
-    // TODO currently ExternalAccount is for EVM only
-    if (txid && (await validator.isValidEvmTxid({ txid }))) {
-      return {
-        txid,
-        rawTx: '',
-        encodedTx,
-      };
-    }
-
-    // BitKeep resolve('拒绝') but not reject(error)
-    const errorMsg =
-      txid && isString(txid)
-        ? txid
-        : intl.formatMessage({ id: 'msg__transaction_failed' });
-    throw new Error(errorMsg);
-  }, [encodedTx, validator, getExternalConnector, intl]);
-
-  const signMsgForExternalAccount = useCallback(async () => {
-    if (!unsignedMessage) {
-      throw new Error('unsignedMessage is missing!');
-    }
-    const { connector } = await getExternalConnector();
-    if (!connector) {
-      return;
-    }
-    let result = '';
-    const rawMesssage = unsignedMessage.payload;
-    if (unsignedMessage.type === ETHMessageTypes.PERSONAL_SIGN) {
-      result = await connector.signPersonalMessage(rawMesssage);
-    } else if (unsignedMessage.type === ETHMessageTypes.ETH_SIGN) {
-      result = await connector.signMessage(rawMesssage);
-    } else {
-      const typedDataMessage = cloneDeep(rawMesssage) as any[];
-      if (
-        unsignedMessage.type === ETHMessageTypes.TYPED_DATA_V3 ||
-        unsignedMessage.type === ETHMessageTypes.TYPED_DATA_V4
-      ) {
-        const secondInfo = typedDataMessage?.[1];
-        if (secondInfo && typeof secondInfo === 'string') {
-          try {
-            // do NOT need to JSON object
-            // typedDataMessage[1] = JSON.parse(secondInfo);
-          } catch (error) {
-            debugLogger.common.error(error);
-          }
-        }
-      }
-      result = await connector.signTypedData(typedDataMessage);
-    }
-    return result;
-  }, [unsignedMessage, getExternalConnector]);
+  const {
+    externalAccountInfo,
+    sendTxForExternalAccount,
+    signMsgForExternalAccount,
+  } = useSignOrSendOfExternalAccount({
+    encodedTx,
+    unsignedMessage,
+    sourceInfo,
+    networkId,
+    accountId,
+    signOnly,
+  });
 
   const sendTx = useCallback(async (): Promise<ISignedTx | undefined> => {
     if (isExternal) {

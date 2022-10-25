@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
+import { isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
@@ -496,7 +497,9 @@ class Validators {
 
   @backgroundMethod()
   async isValidEvmTxid({ txid }: { txid: string }) {
-    return Promise.resolve(/^0x([A-Fa-f0-9]{64})$/.test(txid));
+    return Promise.resolve(
+      isString(txid) && /^0x([A-Fa-f0-9]{64})$/.test(txid),
+    );
   }
 
   @backgroundMethod()

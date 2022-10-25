@@ -296,16 +296,29 @@ export const Debug = () => {
                     params: {
                       networkId,
                       accountId,
-                      query: `{"sourceInfo":{"id":0,"origin":"https://swap.onekey.so","scope":"ethereum","data":{"method":"eth_sendTransaction","params":[{
-                      "gas":"0xbf01",
-                      "from":"0x76f3f64cb3cd19debee51436df630a342b736c24",
-                      "to":"0xc748673057861a797275cd8a068abb95a902e8de",
-                      "value": "0xa3b5840f4000",
-                      "data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"}},"encodedTx":{
-                      "gas":"0xbf01",
-                      "from":"0x76f3f64cb3cd19debee51436df630a342b736c24",
-                      "to":"0xc748673057861a797275cd8a068abb95a902e8de",
-                      "value": "0xa3b5840f4000","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}`,
+                      query: `{"sourceInfo":{"id":0,"origin":"https://swap.onekey.so","scope":"ethereum","data":{
+
+                      "method":"eth_sendTransaction","params":[
+                      {
+                        "gas":"0xbf01",
+                        "from":"0x76f3f64cb3cd19debee51436df630a342b736c24",
+                        "to":"0xc748673057861a797275cd8a068abb95a902e8de",
+                        "value": "0xa3b5840f4000",
+                        "data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                      }
+
+                      ],"jsonrpc":"2.0"}},
+
+                      "encodedTx":
+                      {
+                        "gas":"0xbf01",
+                        "from":"0x76f3f64cb3cd19debee51436df630a342b736c24",
+                        "to":"0xc748673057861a797275cd8a068abb95a902e8de",
+                        "value": "0xa3b5840f4000",
+                        "data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                      }
+
+                      }`,
                     },
                   },
                 });
@@ -373,6 +386,40 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>NativeTransfer</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                /*
+                // Approve Token
+               var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","value": "0xa3b5840f4000","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
+               await window.ethereum.request(p);
+                 */
+                const { networkId, accountId, accountAddress } =
+                  getActiveWalletAccount();
+                // @ts-ignore
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.Send,
+                  params: {
+                    screen: SendRoutes.SendConfirmFromDapp,
+                    params: {
+                      networkId,
+                      accountId,
+                      query: `{
+
+                      "sourceInfo":{"id":2,"origin":"https://dapp-example.onekeytest.com","scope":"ethereum","data":{
+
+                      "method":"personal_sign","params":["0x4578616d706c652060706572736f6e616c5f7369676e60206d657373616765","${accountAddress}","Example password"],"jsonrpc":"2.0"}},
+
+                      "unsignedMessage":{"type":1,"message":"0x4578616d706c652060706572736f6e616c5f7369676e60206d657373616765","payload":["0x4578616d706c652060706572736f6e616c5f7369676e60206d657373616765","${accountAddress}","Example password"]}
+
+                      }`,
+                    },
+                  },
+                });
+              }}
+            >
+              <Typography.Body1>PersonalSign</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>

@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { ModalProps } from '@onekeyhq/components/src/Modal';
-import type { ISimpleDbWalletConnectAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -22,10 +22,11 @@ import {
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
 
+import { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
+
 import { SendRoutes } from './enums';
 
 import type { IDappSourceInfo } from '../../background/IBackgroundApi';
-import type { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
 import type { SwapQuoteTx } from '../Swap/typings';
@@ -139,18 +140,13 @@ export type SignMessageConfirmParams = SendConfirmSharedParams & {
   unsignedMessage: IUnsignedMessageEvm;
 };
 export type IWalletConnectExternalAccountInfo = {
-  accountInfo?: ISimpleDbWalletConnectAccountInfo;
+  accountInfo?: IBaseExternalAccountInfo;
   session?: IWalletConnectSession;
   client?: WalletConnectClientForDapp;
+  injectedConnectorInfo: InjectedConnectorInfo | undefined;
   walletService?: WalletService;
   currentNetwork: Network;
   currentAccount: Account;
-};
-
-export type IWalletConnectSendInfo = {
-  connector: OneKeyWalletConnector;
-  externalAccountInfo: IWalletConnectExternalAccountInfo;
-  client: WalletConnectClientForDapp;
 };
 
 export type SendAuthenticationParams = Omit<

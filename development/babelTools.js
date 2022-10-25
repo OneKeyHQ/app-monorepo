@@ -67,6 +67,7 @@ function normalizeConfig({ platform, config }) {
     'COVALENT_KEY',
     'MOONPAY_KEY',
     'HARDWARE_SDK_CONNECT_SRC',
+    'GITHUB_SHA',
   ];
 
   if (platform === developmentConsts.platforms.app) {

@@ -1,5 +1,7 @@
 import React, { useCallback } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+import { RouteProp } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -30,6 +32,8 @@ import {
 } from '../../../../routes/routesEnum';
 import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
+import { EOnboardingRoutes } from '../../routes/enums';
+import { IOnboardingRoutesParams } from '../../routes/types';
 
 import SecondaryContent from './SecondaryContent';
 
@@ -154,10 +158,17 @@ function ConnectOneKeyLiteButton() {
   );
 }
 
+type RouteProps = RouteProp<
+  IOnboardingRoutesParams,
+  EOnboardingRoutes.ConnectWallet
+>;
+
 const ConnectWallet = () => {
   const intl = useIntl();
   const bgColor = useThemeValue('background-default');
   const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
+  const route = useRoute<RouteProps>();
+  const disableAnimation = route?.params?.disableAnimation;
   return (
     <>
       {onBoardingLoadingBehindModal ? (
@@ -166,6 +177,7 @@ const ConnectWallet = () => {
         </Center>
       ) : (
         <Layout
+          disableAnimation={disableAnimation}
           title={intl.formatMessage({ id: 'title__connect_with' })}
           secondaryContent={<SecondaryContent />}
         >

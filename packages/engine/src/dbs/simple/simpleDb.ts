@@ -44,7 +44,7 @@ if (platformEnv.isExtensionUi) {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$simpleDb = simpleDb;
+  global.$$simpleDb = simpleDb;
 }
 
 export default simpleDb;
