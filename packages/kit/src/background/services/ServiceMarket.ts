@@ -30,7 +30,6 @@ import {
   updateSearchTabCategory,
   updateSearchTokens,
   updateSelectedCategory,
-  MarketCategoryOrigin,
 } from '../../store/reducers/market';
 import { ServerToken } from '../../store/typings';
 import { getDefaultLocale } from '../../utils/locale';
