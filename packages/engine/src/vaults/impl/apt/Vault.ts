@@ -584,9 +584,15 @@ export default class Vault extends VaultBase {
       if (tx && tx.length !== 0) {
         const simulationTx = tx?.[0];
 
+        const isOnekeyNativeTransfer =
+          encodedTx.function === APTOS_NATIVE_TRANSFER_FUNC;
+
         const gasUsed = new BigNumber(simulationTx.gas_used);
-        // Compatible maximum sending amount
-        if (gasUsed.isEqualTo(0)) {
+        // Only onekey max send can pass, other cases must be simulated successfully
+        if (
+          gasUsed.isEqualTo(0) ||
+          (!isOnekeyNativeTransfer && !simulationTx.success)
+        ) {
           // Exec failure
           throw new OneKeyError();
         }
