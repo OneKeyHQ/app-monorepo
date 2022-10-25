@@ -104,7 +104,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
   const tabsWithFloatButton = useMemo(() => {
     const swapIndex = routes.findIndex((route) => route.name === 'swap');
     return [
-      ...tabs.slice(0, swapIndex),
+      ...tabs.slice(0, swapIndex + 1),
       foldableList
         .filter((item) => !item.hideInHorizontalLayaout)
         .map((foldable) => (
@@ -134,7 +134,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
             </Box>
           </Pressable>
         )),
-      ...tabs.slice(swapIndex),
+      ...tabs.slice(swapIndex + 1),
     ];
   }, [tabs, foldableList, inactiveFontColor, routes, textDisabled]);
 
