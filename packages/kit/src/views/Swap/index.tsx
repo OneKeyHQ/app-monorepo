@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { RefreshControl } from 'react-native';
 
-import { Box, Center, ScrollView } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  ScrollView,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
 import { useSwapQuoteCallback } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
@@ -16,6 +21,7 @@ import SwapUpdater from './SwapUpdater';
 
 const Swap = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const isSmall = useIsVerticalLayout();
   const onSwapQuote = useSwapQuoteCallback();
   useEffect(() => {
     SwapQuoter.client.prepare();
@@ -30,7 +36,7 @@ const Swap = () => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <SwapHeader />
+      {!isSmall ? <SwapHeader /> : null}
       <SwapObserver />
       <Center px="4">
         <Box maxW="420" width="full">

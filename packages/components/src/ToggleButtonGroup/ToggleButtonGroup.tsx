@@ -1,24 +1,19 @@
-import { FC, ReactElement, useCallback, useEffect, useRef } from 'react';
+import { FC, ReactElement } from 'react';
 
 import { IBoxProps } from 'native-base';
 import { LayoutChangeEvent } from 'react-native';
-import Animated, {
-  useAnimatedRef,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 import {
-  Box,
   Center,
   ICON_NAMES,
   Icon,
-  IconButton,
   NetImage,
   Pressable,
   Typography,
 } from '@onekeyhq/components';
+
+import ScrollableButtonGroup from '../ScrollableButtonGroup/ScrollableButtonGroup';
 
 export interface ToggleButtonProps {
   text: string;
@@ -41,7 +36,7 @@ const ToggleButton: FC<
     isCurrent?: boolean;
     onPress: () => void;
     leftIconSize?: number | string;
-    onLayout: (e: LayoutChangeEvent) => void;
+    onLayout?: (e: LayoutChangeEvent) => void;
     size?: 'sm' | 'lg';
     maxTextWidth?: number | string;
   }
@@ -115,51 +110,9 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   maxTextWidth,
 }) => {
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
-  const showLeftArrow = useSharedValue(false);
-  const showRightArrow = useSharedValue(false);
-  const currentOffsetX = useSharedValue(0);
-  const containerWidth = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler(
-    ({ contentOffset, contentSize }) => {
-      currentOffsetX.value = contentOffset.x;
-      showLeftArrow.value = contentOffset.x > 0;
-      showRightArrow.value =
-        Math.floor(contentSize.width - contentOffset.x) > containerWidth.value;
-    },
-    [],
-  );
-  const buttonLayouts = useRef<{ x: number; width: number }[]>([]);
-  const lastestTodoScrollIndex = useRef<number>();
-  const scrollTo = useCallback(
-    (index: number) => {
-      if (scrollRef.current) {
-        const target = buttonLayouts.current[index === 0 ? 0 : index - 1];
-        if (target) {
-          lastestTodoScrollIndex.current = undefined;
-          return scrollRef.current.scrollTo({
-            x: target.x,
-            animated: true,
-          });
-        }
-      }
-      // ref or layout not ready, record the index and scroll to it later
-      lastestTodoScrollIndex.current = index;
-    },
-    [scrollRef],
-  );
-
-  useEffect(() => {
-    // reset layouts
-    buttonLayouts.current = [];
-    lastestTodoScrollIndex.current = undefined;
-  }, [buttons.length]);
-
-  useEffect(() => {
-    scrollTo(selectedIndex);
-  }, [scrollTo, selectedIndex]);
 
   return (
-    <Box
+    <ScrollableButtonGroup
       bg={bg}
       borderRadius="12"
       overflow="hidden"
@@ -167,107 +120,22 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
       flexDirection="row"
       alignItems="center"
       position="relative"
-      onLayout={({
-        nativeEvent: {
-          layout: { width },
-        },
-      }) => {
-        containerWidth.value = width;
-      }}
+      selectedIndex={selectedIndex}
+      ref={scrollRef}
     >
-      <Animated.View
-        style={[
-          { position: 'absolute' },
-          useAnimatedStyle(
-            () => ({
-              opacity: showLeftArrow.value ? 1 : 0,
-              zIndex: showLeftArrow.value ? 1 : -1,
-            }),
-            [],
-          ),
-        ]}
-      >
-        <Center bg={bg}>
-          <IconButton
-            onPress={() => {
-              scrollRef.current?.scrollTo({
-                x: currentOffsetX.value - containerWidth.value || 0,
-                animated: true,
-              });
-            }}
-            type="plain"
-            size={size}
-            name="ChevronLeftSolid"
-          />
-        </Center>
-      </Animated.View>
-
-      <Animated.ScrollView
-        ref={scrollRef}
-        style={{
-          flex: 1,
-        }}
-        horizontal
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        showsHorizontalScrollIndicator={false}
-      >
-        {buttons.map((btn, index) => (
-          <ToggleButton
-            key={index}
-            isCurrent={selectedIndex === index}
-            {...btn}
-            size={size}
-            maxTextWidth={maxTextWidth}
-            onPress={() => {
-              scrollTo(index);
-              onButtonPress(index);
-            }}
-            onLayout={({
-              nativeEvent: {
-                layout: { width, x },
-              },
-            }) => {
-              const layouts = buttonLayouts.current;
-              layouts[index] = { x, width };
-              if (
-                layouts.length === buttons.length &&
-                lastestTodoScrollIndex.current !== undefined
-              ) {
-                // layouts all ready, scroll to the lastest todo index
-                scrollTo(lastestTodoScrollIndex.current);
-              }
-            }}
-          />
-        ))}
-      </Animated.ScrollView>
-      <Animated.View
-        style={[
-          { position: 'absolute', right: 0 },
-          useAnimatedStyle(
-            () => ({
-              opacity: showRightArrow.value ? 1 : 0,
-              zIndex: showRightArrow.value ? 1 : -1,
-            }),
-            [],
-          ),
-        ]}
-      >
-        <Center bg={bg}>
-          <IconButton
-            onPress={() => {
-              scrollRef.current?.scrollTo({
-                x: currentOffsetX.value + containerWidth.value,
-                animated: true,
-              });
-            }}
-            type="plain"
-            size={size}
-            name="ChevronRightSolid"
-          />
-        </Center>
-      </Animated.View>
-    </Box>
+      {buttons.map((btn, index) => (
+        <ToggleButton
+          key={index}
+          isCurrent={selectedIndex === index}
+          {...btn}
+          size={size}
+          maxTextWidth={maxTextWidth}
+          onPress={() => {
+            onButtonPress(index);
+          }}
+        />
+      ))}
+    </ScrollableButtonGroup>
   );
 };
 ToggleButtonGroup.displayName = 'ToggleButtonGroup';

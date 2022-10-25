@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/market';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { SwapHeaderButtons } from '../../../Swap/SwapHeader';
 import { useMarketTopTabName } from '../../hooks/useMarketList';
 import { useMarketSearchTokenChange } from '../../hooks/useMarketSearch';
 import { showMarketSearch } from '../../MarketSearch';
@@ -149,6 +150,7 @@ const HeaderSmall: React.FC = () => {
             }}
           />
         ) : null}
+        {marketTopTabName === SWAP_TAB_NAME ? <SwapHeaderButtons /> : null}
       </Box>
     </Box>
   );
