@@ -30,6 +30,7 @@ export const useMarketSearchSelectedCategory = () => {
     (s) => s.market.searchTabCategoryId,
   );
   const searchCategory = useMarketSearchCategoryList();
+
   useEffect(() => {
     if (!searchTabCategoryId) {
       if (searchCategory.length > 0) {
@@ -37,14 +38,18 @@ export const useMarketSearchSelectedCategory = () => {
           searchCategory[0].categoryId,
         );
       }
-    } else {
+    }
+  }, [searchCategory, searchTabCategoryId]);
+
+  useEffect(() => {
+    if (searchTabCategoryId) {
       backgroundApiProxy.serviceMarket.fetchMarketList({
         categoryId: searchTabCategoryId,
         vsCurrency: 'usd',
         sparkline: false,
       });
     }
-  }, [searchTabCategoryId, searchCategory]);
+  }, [searchTabCategoryId]);
   return useMemo(() => searchTabCategoryId, [searchTabCategoryId]);
 };
 

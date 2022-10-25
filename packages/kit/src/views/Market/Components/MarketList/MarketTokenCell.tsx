@@ -78,6 +78,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
+    isList: true,
   });
   const moreButtonRef = useRef();
   const showMore = useCallback(
