@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 
 import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -12,38 +11,17 @@ import { useAppSelector, usePrevious } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 
 import { useEnabledSwappableNetworks } from './hooks/useSwap';
-import { refs } from './refs';
 import { isNetworkEnabled } from './utils';
 
 const NetworkObserver = () => {
   const { network } = useActiveWalletAccount();
   const prevNetowrk = usePrevious(network);
   useEffect(() => {
-    async function resetNativeToken(baseNetwork: Network) {
-      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken(
-        baseNetwork.id,
-      );
-      if (nativeToken && refs.inputIsDirty === false) {
-        backgroundApiProxy.serviceSwap.selectToken(
-          'INPUT',
-          baseNetwork,
-          nativeToken,
-        );
-        backgroundApiProxy.serviceSwap.setSendingAccountByNetwork(baseNetwork);
-      }
-      backgroundApiProxy.serviceSwap.setNetworkSelectorId(baseNetwork.id);
-    }
-    function main() {
-      if (network && isNetworkEnabled(network)) {
-        if (prevNetowrk === undefined) {
-          resetNativeToken(network);
-        }
+    if (network && isNetworkEnabled(network)) {
+      if (prevNetowrk === undefined) {
+        backgroundApiProxy.serviceSwap.setDefaultInputToken(network.id);
       }
     }
-    main();
-    return () => {
-      refs.inputIsDirty = false;
-    };
   }, [network, prevNetowrk]);
   return null;
 };
