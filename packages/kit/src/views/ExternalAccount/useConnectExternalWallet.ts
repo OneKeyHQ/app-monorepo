@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getInjectedConnector } from '../../components/WalletConnect/injectedConnectors';
+import { getInjectedConnector } from './injectedConnectors';
 import { WalletService } from '../../components/WalletConnect/types';
 import { useWalletConnectQrcodeModal } from '../../components/WalletConnect/useWalletConnectQrcodeModal';
 import { WALLET_CONNECT_WALLET_NAMES } from '../../components/WalletConnect/walletConnectConsts';

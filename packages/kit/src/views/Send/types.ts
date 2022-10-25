@@ -22,7 +22,7 @@ import {
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { IInjectedConnectorInfo } from '../../components/WalletConnect/injectedConnectors';
+import { IInjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 
 import { SendRoutes } from './enums';
 

@@ -1,7 +1,7 @@
 import { Web3ReactHooks } from '@web3-react/core';
 import { Connector, Web3ReactStore } from '@web3-react/types';
 
-import { WALLET_CONNECT_WALLET_NAMES } from '../walletConnectConsts';
+import { WALLET_CONNECT_WALLET_NAMES } from '../../../components/WalletConnect/walletConnectConsts';
 
 import metaMask from './metaMask';
 

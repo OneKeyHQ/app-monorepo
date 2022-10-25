@@ -7,7 +7,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import {
   IInjectedConnectorInfo,
   getInjectedConnector,
-} from '../../../components/WalletConnect/injectedConnectors';
+} from '../injectedConnectors';
 import { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';
 import { useWalletConnectQrcodeModal } from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
 import { terminateWcConnection } from '../../../components/WalletConnect/utils/terminateWcConnection';
