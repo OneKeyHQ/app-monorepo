@@ -10,6 +10,7 @@ import ProviderApiNear from './ProviderApiNear';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 import ProviderApiStarcoin from './ProviderApiStarcoin';
+import ProviderApiTron from './ProviderApiTron';
 
 function createBackgroundProviders({
   backgroundApi,
@@ -36,6 +37,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.conflux]: new ProviderApiConflux({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.tron]: new ProviderApiTron({
       backgroundApi,
     }),
     // near
