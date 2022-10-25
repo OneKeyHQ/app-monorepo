@@ -23,15 +23,27 @@ export class InjectedConnectorInfo {
 
   store!: Web3ReactStore;
 
-  get isActive() {
+  get isActivating(): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { activating, chainId, accounts } = this.store.getState();
+    return Boolean(activating);
+  }
+
+  get isActive(): boolean {
     const { chainId, activating, accounts } = this.store.getState();
     return Boolean(chainId && accounts && !activating);
   }
 
-  get isConnected() {
+  get isConnected(): boolean {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { chainId, accounts, activating } = this.store.getState();
     return Boolean(chainId && accounts && accounts.length);
+  }
+
+  get connectedAccount(): string | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { chainId, accounts, activating } = this.store.getState();
+    return accounts?.[0];
   }
 }
 
