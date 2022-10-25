@@ -147,6 +147,13 @@ const RefreshButton = () => {
   );
 };
 
+export const SwapHeaderButtons = () => (
+  <HStack>
+    {!platformEnv.isNative ? <RefreshButton /> : null}
+    <HistoryButton />
+  </HStack>
+);
+
 const SwapHeader = () => {
   const intl = useIntl();
 
@@ -162,10 +169,7 @@ const SwapHeader = () => {
         <Typography.DisplayLarge>
           {intl.formatMessage({ id: 'title__swap' })}
         </Typography.DisplayLarge>
-        <HStack>
-          {!platformEnv.isNative ? <RefreshButton /> : null}
-          <HistoryButton />
-        </HStack>
+        <SwapHeaderButtons />
       </Box>
     </Center>
   );
