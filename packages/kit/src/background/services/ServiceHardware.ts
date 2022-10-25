@@ -14,7 +14,7 @@ import {
   UiResponseEvent,
   getDeviceType,
 } from '@onekeyfe/hd-core';
-import axios from 'axios';
+import { get } from 'lodash';
 
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -23,6 +23,7 @@ import {
   addConnectedConnectId,
   removeConnectedConnectId,
   setHardwarePopup,
+  setUpdateFirmwareStep,
   updateDevicePassphraseOpenedState,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -43,7 +44,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { FirmwareDownloadFailed } from '../../utils/hardware/errors';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -297,60 +297,23 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async downloadFirmware(url: string | undefined) {
-    if (!url) return Promise.reject(new FirmwareDownloadFailed());
-
-    const response = await axios.request({
-      url,
-      withCredentials: false,
-      responseType: 'arraybuffer',
-    });
-
-    if (+response.status === 200) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      const firmware = Buffer.from(await response.data).toString('hex');
-
-      if (!firmware) return Promise.reject(new FirmwareDownloadFailed());
-      return firmware;
-    }
-
-    return Promise.reject(new FirmwareDownloadFailed());
-  }
-
-  @backgroundMethod()
-  async installFirmware(
-    connectId: string,
-    firmwareType: FirmwareType,
-    binaryStr: string | undefined,
-  ) {
-    const binary = binaryStr
-      ? this._toArrayBuffer(Buffer.from(binaryStr, 'hex'))
-      : undefined;
-    if (!binary) return Promise.reject(new FirmwareDownloadFailed());
+  async autoUpdateFirmware(connectId: string, firmwareType: FirmwareType) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setUpdateFirmwareStep(''));
 
     const hardwareSDK = await this.getSDKInstance();
 
-    // @ts-expect-error
-    return hardwareSDK
-      .firmwareUpdate(platformEnv.isNative ? connectId : undefined, {
-        updateType: firmwareType,
-        binary,
-      })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(
-            deviceUtils.convertDeviceError(response.payload),
-          );
-        }
-        if (firmwareType === 'firmware') {
-          return response.payload;
-        }
+    const listener = (data: any) => {
+      dispatch(setUpdateFirmwareStep(get(data, 'data.message', '')));
+    };
+    hardwareSDK.on('ui-firmware-tip', listener);
 
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            resolve(response.payload);
-          }, 10 * 1000);
-        });
+    return hardwareSDK
+      .firmwareUpdateV2(connectId, {
+        updateType: firmwareType,
+      })
+      .finally(() => {
+        hardwareSDK.off('ui-firmware-tip', listener);
       });
   }
 

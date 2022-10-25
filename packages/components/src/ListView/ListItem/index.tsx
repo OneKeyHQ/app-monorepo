@@ -7,11 +7,17 @@ import Column from './Column';
 
 type ListItemProps = {
   onPress?: () => void;
+  onLongPress?: () => void;
 } & ComponentProps<typeof HStack>;
 
-const ListItem: FC<ListItemProps> = ({ onPress, children, ...rest }) =>
+const ListItem: FC<ListItemProps> = ({
+  onLongPress,
+  onPress,
+  children,
+  ...rest
+}) =>
   onPress ? (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} onLongPress={onLongPress}>
       {({ isHovered, isPressed }) => (
         <HStack
           p={2}

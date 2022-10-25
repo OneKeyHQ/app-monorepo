@@ -2,6 +2,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
+import { SimpleDbEntityMarket } from './entity/SimpleDbEntityMarket';
 import { SimpleDbEntityNFT } from './entity/SimpleDbEntityNFT';
 import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
 import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
@@ -22,6 +23,8 @@ class SimpleDb {
   walletConnect = new SimpleDbEntityWalletConnect();
 
   nft = new SimpleDbEntityNFT();
+
+  market = new SimpleDbEntityMarket();
 }
 
 // eslint-disable-next-line import/no-mutable-exports

@@ -141,6 +141,7 @@ export class WalletConnectClientBase extends CrossEventEmitter {
       clientMeta: this.clientMeta,
       ...connectorOpts,
     });
+
     // @ts-ignore
     // should reassign clientMeta here
     // connector._clientMeta = this.clientMeta;

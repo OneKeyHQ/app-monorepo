@@ -5,6 +5,8 @@ import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/kit/src/config';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { importHardwareSDK } from './importHardwareSDK';
+
 import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
 
 // eslint-disable-next-line import/no-mutable-exports
@@ -24,12 +26,9 @@ export const getHardwareSDKInstance = memoizee(
         debug: true,
       };
 
-      if (platformEnv.isNative) {
-        HardwareSDK = (await import('@onekeyfe/hd-ble-sdk'))
-          .default as unknown as CoreApi;
-      } else {
-        HardwareSDK = (await import('@onekeyfe/hd-web-sdk'))
-          .default as unknown as CoreApi;
+      HardwareSDK = await importHardwareSDK();
+
+      if (!platformEnv.isNative) {
         settings.connectSrc = HARDWARE_SDK_IFRAME_SRC;
       }
 

@@ -1,9 +1,78 @@
+diff --git a/node_modules/@walletconnect/core/dist/cjs/index.d.ts b/node_modules/@walletconnect/core/dist/cjs/index.d.ts
+index 26759a4..4270449 100644
+--- a/node_modules/@walletconnect/core/dist/cjs/index.d.ts
++++ b/node_modules/@walletconnect/core/dist/cjs/index.d.ts
+@@ -14,6 +14,7 @@ declare class Connector implements IConnector {
+     private _accounts;
+     private _chainId;
+     private _networkId;
++    private networkImpl;
+     private _rpcUrl;
+     private _cryptoLib;
+     private _transport;
+@@ -65,6 +66,7 @@ declare class Connector implements IConnector {
+         peerMeta: IClientMeta | null;
+         handshakeId: number;
+         handshakeTopic: string;
++        networkImpl: string;
+     };
+     set session(value: {
+         connected: boolean;
+@@ -78,6 +80,7 @@ declare class Connector implements IConnector {
+         peerMeta: IClientMeta | null;
+         handshakeId: number;
+         handshakeTopic: string;
++        networkImpl: string;
+     });
+     on(event: string, callback: (error: Error | null, payload: any | null) => void): void;
+     off(event: string): void;
+diff --git a/node_modules/@walletconnect/core/dist/cjs/index.js b/node_modules/@walletconnect/core/dist/cjs/index.js
+index fc3ba2c..6d062dc 100644
+--- a/node_modules/@walletconnect/core/dist/cjs/index.js
++++ b/node_modules/@walletconnect/core/dist/cjs/index.js
+@@ -23,6 +23,7 @@ class Connector {
+         this._accounts = [];
+         this._chainId = 0;
+         this._networkId = 0;
++        this.networkImpl = null;
+         this._rpcUrl = "";
+         this._eventManager = new events_1.default();
+         this._clientMeta = (0, utils_1.getClientMeta)() || opts.connectorOpts.clientMeta || null;
+@@ -37,6 +38,9 @@ class Connector {
+         if (opts.connectorOpts.bridge) {
+             this.bridge = (0, url_1.getBridgeUrl)(opts.connectorOpts.bridge);
+         }
++        if (opts.connectorOpts.networkImpl) {
++            this.networkImpl = opts.connectorOpts.networkImpl;
++        }
+         if (opts.connectorOpts.uri) {
+             this.uri = opts.connectorOpts.uri;
+         }
+@@ -207,6 +211,7 @@ class Connector {
+             peerMeta: this.peerMeta,
+             handshakeId: this.handshakeId,
+             handshakeTopic: this.handshakeTopic,
++            networkImpl: this.networkImpl,
+         };
+     }
+     set session(value) {
+@@ -224,6 +229,7 @@ class Connector {
+         this.peerMeta = value.peerMeta;
+         this.handshakeId = value.handshakeId;
+         this.handshakeTopic = value.handshakeTopic;
++        this.networkImpl = value.networkImpl;
+     }
+     on(event, callback) {
+         const eventEmitter = {
 diff --git a/node_modules/@walletconnect/core/dist/esm/index.js b/node_modules/@walletconnect/core/dist/esm/index.js
-index a66eece..fccf73d 100644
+index a66eece..8cae09f 100644
 --- a/node_modules/@walletconnect/core/dist/esm/index.js
 +++ b/node_modules/@walletconnect/core/dist/esm/index.js
-@@ -22,7 +22,8 @@ class Connector {
+@@ -20,9 +20,11 @@ class Connector {
+         this._accounts = [];
+         this._chainId = 0;
          this._networkId = 0;
++        this.networkImpl = null;
          this._rpcUrl = "";
          this._eventManager = new EventManager();
 -        this._clientMeta = getClientMeta() || opts.connectorOpts.clientMeta || null;
@@ -12,7 +81,13 @@ index a66eece..fccf73d 100644
          this._cryptoLib = opts.cryptoLib;
          this._sessionStorage = opts.sessionStorage || new SessionStorage(opts.connectorOpts.storageId);
          this._qrcodeModal = opts.connectorOpts.qrcodeModal;
-@@ -37,7 +38,8 @@ class Connector {
+@@ -34,10 +36,14 @@ class Connector {
+         if (opts.connectorOpts.bridge) {
+             this.bridge = getBridgeUrl(opts.connectorOpts.bridge);
+         }
++        if (opts.connectorOpts.networkImpl) {
++            this.networkImpl = opts.connectorOpts.networkImpl;
++        }
          if (opts.connectorOpts.uri) {
              this.uri = opts.connectorOpts.uri;
          }
@@ -22,7 +97,23 @@ index a66eece..fccf73d 100644
          if (session) {
              this.session = session;
          }
-@@ -354,7 +356,7 @@ class Connector {
+@@ -204,6 +210,7 @@ class Connector {
+             peerMeta: this.peerMeta,
+             handshakeId: this.handshakeId,
+             handshakeTopic: this.handshakeTopic,
++            networkImpl: this.networkImpl,
+         };
+     }
+     set session(value) {
+@@ -221,6 +228,7 @@ class Connector {
+         this.peerMeta = value.peerMeta;
+         this.handshakeId = value.handshakeId;
+         this.handshakeTopic = value.handshakeTopic;
++        this.networkImpl = value.networkImpl;
+     }
+     on(event, callback) {
+         const eventEmitter = {
+@@ -354,7 +362,7 @@ class Connector {
              ],
          });
      }
@@ -31,7 +122,7 @@ index a66eece..fccf73d 100644
          if (this._connected) {
              throw new Error(ERROR_SESSION_CONNECTED);
          }
-@@ -363,7 +365,8 @@ class Connector {
+@@ -363,7 +371,8 @@ class Connector {
              id: this.handshakeId,
              error: { message },
          });
@@ -41,7 +132,7 @@ index a66eece..fccf73d 100644
          this._connected = false;
          this._eventManager.trigger({
              event: "disconnect",
-@@ -810,7 +813,9 @@ class Connector {
+@@ -810,7 +819,9 @@ class Connector {
              event: "transport_error",
              params: ["Websocket connection failed"],
          }));

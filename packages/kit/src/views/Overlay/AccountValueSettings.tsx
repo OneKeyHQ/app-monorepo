@@ -21,10 +21,10 @@ import {
 } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
 
-export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
-  closeOverlay,
-  children,
-}) => {
+export const BottomSheetSettings: FC<{
+  closeOverlay: () => void;
+  titleI18nKey?: string;
+}> = ({ closeOverlay, children, titleI18nKey }) => {
   const modalizeRef = useRef<Modalize>(null);
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
@@ -59,7 +59,9 @@ export const BottomSheetSettings: FC<{ closeOverlay: () => void }> = ({
     <Modal
       visible
       forceDesktop
-      header={intl.formatMessage({ id: 'title__settings' })}
+      header={intl.formatMessage({
+        id: (titleI18nKey as any) ?? 'title__settings',
+      })}
       footer={null}
       closeAction={closeOverlay}
       staticChildrenProps={{

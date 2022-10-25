@@ -403,6 +403,7 @@ export type IConnectToWalletResult = {
         peerMeta: IClientMeta | null;
         handshakeId: number;
         handshakeTopic: string;
+        networkImpl: string | null;
       }
     | undefined;
   client: WalletConnectClientForDapp;
