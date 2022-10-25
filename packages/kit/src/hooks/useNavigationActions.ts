@@ -8,6 +8,7 @@ import {
 } from '@react-navigation/native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { ManageNetworkRoutes } from '../routes/routesEnum';
@@ -15,6 +16,7 @@ import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/types';
 import reducerAccountSelector, {
   EAccountSelectorMode,
 } from '../store/reducers/reducerAccountSelector';
+import { SendRoutes } from '../views/Send/types';
 
 import { useAppSelector } from './redux';
 import { getAppNavigation } from './useAppNavigation';
@@ -113,6 +115,56 @@ export function useNavigationActions() {
       }),
     );
   }, [navigation]);
+
+  const sendToken = useCallback(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      const skipSelectTokenNetwork: string[] = [
+        OnekeyNetwork.btc,
+        OnekeyNetwork.doge,
+      ];
+      if (skipSelectTokenNetwork.includes(networkId)) {
+        const token = await backgroundApiProxy.engine.getNativeTokenInfo(
+          networkId,
+        );
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.PreSendAddress,
+            params: {
+              accountId,
+              networkId,
+              from: '',
+              to: '',
+              amount: '',
+              token: token?.tokenIdOnNetwork ?? '',
+            },
+          },
+        });
+      } else {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.PreSendToken,
+            params: {
+              accountId,
+              networkId,
+              from: '',
+              to: '',
+              amount: '',
+            },
+          },
+        });
+      }
+    },
+    [navigation],
+  );
+
   return useMemo(
     () => ({
       closeWalletSelector,
@@ -122,6 +174,7 @@ export function useNavigationActions() {
       resetToWelcome,
       openRootHome,
       openAccountSelector,
+      sendToken,
     }),
     [
       openAccountSelector,
@@ -131,6 +184,7 @@ export function useNavigationActions() {
       resetToRoot,
       resetToWelcome,
       openRootHome,
+      sendToken,
     ],
   );
 }
