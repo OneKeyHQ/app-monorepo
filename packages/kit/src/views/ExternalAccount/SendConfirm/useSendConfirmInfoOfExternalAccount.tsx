@@ -4,10 +4,6 @@ import { DialogManager } from '@onekeyhq/components';
 import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  IInjectedConnectorInfo,
-  getInjectedConnector,
-} from '../injectedConnectors';
 import { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';
 import { useWalletConnectQrcodeModal } from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
 import { terminateWcConnection } from '../../../components/WalletConnect/utils/terminateWcConnection';
@@ -19,6 +15,10 @@ import {
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { wait } from '../../../utils/helper';
 import { IWalletConnectExternalAccountInfo } from '../../Send/types';
+import {
+  InjectedConnectorInfo,
+  getInjectedConnector,
+} from '../injectedConnectors';
 
 import {
   DialogConfirmMismatchOrContinue,
@@ -26,7 +26,7 @@ import {
 } from './DialogConfirmMismatchOrContinue';
 
 type IGetExternalConnectorReturn = {
-  injectedConnectorInfo?: IInjectedConnectorInfo;
+  injectedConnectorInfo?: InjectedConnectorInfo;
   wcConnector?: OneKeyWalletConnector | null;
   client?: WalletConnectClientForDapp;
   accountInfo: IBaseExternalAccountInfo | undefined;
@@ -140,7 +140,7 @@ export function useSendConfirmInfoOfExternalAccount({
 
       let wcConnector: OneKeyWalletConnector | undefined | null;
       let client: WalletConnectClientForDapp | undefined;
-      let injectedConnectorInfo: IInjectedConnectorInfo | undefined;
+      let injectedConnectorInfo: InjectedConnectorInfo | undefined;
       let chainId: number | undefined = NaN;
       let accounts: string[] | undefined = [];
 

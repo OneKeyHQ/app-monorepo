@@ -22,12 +22,11 @@ import {
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { IInjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
+import { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 
 import { SendRoutes } from './enums';
 
 import type { IDappSourceInfo } from '../../background/IBackgroundApi';
-import type { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
 import type { SwapQuoteTx } from '../Swap/typings';
@@ -144,16 +143,10 @@ export type IWalletConnectExternalAccountInfo = {
   accountInfo?: IBaseExternalAccountInfo;
   session?: IWalletConnectSession;
   client?: WalletConnectClientForDapp;
-  injectedConnectorInfo: IInjectedConnectorInfo | undefined;
+  injectedConnectorInfo: InjectedConnectorInfo | undefined;
   walletService?: WalletService;
   currentNetwork: Network;
   currentAccount: Account;
-};
-
-export type IWalletConnectSendInfo = {
-  connector: OneKeyWalletConnector;
-  externalAccountInfo: IWalletConnectExternalAccountInfo;
-  client: WalletConnectClientForDapp;
 };
 
 export type SendAuthenticationParams = Omit<

@@ -47,10 +47,7 @@ const AuthExternalAccountInfo = React.memo(
     const wcSessionConnected = session?.connected;
     const { connected } = useMemo(() => {
       const $connected = injectedConnectorInfo
-        ? // TODO function computeIsActive({ chainId, accounts, activating }) {
-          //        return Boolean(chainId && accounts && !activating);
-          //      }
-          Boolean(injectedConnectorInfo?.store.getState().accounts?.length)
+        ? injectedConnectorInfo.isConnected
         : wcSessionConnected;
       return {
         connected: $connected,

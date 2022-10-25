@@ -1,9 +1,9 @@
 import { initializeConnector } from '@web3-react/core';
 import { MetaMask } from '@web3-react/metamask';
 
-import type { IInjectedConnectorInfo } from './index';
+import type { IInjectedConnectorInfoOptions } from './index';
 
-function createConnector(): IInjectedConnectorInfo {
+function createConnector(): IInjectedConnectorInfoOptions {
   const [connector, hooks, store] = initializeConnector<MetaMask>(
     (actions) => new MetaMask({ actions }),
   );

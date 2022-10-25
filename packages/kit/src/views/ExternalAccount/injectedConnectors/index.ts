@@ -5,22 +5,47 @@ import { WALLET_CONNECT_WALLET_NAMES } from '../../../components/WalletConnect/w
 
 import metaMask from './metaMask';
 
-// TODO computeIsActive, computeIsConnected
-// function computeIsActive({ chainId, accounts, activating }) {
-//   return Boolean(chainId && accounts && !activating);
-// }
-export type IInjectedConnectorInfo = {
+export type IInjectedConnectorInfoOptions = {
   connector: Connector;
   hooks: Web3ReactHooks;
   store: Web3ReactStore;
 };
+export class InjectedConnectorInfo {
+  constructor({ connector, hooks, store }: IInjectedConnectorInfoOptions) {
+    this.connector = connector;
+    this.hooks = hooks;
+    this.store = store;
+  }
+
+  connector!: Connector;
+
+  hooks!: Web3ReactHooks;
+
+  store!: Web3ReactStore;
+
+  get isActive() {
+    const { chainId, activating, accounts } = this.store.getState();
+    return Boolean(chainId && accounts && !activating);
+  }
+
+  get isConnected() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { chainId, accounts, activating } = this.store.getState();
+    return Boolean(chainId && accounts && accounts.length);
+  }
+}
+
 const cacheMap: {
-  [walletName: string]: IInjectedConnectorInfo;
+  [walletName: string]: InjectedConnectorInfo;
 } = {};
 
-function createInjectedConnectorByName({ name }: { name: string }) {
+function createInjectedConnectorByName({
+  name,
+}: {
+  name: string;
+}): InjectedConnectorInfo {
   if (name === WALLET_CONNECT_WALLET_NAMES.MetaMask) {
-    return metaMask.createConnector();
+    return new InjectedConnectorInfo(metaMask.createConnector());
   }
   throw new Error(
     `createInjectedConnectorByName ERROR: wallet name not supported. name=${name}`,
@@ -31,7 +56,7 @@ export function getInjectedConnector({
   name,
 }: {
   name: string;
-}): IInjectedConnectorInfo {
+}): InjectedConnectorInfo {
   if (!cacheMap[name]) {
     cacheMap[name] = createInjectedConnectorByName({ name });
   }
