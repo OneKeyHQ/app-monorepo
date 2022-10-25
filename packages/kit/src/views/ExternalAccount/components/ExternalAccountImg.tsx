@@ -7,9 +7,9 @@ import ImgImToken from '@onekeyhq/kit/assets/onboarding/logo_imtoken.png';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import ImgMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { wait } from '../../utils/helper';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { wait } from '../../../utils/helper';
 
 export function MockExternalAccountImg(props: ComponentProps<typeof Image>) {
   const source = ImgImToken;
@@ -38,18 +38,18 @@ function ExternalAccountImg({
   size?: number | string;
   radius?: string;
 }) {
-  const { serviceWalletConnect } = backgroundApiProxy;
+  const { serviceExternalAccount } = backgroundApiProxy;
   const { result: accountImg } = usePromiseResult(async () => {
     // eslint-disable-next-line no-param-reassign
     accountId = accountId || account?.id || '';
     if (isExternalAccount({ accountId })) {
-      let imgInfo = await serviceWalletConnect.getExternalAccountImage({
+      let imgInfo = await serviceExternalAccount.getExternalAccountImage({
         accountId,
       });
       // may be simpleDB not saved yet, try again
       if (!imgInfo) {
         await wait(1000);
-        imgInfo = await serviceWalletConnect.getExternalAccountImage({
+        imgInfo = await serviceExternalAccount.getExternalAccountImage({
           accountId,
         });
       }

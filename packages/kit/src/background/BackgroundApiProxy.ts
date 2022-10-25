@@ -6,7 +6,6 @@ import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
-import ServicePassword from './services/ServicePassword';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
@@ -17,7 +16,8 @@ import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
-import type ServicDiscover from './services/ServiceDiscover';
+import type ServiceDiscover from './services/ServiceDiscover';
+import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceMarket from './services/ServiceMarket';
@@ -26,6 +26,7 @@ import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
 import type ServiceNotification from './services/serviceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
+import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
 import type ServiceRevoke from './services/ServiceRevoke';
 import type ServiceSocket from './services/ServiceSocket';
@@ -62,6 +63,10 @@ class BackgroundApiProxy
   ) as ServiceAccountSelector;
 
   serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
+
+  serviceExternalAccount = this._createProxyService(
+    'serviceExternalAccount',
+  ) as ServiceExternalAccount;
 
   serviceNetwork = this._createProxyService('serviceNetwork') as ServiceNetwork;
 
@@ -115,7 +120,7 @@ class BackgroundApiProxy
 
   serviceDiscover = this._createProxyService(
     'serviceDiscover',
-  ) as ServicDiscover;
+  ) as ServiceDiscover;
 
   serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
 

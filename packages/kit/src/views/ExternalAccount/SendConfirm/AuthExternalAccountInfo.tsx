@@ -12,16 +12,16 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
-import ExternalAccountImg from '../../../components/WalletConnect/ExternalAccountImg';
 import { terminateWcConnection } from '../../../components/WalletConnect/utils/terminateWcConnection';
 import { WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY } from '../../../components/WalletConnect/walletConnectConsts';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { TxDetailActionBox } from '../../TxDetail/components/TxDetailActionBox';
+import ExternalAccountImg from '../components/ExternalAccountImg';
 
 import type {
   ISendAuthenticationModalTitleInfo,
   IWalletConnectExternalAccountInfo,
-} from '../types';
+} from '../../Send/types';
 
 const AuthExternalAccountInfo = React.memo(
   (

@@ -26,7 +26,8 @@ import { useDecodedTx, useInteractWithInfo } from '../../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
-import { AuthExternalAccountInfo } from '../components/AuthExternalAccountInfo';
+import { AuthExternalAccountInfo } from '../../ExternalAccount/SendConfirm/AuthExternalAccountInfo';
+import { useSignOrSendOfExternalAccount } from '../../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
 import {
@@ -35,7 +36,6 @@ import {
   SendRoutes,
   SendRoutesParams,
 } from '../types';
-import { useSignOrSendOfExternalAccount } from '../utils/useSignOrSendOfExternalAccount';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendAuthentication>;
 type NavigationProps = NavigationProp<

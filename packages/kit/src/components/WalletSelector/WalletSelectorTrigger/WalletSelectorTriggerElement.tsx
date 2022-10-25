@@ -21,8 +21,8 @@ import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { useWalletName } from '../../../hooks/useWalletName';
 import { RootRoutes } from '../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../routes/types';
+import ExternalAccountImg from '../../../views/ExternalAccount/components/ExternalAccountImg';
 import { useDeviceStatusOfHardwareWallet } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
-import ExternalAccountImg from '../../WalletConnect/ExternalAccountImg';
 import { WalletAvatarPro } from '../WalletAvatar';
 
 import type { CreateWalletRoutesParams } from '../../../routes';

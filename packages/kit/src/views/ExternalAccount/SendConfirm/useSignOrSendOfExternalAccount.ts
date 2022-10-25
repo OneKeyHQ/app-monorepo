@@ -16,7 +16,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useWalletConnectSendInfo } from '../../../components/WalletConnect/useWalletConnectSendInfo';
+
+import { useSendConfirmInfoOfExternalAccount } from './useSendConfirmInfoOfExternalAccount';
 
 export function useSignOrSendOfExternalAccount({
   encodedTx,
@@ -36,7 +37,7 @@ export function useSignOrSendOfExternalAccount({
   const intl = useIntl();
   const { validator } = backgroundApiProxy;
   const { getExternalConnector, externalAccountInfo } =
-    useWalletConnectSendInfo({
+    useSendConfirmInfoOfExternalAccount({
       accountId,
       networkId,
     });

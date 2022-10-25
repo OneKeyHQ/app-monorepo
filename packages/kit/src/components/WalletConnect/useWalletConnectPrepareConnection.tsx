@@ -21,7 +21,7 @@ export function useWalletConnectPrepareConnection({
     (async function () {
       if (isExternalAccount({ accountId })) {
         const { session, walletService } =
-          await serviceWalletConnect.getExternalAccountSession({
+          await serviceWalletConnect.getWalletConnectSessionOfAccount({
             accountId,
           });
         if (session?.connected) {

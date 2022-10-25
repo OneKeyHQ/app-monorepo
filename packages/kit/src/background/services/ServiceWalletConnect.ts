@@ -1,6 +1,5 @@
 import { IWalletConnectSession } from '@walletconnect/types';
 
-import { IExternalAccountType } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 
 import { WalletService } from '../../components/WalletConnect/types';
@@ -10,16 +9,6 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {
-  @backgroundMethod()
-  async getExternalAccountImage({ accountId }: { accountId: string }) {
-    return simpleDb.walletConnect.getExternalAccountImage({ accountId });
-  }
-
-  @backgroundMethod()
-  async getExternalAccountSession({ accountId }: { accountId: string }) {
-    return simpleDb.walletConnect.getExternalAccountSession({ accountId });
-  }
-
   @backgroundMethod()
   async findWalletServiceBySession({
     session,
@@ -45,7 +34,14 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
-  async saveExternalAccountSession({
+  async getWalletConnectSessionOfAccount({ accountId }: { accountId: string }) {
+    return simpleDb.walletConnect.getWalletConnectSessionOfAccount({
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  async saveWalletConnectSessionOfAccount({
     accountId,
     session,
     walletService,
@@ -54,30 +50,10 @@ class ServiceWalletConnect extends ServiceBase {
     session: IWalletConnectSession;
     walletService?: WalletService;
   }) {
-    return simpleDb.walletConnect.saveExternalAccountSession({
+    return simpleDb.walletConnect.saveWalletConnectSessionOfAccount({
       accountId,
       session,
       walletService,
-    });
-  }
-
-  @backgroundMethod()
-  async saveExternalAccountInfo({
-    accountId,
-    externalAccountType,
-    walletService,
-  }: {
-    accountId: string;
-    externalAccountType: IExternalAccountType;
-    walletService: WalletService;
-  }) {
-    const accountInfo = simpleDb.walletConnect.getAccountInfoFromWalletService({
-      walletService,
-    });
-    accountInfo.type = externalAccountType;
-    return simpleDb.walletConnect.saveExternalAccountInfo({
-      accountId,
-      accountInfo,
     });
   }
 }

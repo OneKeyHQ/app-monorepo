@@ -8,16 +8,16 @@ import LogoLedger from '@onekeyhq/kit/assets/onboarding/logo_ledger.png';
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useAddExternalAccount } from '../../../../components/WalletConnect/useAddExternalAccount';
 import {
   ConnectWalletListItem,
   ConnectWalletListView,
 } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
 import { wait } from '../../../../utils/helper';
+import { useAddExternalAccount } from '../../../ExternalAccount/useAddExternalAccount';
 
 const SecondaryContent: FC = () => {
-  const addExternalAccount = useAddExternalAccount();
+  const { addExternalAccount } = useAddExternalAccount();
   const onboardingDone = useOnboardingDone();
   const toast = useToast();
   const intl = useIntl();

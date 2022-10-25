@@ -30,7 +30,7 @@ if (isExtensionUi) {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$appEventBus = appEventBus;
+  global.$$appEventBus = appEventBus;
 }
 
 export { appEventBus, AppEventBusNames };

@@ -29,8 +29,6 @@ import appStorage, {
   mockStorage,
 } from '@onekeyhq/shared/src/storage/appStorage';
 
-import { IBackgroundApi } from '../background/IBackgroundApi';
-
 import middlewares from './middlewares';
 import { persistWhiteList } from './persistWhiteList';
 import autoUpdateReducer from './reducers/autoUpdater';
@@ -54,6 +52,8 @@ import swapReducer from './reducers/swap';
 import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
 import webTabsReducer from './reducers/webTabs';
+
+import type { IBackgroundApi } from '../background/IBackgroundApi';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,

@@ -4,15 +4,14 @@ import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { IConnectToWalletResult } from '../../components/WalletConnect/useWalletConnectQrcodeModal';
 import { useActiveWalletAccount } from '../../hooks';
 
-import { IConnectToWalletResult } from './useWalletConnectQrcodeModal';
-
 export function useAddExternalAccount() {
-  const { serviceAccount, serviceWalletConnect } = backgroundApiProxy;
+  const { serviceAccount, serviceExternalAccount } = backgroundApiProxy;
   const { externalWallet } = useActiveWalletAccount();
   const nextAccountId = externalWallet?.nextAccountIds?.global;
-  const add = useCallback(
+  const addExternalAccount = useCallback(
     async (result: IConnectToWalletResult) => {
       const { status, session, client, walletService, injectedProviderState } =
         result;
@@ -53,7 +52,7 @@ export function useAddExternalAccount() {
 
       // save injectedProvider accountInfo
       if (injectedProviderState && walletService) {
-        await serviceWalletConnect.saveExternalAccountInfo({
+        await serviceExternalAccount.saveExternalAccountInfo({
           externalAccountType: 'injectedProvider',
           accountId,
           walletService,
@@ -66,8 +65,8 @@ export function useAddExternalAccount() {
 
       return addedAccount;
     },
-    [nextAccountId, serviceAccount, serviceWalletConnect],
+    [nextAccountId, serviceAccount, serviceExternalAccount],
   );
 
-  return add;
+  return { addExternalAccount };
 }
