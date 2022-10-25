@@ -877,6 +877,9 @@ class Engine {
             const { xpub } = a as DBUTXOAccount;
             return { address: xpub };
           }
+          if (a.type === AccountType.VARIANT) {
+            return { address: (a as DBVariantAccount).addresses[networkId] };
+          }
           return { address: a.address };
         }),
       );
