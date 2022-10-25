@@ -73,9 +73,6 @@ export const useMarketTokenItem = ({
           ids: coingeckoId,
           sparkline: !isVertical && !isMidLayout,
         });
-        backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
-      } else if (marketTokenItem && !marketTokenItem.logoURI) {
-        backgroundApiProxy.serviceMarket.fetchMarketTokenBaseInfo(coingeckoId);
       }
     }
   }, [coingeckoId, isMidLayout, isVertical, marketTokenItem]);

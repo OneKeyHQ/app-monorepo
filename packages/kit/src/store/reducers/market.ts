@@ -127,7 +127,7 @@ type MarketTokenDetailPayloadAction = {
 };
 
 type MarketTokenBasePayloadAction = {
-  marketTokenId: CoingeckoId;
+  coingeckoId: CoingeckoId;
   tokens: Token[];
   logoURI?: string;
 };
@@ -273,11 +273,12 @@ export const MarketSlicer = createSlice({
       const { categorys } = state;
       const favoriteCategory = categorys[MARKET_FAVORITES_CATEGORYID];
       if (favoriteCategory) {
-        const index = favoriteCategory.coingeckoIds?.indexOf(payload);
+        const favoriteCoingeckoIds = favoriteCategory.coingeckoIds || [];
+        const index = favoriteCoingeckoIds?.indexOf(payload);
         if (index !== undefined && index !== -1) {
-          favoriteCategory.coingeckoIds?.splice(index, 1);
+          favoriteCoingeckoIds?.splice(index, 1);
+          favoriteCategory.coingeckoIds = [payload, ...favoriteCoingeckoIds];
         }
-        favoriteCategory.coingeckoIds?.unshift(payload);
       }
     },
     updateMarketChats(state, action: PayloadAction<ChartsPayloadAction>) {
@@ -310,44 +311,42 @@ export const MarketSlicer = createSlice({
                 case 2: {
                   return payload.direction === 'down'
                     ? natsort({ insensitive: true })(
-                        marketTokens[id1].symbol ?? '',
-                        marketTokens[id2].symbol ?? '',
+                        marketTokens[id1]?.symbol ?? '',
+                        marketTokens[id2]?.symbol ?? '',
                       )
                     : natsort({ insensitive: true })(
-                        marketTokens[id2].symbol ?? '',
-                        marketTokens[id1].symbol ?? '',
+                        marketTokens[id2]?.symbol ?? '',
+                        marketTokens[id1]?.symbol ?? '',
                       );
                 }
                 case 3: {
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].price ?? 0) -
-                        (marketTokens[id2].price ?? 0)
-                    : (marketTokens[id2].price ?? 0) -
-                        (marketTokens[id1].price ?? 0);
+                    ? (marketTokens[id1]?.price ?? 0) -
+                        (marketTokens[id2]?.price ?? 0)
+                    : (marketTokens[id2]?.price ?? 0) -
+                        (marketTokens[id1]?.price ?? 0);
                 }
                 case 4:
                 case 7: {
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].priceChangePercentage24H ?? 0) -
-                        (marketTokens[id2].priceChangePercentage24H ?? 0)
-                    : (marketTokens[id2].priceChangePercentage24H ?? 0) -
-                        (marketTokens[id1].priceChangePercentage24H ?? 0);
+                    ? (marketTokens[id1]?.priceChangePercentage24H ?? 0) -
+                        (marketTokens[id2]?.priceChangePercentage24H ?? 0)
+                    : (marketTokens[id2]?.priceChangePercentage24H ?? 0) -
+                        (marketTokens[id1]?.priceChangePercentage24H ?? 0);
                 }
                 case 5: {
-                  console.log('id1Price', marketTokens[id1].totalVolume);
-                  console.log('id2Price', marketTokens[id2].totalVolume);
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].totalVolume ?? 0) -
-                        (marketTokens[id2].totalVolume ?? 0)
-                    : (marketTokens[id2].totalVolume ?? 0) -
-                        (marketTokens[id1].totalVolume ?? 0);
+                    ? (marketTokens[id1]?.totalVolume ?? 0) -
+                        (marketTokens[id2]?.totalVolume ?? 0)
+                    : (marketTokens[id2]?.totalVolume ?? 0) -
+                        (marketTokens[id1]?.totalVolume ?? 0);
                 }
                 case 6: {
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].marketCap ?? 0) -
-                        (marketTokens[id2].marketCap ?? 0)
-                    : (marketTokens[id2].marketCap ?? 0) -
-                        (marketTokens[id1].marketCap ?? 0);
+                    ? (marketTokens[id1]?.marketCap ?? 0) -
+                        (marketTokens[id2]?.marketCap ?? 0)
+                    : (marketTokens[id2]?.marketCap ?? 0) -
+                        (marketTokens[id1]?.marketCap ?? 0);
                 }
                 default:
                   return 0;
@@ -358,21 +357,23 @@ export const MarketSlicer = createSlice({
         }
       }
     },
-    updateMarketTokenBaseInfo(
+    updateMarketTokensBaseInfo(
       state,
-      action: PayloadAction<MarketTokenBasePayloadAction>,
+      action: PayloadAction<MarketTokenBasePayloadAction[]>,
     ) {
-      const { marketTokenId, tokens, logoURI } = action.payload;
-      const token = state.marketTokens[marketTokenId] || {};
-      token.tokens = tokens;
-      if (logoURI && logoURI.length > 0) {
-        token.logoURI = logoURI;
-      } else if (token.image) {
-        token.logoURI = token.image;
-      } else {
-        token.logoURI = '';
-      }
-      state.marketTokens[marketTokenId] = token;
+      const { payload } = action;
+      payload.forEach((tokenBase) => {
+        const token = state.marketTokens[tokenBase.coingeckoId] || {};
+        token.tokens = tokenBase.tokens;
+        if (tokenBase.logoURI?.length) {
+          token.logoURI = tokenBase.logoURI;
+        } else if (token.image) {
+          token.logoURI = token.image;
+        } else {
+          token.logoURI = '';
+        }
+        state.marketTokens[tokenBase.coingeckoId] = token;
+      });
     },
     updateMarketTokenPriceSubscribe(
       state,
@@ -403,8 +404,7 @@ export const MarketSlicer = createSlice({
       if (historys.length >= MARKET_SEARCH_HISTORY_MAX) {
         historys.pop();
       }
-      historys.unshift(token);
-      state.searchHistory = historys;
+      state.searchHistory = [token, ...historys];
     },
     clearMarketSearchTokenHistory(state) {
       state.searchHistory = [];
@@ -435,7 +435,7 @@ export const {
   saveMarketFavorite,
   moveTopMarketFavorite,
   updateMarketListSort,
-  updateMarketTokenBaseInfo,
+  updateMarketTokensBaseInfo,
   switchMarketTopTab,
   syncMarketSearchTokenHistorys,
   clearMarketSearchTokenHistory,

@@ -72,8 +72,7 @@ export class SimpleDbEntityMarket extends SimpleDbEntityBase<ISimpleDbEntityMark
     const data = await this.getRawDateWithDefault();
     const { favorites } = data;
     const newFavorites = favorites.filter((f) => f !== coingeckoId);
-    newFavorites.unshift(coingeckoId);
-    data.favorites = newFavorites;
+    data.favorites = [coingeckoId, ...newFavorites];
     await this.setRawData(data);
   }
 }

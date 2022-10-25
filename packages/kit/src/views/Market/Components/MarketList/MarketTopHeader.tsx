@@ -143,6 +143,7 @@ const HeaderSmall: React.FC = () => {
                   handleStyle: { backgroundColor: handleBg },
                   withHandle: true,
                   handlePosition: 'inside',
+                  tapGestureEnabled: false,
                 },
               });
             }}
