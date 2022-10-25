@@ -23,8 +23,8 @@ export type DAppItemType = {
   subtitle: string;
   description: string;
   networkIds: string[];
-  tags: { name: string; _id: string }[];
-  categories: { name: string; _id: string }[];
+  // tags: { name: string; _id: string }[];
+  // categories: { name: string; _id: string }[];
 };
 
 export type ItemsType = {
