@@ -112,7 +112,7 @@ const AccountAmountInfo: FC = () => {
       const tokenId = token.tokenIdOnNetwork || 'main';
       const balance = balances[tokenId];
       if (typeof balance !== 'undefined') {
-        basePrices[tokenId] = charts[tokenId]?.[0][1] ?? 0;
+        basePrices[tokenId] = charts[tokenId]?.[0]?.[1] ?? 0;
       }
     });
     const displayBaseValue = getSummedValues({

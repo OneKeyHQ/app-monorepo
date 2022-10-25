@@ -1,9 +1,11 @@
-import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { nanoid } from '@reduxjs/toolkit';
-import { ScrollView } from 'react-native';
+import { LayoutChangeEvent } from 'react-native';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 import { Box, Button, Pressable, Typography } from '@onekeyhq/components';
+import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
@@ -15,7 +17,11 @@ import {
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
 
-const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
+const Tab: FC<
+  WebTab & {
+    onLayout?: (e: LayoutChangeEvent) => void;
+  }
+> = ({ isCurrent, id, title, onLayout }) => {
   const { dispatch } = backgroundApiProxy;
   const setCurrentTab = useCallback(() => {
     dispatch(setCurrentWebTab(id));
@@ -35,6 +41,7 @@ const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
       onPress={setCurrentTab}
       borderRightColor="border-default"
       borderRightWidth="0.5px"
+      onLayout={onLayout}
     />
   ) : (
     <Pressable
@@ -49,6 +56,7 @@ const Tab: FC<WebTab> = ({ isCurrent, id, title }) => {
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
+      onLayout={onLayout}
     >
       <Typography.Caption
         maxW="82px"
@@ -81,6 +89,7 @@ const addNewTab = () => {
 
 const AddTabButton: FC = () => (
   <Button
+    flex={1}
     borderRadius={0}
     type="plain"
     leftIconName="PlusSolid"
@@ -91,32 +100,31 @@ const AddTabButton: FC = () => (
 const TabBarDesktop: FC = () => {
   const { tabs } = useAppSelector((s) => s.webTabs);
   const tabsExceptHome = useMemo(() => tabs.slice(1), [tabs]);
-  const scrollRef = useRef<ScrollView>(null);
-  const lastTabsLength = useRef<number>(tabs.length);
-  useEffect(() => {
-    if (tabs.length > lastTabsLength.current) {
-      setTimeout(() => scrollRef.current?.scrollToEnd(), 30);
-    }
-    lastTabsLength.current = tabs.length;
-  }, [tabs.length]);
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
   return (
     <Box flexDirection="row" w="100%" h="32px" alignItems="center">
       <Tab {...tabs[0]} />
-      <ScrollView
-        ref={scrollRef}
-        style={{
-          maxWidth: '100%',
-          flexGrow: 0,
-          height: 32,
-        }}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-      >
-        {tabsExceptHome.map((tab) => (
-          <Tab key={tab.id} {...tab} />
-        ))}
-      </ScrollView>
-      <AddTabButton />
+      <Box flex={1} h="32px">
+        <ScrollableButtonGroup
+          ref={scrollRef}
+          style={{
+            maxWidth: '100%',
+            flexGrow: 0,
+            height: 32,
+          }}
+          leftButtonProps={{
+            borderRadius: null,
+          }}
+          rightButtonProps={{
+            borderRadius: null,
+          }}
+        >
+          {tabsExceptHome.map((tab) => (
+            <Tab key={tab.id} {...tab} />
+          ))}
+          <AddTabButton />
+        </ScrollableButtonGroup>
+      </Box>
     </Box>
   );
 };
