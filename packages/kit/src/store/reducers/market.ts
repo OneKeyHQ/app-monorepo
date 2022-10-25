@@ -311,44 +311,42 @@ export const MarketSlicer = createSlice({
                 case 2: {
                   return payload.direction === 'down'
                     ? natsort({ insensitive: true })(
-                        marketTokens[id1].symbol ?? '',
-                        marketTokens[id2].symbol ?? '',
+                        marketTokens[id1]?.symbol ?? '',
+                        marketTokens[id2]?.symbol ?? '',
                       )
                     : natsort({ insensitive: true })(
-                        marketTokens[id2].symbol ?? '',
-                        marketTokens[id1].symbol ?? '',
+                        marketTokens[id2]?.symbol ?? '',
+                        marketTokens[id1]?.symbol ?? '',
                       );
                 }
                 case 3: {
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].price ?? 0) -
-                        (marketTokens[id2].price ?? 0)
-                    : (marketTokens[id2].price ?? 0) -
-                        (marketTokens[id1].price ?? 0);
+                    ? (marketTokens[id1]?.price ?? 0) -
+                        (marketTokens[id2]?.price ?? 0)
+                    : (marketTokens[id2]?.price ?? 0) -
+                        (marketTokens[id1]?.price ?? 0);
                 }
                 case 4:
                 case 7: {
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].priceChangePercentage24H ?? 0) -
-                        (marketTokens[id2].priceChangePercentage24H ?? 0)
-                    : (marketTokens[id2].priceChangePercentage24H ?? 0) -
-                        (marketTokens[id1].priceChangePercentage24H ?? 0);
+                    ? (marketTokens[id1]?.priceChangePercentage24H ?? 0) -
+                        (marketTokens[id2]?.priceChangePercentage24H ?? 0)
+                    : (marketTokens[id2]?.priceChangePercentage24H ?? 0) -
+                        (marketTokens[id1]?.priceChangePercentage24H ?? 0);
                 }
                 case 5: {
-                  console.log('id1Price', marketTokens[id1].totalVolume);
-                  console.log('id2Price', marketTokens[id2].totalVolume);
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].totalVolume ?? 0) -
-                        (marketTokens[id2].totalVolume ?? 0)
-                    : (marketTokens[id2].totalVolume ?? 0) -
-                        (marketTokens[id1].totalVolume ?? 0);
+                    ? (marketTokens[id1]?.totalVolume ?? 0) -
+                        (marketTokens[id2]?.totalVolume ?? 0)
+                    : (marketTokens[id2]?.totalVolume ?? 0) -
+                        (marketTokens[id1]?.totalVolume ?? 0);
                 }
                 case 6: {
                   return payload.direction === 'down'
-                    ? (marketTokens[id1].marketCap ?? 0) -
-                        (marketTokens[id2].marketCap ?? 0)
-                    : (marketTokens[id2].marketCap ?? 0) -
-                        (marketTokens[id1].marketCap ?? 0);
+                    ? (marketTokens[id1]?.marketCap ?? 0) -
+                        (marketTokens[id2]?.marketCap ?? 0)
+                    : (marketTokens[id2]?.marketCap ?? 0) -
+                        (marketTokens[id1]?.marketCap ?? 0);
                 }
                 default:
                   return 0;

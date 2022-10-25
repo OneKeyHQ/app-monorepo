@@ -22,7 +22,6 @@ export const MarketInfoExplorer: FC<MarketInfoExplorerProps> = ({
   onPress,
   index,
 }) => {
-  console.log('MarketInfoExplorer');
   const boxStyle = useGridBoxStyle({
     index,
     maxW: SCREEN_SIZE.LARGE,
