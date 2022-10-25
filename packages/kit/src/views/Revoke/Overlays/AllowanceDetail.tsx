@@ -9,6 +9,7 @@ import {
   Pressable,
   Typography,
   VStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
@@ -53,6 +54,7 @@ const AllowanceDetail: FC<
   disabledActions,
 }) => {
   const intl = useIntl();
+  const insets = useSafeAreaInsets();
   const handlePress = useCallback(
     (key: ActionKey) => {
       closeOverlay();
@@ -61,7 +63,7 @@ const AllowanceDetail: FC<
     [closeOverlay, onActionPress],
   );
   return (
-    <VStack>
+    <VStack pb={`${insets.bottom}px`}>
       <Typography.Heading textAlign="center" mb="2">
         {spenderName}
       </Typography.Heading>

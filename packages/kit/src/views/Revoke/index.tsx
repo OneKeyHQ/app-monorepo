@@ -3,7 +3,14 @@ import React, { FC, useLayoutEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Empty, ScrollView, VStack } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Empty,
+  ScrollView,
+  VStack,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
@@ -22,6 +29,7 @@ const defaultFilter = {
 
 const RevokePage: FC = () => {
   const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
   const [filters, setFilters] = useState(defaultFilter);
   const [addressOrName, setAddressOrName] = useState<string>('');
   const { networkId, network } = useActiveWalletAccount();
@@ -32,13 +40,19 @@ const RevokePage: FC = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => (
-        <Box pr="6">
-          <NetworkAccountSelectorTrigger />
-        </Box>
-      ),
+      title: '',
+      headerRight: () => {
+        if (isVertical) {
+          return <NetworkAccountSelectorTrigger />;
+        }
+        return (
+          <Box pr="6">
+            <NetworkAccountSelectorTrigger />
+          </Box>
+        );
+      },
     });
-  }, [navigation]);
+  }, [navigation, isVertical]);
 
   const content = useMemo(() => {
     if (network?.impl !== IMPL_EVM) {
@@ -79,7 +93,7 @@ const RevokePage: FC = () => {
     <ScrollView
       contentContainerStyle={{
         justifyContent: 'center',
-        padding: 32,
+        padding: isVertical ? 16 : 32,
       }}
     >
       <Center flex="1" pb="108px">

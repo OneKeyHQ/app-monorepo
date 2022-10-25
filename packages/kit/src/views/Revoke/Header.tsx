@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,10 +10,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { useActiveWalletAccount } from '../../hooks';
+import { useActiveWalletAccount, useNavigation } from '../../hooks';
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import showAboutOverlay from './Overlays/About';
 import SvgRevoke from './Svg';
+import { RevokeRoutes } from './types';
 
 type Props = {
   onAddressChange: (address: string) => void;
@@ -21,8 +23,9 @@ type Props = {
 
 const RevokeHeader: FC<Props> = ({ onAddressChange }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const [addressOrName, setAddressOrName] = useState('');
-  const { accountAddress } = useActiveWalletAccount();
+  const { accountAddress, networkId } = useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
 
   useEffect(() => {
@@ -33,14 +36,28 @@ const RevokeHeader: FC<Props> = ({ onAddressChange }) => {
     if (accountAddress) {
       setAddressOrName(accountAddress);
     }
-  }, [accountAddress]);
+  }, [accountAddress, networkId]);
+
+  const share = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Revoke,
+      params: {
+        screen: RevokeRoutes.ShareModal,
+      },
+    });
+  }, [navigation]);
 
   return (
     <>
       <SvgRevoke />
       <HStack my="18px">
-        <IconButton type="plain" name="InformationCircleSolid" iconSize={16}>
-          <Typography.Button2 onPress={showAboutOverlay}>
+        <IconButton
+          type="plain"
+          name="InformationCircleSolid"
+          iconSize={16}
+          onPress={showAboutOverlay}
+        >
+          <Typography.Button2>
             {intl.formatMessage({ id: 'title__about' })}
           </Typography.Button2>
         </IconButton>
@@ -48,7 +65,7 @@ const RevokeHeader: FC<Props> = ({ onAddressChange }) => {
           type="plain"
           name="PaperAirplaneSolid"
           iconSize={16}
-          isDisabled
+          onPress={share}
         >
           <Typography.Button2>
             {intl.formatMessage({ id: 'title__share' })}

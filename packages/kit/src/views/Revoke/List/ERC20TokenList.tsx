@@ -42,9 +42,9 @@ export const Header = () => {
     <ListItem>
       <ListItem.Column
         text={{
-          label: `${intl.formatMessage({
+          label: intl.formatMessage({
             id: 'form__token',
-          })} / ${intl.formatMessage({ id: 'form__balance' })}`,
+          }),
         }}
         w="200px"
       />
@@ -52,21 +52,22 @@ export const Header = () => {
         w="100px"
         text={{
           label: intl.formatMessage({
-            id: 'form__value',
+            id: 'form__balance',
           }),
         }}
+        textAlign="right"
       />
       <ListItem.Column
         text={{
-          label: `${intl.formatMessage({
+          label: intl.formatMessage({
             id: 'form__project',
-          })} / ${intl.formatMessage({ id: 'form__allowance' })}`,
+          }),
         }}
         flex="1"
       />
       <ListItem.Column
         text={{
-          label: intl.formatMessage({ id: 'form__risk_exposure' }),
+          label: intl.formatMessage({ id: 'form__allowance' }),
         }}
         w="260px"
         textAlign="left"
@@ -75,46 +76,81 @@ export const Header = () => {
   );
 };
 
-export const ListLoading = () => (
-  <>
-    {new Array(5).fill(1).map((_, idx) => (
-      <ListItem flex="1" key={String(idx)}>
-        <ListItem.Column>
-          <HStack w="200px" alignItems="center">
-            <Skeleton shape="Avatar" />
-            <VStack ml="2">
-              <Skeleton shape="Body1" />
-              <Skeleton shape="Body2" />
-            </VStack>
-          </HStack>
-        </ListItem.Column>
-        <ListItem.Column>
-          <Box w="100px">
-            <Skeleton shape="Body1" />
-          </Box>
-        </ListItem.Column>
-        <ListItem.Column>
-          <Box flex="1">
-            <Skeleton shape="Body1" />
-          </Box>
-        </ListItem.Column>
-        <ListItem.Column>
-          <HStack w="260px">
-            <Box flex="1">
-              <Skeleton shape="Body1" />
-            </Box>
-            <HStack>
+export const ListLoading = () => {
+  const isVertical = useIsVerticalLayout();
+  if (isVertical) {
+    return (
+      <>
+        {new Array(5).fill(1).map((_, idx) => (
+          <VStack flex="1" key={String(idx)} mb="4">
+            <HStack mb="4">
+              <HStack flex="1" alignItems="center">
+                <Skeleton shape="Avatar" />
+                <VStack ml="2">
+                  <Skeleton shape="Body1" />
+                </VStack>
+              </HStack>
+              <VStack>
+                <Skeleton shape="Body1" />
+                <Skeleton shape="Body2" />
+              </VStack>
+            </HStack>
+            <HStack flex="1" alignItems="center">
+              <VStack flex="1" mr="4">
+                <Skeleton shape="Body2" />
+                <Skeleton shape="Body2" />
+              </VStack>
               <Skeleton shape="Caption" />
               <Box ml="2">
                 <Skeleton shape="Caption" />
               </Box>
             </HStack>
-          </HStack>
-        </ListItem.Column>
-      </ListItem>
-    ))}
-  </>
-);
+          </VStack>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {new Array(5).fill(1).map((_, idx) => (
+        <ListItem flex="1" key={String(idx)}>
+          <ListItem.Column>
+            <HStack w="200px" alignItems="center">
+              <Skeleton shape="Avatar" />
+              <VStack ml="2">
+                <Skeleton shape="Body1" />
+              </VStack>
+            </HStack>
+          </ListItem.Column>
+          <ListItem.Column>
+            <HStack w="100px" justifyContent="flex-end">
+              <Skeleton shape="Body1" />
+            </HStack>
+          </ListItem.Column>
+          <ListItem.Column>
+            <Box flex="1">
+              <Skeleton shape="Body1" />
+            </Box>
+          </ListItem.Column>
+          <ListItem.Column>
+            <HStack w="260px">
+              <VStack flex="1">
+                <Skeleton shape="Body2" />
+                <Skeleton shape="Body2" />
+              </VStack>
+              <HStack>
+                <Skeleton shape="Caption" />
+                <Box ml="2">
+                  <Skeleton shape="Caption" />
+                </Box>
+              </HStack>
+            </HStack>
+          </ListItem.Column>
+        </ListItem>
+      ))}
+    </>
+  );
+};
 
 export const ERC20TokenList: FC<{
   networkId: string;
@@ -135,6 +171,7 @@ export const ERC20TokenList: FC<{
   const data = useMemo(
     () =>
       allowances
+        ?.filter((item) => item.allowance.length > 0)
         ?.filter(
           ({ token }) => filters.includeUnverifiedTokens || token.verified,
         )
@@ -171,25 +208,33 @@ export const ERC20TokenList: FC<{
               size={8}
               showInfo
               name={symbol}
-              description={toFloat(Number(balance), decimals)}
+              showDescription={false}
               w="200px"
               alignSelf="flex-start"
               infoBoxProps={{ flex: 1 }}
             />
           </ListItem.Column>
           <ListItem.Column>
-            <HStack w="100px" alignSelf="flex-start">
+            <VStack w="100px" alignSelf="flex-start" textAlign="right">
               <Typography.Body1Strong>
+                {`${toFloat(Number(balance), decimals)} ${symbol}`}
+              </Typography.Body1Strong>
+              <Typography.Body2>
                 {priceMulBalance ? (
                   <FormatCurrencyNumber value={priceMulBalance.toNumber()} />
                 ) : (
                   'N/A'
                 )}
-              </Typography.Body1Strong>
-            </HStack>
+              </Typography.Body2>
+            </VStack>
           </ListItem.Column>
           <ListItem.Column>
-            <VStack flex="1">
+            <VStack
+              flex="1"
+              borderLeftWidth={1}
+              borderLeftColor="divider"
+              pl="4"
+            >
               {allowance.length === 0 ? (
                 <Typography.Body2Strong>
                   {intl.formatMessage({ id: 'form__no_allowance' })}
@@ -241,21 +286,32 @@ export const ERC20TokenList: FC<{
                   size={8}
                   showInfo
                   name={symbol}
-                  description={toFloat(Number(balance), decimals)}
+                  showDescription={false}
                   flex="1"
                   infoBoxProps={{ flex: 1 }}
                 />
-                <Typography.Body1Strong>
-                  {priceMulBalance ? (
-                    <FormatCurrencyNumber value={priceMulBalance.toNumber()} />
-                  ) : (
-                    'N/A'
-                  )}
-                </Typography.Body1Strong>
+                <VStack
+                  alignSelf="flex-start"
+                  textAlign="right"
+                  alignItems="flex-end"
+                >
+                  <Typography.Body1Strong>
+                    {`${toFloat(Number(balance), decimals)} ${symbol}`}
+                  </Typography.Body1Strong>
+                  <Typography.Body2>
+                    {priceMulBalance ? (
+                      <FormatCurrencyNumber
+                        value={priceMulBalance.toNumber()}
+                      />
+                    ) : (
+                      'N/A'
+                    )}
+                  </Typography.Body2>
+                </VStack>
               </HStack>
               <VStack flex="1">
                 {allowance.length === 0 ? (
-                  <Typography.Body2Strong>
+                  <Typography.Body2Strong color="text-subdued">
                     {intl.formatMessage({ id: 'form__no_allowance' })}
                   </Typography.Body2Strong>
                 ) : (
