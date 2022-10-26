@@ -178,12 +178,21 @@ export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
 
   override key: LocaleIds = 'msg__hardware_enter_boot_failure';
 }
+
 export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
   override code = HardwareErrorCode.FirmwareUpdateLimitOneDevice;
 
   override data = { reconnect: true };
 
   override key: LocaleIds = 'modal__only_one_device_can_be_connected_desc';
+}
+
+export class NewFirmwareUnRelease extends OneKeyHardwareError {
+  override code = HardwareErrorCode.NewFirmwareUnRelease;
+
+  override data = { reconnect: true };
+
+  override key: LocaleIds = 'msg__str_not_supported_by_hardware_wallets';
 }
 
 export class DeviceNotSame extends OneKeyHardwareError {
@@ -211,6 +220,7 @@ export class InitIframeTimeout extends OneKeyHardwareError {
 
   override key: LocaleIds = 'msg__hardware_init_iframe_load_error';
 }
+
 export class NetworkError extends OneKeyHardwareError {
   override code = HardwareErrorCode.NetworkError;
 
