@@ -30,7 +30,7 @@ const data = [
       color: 'icon-success',
       size: 32,
     },
-    title: 'title__token_approvals',
+    title: 'title__contract_approvals',
     description: 'title__token_approvals_desc',
   },
 ] as const;
