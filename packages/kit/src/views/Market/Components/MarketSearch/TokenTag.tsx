@@ -2,8 +2,8 @@ import React, { FC } from 'react';
 
 import {
   Box,
-  Image,
   Pressable,
+  Token,
   Typography,
   useThemeValue,
 } from '@onekeyhq/components/src';
@@ -31,13 +31,7 @@ const TokenTag: FC<TokenTagProps> = ({ name, logoURI, onPress }) => {
             bgColor={bgColor}
           >
             {logoURI ? (
-              <Image
-                size={5}
-                src={logoURI}
-                key={logoURI}
-                alt={logoURI}
-                borderRadius={10}
-              />
+              <Token size={5} token={{ logoURI, name, symbol: name }} />
             ) : null}
             <Typography.Body2Strong ml="1">{name}</Typography.Body2Strong>
           </Box>

@@ -122,7 +122,7 @@ const MarketList: FC = () => {
             ListHeaderComponent={() => (
               <MarketListHeader headTags={listHeadTags} />
             )}
-            ItemSeparatorComponent={Divider}
+            ItemSeparatorComponent={!isVerticalLayout ? Divider : null}
           />
         )}
       </ScrollView>
