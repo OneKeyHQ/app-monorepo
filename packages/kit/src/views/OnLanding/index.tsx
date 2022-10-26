@@ -1,10 +1,13 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
 import { Button, Center, Icon, Typography } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
+import { WalletConnectUniversalLinkPath } from '../../routes/deepLink';
 
 export default function OnLanding() {
   const intl = useIntl();
@@ -25,12 +28,40 @@ export default function OnLanding() {
       'https://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473',
     );
   }, [openLinkUrl]);
-  const onLaunchApp = useCallback(() => {
-    const { queryParams } = Linking.parse(global.location.href);
-    if (queryParams?.redirectURL) {
-      openLinkUrl(queryParams.redirectURL as string);
-    }
+  const onDesktopDownload = useCallback(() => {
+    openLinkUrl('https://onekey.so/download');
   }, [openLinkUrl]);
+  const locationUrl = global?.location?.href || '';
+  const autoLaunchAppUrl = useMemo(() => {
+    if (!locationUrl) {
+      return '';
+    }
+    const { queryParams, path } = Linking.parse(locationUrl);
+    if (path === WalletConnectUniversalLinkPath) {
+      const linkUrl = walletConnectUtils.buildOneKeyWalletConnectDeepLinkUrl({
+        uri: queryParams?.uri as string,
+      });
+      return linkUrl;
+    }
+    if (queryParams?.redirectURL) {
+      return queryParams.redirectURL as string;
+    }
+    return '';
+  }, [locationUrl]);
+  const onLaunchApp = useCallback(() => {
+    if (autoLaunchAppUrl) {
+      // **** openLink will be blocked by browser
+      // openLinkUrl(autoLaunchAppUrl);
+      window.location.href = autoLaunchAppUrl;
+    }
+  }, [autoLaunchAppUrl]);
+  useEffect(() => {
+    (async () => {
+      if (autoLaunchAppUrl && (await Linking.canOpenURL(autoLaunchAppUrl))) {
+        onLaunchApp();
+      }
+    })();
+  }, [autoLaunchAppUrl, onLaunchApp]);
   return (
     <Center w="full" h="full" bg="background-default">
       <Center maxW="375px" w="full" p="6">
@@ -73,6 +104,16 @@ export default function OnLanding() {
           onPress={onAndroidDownload}
         >
           Android
+        </Button>
+        <Button
+          size="xl"
+          w="full"
+          mt="4"
+          borderRadius="full"
+          leftIconName="DesktopComputerSolid"
+          onPress={onDesktopDownload}
+        >
+          Desktop
         </Button>
       </Center>
     </Center>
