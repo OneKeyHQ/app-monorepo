@@ -205,7 +205,7 @@ class ProviderApiTron extends ProviderApiBase {
     params: WatchAssetParameters,
   ) {
     const type = (params.type ?? '').toUpperCase();
-    if (type !== 'TRC10' && type !== 'TRC20' && type !== 'TRC721') {
+    if (type !== 'TRC20') {
       throw new Error(`Asset of type '${type}' not supported`);
     }
     const result = await this.backgroundApi.serviceDapp?.openAddTokenModal(
