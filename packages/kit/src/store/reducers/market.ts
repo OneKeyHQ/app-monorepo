@@ -178,7 +178,8 @@ const initialState: MarketInitialState = {
 
 function equalStringArr(arr1: string[], arr2: string[]) {
   return (
-    arr1.length === arr2.length && arr1.every((value) => arr2.includes(value))
+    arr1.length === arr2.length &&
+    arr1.every((value, index) => value === arr2[index])
   );
 }
 
@@ -206,8 +207,6 @@ export const MarketSlicer = createSlice({
           if (!cacheCategory.coingeckoIds) {
             cacheCategory.coingeckoIds = fetchCoingeckoIds;
           } else if (
-            // ban favorite category coingecko ids change
-            categoryId !== MARKET_FAVORITES_CATEGORYID &&
             !equalStringArr(cacheCategory.coingeckoIds, fetchCoingeckoIds) &&
             state.listSort === null
           ) {

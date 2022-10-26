@@ -10,15 +10,18 @@ import {
   Skeleton,
   Typography,
 } from '@onekeyhq/components/src';
+import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 
-import { MarketTokenItem } from '../../../../store/reducers/market';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 const MarketSearchTokenDestopCell: FC<{
   marketTokenId: string;
   onPress: (marketTokenItem: MarketTokenItem) => void;
 }> = ({ marketTokenId, onPress }) => {
-  const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
+  const marketTokenItem = useMarketTokenItem({
+    coingeckoId: marketTokenId,
+    isList: true,
+  });
   return (
     <Pressable
       onPress={() => {

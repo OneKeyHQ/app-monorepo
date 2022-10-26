@@ -24,6 +24,15 @@ export const useMarketTopTabName = () => {
   return useMemo(() => tabName, [tabName]);
 };
 
+const useMarketCategoryCoingeckoIds = () => {
+  const selectedCategory = useMarketSelectedCategory();
+  return useMemo(() => {
+    if (selectedCategory?.categoryId === MARKET_FAVORITES_CATEGORYID) {
+      return selectedCategory.coingeckoIds?.join(',');
+    }
+  }, [selectedCategory?.categoryId, selectedCategory?.coingeckoIds]);
+};
+
 export const useMarketList = ({
   pollingInterval = 60,
 }: {
@@ -46,11 +55,12 @@ export const useMarketList = ({
     }
     return true;
   }, [selectedCategory]);
+  const coingeckoIds = useMarketCategoryCoingeckoIds();
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
     if (
       isFocused &&
-      selectedCategory &&
+      selectedCategory?.categoryId &&
       marktTopTabName === MARKET_TAB_NAME &&
       checkFavoritesFetch
     ) {
@@ -58,7 +68,7 @@ export const useMarketList = ({
         backgroundApiProxy.serviceMarket.fetchMarketList({
           categoryId: selectedCategory.categoryId,
           vsCurrency: 'usd',
-          ids: selectedCategory.coingeckoIds?.join(','),
+          ids: coingeckoIds,
           sparkline: !isVerticalLlayout && !isMidLayout,
         });
       }
@@ -66,7 +76,7 @@ export const useMarketList = ({
         backgroundApiProxy.serviceMarket.fetchMarketList({
           categoryId: selectedCategory.categoryId,
           vsCurrency: 'usd',
-          ids: selectedCategory.coingeckoIds?.join(','),
+          ids: coingeckoIds,
           sparkline: !isVerticalLlayout && !isMidLayout,
         });
       }, pollingInterval * 1000);
@@ -77,7 +87,7 @@ export const useMarketList = ({
       }
     };
   }, [
-    selectedCategory,
+    selectedCategory?.categoryId,
     isFocused,
     isVerticalLlayout,
     pollingInterval,
@@ -85,19 +95,20 @@ export const useMarketList = ({
     marktTopTabName,
     checkFavoritesFetch,
     isMidLayout,
+    coingeckoIds,
   ]);
   const onRefreshingMarketList = useCallback(async () => {
     if (selectedCategory) {
       await backgroundApiProxy.serviceMarket.fetchMarketList({
         categoryId: selectedCategory.categoryId,
         vsCurrency: 'usd',
-        ids: selectedCategory.coingeckoIds?.join(','),
+        ids: coingeckoIds,
         sparkline: !isVerticalLlayout && !isMidLayout,
       });
     } else {
       await backgroundApiProxy.serviceMarket.fetchMarketCategorys();
     }
-  }, [isMidLayout, isVerticalLlayout, selectedCategory]);
+  }, [isMidLayout, isVerticalLlayout, selectedCategory, coingeckoIds]);
 
   return {
     selectedCategory,
