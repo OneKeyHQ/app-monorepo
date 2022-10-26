@@ -2,11 +2,8 @@
 import React, { useCallback, useRef, useState } from 'react';
 
 import QRCodeModalWeb from '@walletconnect/qrcode-modal';
-import {
-  IClientMeta,
-  IQRCodeModal,
-  IWalletConnectSession,
-} from '@walletconnect/types';
+import { IQRCodeModal, IWalletConnectSession } from '@walletconnect/types';
+import { Web3ReactState } from '@web3-react/types';
 import { Linking } from 'react-native';
 
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -76,6 +73,7 @@ export function useWalletConnectQrcodeModal() {
         return Promise.reject(new Error('Invalid uri.'));
       }
 
+      // deeplink or universal link
       const connectionUrl = walletConnectUtils.buildConnectWalletAppUrl({
         uri,
         walletService,
@@ -96,6 +94,7 @@ export function useWalletConnectQrcodeModal() {
 
         if (platformEnv.isNativeAndroid) {
           try {
+            // android try to open app by original uri
             openConnectionUrl = uri;
             canOpenURL = await Linking.canOpenURL(openConnectionUrl);
           } catch (error) {
@@ -389,23 +388,9 @@ export function useWalletConnectQrcodeModal() {
 }
 
 export type IConnectToWalletResult = {
-  status: ISessionStatusPro;
-  session:
-    | {
-        connected: boolean;
-        accounts: string[];
-        chainId: number;
-        bridge: string;
-        key: string;
-        clientId: string;
-        clientMeta: IClientMeta | null;
-        peerId: string;
-        peerMeta: IClientMeta | null;
-        handshakeId: number;
-        handshakeTopic: string;
-        networkImpl: string | null;
-      }
-    | undefined;
-  client: WalletConnectClientForDapp;
-  walletService: WalletService | undefined;
+  injectedProviderState?: Web3ReactState;
+  status?: ISessionStatusPro;
+  session?: IWalletConnectSession | undefined;
+  client?: WalletConnectClientForDapp;
+  walletService?: WalletService | undefined;
 };

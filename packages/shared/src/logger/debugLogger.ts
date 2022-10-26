@@ -2,7 +2,7 @@
 import 'core-js/es7/global';
 import { format as fnsFormat } from 'date-fns';
 import * as FileSystem from 'expo-file-system';
-import { isNil } from 'lodash';
+import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
 import {
   logger as RNLogger,
@@ -49,7 +49,10 @@ function logToConsole(props: IConsoleFuncProps) {
     ]
       .filter(Boolean)
       .join(' | ')} : `;
-    const logContent = [prefix, ...props.rawMsg];
+    let logContent = [prefix];
+    if (props?.rawMsg && isArray(props?.rawMsg)) {
+      logContent = [...logContent, ...props?.rawMsg];
+    }
     if (props?.level?.text === 'error') {
       console.error(...logContent);
     } else {

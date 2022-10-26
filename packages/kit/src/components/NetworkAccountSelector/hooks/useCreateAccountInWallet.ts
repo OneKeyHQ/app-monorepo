@@ -3,12 +3,9 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useToast } from '@onekeyhq/components';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { IAccount } from '@onekeyhq/engine/src/types';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
@@ -19,9 +16,7 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
-import { wait } from '../../../utils/helper';
-import { useAddExternalAccount } from '../../WalletConnect/useAddExternalAccount';
-import { useWalletConnectQrcodeModal } from '../../WalletConnect/useWalletConnectQrcodeModal';
+import { useCreateExternalAccount } from '../../../views/ExternalAccount/useCreateExternalAccount';
 
 export const AllNetwork = 'all';
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
@@ -36,12 +31,14 @@ export function useCreateAccountInWallet({
   walletId?: string;
   isFromAccountSelector?: boolean;
 }) {
-  const { engine, serviceAccountSelector } = backgroundApiProxy;
+  const { engine } = backgroundApiProxy;
   const navigation = useNavigation();
   const toast = useToast();
   const intl = useIntl();
-  const { connectToWallet } = useWalletConnectQrcodeModal();
-  const addExternalAccount = useAddExternalAccount();
+  const { createExternalAccount } = useCreateExternalAccount({
+    networkId,
+    walletId,
+  });
 
   const { result: walletAndNetworkInfo } = usePromiseResult(async () => {
     const selectedNetworkId =
@@ -127,37 +124,9 @@ export function useCreateAccountInWallet({
       showNotSupportToast();
       return;
     }
+
     if (activeWallet?.type === 'external') {
-      let isConnected = false;
-      let addedAccount: IAccount | undefined;
-      try {
-        const result = await connectToWallet({
-          isNewSession: true,
-        });
-        isConnected = true;
-
-        // refresh accounts in drawer list
-        await serviceAccountSelector.preloadingCreateAccount({
-          walletId: activeWallet.id,
-          networkId: network?.id || OnekeyNetwork.eth,
-        });
-
-        addedAccount = await addExternalAccount(result);
-      } catch (error) {
-        debugLogger.common.error(error);
-      } finally {
-        await wait(2000);
-
-        if (isConnected) {
-          // refresh accounts in drawer list after created
-
-          await serviceAccountSelector.preloadingCreateAccountDone({
-            walletId: activeWallet.id,
-            networkId: network?.id || OnekeyNetwork.eth,
-            accountId: addedAccount?.id,
-          });
-        }
-      }
+      await createExternalAccount();
       return;
     }
     if (activeWallet?.type === 'imported') {
@@ -201,12 +170,10 @@ export function useCreateAccountInWallet({
       },
     });
   }, [
-    addExternalAccount,
-    connectToWallet,
+    createExternalAccount,
     intl,
     isFromAccountSelector,
     navigation,
-    serviceAccountSelector,
     toast,
     walletAndNetworkInfo,
     walletId,

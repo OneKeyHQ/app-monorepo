@@ -11,6 +11,7 @@ import ServiceCloudBackup from './services/ServiceCloudBackup';
 import ServiceCronJob from './services/ServiceCronJob';
 import ServiceDapp from './services/ServiceDapp';
 import ServiceDiscover from './services/ServiceDiscover';
+import ServiceExternalAccount from './services/ServiceExternalAccount';
 import ServiceHardware from './services/ServiceHardware';
 import ServiceHistory from './services/ServiceHistory';
 import ServiceMarket from './services/ServiceMarket';
@@ -48,6 +49,10 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   });
 
   serviceAccount = new ServiceAccount({
+    backgroundApi: this,
+  });
+
+  serviceExternalAccount = new ServiceExternalAccount({
     backgroundApi: this,
   });
 

@@ -46,7 +46,9 @@ export const reducerSlice = createSlice({
       state,
       action: PayloadAction<InitialState['accountSelectorMode']>,
     ) {
-      state.accountSelectorMode = action.payload;
+      if (state.accountSelectorMode !== action.payload) {
+        state.accountSelectorMode = action.payload;
+      }
     },
     updateDesktopWalletSelectorVisible(
       state,

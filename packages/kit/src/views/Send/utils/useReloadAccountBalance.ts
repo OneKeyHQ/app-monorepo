@@ -10,7 +10,10 @@ export function useReloadAccountBalance({
   networkId: string;
 }) {
   useEffect(() => {
-    backgroundApiProxy.serviceToken.fetchAccountTokens({
+    if (!accountId || !networkId) {
+      return;
+    }
+    backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
       activeAccountId: accountId,
       activeNetworkId: networkId,
       withBalance: true,

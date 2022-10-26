@@ -126,9 +126,11 @@ class ServiceAccount extends ServiceBase {
   async autoChangeAccount({
     walletId,
     shouldUpdateWallets,
+    skipIfSameWallet,
   }: {
     walletId: string;
     shouldUpdateWallets?: boolean;
+    skipIfSameWallet?: boolean;
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
@@ -143,14 +145,21 @@ class ServiceAccount extends ServiceBase {
     }
 
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    const activeAccountId = appSelector((s) => s.general.activeAccountId);
 
     let accountId: string | null = null;
     if (wallet && activeNetworkId && wallet.accounts.length > 0) {
-      const account = await engine.getAccounts(
+      const accountsInWalletAndNetwork = await engine.getAccounts(
         wallet.accounts,
         activeNetworkId,
       );
-      accountId = account?.[0]?.id ?? null;
+      accountId = accountsInWalletAndNetwork?.[0]?.id ?? null;
+      if (
+        skipIfSameWallet &&
+        accountsInWalletAndNetwork.find((item) => item.id === activeAccountId)
+      ) {
+        return;
+      }
     }
     await serviceAccount.changeActiveAccount({
       accountId,

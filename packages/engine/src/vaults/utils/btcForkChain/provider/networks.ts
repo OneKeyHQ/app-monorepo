@@ -57,6 +57,16 @@ const ltc = {
     public: 0x019da462,
     private: 0x019d9cfe,
   },
+  segwitVersionBytes: {
+    [AddressEncodings.P2SH_P2WPKH]: {
+      public: 0x01b26ef6,
+      private: 0x01b26792,
+    },
+    [AddressEncodings.P2WPKH]: {
+      public: 0x04b24746,
+      private: 0x04b2430c,
+    },
+  },
   pubKeyHash: 0x30,
   scriptHash: 0x32,
   wif: 0xb0,

@@ -42,12 +42,12 @@ export type SettingsState = {
     string, // connectId
     FirmwareUpdate
   >;
-  devMode: {
-    enable: boolean;
-    preReleaseUpdate: boolean;
-    updateDeviceBle: boolean;
-    updateDeviceSys: boolean;
-    enableTestFiatEndpoint: boolean;
+  devMode?: {
+    enable?: boolean;
+    preReleaseUpdate?: boolean;
+    updateDeviceBle?: boolean;
+    updateDeviceSys?: boolean;
+    enableTestFiatEndpoint?: boolean;
     enableZeroNotificationThreshold?: boolean;
   };
   pushNotification?: {
@@ -59,7 +59,7 @@ export type SettingsState = {
     priceAlertEnable: boolean;
     accountActivityPushEnable: boolean;
   };
-  validationSetting: {
+  validationSetting?: {
     [ValidationFields.Account]?: boolean;
     [ValidationFields.Payment]?: boolean;
     [ValidationFields.Secret]?: boolean;

@@ -42,6 +42,7 @@ export enum ModalRoutes {
   Staking = 'Staking',
   PushNotification = 'PushNotification',
   Webview = 'Webview',
+  Revoke = 'Revoke',
 }
 
 export enum RootRoutes {

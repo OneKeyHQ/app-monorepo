@@ -10,16 +10,6 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {
   @backgroundMethod()
-  async getExternalAccountImage({ accountId }: { accountId: string }) {
-    return simpleDb.walletConnect.getExternalAccountImage({ accountId });
-  }
-
-  @backgroundMethod()
-  async getExternalAccountSession({ accountId }: { accountId: string }) {
-    return simpleDb.walletConnect.getExternalAccountSession({ accountId });
-  }
-
-  @backgroundMethod()
   async findWalletServiceBySession({
     session,
   }: {
@@ -44,7 +34,14 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
-  async saveExternalAccountSession({
+  async getWalletConnectSessionOfAccount({ accountId }: { accountId: string }) {
+    return simpleDb.walletConnect.getWalletConnectSessionOfAccount({
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  async saveWalletConnectSessionOfAccount({
     accountId,
     session,
     walletService,
@@ -53,7 +50,7 @@ class ServiceWalletConnect extends ServiceBase {
     session: IWalletConnectSession;
     walletService?: WalletService;
   }) {
-    return simpleDb.walletConnect.saveExternalAccountSession({
+    return simpleDb.walletConnect.saveWalletConnectSessionOfAccount({
       accountId,
       session,
       walletService,

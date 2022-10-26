@@ -242,7 +242,7 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
       session.peerMeta,
       this.walletService?.homepage,
     );
-    await serviceWalletConnect.saveExternalAccountSession({
+    await serviceWalletConnect.saveWalletConnectSessionOfAccount({
       accountId,
       session,
       walletService: this.walletService,

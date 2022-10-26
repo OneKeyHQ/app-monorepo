@@ -22,6 +22,7 @@ import {
 } from './OnboardingContext';
 
 type LayoutProps = {
+  disableAnimation?: boolean;
   backButton?: boolean;
   showCloseButton?: boolean;
   secondaryContent?: ReactNode;
@@ -83,6 +84,7 @@ const Layout: FC<LayoutProps> = ({
   scaleFade,
   visible,
   children,
+  disableAnimation,
   ...rest
 }) => {
   const [isClosing, setIsClosing] = useState(false);
@@ -127,17 +129,25 @@ const Layout: FC<LayoutProps> = ({
       <PresenceTransition
         as={Box}
         visible={finalVisible}
-        initial={{
-          opacity: 0,
-          translateX: scaleFade ? 0 : 24,
-          scale: scaleFade ? 0.95 : 1,
-        }}
-        animate={{
-          opacity: 1,
-          translateX: 0,
-          scale: 1,
-          transition: { duration: 150 },
-        }}
+        initial={
+          disableAnimation
+            ? undefined
+            : {
+                opacity: 0,
+                translateX: scaleFade ? 0 : 24,
+                scale: scaleFade ? 0.95 : 1,
+              }
+        }
+        animate={
+          disableAnimation
+            ? undefined
+            : {
+                opacity: 1,
+                translateX: 0,
+                scale: 1,
+                transition: { duration: 150 },
+              }
+        }
         flexGrow={{ base: fullHeight ? 1 : undefined, sm: 0 }}
         w="full"
         maxW={800}

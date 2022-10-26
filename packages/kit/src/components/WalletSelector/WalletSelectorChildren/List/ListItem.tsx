@@ -124,6 +124,7 @@ function ListItem({
               // TODO performance
               await serviceAccount.autoChangeAccount({
                 walletId: wallet?.id ?? '',
+                skipIfSameWallet: true,
               });
               // await serviceAccountSelector.setSelectedWalletToActive();
             } finally {

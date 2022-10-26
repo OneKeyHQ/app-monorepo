@@ -26,8 +26,8 @@ import reducerAccountSelector, {
   EAccountSelectorMode,
 } from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
+import ExternalAccountImg from '../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
-import ExternalAccountImg from '../../../WalletConnect/ExternalAccountImg';
 import { AccountItemSelectDropdown } from '../AccountItemSelectDropdown';
 
 type ListItemProps = {
@@ -95,6 +95,7 @@ const ListItem: FC<ListItemProps> = ({
   const onPress = useCallback(async () => {
     closeModal();
     closeWalletSelector();
+    await wait(0);
     const accountId = account?.id || '';
 
     if (accountSelectorMode === EAccountSelectorMode.Transfer) {

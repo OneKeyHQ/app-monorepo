@@ -31,7 +31,7 @@ const MarketSearchTabView: FC<Props> = ({
   onTabChange,
   options,
 }) => {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(navigationStateIndex);
   const { bgColor } = useMarketSearchContainerStyle();
   const routes = useMemo(
     () =>

@@ -36,6 +36,7 @@ import ManageTokenModal from './ManageToken';
 import PasswordModal from './Password';
 import PushNotification from './PushNotification';
 import ReceiveToken from './ReceiveToken';
+import Revoke from './Revoke';
 import ScanQrcode from './ScanQrcode';
 import Send from './Send';
 import StakingModal from './Staking';
@@ -174,6 +175,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Webview,
     component: WebviewModal,
+  },
+  {
+    name: ModalRoutes.Revoke,
+    component: Revoke,
   },
 ];
 

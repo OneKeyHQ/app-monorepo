@@ -7,6 +7,7 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
+import { COINTYPE_DOGE } from '../../../constants';
 import {
   NotImplemented,
   OneKeyHardwareError,
@@ -16,7 +17,6 @@ import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { IGetAddressParams, IPrepareHardwareAccountsParams } from '../../types';
 
-import { Provider } from './provider';
 import { TxInput, TxOutput, UTXO } from './types';
 import { getAccountDefaultByPurpose } from './utils';
 
@@ -37,9 +37,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
     }
 
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as unknown as Provider;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
 
     const { inputs, outputs } = unsignedTx;
     const prevTxids = Array.from(
@@ -81,13 +81,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { addressEncoding } = getAccountDefaultByPurpose(
+    const { addressEncoding, namePrefix } = getAccountDefaultByPurpose(
       usedPurpose,
       coinName,
     );
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as unknown as Provider;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
 
     let response;
     try {
@@ -124,8 +124,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         xpub,
         [firstAddressRelPath],
       );
+      const prefix = COIN_TYPE === COINTYPE_DOGE ? coinName : namePrefix;
       const name =
-        (names || [])[index] || `${coinName} #${usedIndexes[index] + 1}`;
+        (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,

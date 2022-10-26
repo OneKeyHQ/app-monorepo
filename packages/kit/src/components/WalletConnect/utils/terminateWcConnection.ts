@@ -8,7 +8,7 @@ export async function terminateWcConnection({
   client,
   walletUrl,
 }: {
-  client?: WalletConnectClientForDapp;
+  client?: WalletConnectClientForDapp | null;
   walletUrl?: string;
 }) {
   const { serviceWalletConnect } = backgroundApiProxy;

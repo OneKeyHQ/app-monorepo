@@ -1,3 +1,5 @@
+import { debounce } from 'lodash';
+
 import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   AppEventBusNames,
@@ -15,20 +17,27 @@ import {
   setNetworkTokens,
   setPrices,
 } from '../../store/reducers/tokens';
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
+export type IFetchAccountTokensParams = {
+  activeAccountId: string;
+  activeNetworkId: string;
+  withBalance?: boolean;
+  withPrice?: boolean;
+  wait?: boolean;
+  forceReloadTokens?: boolean;
+};
 @backgroundClass()
 export default class ServiceToken extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
-    appEventBus.on(
-      AppEventBusNames.NetworkChanged,
-      this.refreshTokenBalance.bind(this),
-    );
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    appEventBus.on(AppEventBusNames.NetworkChanged, this.refreshTokenBalance);
   }
 
+  @bindThis()
   refreshTokenBalance() {
     const { appSelector } = this.backgroundApi;
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
@@ -101,6 +110,24 @@ export default class ServiceToken extends ServiceBase {
     }
   }
 
+  _fetchAccountTokensDebounced = debounce(
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    this.fetchAccountTokens,
+    600,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  // avoid multiple calling from hooks, and modal animation done
+  @backgroundMethod()
+  fetchAccountTokensDebounced(params: IFetchAccountTokensParams) {
+    this._fetchAccountTokensDebounced(params);
+  }
+
+  // TODO performance issue in web
+  @bindThis()
   @backgroundMethod()
   async fetchAccountTokens({
     activeAccountId,
@@ -109,14 +136,7 @@ export default class ServiceToken extends ServiceBase {
     withPrice,
     wait,
     forceReloadTokens,
-  }: {
-    activeAccountId: string;
-    activeNetworkId: string;
-    withBalance?: boolean;
-    withPrice?: boolean;
-    wait?: boolean;
-    forceReloadTokens?: boolean;
-  }) {
+  }: IFetchAccountTokensParams) {
     const { engine, dispatch } = this.backgroundApi;
     const tokens = await engine.getTokens(
       activeNetworkId,
@@ -125,13 +145,19 @@ export default class ServiceToken extends ServiceBase {
       true,
       forceReloadTokens,
     );
-    dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
+    const actions: any[] = [
+      setAccountTokens({ activeAccountId, activeNetworkId, tokens }),
+    ];
     const nativeToken = tokens.filter((item) => !item.tokenIdOnNetwork)[0];
     if (nativeToken) {
-      dispatch(
-        setNativeToken({ networkId: activeNetworkId, token: nativeToken }),
+      actions.push(
+        setNativeToken({
+          networkId: activeNetworkId,
+          token: nativeToken,
+        }),
       );
     }
+    dispatch(...actions);
     const waitPromises: Promise<any>[] = [];
     if (withBalance) {
       waitPromises.push(

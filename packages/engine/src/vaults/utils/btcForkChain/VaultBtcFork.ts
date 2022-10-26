@@ -25,6 +25,7 @@ import { COINTYPE_BTC } from '../../../constants';
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
+  InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
@@ -61,6 +62,8 @@ export default class VaultBtcFork extends VaultBase {
 
   settings = {} as IVaultSettings;
 
+  private provider?: Provider;
+
   getDefaultPurpose() {
     return 49;
   }
@@ -89,28 +92,48 @@ export default class VaultBtcFork extends VaultBase {
     return 600;
   }
 
-  override validateImportedCredential(input: string): Promise<boolean> {
+  async getProvider() {
+    if (!this.provider) {
+      const chainInfo =
+        await this.engine.providerManager.getChainInfoByNetworkId(
+          this.networkId,
+        );
+      this.provider = new Provider(chainInfo);
+    }
+    return this.provider;
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const provider = await this.getProvider();
+    const { normalizedAddress, isValid } = provider.verifyAddress(address);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  override async validateImportedCredential(input: string): Promise<boolean> {
     const xprvReg = this.getXprvReg();
     let ret = false;
     try {
       ret =
         this.settings.importedAccountEnabled &&
         xprvReg.test(input) &&
-        (this.engineProvider as unknown as Provider).isValidXprv(input);
+        (await this.getProvider()).isValidXprv(input);
     } catch {
       // pass
     }
     return Promise.resolve(ret);
   }
 
-  override validateWatchingCredential(input: string): Promise<boolean> {
+  override async validateWatchingCredential(input: string): Promise<boolean> {
     const xpubReg = this.getXpubReg();
     let ret = false;
     try {
       ret =
         this.settings.watchingAccountEnabled &&
         xpubReg.test(input) &&
-        (this.engineProvider as unknown as Provider).isValidXpub(input);
+        (await this.getProvider()).isValidXpub(input);
     } catch {
       // ignore
     }
@@ -122,7 +145,7 @@ export default class VaultBtcFork extends VaultBase {
   ): Promise<boolean> {
     let accountIsPresent = false;
     try {
-      const provider = this.engineProvider as unknown as Provider;
+      const provider = await this.getProvider();
       const { txs } = (await provider.getAccount({
         type: 'simple',
         xpub: accountIdOnNetwork,
@@ -150,10 +173,10 @@ export default class VaultBtcFork extends VaultBase {
     return [mainBalance].concat(ret);
   }
 
-  override getBalances(
+  override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
-    return (this.engineProvider as unknown as Provider).getBalances(requests);
+    return (await this.getProvider()).getBalances(requests);
   }
 
   async getExportedCredential(password: string): Promise<string> {
@@ -165,7 +188,7 @@ export default class VaultBtcFork extends VaultBase {
         purpose,
         this.getCoinName(),
       );
-      const { network } = this.engineProvider as unknown as Provider;
+      const { network } = await this.getProvider();
       const { private: xprvVersionBytes } =
         (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
@@ -466,9 +489,8 @@ export default class VaultBtcFork extends VaultBase {
     debugLogger.engine.info('broadcastTransaction START:', {
       rawTx: signedTx.rawTx,
     });
-    const txid = await (
-      this.engineProvider as unknown as Provider
-    ).broadcastTransaction(signedTx.rawTx);
+    const provider = await this.getProvider();
+    const txid = await provider.broadcastTransaction(signedTx.rawTx);
     debugLogger.engine.info('broadcastTransaction END:', {
       txid,
       rawTx: signedTx.rawTx,
@@ -479,12 +501,10 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
-  override getTransactionStatuses(
+  override async getTransactionStatuses(
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
-    return (this.engineProvider as unknown as Provider).getTransactionStatuses(
-      txids,
-    );
+    return (await this.getProvider()).getTransactionStatuses(txids);
   }
 
   override async fetchOnChainHistory(options: {
@@ -493,6 +513,7 @@ export default class VaultBtcFork extends VaultBase {
   }): Promise<IHistoryTx[]> {
     const { localHistory = [] } = options;
 
+    const provider = await this.getProvider();
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
     const token = await this.engine.getNativeTokenInfo(this.networkId);
@@ -500,7 +521,7 @@ export default class VaultBtcFork extends VaultBase {
     try {
       txs =
         (
-          (await (this.engineProvider as unknown as Provider).getAccount({
+          (await provider.getAccount({
             type: 'history',
             xpub: dbAccount.xpub,
           })) as { transactions: Array<IBlockBookTransaction> }
@@ -613,11 +634,10 @@ export default class VaultBtcFork extends VaultBase {
 
   collectUTXOs = memoizee(
     async () => {
+      const provider = await this.getProvider();
       const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
       try {
-        return await (this.engineProvider as unknown as Provider).getUTXOs(
-          dbAccount.xpub,
-        );
+        return await provider.getUTXOs(dbAccount.xpub);
       } catch (e) {
         console.error(e);
         throw new OneKeyInternalError('Failed to get UTXOs of the account.');
@@ -632,8 +652,7 @@ export default class VaultBtcFork extends VaultBase {
 
   private getFeeRate = memoizee(
     async () => {
-      const client = await (this.engineProvider as unknown as Provider)
-        .blockbook;
+      const client = await (await this.getProvider()).blockbook;
       const blockNums = this.getDefaultBlockNums();
       try {
         return await Promise.all(

@@ -1,10 +1,9 @@
-import { COINTYPE_DOGE as COIN_TYPE } from '../../../constants';
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 import { IPrepareWatchingAccountsParams } from '../../types';
 
-import { Provider } from './provider';
+import type BTCForkVault from './VaultBtcFork';
 
 export class KeyringWatching extends KeyringWatchingBase {
   async prepareAccounts(
@@ -12,9 +11,10 @@ export class KeyringWatching extends KeyringWatchingBase {
   ): Promise<DBUTXOAccount[]> {
     console.log('doge watching prepareAccount');
     const { target, name, accountIdPrefix } = params;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as unknown as Provider;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+    const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
 
     if (!provider.isValidXpub(target)) {
       throw new InvalidAddress();

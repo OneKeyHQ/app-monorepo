@@ -6,11 +6,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
+  DialogManager,
   HStack,
   IconButton,
   Pressable,
-  Token,
   Typography,
+  VStack,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
@@ -40,6 +42,32 @@ type Props = {
   totalSupply: string;
   accountAddress: string;
   onRevokeSuccess: () => void;
+};
+
+export const ApproveDialog = () => {
+  const intl = useIntl();
+  const navigation = useNavigation();
+  return (
+    <Dialog
+      visible
+      contentProps={{
+        title: intl.formatMessage({
+          id: 'modal__connect_wallet_to manage_token_approvals',
+        }),
+        content: intl.formatMessage({
+          id: 'modal__connect_wallet_to manage_token_approvals_desc',
+        }),
+      }}
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__add_wallet',
+        secondaryActionTranslationId: 'action__cancel',
+        onPrimaryActionPress: ({ onClose }) => {
+          navigation.navigate(RootRoutes.Onboarding);
+          onClose?.();
+        },
+      }}
+    />
+  );
 };
 
 export const ERC20Allowance: FC<Props> = ({
@@ -82,9 +110,21 @@ export const ERC20Allowance: FC<Props> = ({
     const v = toFloat(allowanceBN.toNumber(), token.decimals);
     return {
       value: v,
-      label: `${v} ${token.symbol}`,
+      label: `${intl.formatMessage({ id: 'form__allowance' })}: ${v} ${
+        token.symbol
+      }`,
     };
   }, [totalSupply, allowance, intl, token]);
+
+  const checkAccount = useCallback(() => {
+    if (!isCurrentAccount) {
+      DialogManager.show({
+        render: <ApproveDialog />,
+      });
+      return false;
+    }
+    return true;
+  }, [isCurrentAccount]);
 
   const update = useCallback(
     async (amount: string) => {
@@ -92,6 +132,9 @@ export const ERC20Allowance: FC<Props> = ({
         return;
       }
       if (!networkId) {
+        return;
+      }
+      if (!checkAccount()) {
         return;
       }
       const encodedApproveTx =
@@ -118,10 +161,21 @@ export const ERC20Allowance: FC<Props> = ({
         },
       });
     },
-    [spender, account, networkId, navigation, token, onRevokeSuccess],
+    [
+      spender,
+      account,
+      networkId,
+      navigation,
+      token,
+      onRevokeSuccess,
+      checkAccount,
+    ],
   );
 
   const onChangeAllowance = useCallback(() => {
+    if (!checkAccount()) {
+      return;
+    }
     showChangeAllowanceOverlay({
       dapp: {
         name,
@@ -132,17 +186,14 @@ export const ERC20Allowance: FC<Props> = ({
       allowance: value,
       update,
     });
-  }, [name, spender, balance, token, update, value]);
+  }, [name, spender, balance, token, update, value, checkAccount]);
 
   const onRevoke = useCallback(() => {
     update('0');
   }, [update]);
 
-  const buttons = useMemo(() => {
-    if (!isCurrentAccount) {
-      return null;
-    }
-    return (
+  const buttons = useMemo(
+    () => (
       <HStack alignSelf="flex-end">
         <Button
           size="xs"
@@ -166,8 +217,9 @@ export const ERC20Allowance: FC<Props> = ({
           onPress={onRevoke}
         />
       </HStack>
-    );
-  }, [onChangeAllowance, intl, onRevoke, isCurrentAccount]);
+    ),
+    [onChangeAllowance, intl, onRevoke],
+  );
 
   const rightContent = useMemo(() => {
     if (isVertical) {
@@ -175,22 +227,33 @@ export const ERC20Allowance: FC<Props> = ({
     }
     return (
       <HStack w="260px" alignSelf="flex-start">
-        <Typography.Body1Strong flex="1">
-          {price ? (
-            <FormatCurrencyNumber
-              value={B.min(
-                balance,
-                value === 'unlimited' ? Infinity : value,
-              ).multipliedBy(price)}
-            />
+        <VStack flex="1">
+          {value === 'unlimited' ? (
+            <Typography.Body2Strong>{label}</Typography.Body2Strong>
           ) : (
-            'N/A'
+            <>
+              <Typography.Body2Strong>
+                {price ? (
+                  <FormatCurrencyNumber
+                    value={B.min(
+                      balance,
+                      value === 'unlimited' ? Infinity : value,
+                    ).multipliedBy(price)}
+                  />
+                ) : (
+                  'N/A'
+                )}
+              </Typography.Body2Strong>
+              <Typography.Body2Strong color="text-subdued">
+                {label}
+              </Typography.Body2Strong>
+            </>
           )}
-        </Typography.Body1Strong>
+        </VStack>
         {buttons}
       </HStack>
     );
-  }, [isVertical, buttons, balance, price, value]);
+  }, [isVertical, buttons, balance, price, value, label]);
 
   const onDetailActionPress = useCallback(
     (key: ActionKey) => {
@@ -224,14 +287,17 @@ export const ERC20Allowance: FC<Props> = ({
 
   return (
     <Pressable onPress={showRevokeDetail}>
-      <HStack flex="1" mb="2">
-        <Token
-          token={{ name, symbol: label }}
-          showInfo
-          size={5}
-          flex="1"
-          infoBoxProps={{ flex: 1 }}
-        />
+      <HStack flex="1" mb="2" alignItems="center">
+        {isVertical ? (
+          <VStack flex="1">
+            <Typography.Body2Strong>{name}</Typography.Body2Strong>
+            <Typography.Body2Strong color="text-subdued">
+              {label}
+            </Typography.Body2Strong>
+          </VStack>
+        ) : (
+          <Typography.Body1Strong flex="1">{name}</Typography.Body1Strong>
+        )}
         {rightContent}
       </HStack>
     </Pressable>

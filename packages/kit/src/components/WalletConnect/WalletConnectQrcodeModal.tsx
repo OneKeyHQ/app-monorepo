@@ -19,6 +19,7 @@ import {
   Image,
   Modal,
   Pressable,
+  Skeleton,
   Spinner,
   Text,
 } from '@onekeyhq/components';
@@ -28,13 +29,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LogoWalletConnect from '../../../assets/onboarding/logo_walletconnect.png';
 import { CreateWalletModalRoutes } from '../../routes/routesEnum';
+import { wait } from '../../utils/helper';
+import { useConnectExternalWallet } from '../../views/ExternalAccount/useConnectExternalWallet';
 
 import { WalletService } from './types';
 import { useMobileRegistryOfWalletServices } from './useMobileRegistryOfWalletServices';
-import {
-  IConnectToWalletResult,
-  useWalletConnectQrcodeModal,
-} from './useWalletConnectQrcodeModal';
+import { IConnectToWalletResult } from './useWalletConnectQrcodeModal';
 import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from './walletConnectConsts';
 
 import type { CreateWalletRoutesParams } from '../../routes';
@@ -69,7 +69,11 @@ export function ConnectWalletListItem({
   const extraIcon = useMemo(() => {
     if (available) {
       if (isLoading) {
-        return <Spinner />;
+        return (
+          <Hidden from="sm">
+            <Spinner />
+          </Hidden>
+        );
       }
       return (
         <Hidden from="sm">
@@ -108,13 +112,18 @@ export function ConnectWalletListItem({
       disabled={!available || isLoading}
       onPress={onPress}
     >
-      <Image
-        source={imgSource}
-        size={8}
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="border-subdued"
-        rounded="xl"
-      />
+      {isLoading ? (
+        <Skeleton shape="Avatar" size={32} />
+      ) : (
+        <Image
+          source={imgSource}
+          size={8}
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="border-subdued"
+          rounded="xl"
+        />
+      )}
+
       <Text
         flex={1}
         mx={{ base: 3, sm: 0 }}
@@ -135,22 +144,27 @@ export function InitWalletServicesData() {
   return null;
 }
 
-export function ConnectWalletListView({
-  connectToWalletService,
-  uri,
-  onConnectResult,
-}: {
+export type IConnectWalletListViewProps = {
   connectToWalletService?: (
     walletService: WalletService,
     uri?: string,
   ) => Promise<void>;
   uri?: string;
   onConnectResult?: (result: IConnectToWalletResult) => void;
-}) {
+};
+export function ConnectWalletListView({
+  connectToWalletService, // open app directly
+  uri,
+  onConnectResult,
+}: IConnectWalletListViewProps) {
   const { data: walletServicesEnabled } = useMobileRegistryOfWalletServices();
   const [loadingId, setLoadingId] = useState('');
   const loadingTimerRef = useRef<any>();
-  const { connectToWallet } = useWalletConnectQrcodeModal();
+  const { connectExternalWallet } = useConnectExternalWallet({
+    connectToWalletService,
+    uri,
+    onConnectResult,
+  });
 
   const doConnect = useCallback(
     async (
@@ -168,22 +182,17 @@ export function ConnectWalletListView({
         setLoadingId('');
       }, WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING);
       try {
-        if (connectToWalletService && uri && walletService) {
-          await connectToWalletService(walletService, uri);
-        } else {
-          const result = await connectToWallet({
-            isNewSession: true,
-            walletService,
-          });
-          onConnectResult?.(result);
-        }
+        await connectExternalWallet({
+          walletService,
+        });
       } catch (error) {
         debugLogger.common.error(error);
       } finally {
+        await wait(600);
         setLoadingId('');
       }
     },
-    [connectToWallet, connectToWalletService, onConnectResult, uri],
+    [connectExternalWallet],
   );
   const walletsList = useMemo(() => {
     if (platformEnv.isNativeAndroid) {

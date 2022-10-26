@@ -315,9 +315,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     data: unknown,
   ) => {
     if (!this.bridge) {
-      console.warn(
-        `sendMessagesToInjectedBridge ERROR: bridge should be connected first. scope=${scope}`,
-      );
+      if (!platformEnv.isWeb) {
+        console.warn(
+          `sendMessagesToInjectedBridge ERROR: bridge should be connected first. scope=${scope}`,
+        );
+      }
       return;
     }
     if (platformEnv.isExtension) {

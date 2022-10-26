@@ -4,10 +4,13 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  DialogManager,
   HStack,
   IconButton,
   Pressable,
-  Token,
+  Typography,
+  VStack,
+  useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -22,6 +25,8 @@ import { useSpenderAppName } from '../hooks';
 import showAllowanceDetailOverlay, {
   ActionKey,
 } from '../Overlays/AllowanceDetail';
+
+import { ApproveDialog } from './ERC20Allowance';
 
 type Props = {
   spender: string;
@@ -42,6 +47,7 @@ export const ERC721Allowance: FC<Props> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
+  const isVertical = useIsVerticalLayout();
   const name = useSpenderAppName(networkId, spender);
   const { account } = useActiveWalletAccount();
   const navigation = useNavigation();
@@ -58,11 +64,24 @@ export const ERC721Allowance: FC<Props> = ({
     return `Allowance for token ID ${tokenId}`;
   }, [intl, tokenId]);
 
+  const checkIsCurrentAccount = useCallback(() => {
+    if (!isCurrentAccount) {
+      DialogManager.show({
+        render: <ApproveDialog />,
+      });
+      return false;
+    }
+    return true;
+  }, [isCurrentAccount]);
+
   const update = useCallback(async () => {
     if (!account) {
       return;
     }
     if (!networkId) {
+      return;
+    }
+    if (!checkIsCurrentAccount()) {
       return;
     }
     const encodedApproveTx =
@@ -98,6 +117,7 @@ export const ERC721Allowance: FC<Props> = ({
       },
     });
   }, [
+    checkIsCurrentAccount,
     tokenId,
     spender,
     account,
@@ -132,6 +152,20 @@ export const ERC721Allowance: FC<Props> = ({
     );
   }, [onRevoke, isCurrentAccount]);
 
+  const rightContent = useMemo(() => {
+    if (isVertical) {
+      return buttons;
+    }
+    return (
+      <HStack w="260px" alignSelf="flex-start">
+        <VStack flex="1">
+          <Typography.Body2Strong>{label}</Typography.Body2Strong>
+        </VStack>
+        {buttons}
+      </HStack>
+    );
+  }, [isVertical, buttons, label]);
+
   const onDetailActionPress = useCallback(
     (key: ActionKey) => {
       switch (key) {
@@ -161,15 +195,18 @@ export const ERC721Allowance: FC<Props> = ({
 
   return (
     <Pressable onPress={showRevokeDetail}>
-      <HStack flex="1" mb="2">
-        <Token
-          token={{ name, symbol: label }}
-          showInfo
-          size={5}
-          flex="1"
-          infoBoxProps={{ flex: 1 }}
-        />
-        {buttons}
+      <HStack flex="1" mb="2" alignItems="center">
+        {isVertical ? (
+          <VStack flex="1">
+            <Typography.Body2Strong>{name}</Typography.Body2Strong>
+            <Typography.Body2Strong color="text-subdued">
+              {label}
+            </Typography.Body2Strong>
+          </VStack>
+        ) : (
+          <Typography.Body1Strong flex="1">{name}</Typography.Body1Strong>
+        )}
+        {rightContent}
       </HStack>
     </Pressable>
   );

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { FC, useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -78,6 +78,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
+    isList: true,
   });
   const moreButtonRef = useRef();
   const showMore = useCallback(

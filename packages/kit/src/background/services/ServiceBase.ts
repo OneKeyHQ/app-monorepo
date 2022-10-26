@@ -1,6 +1,7 @@
 import { getActiveWalletAccount } from '../../hooks/redux';
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { IBackgroundApi } from '../IBackgroundApi';
+
+import type { IBackgroundApi } from '../IBackgroundApi';
 
 export type IServiceBaseProps = {
   backgroundApi: any;

@@ -59,7 +59,6 @@ const ToolsPage: FC = () => {
     ({ item }: { item: typeof data[0] }) => (
       <Pressable
         flex={1 / 2}
-        h="80px"
         mb="4"
         onPress={() => {
           handlePress(item.key);

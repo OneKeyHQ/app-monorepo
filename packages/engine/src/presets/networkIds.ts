@@ -42,6 +42,7 @@ export const OnekeyNetwork = {
   'toptimism': 'evm--69',
   'tpolygon': 'evm--80001',
   'tbsc': 'evm--97',
+  'ltc': 'ltc--0',
   'near': 'near--0',
   'tnear': 'near--1',
   'sol': 'sol--101',

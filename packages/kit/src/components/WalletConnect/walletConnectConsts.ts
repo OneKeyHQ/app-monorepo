@@ -11,7 +11,8 @@ export const WALLET_CONNECT_STORAGE_KEY_DAPP_SIDE =
 
 export const WALLET_CONNECT_WALLETS_LIST =
   'https://explorer.walletconnect.com/registry?type=wallet';
-export const WALLET_CONNECT_BRIDGE = 'https://bridge.walletconnect.org';
+// export const WALLET_CONNECT_BRIDGE = 'https://bridge.walletconnect.org'; // official bridge
+export const WALLET_CONNECT_BRIDGE = 'https://walletconnectbridge.onekey.so'; // OneKey self-host bridge
 export const WALLET_CONNECT_PROTOCOL = 'wc';
 export const WALLET_CONNECT_VERSION = 1;
 
@@ -71,4 +72,14 @@ export const WALLET_CONNECT_CLIENT_META = {
     // 'https://example.walletconnect.org/favicon.ico'
   ],
   name: `OneKey ${platformNameShort}`,
+};
+
+export const WALLET_CONNECT_WALLET_NAMES = {
+  'MetaMask': 'MetaMask',
+  'Trust Wallet': 'Trust Wallet',
+  'Rainbow': 'Rainbow',
+  'imToken': 'imToken',
+  'TokenPocket': 'TokenPocket',
+  'BitKeep': 'BitKeep',
+  'Zerion': 'Zerion',
 };

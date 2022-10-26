@@ -54,7 +54,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       nonce: toBigIntHex(new BigNumber(encodedTx.nonce ?? 0)),
       gasPrice: toBigIntHex(new BigNumber(encodedTx.gasPrice ?? 0)),
       data: encodedTx.data ?? '0x',
-      value: encodedTx.value ?? '0x0',
+      value: toBigIntHex(new BigNumber(encodedTx.value ?? 0)),
     };
 
     const response = await HardwareSDK.confluxSignTransaction(
