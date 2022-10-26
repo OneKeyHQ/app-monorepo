@@ -204,8 +204,8 @@ class ProviderApiTron extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: WatchAssetParameters,
   ) {
-    const type = params.type ?? '';
-    if (type !== 'ERC20' && type !== 'CRC20') {
+    const type = (params.type ?? '').toUpperCase();
+    if (type !== 'TRC10' && type !== 'TRC20' && type !== 'TRC721') {
       throw new Error(`Asset of type '${type}' not supported`);
     }
     const result = await this.backgroundApi.serviceDapp?.openAddTokenModal(
