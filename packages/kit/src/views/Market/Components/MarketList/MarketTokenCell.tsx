@@ -103,7 +103,6 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
 
   return (
     <ListItem
-      borderRadius={0}
       onLongPress={() => {
         if (isVerticalLayout && marketTokenItem && onLongPress)
           onLongPress(marketTokenItem);
@@ -406,7 +405,12 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
           case 8: {
             return (
               <ListItem.Column key={tag.id}>
-                <Box flexDirection="row" flex={1} ref={moreButtonRef}>
+                <Box
+                  flexDirection="row"
+                  justifyContent="center"
+                  flex={1}
+                  ref={moreButtonRef}
+                >
                   {marketTokenItem ? (
                     <MarketTokenSwapEnable tokens={marketTokenItem.tokens} />
                   ) : (
