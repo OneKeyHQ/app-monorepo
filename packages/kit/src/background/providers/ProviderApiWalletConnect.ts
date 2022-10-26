@@ -8,6 +8,7 @@ import { ISessionStatus } from '@walletconnect/types';
 
 import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
 import {
@@ -160,6 +161,23 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     { error, payload }: { error?: Error | null; payload: IJsonRpcRequest },
   ) {
     const id = payload.id as number;
+    const isInteractiveMethod =
+      payload.method &&
+      [
+        'eth_sendTransaction',
+        'eth_signTransaction',
+        'eth_sign',
+        'personal_sign',
+        'eth_signTypedData',
+        'eth_signTypedData_v1',
+        'eth_signTypedData_v3',
+        'eth_signTypedData_v4',
+      ].includes(payload.method);
+    if (isInteractiveMethod && platformEnv.isDesktop) {
+      setTimeout(() => {
+        window.desktopApi.focus();
+      });
+    }
     return resultPromise
       .then((result) =>
         connector.approveRequest({
@@ -178,6 +196,11 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         );
         // TODO throwCrossError
         throw error0;
+      })
+      .finally(() => {
+        if (isInteractiveMethod) {
+          this.redirectToDapp({ connector });
+        }
       });
   }
 
