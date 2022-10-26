@@ -142,7 +142,7 @@ const AutoUpdateSectionItem: FC = () => {
               id:
                 state === 'available'
                   ? 'action__update_available'
-                  : 'action__update_now',
+                  : 'action__restart_n_update',
             })}
           </Text>
           {showAvailabelBadge && (
