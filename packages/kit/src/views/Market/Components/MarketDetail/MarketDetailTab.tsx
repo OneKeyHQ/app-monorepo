@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  ScrollView,
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
@@ -120,7 +119,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
-  const contentPendding = isVerticalLayout ? 4 : 0;
+  const contentPendding = isVerticalLayout ? '16px' : '0px';
   return (
     <Tabs.Container
       // @ts-ignore fix type when remove react-native-collapsible-tab-view
@@ -151,18 +150,24 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         borderBottomWidth: 1,
         borderBottomColor: borderDefault,
       }}
-      renderHeader={() =>
-        isVerticalLayout ? (
-          <Box h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL} p={contentPendding}>
+      renderHeader={() => (
+        <Box
+          w="100%"
+          p={contentPendding}
+          flexDirection="column"
+          bgColor={tabbarBgColor}
+          h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL}
+        >
+          {isVerticalLayout ? (
+            <>
+              <MarketPriceChart coingeckoId="ethereum" />
+              <MarketDetailActionButton marketTokenId="ethereum" />
+            </>
+          ) : (
             <MarketPriceChart coingeckoId={marketTokenId} />
-            <MarketDetailActionButton marketTokenId={marketTokenId} />
-          </Box>
-        ) : (
-          <Box h={MARKET_DETAIL_TAB_HEADER_H} p={contentPendding}>
-            <MarketPriceChart coingeckoId={marketTokenId} />
-          </Box>
-        )
-      }
+          )}
+        </Box>
+      )}
       headerHeight={
         isVerticalLayout
           ? MARKET_DETAIL_TAB_HEADER_H_VERTICAL
@@ -173,44 +178,38 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         name={MarketDetailTabName.Info}
         label={intl.formatMessage({ id: 'content__info' })}
       >
-        <ScrollView
-          px={contentPendding}
-          contentContainerStyle={{
-            paddingBottom: 24,
-          }}
-        >
-          <MarketInfoContent
-            low24h={tokenDetail?.stats?.low24h}
-            high24h={tokenDetail?.stats?.high24h}
-            low7d={tokenDetail?.stats?.low7d}
-            high7d={tokenDetail?.stats?.high7d}
-            marketCap={tokenDetail?.stats?.marketCap}
-            volume24h={tokenDetail?.stats?.volume24h}
-            news={tokenDetail?.news}
-            expolorers={tokenDetail?.explorers}
-            about={tokenDetail?.about}
-          />
-        </ScrollView>
-        {/* )} */}
+        <Tabs.FlatList
+          data={null}
+          showsVerticalScrollIndicator={false}
+          renderItem={() => <Box />}
+          ListEmptyComponent={() => (
+            <MarketInfoContent
+              low24h={tokenDetail?.stats?.low24h}
+              high24h={tokenDetail?.stats?.high24h}
+              low7d={tokenDetail?.stats?.low7d}
+              high7d={tokenDetail?.stats?.high7d}
+              marketCap={tokenDetail?.stats?.marketCap}
+              volume24h={tokenDetail?.stats?.volume24h}
+              news={tokenDetail?.news}
+              expolorers={tokenDetail?.explorers}
+              about={tokenDetail?.about}
+              px={contentPendding}
+            />
+          )}
+        />
       </Tabs.Tab>
       <Tabs.Tab
         name={MarketDetailTabName.Stats}
         label={intl.formatMessage({ id: 'title__stats' })}
       >
-        {/* {!tokenDetail ? (
-          <Center w="full" h="200px">
-            <Spinner size="lg" />
-          </Center>
-        ) : ( */}
-        <ScrollView
-          px={contentPendding}
-          contentContainerStyle={{
-            paddingBottom: 24,
-          }}
-        >
-          <MarketStatsContent {...tokenDetail?.stats} />
-        </ScrollView>
-        {/* )} */}
+        <Tabs.FlatList
+          data={null}
+          showsVerticalScrollIndicator={false}
+          renderItem={() => <Box />}
+          ListEmptyComponent={() => (
+            <MarketStatsContent px={contentPendding} {...tokenDetail?.stats} />
+          )}
+        />
       </Tabs.Tab>
     </Tabs.Container>
   );

@@ -59,7 +59,7 @@ const DataViewComponent: FC<DataViewComponentProps> = ({
   );
 };
 
-export const MarketStatsContent: FC<MarketStats> = ({
+export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
   performance,
   marketCap,
   marketCapDominance,
@@ -71,10 +71,11 @@ export const MarketStatsContent: FC<MarketStats> = ({
   high7d,
   atl,
   ath,
+  px,
 }) => {
   const intl = useIntl();
   return (
-    <Box>
+    <Box px={px}>
       <VStack space={3} mt="6">
         <Box>
           <Typography.Heading mb="3">
