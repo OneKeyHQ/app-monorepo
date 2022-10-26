@@ -40,7 +40,7 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
     >
       <Box ml="3" alignItems="center" flexDirection="row" flex={1}>
         <Image borderRadius={16} src={icon} size={8} />
-        <Box flexDirection="column" ml="2">
+        <Box flexDirection="column" ml="2" flex={1}>
           <Typography.Body2Strong>{symbol}</Typography.Body2Strong>
           <Typography.Body2Strong numberOfLines={1} color="text-subdued">
             {name}
