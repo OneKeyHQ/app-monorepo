@@ -14,6 +14,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { homeTab } from '../../../../store/reducers/webTabs';
 import { useWebTab } from '../Controller/useWebTabs';
 import { ExplorerViewProps, MatchDAppItemType } from '../explorerUtils';
 
@@ -30,8 +31,8 @@ const Mobile: FC<ExplorerViewProps> = ({
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const currentTab = useWebTab();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const url: string = currentTab?.url || '';
+  const url = currentTab?.url || '';
+  const isHome = url === homeTab.url;
   const [searchText, setSearchText] = useState(url);
 
   useEffect(() => {
@@ -65,7 +66,7 @@ const Mobile: FC<ExplorerViewProps> = ({
           flexDirection="row"
           alignItems="center"
         >
-          {!url ? null : (
+          {!isHome && (
             <IconButton
               onPress={onGoBack}
               name="ChevronLeftOutline"
@@ -103,7 +104,7 @@ const Mobile: FC<ExplorerViewProps> = ({
               </Typography.Caption>
             </Box>
           </Pressable>
-          {url === '' ? null : (
+          {!isHome && (
             <IconButton
               onPress={() => {
                 onMore?.(true);

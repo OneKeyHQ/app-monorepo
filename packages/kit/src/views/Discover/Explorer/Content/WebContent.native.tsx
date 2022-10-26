@@ -1,11 +1,16 @@
 import { FC, useMemo, useState } from 'react';
 
+import { View } from 'react-native';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
+import {
+  WebTab,
+  homeTab,
+  setWebTabData,
+} from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler, webviewRefs } from '../explorerUtils';
@@ -20,42 +25,55 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   });
 
   const showHome =
-    (id === 'home' && webHandler === 'tabbedWebview') || url === '';
-
-  const discoverHome = useMemo(
-    () => (
-      <DiscoverHome
-        onItemSelect={(dapp) => {
-          openMatchDApp({ id: dapp._id, dapp });
-        }}
-        onItemSelectHistory={openMatchDApp}
-      />
-    ),
-    [openMatchDApp],
-  );
+    (id === 'home' && webHandler === 'tabbedWebview') || url === homeTab.url;
 
   const webview = useMemo(
     () => (
       <WebView
-        src={url || 'about:blank'}
+        key={String(showHome)}
+        src={url}
         onWebViewRef={(ref) => {
           const { dispatch } = backgroundApiProxy;
           if (ref && ref.innerRef) {
+            if (!webviewRefs[id]) {
+              dispatch(setWebTabData({ id, refReady: true }));
+            }
             webviewRefs[id] = ref;
-            dispatch(setWebTabData({ id, refReady: true }));
-          } else {
-            delete webviewRefs[id];
-            dispatch(setWebTabData({ id, refReady: false }));
           }
         }}
-        onNavigationStateChange={setNavigationStateChangeEvent}
+        onNavigationStateChange={
+          showHome ? undefined : setNavigationStateChangeEvent
+        }
         allowpopups
       />
     ),
-    [id, url],
+    [id, showHome, url],
   );
 
-  return showHome ? discoverHome : webview;
+  return (
+    <>
+      {webview}
+      {showHome && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            right: 0,
+            zIndex: 1,
+          }}
+        >
+          <DiscoverHome
+            onItemSelect={(dapp) => {
+              openMatchDApp({ id: dapp._id, dapp });
+            }}
+            onItemSelectHistory={openMatchDApp}
+          />
+        </View>
+      )}
+    </>
+  );
 };
 
 WebContent.displayName = 'WebContent';
