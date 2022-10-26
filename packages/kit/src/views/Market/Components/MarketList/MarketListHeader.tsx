@@ -9,6 +9,7 @@ import {
   ListItem,
   Pressable,
   Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components/src';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
@@ -22,6 +23,7 @@ interface MarketListHeaderProps {
 const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
   const listSort = useListSort();
   const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
   return (
     <Box mt="2" w="full">
       <ListItem>
@@ -107,7 +109,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
           return null;
         })}
       </ListItem>
-      <Divider />
+      {!isVertical ? <Divider /> : null}
     </Box>
   );
 };

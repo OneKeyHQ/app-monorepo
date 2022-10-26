@@ -11,9 +11,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Icon,
   IconButton,
-  Image,
+  Token,
   Typography,
   useIsVerticalLayout,
   useToast,
@@ -206,15 +205,13 @@ const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
   return (
     <Box flexDirection="row" alignItems="center">
-      <Image
-        borderRadius={isVertical ? 12 : 16}
-        src={tokenItem?.logoURI}
-        alt={tokenItem?.logoURI}
-        key={tokenItem?.logoURI}
+      <Token
         size={isVertical ? 6 : 8}
-        fallbackElement={
-          <Icon name="QuestionMarkOutline" size={isVertical ? 24 : 32} />
-        }
+        token={{
+          logoURI: tokenItem?.logoURI,
+          symbol: tokenItem?.symbol,
+          name: tokenItem?.name,
+        }}
       />
       <Typography.Heading ml="2">{tokenItem?.symbol}</Typography.Heading>
     </Box>

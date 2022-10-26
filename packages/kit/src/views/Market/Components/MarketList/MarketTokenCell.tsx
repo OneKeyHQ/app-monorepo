@@ -9,15 +9,15 @@ import {
   HStack,
   Icon,
   IconButton,
-  Image,
   ListItem,
   Pressable,
   Skeleton,
+  Token,
   Typography,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components/src';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
@@ -45,7 +45,7 @@ interface MarketTokenCellProps {
 
 type NavigationProps = NativeStackNavigationProp<TabRoutesParams>;
 
-const MarketTokenSwapEnable = ({ tokens }: { tokens?: Token[] }) => {
+const MarketTokenSwapEnable = ({ tokens }: { tokens?: TokenType[] }) => {
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   if (tokens) {
@@ -156,15 +156,13 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column key={tag.id}>
                 <HStack alignItems="center" flex={1} space={3}>
                   {marketTokenItem && marketTokenItem.logoURI ? (
-                    <Image
-                      borderRadius={16}
-                      src={marketTokenItem.logoURI}
-                      alt={marketTokenItem.logoURI}
-                      key={marketTokenItem.logoURI}
+                    <Token
                       size={8}
-                      fallbackElement={
-                        <Icon name="QuestionMarkOutline" size={32} />
-                      }
+                      token={{
+                        logoURI: marketTokenItem.logoURI,
+                        name: marketTokenItem.name,
+                        symbol: marketTokenItem.symbol,
+                      }}
                     />
                   ) : (
                     <Box>
