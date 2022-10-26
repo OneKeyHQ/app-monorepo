@@ -23,10 +23,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import {
-  MarketTokenItem,
   MARKET_FAVORITES_CATEGORYID,
+  MarketTokenItem,
 } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import { ListHeadTagType } from '../../types';
 import {
@@ -39,7 +40,6 @@ import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
 import SparklineChart from './SparklineChart';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 
 interface MarketTokenCellProps {
   onPress?: (marketTokenItem: MarketTokenItem) => void;
