@@ -88,15 +88,21 @@ const normalRouteWhiteList: WhiteListItemList = [
     screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
   },
-  // vertical layout
   {
     screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
     path: `/${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
   },
-  // desktop layout
   {
     screen: `${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
     path: `/${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
+  },
+  {
+    screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    path: `/${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+  },
+  {
+    screen: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
+    path: `/${RootRoutes.Root}/${HomeRoutes.Revoke}`,
   },
 ];
 

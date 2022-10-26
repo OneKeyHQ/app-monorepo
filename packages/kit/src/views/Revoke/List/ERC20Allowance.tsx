@@ -24,7 +24,9 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { useActiveWalletAccount } from '../../../hooks';
+import { navigationRef } from '../../../provider/NavigationProvider';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { useCreateExternalAccount } from '../../ExternalAccount/useCreateExternalAccount';
 import { SendRoutes } from '../../Send/types';
 import { useSpenderAppName } from '../hooks';
 import showAllowanceDetailOverlay, {
@@ -44,12 +46,20 @@ type Props = {
   onRevokeSuccess: () => void;
 };
 
-export const ApproveDialog = () => {
+export const ApproveDialog = ({ onClose }: { onClose?: () => void }) => {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const { createExternalAccount } = useCreateExternalAccount({});
   return (
     <Dialog
       visible
+      onClose={() => {
+        if (onClose) {
+          return onClose();
+        }
+        const inst =
+          navigationRef.current?.getParent() || navigationRef.current;
+        inst?.goBack();
+      }}
       contentProps={{
         title: intl.formatMessage({
           id: 'modal__connect_wallet_to manage_token_approvals',
@@ -59,11 +69,12 @@ export const ApproveDialog = () => {
         }),
       }}
       footerButtonProps={{
-        primaryActionTranslationId: 'action__add_wallet',
+        primaryActionTranslationId: 'action__connect_wallet',
         secondaryActionTranslationId: 'action__cancel',
-        onPrimaryActionPress: ({ onClose }) => {
-          navigation.navigate(RootRoutes.Onboarding);
+        onPrimaryActionPress: ({ onClose: close }) => {
+          createExternalAccount();
           onClose?.();
+          close?.();
         },
       }}
     />
@@ -89,8 +100,11 @@ export const ERC20Allowance: FC<Props> = ({
   const navigation = useNavigation();
 
   const isCurrentAccount = useMemo(
-    () => account?.address.toLowerCase() === accountAddress.toLowerCase(),
-    [account, accountAddress],
+    () =>
+      account?.id &&
+      networkId &&
+      account?.address.toLowerCase() === accountAddress.toLowerCase(),
+    [account, accountAddress, networkId],
   );
 
   const { label, value } = useMemo(() => {

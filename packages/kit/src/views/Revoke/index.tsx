@@ -1,10 +1,17 @@
-import React, { FC, useLayoutEffect, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Center,
   Empty,
   ScrollView,
@@ -12,9 +19,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import { useActiveWalletAccount, useDebounce } from '../../hooks';
+import { useCreateExternalAccount } from '../ExternalAccount/useCreateExternalAccount';
 
 import FilterBar, { AssetType } from './FilterBar';
 import RevokeHeader from './Header';
@@ -32,16 +42,44 @@ const RevokePage: FC = () => {
   const isVertical = useIsVerticalLayout();
   const [filters, setFilters] = useState(defaultFilter);
   const [addressOrName, setAddressOrName] = useState<string>('');
-  const { networkId, network } = useActiveWalletAccount();
+  const {
+    network,
+    account,
+    networkId: activeNetworkId,
+  } = useActiveWalletAccount();
+  const [networkId, setNetworkId] = useState<string>(
+    activeNetworkId ?? OnekeyNetwork.eth,
+  );
+  const { createExternalAccount } = useCreateExternalAccount({
+    networkId,
+  });
 
   const keyword = useDebounce(addressOrName, 600);
 
   const navigation = useNavigation();
 
+  const walletConnectButton = useMemo(() => {
+    if (!platformEnv.isWeb || account?.id) {
+      return null;
+    }
+    return (
+      <Button onPress={createExternalAccount} mr={6}>
+        {intl.formatMessage({ id: 'action__connect_wallet' })}
+      </Button>
+    );
+  }, [intl, createExternalAccount, account?.id]);
+
+  const handleNetworkChange = useCallback((id: string) => {
+    setNetworkId(id);
+  }, []);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
       headerRight: () => {
+        if (!account?.id) {
+          return walletConnectButton;
+        }
         if (isVertical) {
           return <NetworkAccountSelectorTrigger />;
         }
@@ -52,9 +90,22 @@ const RevokePage: FC = () => {
         );
       },
     });
-  }, [navigation, isVertical]);
+  }, [navigation, isVertical, account?.id, walletConnectButton]);
 
   const content = useMemo(() => {
+    if (!addressOrName) {
+      return (
+        <Empty
+          emoji="💁‍♀️️"
+          title={intl.formatMessage({
+            id: 'title__enter_address_or_connect_wallet',
+          })}
+          subTitle={intl.formatMessage({
+            id: 'title__enter_address_or_connect_wallet_desc',
+          })}
+        />
+      );
+    }
     if (network?.impl !== IMPL_EVM) {
       return (
         <Empty
@@ -87,7 +138,7 @@ const RevokePage: FC = () => {
         filters={filters}
       />
     );
-  }, [networkId, filters, intl, network, keyword]);
+  }, [networkId, filters, intl, network, keyword, addressOrName]);
 
   return (
     <ScrollView
@@ -97,7 +148,11 @@ const RevokePage: FC = () => {
       }}
     >
       <Center flex="1" pb="108px">
-        <RevokeHeader onAddressChange={setAddressOrName} />
+        <RevokeHeader
+          networkId={networkId}
+          onAddressChange={setAddressOrName}
+          onNetworkChange={handleNetworkChange}
+        />
         <VStack maxW="1030px" w="100%">
           <FilterBar {...filters} onChange={setFilters} />
           {content}

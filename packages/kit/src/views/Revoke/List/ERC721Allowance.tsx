@@ -53,8 +53,11 @@ export const ERC721Allowance: FC<Props> = ({
   const navigation = useNavigation();
 
   const isCurrentAccount = useMemo(
-    () => account?.address.toLowerCase() === accountAddress.toLowerCase(),
-    [account, accountAddress],
+    () =>
+      account?.id &&
+      networkId &&
+      account?.address.toLowerCase() === accountAddress.toLowerCase(),
+    [account, accountAddress, networkId],
   );
 
   const label = useMemo(() => {
@@ -75,13 +78,10 @@ export const ERC721Allowance: FC<Props> = ({
   }, [isCurrentAccount]);
 
   const update = useCallback(async () => {
-    if (!account) {
-      return;
-    }
-    if (!networkId) {
-      return;
-    }
     if (!checkIsCurrentAccount()) {
+      return;
+    }
+    if (!account?.id) {
       return;
     }
     const encodedApproveTx =
@@ -129,14 +129,14 @@ export const ERC721Allowance: FC<Props> = ({
   ]);
 
   const onRevoke = useCallback(() => {
-    update();
-  }, [update]);
-
-  const buttons = useMemo(() => {
-    if (!isCurrentAccount) {
-      return null;
+    if (!checkIsCurrentAccount()) {
+      return;
     }
-    return (
+    update();
+  }, [update, checkIsCurrentAccount]);
+
+  const buttons = useMemo(
+    () => (
       <HStack alignSelf="flex-end">
         <IconButton
           bg="action-secondary-default"
@@ -149,8 +149,9 @@ export const ERC721Allowance: FC<Props> = ({
           onPress={onRevoke}
         />
       </HStack>
-    );
-  }, [onRevoke, isCurrentAccount]);
+    ),
+    [onRevoke],
+  );
 
   const rightContent = useMemo(() => {
     if (isVertical) {

@@ -30,7 +30,7 @@ const data = [
       color: 'icon-success',
       size: 32,
     },
-    title: 'title__token_approvals',
+    title: 'title__contract_approvals',
     description: 'title__token_approvals_desc',
   },
 ] as const;
@@ -65,16 +65,16 @@ const ToolsPage: FC = () => {
         }}
       >
         <HStack
-          bg="surface-subdued"
+          bg="surface-default"
           borderWidth={1}
-          borderColor="border-subdued"
+          borderColor="divider"
           borderRadius="12px"
           px="3"
-          py="18px"
-          flex="1"
+          h="80px"
+          alignItems="center"
         >
           <Center w="8" h="8">
-            <Icon {...item.icon} />
+            <Icon {...item.icon} size={32} />
           </Center>
           <VStack ml="4" flex="1">
             <Typography.Body1Strong numberOfLines={1} isTruncated>

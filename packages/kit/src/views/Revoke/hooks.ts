@@ -44,6 +44,7 @@ export const useERC20Allowances = (
   const refresh = useCallback(async () => {
     if (!address || !networkId) {
       setAllowances([]);
+      setLoading(false);
       return;
     }
     try {
@@ -94,6 +95,7 @@ export const useERC721Allowances = (
   const refresh = useCallback(async () => {
     if (!address || !networkId) {
       setAllowances([]);
+      setLoading(false);
       return;
     }
     try {
