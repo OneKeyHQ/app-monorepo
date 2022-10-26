@@ -117,21 +117,13 @@ export function useNavigationActions() {
   }, [navigation]);
 
   const sendToken = useCallback(
-    async ({
-      accountId,
-      networkId,
-    }: {
-      accountId: string;
-      networkId: string;
-    }) => {
+    ({ accountId, networkId }: { accountId: string; networkId: string }) => {
       const skipSelectTokenNetwork: string[] = [
         OnekeyNetwork.btc,
         OnekeyNetwork.doge,
+        OnekeyNetwork.ltc,
       ];
       if (skipSelectTokenNetwork.includes(networkId)) {
-        const token = await backgroundApiProxy.engine.getNativeTokenInfo(
-          networkId,
-        );
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -142,7 +134,7 @@ export function useNavigationActions() {
               from: '',
               to: '',
               amount: '',
-              token: token?.tokenIdOnNetwork ?? '',
+              token: '',
             },
           },
         });
