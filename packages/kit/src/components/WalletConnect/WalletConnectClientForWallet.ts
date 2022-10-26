@@ -1,7 +1,6 @@
 import { IClientMeta, ISessionStatus } from '@walletconnect/types';
 import { merge } from 'lodash';
 import { Linking } from 'react-native';
-import Minimizer from 'react-native-minimizer';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -9,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { backgroundMethod } from '../../background/decorators';
 import { wait } from '../../utils/helper';
+import Minimizer from '../Minimizer';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import {
