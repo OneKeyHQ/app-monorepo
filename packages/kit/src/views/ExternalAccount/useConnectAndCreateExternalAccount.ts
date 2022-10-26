@@ -14,7 +14,7 @@ import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 
 import { useAddExternalAccount } from './useAddExternalAccount';
 
-export function useCreateExternalAccount({
+export function useConnectAndCreateExternalAccount({
   networkId,
   walletId,
 }: {
@@ -69,7 +69,7 @@ export function useCreateExternalAccount({
     walletId,
   ]);
 
-  const goToConnectWalletScreen = useCallback(
+  const goToOnboardingConnectWallet = useCallback(
     () =>
       navigation.navigate(RootRoutes.Onboarding, {
         screen: EOnboardingRoutes.ConnectWallet,
@@ -80,18 +80,20 @@ export function useCreateExternalAccount({
     [navigation],
   );
 
-  const createExternalAccount = useCallback(async () => {
+  const connectAndCreateExternalAccount = useCallback(async () => {
     // web can connect to injected and wallet-connect
     if (platformEnv.isWeb) {
-      goToConnectWalletScreen();
+      goToOnboardingConnectWallet();
       return;
     }
 
     // desktop and app can only connect wallet-connect
     await connectToWcWalletDirectly();
-  }, [connectToWcWalletDirectly, goToConnectWalletScreen]);
+  }, [connectToWcWalletDirectly, goToOnboardingConnectWallet]);
 
   return {
-    createExternalAccount,
+    goToOnboardingConnectWallet,
+    connectToWcWalletDirectly,
+    connectAndCreateExternalAccount,
   };
 }

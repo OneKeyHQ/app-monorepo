@@ -16,7 +16,7 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
-import { useCreateExternalAccount } from '../../../views/ExternalAccount/useCreateExternalAccount';
+import { useConnectAndCreateExternalAccount } from '../../../views/ExternalAccount/useConnectAndCreateExternalAccount';
 
 export const AllNetwork = 'all';
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
@@ -35,10 +35,11 @@ export function useCreateAccountInWallet({
   const navigation = useNavigation();
   const toast = useToast();
   const intl = useIntl();
-  const { createExternalAccount } = useCreateExternalAccount({
-    networkId,
-    walletId,
-  });
+  const { connectAndCreateExternalAccount } =
+    useConnectAndCreateExternalAccount({
+      networkId,
+      walletId,
+    });
 
   const { result: walletAndNetworkInfo } = usePromiseResult(async () => {
     const selectedNetworkId =
@@ -126,7 +127,7 @@ export function useCreateAccountInWallet({
     }
 
     if (activeWallet?.type === 'external') {
-      await createExternalAccount();
+      await connectAndCreateExternalAccount();
       return;
     }
     if (activeWallet?.type === 'imported') {
@@ -170,7 +171,7 @@ export function useCreateAccountInWallet({
       },
     });
   }, [
-    createExternalAccount,
+    connectAndCreateExternalAccount,
     intl,
     isFromAccountSelector,
     navigation,
