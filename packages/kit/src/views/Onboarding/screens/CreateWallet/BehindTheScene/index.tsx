@@ -12,6 +12,7 @@ import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
+import { useTiming } from 'react-native-redash';
 
 import {
   Box,
@@ -41,7 +42,7 @@ import {
   RootRoutes,
 } from '../../../../../routes/routesEnum';
 import { setEnableLocalAuthentication } from '../../../../../store/reducers/settings';
-import { wait } from '../../../../../utils/helper';
+import { getTimeDurationMs, wait } from '../../../../../utils/helper';
 import { savePassword } from '../../../../../utils/localAuthentication';
 import { useOnboardingClose } from '../../../hooks';
 import Layout from '../../../Layout';
@@ -249,6 +250,17 @@ const BehindTheScene = () => {
   const typingRef = useRef<IProcessAutoTypingRef | null>(null);
   // const isRenderAsWebview = platformEnv.isNative;
   const isRenderAsWebview = platformEnv.isNative && !platformEnv.isDev;
+  const [showCloseButton, setShowCloseButton] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setShowCloseButton(true),
+      getTimeDurationMs({ minute: 1 }),
+    );
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
   const [shouldStartCreating, setShouldStartCreating] = useState(
     !isRenderAsWebview,
@@ -330,7 +342,7 @@ const BehindTheScene = () => {
   }, [isRenderAsWebview, onPressFinished, pausedProcessIndex]);
   return (
     <>
-      <Layout backButton={false} showCloseButton={false} fullHeight>
+      <Layout backButton={false} showCloseButton={showCloseButton} fullHeight>
         <BehindTheSceneCreatingWalletMemo
           routeParams={routeParams}
           handleWalletCreated={handleWalletCreated}
