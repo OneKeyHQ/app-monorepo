@@ -30,7 +30,7 @@ const MarketSearchTokenDestopCell: FC<{
     >
       {({ isHovered, isPressed }) => (
         <Box
-          py={2}
+          p={2}
           borderRadius="12px"
           flexDirection="row"
           alignItems="center"
