@@ -263,10 +263,16 @@ function getWalletConnectUriInfo({ uri }: { uri: string }) {
     uriInfo,
   };
 }
+
+function buildOneKeyWalletConnectDeepLinkUrl({ uri }: { uri: string }) {
+  return `${ONEKEY_APP_DEEP_LINK}/wc?uri=${encodeURIComponent(uri || '')}`;
+}
+
 export default {
   getWalletConnectUriInfo,
   buildConnectWalletAppUrl,
   buildOpenWalletAppUrl,
   dappOpenWalletApp,
   openConnectToDappModal,
+  buildOneKeyWalletConnectDeepLinkUrl,
 };

@@ -1,8 +1,11 @@
 import { IClientMeta, ISessionStatus } from '@walletconnect/types';
 import { merge } from 'lodash';
+import { Linking } from 'react-native';
+import Minimizer from 'react-native-minimizer';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { backgroundMethod } from '../../background/decorators';
 import { wait } from '../../utils/helper';
@@ -48,6 +51,24 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
   }): Promise<ISessionStatus>;
 
   previousUri: string | undefined;
+
+  async redirectToDapp({ connector }: { connector: OneKeyWalletConnector }) {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    // @ts-ignore
+    const dappScheme = connector?.peerMeta?.scheme as string | undefined;
+    // wait websocket message sent
+    await wait(1500);
+    if (dappScheme) {
+      const fullSchema = `${dappScheme}://`;
+      if (await Linking.canOpenURL(fullSchema)) {
+        await Linking.openURL(fullSchema);
+        return;
+      }
+    }
+    Minimizer?.goBack?.();
+  }
 
   // TODO connecting check, thread lock
   // connectToDapp
@@ -110,6 +131,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
         doApproveSession();
         // setTimeout(doApproveSession, 2000);// throw error if connected already
       }
+      this.redirectToDapp({ connector });
     } catch (error) {
       debugLogger.walletConnect.info(
         'walletConnect.connect -> rejectSession',

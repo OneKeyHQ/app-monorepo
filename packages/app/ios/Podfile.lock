@@ -423,6 +423,8 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.8.0):
     - React-Core
+  - react-native-minimizer (1.3.5):
+    - React
   - react-native-netinfo (8.2.0):
     - React-Core
   - react-native-pager-view (5.4.25):
@@ -672,6 +674,7 @@ DEPENDENCIES:
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
+  - react-native-minimizer (from `../../../node_modules/react-native-minimizer`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
@@ -843,6 +846,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-config"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
+  react-native-minimizer:
+    :path: "../../../node_modules/react-native-minimizer"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
@@ -992,6 +997,7 @@ SPEC CHECKSUMS:
   react-native-cloud-fs: 1e883ec82ff418d320c128f61971dd971b128ca0
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-get-random-values: a6ea6a8a65dc93e96e24a11105b1a9c8cfe1d72a
+  react-native-minimizer: b94809a769ac3825b46fd081d4f0ae2560791536
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
   react-native-pager-view: da490aa1f902c9a5aeecf0909cc975ad0e92e53e
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
@@ -1019,8 +1025,8 @@ SPEC CHECKSUMS:
   RNFBAnalytics: 58d1a73d42514ddf3c4f43662db0f3ce9a85457b
   RNFBApp: ca5f49bbe21f663142320337eb39956b04de4d12
   RNFBCrashlytics: 97bf2b05e4a5523c57adc8f9e5bf6e1b17804482
-  RNReanimated: ccf6019d11b20e4af7cfcd7edc377424159c9ebc
   RNGestureHandler: 62232ba8f562f7dea5ba1b3383494eb5bf97a4d3
+  RNReanimated: d210eaa75169ea22b73bd6b0bd4784f974b303f3
   RNScreens: 0df01424e9e0ed7827200d6ed1087ddd06c493f9
   RNShare: d56424e3926cbc239db1cc1c168adcb051aad50b
   RNSVG: 302bfc9905bd8122f08966dc2ce2d07b7b52b9f8

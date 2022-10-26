@@ -36,6 +36,7 @@ export type DesktopAPI = {
   platform: string;
   reload: () => void;
   ready: () => void;
+  focus: () => void;
   openPrefs: (prefType: PrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: 'active' | 'background') => void) => () => void;
@@ -112,6 +113,7 @@ const desktopApi = {
   platform: process.platform,
   ready: () => ipcRenderer.send('app/ready'),
   reload: () => ipcRenderer.send('app/reload'),
+  focus: () => ipcRenderer.send('app/focus'),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
     ipcRenderer.addListener(event, listener);
   },

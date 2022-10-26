@@ -56,6 +56,8 @@ const AppLoading: FC = ({ children }) => {
           return false;
         },
       });
+
+      // serviceApp.initApp();
       setInitDataReady(true);
 
       // end splash screen to show AnimatedSplash after 50ms to avoid twinkling
