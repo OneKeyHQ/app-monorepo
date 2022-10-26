@@ -18921,6 +18921,10 @@ react-native-markdown-display@^7.0.0-alpha.2:
     prop-types "^15.7.2"
     react-native-fit-image "^1.5.5"
 
+"react-native-minimizer@https://github.com/OneKeyHQ/react-native-minimizer.git":
+  version "1.3.5"
+  resolved "https://github.com/OneKeyHQ/react-native-minimizer.git#26ae6dce10d353de701cebc3a1ae126729bf87f0"
+
 react-native-modal@^13.0.0:
   version "13.0.0"
   resolved "https://registry.yarnpkg.com/react-native-modal/-/react-native-modal-13.0.0.tgz#b7117400cae8548e713eed760077dee44f78628e"

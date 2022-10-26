@@ -211,6 +211,9 @@ function createMainWindow() {
     app.exit(0);
     disposeContextMenu();
   });
+  ipcMain.on('app/focus', () => {
+    showMainWindow();
+  });
 
   ipcMain.on('app/openPrefs', (_event, prefType: PrefType) => {
     const platform = os.type();

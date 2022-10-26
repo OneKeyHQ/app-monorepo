@@ -72,6 +72,7 @@
     "react-native-get-random-values": "^1.8.0",
     "react-native-keyboard-manager": "^6.5.4-4",
     "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git",
+    "react-native-minimizer": "https://github.com/OneKeyHQ/react-native-minimizer.git",
     "react-native-pager-view": "5.4.25",
     "react-native-randombytes": "^3.6.1",
     "react-native-reanimated": "2.11.0",

@@ -15,6 +15,7 @@ import { ManageTokenRoutes } from '../views/ManageTokens/types';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 import { SendRoutes } from '../views/Send/types';
 
+import { WalletConnectUniversalLinkPathSchema } from './deepLink';
 import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
@@ -226,7 +227,10 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
       },
       ...generateScreenHierarchyRouteConfigList(normalRouteWhiteList),
       // custom route with path params needs to be defined at last
+      // /account/:address/:networkId?
       [RootRoutes.Account]: AccountRootLandingPathSchema,
+      // /wc/connect
+      [RootRoutes.OnLanding]: WalletConnectUniversalLinkPathSchema,
       NotFound: '*',
     },
   },

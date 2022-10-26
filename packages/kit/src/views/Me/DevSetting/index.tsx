@@ -102,7 +102,13 @@ export const DevSettingSection = () => {
           <Container.Item
             title="Build Hash"
             titleColor="text-critical"
-            subDescribe={[`${process.env.GITHUB_SHA ?? '--'}`]}
+            subDescribeCustom={
+              <Text color="text-subdued">
+                {process.env.GITHUB_SHA
+                  ? shortenAddress(process.env.GITHUB_SHA)
+                  : '--'}
+              </Text>
+            }
           />
           <Container.Item
             title={intl.formatMessage({ id: 'form__dev_pre_update' })}
