@@ -17,8 +17,10 @@
   "action__add": "يضيف",
   "action__add_account": "إنشاء حساب",
   "action__add_alert": "إضافة تنبيه",
+  "action__add_app_wallet": "أضف محافظ APP",
   "action__add_custom_chain": "أضف سلسلة مخصصة",
   "action__add_custom_tokens": "أضف رمز مخصص",
+  "action__add_hardware_wallet": "أضف محافظ الأجهزة",
   "action__add_hidden_wallet": "أضف المحفظة المخفية",
   "action__add_network": "إضافة شبكة EVM",
   "action__add_new": "اضف جديد",
@@ -557,7 +559,7 @@
   "content__when_can_i_get_my_staked_eth_back": "متى يمكنني استعادة ETH الخاص بي؟",
   "content__when_price_reaches": "عندما يصل السعر",
   "content__where_find_phrase": "أين أجد جملتي؟",
-  "content__wont_backup": "لن يقوم OneKey بعمل نسخة احتياطية من محافظ أجهزتك ؛ يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
+  "content__wont_backup": "لن يتم نسخ محفظة الأجهزة احتياطيًا إلى iCloud. يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
   "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
@@ -1111,6 +1113,7 @@
   "msg__cannot_import_existing_wallet": "لا يمكن استيراد المحافظ الموجودة.",
   "msg__change_saved": "تم حفظ التغيير!",
   "msg__coming_soon": "قريبا",
+  "msg__connect_and_switch": "متصل ومبدّل تلقائيًا",
   "msg__contract_executed": "🤖 تنفيذ العقد",
   "msg__copied": "نسخ!",
   "msg__current_token_balance_is_insufficient": "رصيد الرمز الحالي غير كاف.",
@@ -1129,7 +1132,7 @@
   "msg__engine__too_many_derived_accounts": "حسابات كثيرة جدًا",
   "msg__engine__too_many_hd_wallets": "عدد كبير جدًا من المحافظ",
   "msg__engine__too_many_hw_wallets": "عدد كبير جدًا من محافظ الأجهزة",
-  "msg__engine__too_many_imported_accounts": "تم استيراد عدد كبير جدًا من الحسابات",
+  "msg__engine__too_many_imported_accounts": "عدد كبير جدًا من حسابات السلسلة المفردة",
   "msg__engine__wallet_name_length_error": "طول اسم المحفظة خارج عن الحد.",
   "msg__engine_too_many_external_accounts": "عدد كبير جدًا من الحسابات الخارجية",
   "msg__engine_too_many_watching_accounts": "عدد كبير جدًا من حسابات المشاهدة",
@@ -1218,6 +1221,7 @@
   "msg__str_maximum_amount": "{0} الحد الأقصى للمبلغ",
   "msg__str_minimum_amount": "{0} الحد الأدنى للمبلغ",
   "msg__str_not_exist": "{0} غير موجود",
+  "msg__str_not_supported_by_hardware_wallets": "{0} غير معتمد حتى الآن بواسطة محافظ الأجهزة",
   "msg__submitted_successfully": "تم الإرسال بنجاح",
   "msg__subscription_succeeded": "نجح الاشتراك",
   "msg__success": "النجاح",
@@ -1408,8 +1412,9 @@
   "title__set_up_new_pin_desc": "قم بتعيين PIN لـ OneKey Lite",
   "title__settings": "إعدادات",
   "title__share": "يشارك",
-  "title__share_to_your_friends": "تقاسم هو الاهتمام ",
   "title__share_to_your_friends_desc": "شارك Revoke.gg مع صديقك حتى يتمكن من حماية حسابه.",
+  "title__share_with_your_friends": "تقاسم هو الاهتمام ",
+  "title__share_with_your_friends_desc": "شارك Revoke.gg مع أصدقائك حتى يتمكنوا من الحفاظ على أمان حساباتهم.",
   "title__signature_request": "طلب التوقيع",
   "title__slippage": "الانزلاق",
   "title__stake_str": "حصة {0}",
@@ -1464,7 +1469,7 @@
   "transaction__transaction_details": "تفاصيل الصفقه",
   "wallet__app_wallet": "محفظة APP",
   "wallet__hardware_wallet": "محفظة الأجهزة",
-  "wallet__imported_accounts": "الحسابات المستوردة",
+  "wallet__imported_accounts": "حسابات سلسلة واحدة",
   "wallet__wallet": "محفظة",
   "wallet__watched_accounts": "حسابات مراقب"
 }

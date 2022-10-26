@@ -3,11 +3,9 @@ import React, { FC, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
   HStack,
   List,
   ListItem,
-  Skeleton,
   Token,
   Typography,
   VStack,
@@ -18,63 +16,8 @@ import { ERC721TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
 import { Filter } from '../FilterBar';
 import { useERC721Allowances } from '../hooks';
 
-import { EmptyRecord } from './ERC20TokenList';
+import { EmptyRecord, Header, ListLoading } from './ERC20TokenList';
 import { ERC721Allowance } from './ERC721Allowance';
-
-export const Header = () => {
-  const intl = useIntl();
-  return (
-    <ListItem>
-      <ListItem.Column
-        text={{
-          label: `${intl.formatMessage({
-            id: 'form__token',
-          })} / ${intl.formatMessage({ id: 'form__balance' })}`,
-        }}
-        w="300px"
-      />
-      <ListItem.Column
-        text={{
-          label: `${intl.formatMessage({
-            id: 'form__project',
-          })} / ${intl.formatMessage({ id: 'form__allowance' })}`,
-        }}
-        flex="1"
-      />
-    </ListItem>
-  );
-};
-
-export const ListLoading = () => (
-  <>
-    {new Array(5).fill(1).map((_, idx) => (
-      <ListItem flex="1" key={String(idx)}>
-        <ListItem.Column>
-          <HStack w="300px" alignItems="center">
-            <Skeleton shape="Avatar" />
-            <VStack ml="2">
-              <Skeleton shape="Body1" />
-              <Skeleton shape="Body2" />
-            </VStack>
-          </HStack>
-        </ListItem.Column>
-        <ListItem.Column>
-          <Box flex="1">
-            <Skeleton shape="Body1" />
-          </Box>
-        </ListItem.Column>
-        <ListItem.Column>
-          <HStack>
-            <Skeleton shape="Caption" />
-            <Box ml="2">
-              <Skeleton shape="Caption" />
-            </Box>
-          </HStack>
-        </ListItem.Column>
-      </ListItem>
-    ))}
-  </>
-);
 
 export const ERC721TokenList: FC<{
   networkId: string;
@@ -93,12 +36,14 @@ export const ERC721TokenList: FC<{
 
   const data = useMemo(
     () =>
-      allowances?.filter(({ balance }) => {
-        if (filters.includeZeroBalancesTokens) {
-          return true;
-        }
-        return balance !== '0';
-      }) ?? [],
+      allowances
+        ?.filter((item) => item.allowance.length > 0)
+        ?.filter(({ balance }) => {
+          if (filters.includeZeroBalancesTokens) {
+            return true;
+          }
+          return balance !== '0';
+        }) ?? [],
     [filters, allowances],
   );
 
@@ -118,17 +63,31 @@ export const ERC721TokenList: FC<{
               size={8}
               showInfo
               name={symbol}
-              description={intl.formatMessage(
-                { id: 'content__int_items' },
-                { 0: balance },
-              )}
-              w="300px"
+              showDescription={false}
+              w="200px"
               alignSelf="flex-start"
               infoBoxProps={{ flex: 1 }}
             />
           </ListItem.Column>
           <ListItem.Column>
-            <VStack flex="1">
+            <VStack w="100px" alignSelf="flex-start" textAlign="right">
+              <Typography.Body2Strong>
+                {balance === 'ERC1155'
+                  ? 'N/A'
+                  : intl.formatMessage(
+                      { id: 'content__int_items' },
+                      { 0: balance },
+                    )}
+              </Typography.Body2Strong>
+            </VStack>
+          </ListItem.Column>
+          <ListItem.Column>
+            <VStack
+              flex="1"
+              borderLeftWidth={1}
+              borderLeftColor="divider"
+              pl="4"
+            >
               {allowance.length === 0 ? (
                 <Typography.Body2Strong>
                   {intl.formatMessage({ id: 'form__no_allowance' })}
@@ -171,16 +130,23 @@ export const ERC721TokenList: FC<{
                   size={8}
                   showInfo
                   name={symbol}
-                  description={intl.formatMessage(
-                    { id: 'content__int_items' },
-                    { 0: balance },
-                  )}
+                  showDescription={false}
                   flex="1"
                 />
+                <VStack alignSelf="flex-start" textAlign="right">
+                  <Typography.Body1Strong>
+                    {balance === 'ERC1155'
+                      ? 'N/A'
+                      : intl.formatMessage(
+                          { id: 'content__int_items' },
+                          { 0: balance },
+                        )}
+                  </Typography.Body1Strong>
+                </VStack>
               </HStack>
               <VStack flex="1">
                 {allowance.length === 0 ? (
-                  <Typography.Body2Strong>
+                  <Typography.Body2Strong color="text-subdued">
                     {intl.formatMessage({ id: 'form__no_allowance' })}
                   </Typography.Body2Strong>
                 ) : (

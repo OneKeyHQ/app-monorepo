@@ -8,6 +8,7 @@ import {
   HStack,
   Typography,
   VStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
@@ -20,8 +21,9 @@ const About: FC<{
   closeOverlay: () => void;
 }> = () => {
   const intl = useIntl();
+  const insets = useSafeAreaInsets();
   return (
-    <VStack pb="60px">
+    <VStack pb={`${insets.bottom}px`} px="4" pt="6">
       <Center>
         <SvgRevoke />
       </Center>

@@ -10,6 +10,7 @@ import {
   Typography,
   VStack,
   useForm,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
@@ -45,6 +46,7 @@ const ChangeAllowance: FC<
   closeOverlay,
 }) => {
   const intl = useIntl();
+  const insets = useSafeAreaInsets();
 
   const { control, handleSubmit, watch } = useForm<FieldValues>({
     mode: 'onChange',
@@ -71,8 +73,8 @@ const ChangeAllowance: FC<
   );
 
   return (
-    <VStack>
-      <Token token={dapp} size="5" showInfo />
+    <VStack pb={`${insets.bottom}px`}>
+      <Token token={dapp} size={5} showInfo />
       <Form mt="3">
         <Form.Item name="isUnlimited" control={control}>
           <Form.Switch
