@@ -1,4 +1,3 @@
-import { IMPL_CFX } from '@onekeyhq/engine/src/constants';
 import { INetwork } from '@onekeyhq/engine/src/types';
 
 import { makeSelector } from './redux';
@@ -8,7 +7,7 @@ export type IManageNetworks = {
   enabledNetworks: INetwork[];
 };
 
-const CHAINS_DISAPLYED_IN_DEV = [IMPL_CFX];
+const CHAINS_DISAPLYED_IN_DEV: string[] = [];
 const emptyArray = Object.freeze([]);
 
 export const { use: useManageNetworks, get: getManageNetworks } =
