@@ -190,7 +190,7 @@ const MarketSearch: FC<{
   const [searchInput, setSearchInput] = useState(() => '');
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   return (
-    <Box {...style}>
+    <Box {...style} mt={1}>
       {isVertical ? (
         <Searchbar
           placeholder={intl.formatMessage({ id: 'form__search_tokens' })}

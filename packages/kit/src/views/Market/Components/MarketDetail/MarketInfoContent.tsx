@@ -53,6 +53,7 @@ type MarketInfoContentProps = {
   expolorers?: MarketEXplorer[];
   news?: MarketNews[];
   about?: string;
+  px?: string;
 };
 
 export const MarketInfoContent: FC<MarketInfoContentProps> = ({
@@ -65,10 +66,11 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   expolorers,
   news,
   about,
+  px,
 }) => {
   const intl = useIntl();
   return (
-    <Box>
+    <Box px={px}>
       <VStack space={6} mt="6">
         <Box>
           <Typography.Heading>

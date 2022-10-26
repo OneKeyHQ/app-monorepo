@@ -5,9 +5,9 @@ import {
   Center,
   HStack,
   Icon,
-  Image,
   Pressable,
   Skeleton,
+  Token,
   Typography,
 } from '@onekeyhq/components/src';
 import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
@@ -43,15 +43,13 @@ const MarketSearchTokenDestopCell: FC<{
           {marketTokenItem ? (
             <HStack space={3} alignItems="center" justifyContent="center">
               {marketTokenItem.logoURI ? (
-                <Image
-                  borderRadius={16}
-                  src={marketTokenItem.logoURI}
-                  alt={marketTokenItem.logoURI}
-                  key={marketTokenItem.logoURI}
+                <Token
                   size={8}
-                  fallbackElement={
-                    <Icon name="QuestionMarkOutline" size={32} />
-                  }
+                  token={{
+                    logoURI: marketTokenItem.logoURI,
+                    symbol: marketTokenItem.symbol,
+                    name: marketTokenItem.name,
+                  }}
                 />
               ) : (
                 <Skeleton shape="Avatar" size={32} />

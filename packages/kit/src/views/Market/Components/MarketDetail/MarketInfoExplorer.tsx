@@ -39,8 +39,10 @@ export const MarketInfoExplorer: FC<MarketInfoExplorerProps> = ({
       {...boxStyle}
       onPress={onPress}
     >
-      <Box ml="2">
-        <Typography.Body2Strong>{name}</Typography.Body2Strong>
+      <Box ml="2" flex={1}>
+        <Typography.Body2Strong numberOfLines={1}>
+          {name}
+        </Typography.Body2Strong>
         <Typography.Caption color="text-subdued">
           {shortenAddress(contractAddress ?? '')}
         </Typography.Caption>
