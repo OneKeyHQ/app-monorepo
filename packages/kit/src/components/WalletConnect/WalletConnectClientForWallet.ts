@@ -1,6 +1,6 @@
 import { IClientMeta, ISessionStatus } from '@walletconnect/types';
 import { merge } from 'lodash';
-import { AppState, InteractionManager, Linking } from 'react-native';
+import { Linking } from 'react-native';
 import Minimizer from 'react-native-minimizer';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';

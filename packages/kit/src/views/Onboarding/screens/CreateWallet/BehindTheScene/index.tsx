@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, {
   useCallback,
   useEffect,
@@ -7,40 +6,22 @@ import React, {
   useState,
 } from 'react';
 
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
-import { useTiming } from 'react-native-redash';
 
-import {
-  Box,
-  Center,
-  DialogManager,
-  ToastManager,
-  useToast,
-} from '@onekeyhq/components';
+import { Box, Center, ToastManager, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import debugLogger, {
-  LoggerNames,
-} from '@onekeyhq/shared/src/logger/debugLogger';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-import { WebViewWebEmbed } from '../../../../../components/WebView/WebViewWebEmbed';
 import useAppNavigation from '../../../../../hooks/useAppNavigation';
 import { useDisableNavigationBack } from '../../../../../hooks/useDisableNavigationBack';
 import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
-import {
-  CreateWalletModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '../../../../../routes/routesEnum';
 import { setEnableLocalAuthentication } from '../../../../../store/reducers/settings';
 import { getTimeDurationMs, wait } from '../../../../../utils/helper';
 import { savePassword } from '../../../../../utils/localAuthentication';
@@ -60,6 +41,7 @@ import {
 import ProcessAutoTyping, { IProcessAutoTypingRef } from './ProcessAutoTyping';
 import ProcessAutoTypingWebView from './ProcessAutoTypingWebView';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NavigationProps = StackNavigationProp<
   IOnboardingRoutesParams,
   EOnboardingRoutes.BehindTheScene
@@ -84,6 +66,7 @@ function BehindTheSceneCreatingWallet({
 }) {
   const toast = useToast();
   const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
   const { onboardingGoBack } = useOnboardingClose();
   const { password, mnemonic, withEnableAuthentication, isHardwareCreating } =
