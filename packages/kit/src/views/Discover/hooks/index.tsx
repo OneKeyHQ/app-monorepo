@@ -102,39 +102,37 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
 }
 
 export function useTaggedDapps() {
-  const tagItems = useAppSelector((s) => s.discover.tagItems);
-  const tags = useAppSelector((s) => s.discover.tags);
+  const tagDapps = useAppSelector((s) => s.discover.tagDapps);
   return useMemo(() => {
-    if (!tagItems || !tags || tags.length === 0) {
+    if (!tagDapps) {
       return [];
     }
-    return tags
-      .map((tag) => ({ label: tag.name, items: tagItems[tag._id] ?? [] }))
-      .filter((item) => item.items.length > 0);
-  }, [tagItems, tags]);
+    return tagDapps.filter((item) => item.items.length > 0);
+  }, [tagDapps]);
 }
 
 export function useCategoryDapps(categoryId?: string) {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
+  const categoryDapps = useAppSelector((s) => s.discover.categoryDapps);
   return useMemo(() => {
-    if (!categoryId || !dappItems) {
+    if (!categoryDapps || !categoryId) {
       return [];
     }
-    return dappItems?.filter((item) =>
-      item.categories.map((o) => o._id).includes(categoryId),
-    );
-  }, [categoryId, dappItems]);
+    const result = categoryDapps.find((item) => item.id === categoryId);
+    if (result) {
+      return result.items;
+    }
+    return [];
+  }, [categoryId, categoryDapps]);
 }
 
 export function useCategories() {
-  const categories = useAppSelector((s) => s.discover.categories);
-  const categoryItems = useAppSelector((s) => s.discover.categoryItems);
+  const categoryDapps = useAppSelector((s) => s.discover.categoryDapps);
   return useMemo(() => {
-    if (!categories || !categoryItems) {
+    if (!categoryDapps) {
       return [];
     }
-    return categories.filter(
-      (item) => categoryItems[item._id] && categoryItems[item._id].length > 0,
-    );
-  }, [categories, categoryItems]);
+    return categoryDapps
+      .filter((item) => item.items.length > 0)
+      .map((o) => ({ name: o.label, _id: o.id }));
+  }, [categoryDapps]);
 }

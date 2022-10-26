@@ -8,12 +8,12 @@ import {
   removeDappHistory,
   removeFavorite,
   removeWebSiteHistory,
-  setCategories,
-  setCategoryItems,
+  setCategoryDapps,
   setDappHistory,
   setDappItems,
-  setTagItems,
-  setTags,
+  setListedCategories,
+  setListedTags,
+  setTagDapps,
 } from '../../store/reducers/discover';
 import { WebTab, setWebTabData } from '../../store/reducers/webTabs';
 import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
@@ -45,38 +45,22 @@ class ServicDiscover extends ServiceBase {
     ) {
       return;
     }
-    const url = `${this.baseUrl}/get_listing`;
+    const url = `${this.baseUrl}/listing_data`;
     const res = await this.client.get(url);
     const data = res.data as {
       dapps: DAppItemType[];
-      tags: { name: string; _id: string }[];
-      categories: { name: string; _id: string }[];
+      listedCategories: { name: string; _id: string }[];
+      listedTags: { name: string; _id: string }[];
+      categoryDapps: { label: string; id: string; items: DAppItemType[] }[];
+      tagDapps: { label: string; id: string; items: DAppItemType[] }[];
     };
-    const categoryItems: Record<string, DAppItemType[]> = {};
-    const tagItems: Record<string, DAppItemType[]> = {};
-    data.dapps?.forEach((item) => {
-      const categoryIds = item.categories.map((a) => a._id);
-      categoryIds.forEach((id) => {
-        if (!categoryItems[id]) {
-          categoryItems[id] = [];
-        }
-        categoryItems[id].push(item);
-      });
-      const tagIds = item.tags.map((a) => a._id);
-      tagIds.forEach((id) => {
-        if (!tagItems[id]) {
-          tagItems[id] = [];
-        }
-        tagItems[id].push(item);
-      });
-    });
 
     dispatch(
       setDappItems(data.dapps),
-      setTags(data.tags),
-      setTagItems(tagItems),
-      setCategories(data.categories),
-      setCategoryItems(categoryItems),
+      setCategoryDapps(data.categoryDapps),
+      setListedCategories(data.listedCategories),
+      setTagDapps(data.tagDapps),
+      setListedTags(data.listedTags),
     );
 
     this.updatedAt = Date.now();

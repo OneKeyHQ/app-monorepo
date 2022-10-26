@@ -208,7 +208,8 @@ const ListHeaderComponent = () => {
 
 const ListEmptyComponent = () => {
   const dappItems = useAppSelector((s) => s.discover.dappItems);
-  return !dappItems ? <EmptySkeleton /> : <Empty title="" />;
+  const listedCategories = useAppSelector((s) => s.discover.listedCategories);
+  return dappItems && listedCategories ? <Empty title="" /> : <EmptySkeleton />;
 };
 
 export const Mine = () => {
