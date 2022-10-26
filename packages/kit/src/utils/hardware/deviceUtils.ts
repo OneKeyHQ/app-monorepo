@@ -370,6 +370,8 @@ class DeviceUtils {
         return new Error.FirmwareUpdateLimitOneDevice(payload);
       case HardwareErrorCode.CallMethodNeedUpgradeFirmware:
         return new Error.FirmwareVersionTooLow(payload);
+      case HardwareErrorCode.NewFirmwareUnRelease:
+        return new Error.NewFirmwareUnRelease(payload);
       case HardwareErrorCode.NetworkError:
         return new Error.NetworkError(payload);
       case HardwareErrorCode.BlePermissionError:
