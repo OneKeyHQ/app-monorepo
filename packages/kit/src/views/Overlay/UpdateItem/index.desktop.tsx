@@ -25,7 +25,7 @@ const UpdateItem: FC = () => {
   if (state === 'available') {
     formText = intl.formatMessage({ id: 'action__update_available' });
   } else if (state === 'ready') {
-    formText = intl.formatMessage({ id: 'action__update_now' });
+    formText = intl.formatMessage({ id: 'action__restart_n_update' });
   } else if (!autoDownload && state === 'downloading') {
     formText = intl.formatMessage(
       { id: 'form__update_downloading' },
