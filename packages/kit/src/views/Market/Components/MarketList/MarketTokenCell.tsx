@@ -27,8 +27,8 @@ import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import { ListHeadTagType } from '../../types';
 import {
   formatMarketValueForComma,
-  formatMarketValueForFiexd,
   formatMarketValueForInfo,
+  formatMarketVolatility,
 } from '../../utils';
 
 import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
@@ -255,7 +255,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                             ? 'text-success'
                             : 'text-critical'
                         }
-                      >{`${formatMarketValueForFiexd(
+                      >{`${formatMarketVolatility(
                         marketTokenItem.priceChangePercentage24H,
                       )}%`}</Typography.Body2Strong>
                     </Box>
@@ -265,7 +265,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                 <ListItem.Column
                   key={tag.id}
                   text={{
-                    label: `${formatMarketValueForFiexd(
+                    label: `${formatMarketVolatility(
                       marketTokenItem.priceChangePercentage24H,
                     )}%`,
                     labelProps: {

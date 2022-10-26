@@ -70,17 +70,31 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
         },
       ];
     }
-    return [
-      {
-        id: intl.formatMessage({ id: 'action__add_to_favorites' }),
-        onPress: () => {
-          backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
-            token.coingeckoId,
-          ]);
-        },
-        icon: 'StarOutline',
-      },
-    ];
+    return token.favorited
+      ? [
+          {
+            id: intl.formatMessage({ id: 'action__remove_from_favorites' }),
+            onPress: () => {
+              backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
+                token.coingeckoId,
+              );
+            },
+            icon: 'TrashSolid',
+            textColor: 'text-critical',
+            iconColor: 'icon-critical',
+          },
+        ]
+      : [
+          {
+            id: intl.formatMessage({ id: 'action__add_to_favorites' }),
+            onPress: () => {
+              backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
+                token.coingeckoId,
+              ]);
+            },
+            icon: 'StarOutline',
+          },
+        ];
   }, [selectedCategoryId, token, intl]);
   return (
     <Box>

@@ -190,7 +190,15 @@ export const MarketSlicer = createSlice({
     saveMarketCategorys(state, action: PayloadAction<MarketCategory[]>) {
       const { payload } = action;
       payload.forEach((c) => {
-        state.categorys[c.categoryId] = c;
+        const { recommendedTokens } = c;
+        const resCategory = { ...c };
+        if (recommendedTokens?.length) {
+          resCategory.recommendedTokens = recommendedTokens.map((t) => {
+            t.symbol = t.symbol ? t.symbol.toUpperCase() : '';
+            return t;
+          });
+        }
+        state.categorys[c.categoryId] = resCategory;
       });
     },
     updateMarketTokens(
@@ -207,6 +215,8 @@ export const MarketSlicer = createSlice({
           if (!cacheCategory.coingeckoIds) {
             cacheCategory.coingeckoIds = fetchCoingeckoIds;
           } else if (
+            // ban favorite category coingecko ids change
+            cacheCategory.categoryId !== MARKET_FAVORITES_CATEGORYID &&
             !equalStringArr(cacheCategory.coingeckoIds, fetchCoingeckoIds) &&
             state.listSort === null
           ) {
