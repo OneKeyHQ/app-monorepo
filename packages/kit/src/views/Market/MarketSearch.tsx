@@ -114,43 +114,45 @@ const MarketSearch: FC<{
       <>
         {searchCategorys?.length ? (
           <Box flex={1}>
-            <Box flexDirection="row" justifyContent="space-between" mb={2}>
-              <Typography.Subheading>
-                {intl.formatMessage({ id: 'form__recent_searched_uppercase' })}
-              </Typography.Subheading>
-              {searchHistory && searchHistory.length > 0 ? (
-                <Button
-                  type="plain"
-                  size="xs"
-                  leftIconName="TrashSolid"
-                  iconSize={16}
-                  mr="2"
-                  onPress={() => {
-                    backgroundApiProxy.serviceMarket.clearSearchHistory();
-                  }}
-                >
-                  {intl.formatMessage({ id: 'action__clear_all' })}
-                </Button>
-              ) : null}
-            </Box>
             {searchHistory?.length ? (
-              <Box mb={2} flexDirection="row" flexWrap="wrap">
-                {searchHistory.map((t, i) => (
-                  <TokenTag
+              <>
+                <Box flexDirection="row" justifyContent="space-between" mb={2}>
+                  <Typography.Subheading>
+                    {intl.formatMessage({
+                      id: 'form__recent_searched_uppercase',
+                    })}
+                  </Typography.Subheading>
+                  <Button
+                    type="plain"
+                    size="xs"
+                    leftIconName="TrashSolid"
+                    iconSize={16}
+                    mr="2"
                     onPress={() => {
-                      // goto marketoken detail
-                      onTokenPress({
-                        coingeckoId: t.coingeckoId,
-                        image: t.iconUrl,
-                        symbol: t.symbol,
-                      });
+                      backgroundApiProxy.serviceMarket.clearSearchHistory();
                     }}
-                    name={t.symbol}
-                    logoURI={t.iconUrl}
-                    key={i}
-                  />
-                ))}
-              </Box>
+                  >
+                    {intl.formatMessage({ id: 'action__clear_all' })}
+                  </Button>
+                </Box>
+                <Box mb={2} flexDirection="row" flexWrap="wrap">
+                  {searchHistory.map((t, i) => (
+                    <TokenTag
+                      onPress={() => {
+                        // goto marketoken detail
+                        onTokenPress({
+                          coingeckoId: t.coingeckoId,
+                          image: t.iconUrl,
+                          symbol: t.symbol,
+                        });
+                      }}
+                      name={t.symbol}
+                      logoURI={t.iconUrl}
+                      key={i}
+                    />
+                  ))}
+                </Box>
+              </>
             ) : null}
             {searchSelectedCategoryIndex >= 0 ? (
               <MarketSearchTabView

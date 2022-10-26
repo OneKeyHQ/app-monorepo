@@ -55,6 +55,8 @@ type NavigationProps = NativeStackNavigationProp<TabRoutesParams> &
 
 const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
+  const toast = useToast();
+  const intl = useIntl();
   return (
     <Box>
       <IconButton
@@ -71,10 +73,16 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
               backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
                 tokenItem.coingeckoId,
               );
+              toast.show({
+                title: intl.formatMessage({ id: 'msg__removed' }),
+              });
             } else {
               backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
                 tokenItem.coingeckoId,
               ]);
+              toast.show({
+                title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
+              });
             }
           }
         }}

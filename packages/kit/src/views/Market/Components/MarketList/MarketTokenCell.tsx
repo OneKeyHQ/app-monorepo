@@ -15,13 +15,17 @@ import {
   Token,
   Typography,
   useIsVerticalLayout,
+  useToast,
   useUserDevice,
 } from '@onekeyhq/components/src';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import {
+  MarketTokenItem,
+  MARKET_FAVORITES_CATEGORYID,
+} from '@onekeyhq/kit/src/store/reducers/market';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import { ListHeadTagType } from '../../types';
@@ -35,6 +39,7 @@ import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
 import SparklineChart from './SparklineChart';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 
 interface MarketTokenCellProps {
   onPress?: (marketTokenItem: MarketTokenItem) => void;
@@ -76,6 +81,9 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const { size } = useUserDevice();
   const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
+  const selectedCategoryId = useMarketSelectedCategoryId();
+  const toast = useToast();
+  const intl = useIntl();
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
     isList: true,
@@ -129,10 +137,20 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                           backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
                             marketTokenItem.coingeckoId,
                           );
+                          toast.show({
+                            title: intl.formatMessage({
+                              id: 'msg__removed',
+                            }),
+                          });
                         } else {
                           backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens(
                             [marketTokenItem.coingeckoId],
                           );
+                          toast.show({
+                            title: intl.formatMessage({
+                              id: 'msg__added_to_favorites',
+                            }),
+                          });
                         }
                       }}
                     >
@@ -394,15 +412,17 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                   ) : (
                     <Skeleton shape="Caption" />
                   )}
-                  <IconButton
-                    isDisabled={Boolean(!marketTokenItem)}
-                    size="xs"
-                    name="DotsVerticalSolid"
-                    type="plain"
-                    ml="2"
-                    circle
-                    onPress={showMore}
-                  />
+                  {selectedCategoryId === MARKET_FAVORITES_CATEGORYID ? (
+                    <IconButton
+                      isDisabled={Boolean(!marketTokenItem)}
+                      size="xs"
+                      name="DotsVerticalSolid"
+                      type="plain"
+                      ml="2"
+                      circle
+                      onPress={showMore}
+                    />
+                  ) : null}
                 </Box>
               </ListItem.Column>
             );

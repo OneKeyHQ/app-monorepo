@@ -8,6 +8,7 @@ import {
   Icon,
   Text,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components/src';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
@@ -40,25 +41,28 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
   token,
 }) => {
   const intl = useIntl();
+  const toast = useToast();
   const selectedCategoryId = useMarketSelectedCategoryId();
   const isVerticalLayout = useIsVerticalLayout();
   const options: MarketCellMoreMenuOption[] = useMemo(() => {
+    const cancelAction = {
+      id: intl.formatMessage({ id: 'action__remove_from_favorites' }),
+      onPress: () => {
+        backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
+          token.coingeckoId,
+        );
+        toast.show({ title: intl.formatMessage({ id: 'msg__removed' }) });
+      },
+      icon: 'TrashSolid',
+      textColor: 'text-critical',
+      iconColor: 'icon-critical',
+    };
     if (
       selectedCategoryId &&
       selectedCategoryId === MARKET_FAVORITES_CATEGORYID
     ) {
       return [
-        {
-          id: intl.formatMessage({ id: 'action__remove_from_favorites' }),
-          onPress: () => {
-            backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
-              token.coingeckoId,
-            );
-          },
-          icon: 'TrashSolid',
-          textColor: 'text-critical',
-          iconColor: 'icon-critical',
-        },
+        cancelAction,
         {
           id: intl.formatMessage({ id: 'action__move_to_top' }),
           onPress: () => {
@@ -71,19 +75,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
       ];
     }
     return token.favorited
-      ? [
-          {
-            id: intl.formatMessage({ id: 'action__remove_from_favorites' }),
-            onPress: () => {
-              backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
-                token.coingeckoId,
-              );
-            },
-            icon: 'TrashSolid',
-            textColor: 'text-critical',
-            iconColor: 'icon-critical',
-          },
-        ]
+      ? [cancelAction]
       : [
           {
             id: intl.formatMessage({ id: 'action__add_to_favorites' }),
@@ -91,11 +83,14 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
               backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
                 token.coingeckoId,
               ]);
+              toast.show({
+                title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
+              });
             },
             icon: 'StarOutline',
           },
         ];
-  }, [selectedCategoryId, token, intl]);
+  }, [intl, selectedCategoryId, token.favorited, token.coingeckoId, toast]);
   return (
     <Box>
       {options.map(({ id, onPress, icon, textColor, iconColor }) => (
