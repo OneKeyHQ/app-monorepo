@@ -45,7 +45,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
   const selectedCategoryId = useMarketSelectedCategoryId();
   const isVerticalLayout = useIsVerticalLayout();
   const options: MarketCellMoreMenuOption[] = useMemo(() => {
-    const cancelAction = {
+    const cancelAction: MarketCellMoreMenuOption = {
       id: intl.formatMessage({ id: 'action__remove_from_favorites' }),
       onPress: () => {
         backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
