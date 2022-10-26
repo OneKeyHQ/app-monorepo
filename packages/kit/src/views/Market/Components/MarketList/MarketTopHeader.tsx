@@ -145,6 +145,7 @@ const HeaderSmall: React.FC = () => {
                   withHandle: true,
                   handlePosition: 'inside',
                   tapGestureEnabled: false,
+                  scrollViewProps: { keyboardShouldPersistTaps: 'handled' },
                 },
               });
             }}
