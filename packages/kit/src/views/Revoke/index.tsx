@@ -138,7 +138,7 @@ const RevokePage: FC = () => {
         filters={filters}
       />
     );
-  }, [networkId, filters, intl, network, keyword]);
+  }, [networkId, filters, intl, network, keyword, addressOrName]);
 
   return (
     <ScrollView
