@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,7 @@ import {
   formatMarketVolatility,
   getFiatCodeUnit,
 } from '../../utils';
+import { getDefaultLocale } from '../../../../utils/locale';
 
 type DataViewComponentProps = {
   title?: string;
@@ -76,6 +77,10 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
   const { locale } = useSettings();
+  const timeLocal = useMemo(
+    () => (locale === 'system' ? locale : getDefaultLocale()),
+    [locale],
+  );
   return (
     <Box px={px}>
       <VStack space={3} mt="6">
@@ -214,14 +219,14 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
               value={`${getFiatCodeUnit(
                 selectedFiatMoneySymbol,
               )}${formatMarketValueForComma(atl?.value)}`}
-              subValue={formatLocalDate(atl?.time, locale)}
+              subValue={formatLocalDate(atl?.time, timeLocal)}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__all_time_high' })}
               value={`${getFiatCodeUnit(
                 selectedFiatMoneySymbol,
               )}${formatMarketValueForComma(ath?.value)}`}
-              subValue={formatLocalDate(ath?.time, locale)}
+              subValue={formatLocalDate(ath?.time, timeLocal)}
             />
           </Box>
         </Box>
