@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions, NativeModules } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
