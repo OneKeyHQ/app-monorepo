@@ -79,3 +79,98 @@ index df36889..8048bf3 100644
            <PresenceTransition
              initial={{ opacity: 0 }}
              animate={{ opacity: 1, transition: { duration: 150 } }}
+diff --git a/node_modules/native-base/src/components/primitives/Image/index.native.tsx b/node_modules/native-base/src/components/primitives/Image/index.native.tsx
+new file mode 100644
+index 0000000..a7e47da
+--- /dev/null
++++ b/node_modules/native-base/src/components/primitives/Image/index.native.tsx
+@@ -0,0 +1,89 @@
++import React, { useState, memo, forwardRef, useCallback, useRef } from 'react';
++import RNImage from 'react-native-fast-image';
++import Text from '../Text';
++import { usePropsResolution } from '../../../hooks/useThemeProps';
++import type { IImageProps } from './types';
++import { useHasResponsiveProps } from '../../../hooks/useHasResponsiveProps';
++import { makeStyledComponent } from '../../../utils/styled';
++
++const StyledImage = makeStyledComponent(RNImage);
++
++const Image = (props: IImageProps, ref: any) => {
++  const {
++    source,
++    src,
++    fallbackElement,
++    alt,
++    fallbackSource,
++    ignoreFallback,
++    _alt,
++    ...resolvedProps
++  } = usePropsResolution('Image', props);
++
++  const finalSource: any = useRef(null);
++  const getSource = useCallback(() => {
++    if (source) {
++      finalSource.current = source;
++    } else if (src) {
++      finalSource.current = { uri: src };
++    }
++    return finalSource.current;
++  }, [source, src]);
++
++  const [renderedSource, setSource] = useState(getSource());
++  const [alternate, setAlternate] = useState(false);
++  const [fallbackSourceFlag, setfallbackSourceFlag] = useState(true);
++
++  React.useEffect(() => {
++    return () => {
++      finalSource.current = null;
++    };
++  }, [source, src, getSource]);
++
++  const onImageLoadError = useCallback(
++    (event: any) => {
++      props.onError && props.onError(event);
++      console.warn(event.nativeEvent.error);
++      if (
++        !ignoreFallback &&
++        fallbackSource &&
++        fallbackSource !== renderedSource &&
++        fallbackSourceFlag
++      ) {
++        setfallbackSourceFlag(false);
++        setSource(fallbackSource);
++      } else {
++        setAlternate(true);
++      }
++    },
++    [fallbackSource, fallbackSourceFlag, ignoreFallback, props, renderedSource]
++  );
++  //TODO: refactor for responsive prop
++  if (useHasResponsiveProps(props)) {
++    return null;
++  }
++  if (!alt) {
++    console.warn('Please pass alt prop to Image component');
++  }
++
++  if (alternate) {
++    if (fallbackElement) {
++      if (React.isValidElement(fallbackElement)) {
++        return fallbackElement;
++      }
++    } else return <Text {..._alt}>{alt}</Text>;
++  }
++  return (
++    <StyledImage
++      source={renderedSource}
++      accessibilityLabel={alt}
++      alt={alt}
++      {...resolvedProps}
++      onError={onImageLoadError}
++      ref={ref}
++    />
++  );
++};
++
++export default memo(forwardRef(Image));
++export type { IImageProps };
