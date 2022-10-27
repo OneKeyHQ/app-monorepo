@@ -38,6 +38,7 @@ import { isNil } from 'lodash';
 
 import {
   IMPL_ALGO,
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_DOGE,
@@ -96,7 +97,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   implOptions = { ...implOptions, chainId };
 
   let code = dbNetwork.id;
-  if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC].includes(dbNetwork.impl)) {
+  if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(dbNetwork.impl)) {
     code = dbNetwork.impl;
   }
 

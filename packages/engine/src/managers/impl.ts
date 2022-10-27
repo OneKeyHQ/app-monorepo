@@ -1,6 +1,7 @@
 import {
   COINTYPE_ALGO,
   COINTYPE_APTOS,
+  COINTYPE_BCH,
   COINTYPE_BTC,
   COINTYPE_CFX,
   COINTYPE_DOGE,
@@ -12,6 +13,7 @@ import {
   COINTYPE_TRON,
   IMPL_ALGO,
   IMPL_APTOS,
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_DOGE,
@@ -43,6 +45,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_APTOS]: COINTYPE_APTOS,
   [IMPL_DOGE]: COINTYPE_DOGE,
   [IMPL_LTC]: COINTYPE_LTC,
+  [IMPL_BCH]: COINTYPE_BCH,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -61,6 +64,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_APTOS]: AccountType.SIMPLE,
   [IMPL_DOGE]: AccountType.UTXO,
   [IMPL_LTC]: AccountType.UTXO,
+  [IMPL_BCH]: AccountType.UTXO,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -79,6 +83,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_APTOS]: Curve.ED25519,
   [IMPL_DOGE]: Curve.SECP256K1,
   [IMPL_LTC]: Curve.SECP256K1,
+  [IMPL_BCH]: Curve.SECP256K1,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -152,6 +157,13 @@ const defaultAccountNameInfo: Record<
       prefix: 'LTC Native SegWit',
       category: `84'/${COINTYPE_BTC}'`,
       label: 'Native SegWit',
+    },
+  },
+  [IMPL_BCH]: {
+    default: {
+      prefix: 'BCH',
+      category: `44'/${COINTYPE_BCH}'`,
+      label: 'Legacy (P2PKH)',
     },
   },
 };

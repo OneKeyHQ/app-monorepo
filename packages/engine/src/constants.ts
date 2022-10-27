@@ -35,6 +35,9 @@ const COINTYPE_DOGE = '3';
 const IMPL_LTC = 'ltc';
 const COINTYPE_LTC = '2';
 
+const IMPL_BCH = 'bch';
+const COINTYPE_BCH = '145';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -47,6 +50,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_APTOS,
   IMPL_DOGE,
   IMPL_LTC,
+  IMPL_BCH,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -60,6 +64,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_APTOS,
   IMPL_DOGE,
   IMPL_LTC,
+  IMPL_BCH,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -113,5 +118,7 @@ export {
   COINTYPE_DOGE,
   IMPL_LTC,
   COINTYPE_LTC,
+  IMPL_BCH,
+  COINTYPE_BCH,
   getSupportedImpls,
 };
