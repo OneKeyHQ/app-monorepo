@@ -34,17 +34,20 @@ function useSwapTransactions(): TransactionDetails[] {
 
 export function useWalletsAccounts() {
   const wallets = useAppSelector((s) => s.runtime.wallets);
-  const accounts = wallets.reduce(
-    (result, wallet) =>
-      result.concat(
-        wallet.accounts.map((account) => ({
-          accountId: account,
-          walletId: wallet.id,
-        })),
+  return useMemo(
+    () =>
+      wallets.reduce(
+        (result, wallet) =>
+          result.concat(
+            wallet.accounts.map((account) => ({
+              accountId: account,
+              walletId: wallet.id,
+            })),
+          ),
+        [] as { accountId: string; walletId: string }[],
       ),
-    [] as { accountId: string; walletId: string }[],
+    [wallets],
   );
-  return accounts;
 }
 
 export function useWalletsSwapTransactions() {
