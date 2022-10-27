@@ -7593,9 +7593,9 @@ bitcoin-ops@^1.3.0, bitcoin-ops@^1.4.0:
   resolved "https://registry.yarnpkg.com/bitcoin-ops/-/bitcoin-ops-1.4.1.tgz#e45de620398e22fd4ca6023de43974ff42240278"
   integrity sha512-pef6gxZFztEhaE9RY9HmWVmiIHqCb2OyS4HPKkpc6CIiiOa3Qmuoylxc5P2EkU3w+5eTSifI9SEZC88idAIGow==
 
-"bitcoinforkjs@git+https://github.com/originalix/bitcoincashjs-lib.git#cashv5":
+"bitcoinforkjs@git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#cashv5":
   version "5.2.0"
-  resolved "git+https://github.com/originalix/bitcoincashjs-lib.git#fb2c364d15b17c382d3a58f9586b963fdf84a5e7"
+  resolved "git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#fb2c364d15b17c382d3a58f9586b963fdf84a5e7"
   dependencies:
     bech32 "^1.1.2"
     big-integer "^1.6.44"
