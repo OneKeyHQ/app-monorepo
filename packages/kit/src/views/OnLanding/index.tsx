@@ -37,7 +37,7 @@ export default function OnLanding() {
       return '';
     }
     const { queryParams, path } = Linking.parse(locationUrl);
-    if (path === WalletConnectUniversalLinkPath) {
+    if (path === WalletConnectUniversalLinkPath && queryParams?.uri) {
       const linkUrl = walletConnectUtils.buildOneKeyWalletConnectDeepLinkUrl({
         uri: queryParams?.uri as string,
       });

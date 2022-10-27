@@ -24,7 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import { useActiveWalletAccount, useDebounce } from '../../hooks';
-import { useCreateExternalAccount } from '../ExternalAccount/useCreateExternalAccount';
+import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
 import FilterBar, { AssetType } from './FilterBar';
 import RevokeHeader from './Header';
@@ -50,9 +50,10 @@ const RevokePage: FC = () => {
   const [networkId, setNetworkId] = useState<string>(
     activeNetworkId ?? OnekeyNetwork.eth,
   );
-  const { createExternalAccount } = useCreateExternalAccount({
-    networkId,
-  });
+  const { connectAndCreateExternalAccount } =
+    useConnectAndCreateExternalAccount({
+      networkId,
+    });
 
   const keyword = useDebounce(addressOrName, 600);
 
@@ -63,11 +64,11 @@ const RevokePage: FC = () => {
       return null;
     }
     return (
-      <Button onPress={createExternalAccount} mr={6}>
+      <Button onPress={connectAndCreateExternalAccount} mr={6}>
         {intl.formatMessage({ id: 'action__connect_wallet' })}
       </Button>
     );
-  }, [intl, createExternalAccount, account?.id]);
+  }, [intl, connectAndCreateExternalAccount, account?.id]);
 
   const handleNetworkChange = useCallback((id: string) => {
     setNetworkId(id);
