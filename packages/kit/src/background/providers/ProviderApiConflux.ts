@@ -136,7 +136,11 @@ class ProviderApiConflux extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    const { networkId } = getActiveWalletAccount();
+    const { networkId, networkImpl } = getActiveWalletAccount();
+
+    if (networkImpl !== IMPL_CFX) {
+      return;
+    }
 
     debugLogger.providerApi.info('conflux rpcCall:', request, { networkId });
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(

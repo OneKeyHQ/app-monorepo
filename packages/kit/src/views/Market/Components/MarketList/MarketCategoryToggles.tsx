@@ -69,6 +69,7 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
             buttons={buttons}
             selectedIndex={toggleIndex}
             onButtonPress={toggleCategory}
+            bg="background-default"
           />
         ) : (
           <Box flex={1} width="full" flexDirection="row">

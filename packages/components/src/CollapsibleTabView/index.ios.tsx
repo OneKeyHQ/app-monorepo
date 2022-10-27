@@ -74,6 +74,7 @@ const Container: FC<ContainerProps> = ({
           }, 0);
         }}
         headerHeight={headerHeight}
+        scrollEnabled
         renderHeader={renderHeader}
         tabViewStyle={{
           paddingX: 0,
