@@ -159,8 +159,8 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         >
           {isVerticalLayout ? (
             <>
-              <MarketPriceChart coingeckoId="ethereum" />
-              <MarketDetailActionButton marketTokenId="ethereum" />
+              <MarketPriceChart coingeckoId={marketTokenId} />
+              <MarketDetailActionButton marketTokenId={marketTokenId} />
             </>
           ) : (
             <MarketPriceChart coingeckoId={marketTokenId} />
