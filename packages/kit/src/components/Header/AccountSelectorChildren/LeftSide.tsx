@@ -8,8 +8,6 @@ import React, {
   useState,
 } from 'react';
 
-import { orderBy } from 'lodash';
-
 import {
   Box,
   Center,
@@ -265,12 +263,8 @@ const LeftSide: FC<LeftSideProps> = ({
     Object.keys(walletRecord).forEach((key) => {
       const value = walletRecord[key];
       const normal = value.find((w) => !w.passphraseState);
+      const sortWallet = value.filter((w) => w.passphraseState);
 
-      const sortWallet = orderBy(
-        value.filter((w) => w.passphraseState),
-        ['name'],
-        ['asc'],
-      );
       if (normal) sortWallet.unshift(normal);
 
       hwGroup.push({
