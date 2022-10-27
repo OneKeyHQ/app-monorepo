@@ -275,8 +275,18 @@ class Provider {
     );
   }
 
-  verifyAddress(address: string): AddressValidation {
+  verifyAddress(addr: string): AddressValidation {
     let encoding: string | undefined;
+    let address = addr;
+
+    // bitcoin cash address format
+    if (
+      isNetworkType('bitcoinCash', this.network) &&
+      bchaddrjs.isValidAddress(address) &&
+      bchaddrjs.isCashAddress(address)
+    ) {
+      address = bchaddrjs.toLegacyAddress(address);
+    }
 
     try {
       const decoded = BitcoinJS.address.fromBase58Check(address);
