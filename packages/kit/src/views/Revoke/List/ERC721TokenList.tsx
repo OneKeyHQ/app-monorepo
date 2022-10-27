@@ -31,7 +31,6 @@ export const ERC721TokenList: FC<{
     loading,
     allowances,
     address: accountAddress,
-    refresh,
   } = useERC721Allowances(networkId, addressOrName);
 
   const data = useMemo(
@@ -100,7 +99,6 @@ export const ERC721TokenList: FC<{
                     accountAddress={accountAddress}
                     spender={a.spender}
                     token={token}
-                    onRevokeSuccess={refresh}
                   />
                 ))
               )}
@@ -109,7 +107,7 @@ export const ERC721TokenList: FC<{
         </ListItem>
       );
     },
-    [intl, accountAddress, networkId, refresh],
+    [intl, accountAddress, networkId],
   );
 
   const renderListItemMobile = useCallback(
@@ -157,7 +155,6 @@ export const ERC721TokenList: FC<{
                       accountAddress={accountAddress}
                       spender={a.spender}
                       token={token}
-                      onRevokeSuccess={refresh}
                     />
                   ))
                 )}
@@ -167,7 +164,7 @@ export const ERC721TokenList: FC<{
         </ListItem>
       );
     },
-    [intl, accountAddress, networkId, refresh],
+    [intl, accountAddress, networkId],
   );
 
   return (

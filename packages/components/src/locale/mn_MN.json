@@ -952,6 +952,7 @@
   "form__vibrate": "Чичиргээ",
   "form__view_in_explore": "Explore хэсэгт харах",
   "form__view_recovery_phrase_private_key": "Сэргээх хэллэг / Хувийн түлхүүрийг харах",
+  "form__vol_str": "{0} боть",
   "form__wallet_name_help_text": "Төхөөрөмжийн шошгыг нэгэн зэрэг өөрчлөх.",
   "form__walletconnect__uppercase": "WALLETCONNECT",
   "form__website": "Вэб сайт",

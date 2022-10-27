@@ -952,6 +952,7 @@
   "form__vibrate": "Вибрация",
   "form__view_in_explore": "Посмотреть в разделе Исследовать",
   "form__view_recovery_phrase_private_key": "Просмотр фразы восстановления/закрытого ключа",
+  "form__vol_str": "Объем {0}",
   "form__wallet_name_help_text": "Одновременно измените этикетку устройства.",
   "form__walletconnect__uppercase": "WALLETCONNECT",
   "form__website": "Сайт",

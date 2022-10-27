@@ -42,10 +42,11 @@ export default class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchMarketCategorys() {
     const { appSelector, dispatch } = this.backgroundApi;
+    const locale = appSelector((s) => s.settings.locale);
     const path = '/market/category/list';
     const datas: MarketCategory[] = await this.fetchData(
       path,
-      { locale: getDefaultLocale() },
+      { locale: locale === 'system' ? getDefaultLocale() : locale },
       [],
     );
 
@@ -82,22 +83,22 @@ export default class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchMarketList({
     categoryId,
-    vsCurrency,
     ids,
     sparkline,
   }: {
     categoryId?: string;
-    vsCurrency: string;
     ids?: string;
     sparkline?: boolean;
   }) {
+    const { dispatch, appSelector } = this.backgroundApi;
     const path = '/market/tokens';
     const coingeckoIds = ids && ids.length > 0 ? ids : undefined;
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const data = await this.fetchData<MarketTokenItem[]>(
       path,
       {
         category: categoryId,
-        vs_currency: vsCurrency,
+        vs_currency: vsCurrency ?? 'usd',
         ids: coingeckoIds,
         sparkline,
       },
@@ -106,7 +107,6 @@ export default class ServiceMarket extends ServiceBase {
     if (data.length === 0) {
       return;
     }
-    const { dispatch, appSelector } = this.backgroundApi;
     dispatch(updateMarketTokens({ categoryId, marketTokens: data }));
     // check token base(tokens & logoURI)
     const marketTokens = appSelector((s) => s.market.marketTokens);
@@ -139,19 +139,19 @@ export default class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchMarketDetail(coingeckoId: string) {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const locale = appSelector((s) => s.settings.locale);
     const path = '/market/detail';
     const data = await this.fetchData(
       path,
       {
         id: coingeckoId,
-        locale: getDefaultLocale(),
+        locale: locale === 'system' ? getDefaultLocale() : locale,
       },
       null,
     );
     if (data) {
-      this.backgroundApi.dispatch(
-        updateMarketTokenDetail({ coingeckoId, data }),
-      );
+      dispatch(updateMarketTokenDetail({ coingeckoId, data }));
     }
   }
 
@@ -259,7 +259,6 @@ export default class ServiceMarket extends ServiceBase {
       this.fetchMarketList({
         ids: data.join(','),
         sparkline: false,
-        vsCurrency: 'usd',
       });
     }
   }

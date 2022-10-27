@@ -93,9 +93,21 @@ export function formatMarketValueForInfo(value?: number | string) {
   return 0;
 }
 
-export function formatLocalDate(date?: string) {
+export function formatLocalDate(date?: string, locale?: string) {
   if (date && date.length > 0) {
-    return new Date(date).toLocaleString();
+    return new Date(date).toLocaleString(locale);
   }
   return '';
+}
+
+const fiatUnitMap: Record<string, string> = {
+  'usd': '$',
+  'cny': '￥',
+  'hkd': 'HK$',
+  'jpy': 'JP￥',
+  'btc': 'BTC',
+};
+
+export function getFiatCodeUnit(currentCode: string) {
+  return fiatUnitMap[currentCode] ?? fiatUnitMap.usd;
 }

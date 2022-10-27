@@ -952,6 +952,7 @@
   "form__vibrate": "कंपन",
   "form__view_in_explore": "एक्सप्लोर में देखें",
   "form__view_recovery_phrase_private_key": "पुनर्प्राप्ति वाक्यांश / निजी कुंजी देखें",
+  "form__vol_str": "वॉल्यूम {0}",
   "form__wallet_name_help_text": "साथ ही डिवाइस का लेबल बदलें।",
   "form__walletconnect__uppercase": "WALLETCONNECT",
   "form__website": "वेबसाइट",

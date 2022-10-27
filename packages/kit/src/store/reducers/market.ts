@@ -89,10 +89,10 @@ export type MarketStats = {
   marketCap?: number;
   marketCapDominance?: string;
   marketCapRank?: number;
-  trandingVolume?: string;
+  trandingVolume?: number;
   volume24h?: number;
-  low7d?: string;
-  high7d?: string;
+  // low7d?: string;
+  // high7d?: string;
   low24h?: number;
   high24h?: number;
   atl?: {

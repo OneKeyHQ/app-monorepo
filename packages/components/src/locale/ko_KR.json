@@ -952,6 +952,7 @@
   "form__vibrate": "떨리다",
   "form__view_in_explore": "탐색에서 보기",
   "form__view_recovery_phrase_private_key": "복구 문구/개인 키 보기",
+  "form__vol_str": "권 {0}",
   "form__wallet_name_help_text": "동시에 장치의 레이블을 변경합니다.",
   "form__walletconnect__uppercase": "WALLETCONNECT",
   "form__website": "웹사이트",

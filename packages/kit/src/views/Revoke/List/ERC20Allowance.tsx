@@ -19,20 +19,21 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { toFloat } from '@onekeyhq/engine/src/managers/revoke';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../../components/Format';
-import { useActiveWalletAccount } from '../../../hooks';
 import { navigationRef } from '../../../provider/NavigationProvider';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { useConnectAndCreateExternalAccount } from '../../ExternalAccount/useConnectAndCreateExternalAccount';
-import { SendRoutes } from '../../Send/types';
-import { useSpenderAppName } from '../hooks';
+import { AssetType } from '../FilterBar';
+import {
+  useAccountCanTransaction,
+  useSpenderAppName,
+  useUpdateAllowance,
+} from '../hooks';
 import showAllowanceDetailOverlay, {
   ActionKey,
 } from '../Overlays/AllowanceDetail';
-import showChangeAllowanceOverlay from '../Overlays/ChangeAllowance';
+import { RevokeRoutes } from '../types';
 
 type Props = {
   spender: string;
@@ -43,13 +44,12 @@ type Props = {
   allowance: string;
   totalSupply: string;
   accountAddress: string;
-  onRevokeSuccess: () => void;
 };
 
 export const ApproveDialog = ({ onClose }: { onClose?: () => void }) => {
   const intl = useIntl();
   const { connectAndCreateExternalAccount } =
-    useConnectAndCreateExternalAccount({});
+    useConnectAndCreateExternalAccount();
   return (
     <Dialog
       visible
@@ -91,22 +91,20 @@ export const ERC20Allowance: FC<Props> = ({
   accountAddress,
   token,
   spender,
-  onRevokeSuccess,
 }) => {
   const intl = useIntl();
   const toast = useToast();
   const isVertical = useIsVerticalLayout();
   const name = useSpenderAppName(networkId, spender);
-  const { account } = useActiveWalletAccount();
   const navigation = useNavigation();
 
-  const isCurrentAccount = useMemo(
-    () =>
-      account?.id &&
-      networkId &&
-      account?.address.toLowerCase() === accountAddress.toLowerCase(),
-    [account, accountAddress, networkId],
-  );
+  const updateAllowance = useUpdateAllowance({
+    networkId,
+    spender,
+    contract: token.tokenIdOnNetwork,
+  });
+
+  const hasPermission = useAccountCanTransaction(accountAddress);
 
   const { label, value } = useMemo(() => {
     if (!allowance || !totalSupply) {
@@ -132,76 +130,58 @@ export const ERC20Allowance: FC<Props> = ({
   }, [totalSupply, allowance, intl, token]);
 
   const checkAccount = useCallback(() => {
-    if (!isCurrentAccount) {
+    if (!hasPermission) {
       DialogManager.show({
         render: <ApproveDialog />,
       });
       return false;
     }
     return true;
-  }, [isCurrentAccount]);
+  }, [hasPermission]);
 
   const update = useCallback(
-    async (amount: string) => {
-      if (!account) {
-        return;
-      }
-      if (!networkId) {
-        return;
-      }
+    (amount: string) => {
       if (!checkAccount()) {
         return;
       }
-      const encodedApproveTx =
-        await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-          amount,
-          networkId,
-          spender,
-          accountId: account.id,
-          token: token.tokenIdOnNetwork,
-        });
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendRoutes.SendConfirm,
-          params: {
-            accountId: account.id,
-            networkId,
-            feeInfoEditable: true,
-            feeInfoUseFeeInTx: false,
-            skipSaveHistory: false,
-            encodedTx: encodedApproveTx as IEncodedTxEvm,
-            onSuccess: onRevokeSuccess,
-          },
-        },
+      updateAllowance({
+        amount,
+        assetType: AssetType.tokens,
       });
     },
-    [
-      spender,
-      account,
-      networkId,
-      navigation,
-      token,
-      onRevokeSuccess,
-      checkAccount,
-    ],
+    [updateAllowance, checkAccount],
   );
 
   const onChangeAllowance = useCallback(() => {
     if (!checkAccount()) {
       return;
     }
-    showChangeAllowanceOverlay({
-      dapp: {
-        name,
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Revoke,
+      params: {
+        screen: RevokeRoutes.ChangeAllowance,
+        params: {
+          dapp: {
+            spender,
+            name,
+          },
+          balance: balance.toString(),
+          token,
+          allowance: value,
+          networkId,
+        },
       },
-      spender,
-      balance,
-      symbol: token.symbol,
-      allowance: value,
-      update,
     });
-  }, [name, spender, balance, token, update, value, checkAccount]);
+  }, [
+    networkId,
+    name,
+    spender,
+    balance,
+    token,
+    value,
+    checkAccount,
+    navigation,
+  ]);
 
   const onRevoke = useCallback(() => {
     update('0');
@@ -296,9 +276,9 @@ export const ERC20Allowance: FC<Props> = ({
       spenderName: name,
       allowance: label,
       onActionPress: onDetailActionPress,
-      disabledActions: isCurrentAccount ? [] : ['change', 'revoke'],
+      disabledActions: hasPermission ? [] : ['change', 'revoke'],
     });
-  }, [name, label, onDetailActionPress, isCurrentAccount]);
+  }, [name, label, onDetailActionPress, hasPermission]);
 
   return (
     <Pressable onPress={showRevokeDetail}>

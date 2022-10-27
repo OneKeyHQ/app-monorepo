@@ -38,7 +38,6 @@ export function useCreateAccountInWallet({
   const { connectAndCreateExternalAccount } =
     useConnectAndCreateExternalAccount({
       networkId,
-      walletId,
     });
 
   const { result: walletAndNetworkInfo } = usePromiseResult(async () => {
