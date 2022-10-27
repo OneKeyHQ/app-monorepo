@@ -15,20 +15,25 @@ import {
   Token,
   Typography,
   useIsVerticalLayout,
+  useToast,
   useUserDevice,
 } from '@onekeyhq/components/src';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import {
+  MARKET_FAVORITES_CATEGORYID,
+  MarketTokenItem,
+} from '@onekeyhq/kit/src/store/reducers/market';
 
+import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import { ListHeadTagType } from '../../types';
 import {
   formatMarketValueForComma,
-  formatMarketValueForFiexd,
   formatMarketValueForInfo,
+  formatMarketVolatility,
 } from '../../utils';
 
 import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
@@ -76,6 +81,9 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const { size } = useUserDevice();
   const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
+  const selectedCategoryId = useMarketSelectedCategoryId();
+  const toast = useToast();
+  const intl = useIntl();
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
     isList: true,
@@ -95,7 +103,6 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
 
   return (
     <ListItem
-      borderRadius={0}
       onLongPress={() => {
         if (isVerticalLayout && marketTokenItem && onLongPress)
           onLongPress(marketTokenItem);
@@ -129,10 +136,20 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                           backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
                             marketTokenItem.coingeckoId,
                           );
+                          toast.show({
+                            title: intl.formatMessage({
+                              id: 'msg__removed',
+                            }),
+                          });
                         } else {
                           backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens(
                             [marketTokenItem.coingeckoId],
                           );
+                          toast.show({
+                            title: intl.formatMessage({
+                              id: 'msg__added_to_favorites',
+                            }),
+                          });
                         }
                       }}
                     >
@@ -253,7 +270,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                             ? 'text-success'
                             : 'text-critical'
                         }
-                      >{`${formatMarketValueForFiexd(
+                      >{`${formatMarketVolatility(
                         marketTokenItem.priceChangePercentage24H,
                       )}%`}</Typography.Body2Strong>
                     </Box>
@@ -263,7 +280,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                 <ListItem.Column
                   key={tag.id}
                   text={{
-                    label: `${formatMarketValueForFiexd(
+                    label: `${formatMarketVolatility(
                       marketTokenItem.priceChangePercentage24H,
                     )}%`,
                     labelProps: {
@@ -388,21 +405,28 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
           case 8: {
             return (
               <ListItem.Column key={tag.id}>
-                <Box flexDirection="row" flex={1} ref={moreButtonRef}>
+                <Box
+                  flexDirection="row"
+                  justifyContent="center"
+                  flex={1}
+                  ref={moreButtonRef}
+                >
                   {marketTokenItem ? (
                     <MarketTokenSwapEnable tokens={marketTokenItem.tokens} />
                   ) : (
                     <Skeleton shape="Caption" />
                   )}
-                  <IconButton
-                    isDisabled={Boolean(!marketTokenItem)}
-                    size="xs"
-                    name="DotsVerticalSolid"
-                    type="plain"
-                    ml="2"
-                    circle
-                    onPress={showMore}
-                  />
+                  {selectedCategoryId === MARKET_FAVORITES_CATEGORYID ? (
+                    <IconButton
+                      isDisabled={Boolean(!marketTokenItem)}
+                      size="xs"
+                      name="DotsVerticalSolid"
+                      type="plain"
+                      ml="2"
+                      circle
+                      onPress={showMore}
+                    />
+                  ) : null}
                 </Box>
               </ListItem.Column>
             );
