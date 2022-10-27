@@ -144,5 +144,5 @@ export const useSpenderAppName = (networkId: string, spender: string) => {
     fetch();
   }, [fetch]);
 
-  return name;
+  return name || spender;
 };
