@@ -952,6 +952,7 @@
   "form__vibrate": "কম্পন",
   "form__view_in_explore": "এক্সপ্লোরে দেখুন",
   "form__view_recovery_phrase_private_key": "পুনরুদ্ধার বাক্যাংশ / ব্যক্তিগত কী দেখুন",
+  "form__vol_str": "ভলিউম {0}",
   "form__wallet_name_help_text": "একই সাথে ডিভাইসের লেবেল পরিবর্তন করুন।",
   "form__walletconnect__uppercase": "WALLETCONNECT",
   "form__website": "ওয়েবসাইট",

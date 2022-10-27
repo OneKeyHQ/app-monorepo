@@ -9,16 +9,19 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components/src';
+import { useSettings } from '@onekeyhq/kit/src/hooks';
 import {
   MarketEXplorer,
   MarketNews,
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
-import { formatMarketValueForInfo } from '../../utils';
+import { formatMarketValueForInfo, getFiatCodeUnit } from '../../utils';
 
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
+
+const WRAP_STRING_LENGTH = 9;
 
 const BaseInfo = ({
   title,
@@ -29,16 +32,33 @@ const BaseInfo = ({
   value: string;
   isFetching: boolean;
 }) => {
-  const boxH = useMemo(() => (value.length > 9 ? '85px' : '55px'), [value]);
-  return isFetching ? (
-    <Box my="2" justifyContent="space-between" w="110px" h={boxH}>
-      <Skeleton shape="Body2" />
-      <Skeleton shape="Heading" />
-    </Box>
-  ) : (
-    <Box my="2" justifyContent="space-between" w="110px" h={boxH}>
-      <Typography.Body2 color="text-subdued">{title}</Typography.Body2>
-      <Typography.Heading numberOfLines={2}>{value}</Typography.Heading>
+  const boxH = useMemo(() => {
+    if (
+      value.length > WRAP_STRING_LENGTH &&
+      title.length > WRAP_STRING_LENGTH
+    ) {
+      return '125px';
+    }
+    return value.length > WRAP_STRING_LENGTH ||
+      title.length > WRAP_STRING_LENGTH
+      ? '85px'
+      : '55px';
+  }, [value, title]);
+  return (
+    <Box my="2" justifyContent="space-between" w="112px" h={boxH}>
+      {isFetching ? (
+        <>
+          <Skeleton shape="Body2" />
+          <Skeleton shape="Heading" />
+        </>
+      ) : (
+        <>
+          <Typography.Body2 numberOfLines={2} color="text-subdued">
+            {title}
+          </Typography.Body2>
+          <Typography.Heading numberOfLines={2}>{value}</Typography.Heading>
+        </>
+      )}
     </Box>
   );
 };
@@ -46,8 +66,8 @@ const BaseInfo = ({
 type MarketInfoContentProps = {
   low24h?: number;
   high24h?: number;
-  low7d?: string;
-  high7d?: string;
+  marketCapDominance?: string;
+  marketCapRank?: number;
   volume24h?: number;
   marketCap?: number;
   expolorers?: MarketEXplorer[];
@@ -59,9 +79,9 @@ type MarketInfoContentProps = {
 export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   low24h,
   high24h,
-  low7d,
-  high7d,
   volume24h,
+  marketCapDominance,
+  marketCapRank,
   marketCap,
   expolorers,
   news,
@@ -69,6 +89,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   px,
 }) => {
   const intl = useIntl();
+  const { selectedFiatMoneySymbol } = useSettings();
   return (
     <Box px={px}>
       <VStack space={6} mt="6">
@@ -80,32 +101,40 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
             <BaseInfo
               isFetching={high24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_high' })}
-              value={`$${formatMarketValueForInfo(high24h)}`}
+              value={`${getFiatCodeUnit(
+                selectedFiatMoneySymbol,
+              )}${formatMarketValueForInfo(high24h)}`}
             />
             <BaseInfo
               isFetching={low24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_low' })}
-              value={`$${formatMarketValueForInfo(low24h)}`}
+              value={`${getFiatCodeUnit(
+                selectedFiatMoneySymbol,
+              )}${formatMarketValueForInfo(low24h)}`}
             />
             <BaseInfo
               isFetching={volume24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_volume' })}
-              value={`$${formatMarketValueForInfo(volume24h)}`}
-            />
-            <BaseInfo
-              isFetching={high7d === undefined}
-              title={intl.formatMessage({ id: 'form__7d_high' })}
-              value={`$${formatMarketValueForInfo(high7d)}`}
-            />
-            <BaseInfo
-              isFetching={low7d === undefined}
-              title={intl.formatMessage({ id: 'form__7d_low' })}
-              value={`$${formatMarketValueForInfo(low7d)}`}
+              value={`${getFiatCodeUnit(
+                selectedFiatMoneySymbol,
+              )}${formatMarketValueForInfo(volume24h)}`}
             />
             <BaseInfo
               isFetching={marketCap === undefined}
               title={intl.formatMessage({ id: 'form__market_cap' })}
-              value={`$${formatMarketValueForInfo(marketCap)}`}
+              value={`${getFiatCodeUnit(
+                selectedFiatMoneySymbol,
+              )}${formatMarketValueForInfo(marketCap)}`}
+            />
+            <BaseInfo
+              isFetching={marketCapRank === undefined}
+              title={intl.formatMessage({ id: 'form__market_cap_rank' })}
+              value={`#${marketCapRank ?? 0}`}
+            />
+            <BaseInfo
+              isFetching={marketCapDominance === undefined}
+              title={intl.formatMessage({ id: 'form__market_cap_dominance' })}
+              value={`${marketCapDominance ?? 0}`}
             />
           </HStack>
         </Box>

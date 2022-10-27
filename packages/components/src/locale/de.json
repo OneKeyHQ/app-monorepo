@@ -952,6 +952,7 @@
   "form__vibrate": "Vibrieren",
   "form__view_in_explore": "Ansicht in Explore",
   "form__view_recovery_phrase_private_key": "Wiederherstellungsphrase / privaten Schlüssel anzeigen",
+  "form__vol_str": "Volumen {0}",
   "form__wallet_name_help_text": "Ändern Sie gleichzeitig die Beschriftung des Geräts.",
   "form__walletconnect__uppercase": "WALLETCONNECT",
   "form__website": "Website",

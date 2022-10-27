@@ -15,12 +15,16 @@ export const useGridBoxStyle = ({
   outPadding?: number;
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { screenWidth } = useUserDevice();
+  const { screenWidth, size } = useUserDevice();
+  const leftSliderWidth = useMemo(
+    () => (['XLARGE'].includes(size) ? 256 : 224),
+    [size],
+  );
   const gridSpace = space ?? (isVerticalLayout ? 12 : 24);
   const graidMaxWidth = maxW ?? GRID_MAX_WIDTH;
   const layoutWidth = isVerticalLayout
     ? screenWidth - (outPadding ?? 0)
-    : screenWidth - 224 - (outPadding ?? 0); // 224 is desktop left width
+    : screenWidth - leftSliderWidth - (outPadding ?? 0);
   const gridWidth = layoutWidth < graidMaxWidth ? layoutWidth : graidMaxWidth;
   const lgRowCount = gridWidth > GRID_MAX_WIDTH ? 4 : 3;
   const rowCount = isVerticalLayout ? 2 : lgRowCount;

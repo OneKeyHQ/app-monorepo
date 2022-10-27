@@ -45,7 +45,6 @@ export const useMarketSearchSelectedCategory = () => {
     if (searchTabCategoryId) {
       backgroundApiProxy.serviceMarket.fetchMarketList({
         categoryId: searchTabCategoryId,
-        vsCurrency: 'usd',
         sparkline: false,
       });
     }
