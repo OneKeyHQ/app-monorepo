@@ -1,6 +1,5 @@
 import React, { FC, useCallback, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,14 +13,15 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { ADDRESS_ZERO } from '@onekeyhq/engine/src/managers/revoke';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { SendRoutes } from '../../Send/types';
-import { useSpenderAppName } from '../hooks';
+import { AssetType } from '../FilterBar';
+import {
+  useAccountCanTransaction,
+  useSpenderAppName,
+  useUpdateAllowance,
+} from '../hooks';
 import showAllowanceDetailOverlay, {
   ActionKey,
 } from '../Overlays/AllowanceDetail';
@@ -34,7 +34,6 @@ type Props = {
   networkId: string;
   accountAddress: string;
   tokenId?: string;
-  onRevokeSuccess: () => void;
 };
 
 export const ERC721Allowance: FC<Props> = ({
@@ -43,22 +42,20 @@ export const ERC721Allowance: FC<Props> = ({
   token,
   spender,
   tokenId,
-  onRevokeSuccess,
 }) => {
   const intl = useIntl();
   const toast = useToast();
   const isVertical = useIsVerticalLayout();
   const name = useSpenderAppName(networkId, spender);
   const { account } = useActiveWalletAccount();
-  const navigation = useNavigation();
 
-  const isCurrentAccount = useMemo(
-    () =>
-      account?.id &&
-      networkId &&
-      account?.address.toLowerCase() === accountAddress.toLowerCase(),
-    [account, accountAddress, networkId],
-  );
+  const updateAllowance = useUpdateAllowance({
+    networkId,
+    spender,
+    contract: token.tokenIdOnNetwork,
+  });
+
+  const hasPermission = useAccountCanTransaction(accountAddress);
 
   const label = useMemo(() => {
     if (!tokenId) {
@@ -68,65 +65,28 @@ export const ERC721Allowance: FC<Props> = ({
   }, [intl, tokenId]);
 
   const checkIsCurrentAccount = useCallback(() => {
-    if (!isCurrentAccount) {
+    if (!hasPermission) {
       DialogManager.show({
         render: <ApproveDialog />,
       });
       return false;
     }
     return true;
-  }, [isCurrentAccount]);
+  }, [hasPermission]);
 
-  const update = useCallback(async () => {
+  const update = useCallback(() => {
     if (!checkIsCurrentAccount()) {
       return;
     }
     if (!account?.id) {
       return;
     }
-    const encodedApproveTx =
-      tokenId === undefined
-        ? await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromSetApprovalForAll(
-            {
-              from: accountAddress,
-              to: token.address ?? '',
-              approved: false,
-              spender,
-            },
-          )
-        : await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromApprove({
-            from: accountAddress,
-            to: token.address ?? '',
-            approve: ADDRESS_ZERO,
-            tokenId,
-          });
-
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Send,
-      params: {
-        screen: SendRoutes.SendConfirm,
-        params: {
-          accountId: account.id,
-          networkId,
-          feeInfoEditable: true,
-          feeInfoUseFeeInTx: false,
-          skipSaveHistory: false,
-          encodedTx: encodedApproveTx,
-          onSuccess: onRevokeSuccess,
-        },
-      },
+    updateAllowance({
+      amount: '0',
+      tokenId,
+      assetType: AssetType.nfts,
     });
-  }, [
-    checkIsCurrentAccount,
-    tokenId,
-    spender,
-    account,
-    networkId,
-    navigation,
-    accountAddress,
-    token,
-    onRevokeSuccess,
-  ]);
+  }, [updateAllowance, checkIsCurrentAccount, tokenId, account]);
 
   const onRevoke = useCallback(() => {
     if (!checkIsCurrentAccount()) {
@@ -190,9 +150,9 @@ export const ERC721Allowance: FC<Props> = ({
       spenderName: name,
       allowance: label,
       onActionPress: onDetailActionPress,
-      disabledActions: isCurrentAccount ? ['change'] : ['change', 'revoke'],
+      disabledActions: hasPermission ? ['change'] : ['change', 'revoke'],
     });
-  }, [name, label, onDetailActionPress, isCurrentAccount]);
+  }, [name, label, onDetailActionPress, hasPermission]);
 
   return (
     <Pressable onPress={showRevokeDetail}>

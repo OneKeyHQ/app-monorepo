@@ -81,10 +81,13 @@ const ToolsPage: FC = () => {
       if (key === 'revoke') {
         navigation.navigate(HomeRoutes.Revoke);
       } else if (key === 'explorer') {
-        openAddressDetails(accountAddress);
+        openAddressDetails(
+          accountAddress,
+          intl.formatMessage({ id: 'title__blockchain_explorer' }),
+        );
       }
     },
-    [navigation, openAddressDetails, accountAddress],
+    [navigation, openAddressDetails, accountAddress, intl],
   );
 
   const renderItem = useCallback(

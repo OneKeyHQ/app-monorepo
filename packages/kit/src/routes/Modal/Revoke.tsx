@@ -2,6 +2,7 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import { ChangeModal } from '../../views/Revoke/ChangeModal';
 import { ShareModal } from '../../views/Revoke/ShareModal';
 import { RevokeRoutes, RevokeRoutesParams } from '../../views/Revoke/types';
 
@@ -13,6 +14,10 @@ const modalRoutes = [
   {
     name: RevokeRoutes.ShareModal,
     component: ShareModal,
+  },
+  {
+    name: RevokeRoutes.ChangeAllowance,
+    component: ChangeModal,
   },
 ];
 
