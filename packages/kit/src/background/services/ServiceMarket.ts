@@ -32,7 +32,6 @@ import {
   updateSelectedCategory,
 } from '../../store/reducers/market';
 import { ServerToken } from '../../store/typings';
-import { getDefaultLocale } from '../../utils/locale';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -42,12 +41,9 @@ export default class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchMarketCategorys() {
     const { appSelector, dispatch } = this.backgroundApi;
+    const locale = appSelector((s) => s.settings.locale);
     const path = '/market/category/list';
-    const datas: MarketCategory[] = await this.fetchData(
-      path,
-      { locale: getDefaultLocale() },
-      [],
-    );
+    const datas: MarketCategory[] = await this.fetchData(path, { locale }, []);
 
     // add favorite coingeckoIds from db
     const favorites = datas.find(
@@ -139,19 +135,19 @@ export default class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchMarketDetail(coingeckoId: string) {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const locale = appSelector((s) => s.settings.locale);
     const path = '/market/detail';
     const data = await this.fetchData(
       path,
       {
         id: coingeckoId,
-        locale: getDefaultLocale(),
+        locale,
       },
       null,
     );
     if (data) {
-      this.backgroundApi.dispatch(
-        updateMarketTokenDetail({ coingeckoId, data }),
-      );
+      dispatch(updateMarketTokenDetail({ coingeckoId, data }));
     }
   }
 
