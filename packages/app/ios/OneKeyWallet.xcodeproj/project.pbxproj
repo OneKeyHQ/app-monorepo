@@ -40,6 +40,7 @@
 		A3294A682844472100C18DD0 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A3294A672844472100C18DD0 /* AppDelegate.m */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		F44507EC289DDCE100F70EB6 /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = F44507EB289DDCE100F70EB6 /* web-embed */; };
+		F46D18DA290A577F0018E04D /* Minimizer.m in Sources */ = {isa = PBXBuildFile; fileRef = F46D18D8290A577F0018E04D /* Minimizer.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -117,6 +118,8 @@
 		AB5A55C2A16742BCB8148B6E /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F44507EB289DDCE100F70EB6 /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
+		F46D18D8290A577F0018E04D /* Minimizer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Minimizer.m; sourceTree = "<group>"; };
+		F46D18D9290A577F0018E04D /* Minimizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Minimizer.h; sourceTree = "<group>"; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -261,6 +264,8 @@
 		A24B8A7127422EF300E321A9 /* RNBridge */ = {
 			isa = PBXGroup;
 			children = (
+				F46D18D9290A577F0018E04D /* Minimizer.h */,
+				F46D18D8290A577F0018E04D /* Minimizer.m */,
 				A24B8A7327422EF300E321A9 /* OKLiteManager.h */,
 				A24B8A7227422EF300E321A9 /* OKLiteManager.m */,
 				A2A3376828ADF8BC00053A5C /* JPushManager.h */,
@@ -515,6 +520,7 @@
 				A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */,
 				A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
+				F46D18DA290A577F0018E04D /* Minimizer.m in Sources */,
 				A24B8A7827422EF300E321A9 /* NSData+StringToData.m in Sources */,
 				A3294A682844472100C18DD0 /* AppDelegate.m in Sources */,
 				A2E533472885151100063227 /* PagingView.m in Sources */,

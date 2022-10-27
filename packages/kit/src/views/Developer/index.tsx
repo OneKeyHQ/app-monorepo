@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { useWindowDimensions, NativeModules } from 'react-native';
 
 import {
   Box,
@@ -247,6 +247,7 @@ export const Debug = () => {
                   searchParams,
                   hash,
                 });
+                // NativeModules.Minimizer?.minimize();
               }}
             >
               <Typography.Body1>Log current wallet</Typography.Body1>
