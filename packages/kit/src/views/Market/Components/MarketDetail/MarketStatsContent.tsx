@@ -10,7 +10,7 @@ import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import {
   formatLocalDate,
   formatMarketValueForComma,
-  formatMarketValueForFiexd,
+  formatMarketVolatility,
 } from '../../utils';
 
 type DataViewComponentProps = {
@@ -85,12 +85,12 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             <DataViewComponent
               index={0}
               title={intl.formatMessage({ id: 'form__str_hour' }, { 0: 1 })}
-              value={`${formatMarketValueForFiexd(
+              value={`${formatMarketVolatility(
                 performance?.priceChangePercentage1h,
               )}%`}
               valueColor={
                 performance?.priceChangePercentage1h &&
-                performance?.priceChangePercentage1h >= 0
+                performance.priceChangePercentage1h >= 0
                   ? 'text-success'
                   : 'text-critical'
               }
@@ -98,12 +98,12 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             <DataViewComponent
               index={1}
               title={intl.formatMessage({ id: 'form__str_hour' }, { 0: 24 })}
-              value={`${formatMarketValueForFiexd(
+              value={`${formatMarketVolatility(
                 performance?.priceChangePercentage24h,
               )}%`}
               valueColor={
                 performance?.priceChangePercentage24h &&
-                performance?.priceChangePercentage24h >= 0
+                performance.priceChangePercentage24h >= 0
                   ? 'text-success'
                   : 'text-critical'
               }
@@ -111,12 +111,12 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             <DataViewComponent
               index={2}
               title={intl.formatMessage({ id: 'form__str_day' }, { 0: 7 })}
-              value={`${formatMarketValueForFiexd(
+              value={`${formatMarketVolatility(
                 performance?.priceChangePercentage7d,
               )}%`}
               valueColor={
                 performance?.priceChangePercentage7d &&
-                performance?.priceChangePercentage7d >= 0
+                performance.priceChangePercentage7d >= 0
                   ? 'text-success'
                   : 'text-critical'
               }
@@ -124,12 +124,12 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             <DataViewComponent
               index={3}
               title={intl.formatMessage({ id: 'form__str_day' }, { 0: 14 })}
-              value={`${formatMarketValueForFiexd(
+              value={`${formatMarketVolatility(
                 performance?.priceChangePercentage14d,
               )}%`}
               valueColor={
                 performance?.priceChangePercentage14d &&
-                performance?.priceChangePercentage14d >= 0
+                performance.priceChangePercentage14d >= 0
                   ? 'text-success'
                   : 'text-critical'
               }
@@ -137,12 +137,12 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             <DataViewComponent
               index={4}
               title={intl.formatMessage({ id: 'form__str_day' }, { 0: 30 })}
-              value={`${formatMarketValueForFiexd(
+              value={`${formatMarketVolatility(
                 performance?.priceChangePercentage30d,
               )}%`}
               valueColor={
                 performance?.priceChangePercentage30d &&
-                performance?.priceChangePercentage30d >= 0
+                performance.priceChangePercentage30d >= 0
                   ? 'text-success'
                   : 'text-critical'
               }
@@ -150,7 +150,7 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             <DataViewComponent
               index={5}
               title={intl.formatMessage({ id: 'form__str_y' }, { 0: 1 })}
-              value={`${formatMarketValueForFiexd(
+              value={`${formatMarketVolatility(
                 performance?.priceChangePercentage1y,
               )}%`}
               valueColor={

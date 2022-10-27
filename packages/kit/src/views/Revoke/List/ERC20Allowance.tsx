@@ -26,7 +26,7 @@ import { FormatCurrencyNumber } from '../../../components/Format';
 import { useActiveWalletAccount } from '../../../hooks';
 import { navigationRef } from '../../../provider/NavigationProvider';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { useCreateExternalAccount } from '../../ExternalAccount/useCreateExternalAccount';
+import { useConnectAndCreateExternalAccount } from '../../ExternalAccount/useConnectAndCreateExternalAccount';
 import { SendRoutes } from '../../Send/types';
 import { useSpenderAppName } from '../hooks';
 import showAllowanceDetailOverlay, {
@@ -48,7 +48,8 @@ type Props = {
 
 export const ApproveDialog = ({ onClose }: { onClose?: () => void }) => {
   const intl = useIntl();
-  const { createExternalAccount } = useCreateExternalAccount({});
+  const { connectAndCreateExternalAccount } =
+    useConnectAndCreateExternalAccount({});
   return (
     <Dialog
       visible
@@ -72,7 +73,7 @@ export const ApproveDialog = ({ onClose }: { onClose?: () => void }) => {
         primaryActionTranslationId: 'action__connect_wallet',
         secondaryActionTranslationId: 'action__cancel',
         onPrimaryActionPress: ({ onClose: close }) => {
-          createExternalAccount();
+          connectAndCreateExternalAccount();
           onClose?.();
           close?.();
         },
