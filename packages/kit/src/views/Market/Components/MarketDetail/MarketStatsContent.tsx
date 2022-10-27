@@ -6,6 +6,7 @@ import { Box, Divider, Typography, VStack } from '@onekeyhq/components/src';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
 import { MarketStats } from '@onekeyhq/kit/src/store/reducers/market';
+import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import {
@@ -14,7 +15,6 @@ import {
   formatMarketVolatility,
   getFiatCodeUnit,
 } from '../../utils';
-import { getDefaultLocale } from '../../../../utils/locale';
 
 type DataViewComponentProps = {
   title?: string;

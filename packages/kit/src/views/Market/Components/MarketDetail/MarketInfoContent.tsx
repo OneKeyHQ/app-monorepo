@@ -21,6 +21,8 @@ import { formatMarketValueForInfo, getFiatCodeUnit } from '../../utils';
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
 
+const WRAP_STRING_LENGTH = 9;
+
 const BaseInfo = ({
   title,
   value,
@@ -31,10 +33,16 @@ const BaseInfo = ({
   isFetching: boolean;
 }) => {
   const boxH = useMemo(() => {
-    if (value.length > 10 && title.length > 10) {
+    if (
+      value.length > WRAP_STRING_LENGTH &&
+      title.length > WRAP_STRING_LENGTH
+    ) {
       return '125px';
     }
-    return value.length > 10 || title.length > 10 ? '85px' : '55px';
+    return value.length > WRAP_STRING_LENGTH ||
+      title.length > WRAP_STRING_LENGTH
+      ? '85px'
+      : '55px';
   }, [value, title]);
   return (
     <Box my="2" justifyContent="space-between" w="112px" h={boxH}>
