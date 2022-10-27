@@ -30,39 +30,9 @@ export type WatchAssetParameters = {
   };
 };
 
-export type AddConfluxChainParameter = {
-  chainId: string;
-  blockExplorerUrls?: string[];
-  chainName?: string;
-  iconUrls?: string[];
-  nativeCurrency?: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
-  rpcUrls?: string[];
-};
-
-export type SwitchConfluxChainParameter = {
-  chainId: string;
-};
-
 @backgroundClass()
 class ProviderApiTron extends ProviderApiBase {
   public providerName = IInjectedProviderNames.tron;
-
-  async _showSignMessageModal(
-    request: IJsBridgeMessagePayload,
-    unsignedMessage: any,
-  ) {
-    const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
-      request,
-      {
-        unsignedMessage,
-      },
-    );
-    return result;
-  }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
@@ -87,7 +57,11 @@ class ProviderApiTron extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    const { networkId } = getActiveWalletAccount();
+    const { networkId, networkImpl } = getActiveWalletAccount();
+
+    if (networkImpl !== IMPL_TRON) {
+      return;
+    }
 
     debugLogger.providerApi.info('tron rpcCall:', request, { networkId });
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(

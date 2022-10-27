@@ -52,7 +52,11 @@ class ProviderApiNear extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest) {
-    const { networkId } = getActiveWalletAccount();
+    const { networkId, networkImpl } = getActiveWalletAccount();
+
+    if (networkImpl !== IMPL_NEAR) {
+      return;
+    }
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
       networkId,
       request,
