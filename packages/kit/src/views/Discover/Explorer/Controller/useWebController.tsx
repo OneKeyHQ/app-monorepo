@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -19,7 +19,6 @@ import DappOpenHintDialog from '../DappOpenHintDialog';
 import {
   MatchDAppItemType,
   OnWebviewNavigation,
-  getWebviewWrapperRef,
   webviewRefs,
 } from '../explorerUtils';
 
@@ -39,7 +38,6 @@ export const useWebController = ({
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
   const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
-  const lastNewUrlTimestamp = useRef(Date.now());
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs])!;
 
@@ -108,20 +106,17 @@ export const useWebController = ({
       canGoForward,
       loading,
     }) => {
-      let isValidNewUrl = typeof url === 'string' && url !== '';
-      // tab url changes *AFTER* `gotoSite` on desktop
-      // but *BEFORE* `gotoSite` on native
-      // so new target url should not be the same on desktop
-      // but can be the same on native
-      if (isValidNewUrl && platformEnv.isDesktop) {
-        isValidNewUrl = url !== tab?.url;
-      }
+      const isValidNewUrl =
+        typeof url === 'string' &&
+        url !== tab.url &&
+        // onNavigation only triggered when url changes in webpage
+        // so it can not be in homepage (which is not a webpage)
+        tab.url !== homeTab.url;
       if (isValidNewUrl) {
-        if (Date.now() - lastNewUrlTimestamp.current < 500) {
+        if (tab.timestamp && Date.now() - tab.timestamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
-        lastNewUrlTimestamp.current = Date.now();
         gotoSite({ url, title, favicon, isNewWindow, isInPlace });
       }
 
@@ -136,7 +131,7 @@ export const useWebController = ({
         }),
       );
     },
-    [curId, dispatch, gotoSite, tab?.url],
+    [curId, dispatch, gotoSite, tab],
   );
 
   // TODO add webview event listener `did-start-navigation` `dom-ready`
@@ -156,14 +151,17 @@ export const useWebController = ({
     gotoSite,
     openMatchDApp,
     goBack: () => {
-      const wrapperRef = getWebviewWrapperRef({ tabId: tab.id });
-      let canGoBack = tab?.canGoBack;
-      if (platformEnv.isDesktop && wrapperRef?.innerRef) {
-        const innerRef = wrapperRef?.innerRef as IElectronWebView;
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        canGoBack = innerRef.canGoBack();
+      let canGoBack = tab?.refReady && tab?.canGoBack;
+      if (platformEnv.isDesktop) {
+        const innerRef = getInnerRef() as IElectronWebView;
+        if (innerRef) {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          canGoBack = innerRef.canGoBack();
+        }
       }
+
+      stopLoading();
       // TODO goBack() not working when initial url loaded
       if (canGoBack) {
         goBack();

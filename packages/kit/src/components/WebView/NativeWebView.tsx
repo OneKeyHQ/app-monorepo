@@ -1,8 +1,6 @@
-/* eslint-disable  @typescript-eslint/ban-ts-comment  */
-import React, {
+import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -14,10 +12,15 @@ import {
   IWebViewWrapperRef,
   JsBridgeNativeHost,
 } from '@onekeyfe/onekey-cross-webview';
-import { WebView, WebViewProps } from 'react-native-webview';
+import {
+  WebView,
+  WebViewMessageEvent,
+  WebViewProps,
+} from 'react-native-webview';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ViewStyle } from 'react-native';
-import type { WebViewMessageEvent } from 'react-native-webview/lib/WebViewTypes';
 
 export type NativeWebViewProps = WebViewProps &
   InpageProviderWebViewProps & {
@@ -38,7 +41,7 @@ const NativeWebView = forwardRef(
     }: NativeWebViewProps,
     ref,
   ) => {
-    const webviewRef = useRef<WebView | null>(null);
+    const webviewRef = useRef<WebView>();
 
     const jsBridge = useMemo(
       () =>
@@ -67,17 +70,10 @@ const NativeWebView = forwardRef(
         innerRef: webviewRef.current,
         jsBridge,
         reload: () => webviewRef.current?.reload(),
-        loadURL: (url: string) => {
-          // ReactNativeWebview do not has method to loadURL
-          // so we need src props change it
-          if (onSrcChange) {
-            onSrcChange(url);
-          } else {
-            console.warn(
-              'NativeWebView: Please pass onSrcChange props to enable loadURL() working.',
-            );
-          }
-        },
+        loadURL: (url: string) =>
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+          webviewRef.current?.loadUrl(url),
       };
 
       jsBridge.webviewWrapper = wrapper;
@@ -85,14 +81,18 @@ const NativeWebView = forwardRef(
       return wrapper;
     });
 
-    useEffect(() => {
-      // console.log('NativeWebView injectedJavaScript \r\n', injectedNative);
-    }, []);
-
     return (
       <WebView
         // @ts-ignore
-        style={[{ backgroundColor: 'transparent' }, style]}
+        style={[
+          {
+            backgroundColor: 'transparent',
+            // this may fix some crashes on android
+            // https://github.com/react-native-webview/react-native-webview/issues/1915#issuecomment-808869253
+            opacity: platformEnv.isNativeAndroid ? 0.99 : 1,
+          },
+          style,
+        ]}
         onLoadProgress={onLoadProgress}
         ref={webviewRef}
         // injectedJavaScript={injectedNative}

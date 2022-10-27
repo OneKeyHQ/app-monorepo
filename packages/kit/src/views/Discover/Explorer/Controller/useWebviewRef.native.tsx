@@ -16,6 +16,28 @@ export const useWebviewRef = ({
   navigationStateChangeEvent?: WebViewNavigation;
   onNavigation: OnWebviewNavigation;
 }) => {
+  const goBack = useCallback(() => {
+    try {
+      ref?.goBack();
+      // eslint-disable-next-line no-empty
+    } catch {}
+  }, [ref]);
+
+  const goForward = useCallback(() => {
+    try {
+      ref?.goForward();
+      // eslint-disable-next-line no-empty
+    } catch {}
+  }, [ref]);
+
+  const stopLoading = useCallback(() => {
+    try {
+      ref?.stopLoading();
+      onNavigation({ loading: false });
+      // eslint-disable-next-line no-empty
+    } catch {}
+  }, [onNavigation, ref]);
+
   useEffect(() => {
     if (navigationStateChangeEvent) {
       const { canGoBack, canGoForward, loading, title, url } =
@@ -23,7 +45,7 @@ export const useWebviewRef = ({
 
       const isDeepLink = !url.startsWith('http') && url !== 'about:blank';
       if (isDeepLink) {
-        ref?.stopLoading();
+        stopLoading();
         // canOpenURL may need additional config on android 11+
         // https://github.com/facebook/react-native/issues/32311#issuecomment-933568611
         // so just try open directly
@@ -36,20 +58,7 @@ export const useWebviewRef = ({
         onNavigation({ title, canGoBack, canGoForward, loading });
       }
     }
-  }, [navigationStateChangeEvent, onNavigation, ref]);
-
-  const goBack = useCallback(() => {
-    ref?.goBack();
-  }, [ref]);
-
-  const goForward = useCallback(() => {
-    ref?.goForward();
-  }, [ref]);
-
-  const stopLoading = useCallback(() => {
-    ref?.stopLoading();
-    onNavigation({ loading: false });
-  }, [onNavigation, ref]);
+  }, [navigationStateChangeEvent, onNavigation, ref, stopLoading]);
 
   return {
     goBack,

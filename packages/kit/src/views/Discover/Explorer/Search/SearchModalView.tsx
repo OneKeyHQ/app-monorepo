@@ -36,7 +36,7 @@ export const SearchModalView: FC = () => {
   const { url, onSelectorItem } = route.params;
 
   const [searchContent, setSearchContent] = useState<string>(url ?? '');
-  const searchContentTerm = useDebounce(searchContent, 600);
+  const searchContentTerm = useDebounce(searchContent, 300);
 
   const { loading, searchedDapps } = useSearchLocalDapp(
     searchContentTerm,
@@ -109,7 +109,6 @@ export const SearchModalView: FC = () => {
         ),
         ListHeaderComponent: (
           <Header
-            terms={searchContentTerm}
             keyword={searchContent}
             onChange={setSearchContent}
             onSelectHistory={onSelectHistory}

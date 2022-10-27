@@ -31,23 +31,21 @@ const HeaderHistories: FC<HeaderHistoriesProps> = ({
           id: 'title__search_results',
         })}
       </Typography.Subheading>
-      {keyword ? (
+      {keyword && (
         <Container.Box mb={4}>
           <Container.Item
-            key="search-content"
             title={keyword}
             titleColor="text-default"
             customArrowIconName="ArrowCircleRightSolid"
             onPress={() => onSelectHistory?.(keyword)}
           />
         </Container.Box>
-      ) : null}
+      )}
     </Box>
   );
 };
 
 type HeaderProps = {
-  terms: string;
   keyword: string;
   onChange: (keyword: string) => void;
   onSelectHistory?: (history: MatchDAppItemType | string) => void;
@@ -55,7 +53,6 @@ type HeaderProps = {
 };
 
 const Header: FC<HeaderProps> = ({
-  terms,
   keyword,
   onChange,
   onSelectHistory,
@@ -78,8 +75,9 @@ const Header: FC<HeaderProps> = ({
         onSubmitEditing={(event) => {
           onSubmitContent?.(event.nativeEvent.text);
         }}
+        returnKeyType="go"
       />
-      {terms ? (
+      {keyword ? (
         <HeaderHistories keyword={keyword} onSelectHistory={onSelectHistory} />
       ) : (
         <Typography.Subheading mb={2} color="text-subdued">

@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+// import { WebView } from 'react-native-webview';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -74,9 +75,9 @@ export const webHandler: WebHandler = (() => {
   return 'webview';
 })();
 
-export const isValidDomain = (domain: string) =>
-  /\.(ai|app|art|co|com|club|dev|ee|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)$/.test(
-    domain,
+export const isValidWebUrl = (url: string) =>
+  /\.(ai|app|art|co|com|club|dev|ee|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(\/\S*)*$/.test(
+    url,
   );
 
 export const validateUrl = (url: string) => {
@@ -84,9 +85,10 @@ export const validateUrl = (url: string) => {
     // eslint-disable-next-line no-new
     new URL(url);
   } catch (e) {
-    if (isValidDomain(url)) {
+    if (isValidWebUrl(url)) {
       return `https://${url}`;
     }
+    // TODO ref link
     return `https://www.google.com/search?q=${url}`;
   }
 
@@ -144,8 +146,7 @@ export function crossWebviewLoadUrl({
     // TODO wait wrapperRef, innerRef, dom-ready then loadURL
     (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
   } else {
-    // IWebViewWrapperRef has cross-platform loadURL()
-    //    will trigger webview.onSrcChange props
-    wrapperRef?.loadURL(url);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    // (wrapperRef?.innerRef as WebView)?.loadUrl(url);
   }
 }
