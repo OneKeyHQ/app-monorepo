@@ -16,7 +16,7 @@ import extUtils from '../../utils/extUtils';
 import InpageProviderWebView from './InpageProviderWebView';
 
 function WebView({
-  src,
+  src = '',
   onSrcChange,
   openUrlInExt = false,
   onWebViewRef,
@@ -29,7 +29,7 @@ function WebView({
   isSpinnerLoading,
   onContentLoaded,
 }: {
-  src: string;
+  src?: string;
   onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
   onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
@@ -68,27 +68,25 @@ function WebView({
   }
   return (
     <Box flex={1} bg="background-default" {...containerProps}>
-      {Boolean(src || nativeWebviewSource) && (
-        <InpageProviderWebView
-          ref={(ref: IWebViewWrapperRef | null) => {
-            if (ref) {
-              onWebViewRef?.(ref);
-            }
-          }}
-          src={src}
-          isSpinnerLoading={isSpinnerLoading}
-          onSrcChange={onSrcChange}
-          receiveHandler={receiveHandler}
-          onNavigationStateChange={onNavigationStateChange}
-          allowpopups={allowpopups}
-          nativeWebviewSource={nativeWebviewSource}
-          nativeInjectedJavaScriptBeforeContentLoaded={
-            nativeInjectedJavaScriptBeforeContentLoaded
+      <InpageProviderWebView
+        ref={(ref: IWebViewWrapperRef | null) => {
+          if (ref) {
+            onWebViewRef?.(ref);
           }
-          // currently works in NativeWebView only
-          onContentLoaded={onContentLoaded}
-        />
-      )}
+        }}
+        src={src}
+        isSpinnerLoading={isSpinnerLoading}
+        onSrcChange={onSrcChange}
+        receiveHandler={receiveHandler}
+        onNavigationStateChange={onNavigationStateChange}
+        allowpopups={allowpopups}
+        nativeWebviewSource={nativeWebviewSource}
+        nativeInjectedJavaScriptBeforeContentLoaded={
+          nativeInjectedJavaScriptBeforeContentLoaded
+        }
+        // currently works in NativeWebView only
+        onContentLoaded={onContentLoaded}
+      />
     </Box>
   );
 }

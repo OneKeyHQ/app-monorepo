@@ -130,7 +130,7 @@ const TokenInput: FC<TokenInputProps> = ({
           justifyContent="space-between"
           alignItems="center"
         >
-          <Typography.Caption p="2" color="text-subdued" fontWeight={500}>
+          <Typography.Caption p="2" color="text-default" fontWeight={500}>
             {label}
           </Typography.Caption>
           <TokenInputReceivingAddress />
