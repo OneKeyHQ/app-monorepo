@@ -67,7 +67,6 @@ export const useMarketList = ({
       if (!listSort) {
         backgroundApiProxy.serviceMarket.fetchMarketList({
           categoryId: selectedCategory.categoryId,
-          vsCurrency: 'usd',
           ids: coingeckoIds,
           sparkline: !isVerticalLlayout && !isMidLayout,
         });
@@ -75,7 +74,6 @@ export const useMarketList = ({
       timer = setInterval(() => {
         backgroundApiProxy.serviceMarket.fetchMarketList({
           categoryId: selectedCategory.categoryId,
-          vsCurrency: 'usd',
           ids: coingeckoIds,
           sparkline: !isVerticalLlayout && !isMidLayout,
         });
@@ -101,7 +99,6 @@ export const useMarketList = ({
     if (selectedCategory) {
       await backgroundApiProxy.serviceMarket.fetchMarketList({
         categoryId: selectedCategory.categoryId,
-        vsCurrency: 'usd',
         ids: coingeckoIds,
         sparkline: !isVerticalLlayout && !isMidLayout,
       });

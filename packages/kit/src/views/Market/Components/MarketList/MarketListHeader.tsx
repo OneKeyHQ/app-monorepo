@@ -52,6 +52,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
             tag.id === 6 ||
             tag.id === 7
           ) {
+            const pressProps = tag.id === 4 ? { w: tag.minW } : { flex: 1 };
             return (
               <ListItem.Column key={`${tag.title ?? ''}--${tag.id}`}>
                 <Pressable
@@ -71,8 +72,8 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                   }}
                   flexDirection="row"
                   alignItems="center"
-                  flex={1}
                   justifyContent={tag.id === 2 ? 'flex-start' : 'flex-end'}
+                  {...pressProps}
                 >
                   <Typography.Subheading
                     color="text-subdued"

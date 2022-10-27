@@ -71,7 +71,6 @@ export const useMarketTokenItem = ({
     if (coingeckoId?.length) {
       if (!isList && !marketTokenItem) {
         backgroundApiProxy.serviceMarket.fetchMarketList({
-          vsCurrency: 'usd',
           ids: coingeckoId,
           sparkline: !isVertical && !isMidLayout,
         });

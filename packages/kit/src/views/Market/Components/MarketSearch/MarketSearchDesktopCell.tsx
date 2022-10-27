@@ -54,9 +54,9 @@ const MarketSearchTokenDestopCell: FC<{
               ) : (
                 <Skeleton shape="Avatar" size={32} />
               )}
-              <Typography.Body2Strong>
+              <Typography.Body1Strong>
                 {marketTokenItem.symbol}
-              </Typography.Body2Strong>
+              </Typography.Body1Strong>
               <Typography.Body2 color="text-subdued">
                 {marketTokenItem.name}
               </Typography.Body2>

@@ -952,6 +952,7 @@
   "form__vibrate": "振动",
   "form__view_in_explore": "在浏览器打开",
   "form__view_recovery_phrase_private_key": "查看助记词/私钥",
+  "form__vol_str": "量 {0}",
   "form__wallet_name_help_text": "同步修改设备标签。",
   "form__walletconnect__uppercase": "WALLETCONNECT",
   "form__website": "网站",
