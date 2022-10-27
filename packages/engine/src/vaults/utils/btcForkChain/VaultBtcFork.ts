@@ -21,7 +21,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_BTC } from '../../../constants';
+import { COINTYPE_BTC, IMPL_BCH } from '../../../constants';
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
@@ -56,6 +56,10 @@ import { IKeyringMapKey, VaultBase } from '../../VaultBase';
 import { Provider } from './provider';
 import { BlockBook } from './provider/blockbook';
 import { getAccountDefaultByPurpose } from './utils';
+
+type ArrElement<ArrType> = ArrType extends readonly (infer ElementType)[]
+  ? ElementType
+  : never;
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
@@ -530,6 +534,19 @@ export default class VaultBtcFork extends VaultBase {
       console.error(e);
     }
 
+    // Temporary solution to nownode blockbook bch data inconsistency problem
+    const impl = await this.getNetworkImpl();
+    const isMineFn = (
+      i:
+        | ArrElement<IBlockBookTransaction['vin']>
+        | ArrElement<IBlockBookTransaction['vout']>,
+    ) => {
+      if (impl !== IMPL_BCH) {
+        return i.isOwn ?? false;
+      }
+      return i.addresses.some((address) => address === dbAccount.address);
+    };
+
     const promises = txs.map((tx) => {
       try {
         const historyTxToMerge = localHistory.find(
@@ -544,14 +561,14 @@ export default class VaultBtcFork extends VaultBase {
           balance: new BigNumber(input.value).shiftedBy(-decimals).toFixed(),
           balanceValue: input.value,
           symbol,
-          isMine: input.isOwn ?? false,
+          isMine: isMineFn(input),
         }));
         const utxoTo = tx.vout.map((output) => ({
           address: output.isAddress ?? false ? output.addresses[0] : '',
           balance: new BigNumber(output.value).shiftedBy(-decimals).toFixed(),
           balanceValue: output.value,
           symbol,
-          isMine: output.isOwn ?? false,
+          isMine: isMineFn(output),
         }));
 
         const totalOut = BigNumber.sum(
