@@ -247,7 +247,7 @@ export const Debug = () => {
                   searchParams,
                   hash,
                 });
-                // NativeModules.Minimizer?.minimize();
+                // NativeModules.Minimizer.minimize();
               }}
             >
               <Typography.Body1>Log current wallet</Typography.Body1>

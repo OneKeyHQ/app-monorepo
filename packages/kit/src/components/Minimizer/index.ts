@@ -1,11 +1,18 @@
 import { NativeModules } from 'react-native';
 
+import { MinimizerInterface } from '@onekeyhq/app/src/types/NativeModules';
+
 const { Minimizer } = NativeModules;
 
-// export default {
-//   exit: () => null,
-//   goBack: () => null,
-//   minimize: () => null,
-// };
-
-export default Minimizer;
+// eslint-disable-next-line import/no-mutable-exports
+let minimizer: MinimizerInterface = {
+  addListener: () => {},
+  removeListeners: () => {},
+  exit: () => {},
+  goBack: () => {},
+  minimize: () => {},
+};
+if (Minimizer) {
+  minimizer = Minimizer;
+}
+export default minimizer;
