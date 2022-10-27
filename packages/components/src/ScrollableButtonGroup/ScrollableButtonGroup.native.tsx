@@ -12,11 +12,10 @@ import {
 import { IBoxProps } from 'native-base';
 import Animated, {
   useAnimatedScrollHandler,
-  useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { Box, Center, IconButton } from '@onekeyhq/components';
+import { Box, IconButton } from '@onekeyhq/components';
 
 import { useForwardRef } from '../utils/useForwardRef';
 
@@ -134,34 +133,6 @@ const ScrollableButtonGroup = forwardRef<
 
     return (
       <Box bg={bg} {...boxProps} onLayout={onContainerLayout}>
-        <Animated.View
-          style={[
-            { position: 'absolute' },
-            useAnimatedStyle(
-              () => ({
-                opacity: showLeftArrow.value ? 1 : 0,
-                zIndex: showLeftArrow.value ? 1 : -1,
-              }),
-              [],
-            ),
-          ]}
-        >
-          <Center bg={bg}>
-            {renderLeftArrow ? (
-              renderLeftArrow({ onPress: onLeftArrowPress })
-            ) : (
-              <IconButton
-                type="plain"
-                circle
-                name="ChevronLeftSolid"
-                size="sm"
-                onPress={onLeftArrowPress}
-                {...leftButtonProps}
-              />
-            )}
-          </Center>
-        </Animated.View>
-
         <Animated.ScrollView
           ref={scrollRef}
           style={{
@@ -201,33 +172,6 @@ const ScrollableButtonGroup = forwardRef<
             }),
           )}
         </Animated.ScrollView>
-        <Animated.View
-          style={[
-            { position: 'absolute', right: 0 },
-            useAnimatedStyle(
-              () => ({
-                opacity: showRightArrow.value ? 1 : 0,
-                zIndex: showRightArrow.value ? 1 : -1,
-              }),
-              [],
-            ),
-          ]}
-        >
-          <Center bg={bg}>
-            {renderRightArrow ? (
-              renderRightArrow({ onPress: onRightArrowPress })
-            ) : (
-              <IconButton
-                type="plain"
-                circle
-                name="ChevronRightSolid"
-                size="sm"
-                onPress={onRightArrowPress}
-                {...rightButtonProps}
-              />
-            )}
-          </Center>
-        </Animated.View>
       </Box>
     );
   },
