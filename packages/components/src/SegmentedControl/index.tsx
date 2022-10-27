@@ -16,7 +16,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({ onChange, ...rest }) => {
   const fontColor = useThemeValue('text-subdued');
   const activeFontColor = useThemeValue('text-default');
   const activeBgColor = useThemeValue('surface-default');
-  const bgColor = useThemeValue('surface-neutral-default');
+  const bgColor = useThemeValue('surface-neutral-subdued');
   return (
     <SegmentedControlBase
       backgroundColor={bgColor}

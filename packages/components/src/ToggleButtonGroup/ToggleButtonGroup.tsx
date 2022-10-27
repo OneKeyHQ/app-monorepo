@@ -114,7 +114,6 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   return (
     <ScrollableButtonGroup
       bg={bg}
-      borderRadius="12"
       overflow="hidden"
       w="full"
       flexDirection="row"

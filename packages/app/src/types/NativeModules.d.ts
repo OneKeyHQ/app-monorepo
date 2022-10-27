@@ -38,6 +38,11 @@ export interface SplashScreenManagerInterface extends NativeModule {
 export interface JPushManagerInterface extends NativeModule {
   registerNotification: () => void;
 }
+export interface MinimizerInterface extends NativeModule {
+  exit: () => void;
+  goBack: () => void;
+  minimize: () => void;
+}
 
 declare module 'react-native' {
   interface NativeModulesStatic {
@@ -45,5 +50,6 @@ declare module 'react-native' {
     OKPermissionManager: PermissionManagerInterface;
     SplashScreenManager: SplashScreenManagerInterface;
     JPushManager: JPushManagerInterface;
+    Minimizer: MinimizerInterface;
   }
 }

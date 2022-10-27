@@ -143,7 +143,11 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    const { networkId } = getActiveWalletAccount();
+    const { networkId, networkImpl } = getActiveWalletAccount();
+
+    if (networkImpl !== IMPL_EVM) {
+      return;
+    }
     debugLogger.providerApi.info('BgApi rpcCall:', request, { networkId });
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(

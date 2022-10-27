@@ -97,7 +97,6 @@ const WalletTabs: FC = () => {
         }}
         renderHeader={() => <AccountInfo />}
         width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
-        pagerProps={{ scrollEnabled: false }}
         headerHeight={
           isVerticalLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT

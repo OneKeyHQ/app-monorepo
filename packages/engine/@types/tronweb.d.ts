@@ -50,6 +50,10 @@ type IUnsignedTransaction = {
   raw_data_hex: string;
 };
 
+type ISignedTransaction = IUnsignedTransaction & {
+  signature: string[];
+};
+
 type ITransactionWithResult = IUnsignedTransaction & {
   ret: [{ contractRet?: string }];
 };
@@ -102,6 +106,7 @@ declare module 'tronweb' {
   }
 
   export type Transaction = IUnsignedTransaction;
+  export type SignedTransaction = ISignedTransaction;
 
   export default TronWeb;
 }
