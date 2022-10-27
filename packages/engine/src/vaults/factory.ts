@@ -84,6 +84,7 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_LTC) {
     return new VaultHelperLtc(options);
+  }
   if (impl === IMPL_ALGO) {
     return new VaultHelperAlgo(options);
   }
@@ -162,6 +163,7 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_LTC) {
     vault = new VaultLtc(options);
+  }
   if (network.impl === IMPL_ALGO) {
     vault = new VaultAlgo(options);
   }
