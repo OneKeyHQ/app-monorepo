@@ -25,6 +25,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TRON,
 } from '@onekeyhq/engine/src/constants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -296,6 +297,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'starcoin': IMPL_STC,
     'aptos': IMPL_APTOS,
     'martian': IMPL_APTOS,
+    'tron': IMPL_TRON,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
@@ -307,6 +309,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.solana,
   IInjectedProviderNames.aptos,
   IInjectedProviderNames.conflux,
+  IInjectedProviderNames.tron,
 ];
 
 export function getNetworkImplFromDappScope(

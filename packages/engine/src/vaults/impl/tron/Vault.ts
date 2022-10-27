@@ -4,6 +4,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 import TronWeb from 'tronweb';
@@ -16,6 +17,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
+import { extractResponseError } from '../../../proxy';
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { Erc20MethodSelectors } from '../evm/decoder/abi';
@@ -652,5 +654,15 @@ export default class Vault extends VaultBase {
     });
 
     return (await Promise.all(promises)).filter(Boolean);
+  }
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    try {
+      const tronWeb = await this.getClient();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return await tronWeb.fullNode.request('jsonrpc', request, 'post');
+    } catch (e) {
+      throw extractResponseError(e);
+    }
   }
 }

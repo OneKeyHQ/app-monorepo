@@ -69,7 +69,11 @@ class ProviderApiSolana extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    const { networkId } = getActiveWalletAccount();
+    const { networkId, networkImpl } = getActiveWalletAccount();
+
+    if (networkImpl !== IMPL_SOL) {
+      return;
+    }
 
     debugLogger.providerApi.info('solana rpcCall:', request, { networkId });
     const result = await this.backgroundApi.engine.proxyJsonRPCCall(
