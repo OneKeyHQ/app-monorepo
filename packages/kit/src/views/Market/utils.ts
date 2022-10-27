@@ -41,6 +41,19 @@ export function formatMarketValueForFiexd(
   return 0;
 }
 
+export function formatMarketVolatility(
+  value?: number,
+  fractionDigits?: number,
+) {
+  if (value) {
+    return `${value >= 0 ? '+' : ''}${formatMarketValueForFiexd(
+      value,
+      fractionDigits,
+    )}`;
+  }
+  return '';
+}
+
 const BILLION = 1000000000;
 const MILLION = 1000000;
 const THOUSAND = 1000;

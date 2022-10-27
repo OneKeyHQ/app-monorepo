@@ -22,8 +22,8 @@ const NewsItem: FC<NewsItemProps> = ({
   imageUrl,
   onPress,
 }) => (
-  <ListItem onPress={onPress} borderRadius={0} p={0}>
-    <Box my="4" flexDirection="row" justifyContent="space-between" w="full">
+  <ListItem onPress={onPress}>
+    <Box my="2" flexDirection="row" justifyContent="space-between" w="full">
       <Box flex={1} justifyContent="space-between">
         <Typography.Body1Strong noOfLines={2}>{title}</Typography.Body1Strong>
         <Box flexDirection="row">
@@ -69,7 +69,12 @@ export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
   );
   return (
     <Box>
-      <FlatList data={news} renderItem={renderItem} scrollEnabled={false} />
+      <FlatList
+        mx={-2}
+        data={news}
+        renderItem={renderItem}
+        scrollEnabled={false}
+      />
     </Box>
   );
 };
