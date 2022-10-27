@@ -147,7 +147,7 @@ const Mobile = () => {
 
   return (
     <Box flex="1" bg="background-default">
-      <Box px={{ base: 4, md: 6 }}>
+      <Box px={{ base: 4, md: 6 }} mt={4}>
         <SegmentedControl
           values={[
             intl.formatMessage({ id: 'title__favorites' }),
