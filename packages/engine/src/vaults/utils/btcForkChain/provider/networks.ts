@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import * as BitcoinJS from 'bitcoinjs-lib';
+import typeforce from 'typeforce';
 
 import { AddressEncodings } from '../types';
 
@@ -82,6 +84,7 @@ const bch = {
   pubKeyHash: 0x00,
   scriptHash: 0x05,
   wif: 0x80,
+  forkId: 0x00,
 };
 
 const doge = {
@@ -177,5 +180,40 @@ const getNetwork = (chainCode: string): Network => {
   }
   return network;
 };
+
+const NETWORK_TYPES = {
+  bitcoinCash: [bch],
+};
+
+export type NetworkTypes = keyof typeof NETWORK_TYPES;
+export function isNetworkType(type: NetworkTypes, network?: Network) {
+  if (typeof type !== 'string' || !network || !NETWORK_TYPES[type])
+    return false;
+  try {
+    typeforce(
+      {
+        bip32: {
+          public: typeforce.UInt32,
+          private: typeforce.UInt32,
+        },
+        pubKeyHash: typeforce.anyOf(typeforce.UInt8, typeforce.UInt16),
+        scriptHash: typeforce.anyOf(typeforce.UInt8, typeforce.UInt16),
+      },
+      network,
+    );
+  } catch (e) {
+    return false;
+  }
+  return !!NETWORK_TYPES[type].find(
+    (n) =>
+      n.bip32.public === network.bip32.public &&
+      n.bip32.private === network.bip32.private &&
+      ((!n.bech32 && !network.bech32) || n.bech32 === network.bech32) &&
+      // @ts-expect-error
+      ((!n.forkId && !network.forkId) || n.forkId === network.forkId) &&
+      n.pubKeyHash === network.pubKeyHash &&
+      n.scriptHash === network.scriptHash,
+  );
+}
 
 export { getNetwork };

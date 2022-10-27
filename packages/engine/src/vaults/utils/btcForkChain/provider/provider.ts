@@ -1,4 +1,5 @@
 import { CKDPub, verify } from '@onekeyfe/blockchain-libs/dist/secret';
+import * as bchaddrjs from 'bchaddrjs';
 import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
@@ -17,7 +18,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import { getBlockBook } from './blockbook';
-import { Network, getNetwork } from './networks';
+import { Network, getNetwork, isNetworkType } from './networks';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
 
 type GetAccountParams =
@@ -149,12 +150,15 @@ class Provider {
         cache.set(relPath, extendedKey);
       }
 
-      const { address } = this.pubkeyToPayment(extendedKey.key, encoding);
+      let { address } = this.pubkeyToPayment(extendedKey.key, encoding);
       if (typeof address === 'string' && address.length > 0) {
+        address = isNetworkType('bitcoinCash', this.network)
+          ? bchaddrjs.toCashAddress(address)
+          : address;
+
         ret[path] = address;
       }
     }
-
     return ret;
   }
 
