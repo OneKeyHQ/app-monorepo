@@ -32,6 +32,7 @@ import {
   updateSelectedCategory,
 } from '../../store/reducers/market';
 import { ServerToken } from '../../store/typings';
+import { getDefaultLocale } from '../../utils/locale';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -43,7 +44,11 @@ export default class ServiceMarket extends ServiceBase {
     const { appSelector, dispatch } = this.backgroundApi;
     const locale = appSelector((s) => s.settings.locale);
     const path = '/market/category/list';
-    const datas: MarketCategory[] = await this.fetchData(path, { locale }, []);
+    const datas: MarketCategory[] = await this.fetchData(
+      path,
+      { locale: locale === 'system' ? getDefaultLocale() : locale },
+      [],
+    );
 
     // add favorite coingeckoIds from db
     const favorites = datas.find(
@@ -141,7 +146,7 @@ export default class ServiceMarket extends ServiceBase {
       path,
       {
         id: coingeckoId,
-        locale,
+        locale: locale === 'system' ? getDefaultLocale() : locale,
       },
       null,
     );
