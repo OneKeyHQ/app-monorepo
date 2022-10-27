@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useWalletConnectQrcodeModal } from '../../components/WalletConnect/useWalletConnectQrcodeModal';
-import { useNavigation } from '../../hooks';
+import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { RootRoutes } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
@@ -16,19 +16,19 @@ import { useAddExternalAccount } from './useAddExternalAccount';
 
 export function useConnectAndCreateExternalAccount({
   networkId,
-  walletId,
 }: {
   networkId?: string;
-  walletId?: string;
-}) {
+} = {}) {
   const navigation = useNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
 
   const { connectToWallet } = useWalletConnectQrcodeModal();
   const { addExternalAccount } = useAddExternalAccount();
+  const { externalWallet } = useActiveWalletAccount();
 
   const connectToWcWalletDirectly = useCallback(async () => {
     let isConnected = false;
+    const walletId = externalWallet?.id;
     let addedAccount: IAccount | undefined;
     if (!walletId) {
       return;
@@ -62,11 +62,11 @@ export function useConnectAndCreateExternalAccount({
       }
     }
   }, [
+    externalWallet,
     addExternalAccount,
     connectToWallet,
     networkId,
     serviceAccountSelector,
-    walletId,
   ]);
 
   const goToOnboardingConnectWallet = useCallback(

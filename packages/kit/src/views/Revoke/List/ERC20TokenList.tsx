@@ -165,7 +165,6 @@ export const ERC20TokenList: FC<{
     allowances,
     prices,
     address: accountAddress,
-    refresh,
   } = useERC20Allowances(networkId, addressOrName);
 
   const data = useMemo(
@@ -251,7 +250,6 @@ export const ERC20TokenList: FC<{
                     balance={balanceBN}
                     price={price}
                     token={token}
-                    onRevokeSuccess={refresh}
                   />
                 ))
               )}
@@ -260,7 +258,7 @@ export const ERC20TokenList: FC<{
         </ListItem>
       );
     },
-    [refresh, networkId, prices, intl, accountAddress],
+    [networkId, prices, intl, accountAddress],
   );
 
   const renderListItemMobile = useCallback(
@@ -326,7 +324,6 @@ export const ERC20TokenList: FC<{
                       balance={balanceBN}
                       price={price}
                       token={token}
-                      onRevokeSuccess={refresh}
                     />
                   ))
                 )}
@@ -336,7 +333,7 @@ export const ERC20TokenList: FC<{
         </ListItem>
       );
     },
-    [refresh, networkId, prices, intl, accountAddress],
+    [networkId, prices, intl, accountAddress],
   );
 
   return (

@@ -301,10 +301,12 @@ import BanSolid from "./react/solid/Ban";
 import BeakerSolid from "./react/solid/Beaker";
 import BellSolid from "./react/solid/Bell";
 import BellOffSolid from "./react/solid/BellOff";
+import BlockExplorerSolid from "./react/solid/BlockExplorer";
 import BookOpenSolid from "./react/solid/BookOpen";
 import BookmarkSolid from "./react/solid/Bookmark";
 import BookmarkAltSolid from "./react/solid/BookmarkAlt";
 import BriefcaseSolid from "./react/solid/Briefcase";
+import BulkSenderSolid from "./react/solid/BulkSender";
 import CakeSolid from "./react/solid/Cake";
 import CalculatorSolid from "./react/solid/Calculator";
 import CalendarSolid from "./react/solid/Calendar";
@@ -830,10 +832,12 @@ const icons = {
   BeakerSolid,
   BellSolid,
   BellOffSolid,
+  BlockExplorerSolid,
   BookOpenSolid,
   BookmarkSolid,
   BookmarkAltSolid,
   BriefcaseSolid,
+  BulkSenderSolid,
   CakeSolid,
   CalculatorSolid,
   CalendarSolid,

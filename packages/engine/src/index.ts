@@ -750,9 +750,14 @@ class Engine {
         decimalsMap[token.tokenIdOnNetwork] = token.decimals;
       }
     });
-    const tokensToGet = tokenIdsOnNetwork.filter(
-      (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
-    );
+    const tokensToGet = tokenIdsOnNetwork
+      .filter((address) => {
+        if (withMain && address === '') {
+          return false;
+        }
+        return true;
+      })
+      .filter((tokenId) => typeof decimalsMap[tokenId] !== 'undefined');
     const vault = await this.getVault({ networkId, accountId });
 
     const ret: Record<string, string | undefined> = {};

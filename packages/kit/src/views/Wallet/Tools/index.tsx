@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { ComponentProps, FC, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -13,6 +13,7 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -20,9 +21,19 @@ import {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { useActiveWalletAccount } from '../../../hooks';
+import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const data = [
+type DataItem = {
+  key: string;
+  icon: ComponentProps<typeof Icon>;
+  title: LocaleIds;
+  description: LocaleIds;
+};
+
+const data: DataItem[] = [
   {
     key: 'revoke',
     icon: {
@@ -33,7 +44,17 @@ const data = [
     title: 'title__contract_approvals',
     description: 'title__token_approvals_desc',
   },
-] as const;
+  {
+    key: 'explorer',
+    icon: {
+      name: 'BlockExplorerSolid',
+      color: 'icon-success',
+      size: 32,
+    },
+    title: 'title__blockchain_explorer',
+    description: 'title__blockchain_explorer_desc',
+  },
+];
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -43,26 +64,41 @@ type NavigationProps = NativeStackNavigationProp<
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
+  const { network, accountAddress } = useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
+  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+
+  const items = useMemo(() => {
+    if (!hasAvailable || !accountAddress) {
+      return data.filter((d) => d.key !== 'explorer');
+    }
+    return data;
+  }, [hasAvailable, accountAddress]);
 
   const handlePress = useCallback(
     (key: string) => {
       if (key === 'revoke') {
         navigation.navigate(HomeRoutes.Revoke);
+      } else if (key === 'explorer') {
+        openAddressDetails(
+          accountAddress,
+          intl.formatMessage({ id: 'title__blockchain_explorer' }),
+        );
       }
     },
-    [navigation],
+    [navigation, openAddressDetails, accountAddress, intl],
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: typeof data[0] }) => (
+    ({ item, index }: { item: typeof data[0]; index: number }) => (
       <Pressable
         flex={1 / 2}
         mb="4"
         onPress={() => {
           handlePress(item.key);
         }}
+        pl={!isVertical && index % 2 === 1 ? 4 : 0}
       >
         <HStack
           bg="surface-default"
@@ -87,7 +123,7 @@ const ToolsPage: FC = () => {
         </HStack>
       </Pressable>
     ),
-    [intl, handlePress],
+    [intl, handlePress, isVertical],
   );
 
   const container = useMemo(
@@ -100,12 +136,12 @@ const ToolsPage: FC = () => {
         }}
         numColumns={isVertical ? undefined : 2}
         showsHorizontalScrollIndicator={false}
-        data={data}
+        data={items}
         renderItem={renderItem}
         keyExtractor={(item) => item.title}
       />
     ),
-    [isVertical, renderItem],
+    [isVertical, renderItem, items],
   );
 
   return container;
