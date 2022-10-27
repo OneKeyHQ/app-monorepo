@@ -6,14 +6,18 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 import so.onekey.app.wallet.reactModule.OKLiteManager
 import so.onekey.app.wallet.reactModule.PermissionManager
+import so.onekey.app.wallet.reactModule.MinimizerModule
 import so.onekey.app.wallet.viewManager.homePage.HomePageManager
 
 
 class MainReactNativePackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): MutableList<NativeModule> {
         val modules = mutableListOf<NativeModule>()
+
         modules.add(OKLiteManager(reactContext))
         modules.add(PermissionManager(reactContext))
+        modules.add(MinimizerModule(reactContext))
+
         return modules
     }
 
