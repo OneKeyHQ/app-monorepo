@@ -49,7 +49,7 @@ type Props = {
 export const ApproveDialog = ({ onClose }: { onClose?: () => void }) => {
   const intl = useIntl();
   const { connectAndCreateExternalAccount } =
-    useConnectAndCreateExternalAccount({});
+    useConnectAndCreateExternalAccount();
   return (
     <Dialog
       visible

@@ -12,11 +12,8 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 
-import { useNavigation } from '../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { BottomSheetSettings } from '../../Overlay/AccountValueSettings';
-import { RevokeRoutes } from '../types';
 
 export type ActionKey = 'share' | 'copy' | 'change' | 'revoke';
 
@@ -28,11 +25,6 @@ type Props = {
 };
 
 const actions: { icon: any; key: ActionKey; label: any }[] = [
-  {
-    icon: 'PaperAirplaneSolid',
-    key: 'share',
-    label: 'title__share',
-  },
   {
     icon: 'DuplicateOutline',
     key: 'copy',
@@ -62,23 +54,13 @@ const AllowanceDetail: FC<
   disabledActions,
 }) => {
   const intl = useIntl();
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const handlePress = useCallback(
     (key: ActionKey) => {
       closeOverlay();
-      if (key === 'share') {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Revoke,
-          params: {
-            screen: RevokeRoutes.ShareModal,
-          },
-        });
-      } else {
-        onActionPress(key);
-      }
+      onActionPress(key);
     },
-    [closeOverlay, onActionPress, navigation],
+    [closeOverlay, onActionPress],
   );
   return (
     <VStack pb={`${insets.bottom}px`}>

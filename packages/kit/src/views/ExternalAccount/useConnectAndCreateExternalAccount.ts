@@ -18,7 +18,7 @@ export function useConnectAndCreateExternalAccount({
   networkId,
 }: {
   networkId?: string;
-}) {
+} = {}) {
   const navigation = useNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
 
