@@ -97,6 +97,7 @@ const HeaderSmall: React.FC = () => {
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
+      zIndex={1}
     >
       <Box flexDirection="row">
         <Pressable

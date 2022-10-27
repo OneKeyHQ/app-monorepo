@@ -196,9 +196,9 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           name="ArrowUpOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
-          onPromise={async () => {
+          onPress={() => {
             const { accountId, networkId } = getActiveWalletAccount();
-            await sendToken({ accountId, networkId });
+            sendToken({ accountId, networkId });
           }}
         />
         <Typography.CaptionStrong

@@ -88,8 +88,8 @@ const SwapContent = () => {
       bg="surface-default"
       w="full"
       borderRadius="xl"
-      py={5}
-      px={4}
+      py={4}
+      px={2}
       borderWidth={themeVariant === 'light' ? 1 : undefined}
       borderColor="border-subdued"
     >

@@ -5,6 +5,7 @@ import { webviewRefs } from '../../views/Discover/Explorer/explorerUtils';
 export interface WebTab {
   id: string;
   url: string;
+  // urlToGo?: string;
   title?: string;
   favicon?: string;
   // isPinned: boolean;
@@ -15,6 +16,7 @@ export interface WebTab {
   canGoForward?: boolean;
   loading?: boolean;
   refReady?: boolean;
+  timestamp?: number;
 }
 
 export interface WebTabsInitialState {
@@ -26,7 +28,10 @@ export interface WebTabsInitialState {
 
 export const homeTab: WebTab = {
   id: 'home',
-  url: '',
+  // current url in webview
+  url: 'about:blank',
+  // // url to load (from outside control)
+  // urlToGo: 'about:blank',
   // TODO i18n
   title: 'OneKey',
   isCurrent: true,
@@ -59,15 +64,17 @@ export const webtabsSlice = createSlice({
       const tab = state.tabs.find((t) => t.id === payload.id);
       if (tab) {
         Object.keys(payload).forEach((key) => {
-          if (key === 'title' && !payload.title) {
-            delete payload.title;
+          // @ts-ignore
+          const value = payload[key];
+          // @ts-ignore
+          if (value !== undefined && value !== tab[key]) {
             // @ts-ignore
-          } else if (payload[key] === undefined) {
-            // @ts-ignore
-            delete payload[key];
+            tab[key] = value;
+            if (key === 'url') {
+              tab.timestamp = Date.now();
+            }
           }
         });
-        Object.assign(tab, payload);
       }
     },
     closeWebTab: (state, { payload }: PayloadAction<string>) => {

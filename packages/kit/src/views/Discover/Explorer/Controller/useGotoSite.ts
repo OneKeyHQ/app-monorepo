@@ -81,12 +81,7 @@ export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
               }),
         );
 
-        if (
-          !isNewTab &&
-          !isInPlace &&
-          tab?.url !== '' &&
-          platformEnv.isDesktop
-        ) {
+        if (!isNewTab && !isInPlace && platformEnv.isDesktop) {
           crossWebviewLoadUrl({
             url: validatedUrl,
             tabId,

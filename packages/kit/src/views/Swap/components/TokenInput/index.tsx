@@ -167,7 +167,7 @@ const TokenInput: FC<TokenInputProps> = ({
           justifyContent="space-between"
           alignItems="center"
         >
-          <Typography.Caption p="2" color="text-subdued" fontWeight={500}>
+          <Typography.Caption p="2" color="text-default" fontWeight={500}>
             {label}
           </Typography.Caption>
           <TokenInputSendingAccount account={account} token={token} />
@@ -258,6 +258,19 @@ const TokenInput: FC<TokenInputProps> = ({
               <Typography.Caption color="text-subdued" fontWeight={500}>
                 {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
               </Typography.Caption>
+              <Box
+                h="4"
+                w="8"
+                ml="1"
+                justifyContent="center"
+                alignItems="center"
+                borderRadius={4}
+                backgroundColor="surface-neutral-default"
+              >
+                <Typography.Caption color="text-default">
+                  {intl.formatMessage({ id: 'action__max' })}
+                </Typography.Caption>
+              </Box>
             </Box>
           </Pressable>
           <Box>

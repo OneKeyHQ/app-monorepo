@@ -179,11 +179,11 @@ const ContentItem: FC<ContentItemProps> = ({ onPress, ...props }) => {
   if (onPress) {
     return (
       <PressableItem px={0} py={0} onPress={onPress}>
-        <Item key="content-press-item" {...props} />
+        <Item {...props} />
       </PressableItem>
     );
   }
-  return <Item key="content-item" {...props} />;
+  return <Item {...props} />;
 };
 
 ContentItem.defaultProps = defaultProps;

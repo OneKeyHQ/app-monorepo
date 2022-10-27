@@ -5,8 +5,9 @@ import { Freeze } from 'react-freeze';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
-import { Box, useIsVerticalLayout, useToast } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import { useDesktopTopDragBarController } from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController';
+import { Toast } from '@onekeyhq/components/src/Toast/useToast';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
@@ -32,7 +33,6 @@ const Explorer: FC = () => {
     height: '0px',
   });
   const intl = useIntl();
-  const toast = useToast();
   const {
     openMatchDApp,
     gotoSite,
@@ -70,7 +70,7 @@ const Explorer: FC = () => {
 
   const onRefresh = useCallback(() => {
     const webviewRef = getWebviewWrapperRef({
-      tabId: currentTab?.id,
+      tabId: currentTab.id,
     });
     // *** use key for refresh may cause multiple-tabbed webview bridge not working at production Desktop
     // refreshKey.current = Date.now().toString();
@@ -78,7 +78,7 @@ const Explorer: FC = () => {
 
     // *** use cross platform reload() method
     webviewRef?.reload();
-  }, [currentTab?.id]);
+  }, [currentTab.id]);
 
   const explorerContent = useMemo(
     () =>
@@ -95,7 +95,7 @@ const Explorer: FC = () => {
 
     const onCopyUrlToClipboard = () => {
       copyToClipboard(getCurrentUrl());
-      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+      Toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
     };
 
     const onOpenBrowser = () => {
@@ -105,7 +105,7 @@ const Explorer: FC = () => {
     const onGoHomePage = () => {
       stopLoading();
       backgroundApiProxy.dispatch(
-        setWebTabData({ ...homeTab, id: currentTab?.id }),
+        setWebTabData({ ...homeTab, id: currentTab.id }),
       );
     };
 
@@ -142,12 +142,11 @@ const Explorer: FC = () => {
       />
     );
   }, [
-    currentTab?.id,
-    currentTab?.url,
+    currentTab.id,
+    currentTab.url,
     intl,
     onRefresh,
     stopLoading,
-    toast,
     visibleMore,
   ]);
 

@@ -14,6 +14,7 @@ import { SelectProps } from '@onekeyhq/components/src/Select';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../hooks';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { showOverlay } from '../../utils/overlayUtils';
 
@@ -24,6 +25,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
 }) => {
   const intl = useIntl();
+  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const isVerticalLayout = useIsVerticalLayout();
   const options: (
     | {
@@ -49,13 +51,13 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
         },
         icon: 'ArrowsExpandOutline',
       },
-      {
+      isPasswordSet && {
         id: 'action__lock_now',
         onPress: () => backgroundApiProxy.serviceApp.lock(true),
         icon: isVerticalLayout ? 'LockClosedOutline' : 'LockClosedSolid',
       },
     ],
-    [isVerticalLayout],
+    [isVerticalLayout, isPasswordSet],
   );
 
   return (
