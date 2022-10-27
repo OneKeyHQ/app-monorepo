@@ -48,7 +48,8 @@
     "natsort": "^2.0.3",
     "near-api-js": "^0.44.2",
     "tiny-lru": "^8.0.2",
-    "tronweb": "^4.3.0"
+    "tronweb": "^4.3.0",
+    "bitcoinforkjs": "git+https://github.com/originalix/bitcoincashjs-lib.git#cashv5"
   },
   "react-native": {
     "./src/dbs/indexed": "./src/dbs/realms",

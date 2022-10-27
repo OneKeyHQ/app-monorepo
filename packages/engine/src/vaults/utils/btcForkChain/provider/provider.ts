@@ -1,6 +1,7 @@
 import { CKDPub, verify } from '@onekeyfe/blockchain-libs/dist/secret';
 import * as bchaddrjs from 'bchaddrjs';
 import BigNumber from 'bignumber.js';
+import * as BitcoinForkJS from 'bitcoinforkjs';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 import memoziee from 'memoizee';
@@ -425,7 +426,9 @@ class Provider {
     const [inputAddressesEncodings, nonWitnessPrevTxs] =
       await this.collectInfoForSoftwareSign(unsignedTx);
 
-    const psbt = new BitcoinJS.Psbt({ network: this.network });
+    const psbt = isNetworkType('bitcoinCash', this.network)
+      ? new BitcoinForkJS.Psbt({ network: this.network, forkCoin: 'bch' })
+      : new BitcoinJS.Psbt({ network: this.network });
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < inputs.length; ++i) {
