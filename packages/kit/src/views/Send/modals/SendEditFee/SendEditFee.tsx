@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
+import { setFeePresetIndex } from '../../../../store/reducers/data';
 import { BaseSendModal } from '../../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../../components/DecodeTxButtonTest';
 import { ESendEditFeeTypes } from '../../enums';
@@ -229,6 +230,13 @@ function ScreenSendEditFee({ ...rest }) {
       // navigation.navigate() with `merge=true` will fail in firefox
       return navigation.replace(toRouteName, params);
     }
+
+    if (type === 'preset') {
+      backgroundApiProxy.dispatch(
+        setFeePresetIndex({ networkId, index: radioValue }),
+      );
+    }
+
     return navigation.navigate({
       merge: true,
       name: toRouteName,

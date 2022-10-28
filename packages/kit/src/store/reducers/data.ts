@@ -12,6 +12,7 @@ export type DataInitialState = {
   currencyList: MoonpayListType[];
   cursorMap: Record<string, string>;
   handOperatedLock?: boolean;
+  feePresetIndexMap?: Record<string, string | undefined>;
 };
 
 const initialState: DataInitialState = {
@@ -61,6 +62,15 @@ export const dataSlice = createSlice({
     setHandOperatedLock(state, action: PayloadAction<boolean>) {
       state.handOperatedLock = action.payload;
     },
+    setFeePresetIndex(
+      state,
+      action: PayloadAction<{ networkId: string; index: string }>,
+    ) {
+      if (!state.feePresetIndexMap) {
+        state.feePresetIndexMap = {};
+      }
+      state.feePresetIndexMap[action.payload.networkId] = action.payload.index;
+    },
   },
 });
 
@@ -72,6 +82,7 @@ export const {
   cursorMapSet,
   lock,
   setHandOperatedLock,
+  setFeePresetIndex,
 } = dataSlice.actions;
 
 export default dataSlice.reducer;

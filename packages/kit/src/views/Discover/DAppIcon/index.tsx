@@ -134,11 +134,12 @@ const DAppIcon: FC<DAppIconProps> = ({ url, size, networkIds, ...rest }) => {
     >
       <Box width={`${innerSize}px`} height={`${innerSize}px`}>
         {url ? (
-          <Image
+          <NetImage
             src={url}
             width={`${innerSize}px`}
             height={`${innerSize}px`}
             borderRadius={`${innerRadius}px`}
+            bgColor="surface-neutral-default"
             fallbackElement={
               <Box
                 borderRadius={12}

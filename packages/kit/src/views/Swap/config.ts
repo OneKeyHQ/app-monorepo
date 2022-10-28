@@ -23,8 +23,13 @@ export const enabledNetworkIds: string[] = [
   OnekeyNetwork.aurora,
   OnekeyNetwork.near,
   OnekeyNetwork.etc,
+  OnekeyNetwork.okt,
   OnekeyNetwork.ethw,
   OnekeyNetwork.etf,
+  OnekeyNetwork.doge,
+  OnekeyNetwork.ltc,
+  OnekeyNetwork.bch,
+  OnekeyNetwork.goerli,
 ];
 
 export const zeroXServerEndpoints: Record<string, string> = {
@@ -54,6 +59,7 @@ export const zeroXServerEndpoints: Record<string, string> = {
 const serverURL = 'https://0x.onekey.so';
 export const quoterServerEndpoints: Record<string, string> = {
   [OnekeyNetwork.heco]: `${serverURL}/swap/v1/quote`,
+  [OnekeyNetwork.goerli]: 'https://goerli.api.0x.org/swap/v1/quote',
 };
 
 export const estimatedTime: Record<string, number> = {
@@ -95,6 +101,7 @@ export const swftOnlyNetwork: string[] = [
   OnekeyNetwork.etc,
   OnekeyNetwork.ethw,
   OnekeyNetwork.etf,
+  OnekeyNetwork.okt,
 ];
 
 export const networkSupportedTokens: Record<string, string[]> = {
@@ -217,6 +224,8 @@ export const networkSupportedTokens: Record<string, string[]> = {
     '0xdf574c24545e5ffecb9a659c229253d4111d87e1',
   ],
   [OnekeyNetwork.btc]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
+  [OnekeyNetwork.ltc]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
+  [OnekeyNetwork.doge]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
   [OnekeyNetwork.bsc]: [
     '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
     '0x55d398326f99059ff775485246999027b3197955',
@@ -334,6 +343,8 @@ export const networkSupportedTokens: Record<string, string[]> = {
     '0x59d226bb0a4d74274d4354ebb6a0e1a1aa5175b6',
     '0xabc732f6f69a519f6d508434481376b6221eb7d5',
     '0x12bb890508c125661e03b09ec06e404bc9289040',
+    '0xc946daf81b08146b1c7a8da2a851ddf2b3eaaf85',
+    '0xef71ca2ee68f45b9ad6f72fbdb33d707b872315c',
   ],
   [OnekeyNetwork.polygon]: [
     '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',

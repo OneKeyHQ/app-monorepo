@@ -1,6 +1,5 @@
 import axios, { Axios } from 'axios';
 
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -50,18 +49,12 @@ export class MdexQuoter implements Quoter {
 
   private client: Axios;
 
-  supportedNetworkIds: string[] = [OnekeyNetwork.heco];
-
   constructor() {
     this.client = axios.create({ timeout: 10 * 1000 });
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
-    return (
-      networkA.id === networkB.id &&
-      !!quoterServerEndpoints[networkA.id] &&
-      this.supportedNetworkIds.includes(networkA.id)
-    );
+    return networkA.id === networkB.id && !!quoterServerEndpoints[networkA.id];
   }
 
   async fetchQuote(
