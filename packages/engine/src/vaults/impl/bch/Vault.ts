@@ -56,7 +56,7 @@ export default class Vault extends VaultBtcFork {
   /**
    *
    * Currently nownode's BCH blockbook lacks the `isOwn` field in getHistory API,
-   * so we need to override this function to handle it, until blockbook update.
+   * so we need to override this function to handle it, until blockbook update
    */
   override isMyTransaction(
     item:
