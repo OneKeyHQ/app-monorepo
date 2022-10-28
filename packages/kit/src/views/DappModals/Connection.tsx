@@ -233,6 +233,7 @@ const Connection = () => {
   }, [origin]);
   const route = useRoute<RouteProps>();
   const walletConnectUri = route?.params?.walletConnectUri;
+  const isDeepLink = route?.params?.isDeepLink;
   lastWalletConnectUri = walletConnectUri;
   const isWalletConnectPreloading = Boolean(walletConnectUri);
   const [walletConnectError, setWalletConnectError] = useState<string>('');
@@ -289,6 +290,7 @@ const Connection = () => {
       backgroundApiProxy.walletConnect
         .connect({
           uri: walletConnectUri || '',
+          isDeepLink,
         })
         .then(() => {
           if (!isClosedDone.current && lastWalletConnectUri) {
@@ -310,6 +312,7 @@ const Connection = () => {
     closeModal,
     dispatch,
     intl,
+    isDeepLink,
     toast,
     walletConnectUri,
     walletConnectUriInfo?.v2,

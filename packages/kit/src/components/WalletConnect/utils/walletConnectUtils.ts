@@ -198,7 +198,13 @@ async function dappOpenWalletApp({
   }
 }
 
-async function openConnectToDappModal({ uri }: { uri: string }) {
+async function openConnectToDappModal({
+  uri,
+  isDeepLink,
+}: {
+  uri: string;
+  isDeepLink?: boolean;
+}) {
   await waitForDataLoaded({
     data: () => getAppNavigation(),
     logName: 'openConnectToDappModal wait navigation ready',
@@ -214,6 +220,7 @@ async function openConnectToDappModal({ uri }: { uri: string }) {
       screen: DappConnectionModalRoutes.ConnectionModal,
       params: {
         walletConnectUri: uri,
+        isDeepLink,
       },
     },
   });

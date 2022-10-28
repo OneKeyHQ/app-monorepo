@@ -74,6 +74,7 @@ const LoggerGallery = () => {
     <ScrollView p={4} flex="1" bg="background-hovered">
       <Button onPress={goBack}>Back to HOME</Button>
       <DebugLoggerSettings />
+      <Button onPress={goBack}>Back to HOME</Button>
     </ScrollView>
   );
 };
