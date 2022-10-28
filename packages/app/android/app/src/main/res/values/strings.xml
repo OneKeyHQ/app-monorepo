@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <resources>
-    <string name="app_name">OneKey</string>
     <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
 </resources>

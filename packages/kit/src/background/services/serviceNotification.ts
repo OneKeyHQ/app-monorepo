@@ -206,36 +206,47 @@ export default class ServiceNotification extends ServiceBase {
       ? undefined
       : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
 
-    const routerParams = {
-      accountId,
-      networkId: params.networkId || networkId,
-      tokenId: params.tokenId || '',
-      historyFilter: filter,
-    };
+    const isToMarketDetail = !!params?.coingeckoId;
+
+    const routerParams = isToMarketDetail
+      ? { marketTokenId: params.coingeckoId }
+      : {
+          accountId,
+          networkId: params.networkId || networkId,
+          tokenId: params.tokenId || '',
+          historyFilter: filter,
+        };
+
+    const detailScreenName = isToMarketDetail
+      ? HomeRoutes.MarketDetail
+      : HomeRoutes.ScreenTokenDetail;
+
+    const tabScreenName = isToMarketDetail ? TabRoutes.Market : TabRoutes.Home;
+
     let expandRoutes = [
       RootRoutes.Root,
       HomeRoutes.InitialTab,
       RootRoutes.Tab,
-      TabRoutes.Home,
-      HomeRoutes.ScreenTokenDetail,
+      tabScreenName,
+      detailScreenName,
     ];
     let navigationRoutes = {
       screen: HomeRoutes.InitialTab,
       params: {
         screen: RootRoutes.Tab,
         params: {
-          screen: TabRoutes.Home,
+          screen: tabScreenName,
           params: {
-            screen: HomeRoutes.ScreenTokenDetail,
+            screen: detailScreenName,
             params: routerParams,
           },
         },
       } as any,
     };
     if (isVertical) {
-      expandRoutes = [RootRoutes.Root, HomeRoutes.ScreenTokenDetail];
+      expandRoutes = [RootRoutes.Root, detailScreenName];
       navigationRoutes = {
-        screen: HomeRoutes.ScreenTokenDetail,
+        screen: detailScreenName,
         params: routerParams as any,
       };
     }
@@ -254,8 +265,11 @@ export default class ServiceNotification extends ServiceBase {
     const navigation = global.$navigationRef.current;
     const { dispatch, serviceApp } = this.backgroundApi;
     if (!platformEnv.isExtension) {
+      const tabScreenName = params?.coingeckoId
+        ? TabRoutes.Market
+        : TabRoutes.Home;
       navigation?.navigate(RootRoutes.Tab, {
-        screen: TabRoutes.Home,
+        screen: tabScreenName,
       });
       await wait(600);
     }

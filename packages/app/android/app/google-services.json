@@ -10,7 +10,7 @@
         "client_info": {
           "mobilesdk_app_id": "1:example",
           "android_client_info": {
-            "package_name": "so.onekey.app.wallet"
+            "package_name": "so.onekey.app.wallet.dev"
           }
         },
         "oauth_client": [

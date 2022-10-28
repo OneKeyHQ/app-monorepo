@@ -104,6 +104,14 @@ const normalRouteWhiteList: WhiteListItemList = [
     screen: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
     path: `/${RootRoutes.Root}/${HomeRoutes.Revoke}`,
   },
+  {
+    screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
+    path: `/${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
+  },
+  {
+    screen: `${RootRoutes.Root}/${HomeRoutes.MarketDetail}`,
+    path: `/${RootRoutes.Root}/${HomeRoutes.MarketDetail}`,
+  },
 ];
 
 /**
