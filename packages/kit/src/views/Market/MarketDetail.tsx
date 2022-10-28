@@ -163,6 +163,7 @@ const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   });
   const [isFetchIng, setIsFetching] = useState(false);
   const onPriceSubscribePress = useCallback(async () => {
+    if (!tokenItem) return;
     let res: boolean;
     setIsFetching(true);
     if (priceSubscribeEnable) {
@@ -186,13 +187,7 @@ const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
           : 'msg__subscription_succeeded',
       }),
     });
-  }, [
-    intl,
-    priceSubscribeEnable,
-    toast,
-    tokenItem?.coingeckoId,
-    tokenItem?.symbol,
-  ]);
+  }, [intl, priceSubscribeEnable, toast, tokenItem]);
   return (
     <Box>
       <IconButton
