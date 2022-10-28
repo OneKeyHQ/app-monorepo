@@ -95,13 +95,13 @@ const SwapButton = ({
   tokenItem,
   onPress,
 }: {
-  tokenItem: MarketTokenItem;
+  tokenItem?: MarketTokenItem;
   onPress: () => void;
 }) => (
   <Box>
     <IconButton
       ml={4}
-      isDisabled={!tokenItem.tokens?.length}
+      isDisabled={!tokenItem?.tokens?.length}
       type="basic"
       name="SwitchHorizontalSolid"
       size="base"
@@ -116,12 +116,12 @@ const StakeButton = ({
   tokenItem,
   onPress,
 }: {
-  tokenItem: MarketTokenItem;
+  tokenItem?: MarketTokenItem;
   onPress: () => void;
 }) => (
   <Box>
     <IconButton
-      isDisabled={!tokenItem.tokens?.length}
+      isDisabled={!tokenItem?.tokens?.length}
       ml={4}
       type="basic"
       name="SaveSolid"
@@ -155,11 +155,11 @@ const PurchaseButton = ({
 );
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
+const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const intl = useIntl();
   const toast = useToast();
   const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
-    coingeckoId: tokenItem.coingeckoId,
+    coingeckoId: tokenItem?.coingeckoId,
   });
   const [isFetchIng, setIsFetching] = useState(false);
   const onPriceSubscribePress = useCallback(async () => {
@@ -190,13 +190,14 @@ const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
     intl,
     priceSubscribeEnable,
     toast,
-    tokenItem.coingeckoId,
-    tokenItem.symbol,
+    tokenItem?.coingeckoId,
+    tokenItem?.symbol,
   ]);
   return (
     <Box>
       <IconButton
         ml={4}
+        isDisabled={!tokenItem?.coingeckoId?.length}
         type="basic"
         name="BellSolid"
         size="base"

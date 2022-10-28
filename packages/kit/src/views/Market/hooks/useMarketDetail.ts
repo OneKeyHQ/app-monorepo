@@ -20,16 +20,18 @@ export const useMarketDetail = ({ coingeckoId }: { coingeckoId: string }) => {
 export const useMarketTokenPriceSubscribeStatus = ({
   coingeckoId,
 }: {
-  coingeckoId: string;
+  coingeckoId?: string;
 }) => {
-  const { tokenDetail } = useMarketDetail({ coingeckoId });
-  const priceSubscribe = useMemo(
-    () => tokenDetail?.priceSubscribe,
-    [tokenDetail],
-  );
-  useEffect(() => {
-    backgroundApiProxy.serviceMarket.fetchMarketTokenPriceSubscribe();
-  });
+  if (coingeckoId?.length) {
+    const { tokenDetail } = useMarketDetail({ coingeckoId });
+    const priceSubscribe = useMemo(
+      () => tokenDetail?.priceSubscribe,
+      [tokenDetail],
+    );
+    useEffect(() => {
+      backgroundApiProxy.serviceMarket.fetchMarketTokenPriceSubscribe();
+    });
 
-  return priceSubscribe;
+    return priceSubscribe;
+  }
 };

@@ -51,7 +51,7 @@ export function formatMarketVolatility(
       fractionDigits,
     )}`;
   }
-  return '';
+  return '0';
 }
 
 const BILLION = 1000000000;
