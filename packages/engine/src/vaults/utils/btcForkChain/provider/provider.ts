@@ -1,5 +1,7 @@
 import { CKDPub, verify } from '@onekeyfe/blockchain-libs/dist/secret';
+import * as bchaddrjs from 'bchaddrjs';
 import BigNumber from 'bignumber.js';
+import * as BitcoinForkJS from 'bitcoinforkjs';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 import memoziee from 'memoizee';
@@ -17,7 +19,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import { getBlockBook } from './blockbook';
-import { Network, getNetwork } from './networks';
+import { Network, getNetwork, isNetworkType } from './networks';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
 
 type GetAccountParams =
@@ -149,12 +151,15 @@ class Provider {
         cache.set(relPath, extendedKey);
       }
 
-      const { address } = this.pubkeyToPayment(extendedKey.key, encoding);
+      let { address } = this.pubkeyToPayment(extendedKey.key, encoding);
       if (typeof address === 'string' && address.length > 0) {
+        address = isNetworkType('bitcoinCash', this.network)
+          ? bchaddrjs.toCashAddress(address)
+          : address;
+
         ret[path] = address;
       }
     }
-
     return ret;
   }
 
@@ -271,8 +276,18 @@ class Provider {
     );
   }
 
-  verifyAddress(address: string): AddressValidation {
+  verifyAddress(addr: string): AddressValidation {
     let encoding: string | undefined;
+    let address = addr;
+
+    // bitcoin cash address format
+    if (
+      isNetworkType('bitcoinCash', this.network) &&
+      bchaddrjs.isValidAddress(address) &&
+      bchaddrjs.isCashAddress(address)
+    ) {
+      address = bchaddrjs.toLegacyAddress(address);
+    }
 
     try {
       const decoded = BitcoinJS.address.fromBase58Check(address);
@@ -411,7 +426,9 @@ class Provider {
     const [inputAddressesEncodings, nonWitnessPrevTxs] =
       await this.collectInfoForSoftwareSign(unsignedTx);
 
-    const psbt = new BitcoinJS.Psbt({ network: this.network });
+    const psbt = isNetworkType('bitcoinCash', this.network)
+      ? new BitcoinForkJS.Psbt({ network: this.network, forkCoin: 'bch' })
+      : new BitcoinJS.Psbt({ network: this.network });
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < inputs.length; ++i) {

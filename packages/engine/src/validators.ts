@@ -7,6 +7,7 @@ import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
 import {
   COINTYPE_BTC,
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_LTC,
@@ -512,7 +513,7 @@ class Validators {
       this.engine.getWallet(walletId),
       this.engine.getNetwork(networkId),
     ]);
-    if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC].includes(network.impl)) {
+    if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(network.impl)) {
       const coinType = implToCoinTypes[network.impl] ?? COINTYPE_BTC;
       const accountPathPrefix = `${purpose}'/${coinType}'`;
       const nextAccountId = wallet.nextAccountIds[accountPathPrefix];

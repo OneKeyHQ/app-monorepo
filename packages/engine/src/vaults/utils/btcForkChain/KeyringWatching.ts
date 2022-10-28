@@ -9,7 +9,7 @@ export class KeyringWatching extends KeyringWatchingBase {
   async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    console.log('doge watching prepareAccount');
+    console.log('btcfork watching prepareAccount');
     const { target, name, accountIdPrefix } = params;
     const provider = await (
       this.vault as unknown as BTCForkVault

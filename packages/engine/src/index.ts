@@ -34,6 +34,7 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_BTC,
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_EVM,
@@ -723,6 +724,7 @@ class Engine {
       '637': OnekeyNetwork.tapt, // TODO temp
       '3': OnekeyNetwork.doge,
       '2': OnekeyNetwork.ltc,
+      '145': OnekeyNetwork.bch,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -993,6 +995,7 @@ class Engine {
         case IMPL_BTC:
         case IMPL_DOGE:
         case IMPL_LTC:
+        case IMPL_BCH:
           privateKey = bs58check.decode(credential);
           break;
         case IMPL_NEAR: {

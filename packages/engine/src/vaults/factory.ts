@@ -1,6 +1,7 @@
 /* eslint-disable new-cap, @typescript-eslint/require-await */
 import {
   IMPL_APTOS,
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_DOGE,
@@ -21,6 +22,8 @@ import {
 
 import VaultAptos from './impl/apt/Vault';
 import VaultHelperAptos from './impl/apt/VaultHelper';
+import VaultBch from './impl/bch/Vault';
+import VaultHelperBch from './impl/bch/VaultHelper';
 import VaultBtc from './impl/btc/Vault';
 import VaultHelperBtc from './impl/btc/VaultHelper';
 import VaultCfx from './impl/cfx/Vault';
@@ -78,6 +81,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_LTC) {
     return new VaultHelperLtc(options);
+  }
+  if (impl === IMPL_BCH) {
+    return new VaultHelperBch(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -151,6 +157,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_LTC) {
     vault = new VaultLtc(options);
+  }
+  if (network.impl === IMPL_BCH) {
+    vault = new VaultBch(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

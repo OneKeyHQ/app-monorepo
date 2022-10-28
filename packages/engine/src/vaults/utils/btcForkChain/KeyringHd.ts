@@ -7,7 +7,7 @@ import bs58check from 'bs58check';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_DOGE } from '../../../constants';
+import { COINTYPE_BCH, COINTYPE_DOGE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
@@ -132,7 +132,9 @@ export class KeyringHd extends KeyringHdBase {
         xpub,
         [firstAddressRelPath],
       );
-      const prefix = COIN_TYPE === COINTYPE_DOGE ? coinName : namePrefix;
+      const prefix = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
+        ? coinName
+        : namePrefix;
       const name =
         (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
