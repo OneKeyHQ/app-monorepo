@@ -134,6 +134,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         setDetailTabName(tabName);
       }}
       width={isVerticalLayout ? screenWidth : screenWidth - 224}
+      pagerProps={{ scrollEnabled: false }}
       containerStyle={{
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: '100%',
