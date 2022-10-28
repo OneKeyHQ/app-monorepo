@@ -21,7 +21,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_BTC, IMPL_BCH } from '../../../constants';
+import { COINTYPE_BTC } from '../../../constants';
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
@@ -57,14 +57,14 @@ import { Provider } from './provider';
 import { BlockBook } from './provider/blockbook';
 import { getAccountDefaultByPurpose } from './utils';
 
-type ArrElement<ArrType> = ArrType extends readonly (infer ElementType)[]
-  ? ElementType
-  : never;
+import type { ArrayElement } from './types';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
 
   settings = {} as IVaultSettings;
+
+  providerClass = Provider;
 
   private provider?: Provider;
 
@@ -102,7 +102,8 @@ export default class VaultBtcFork extends VaultBase {
         await this.engine.providerManager.getChainInfoByNetworkId(
           this.networkId,
         );
-      this.provider = new Provider(chainInfo);
+      const ProviderClass = this.providerClass;
+      this.provider = new ProviderClass(chainInfo);
     }
     return this.provider;
   }
@@ -534,19 +535,6 @@ export default class VaultBtcFork extends VaultBase {
       console.error(e);
     }
 
-    // Temporary solution to nownode blockbook bch data inconsistency problem
-    const impl = await this.getNetworkImpl();
-    const isMineFn = (
-      i:
-        | ArrElement<IBlockBookTransaction['vin']>
-        | ArrElement<IBlockBookTransaction['vout']>,
-    ) => {
-      if (impl !== IMPL_BCH) {
-        return i.isOwn ?? false;
-      }
-      return i.addresses.some((address) => address === dbAccount.address);
-    };
-
     const promises = txs.map((tx) => {
       try {
         const historyTxToMerge = localHistory.find(
@@ -561,14 +549,14 @@ export default class VaultBtcFork extends VaultBase {
           balance: new BigNumber(input.value).shiftedBy(-decimals).toFixed(),
           balanceValue: input.value,
           symbol,
-          isMine: isMineFn(input),
+          isMine: this.isMyTransaction(input, dbAccount.address),
         }));
         const utxoTo = tx.vout.map((output) => ({
           address: output.isAddress ?? false ? output.addresses[0] : '',
           balance: new BigNumber(output.value).shiftedBy(-decimals).toFixed(),
           balanceValue: output.value,
           symbol,
-          isMine: isMineFn(output),
+          isMine: this.isMyTransaction(output, dbAccount.address),
         }));
 
         const totalOut = BigNumber.sum(
@@ -647,6 +635,15 @@ export default class VaultBtcFork extends VaultBase {
       }
     });
     return (await Promise.all(promises)).filter(Boolean);
+  }
+
+  isMyTransaction(
+    item:
+      | ArrayElement<IBlockBookTransaction['vin']>
+      | ArrayElement<IBlockBookTransaction['vout']>,
+    accountAddress: string,
+  ) {
+    return item.isOwn ?? false;
   }
 
   collectUTXOs = memoizee(
