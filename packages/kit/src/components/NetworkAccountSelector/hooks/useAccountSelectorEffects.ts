@@ -25,6 +25,7 @@ function useAccountSelectorEffects() {
     preloadingCreateAccount,
     activeWallet, // useActiveWalletAccount
     activeNetwork, // useActiveWalletAccount
+    activeAccount, // useActiveWalletAccount
     activeWalletRef,
     activeNetworkRef,
     isOpen,
@@ -58,11 +59,12 @@ function useAccountSelectorEffects() {
 
   // ** update on WalletSelector change wallet
   // ** update on NetworkAccountSelectorTrigger mounted
+  // ** update on External Account added at another chain
   useEffect(() => {
-    if (activeWallet) {
+    if (activeWallet || activeAccount) {
       setSelectedWalletToActive({ runAfterInteractions: true });
     }
-  }, [activeWallet, setSelectedWalletToActive]);
+  }, [activeAccount, activeWallet, setSelectedWalletToActive]);
 
   // ** update on NetworkAccountSelector closed
   //    change network & wallet, select other account, close and reopen

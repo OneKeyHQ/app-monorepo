@@ -30,14 +30,14 @@ export function useAddExternalAccount() {
 
       const accountName = nextAccountId ? `External #${nextAccountId}` : '';
 
-      const addedAccount = await serviceAccount.addExternalAccount({
+      const addedResult = await serviceAccount.addExternalAccount({
         impl: IMPL_EVM,
         chainId,
         address,
         name: accountName,
       });
 
-      const accountId = addedAccount.id;
+      const accountId = addedResult.account.id;
 
       // save walletconnect accountInfo
       if (client) {
@@ -63,7 +63,7 @@ export function useAddExternalAccount() {
       // resetToRoot();
       // closeExtensionWindowIfOnboardingFinished();
 
-      return addedAccount;
+      return addedResult;
     },
     [nextAccountId, serviceAccount, serviceExternalAccount],
   );

@@ -24,14 +24,18 @@ function toBigNumberField(
   value?: string,
   defaultValue?: string,
 ): ethers.BigNumber {
-  if (value === '' || isNil(value)) {
-    if (defaultValue === undefined) {
-      // @ts-ignore
-      return undefined;
+  try {
+    if (value === '0x' || value === '' || isNil(value)) {
+      if (defaultValue === undefined) {
+        // @ts-ignore
+        return undefined;
+      }
+      return ethers.BigNumber.from(defaultValue);
     }
-    return ethers.BigNumber.from(defaultValue);
+    return ethers.BigNumber.from(value);
+  } catch (error) {
+    return ethers.BigNumber.from('0');
   }
-  return ethers.BigNumber.from(value);
 }
 
 export default class VaultHelper extends VaultHelperBase {
