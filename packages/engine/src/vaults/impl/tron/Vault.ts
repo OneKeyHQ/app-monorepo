@@ -11,6 +11,7 @@ import TronWeb from 'tronweb';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { toBigIntHex } from '../../../engineUtils';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -506,6 +507,7 @@ export default class Vault extends VaultBase {
       const {
         contract_address: contractAddressHex,
         data,
+        call_value: callValue,
         owner_address: fromAddressHex,
       } = encodedTx.raw_data.contract[0].parameter.value;
       try {
@@ -522,7 +524,7 @@ export default class Vault extends VaultBase {
                 to: contractAddressHex,
                 gas: '0x01',
                 gasPrice: '0x01',
-                value: '0x0',
+                value: toBigIntHex(new BigNumber(callValue ?? 0)),
                 data,
               },
             ],

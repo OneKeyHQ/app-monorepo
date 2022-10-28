@@ -32,6 +32,7 @@ type ITriggerSmartContractCall = {
       data: string;
       owner_address: string;
       contract_address: string;
+      call_value?: number;
     };
   };
   type: 'TriggerSmartContract';
