@@ -10,6 +10,8 @@ type StatusState = {
   swapPopoverShown?: boolean;
   guideToPushFirstTime?: boolean;
   firstTimeShowCheckRPCNodeTooltip?: boolean;
+  autoSwitchDefaultRpcAtVersion?: string;
+  userSwitchedNetworkRpcFlag?: Record<string, boolean>;
 };
 
 const initialState: StatusState = {
@@ -21,6 +23,8 @@ const initialState: StatusState = {
   swapPopoverShown: false,
   guideToPushFirstTime: false,
   firstTimeShowCheckRPCNodeTooltip: false,
+  autoSwitchDefaultRpcAtVersion: undefined,
+  userSwitchedNetworkRpcFlag: {},
 };
 
 export const slice = createSlice({
@@ -63,6 +67,24 @@ export const slice = createSlice({
     ) => {
       state.firstTimeShowCheckRPCNodeTooltip = action.payload;
     },
+    updateAutoSwitchDefaultRpcAtVersion: (
+      state,
+      action: PayloadAction<string>,
+    ) => {
+      state.autoSwitchDefaultRpcAtVersion = action.payload;
+    },
+    updateUserSwitchNetworkFlag: (
+      state,
+      action: PayloadAction<{ networkId: string; flag: boolean }>,
+    ) => {
+      const { networkId, flag } = action.payload;
+      let map = state.userSwitchedNetworkRpcFlag;
+      if (!map || typeof map !== 'object') {
+        map = {};
+      }
+      map[networkId] = flag;
+      state.userSwitchedNetworkRpcFlag = map;
+    },
   },
 });
 
@@ -77,6 +99,8 @@ export const {
   setSwapPopoverShown,
   setGuideToPushFistTime,
   setFistTimeShowCheckRPCNodeTooltip,
+  updateAutoSwitchDefaultRpcAtVersion,
+  updateUserSwitchNetworkFlag,
 } = slice.actions;
 
 export default slice.reducer;
