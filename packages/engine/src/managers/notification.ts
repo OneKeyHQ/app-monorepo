@@ -23,6 +23,7 @@ export type NotificationExtra = {
     networkId?: string;
     tokenId?: string;
     initialTabName?: string;
+    coingeckoId?: string;
   };
 };
 
