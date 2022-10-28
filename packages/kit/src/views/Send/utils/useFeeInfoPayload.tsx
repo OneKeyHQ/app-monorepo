@@ -19,9 +19,14 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../hooks';
+import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 
 export const FEE_INFO_POLLING_INTERVAL = 5000;
+
+function useFeePresetIndex(networkId: string) {
+  const feePresetIndexMap = useAppSelector((s) => s.data.feePresetIndexMap);
+  return feePresetIndexMap?.[networkId];
+}
 
 export function useFeeInfoPayload({
   encodedTx,
@@ -48,6 +53,7 @@ export function useFeeInfoPayload({
   const [loading, setLoading] = useState(true);
   const route = useRoute();
   const toast = useToast();
+  const defaultFeePresetIndex = useFeePresetIndex(networkId);
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
   )?.feeInfoSelected;
@@ -97,7 +103,7 @@ export function useFeeInfoPayload({
         feeDecimals,
         feeSymbol,
         prices: [],
-        defaultPresetIndex: DEFAULT_PRESET_INDEX,
+        defaultPresetIndex: defaultFeePresetIndex ?? DEFAULT_PRESET_INDEX,
       };
       let shouldFetch = !feeInfoSelected || feeInfoSelected?.type === 'preset';
       if (fetchAnyway) {
@@ -126,6 +132,9 @@ export function useFeeInfoPayload({
           debugLogger.sendTx.error('engine.fetchFeeInfo ERROR: ', error);
           return null;
         }
+      }
+      if (defaultFeePresetIndex) {
+        info.defaultPresetIndex = defaultFeePresetIndex;
       }
       if (parseFloat(info.defaultPresetIndex) > info.prices.length - 1) {
         info.defaultPresetIndex = `${info.prices.length - 1}`;
@@ -194,6 +203,7 @@ export function useFeeInfoPayload({
       network,
       networkId,
       useFeeInTx,
+      defaultFeePresetIndex,
     ]);
 
   useEffect(() => {
