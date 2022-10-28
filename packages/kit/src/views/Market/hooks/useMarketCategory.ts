@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+
+import { useIsFocused } from '@react-navigation/core';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -22,14 +24,19 @@ export const useMarketSelectedCategoryId = () => {
 };
 
 export const useMarketCategoryList = () => {
+  const isFocused = useIsFocused();
   const categorys = useAppSelector((s) => s.market.categorys);
+  useEffect(() => {
+    if (isFocused) {
+      backgroundApiProxy.serviceMarket.fetchMarketCategorys();
+    }
+  }, [isFocused]);
   return useMemo(() => {
     if (categorys && Object.values(categorys).length > 0) {
       return Object.values(categorys).filter(
         (c) => c.type === MarketCategoryType.MRKET_CATEGORY_TYPE_TAB,
       );
     }
-    backgroundApiProxy.serviceMarket.fetchMarketCategorys();
     return [];
   }, [categorys]);
 };
