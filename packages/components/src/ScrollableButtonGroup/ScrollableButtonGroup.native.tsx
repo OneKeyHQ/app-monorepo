@@ -100,6 +100,7 @@ const ScrollableButtonGroup = forwardRef<
       }
     }, [scrollTo, selectedIndex]);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const onLeftArrowPress = useCallback(() => {
       scrollRef.current?.scrollTo({
         x: currentOffsetX.value - containerWidth.value || 0,
@@ -108,6 +109,7 @@ const ScrollableButtonGroup = forwardRef<
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const onRightArrowPress = useCallback(() => {
       scrollRef.current?.scrollTo({
         x: currentOffsetX.value + containerWidth.value,
