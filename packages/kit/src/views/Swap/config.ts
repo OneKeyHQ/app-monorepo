@@ -28,6 +28,7 @@ export const enabledNetworkIds: string[] = [
   OnekeyNetwork.etf,
   OnekeyNetwork.doge,
   OnekeyNetwork.ltc,
+  OnekeyNetwork.bch,
   OnekeyNetwork.goerli,
 ];
 
