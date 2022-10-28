@@ -21,7 +21,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_BTC, IMPL_BCH } from '../../../constants';
+import { COINTYPE_BTC } from '../../../constants';
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
@@ -56,6 +56,8 @@ import { IKeyringMapKey, VaultBase } from '../../VaultBase';
 import { Provider } from './provider';
 import { BlockBook } from './provider/blockbook';
 import { getAccountDefaultByPurpose } from './utils';
+
+import type { ArrayElement } from './types';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
@@ -547,14 +549,14 @@ export default class VaultBtcFork extends VaultBase {
           balance: new BigNumber(input.value).shiftedBy(-decimals).toFixed(),
           balanceValue: input.value,
           symbol,
-          isMine: input.isOwn ?? false,
+          isMine: this.isMyTransaction(input, dbAccount.address),
         }));
         const utxoTo = tx.vout.map((output) => ({
           address: output.isAddress ?? false ? output.addresses[0] : '',
           balance: new BigNumber(output.value).shiftedBy(-decimals).toFixed(),
           balanceValue: output.value,
           symbol,
-          isMine: output.isOwn ?? false,
+          isMine: this.isMyTransaction(output, dbAccount.address),
         }));
 
         const totalOut = BigNumber.sum(
@@ -633,6 +635,15 @@ export default class VaultBtcFork extends VaultBase {
       }
     });
     return (await Promise.all(promises)).filter(Boolean);
+  }
+
+  isMyTransaction(
+    item:
+      | ArrayElement<IBlockBookTransaction['vin']>
+      | ArrayElement<IBlockBookTransaction['vout']>,
+    accountAddress: string,
+  ) {
+    return item.isOwn ?? false;
   }
 
   collectUTXOs = memoizee(

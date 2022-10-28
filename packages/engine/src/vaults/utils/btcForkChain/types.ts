@@ -134,3 +134,6 @@ export type PartialTokenInfo = {
   name: string;
   symbol: string;
 };
+
+export type ArrayElement<ArrType> =
+  ArrType extends readonly (infer ElementType)[] ? ElementType : never;
