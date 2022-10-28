@@ -155,15 +155,14 @@ const PurchaseButton = ({
 );
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
+const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
   const intl = useIntl();
   const toast = useToast();
   const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
-    coingeckoId: tokenItem?.coingeckoId,
+    coingeckoId: tokenItem.coingeckoId,
   });
   const [isFetchIng, setIsFetching] = useState(false);
   const onPriceSubscribePress = useCallback(async () => {
-    if (!tokenItem) return;
     let res: boolean;
     setIsFetching(true);
     if (priceSubscribeEnable) {
@@ -192,7 +191,7 @@ const BellButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
     <Box>
       <IconButton
         ml={4}
-        isDisabled={!tokenItem?.coingeckoId?.length}
+        isDisabled={!tokenItem.coingeckoId.length}
         type="basic"
         name="BellSolid"
         size="base"
@@ -326,7 +325,9 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                 }}
               />
               <FavoritButton tokenItem={marketTokenItem} />
-              {/* <BellButton tokenItem={marketTokenItem} /> */}
+              {marketTokenItem ? (
+                <BellButton tokenItem={marketTokenItem} />
+              ) : null}
             </Box>
           </Box>
           {children}
