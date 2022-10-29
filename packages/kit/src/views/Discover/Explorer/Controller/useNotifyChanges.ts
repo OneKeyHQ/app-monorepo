@@ -57,6 +57,9 @@ export const useNotifyChanges = () => {
   const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
 
   useEffect(() => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return;
+    }
     if (!jsBridge) {
       return;
     }
@@ -67,6 +70,9 @@ export const useNotifyChanges = () => {
   }, [jsBridge]);
 
   useEffect(() => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return;
+    }
     if (!isMountedRef.current) {
       return;
     }

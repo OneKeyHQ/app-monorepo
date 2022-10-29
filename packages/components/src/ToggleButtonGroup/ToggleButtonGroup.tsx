@@ -2,7 +2,6 @@ import { FC, ReactElement } from 'react';
 
 import { IBoxProps } from 'native-base';
 import { LayoutChangeEvent } from 'react-native';
-import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 import {
   Center,
@@ -108,35 +107,30 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   size = 'sm',
   bg = 'surface-default',
   maxTextWidth,
-}) => {
-  const scrollRef = useAnimatedRef<Animated.ScrollView>();
-
-  return (
-    <ScrollableButtonGroup
-      bg={bg}
-      overflow="hidden"
-      w="full"
-      flexDirection="row"
-      alignItems="center"
-      position="relative"
-      selectedIndex={selectedIndex}
-      ref={scrollRef}
-    >
-      {buttons.map((btn, index) => (
-        <ToggleButton
-          key={index}
-          isCurrent={selectedIndex === index}
-          {...btn}
-          size={size}
-          maxTextWidth={maxTextWidth}
-          onPress={() => {
-            onButtonPress(index);
-          }}
-        />
-      ))}
-    </ScrollableButtonGroup>
-  );
-};
+}) => (
+  <ScrollableButtonGroup
+    bg={bg}
+    overflow="hidden"
+    w="full"
+    flexDirection="row"
+    alignItems="center"
+    position="relative"
+    selectedIndex={selectedIndex}
+  >
+    {buttons.map((btn, index) => (
+      <ToggleButton
+        key={index}
+        isCurrent={selectedIndex === index}
+        {...btn}
+        size={size}
+        maxTextWidth={maxTextWidth}
+        onPress={() => {
+          onButtonPress(index);
+        }}
+      />
+    ))}
+  </ScrollableButtonGroup>
+);
 ToggleButtonGroup.displayName = 'ToggleButtonGroup';
 
 export default ToggleButtonGroup;
