@@ -638,7 +638,10 @@ export default class Vault extends VaultBase {
     };
 
     const network = await this.getNetwork();
+
+    // RPC: eth_gasPrice
     const prices = await this.engine.getGasPrice(this.networkId);
+
     const { actions } = await this.decodeTxMemoizee(encodedTx);
 
     let unsignedTx: IUnsignedTxPro | undefined;
@@ -649,6 +652,11 @@ export default class Vault extends VaultBase {
       // First try using value=0 to calculate native transfer gas limit to
       // avoid maximum transfer failure.
       try {
+        // RPC: eth_getCode
+        //      client.isContract(toAddress)
+        // RPC: eth_estimateGas
+        //   with 10s memoizee
+        //      at node_modules/@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth.js
         unsignedTx = await this.buildUnsignedTxFromEncodedTx({
           ...encodedTxWithFakePriceAndNonce,
           value: '0x0',
@@ -660,6 +668,7 @@ export default class Vault extends VaultBase {
 
     if (typeof unsignedTx === 'undefined') {
       try {
+        // RPC: eth_estimateGas
         unsignedTx = await this.buildUnsignedTxFromEncodedTx(
           encodedTxWithFakePriceAndNonce,
         );
@@ -691,10 +700,15 @@ export default class Vault extends VaultBase {
         .encode(['bytes'], [txData])
         .slice(2)}`;
       const client = await this.getJsonRPCClient();
+
+      // RPC: eth_call
       const l1FeeHex = await client.rpc.call('eth_call', [
         { to: '0x420000000000000000000000000000000000000F', data },
         'latest',
       ]);
+      // RPC: eth_getBlockByNumber (rpc status check?)
+      // RPC: eth_getBalance useManageTokensOfAccount/useReloadAccountBalance
+      //          may call multiple times
       baseFeeValue = new BigNumber(l1FeeHex as string)
         .shiftedBy(-network.feeDecimals)
         .toFixed();

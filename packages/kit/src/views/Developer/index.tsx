@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import fetch from 'cross-fetch';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -249,6 +250,14 @@ export const Debug = () => {
                   hash,
                 });
                 // NativeModules.Minimizer.minimize();
+                fetch('https://requestbin.io/1a7x2jt1', {
+                  headers: {
+                    'X-requested-byy': 'onekey',
+                    // native support custom origin header
+                    'Origin':
+                      'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn',
+                  },
+                });
               }}
             >
               <Typography.Body1>Log current wallet</Typography.Body1>
