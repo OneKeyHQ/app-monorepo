@@ -4,58 +4,19 @@ import {
   shouldSelectRandomly,
 } from '@walletconnect/core/dist/esm/url';
 import * as cryptoLib from '@walletconnect/iso-crypto';
-import SocketTransport from '@walletconnect/socket-transport';
 import { isNil, toLower } from 'lodash';
 
 import {
-  WALLET_CONNECT_BRIDGE,
-  WALLET_CONNECT_PROTOCOL,
-  WALLET_CONNECT_VERSION,
-} from './walletConnectConsts';
+  OneKeyWalletConnectSocketTransport,
+  getOrCreateTransport,
+} from './OneKeyWalletConnectSocketTransport';
+import { WALLET_CONNECT_BRIDGE } from './walletConnectConsts';
 
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type {
   IPushServerOptions,
   IWalletConnectOptions,
 } from '@walletconnect/types';
-
-// TODO delete instance after disconnect
-const transports: Record<string, SocketTransport | undefined> = {};
-
-// TODO memoizee
-function getOrCreateTransport({
-  bridge,
-  onOpen,
-}: {
-  bridge: string;
-  onOpen: () => void;
-}) {
-  let transport = transports[bridge];
-  // @ts-ignore
-  if (transport && bridge !== transport._url) {
-    transport.close();
-    transport = undefined;
-  }
-  if (transport && transport.closed) {
-    transport = undefined;
-  }
-  if (!transport) {
-    transport = new SocketTransport({
-      protocol: WALLET_CONNECT_PROTOCOL,
-      version: WALLET_CONNECT_VERSION,
-      url: bridge,
-      // subscriptions: [this.clientId],
-    });
-    // transport.on("open"
-    // transport_open
-    transport.on('open', () => {
-      debugger;
-      onOpen?.();
-    });
-  }
-  transports[bridge] = transport;
-  return transport;
-}
 
 let randomBridgeUrl = '';
 function convertToRandomBridgeUrl({ bridge }: { bridge: string }) {
@@ -73,28 +34,32 @@ export class OneKeyWalletConnector extends Connector {
     sessionStorage: WalletConnectSessionStorage,
     connectorOpts: IWalletConnectOptions & {
       isDeepLink?: boolean;
+      isWalletSide: boolean;
     },
     pushServerOpts?: IPushServerOptions,
   ) {
-    let transport: SocketTransport | undefined;
+    let transport: OneKeyWalletConnectSocketTransport | undefined;
     const onTransportOpen = () => {
       if (this.clientId && this.socketTransport) {
-        debugger;
         this.socketTransport?.subscribe?.(`${this.clientId}`);
       }
     };
 
     // transport and bridge will be build from uri
     if (!connectorOpts.uri) {
-      // use session.bridge first
+      // use session.bridge url first
       const bridge =
         connectorOpts.session?.bridge ||
         convertToRandomBridgeUrl({
           bridge: connectorOpts.bridge || WALLET_CONNECT_BRIDGE,
         });
+      // build cached transport when connecting by storage session
       transport = getOrCreateTransport({
-        onOpen: onTransportOpen,
         bridge,
+        isWalletSide: connectorOpts.isWalletSide,
+      });
+      transport.emitter.once('transport_open', () => {
+        onTransportOpen();
       });
     }
 
@@ -147,9 +112,9 @@ export class OneKeyWalletConnector extends Connector {
     this.on(event, listenerOnce);
   }
 
-  get socketTransport(): SocketTransport | undefined {
+  get socketTransport(): OneKeyWalletConnectSocketTransport | undefined {
     // @ts-ignore
-    return this._transport as SocketTransport | undefined;
+    return this._transport as OneKeyWalletConnectSocketTransport | undefined;
   }
 
   get isTransportOpen() {

@@ -101,7 +101,8 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
     });
   }
 
-  // close ws transport, but do NOT disconnect remote peer connection
+  // close self low-level websocket transport only,
+  // but do NOT disconnect remote peer connection session
   cleanPrevConnection() {
     this.offAllEvents();
     if (this.connector) {
