@@ -37,7 +37,7 @@ const data: DataItem[] = [
   {
     key: 'revoke',
     icon: {
-      name: 'ShieldExclamationSolid',
+      name: 'ShieldCheckSolid',
       color: 'icon-success',
       size: 32,
     },
