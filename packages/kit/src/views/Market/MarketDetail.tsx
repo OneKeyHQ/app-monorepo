@@ -95,13 +95,13 @@ const SwapButton = ({
   tokenItem,
   onPress,
 }: {
-  tokenItem: MarketTokenItem;
+  tokenItem?: MarketTokenItem;
   onPress: () => void;
 }) => (
   <Box>
     <IconButton
       ml={4}
-      isDisabled={!tokenItem.tokens?.length}
+      isDisabled={!tokenItem?.tokens?.length}
       type="basic"
       name="SwitchHorizontalSolid"
       size="base"
@@ -116,12 +116,12 @@ const StakeButton = ({
   tokenItem,
   onPress,
 }: {
-  tokenItem: MarketTokenItem;
+  tokenItem?: MarketTokenItem;
   onPress: () => void;
 }) => (
   <Box>
     <IconButton
-      isDisabled={!tokenItem.tokens?.length}
+      isDisabled={!tokenItem?.tokens?.length}
       ml={4}
       type="basic"
       name="SaveSolid"
@@ -186,17 +186,12 @@ const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
           : 'msg__subscription_succeeded',
       }),
     });
-  }, [
-    intl,
-    priceSubscribeEnable,
-    toast,
-    tokenItem.coingeckoId,
-    tokenItem.symbol,
-  ]);
+  }, [intl, priceSubscribeEnable, toast, tokenItem]);
   return (
     <Box>
       <IconButton
         ml={4}
+        isDisabled={!tokenItem.coingeckoId.length}
         type="basic"
         name="BellSolid"
         size="base"
@@ -330,7 +325,9 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                 }}
               />
               <FavoritButton tokenItem={marketTokenItem} />
-              {/* <BellButton tokenItem={marketTokenItem} /> */}
+              {marketTokenItem ? (
+                <BellButton tokenItem={marketTokenItem} />
+              ) : null}
             </Box>
           </Box>
           {children}

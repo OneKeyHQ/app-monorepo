@@ -53,6 +53,11 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
   previousUri: string | undefined;
 
   async redirectToDapp({ connector }: { connector: OneKeyWalletConnector }) {
+    const isDeepLink = connector.session?.isDeepLink || connector.isDeepLink;
+    debugLogger.walletConnect.info('redirectToDapp', { isDeepLink });
+    if (!isDeepLink) {
+      return;
+    }
     if (!platformEnv.isNative) {
       return;
     }
@@ -73,7 +78,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
   // TODO connecting check, thread lock
   // connectToDapp
   @backgroundMethod()
-  async connect({ uri }: { uri: string }) {
+  async connect({ uri, isDeepLink }: { uri: string; isDeepLink?: boolean }) {
     // eslint-disable-next-line no-param-reassign
     uri = uri?.trim() || uri;
     // uri network param defaults to evm
@@ -92,6 +97,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
       },
       {
         shouldDisconnectStorageSession: true,
+        isDeepLink,
       },
     );
 

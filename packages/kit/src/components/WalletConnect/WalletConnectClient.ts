@@ -125,9 +125,10 @@ export class WalletConnectClientBase extends CrossEventEmitter {
     connectorOpts: IWalletConnectOptions,
     config: {
       shouldDisconnectStorageSession?: boolean;
+      isDeepLink?: boolean;
     } = {},
   ) {
-    const { shouldDisconnectStorageSession } = config;
+    const { shouldDisconnectStorageSession, isDeepLink } = config;
     if (shouldDisconnectStorageSession) {
       await this.disconnect();
     }
@@ -140,6 +141,7 @@ export class WalletConnectClientBase extends CrossEventEmitter {
     const connector = new OneKeyWalletConnector(this.sessionStorage, {
       clientMeta: this.clientMeta,
       ...connectorOpts,
+      isDeepLink,
     });
 
     // @ts-ignore

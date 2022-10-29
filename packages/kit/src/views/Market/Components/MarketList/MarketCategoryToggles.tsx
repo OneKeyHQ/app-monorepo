@@ -73,8 +73,15 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
           />
         ) : (
           <Box flex={1} width="full" flexDirection="row">
-            {MARKET_FAKE_SKELETON_CATEGORY_ARRAY.map(() => (
-              <Box mr="6" w="10" h="4" borderRadius="9999px" overflow="hidden">
+            {MARKET_FAKE_SKELETON_CATEGORY_ARRAY.map((_v, i) => (
+              <Box
+                mr="6"
+                w="10"
+                h="4"
+                borderRadius="9999px"
+                overflow="hidden"
+                key={i}
+              >
                 <CustomSkeleton />
               </Box>
             ))}

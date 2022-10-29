@@ -175,7 +175,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
             return (
               <ListItem.Column key={tag.id}>
                 <HStack alignItems="center" flex={1} space={3}>
-                  {marketTokenItem && marketTokenItem.logoURI ? (
+                  {marketTokenItem && marketTokenItem.logoURI !== undefined ? (
                     <Token
                       size={8}
                       token={{
@@ -197,7 +197,8 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                     ) : (
                       <Skeleton shape="Body2" />
                     )}
-                    {marketTokenItem && marketTokenItem.totalVolume ? (
+                    {marketTokenItem &&
+                    marketTokenItem.totalVolume !== undefined ? (
                       <Typography.Body2 numberOfLines={1} color="text-subdued">
                         {isVerticalLayout || isNormalDevice
                           ? intl.formatMessage(

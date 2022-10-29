@@ -96,14 +96,13 @@ export const useMarketList = ({
     coingeckoIds,
   ]);
   const onRefreshingMarketList = useCallback(async () => {
+    await backgroundApiProxy.serviceMarket.fetchMarketCategorys();
     if (selectedCategory) {
       await backgroundApiProxy.serviceMarket.fetchMarketList({
         categoryId: selectedCategory.categoryId,
         ids: coingeckoIds,
         sparkline: !isVerticalLlayout && !isMidLayout,
       });
-    } else {
-      await backgroundApiProxy.serviceMarket.fetchMarketCategorys();
     }
   }, [isMidLayout, isVerticalLlayout, selectedCategory, coingeckoIds]);
 

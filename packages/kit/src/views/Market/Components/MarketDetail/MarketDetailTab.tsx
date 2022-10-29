@@ -81,9 +81,11 @@ const MarketDetailActionButton = ({
         ml={2}
         name="DotsHorizontalSolid"
         onPress={() => {
-          showMarketDetailActionMoreMenu(marketTokenItem, {
-            header: intl.formatMessage({ id: 'action__more' }),
-          });
+          if (marketTokenItem) {
+            showMarketDetailActionMoreMenu(marketTokenItem, {
+              header: intl.formatMessage({ id: 'action__more' }),
+            });
+          }
         }}
         isDisabled={!marketTokenItem}
       /> */}
@@ -134,6 +136,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         setDetailTabName(tabName);
       }}
       width={isVerticalLayout ? screenWidth : screenWidth - 224}
+      pagerProps={{ scrollEnabled: false }}
       containerStyle={{
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: '100%',

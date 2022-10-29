@@ -198,7 +198,15 @@ export const MarketSlicer = createSlice({
             return t;
           });
         }
-        state.categorys[c.categoryId] = resCategory;
+        let cacheCategory = state.categorys[c.categoryId];
+        if (!cacheCategory) {
+          cacheCategory = resCategory;
+        } else {
+          cacheCategory.name = c.name;
+          cacheCategory.recommendedTokens = c.recommendedTokens;
+          cacheCategory.type = c.type;
+        }
+        state.categorys[c.categoryId] = cacheCategory;
       });
     },
     updateMarketTokens(

@@ -5,7 +5,7 @@ import {
 } from '@walletconnect/core/dist/esm/url';
 import * as cryptoLib from '@walletconnect/iso-crypto';
 import SocketTransport from '@walletconnect/socket-transport';
-import { toLower } from 'lodash';
+import { isNil, toLower } from 'lodash';
 
 import {
   WALLET_CONNECT_BRIDGE,
@@ -71,7 +71,9 @@ function convertToRandomBridgeUrl({ bridge }: { bridge: string }) {
 export class OneKeyWalletConnector extends Connector {
   constructor(
     sessionStorage: WalletConnectSessionStorage,
-    connectorOpts: IWalletConnectOptions,
+    connectorOpts: IWalletConnectOptions & {
+      isDeepLink?: boolean;
+    },
     pushServerOpts?: IPushServerOptions,
   ) {
     let transport: SocketTransport | undefined;
@@ -81,6 +83,7 @@ export class OneKeyWalletConnector extends Connector {
         this.socketTransport?.subscribe?.(`${this.clientId}`);
       }
     };
+
     // transport and bridge will be build from uri
     if (!connectorOpts.uri) {
       // use session.bridge first
@@ -109,6 +112,26 @@ export class OneKeyWalletConnector extends Connector {
     if (transport) {
       // @ts-ignore
       this.bridge = transport?._url || this.bridge;
+    }
+    if (!isNil(connectorOpts.isDeepLink)) {
+      this.isDeepLink = connectorOpts.isDeepLink;
+    }
+  }
+
+  isDeepLink: boolean | undefined;
+
+  override get session() {
+    const $session = super.session;
+    return {
+      ...$session,
+      isDeepLink: this.isDeepLink,
+    };
+  }
+
+  override set session(value) {
+    super.session = value;
+    if (!isNil(value.isDeepLink)) {
+      this.isDeepLink = value.isDeepLink;
     }
   }
 
