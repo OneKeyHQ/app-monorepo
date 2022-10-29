@@ -94,6 +94,7 @@ const processDeepLinkUrl = memoizee(
         );
         walletConnectUtils.openConnectToDappModal({
           uri: wcUri,
+          isDeepLink: true,
         });
         return {
           type: 'walletConnect',

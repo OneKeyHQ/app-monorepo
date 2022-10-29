@@ -29,7 +29,39 @@ function DebugLoggerSettings() {
   }, []);
   return (
     <Box>
+      {keys.map((key: LoggerNames) => (
+        <Box py={1} key={key}>
+          <CheckBox
+            flex={1}
+            value={key}
+            // @ts-ignore
+            isChecked={!!logger._isExtensionEnabled(key)}
+            // isChecked={checkedStatus[key]}
+            onChange={(status) => {
+              console.log('logger update >>> ', status, key);
+              setTimeout(() => {
+                setCheckedStatus((map) => ({ ...map, [key]: status }));
+                saveDebugLoggerSettings();
+              }, 0);
+              return status ? logger.enable(key) : logger.disable(key);
+            }}
+          >
+            <Box minW={300} pl={2}>
+              <Typography.Text>{key}</Typography.Text>
+            </Box>
+          </CheckBox>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+const LoggerGallery = () => {
+  const goBack = useNavigationBack();
+  return (
+    <ScrollView p={4} flex="1" bg="background-hovered">
       <Typography.DisplayXLarge>DebugLogger</Typography.DisplayXLarge>
+      <Button onPress={goBack}>Back to HOME</Button>
       <Button
         onPress={() => {
           if (global.localStorage) {
@@ -44,36 +76,10 @@ function DebugLoggerSettings() {
       >
         Toggle UseEffect log
       </Button>
-      {keys.map((key: LoggerNames) => (
-        <Box py={1} key={key}>
-          <CheckBox
-            value={key}
-            // @ts-ignore
-            isChecked={!!logger._isExtensionEnabled(key)}
-            // isChecked={checkedStatus[key]}
-            onChange={(status) => {
-              console.log('logger update >>> ', status, key);
-              setTimeout(() => {
-                setCheckedStatus((map) => ({ ...map, [key]: status }));
-                saveDebugLoggerSettings();
-              }, 0);
-              return status ? logger.enable(key) : logger.disable(key);
-            }}
-          >
-            {key}
-          </CheckBox>
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-const LoggerGallery = () => {
-  const goBack = useNavigationBack();
-  return (
-    <ScrollView p={4} flex="1" bg="background-hovered">
+      <Box py={4}>
+        <DebugLoggerSettings />
+      </Box>
       <Button onPress={goBack}>Back to HOME</Button>
-      <DebugLoggerSettings />
     </ScrollView>
   );
 };

@@ -20,6 +20,7 @@ export enum DappConnectionModalRoutes {
 export type DappConnectionRoutesParams = {
   [DappConnectionModalRoutes.ConnectionModal]: {
     walletConnectUri?: string;
+    isDeepLink?: boolean;
   };
   [DappConnectionModalRoutes.NetworkNotMatchModal]: undefined;
 };

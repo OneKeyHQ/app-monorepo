@@ -178,6 +178,7 @@ export const Debug = () => {
                 if (uriText) {
                   walletConnectUtils.openConnectToDappModal({
                     uri: uriText,
+                    isDeepLink: true,
                   });
                 } else {
                   console.error('walletConnect connect ERROR:  uri is Empty');
