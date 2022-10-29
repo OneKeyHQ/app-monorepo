@@ -81,9 +81,11 @@ const MarketDetailActionButton = ({
         ml={2}
         name="DotsHorizontalSolid"
         onPress={() => {
-          showMarketDetailActionMoreMenu(marketTokenItem, {
-            header: intl.formatMessage({ id: 'action__more' }),
-          });
+          if (marketTokenItem) {
+            showMarketDetailActionMoreMenu(marketTokenItem, {
+              header: intl.formatMessage({ id: 'action__more' }),
+            });
+          }
         }}
         isDisabled={!marketTokenItem}
       /> */}

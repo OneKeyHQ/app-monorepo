@@ -30,6 +30,5 @@ export const useMarketTokenPriceSubscribeStatus = ({
   useEffect(() => {
     backgroundApiProxy.serviceMarket.fetchMarketTokenPriceSubscribe();
   });
-
   return priceSubscribe;
 };
