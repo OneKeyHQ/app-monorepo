@@ -16,6 +16,7 @@ import {
   changeActiveNetwork,
 } from '../../store/reducers/general';
 import { updateNetworks } from '../../store/reducers/runtime';
+import { updateUserSwitchNetworkFlag } from '../../store/reducers/status';
 import { wait } from '../../utils/helper';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
@@ -102,9 +103,22 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateNetwork(networkid: string, params: UpdateNetworkParams) {
-    const { engine } = this.backgroundApi;
+  async updateNetwork(
+    networkid: string,
+    params: UpdateNetworkParams,
+    isUserSwitched = true,
+  ) {
+    const { engine, appSelector, dispatch } = this.backgroundApi;
     const network = await engine.updateNetwork(networkid, params);
+    if (params.rpcURL) {
+      const { userSwitchedNetworkRpcFlag } = appSelector((s) => s.status);
+      if (isUserSwitched && !userSwitchedNetworkRpcFlag?.[networkid]) {
+        dispatch(
+          updateUserSwitchNetworkFlag({ networkId: networkid, flag: true }),
+        );
+        await wait(600);
+      }
+    }
     this.fetchNetworks();
     return network;
   }
