@@ -1,10 +1,10 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { DesktopDragZoneBox } from '@onekeyhq/components';
 import {
   DESKTOP_TOP_DRAG_BAR_HEIGHT,
   DESKTOP_TOP_DRAG_BAR_ID,
-} from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController';
+} from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController.desktop';
 import { Provider } from '@onekeyhq/kit';
 import '@onekeyhq/shared/src/web/index.css';
 
