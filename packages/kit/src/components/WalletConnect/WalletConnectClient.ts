@@ -1,7 +1,6 @@
 /* eslint-disable max-classes-per-file, @typescript-eslint/no-unused-vars */
 
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
-import SocketTransport from '@walletconnect/socket-transport';
 import {
   IClientMeta,
   IWalletConnectOptions,
@@ -138,8 +137,10 @@ export class WalletConnectClientBase extends CrossEventEmitter {
     // node_modules/@walletconnect/core/dist/esm/url.js will generate random bridge url
     connectorOpts.bridge = connectorOpts.bridge || WALLET_CONNECT_BRIDGE;
     // establish new ws transport here
+    // subscribe (_subscribeToSessionRequest) on new OneKeyWalletConnector()
     const connector = new OneKeyWalletConnector(this.sessionStorage, {
       clientMeta: this.clientMeta,
+      isWalletSide: this.isWalletSide,
       ...connectorOpts,
       isDeepLink,
     });
@@ -193,6 +194,7 @@ export class WalletConnectClientBase extends CrossEventEmitter {
     // this.unregisterEvents(connector);
     this.registerEvents(connector);
 
+    // TODO subscribe may register multiple times
     // not working
     connector.on(this.EVENT_NAMES.transport_open, () => {
       connector.socketTransport?.subscribe(`${connector.clientId}`);
@@ -238,6 +240,7 @@ export class WalletConnectClientBase extends CrossEventEmitter {
     if (session) {
       const lastConnector = new OneKeyWalletConnector(this.sessionStorage, {
         session,
+        isWalletSide: this.isWalletSide,
       });
       await this._destroyConnector(lastConnector);
     }

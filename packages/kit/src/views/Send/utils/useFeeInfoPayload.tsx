@@ -17,11 +17,14 @@ import {
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 
 export const FEE_INFO_POLLING_INTERVAL = 5000;
+// export const FEE_INFO_POLLING_INTERVAL = platformEnv.isDev ? 60 * 1000 : 5000;
 
 function useFeePresetIndex(networkId: string) {
   const feePresetIndexMap = useAppSelector((s) => s.data.feePresetIndexMap);

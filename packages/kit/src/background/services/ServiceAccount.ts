@@ -513,7 +513,7 @@ class ServiceAccount extends ServiceBase {
       shouldBackup: false,
     });
 
-    return account;
+    return { account, networkId };
   }
 
   async postAccountAdded({

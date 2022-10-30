@@ -31,6 +31,7 @@ declare global {
   var $$debugLogger: any;
   var $$localforage: any;
   var $$navigationActions: any;
+  var $$wcTransports: any;
 
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api

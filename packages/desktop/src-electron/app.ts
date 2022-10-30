@@ -318,6 +318,21 @@ function createMainWindow() {
     },
   );
 
+  const rpcUrlFilter = {
+    urls: ['https://mainnet.optimism.io/*'],
+  };
+
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    rpcUrlFilter,
+    (details, callback) => {
+      // add metamask header to resolve rate-limit
+      details.requestHeaders.Origin =
+        'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
+
+      callback({ requestHeaders: details.requestHeaders });
+    },
+  );
+
   if (!isDev) {
     const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(

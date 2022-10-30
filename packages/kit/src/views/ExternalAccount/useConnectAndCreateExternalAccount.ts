@@ -27,6 +27,7 @@ export function useConnectAndCreateExternalAccount({
   const { externalWallet } = useActiveWalletAccount();
 
   const connectToWcWalletDirectly = useCallback(async () => {
+    let preloadingNetworkId = networkId || OnekeyNetwork.eth;
     let isConnected = false;
     const walletId = externalWallet?.id;
     let addedAccount: IAccount | undefined;
@@ -42,10 +43,12 @@ export function useConnectAndCreateExternalAccount({
       // refresh accounts in drawer list
       await serviceAccountSelector.preloadingCreateAccount({
         walletId,
-        networkId: networkId || OnekeyNetwork.eth,
+        networkId: preloadingNetworkId,
       });
 
-      addedAccount = await addExternalAccount(result);
+      const addedResult = await addExternalAccount(result);
+      addedAccount = addedResult.account;
+      preloadingNetworkId = addedResult.networkId;
     } catch (error) {
       debugLogger.common.error(error);
     } finally {
@@ -56,15 +59,15 @@ export function useConnectAndCreateExternalAccount({
 
         await serviceAccountSelector.preloadingCreateAccountDone({
           walletId,
-          networkId: networkId || OnekeyNetwork.eth,
+          networkId: preloadingNetworkId,
           accountId: addedAccount?.id,
         });
       }
     }
   }, [
-    externalWallet,
     addExternalAccount,
     connectToWallet,
+    externalWallet?.id,
     networkId,
     serviceAccountSelector,
   ]);
