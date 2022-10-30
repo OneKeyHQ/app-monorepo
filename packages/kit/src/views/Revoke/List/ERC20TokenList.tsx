@@ -82,7 +82,7 @@ export const ListLoading = () => {
     return (
       <>
         {new Array(5).fill(1).map((_, idx) => (
-          <VStack flex="1" key={String(idx)} mb="4">
+          <VStack flex="1" key={String(idx)} mb="4" px="2">
             <HStack mb="4">
               <HStack flex="1" alignItems="center">
                 <Skeleton shape="Avatar" />
