@@ -3,7 +3,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import { Log } from '@ethersproject/abstract-provider';
 import ERC20Artifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
-import { Contract, providers } from 'ethers';
+import { Contract } from 'ethers';
 import {
   Interface,
   getAddress,
@@ -25,7 +25,6 @@ import {
   convertString,
   formatAllowance,
   generatePatchedAllowanceEvents,
-  getChainRpcUrl,
   getLimitedAllowancesFromApprovals,
   getLogs,
   getNameFromEthereumList,
@@ -62,16 +61,6 @@ export default class ServiceRevoke extends ServiceBase {
   @backgroundMethod()
   async getProvider(networkId: string) {
     const { engine } = this.backgroundApi;
-    const { chainId } = parseNetworkId(networkId);
-    if (chainId) {
-      const rpcUrl = getChainRpcUrl(
-        +chainId,
-        `${'88583771d63544aa'}${'ba1006382275c6f8'}`,
-      );
-      if (rpcUrl) {
-        return new providers.JsonRpcProvider(rpcUrl, +chainId);
-      }
-    }
     const vault = await engine.getChainOnlyVault(networkId);
     return vault.getEthersProvider();
   }
