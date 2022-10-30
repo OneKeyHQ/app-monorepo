@@ -1,6 +1,6 @@
 import { Filter, Log, Provider } from '@ethersproject/abstract-provider';
 import axios from 'axios';
-import { ChainId, chains } from 'eth-chains';
+import { ChainId } from 'eth-chains';
 import { BigNumber, BigNumberish, Contract, utils } from 'ethers';
 import { getAddress, hexDataSlice } from 'ethers/lib/utils';
 
@@ -163,7 +163,8 @@ export function isBackendSupportedChain(chainId: number): boolean {
   return (
     isCovalentSupportedChain(chainId) ||
     isEtherscanSupportedChain(chainId) ||
-    isNodeSupportedChain(chainId)
+    isNodeSupportedChain(chainId) ||
+    isProviderSupportedChain(chainId)
   );
 }
 
@@ -423,21 +424,3 @@ export const withFallback = async (promise: Promise<any>, fallback: any) => {
 
 export const convertString = async (promise: Promise<any>) =>
   String(await promise);
-
-export function getChainRpcUrl(
-  chainId: number,
-  infuraKey = '',
-): string | undefined {
-  // These are not in the eth-chains package, so manually got from chainlist.org
-  const overrides = {
-    [ChainId.ArbitrumOne]: 'https://arb1.arbitrum.io/rpc',
-    [ChainId.Moonbeam]: 'https://moonbeam.public.blastapi.io',
-    [ChainId.Kovan]: `https://kovan.infura.io/v3/${infuraKey}`,
-    [ChainId.Sepolia]: `https://rpc.sepolia.dev`,
-  };
-
-  const [rpcUrl] = chains.get(chainId)?.rpc ?? [];
-  // @ts-ignore
-  // eslint-disable-next-line
-  return overrides[chainId] ?? rpcUrl?.replace('${INFURA_API_KEY}', infuraKey);
-}
