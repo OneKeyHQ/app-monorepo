@@ -22,8 +22,9 @@ import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 const prefix = Linking.createURL('/');
 
 type WhiteListItem = {
-  path: string;
   screen: string;
+  path?: string;
+  schema?: string;
 };
 
 type WhiteListItemList = WhiteListItem[];
@@ -106,6 +107,7 @@ const normalRouteWhiteList: WhiteListItemList = [
   },
   {
     screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    // schema: '/revoke',
     path: `/${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
   },
   {
@@ -127,24 +129,31 @@ const normalRouteWhiteList: WhiteListItemList = [
  */
 const generateScreenHierarchyRouteConfig = (
   screenListStr: string,
-  path: string,
+  path?: string,
+  schema?: string,
 ): Record<string, any> => {
   const screens = screenListStr.split('/').filter(Boolean);
-  const pathList = path.split('/').filter(Boolean);
-  if (!screens.length || !pathList.length) {
+  const pathList = (path || '').split('/').filter(Boolean);
+  if (!screens.length || (!pathList.length && !schema)) {
     return {};
   }
 
   const currentRoute = screens[0];
-  const currentPath = pathList[0];
+  const currentPath = pathList[0] || currentRoute;
+
+  const isLastScreen = screens.length === 1;
   return {
-    [currentRoute]: {
-      path: `/${currentPath}`,
-      screens: generateScreenHierarchyRouteConfig(
-        screens.slice(1).join('/'),
-        pathList.slice(1).join('/'),
-      ),
-    },
+    [currentRoute]:
+      isLastScreen && schema
+        ? schema
+        : {
+            path: `/${currentPath}`,
+            screens: generateScreenHierarchyRouteConfig(
+              screens.slice(1).join('/'),
+              pathList.slice(1).join('/'),
+              schema,
+            ),
+          },
   };
 };
 
@@ -153,7 +162,10 @@ const generateScreenHierarchyRouteConfigList = (
 ) =>
   whiteListConfig.reduce(
     (memo, tab) =>
-      merge(memo, generateScreenHierarchyRouteConfig(tab.screen, tab.path)),
+      merge(
+        memo,
+        generateScreenHierarchyRouteConfig(tab.screen, tab.path, tab.schema),
+      ),
     {},
   );
 
@@ -210,6 +222,8 @@ export function getExtensionIndexHtml() {
   return 'ui-expand-tab.html';
 }
 
+const screenHierarchyConfig =
+  generateScreenHierarchyRouteConfigList(normalRouteWhiteList);
 const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
   enabled: true,
   prefixes: [prefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
@@ -247,7 +261,7 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
           },
         },
       },
-      ...generateScreenHierarchyRouteConfigList(normalRouteWhiteList),
+      ...screenHierarchyConfig,
       // custom route with path params needs to be defined at last
       // /account/:address/:networkId?
       [RootRoutes.Account]: AccountRootLandingPathSchema,
