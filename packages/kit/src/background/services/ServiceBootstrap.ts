@@ -1,4 +1,5 @@
 import { networkList } from '@onekeyfe/network-list';
+import semver from 'semver';
 
 import {
   AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
@@ -84,7 +85,11 @@ export default class ServiceBootstrap extends ServiceBase {
 
     if (
       autoSwitchDefaultRpcAtVersion &&
-      autoSwitchDefaultRpcAtVersion <= AUTO_SWITCH_DEFAULT_RPC_AT_VERSION
+      semver.valid(autoSwitchDefaultRpcAtVersion) &&
+      semver.gte(
+        autoSwitchDefaultRpcAtVersion,
+        AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
+      )
     ) {
       return;
     }
