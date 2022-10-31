@@ -261,17 +261,13 @@ export function waitPendingTransaction(
   return poll();
 }
 
-export async function getAccountCoinResource(
+export async function getAccountResource(
   client: AptosClient,
   address: string,
-  tokenAddress?: string | undefined,
-): Promise<Types.MoveResource | undefined> {
+): Promise<Types.MoveResource[] | undefined> {
   try {
-    // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
-    const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
     const resources = await client.getAccountResources(stripHexPrefix(address));
-    const accountResource = resources.find((r) => r.type === typeTag);
-    return await Promise.resolve(accountResource);
+    return await Promise.resolve(resources);
   } catch (error: any) {
     const { errorCode } = error || {};
     if (errorCode === 'account_not_found') {
@@ -283,6 +279,18 @@ export async function getAccountCoinResource(
     }
   }
   return Promise.resolve(undefined);
+}
+
+export async function getAccountCoinResource(
+  client: AptosClient,
+  address: string,
+  tokenAddress?: string | undefined,
+): Promise<Types.MoveResource | undefined> {
+  // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
+  const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
+  const resources = await getAccountResource(client, stripHexPrefix(address));
+  const accountResource = resources?.find((r) => r.type === typeTag);
+  return Promise.resolve(accountResource);
 }
 
 export async function getModuleAbiMap(aptosClient: AptosClient, addr: string) {

@@ -6778,7 +6778,7 @@ aproba@^1.1.1:
   resolved "https://registry.yarnpkg.com/aproba/-/aproba-1.2.0.tgz#6802e6264efd18c790a1b0d517f0f2627bf2c94a"
   integrity sha512-Y9J6ZjXtoYh8RnXVCMOU/ttDmk1aBjunq9vO0ta5x85WDQiQfUF9sIPBITdbiiIVcBo03Hi3jMxigBtsddlXRw==
 
-aptos@^1.3.15, aptos@^1.3.16:
+aptos@^1.3.16:
   version "1.3.16"
   resolved "https://registry.yarnpkg.com/aptos/-/aptos-1.3.16.tgz#fb4d072c4975beece9c0ee4104ff2dd069fcc1ec"
   integrity sha512-LxI4XctQ5VeL+HokjwuGPwsb1fcydLIn4agFXyhn7hSYosTLNRxQ3UIixyP4Fmv6qPBjQVu8hELVSlThQk/EjA==
