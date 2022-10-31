@@ -1,7 +1,6 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import { Freeze } from 'react-freeze';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { Box } from '@onekeyhq/components';
@@ -23,57 +22,45 @@ Because Desktop webview message bridge is initialized after webview mounted with
 const aboutBlankUrl = 'about:blank';
 
 const WebContent = (tab: WebTab) => {
-  const { id, url: initialUrl } = tab;
-  const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
-    useState<WebViewNavigation>();
+  const { id, url: reduxUrl } = tab;
   const [localUrl] = useState(aboutBlankUrl);
 
   const isInitUrlLoaded = useRef(false);
-  const showHome = useMemo(() => {
-    if (id === 'home' && webHandler === 'tabbedWebview') {
-      return true;
+  const [showHome, setShowHome] = useState(false);
+
+  useEffect(() => {
+    if (isInitUrlLoaded.current) {
+      setShowHome(reduxUrl === aboutBlankUrl);
     }
-    if (localUrl === aboutBlankUrl || !localUrl) {
-      if (!initialUrl && !isInitUrlLoaded.current) {
-        return true;
-      }
-    }
-    return false;
-  }, [id, initialUrl, localUrl]);
+  }, [reduxUrl]);
 
   const goToSite = useGotoSite({
     tab,
   });
   const loadInitialUrl = useCallback(() => {
-    if (isInitUrlLoaded.current || !initialUrl || showHome) {
+    if (isInitUrlLoaded.current) {
       return;
     }
     isInitUrlLoaded.current = true;
-    setTimeout(() => {
-      goToSite({
-        url: initialUrl,
-      });
-    }, 600); // add some delay wait for webview dom-ready
-  }, [initialUrl, showHome, goToSite]);
+    if (reduxUrl !== aboutBlankUrl) {
+      setTimeout(() => {
+        goToSite({ url: reduxUrl });
+      }, 500); // add some delay wait for webview dom-ready
+    } else {
+      setShowHome(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onWebViewRef = useCallback(
     (ref: IWebViewWrapperRef | null) => {
       const { dispatch } = backgroundApiProxy;
       if (ref && ref.innerRef) {
-        if (webviewRefs[id] === ref) {
-          // return;
+        if (!webviewRefs[id]) {
+          dispatch(setWebTabData({ id, refReady: true }));
         }
         webviewRefs[id] = ref;
-        // TODO check if equal before dispatch
-        dispatch(setWebTabData({ id, refReady: true }));
         loadInitialUrl();
-      } else {
-        if (!webviewRefs[id]) {
-          // return;
-        }
-        delete webviewRefs[id];
-        // TODO check if equal before dispatch
-        dispatch(setWebTabData({ id, refReady: false }));
       }
     },
     [loadInitialUrl, id],
@@ -81,31 +68,30 @@ const WebContent = (tab: WebTab) => {
 
   const { openMatchDApp } = useWebController({
     id,
-    navigationStateChangeEvent,
   });
 
   return (
     <>
-      <Freeze freeze={!showHome}>
-        <DiscoverHome
-          onItemSelect={(dapp) => {
-            openMatchDApp({ id: dapp._id, dapp });
+      <WebView src={localUrl} onWebViewRef={onWebViewRef} allowpopups />
+      {showHome && (
+        <Box
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            right: 0,
+            zIndex: 1,
           }}
-          onItemSelectHistory={openMatchDApp}
-        />
-      </Freeze>
-      <Freeze freeze={showHome}>
-        <Box testID={`webview: ${localUrl} - ${initialUrl}`} />
-        {/* TODO show DiscoverHome in Webview if about:blank */}
-        {/* TODO do not unmount desktop webview when showHome */}
-        <WebView
-          // key={webviewKey} // set different key will break browser history
-          src={localUrl}
-          onWebViewRef={onWebViewRef}
-          onNavigationStateChange={setNavigationStateChangeEvent}
-          allowpopups
-        />
-      </Freeze>
+        >
+          <DiscoverHome
+            onItemSelect={(dapp) => {
+              openMatchDApp({ id: dapp._id, dapp });
+            }}
+            onItemSelectHistory={openMatchDApp}
+          />
+        </Box>
+      )}
     </>
   );
 };
