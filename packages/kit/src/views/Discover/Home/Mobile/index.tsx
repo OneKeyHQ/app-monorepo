@@ -10,7 +10,7 @@ import { Others } from './Others';
 export const Mobile: FC = () => {
   const { categoryId } = useContext(DiscoverContext);
   return (
-    <Box flex="1" bg="background-default" pt="4">
+    <Box flex="1" bg="background-default">
       {categoryId ? <Others /> : <Mine />}
     </Box>
   );
