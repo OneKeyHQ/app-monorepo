@@ -1,5 +1,5 @@
-import semver from 'semver';
 import { networkList } from '@onekeyfe/network-list';
+import semver from 'semver';
 
 import {
   AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
