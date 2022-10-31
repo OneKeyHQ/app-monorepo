@@ -35,6 +35,7 @@ export const OnekeyNetwork = {
   'bsc': 'evm--56',
   'etc': 'evm--61',
   'okt': 'evm--66',
+  'mvm': 'evm--73927',
   'theco': 'evm--256',
   'tboba': 'evm--28',
   'tarbitrum': 'evm--421611',
