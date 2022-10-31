@@ -29,6 +29,7 @@ export const enabledNetworkIds: string[] = [
   OnekeyNetwork.doge,
   OnekeyNetwork.ltc,
   OnekeyNetwork.bch,
+  OnekeyNetwork.apt,
   OnekeyNetwork.goerli,
 ];
 
@@ -102,6 +103,7 @@ export const swftOnlyNetwork: string[] = [
   OnekeyNetwork.ethw,
   OnekeyNetwork.etf,
   OnekeyNetwork.okt,
+  OnekeyNetwork.apt,
 ];
 
 export const networkSupportedTokens: Record<string, string[]> = {
@@ -428,6 +430,7 @@ export const networkSupportedTokens: Record<string, string[]> = {
   [OnekeyNetwork.etc]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
   [OnekeyNetwork.etf]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
   [OnekeyNetwork.ethw]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
+  [OnekeyNetwork.apt]: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],
 };
 
 export const tokenReservedValues: Record<string, number> = {

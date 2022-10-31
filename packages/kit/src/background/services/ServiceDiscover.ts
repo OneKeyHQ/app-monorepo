@@ -37,10 +37,10 @@ class ServicDiscover extends ServiceBase {
   @backgroundMethod()
   async getDapps() {
     const { dispatch, appSelector } = this.backgroundApi;
-    const dapps = appSelector((s) => s.discover.dappItems);
+    const listedTags = appSelector((s) => s.discover.listedTags);
     if (
-      dapps &&
-      dapps.length > 0 &&
+      listedTags &&
+      listedTags.length > 0 &&
       Date.now() - this.updatedAt < 60 * 60 * 1000
     ) {
       return;
