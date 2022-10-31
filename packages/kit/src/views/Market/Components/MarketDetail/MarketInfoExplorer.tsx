@@ -43,9 +43,11 @@ export const MarketInfoExplorer: FC<MarketInfoExplorerProps> = ({
         <Typography.Body2Strong numberOfLines={1}>
           {name}
         </Typography.Body2Strong>
-        <Typography.Caption color="text-subdued">
-          {shortenAddress(contractAddress ?? '')}
-        </Typography.Caption>
+        {contractAddress ? (
+          <Typography.Caption color="text-subdued">
+            {shortenAddress(contractAddress)}
+          </Typography.Caption>
+        ) : null}
       </Box>
       <Box mr="2">
         <Icon name="ExternalLinkSolid" size={20} />

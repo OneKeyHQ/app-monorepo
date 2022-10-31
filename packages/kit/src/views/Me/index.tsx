@@ -1,9 +1,8 @@
-import React, { useLayoutEffect } from 'react';
+import React from 'react';
 
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
-import { useNavigation } from '../../hooks';
 import HelpSelector from '../Help/HelpSelector';
 
 import { AboutSection } from './AboutSection';
@@ -19,10 +18,6 @@ export const Me = () => {
   const { enable: devModeEnable } = useSettings().devMode || {};
 
   const inset = useSafeAreaInsets();
-  const navigation = useNavigation();
-  useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
 
   return (
     <Box bg="background-default" flex="1">

@@ -22,6 +22,7 @@ import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
 
 const WRAP_STRING_LENGTH = 9;
+const WRAP_TITLE_STRING_LENGTH = 10;
 
 const BaseInfo = ({
   title,
@@ -35,12 +36,12 @@ const BaseInfo = ({
   const boxH = useMemo(() => {
     if (
       value.length > WRAP_STRING_LENGTH &&
-      title.length > WRAP_STRING_LENGTH
+      title.length > WRAP_TITLE_STRING_LENGTH
     ) {
       return '125px';
     }
     return value.length > WRAP_STRING_LENGTH ||
-      title.length > WRAP_STRING_LENGTH
+      title.length > WRAP_TITLE_STRING_LENGTH
       ? '85px'
       : '55px';
   }, [value, title]);

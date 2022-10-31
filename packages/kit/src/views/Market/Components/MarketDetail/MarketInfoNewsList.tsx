@@ -3,8 +3,14 @@ import { FC, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, FlatList, ListItem, Typography } from '@onekeyhq/components/src';
-import { Image } from '@onekeyhq/components/src/NetImage';
+import {
+  Box,
+  FlatList,
+  Image,
+  ListItem,
+  Typography,
+  useIsVerticalLayout,
+} from '@onekeyhq/components/src';
 import { MarketNews } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
@@ -39,6 +45,19 @@ const NewsItem: FC<NewsItemProps> = ({
           width="80px"
           height="80px"
           borderRadius={12}
+          // fallbackElement={
+          //   <Box
+          //     w="80px"
+          //     height="80px"
+          //     borderRadius={12}
+          //     bgColor="surface-neutral-default"
+          //     flexDirection="row"
+          //     justifyContent="center"
+          //     alignItems="center"
+          //   >
+          //     <Icon name="EmptyNftIllus" color="icon-default" />
+          //   </Box>
+          // }
         />
       </Box>
     </Box>
@@ -51,6 +70,7 @@ type MarketInfoNewsListProps = {
 
 export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
   const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
   const renderItem: ListRenderItem<MarketNews> = useCallback(
     ({ item }) => (
       <NewsItem
@@ -70,7 +90,7 @@ export const MarketInfoNewsList: FC<MarketInfoNewsListProps> = ({ news }) => {
   return (
     <Box>
       <FlatList
-        mx={-2}
+        mx={isVertical ? -2 : 0}
         data={news}
         renderItem={renderItem}
         scrollEnabled={false}
