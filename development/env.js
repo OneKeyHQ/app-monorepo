@@ -9,6 +9,9 @@ const results = [
   dotenv.config({
     path: path.resolve(__dirname, '../.env.version'),
   }),
+  dotenv.config({
+    path: path.resolve(__dirname, '../.env.expo'),
+  }),
 ];
 
 if (process.env.NODE_ENV !== 'production') {

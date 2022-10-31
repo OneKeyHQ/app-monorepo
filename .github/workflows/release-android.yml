@@ -88,10 +88,10 @@ jobs:
           MOONPAY_KEY: ${{ secrets.MOONPAY_KEY }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
-          echo "CLOUNDINARY_NAME=${{ env.CLOUNDINARY_NAME }}" >> .env
-          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
-          echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
-          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+          echo "CLOUNDINARY_NAME=${{ env.CLOUNDINARY_NAME }}" >> .env.expo
+          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
+          echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env.expo
+          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
 
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
