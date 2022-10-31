@@ -9,7 +9,7 @@ import {
 import { updateAutoSwitchDefaultRpcAtVersion } from '../../store/reducers/status';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
-import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import ServiceBase from './ServiceBase';
 
 const defaultNetworkRpcs: Record<string, string> = {
   'aptos--1': 'https://fullnode.mainnet.aptoslabs.com',
@@ -40,10 +40,6 @@ const defaultNetworkRpcs: Record<string, string> = {
 
 @backgroundClass()
 export default class ServiceBootstrap extends ServiceBase {
-  constructor(props: IServiceBaseProps) {
-    super(props);
-    this.switchDefaultRpcToOnekeyRpcNode();
-  }
   // eslint-disable-next-line
   @backgroundMethod()
   async checkShouldShowNotificationGuide(): Promise<boolean> {
