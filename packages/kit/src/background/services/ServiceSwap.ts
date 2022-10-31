@@ -433,8 +433,8 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkAccountInWallets(accountId: string) {
-    const { engine } = this.backgroundApi;
-    const wallets = await engine.getWallets();
+    const { appSelector } = this.backgroundApi;
+    const wallets = appSelector((s) => s.runtime.wallets); // engine.getWallets(); dont include hidden wallet (passphrase account)
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       if (wallet.accounts.includes(accountId)) {
