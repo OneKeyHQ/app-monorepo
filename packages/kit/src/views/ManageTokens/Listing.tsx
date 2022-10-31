@@ -307,12 +307,12 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
           platformEnv.isNativeAndroid
             ? undefined
             : {
-              type: 'action',
-              text2: intl.formatMessage({
-                id: 'action__go_to_setting',
-              }),
-              onPress: showHomeBalanceSettings,
-            },
+                type: 'action',
+                text2: intl.formatMessage({
+                  id: 'action__go_to_setting',
+                }),
+                onPress: showHomeBalanceSettings,
+              },
         );
         return;
       }
