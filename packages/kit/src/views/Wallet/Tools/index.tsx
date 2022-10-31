@@ -11,7 +11,6 @@ import {
   Pressable,
   Typography,
   VStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
@@ -23,6 +22,7 @@ import {
 
 import { useActiveWalletAccount } from '../../../hooks';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -65,7 +65,7 @@ type NavigationProps = NativeStackNavigationProp<
 const ToolsPage: FC = () => {
   const intl = useIntl();
   const { network, accountAddress } = useActiveWalletAccount();
-  const isVertical = useIsVerticalLayout();
+  const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
