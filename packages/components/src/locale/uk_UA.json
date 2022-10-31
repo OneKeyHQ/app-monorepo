@@ -465,6 +465,7 @@
   "content__previous_backups": "Попередні резервні копії",
   "content__previous_backups_desc": "У вас є попередні резервні копії, які можуть містити вміст, який зараз не активний на цьому пристрої.",
   "content__previous_str_account_is_empty": "Не вдається створити обліковий запис, попередній обліковий запис Segwit {0} порожній.",
+  "content__price": "Ціна",
   "content__price_updates_after_str": "Ціна оновлюється після {0}",
   "content__price_uppercase": "Ціна",
   "content__purchase_crypto_with_cash": "Купуйте криптовалюту за готівку",

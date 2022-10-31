@@ -465,6 +465,7 @@
   "content__previous_backups": "Backup precedenti",
   "content__previous_backups_desc": "Hai backup precedenti che potrebbero includere contenuti non attualmente attivi su questo dispositivo.",
   "content__previous_str_account_is_empty": "Impossibile creare un account, il precedente account Segwit {0} è vuoto.",
+  "content__price": "Prezzo",
   "content__price_updates_after_str": "Prezzo aggiornato dopo il {0}",
   "content__price_uppercase": "Prezzo",
   "content__purchase_crypto_with_cash": "Acquista criptovalute in contanti",

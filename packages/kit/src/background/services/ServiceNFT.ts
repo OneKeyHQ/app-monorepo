@@ -1,11 +1,21 @@
+import axios from 'axios';
+import camelcaseKeys from 'camelcase-keys';
+
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
   getAsset,
   getNFTSymbolPrice,
   getUserNFTAssets,
 } from '@onekeyhq/engine/src/managers/nft';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import {
+  Collection,
+  NFTAsset,
+  NFTMarketCapCollection,
+  NFTMarketRanking,
+  NFTServiceResp,
+} from '@onekeyhq/engine/src/types/nft';
 
 import {
   setNFTPrice,
@@ -22,6 +32,72 @@ function getNFTListKey(accountId: string, networkId: string) {
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
+  get client() {
+    return axios.create({ timeout: 60 * 1000 });
+  }
+
+  get baseUrl() {
+    return `${getFiatEndpoint()}/NFT`;
+  }
+
+  @backgroundMethod()
+  async getMarketCapCollection({ chain }: { chain?: string }) {
+    const url = `${this.baseUrl}/market/marketCap?chain=${
+      chain ?? OnekeyNetwork.eth
+    }`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<NFTMarketCapCollection[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as NFTMarketCapCollection[] }));
+    if (!success) {
+      return [];
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getMarketRanking({ chain, time }: { chain?: string; time?: string }) {
+    const url = `${this.baseUrl}/market/ranking?chain=${
+      chain ?? OnekeyNetwork.eth
+    }&time=${time ?? '1d'}`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<NFTMarketRanking[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as NFTMarketRanking[] }));
+    if (!success) {
+      return [];
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getMarketCollection() {
+    const url = `${this.baseUrl}/market/collection`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<Collection[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as Collection[] }));
+    if (!success) {
+      return [];
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getLiveMinting({ chain, limit }: { chain?: string; limit?: number }) {
+    const url = `${this.baseUrl}/market/liveMint?chain=${
+      chain ?? OnekeyNetwork.eth
+    }&limit=${limit ?? 5}`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<NFTAsset[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as NFTAsset[] }));
+    if (!success) {
+      return [];
+    }
+    return camelcaseKeys(data, { deep: true });
+  }
+
   @backgroundMethod()
   async saveNFTs({
     networkId,

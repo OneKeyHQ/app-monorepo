@@ -465,6 +465,7 @@
   "content__previous_backups": "이전 백업",
   "content__previous_backups_desc": "이 장치에서 현재 활성화되지 않은 콘텐츠를 포함할 수 있는 이전 백업이 있습니다.",
   "content__previous_str_account_is_empty": "계정을 생성할 수 없습니다. 이전 Segwit {0} 계정이 비어 있습니다.",
+  "content__price": "가격",
   "content__price_updates_after_str": "{0} 후 가격 새로고침",
   "content__price_uppercase": "가격",
   "content__purchase_crypto_with_cash": "현금으로 암호화폐 구매",

@@ -14,16 +14,22 @@ export const NFTSymbolMap: Record<string, string> = {
   [OnekeyNetwork.eth]: 'main',
   [OnekeyNetwork.optimism]: 'main',
   [OnekeyNetwork.bsc]: 'main',
-  [OnekeyNetwork.polygon]: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619', // weth
+  [OnekeyNetwork.polygon]: 'main',
   [OnekeyNetwork.arbitrum]: 'main',
   [OnekeyNetwork.sol]: 'main',
   [OnekeyNetwork.avalanche]: 'main',
 };
 
 export type ERCType = 'erc721' | 'erc1155';
+
 export type Traits = {
   traitType: string;
   value: string;
+};
+
+export type NFTServiceResp<T> = {
+  success?: boolean;
+  data: T;
 };
 
 export type Collection = {
@@ -31,12 +37,14 @@ export type Collection = {
   contractName?: string;
   description?: string;
   logoUrl?: string;
+  bannerUrl?: string;
   ownsTotal?: string;
   floorPrice?: number;
   priceSymbol?: string;
   assets: NFTAsset[];
   totalPrice: number;
   collectionId?: string;
+  chain?: string;
 };
 
 export type NFTAsset = {
@@ -54,6 +62,7 @@ export type NFTAsset = {
   imageUri: string | null;
   nftscanUri: string | null;
   name?: string;
+  mintTimestamp?: number;
   description?: string;
   attributes?: Traits[];
   mintPrice?: number;
@@ -68,16 +77,6 @@ export type NFTAsset = {
     source: string;
     thumbnail: string;
   };
-};
-
-export type NFTScanNFTsResp = {
-  success?: boolean;
-  data: Collection[];
-};
-
-export type NFTGetAssetResp = {
-  success?: boolean;
-  data?: NFTAsset;
 };
 
 export type NFTTransaction = {
@@ -106,7 +105,55 @@ export type NFTTransaction = {
   tokenAddress?: string;
 };
 
-export type TransactionsResp = {
-  success?: boolean;
-  data: NFTTransaction[];
+export type NFTMarketCapCollection = {
+  contract_address?: string;
+  contract_name?: string;
+  logo_url?: string;
+  banner_url?: string;
+
+  items_total?: number;
+  owners_total?: number;
+  sales_1d?: number;
+  sales_7d?: number;
+  sales_30d?: number;
+  sales_total?: number;
+  volume_1d?: number;
+  volume_7d?: number;
+  volume_30d?: number;
+  volume_total?: number;
+  floor_price: number | null;
+  average_price_1d?: number;
+  average_price_7d?: number;
+  average_price_30d?: number;
+  average_price_total?: number;
+
+  volume_change_1d?: string;
+  volume_change_7d?: string;
+
+  market_cap: number | null;
+};
+
+export type NFTMarketRanking = {
+  contract_address?: string;
+  contract_name?: string;
+  logo_url?: string;
+  lowest_price?: number;
+  average_price?: number;
+  highest_price?: number;
+  floor_price?: number;
+  volume?: number;
+  sales?: number;
+  mint_price_total?: number;
+  mint_gas_fee?: number;
+  exchange_volume_change_24h?: string;
+  exchange_volume_change_7d?: string;
+  items_total?: number;
+  owners_total?: number;
+  volume_change?: string;
+  average_price_change?: string;
+  market_cap?: number;
+  market_trend?: string;
+  mint_average_price?: number;
+  volume_7d?: string;
+  price_7d?: string;
 };

@@ -19,6 +19,7 @@ import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic
 import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
 import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
 import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
+import NFTMarket from '@onekeyhq/kit/src/views/NFTMarket/Home';
 import Protected from '@onekeyhq/kit/src/views/Protected';
 import PushNotification from '@onekeyhq/kit/src/views/PushNotification';
 import PushNotificationManageAccountDynamic from '@onekeyhq/kit/src/views/PushNotification/AccountDynamic';
@@ -32,6 +33,8 @@ import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
+import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
+import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
 
@@ -91,6 +94,22 @@ export const tabRoutes: TabRouteConfig[] = [
       },
     ],
   },
+  // {
+  //   name: TabRoutes.NFT,
+  //   component: NFTMarket,
+  //   tabBarIcon: () => 'Square3Stack3Doutline',
+  //   translationId: 'title__nft',
+  //   children: [
+  //     {
+  //       name: HomeRoutes.NFTMarketStatsList,
+  //       component: NFTMarketStatsList,
+  //     },
+  //     {
+  //       name: HomeRoutes.NFTMarketLiveMintingList,
+  //       component: NFTMarketLiveMintingList,
+  //     },
+  //   ],
+  // },
   {
     name: TabRoutes.Discover,
     component: DiscoverScreen,
@@ -164,6 +183,25 @@ export const tabRoutes: TabRouteConfig[] = [
     ],
   },
 ];
+
+if (process.env.NODE_ENV !== 'production') {
+  tabRoutes.splice(3, 0, {
+    name: TabRoutes.NFT,
+    component: NFTMarket,
+    tabBarIcon: () => 'Square3Stack3Doutline',
+    translationId: 'title__nft',
+    children: [
+      {
+        name: HomeRoutes.NFTMarketStatsList,
+        component: NFTMarketStatsList,
+      },
+      {
+        name: HomeRoutes.NFTMarketLiveMintingList,
+        component: NFTMarketLiveMintingList,
+      },
+    ],
+  });
+}
 
 if (process.env.NODE_ENV !== 'production') {
   tabRoutes.push({
