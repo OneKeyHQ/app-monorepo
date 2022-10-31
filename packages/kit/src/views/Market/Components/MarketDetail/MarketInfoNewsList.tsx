@@ -6,11 +6,12 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   FlatList,
+  Icon,
+  Image,
   ListItem,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-import { Image } from '@onekeyhq/components/src/NetImage';
 import { MarketNews } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
@@ -45,6 +46,19 @@ const NewsItem: FC<NewsItemProps> = ({
           width="80px"
           height="80px"
           borderRadius={12}
+          // fallbackElement={
+          //   <Box
+          //     w="80px"
+          //     height="80px"
+          //     borderRadius={12}
+          //     bgColor="surface-neutral-default"
+          //     flexDirection="row"
+          //     justifyContent="center"
+          //     alignItems="center"
+          //   >
+          //     <Icon name="EmptyNftIllus" color="icon-default" />
+          //   </Box>
+          // }
         />
       </Box>
     </Box>
