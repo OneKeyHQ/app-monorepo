@@ -190,9 +190,9 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__trading_volume' })}
-              value={`${getFiatCodeUnit(selectedFiatMoneySymbol)}${
-                trandingVolume ?? 0
-              }`}
+              value={`${getFiatCodeUnit(
+                selectedFiatMoneySymbol,
+              )}${formatMarketValueForComma(trandingVolume)}`}
             />
             {/* <DataViewComponent
               title={intl.formatMessage({ id: 'form__7d_low' })}
