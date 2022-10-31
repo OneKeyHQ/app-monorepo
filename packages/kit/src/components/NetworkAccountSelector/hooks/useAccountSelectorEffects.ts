@@ -60,11 +60,12 @@ function useAccountSelectorEffects() {
   // ** update on WalletSelector change wallet
   // ** update on NetworkAccountSelectorTrigger mounted
   // ** update on External Account added at another chain
+  // DO NOT deps `activeAccount` here, may cause cycle effects
   useEffect(() => {
-    if (activeWallet || activeAccount) {
+    if (activeWallet) {
       setSelectedWalletToActive({ runAfterInteractions: true });
     }
-  }, [activeAccount, activeWallet, setSelectedWalletToActive]);
+  }, [activeWallet, setSelectedWalletToActive]);
 
   // ** update on NetworkAccountSelector closed
   //    change network & wallet, select other account, close and reopen
