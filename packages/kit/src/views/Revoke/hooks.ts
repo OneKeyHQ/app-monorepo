@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { DeviceEventEmitter } from 'react-native';
 
+import { useUserDevice } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   ADDRESS_ZERO,
@@ -245,4 +246,9 @@ export const useUpdateAllowance = ({
     [accountId, contract, navigation, networkId, spender, accountAddress],
   );
   return update;
+};
+
+export const useIsVerticalOrMiddleLayout = () => {
+  const { size } = useUserDevice();
+  return useMemo(() => ['SMALL', 'NORMAL'].includes(size), [size]);
 };

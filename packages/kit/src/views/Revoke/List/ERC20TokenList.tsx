@@ -13,7 +13,6 @@ import {
   Token,
   Typography,
   VStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import {
   ERC20TokenAllowance,
@@ -22,7 +21,7 @@ import {
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { AssetType, Filter } from '../FilterBar';
-import { useERC20Allowances } from '../hooks';
+import { useERC20Allowances, useIsVerticalOrMiddleLayout } from '../hooks';
 
 import { ERC20Allowance } from './ERC20Allowance';
 
@@ -77,7 +76,7 @@ export const Header = () => {
 };
 
 export const ListLoading = () => {
-  const isVertical = useIsVerticalLayout();
+  const isVertical = useIsVerticalOrMiddleLayout();
   if (isVertical) {
     return (
       <>
@@ -158,7 +157,7 @@ export const ERC20TokenList: FC<{
   filters: Filter;
 }> = ({ networkId, addressOrName, filters }) => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
+  const isVertical = useIsVerticalOrMiddleLayout();
 
   const {
     loading,

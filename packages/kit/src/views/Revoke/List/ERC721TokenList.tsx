@@ -9,12 +9,11 @@ import {
   Token,
   Typography,
   VStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { ERC721TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
 
 import { Filter } from '../FilterBar';
-import { useERC721Allowances } from '../hooks';
+import { useERC721Allowances, useIsVerticalOrMiddleLayout } from '../hooks';
 
 import { EmptyRecord, Header, ListLoading } from './ERC20TokenList';
 import { ERC721Allowance } from './ERC721Allowance';
@@ -25,7 +24,7 @@ export const ERC721TokenList: FC<{
   filters: Filter;
 }> = ({ networkId, addressOrName, filters }) => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
+  const isVertical = useIsVerticalOrMiddleLayout();
 
   const {
     loading,
