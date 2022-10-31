@@ -6,7 +6,6 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   FlatList,
-  Icon,
   Image,
   ListItem,
   Typography,
