@@ -230,7 +230,7 @@ export default class ServiceNotification extends ServiceBase {
       tabScreenName,
       detailScreenName,
     ];
-    let navigationRoutes = {
+    let navigationRoutes: any = {
       screen: HomeRoutes.InitialTab,
       params: {
         screen: RootRoutes.Tab,
@@ -241,13 +241,13 @@ export default class ServiceNotification extends ServiceBase {
             params: routerParams,
           },
         },
-      } as any,
+      },
     };
     if (isVertical) {
       expandRoutes = [RootRoutes.Root, detailScreenName];
       navigationRoutes = {
         screen: detailScreenName,
-        params: routerParams as any,
+        params: routerParams,
       };
     }
     if (platformEnv.isExtension) {
