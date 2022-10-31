@@ -11,7 +11,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient, BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
-import { get, isEmpty, isNil } from 'lodash';
+import { get, groupBy, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
@@ -62,6 +62,8 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { IEncodedTxAptos } from './types';
 import {
+  APTOS_COINSTORE,
+  APTOS_NATIVE_COIN,
   APTOS_NATIVE_TRANSFER_FUNC,
   APTOS_TRANSFER_FUNC,
   DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
@@ -71,6 +73,7 @@ import {
   generateTransferCoin,
   generateUnsignedTransaction,
   getAccountCoinResource,
+  getAccountResource,
   getTokenInfo,
   getTransactionType,
   getTransactionTypeByPayload,
@@ -176,24 +179,38 @@ export default class Vault extends VaultBase {
   ): Promise<(BigNumber | undefined)[]> {
     const client = await this.getClient();
 
-    return Promise.all(
-      requests.map(async ({ address, tokenAddress }) => {
+    const requestAddress = groupBy(requests, (request) => request.address);
+
+    const balances = new Map<string, BigNumber>();
+    await Promise.all(
+      Object.entries(requestAddress).map(async ([address, tokens]) => {
         try {
-          const accountResource = await getAccountCoinResource(
-            client,
-            address,
-            tokenAddress,
-          );
-          const balance = get(accountResource, 'data.coin.value', 0);
-          return new BigNumber(balance);
-        } catch (error: any) {
-          if (error instanceof InvalidAccount) {
-            return Promise.resolve(new BigNumber(0));
-          }
-          // pass
+          const resources = await getAccountResource(client, address);
+          tokens.forEach((req) => {
+            const { tokenAddress } = req;
+            const typeTag = `${APTOS_COINSTORE}<${
+              tokenAddress ?? APTOS_NATIVE_COIN
+            }>`;
+            const accountResource = resources?.find((r) => r.type === typeTag);
+            const balance = get(accountResource, 'data.coin.value', 0);
+            const key = `${address}-${tokenAddress ?? APTOS_NATIVE_COIN}`;
+            try {
+              balances.set(key, new BigNumber(balance));
+            } catch (e) {
+              // ignore
+            }
+          });
+        } catch (error) {
+          // ignore account error
         }
       }),
     );
+
+    return requests.map((req) => {
+      const { address, tokenAddress } = req;
+      const key = `${address}-${tokenAddress ?? APTOS_NATIVE_COIN}`;
+      return balances.get(key) ?? new BigNumber(0);
+    });
   }
 
   async fetchTokenInfos(
@@ -651,10 +668,16 @@ export default class Vault extends VaultBase {
       const { hash: txid } = await client.submitSignedBCSTransaction(
         hexToBytes(signedTx.rawTx),
       );
+
+      debugLogger.engine.info('broadcastTransaction Done:', {
+        txid,
+        rawTx: signedTx.rawTx,
+      });
+
       // wait error or success
       await waitPendingTransaction(client, txid);
 
-      debugLogger.engine.info('broadcastTransaction END:', {
+      debugLogger.engine.info('broadcastTransaction wait Pending END:', {
         txid,
         rawTx: signedTx.rawTx,
       });
