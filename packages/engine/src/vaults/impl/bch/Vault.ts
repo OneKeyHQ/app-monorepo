@@ -1,4 +1,3 @@
-import { IBlockBookTransaction } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 
 import { COINTYPE_BCH } from '../../../constants';
@@ -9,8 +8,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import Provider from './provider';
 import settings from './settings';
-
-import type { ArrayElement } from '../../utils/btcForkChain/types';
 
 export default class Vault extends VaultBtcFork {
   override providerClass = Provider;
@@ -51,19 +48,5 @@ export default class Vault extends VaultBtcFork {
 
   override getDefaultBlockTime(): number {
     return 600;
-  }
-
-  /**
-   *
-   * Currently nownode's BCH blockbook lacks the `isOwn` field in getHistory API,
-   * so we need to override this function to handle it, until blockbook update
-   */
-  override isMyTransaction(
-    item:
-      | ArrayElement<IBlockBookTransaction['vin']>
-      | ArrayElement<IBlockBookTransaction['vout']>,
-    accountAddress: string,
-  ) {
-    return item.addresses.some((address) => address === accountAddress);
   }
 }
