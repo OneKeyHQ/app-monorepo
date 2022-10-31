@@ -117,9 +117,9 @@ export function makeStore() {
       getDefaultMiddleware({
         serializableCheck: {
           ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-          warnAfter: 128,
+          warnAfter: 1000,
         },
-        immutableCheck: { warnAfter: 128 },
+        immutableCheck: { warnAfter: 1000 },
       }).concat(middlewares),
   });
   const persistor = persistStore(store, null, () => {

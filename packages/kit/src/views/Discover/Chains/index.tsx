@@ -1,11 +1,11 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 
-type ChainsProps = {
+interface ChainsProps {
   networkIds?: string[];
-};
+}
 
 export const Chains: FC<ChainsProps> = ({ networkIds }) => {
   const networks = useAppSelector((s) => s.runtime.networks);
