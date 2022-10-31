@@ -50,6 +50,7 @@ const networkId2SwftcNetworkName: Record<string, string> = {
   [OnekeyNetwork.doge]: 'DOGE',
   [OnekeyNetwork.ltc]: 'LTC',
   [OnekeyNetwork.bch]: 'BCH',
+  [OnekeyNetwork.apt]: 'APT',
 };
 
 const swftcNetworkName2NetworkId: Record<string, string> = {};

@@ -165,7 +165,7 @@ export function getEvmTokenAddress(token: Token) {
 
 export function isNoCharge(type?: QuoterType): boolean {
   if (!type) return false;
-  const list: QuoterType[] = [QuoterType.mdex, QuoterType.socket];
+  const list: QuoterType[] = [QuoterType.mdex];
   return list.includes(type);
 }
 
