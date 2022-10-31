@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
@@ -303,13 +304,15 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
               id: 'msg__token_has_been_added_but_is_hidden',
             }),
           },
-          {
-            type: 'action',
-            text2: intl.formatMessage({
-              id: 'action__go_to_setting',
-            }),
-            onPress: showHomeBalanceSettings,
-          },
+          platformEnv.isNativeAndroid
+            ? undefined
+            : {
+                type: 'action',
+                text2: intl.formatMessage({
+                  id: 'action__go_to_setting',
+                }),
+                onPress: showHomeBalanceSettings,
+              },
         );
         return;
       }
