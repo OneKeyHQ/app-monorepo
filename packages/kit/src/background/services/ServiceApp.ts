@@ -225,8 +225,14 @@ class ServiceApp extends ServiceBase {
    */
   @backgroundMethod()
   async initApp() {
-    const { dispatch, engine, serviceAccount, serviceNetwork, appSelector } =
-      this.backgroundApi;
+    const {
+      dispatch,
+      engine,
+      serviceAccount,
+      serviceNetwork,
+      appSelector,
+      serviceBootstrap,
+    } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
       appSelector(
@@ -264,6 +270,7 @@ class ServiceApp extends ServiceBase {
       }),
     );
 
+    serviceBootstrap.switchDefaultRpcToOnekeyRpcNode();
     this._appInited = true;
   }
 

@@ -76,9 +76,7 @@ export default class ServiceBootstrap extends ServiceBase {
 
   @backgroundMethod()
   async switchDefaultRpcToOnekeyRpcNode() {
-    const { serviceApp, appSelector, dispatch, serviceNetwork } =
-      this.backgroundApi;
-    await serviceApp.initApp();
+    const { appSelector, dispatch, serviceNetwork } = this.backgroundApi;
     const { networks } = appSelector((s) => s.runtime);
     const { autoSwitchDefaultRpcAtVersion, userSwitchedNetworkRpcFlag } =
       appSelector((s) => s.status);
