@@ -17,6 +17,7 @@ import {
 import { homeTab } from '../../../../store/reducers/webTabs';
 import { useWebTab } from '../Controller/useWebTabs';
 import { ExplorerViewProps, MatchDAppItemType } from '../explorerUtils';
+import { showWebMoreMenu } from '../MoreMenu';
 
 type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 
@@ -24,8 +25,6 @@ const Mobile: FC<ExplorerViewProps> = ({
   onSearchSubmitEditing,
   explorerContent,
   onGoBack,
-  onMore,
-  moreView,
   showExplorerBar,
 }) => {
   const intl = useIntl();
@@ -107,7 +106,7 @@ const Mobile: FC<ExplorerViewProps> = ({
           {!isHome && (
             <IconButton
               onPress={() => {
-                onMore?.(true);
+                showWebMoreMenu();
               }}
               name="DotsHorizontalOutline"
               size="lg"
@@ -116,8 +115,6 @@ const Mobile: FC<ExplorerViewProps> = ({
           )}
         </Box>
       )}
-
-      {moreView}
     </Box>
   );
 };

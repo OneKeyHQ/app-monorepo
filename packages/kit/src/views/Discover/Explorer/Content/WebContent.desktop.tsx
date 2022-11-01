@@ -17,12 +17,10 @@ Desktop should load 'about:blank' first to avoid DAPP site load before webview m
 
 Because Desktop webview message bridge is initialized after webview mounted with ref ready and ipc-message ready
  */
-// const aboutBlankUrl = '';
 const aboutBlankUrl = 'about:blank';
 
 const WebContent = (tab: WebTab) => {
   const { id, url: reduxUrl } = tab;
-  const [localUrl] = useState(aboutBlankUrl);
 
   const isInitUrlLoaded = useRef(false);
   const [showHome, setShowHome] = useState(false);
@@ -40,7 +38,6 @@ const WebContent = (tab: WebTab) => {
     if (isInitUrlLoaded.current) {
       return;
     }
-    isInitUrlLoaded.current = true;
     if (reduxUrl !== aboutBlankUrl) {
       setTimeout(() => {
         goToSite({ url: reduxUrl });
@@ -48,6 +45,7 @@ const WebContent = (tab: WebTab) => {
     } else {
       setShowHome(true);
     }
+    isInitUrlLoaded.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -71,7 +69,7 @@ const WebContent = (tab: WebTab) => {
 
   return (
     <>
-      <WebView src={localUrl} onWebViewRef={onWebViewRef} allowpopups />
+      <WebView src={aboutBlankUrl} onWebViewRef={onWebViewRef} allowpopups />
       {showHome && (
         <Box
           style={{

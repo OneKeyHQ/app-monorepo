@@ -136,7 +136,7 @@ export const useWebController = ({
 
   // TODO add webview event listener `did-start-navigation` `dom-ready`
   //      not working when loading initial url as getInnerRef() is null
-  const { goBack, goForward, stopLoading } = useWebviewRef({
+  const { goBack, goForward, stopLoading, reload } = useWebviewRef({
     // @ts-expect-error
     ref: getInnerRef(),
     onNavigation,
@@ -178,5 +178,6 @@ export const useWebController = ({
     stopLoading,
     incomingUrl,
     clearIncomingUrl,
+    reload,
   };
 };

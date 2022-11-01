@@ -42,7 +42,7 @@ export interface WebControllerBarProps {
   onStopLoading?: () => void;
   showExplorerBar?: boolean;
   onMore?: (value: boolean) => void;
-  moreView: React.ReactNode;
+  moreView?: React.ReactNode;
 }
 
 export interface ExplorerViewProps extends WebControllerBarProps {
