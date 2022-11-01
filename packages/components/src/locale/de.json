@@ -465,6 +465,7 @@
   "content__previous_backups": "Vorherige Sicherungen",
   "content__previous_backups_desc": "Sie haben frühere Sicherungen, die möglicherweise Inhalte enthalten, die derzeit auf diesem Gerät nicht aktiv sind.",
   "content__previous_str_account_is_empty": "Konto kann nicht erstellt werden, vorheriges Segwit {0} -Konto ist leer.",
+  "content__price": "Preis",
   "content__price_updates_after_str": "Preisaktualisierung nach {0}",
   "content__price_uppercase": "Preis",
   "content__purchase_crypto_with_cash": "Kaufen Sie Krypto mit Bargeld",

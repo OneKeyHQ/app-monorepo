@@ -82,12 +82,15 @@ export enum HomeRoutes {
   PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
   MarketDetail = 'MarketDetail',
   Revoke = 'Revoke',
+  NFTMarketStatsList = 'NFTMarketStatsList',
+  NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
 }
 export enum TabRoutes {
   // Overview = 'overview',
   Home = 'home',
   Swap = 'swap',
   Market = 'market',
+  NFT = 'NFT',
   Discover = 'discover',
   Me = 'me',
   Developer = 'developer',

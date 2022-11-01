@@ -209,6 +209,7 @@ export { default as SortAscending } from './SortAscending';
 export { default as SortDescending } from './SortDescending';
 export { default as Sparkles } from './Sparkles';
 export { default as Speakerphone } from './Speakerphone';
+export { default as Square3Stack3D } from './Square3Stack3D';
 export { default as Star } from './Star';
 export { default as StatusOffline } from './StatusOffline';
 export { default as StatusOnline } from './StatusOnline';

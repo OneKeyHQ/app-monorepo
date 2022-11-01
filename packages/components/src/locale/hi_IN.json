@@ -465,6 +465,7 @@
   "content__previous_backups": "पिछला बैकअप",
   "content__previous_backups_desc": "आपके पास पिछले बैकअप हैं जिनमें ऐसी सामग्री शामिल हो सकती है जो इस उपकरण पर वर्तमान में सक्रिय नहीं है।",
   "content__previous_str_account_is_empty": "खाता बनाने में असमर्थ, पिछला Segwit {0} खाता खाली है।",
+  "content__price": "कीमत",
   "content__price_updates_after_str": "{0} के बाद मूल्य ताज़ा होता है",
   "content__price_uppercase": "कीमत",
   "content__purchase_crypto_with_cash": "नकदी के साथ क्रिप्टो खरीदें",

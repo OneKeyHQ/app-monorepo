@@ -8,6 +8,7 @@ import DiamondBadgeIllus from "./react/illus/DiamondBadge";
 import EmptyNftIllus from "./react/illus/EmptyNft";
 import FaceIdIllus from "./react/illus/FaceId";
 import FingerPrintIllus from "./react/illus/FingerPrint";
+import ImageBrokenIllus from "./react/illus/ImageBroken";
 import LogoIllus from "./react/illus/Logo";
 import LogoPrimaryIllus from "./react/illus/LogoPrimary";
 import MetamaskIllus from "./react/illus/Metamask";
@@ -228,6 +229,7 @@ import SortAscendingOutline from "./react/outline/SortAscending";
 import SortDescendingOutline from "./react/outline/SortDescending";
 import SparklesOutline from "./react/outline/Sparkles";
 import SpeakerphoneOutline from "./react/outline/Speakerphone";
+import Square3Stack3Doutline from "./react/outline/Square3Stack3D";
 import StarOutline from "./react/outline/Star";
 import StatusOfflineOutline from "./react/outline/StatusOffline";
 import StatusOnlineOutline from "./react/outline/StatusOnline";
@@ -539,6 +541,7 @@ const icons = {
   EmptyNftIllus,
   FaceIdIllus,
   FingerPrintIllus,
+  ImageBrokenIllus,
   LogoIllus,
   LogoPrimaryIllus,
   MetamaskIllus,
@@ -759,6 +762,7 @@ const icons = {
   SortDescendingOutline,
   SparklesOutline,
   SpeakerphoneOutline,
+  Square3Stack3Doutline,
   StarOutline,
   StatusOfflineOutline,
   StatusOnlineOutline,

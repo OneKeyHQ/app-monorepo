@@ -465,6 +465,7 @@
   "content__previous_backups": "Өмнөх нөөцлөлтүүд",
   "content__previous_backups_desc": "Танд энэ төхөөрөмж дээр одоогоор идэвхгүй байгаа агуулгыг агуулсан өмнөх нөөцлөлтүүд байгаа.",
   "content__previous_str_account_is_empty": "Бүртгэл үүсгэх боломжгүй, өмнөх Segwit {0} данс хоосон байна.",
+  "content__price": "Үнэ",
   "content__price_updates_after_str": "Үнэ {0} дараа шинэчлэгдэнэ",
   "content__price_uppercase": "Үнэ",
   "content__purchase_crypto_with_cash": "Бэлэн мөнгөөр крипто худалдаж аваарай",

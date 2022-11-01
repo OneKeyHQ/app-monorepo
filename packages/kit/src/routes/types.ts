@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
@@ -71,6 +72,7 @@ export type TabRoutesParams = {
   [TabRoutes.Send]: undefined;
   [TabRoutes.Receive]: undefined;
   [TabRoutes.Market]: undefined;
+  [TabRoutes.NFT]: undefined;
 };
 /** Tab */
 
@@ -130,6 +132,8 @@ export type HomeRoutesParams = {
     marketTokenId: string;
   };
   [HomeRoutes.Revoke]: undefined;
+  [HomeRoutes.NFTMarketStatsList]: { network: Network };
+  [HomeRoutes.NFTMarketLiveMintingList]: { network: Network };
 };
 /** HomeStack */
 

@@ -465,6 +465,7 @@
   "content__previous_backups": "การสำรองข้อมูลก่อนหน้า",
   "content__previous_backups_desc": "คุณมีข้อมูลสำรองก่อนหน้านี้ซึ่งอาจรวมถึงเนื้อหาที่ไม่ได้ใช้งานบนอุปกรณ์นี้",
   "content__previous_str_account_is_empty": "ไม่สามารถสร้างบัญชีได้ บัญชี Segwit {0} ก่อนหน้าว่างเปล่า",
+  "content__price": "ราคา",
   "content__price_updates_after_str": "ราคาจะรีเฟรชหลังจาก {0}",
   "content__price_uppercase": "ราคา",
   "content__purchase_crypto_with_cash": "ซื้อ crypto ด้วยเงินสด",

@@ -6,6 +6,7 @@ export { default as DiamondBadge } from './DiamondBadge';
 export { default as EmptyNft } from './EmptyNft';
 export { default as FaceId } from './FaceId';
 export { default as FingerPrint } from './FingerPrint';
+export { default as ImageBroken } from './ImageBroken';
 export { default as LogoPrimary } from './LogoPrimary';
 export { default as Logo } from './Logo';
 export { default as Metamask } from './Metamask';

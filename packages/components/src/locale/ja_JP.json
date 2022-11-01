@@ -465,6 +465,7 @@
   "content__previous_backups": "その他のバックアップ",
   "content__previous_backups_desc": "他のバックアップファイルに現在デバイスに存在しないウォレットがあるかもしれない。",
   "content__previous_str_account_is_empty": "アカウントを作成できない。以前のSegwit {0}アカウントは空である。",
+  "content__price": "価格",
   "content__price_updates_after_str": "価格は{0}後に更新される",
   "content__price_uppercase": "価格",
   "content__purchase_crypto_with_cash": "現金で仮想通貨を購入します",

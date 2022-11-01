@@ -11,6 +11,7 @@ import {
   ERC721TokenAllowance,
 } from '@onekeyhq/engine/src/managers/revoke';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
+import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -196,34 +197,37 @@ export const useUpdateAllowance = ({
       assetType: AssetType;
       amount: string;
     }) => {
-      let encodedApproveTx =
-        await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-          amount,
-          networkId,
-          spender,
-          accountId,
-          token: contract,
-        });
-      if (assetType === AssetType.nfts) {
-        if (typeof tokenId !== 'undefined') {
-          encodedApproveTx =
-            await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromApprove({
+      let encodedApproveTx: IEncodedTx;
+      // erc20 tokens
+      if (assetType === AssetType.tokens) {
+        encodedApproveTx =
+          await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+            amount,
+            networkId,
+            spender,
+            accountId,
+            token: contract,
+          });
+      } else if (typeof tokenId !== 'undefined') {
+        // erc721
+        encodedApproveTx =
+          await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromApprove({
+            from: accountAddress,
+            to: contract ?? '',
+            approve: ADDRESS_ZERO,
+            tokenId,
+          });
+      } else {
+        // erc1155
+        encodedApproveTx =
+          await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromSetApprovalForAll(
+            {
               from: accountAddress,
               to: contract ?? '',
-              approve: ADDRESS_ZERO,
-              tokenId,
-            });
-        } else {
-          encodedApproveTx =
-            await backgroundApiProxy.serviceRevoke.buildEncodedTxsFromSetApprovalForAll(
-              {
-                from: accountAddress,
-                to: contract ?? '',
-                approved: false,
-                spender,
-              },
-            );
-        }
+              approved: false,
+              spender,
+            },
+          );
       }
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,

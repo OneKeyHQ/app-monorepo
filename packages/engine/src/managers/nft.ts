@@ -6,11 +6,9 @@ import {
   Collection,
   NFTAsset,
   NFTChainMap,
-  NFTGetAssetResp,
-  NFTScanNFTsResp,
+  NFTServiceResp,
   NFTSymbolMap,
   NFTTransaction,
-  TransactionsResp,
 } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
@@ -99,12 +97,12 @@ export function getContentWithAsset(asset: NFTAsset) {
 export const getUserNFTAssets = async (params: {
   accountId: string;
   networkId: string;
-}): Promise<NFTScanNFTsResp> => {
+}): Promise<NFTServiceResp<Collection[]>> => {
   const { accountId, networkId } = params;
   const endpoint = getFiatEndpoint();
   const apiUrl = `${endpoint}/NFT/v2/list?address=${accountId}&chain=${networkId}`;
   const data = await axios
-    .get<NFTScanNFTsResp>(apiUrl)
+    .get<NFTServiceResp<Collection[]>>(apiUrl)
     .then((resp) => resp.data)
     .catch(() => ({ data: [] }));
   return camelcaseKeys(data, { deep: true });
@@ -143,7 +141,7 @@ export const getAsset = async (params: {
   networkId: string;
   contractAddress?: string;
   tokenId: string;
-}): Promise<NFTGetAssetResp | undefined> => {
+}): Promise<NFTServiceResp<NFTAsset | undefined> | undefined> => {
   const { networkId, contractAddress, tokenId } = params;
   const endpoint = getFiatEndpoint();
   const urlParams = new URLSearchParams({
@@ -161,7 +159,7 @@ export const getAsset = async (params: {
     return;
   }
   const data = await axios
-    .get<NFTGetAssetResp>(apiUrl)
+    .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
     .then((resp) => resp.data)
     .catch(() => ({ data: undefined }));
   return camelcaseKeys(data, { deep: true });
@@ -210,7 +208,7 @@ export const getNFTTransactionHistory = async (
     const endpoint = getFiatEndpoint();
     const apiUrl = `${endpoint}/NFT/transactions/account?address=${accountId}&chain=${networkId}`;
     const data = await axios
-      .get<TransactionsResp>(apiUrl)
+      .get<NFTServiceResp<NFTTransaction[]>>(apiUrl)
       .then((resp) => resp.data)
       .catch(() => ({ data: [] }));
     const transactions = camelcaseKeys(data, { deep: true }).data;

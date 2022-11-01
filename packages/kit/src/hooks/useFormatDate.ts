@@ -1,6 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
-import { format as fnsFormat, parseISO } from 'date-fns';
+import {
+  format as fnsFormat,
+  formatDistance as fnsFormatDistance,
+  parseISO,
+} from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 
 import { useLocale } from '@onekeyhq/components';
@@ -108,8 +112,17 @@ export default function useFormatDate() {
     [format],
   );
 
+  const formatDistance = useCallback(
+    (date: Date | number) =>
+      fnsFormatDistance(Date.now(), date, {
+        addSuffix: true,
+        locale: parseLocal(locale),
+      }) ?? '',
+    [locale],
+  );
+
   return useMemo(
-    () => ({ format, formatDate, formatMonth }),
-    [format, formatDate, formatMonth],
+    () => ({ format, formatDate, formatMonth, formatDistance }),
+    [format, formatDate, formatMonth, formatDistance],
   );
 }
