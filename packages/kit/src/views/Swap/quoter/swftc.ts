@@ -1,7 +1,6 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -145,8 +144,9 @@ type OrderInfo = {
 };
 
 export class SwftcQuoter implements Quoter {
-  get baseUrl() {
-    return `${getFiatEndpoint()}/swft`;
+  async getBaseUrl() {
+    const baseUrl = await backgroundApiProxy.serviceSwap.getServerEndPoint();
+    return `${baseUrl}/swft`;
   }
 
   type: QuoterType = QuoterType.swftc;
@@ -227,7 +227,8 @@ export class SwftcQuoter implements Quoter {
   }
 
   private async getRemoteCoins(): Promise<Coin[]> {
-    const url = `${this.baseUrl}/queryCoinList`;
+    const baseURL = await this.getBaseUrl();
+    const url = `${baseURL}/queryCoinList`;
     const res = await this.client.post(url);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const coins = res.data.data as Coin[];
@@ -321,7 +322,8 @@ export class SwftcQuoter implements Quoter {
     if (fromNetwork && toNetwork) {
       const depositCoinCode = coins[fromNetwork]?.[fromToken]?.coinCode;
       const receiveCoinCode = coins[toNetwork]?.[toToken]?.coinCode;
-      const url = `${this.baseUrl}/getBaseInfo`;
+      const baseUrl = await this.getBaseUrl();
+      const url = `${baseUrl}/getBaseInfo`;
       if (depositCoinCode && receiveCoinCode) {
         const result = await this.client.post(url, {
           depositCoinCode,
@@ -488,7 +490,8 @@ export class SwftcQuoter implements Quoter {
       sourceType: 'H5',
       sourceFlag: 'ONEKEY',
     };
-    const url = `${this.baseUrl}/accountExchange`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/accountExchange`;
     const res = await this.client.post(url, data);
     // eslint-disable-next-line
     const orderData = res.data as {
@@ -504,7 +507,8 @@ export class SwftcQuoter implements Quoter {
   ): Promise<TransactionProgress> {
     const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
     if (swftcOrderId) {
-      const url = `${this.baseUrl}/queryOrderState`;
+      const baseUrl = await this.getBaseUrl();
+      const url = `${baseUrl}/queryOrderState`;
       const res = await axios.post(url, {
         equipmentNo: tx.from,
         sourceType: 'H5',
