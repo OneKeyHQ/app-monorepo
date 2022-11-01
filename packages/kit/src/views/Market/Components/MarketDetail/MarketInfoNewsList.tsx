@@ -6,8 +6,9 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   FlatList,
-  Image,
+  Icon,
   ListItem,
+  NetImage,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
@@ -38,26 +39,27 @@ const NewsItem: FC<NewsItemProps> = ({
         </Box>
       </Box>
       <Box ml="4">
-        <Image
+        <NetImage
+          skeleton
           src={imageUrl}
           alt={imageUrl}
           key={imageUrl}
           width="80px"
           height="80px"
           borderRadius={12}
-          // fallbackElement={
-          //   <Box
-          //     w="80px"
-          //     height="80px"
-          //     borderRadius={12}
-          //     bgColor="surface-neutral-default"
-          //     flexDirection="row"
-          //     justifyContent="center"
-          //     alignItems="center"
-          //   >
-          //     <Icon name="EmptyNftIllus" color="icon-default" />
-          //   </Box>
-          // }
+          fallbackElement={
+            <Box
+              w="80px"
+              height="80px"
+              borderRadius={12}
+              bgColor="surface-neutral-default"
+              flexDirection="row"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Icon name="ImageBrokenIllus" color="icon-default" />
+            </Box>
+          }
         />
       </Box>
     </Box>
