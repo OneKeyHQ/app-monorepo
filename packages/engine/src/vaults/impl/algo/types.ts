@@ -29,6 +29,8 @@ type AccountTransaction = {
     receiver: string;
     'asset-id': number;
     amount: number;
+    'close-amount': number;
+    'close-to': string;
   };
 };
 

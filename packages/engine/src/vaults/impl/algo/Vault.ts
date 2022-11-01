@@ -630,6 +630,8 @@ export default class Vault extends VaultBase {
           const {
             receiver: to,
             amount,
+            'close-to': closeTo,
+            'close-amount': closeAmount,
             'asset-id': assetId,
           } = transaction['asset-transfer-transaction'];
           const token = await this.engine.ensureTokenInDB(
@@ -673,7 +675,7 @@ export default class Vault extends VaultBase {
                 tokenInfo: token,
                 from: transaction.sender,
                 to,
-                amount: new BigNumber(amount)
+                amount: new BigNumber(closeAmount ?? amount)
                   .shiftedBy(-token.decimals)
                   .toFixed(),
                 amountValue: amount.toString(),
