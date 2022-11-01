@@ -328,14 +328,18 @@ export default class Vault extends VaultBase {
           extraInfo: null,
         },
       };
-    } else if (nativeTx.type === sdk.TransactionType.axfer) {
+    }
+
+    if (nativeTx.type === sdk.TransactionType.axfer) {
       const to = sdk.encodeAddress(nativeTx.arcv!);
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
         nativeTx.xaid!.toString(),
       );
+      let amount = new BigNumber(nativeTx.aamt?.toString() ?? 0).toFixed();
       if (typeof token !== 'undefined') {
-        if (sender === to) {
+        // opt-in to an asset
+        if (sender === to && amount === '0') {
           action = {
             type: IDecodedTxActionType.TOKEN_ACTIVATE,
             tokenActivate: {
@@ -348,17 +352,28 @@ export default class Vault extends VaultBase {
             },
           };
         } else {
-          const amount = nativeTx.aamt!.toString();
+          const assetSender = nativeTx.asnd && sdk.encodeAddress(nativeTx.asnd);
+          // opt-out of an asset
+          if (nativeTx.aclose) {
+            const [balance] = await this.getBalances([
+              {
+                address: dbAccount.address,
+                tokenAddress: token.tokenIdOnNetwork,
+              },
+            ]);
+
+            amount = new BigNumber(balance ?? 0).toFixed();
+          }
           action = {
             type: IDecodedTxActionType.TOKEN_TRANSFER,
             tokenTransfer: {
               tokenInfo: token,
-              from: sender,
+              from: assetSender ?? sender,
               to,
               amount: new BigNumber(amount)
                 .shiftedBy(-token.decimals)
                 .toFixed(),
-              amountValue: amount.toString(),
+              amountValue: amount,
               extraInfo: null,
             },
           };
