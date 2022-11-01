@@ -22,6 +22,7 @@ import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useFiatPay } from '../../hooks/redux';
+import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
 import {
   FiatPayModalRoutesParams,
   FiatPayRoutes,
@@ -47,7 +48,6 @@ import {
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 
