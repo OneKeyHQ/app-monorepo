@@ -35,8 +35,8 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_BTC,
-  IMPL_BCH,
   IMPL_ALGO,
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_EVM,
