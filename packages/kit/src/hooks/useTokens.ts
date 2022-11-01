@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -131,3 +132,15 @@ export const useSingleToken = (networkId: string, address: string) => {
 
   return token;
 };
+
+export const useTokenSupportStakedAssets = (
+  networkId?: string,
+  tokenIdOnNetwork?: string,
+) =>
+  useMemo(
+    () =>
+      !tokenIdOnNetwork &&
+      (networkId === OnekeyNetwork.eth || networkId === OnekeyNetwork.goerli),
+
+    [networkId, tokenIdOnNetwork],
+  );

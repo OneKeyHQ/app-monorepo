@@ -46,7 +46,7 @@ const BaseInfo = ({
       : '55px';
   }, [value, title]);
   return (
-    <Box my="2" justifyContent="space-between" w="112px" h={boxH}>
+    <Box mr="1" my="2" justifyContent="space-between" w="108px" h={boxH}>
       {isFetching ? (
         <>
           <Skeleton shape="Body2" />
@@ -135,7 +135,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
             <BaseInfo
               isFetching={marketCapDominance === undefined}
               title={intl.formatMessage({ id: 'form__market_cap_dominance' })}
-              value={`${marketCapDominance ?? 0}`}
+              value={`${marketCapDominance || 0}`}
             />
           </HStack>
         </Box>

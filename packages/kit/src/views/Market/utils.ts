@@ -103,8 +103,8 @@ export function formatLocalDate(date?: string, locale?: string) {
 const fiatUnitMap: Record<string, string> = {
   'usd': '$',
   'cny': '￥',
-  'hkd': 'HK$',
-  'jpy': 'JP￥',
+  'hkd': '$',
+  'jpy': '￥',
   'btc': 'BTC',
 };
 

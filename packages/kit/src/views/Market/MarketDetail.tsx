@@ -22,6 +22,7 @@ import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useFiatPay } from '../../hooks/redux';
+import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
 import {
   FiatPayModalRoutesParams,
   FiatPayRoutes,
@@ -113,15 +114,15 @@ const SwapButton = ({
 );
 
 const StakeButton = ({
-  tokenItem,
   onPress,
+  isDisabled,
 }: {
-  tokenItem?: MarketTokenItem;
   onPress: () => void;
+  isDisabled?: boolean;
 }) => (
   <Box>
     <IconButton
-      isDisabled={!tokenItem?.tokens?.length}
+      isDisabled={isDisabled}
       ml={4}
       type="basic"
       name="SaveSolid"
@@ -249,6 +250,10 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   });
   const token = marketTokenItem?.tokens?.[0];
   const { network } = useActiveWalletAccount();
+  const stakedSupport = useTokenSupportStakedAssets(
+    token?.networkId,
+    token?.tokenIdOnNetwork,
+  );
   const currencies = useFiatPay(network?.id ?? '');
   let crypotoCurrency = currencies.find((item) => {
     if (!token?.tokenIdOnNetwork) {
@@ -294,9 +299,9 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                 }}
               />
               <StakeButton
-                tokenItem={marketTokenItem}
+                isDisabled={!stakedSupport}
                 onPress={() => {
-                  if (token) {
+                  if (token && stakedSupport) {
                     navigation.navigate(RootRoutes.Modal, {
                       screen: ModalRoutes.Staking,
                       params: {
