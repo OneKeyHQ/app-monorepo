@@ -140,6 +140,7 @@ const TabNavigator = () => {
           isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
         }
         options={{
+          headerShown: tab.name !== TabRoutes.NFT,
           tabBarIcon: tab.tabBarIcon,
           tabBarLabel: intl.formatMessage({ id: tab.translationId }),
         }}

@@ -465,6 +465,7 @@
   "content__previous_backups": "Bản sao lưu trước",
   "content__previous_backups_desc": "Bạn có các bản sao lưu trước đó có thể bao gồm nội dung hiện không hoạt động trên thiết bị này.",
   "content__previous_str_account_is_empty": "Không thể tạo tài khoản, tài khoản Segwit {0} trước đó trống.",
+  "content__price": "Giá bán",
   "content__price_updates_after_str": "Cập nhật giá sau {0}",
   "content__price_uppercase": "Giá bán",
   "content__purchase_crypto_with_cash": "Mua tiền điện tử bằng tiền mặt",

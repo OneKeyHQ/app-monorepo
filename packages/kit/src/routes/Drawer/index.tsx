@@ -8,7 +8,7 @@ import { WalletSelectorMobile } from '@onekeyhq/kit/src/components/WalletSelecto
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Tab from '../Tab';
-import { RootRoutes } from '../types';
+import { RootRoutes, TabRoutes } from '../types';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -52,7 +52,10 @@ const DrawerStackNavigator = () => {
         component={Tab}
         options={({ route }) => {
           const routeName = getFocusedRouteNameFromRoute(route);
-          return { swipeEnabled: routeName !== 'discover' };
+          return {
+            swipeEnabled:
+              routeName !== TabRoutes.Discover && routeName !== TabRoutes.NFT,
+          };
         }}
       />
     </DrawerStack.Navigator>

@@ -49,6 +49,10 @@ const tabRoutesWhiteList: WhiteListItemList = [
     screen: `${TabRoutes.Market}`,
     path: `/${RootRoutes.Tab}/${TabRoutes.Market}`,
   },
+  {
+    screen: `${TabRoutes.NFT}`,
+    path: `/${RootRoutes.Tab}/${TabRoutes.NFT}`,
+  },
 ];
 
 const normalRouteWhiteList: WhiteListItemList = [

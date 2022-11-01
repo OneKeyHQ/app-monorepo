@@ -465,6 +465,7 @@
   "content__previous_backups": "পূর্ববর্তী ব্যাকআপ",
   "content__previous_backups_desc": "আপনার পূর্ববর্তী ব্যাকআপ রয়েছে যাতে এই ডিভাইসে বর্তমানে সক্রিয় নয় এমন সামগ্রী অন্তর্ভুক্ত থাকতে পারে৷",
   "content__previous_str_account_is_empty": "অ্যাকাউন্ট তৈরি করতে অক্ষম, আগের Segwit {0} অ্যাকাউন্ট খালি।",
+  "content__price": "দাম",
   "content__price_updates_after_str": "{0} পরে মূল্য আপডেট",
   "content__price_uppercase": "দাম",
   "content__purchase_crypto_with_cash": "নগদ দিয়ে ক্রিপ্টো কিনুন",

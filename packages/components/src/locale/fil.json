@@ -465,6 +465,7 @@
   "content__previous_backups": "Mga Nakaraang Backup",
   "content__previous_backups_desc": "Mayroon kang mga nakaraang backup na maaaring may kasamang mga content na kasalukuyang hindi aktibo sa device na ito.",
   "content__previous_str_account_is_empty": "Hindi makagawa ng account, walang laman ang dating Segwit {0} account.",
+  "content__price": "Presyo",
   "content__price_updates_after_str": "Mga update sa presyo pagkatapos ng {0}",
   "content__price_uppercase": "Presyo",
   "content__purchase_crypto_with_cash": "Bumili ng crypto gamit ang cash",
