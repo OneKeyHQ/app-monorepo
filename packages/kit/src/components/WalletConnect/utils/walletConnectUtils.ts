@@ -205,7 +205,6 @@ async function dappOpenWalletApp({
   }
 }
 
-let prevUnlockCallback: () => Promise<void> | undefined;
 async function openConnectToDappModal({
   uri,
   isDeepLink,
@@ -230,6 +229,7 @@ async function openConnectToDappModal({
         params: {
           walletConnectUri: uri,
           isDeepLink,
+          refreshKey: Date.now(),
         },
       },
     });
