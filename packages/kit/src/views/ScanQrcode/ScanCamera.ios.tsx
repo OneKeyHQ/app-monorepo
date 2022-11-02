@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { runOnJS } from 'react-native-reanimated';
 import {
@@ -32,8 +32,10 @@ const ScanCamera: FC<ScanCameraProps> = ({
   return device ? (
     <>
       <Camera
+        enableZoomGesture
         style={style}
         device={device}
+        zoom={device.neutralZoom}
         isActive={isActive}
         frameProcessor={frameProcessor}
         frameProcessorFps={5}
