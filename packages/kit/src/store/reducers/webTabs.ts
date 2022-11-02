@@ -55,6 +55,7 @@ export const webtabsSlice = createSlice({
         }
         state.currentTabId = payload.id;
       }
+      payload.timestamp = Date.now();
       state.tabs.push(payload);
     },
     setWebTabData: (

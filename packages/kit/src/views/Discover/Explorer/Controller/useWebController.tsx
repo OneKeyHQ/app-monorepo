@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -25,6 +25,7 @@ import {
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 
+let lastNewUrlTimeStamp = Date.now();
 export const useWebController = ({
   id,
   navigationStateChangeEvent,
@@ -37,9 +38,15 @@ export const useWebController = ({
   const { dispatch } = backgroundApiProxy;
   const { currentTabId, tabs, incomingUrl } = useAppSelector((s) => s.webTabs);
   const curId = id || currentTabId;
-  const getInnerRef = useCallback(() => webviewRefs[curId]?.innerRef, [curId]);
+  const [innerRef, setInnerRef] = useState(webviewRefs[curId]?.innerRef);
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs])!;
+
+  useEffect(() => {
+    if (tab.refReady) {
+      setInnerRef(webviewRefs[curId]?.innerRef);
+    }
+  }, [curId, tab.refReady]);
 
   const clearIncomingUrl = useCallback(
     () => dispatch(setIncomingUrl('')),
@@ -113,10 +120,11 @@ export const useWebController = ({
         // so it can not be in homepage (which is not a webpage)
         tab.url !== homeTab.url;
       if (isValidNewUrl) {
-        if (tab.timestamp && Date.now() - tab.timestamp < 500) {
+        if (tab.timestamp && Date.now() - lastNewUrlTimeStamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
+        lastNewUrlTimeStamp = Date.now();
         gotoSite({ url, title, favicon, isNewWindow, isInPlace });
       }
 
@@ -134,11 +142,9 @@ export const useWebController = ({
     [curId, dispatch, gotoSite, tab],
   );
 
-  // TODO add webview event listener `did-start-navigation` `dom-ready`
-  //      not working when loading initial url as getInnerRef() is null
   const { goBack, goForward, stopLoading, reload } = useWebviewRef({
     // @ts-expect-error
-    ref: getInnerRef(),
+    ref: innerRef,
     onNavigation,
     navigationStateChangeEvent,
     tabId: curId,
@@ -153,7 +159,6 @@ export const useWebController = ({
     goBack: () => {
       let canGoBack = tab?.refReady && tab?.canGoBack;
       if (platformEnv.isDesktop) {
-        const innerRef = getInnerRef() as IElectronWebView;
         if (innerRef) {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -162,7 +167,6 @@ export const useWebController = ({
       }
 
       stopLoading();
-      // TODO goBack() not working when initial url loaded
       if (canGoBack) {
         goBack();
       } else {
