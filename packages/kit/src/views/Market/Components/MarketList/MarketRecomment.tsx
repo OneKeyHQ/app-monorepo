@@ -64,9 +64,19 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
           type="primary"
           isDisabled={!(groupValue && groupValue.length > 0)}
           onPress={() => {
-            backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens(
-              groupValue ?? [],
-            );
+            if (groupValue?.length) {
+              const favorites = groupValue.map((v) => {
+                const res = { coingeckoId: v };
+                const token = tokens?.find((t) => t.coingeckoId === v);
+                if (token) {
+                  Object.assign(res, { symbol: token.symbol });
+                }
+                return res;
+              });
+              backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens(
+                favorites ?? [],
+              );
+            }
           }}
         >
           {intl.formatMessage({

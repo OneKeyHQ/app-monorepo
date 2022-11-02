@@ -155,45 +155,38 @@ export default class ServiceMarket extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async fetchMarketTokenPriceSubscribe() {
-    const path = '/notification/favorite';
-    const { dispatch, appSelector } = this.backgroundApi;
-    const instanceId = appSelector((s) => s.settings.instanceId);
-    const data = await this.fetchData(path, { instanceId }, []);
-    if (data.length > 0) {
-      const coingeckoIds = data.map(
-        (t: { coingeckoId: string }) => t.coingeckoId,
-      );
-      dispatch(updateMarketTokenPriceSubscribe({ coingeckoIds, enable: true }));
-    }
-  }
+  // @backgroundMethod()
+  // async fetchMarketTokenFavoritesForNtf() {
+  //   const path = '/notification/favorite';
+  //   const { dispatch, appSelector } = this.backgroundApi;
+  //   const instanceId = appSelector((s) => s.settings.instanceId);
+  //   const data = await this.fetchData(path, { instanceId }, []);
+  //   if (data.length > 0) {
+  //     const coingeckoIds = data.map(
+  //       (t: { coingeckoId: string }) => t.coingeckoId,
+  //     );
+  //   }
+  // }
 
   @backgroundMethod()
-  async fetchMarketTokenCancelPriceSubscribe(coingeckoId: string) {
+  async marketTokenCancelFavoriteForNtf(coingeckoId: string) {
     const path = '/notification/favorite';
-    const { dispatch, appSelector } = this.backgroundApi;
+    const { appSelector } = this.backgroundApi;
     const instanceId = appSelector((s) => s.settings.instanceId);
     const data = await this.fetchData<{
       acknowledged: boolean;
       deletedCount: number;
     } | null>(path, { instanceId, coingeckoId }, null, 'DELETE');
     if (data && data.acknowledged) {
-      dispatch(
-        updateMarketTokenPriceSubscribe({
-          coingeckoIds: [coingeckoId],
-          enable: false,
-        }),
-      );
       return Promise.resolve(true);
     }
     return Promise.resolve(false); // { "acknowledged": true, "deletedCount": 1}
   }
 
   @backgroundMethod()
-  async fetchMarketTokenAddPriceSubscribe(coingeckoId: string, symbol: string) {
+  async marketTokenAddFavoriteForNtf(coingeckoId: string, symbol: string) {
     const path = '/notification/favorite';
-    const { dispatch, appSelector } = this.backgroundApi;
+    const { appSelector } = this.backgroundApi;
     const instanceId = appSelector((s) => s.settings.instanceId);
     const data = await this.fetchData<{ coingeckoId: string } | null>(
       path,
@@ -202,12 +195,6 @@ export default class ServiceMarket extends ServiceBase {
       'POST',
     );
     if (data && data.coingeckoId) {
-      dispatch(
-        updateMarketTokenPriceSubscribe({
-          coingeckoIds: [data.coingeckoId],
-          enable: true,
-        }),
-      );
       return Promise.resolve(true);
     }
     return Promise.resolve(false);
@@ -290,8 +277,17 @@ export default class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async saveMarketFavoriteTokens(coingeckoIds: string[]) {
+  async saveMarketFavoriteTokens(
+    favorites: { coingeckoId: string; symbol?: string }[],
+  ) {
+    const coingeckoIds = favorites.map((f) => f.coingeckoId);
     this.backgroundApi.dispatch(saveMarketFavorite(coingeckoIds));
+    for (const f of favorites) {
+      await this.marketTokenAddFavoriteForNtf(
+        f.coingeckoId,
+        f.symbol ?? 'UNKOWN',
+      );
+    }
     return simpleDb.market.saveFavoriteMarketTokens(coingeckoIds);
   }
 
@@ -303,6 +299,7 @@ export default class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async cancelMarketFavoriteToken(coingeckoId: string) {
     this.backgroundApi.dispatch(cancleMarketFavorite(coingeckoId));
+    this.marketTokenCancelFavoriteForNtf(coingeckoId);
     return simpleDb.market.deleteFavoriteMarketToken(coingeckoId);
   }
 
