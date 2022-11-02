@@ -5,6 +5,7 @@ import { NFTAsset } from '../types/nft';
 import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
 
 import { IEncodedTxAptos } from './impl/apt/types';
+import { IEncodedTxCosmos } from './impl/cosmos/Types';
 
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
@@ -131,7 +132,8 @@ export type IEncodedTx =
   | IEncodedTxTron
   | IEncodedTxAptos
   | IEncodedTxCfx
-  | IEncodedTxAlgo;
+  | IEncodedTxAlgo
+  | IEncodedTxCosmos;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear

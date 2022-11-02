@@ -1,5 +1,8 @@
+import { isEmpty } from 'lodash';
+
 import { SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
+import { Account, AccountType } from '../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -56,4 +59,13 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
   return isCoinTypeCompatibleWithImpl(coinType, impl);
 }
 
-export { getWalletIdFromAccountId, isAccountCompatibleWithNetwork };
+function isAccountWithAddress(account: Account) {
+  if (account.type !== AccountType.VARIANT) return true;
+  return !isEmpty(account.address);
+}
+
+export {
+  getWalletIdFromAccountId,
+  isAccountCompatibleWithNetwork,
+  isAccountWithAddress,
+};
