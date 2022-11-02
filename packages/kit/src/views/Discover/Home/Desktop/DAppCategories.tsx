@@ -43,6 +43,7 @@ export const DAppCategories = () => {
         buttons={buttons}
         selectedIndex={selectedIndex}
         onButtonPress={onButtonPress}
+        bg="background-default"
       />
     </Box>
   );
