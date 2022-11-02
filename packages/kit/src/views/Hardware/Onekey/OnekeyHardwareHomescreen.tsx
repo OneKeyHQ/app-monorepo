@@ -8,9 +8,11 @@ import { useWindowDimensions } from 'react-native';
 import {
   Box,
   Button,
+  Icon,
   Image,
   Modal,
   Pressable,
+  Typography,
   useToast,
 } from '@onekeyhq/components';
 import {
@@ -65,6 +67,12 @@ const OnekeyHardwareHomescreen: FC = () => {
   useEffect(() => {
     const homescreensMap = getHomescreenData(deviceType);
     const dataSource = Object.values(homescreensMap).map((item) => item);
+    if (deviceType === 'touch') {
+      dataSource.push({
+        name: 'AddAction',
+        staticPath: null,
+      } as HomescreenItem);
+    }
     const layoutData = Array.from({
       length: dataSource.length % numColumns,
     }).map(
@@ -107,16 +115,46 @@ const OnekeyHardwareHomescreen: FC = () => {
   const cardWidth = Math.floor(
     (containerWidth - containerPadding * 2 - sperate * 3) / 4,
   );
+  const cardHeight = deviceType === 'touch' ? '120px' : '64px';
 
   const renderItem = useCallback(
     ({ item, index }: RenderItemParams) =>
-      !item.staticPath ? (
-        <Box key={index} width={cardWidth} height={16} />
+      // eslint-disable-next-line no-nested-ternary
+      item.name === 'AddAction' ? (
+        <Box key={index} width={cardWidth} height={cardHeight}>
+          <Pressable
+            key={index}
+            width={cardWidth}
+            height={cardHeight}
+            mb={4}
+            onPress={() => {
+              if (loading) return;
+              setActiveIndex(index);
+            }}
+          >
+            <Box
+              flex={1}
+              height={cardHeight}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="12px"
+              borderWidth="2px"
+              borderColor={
+                activeIndex === index ? 'interactive-default' : 'border-default'
+              }
+            >
+              <Icon size={24} name="PlusOutline" color="icon-default" />
+            </Box>
+          </Pressable>
+        </Box>
+      ) : !item.staticPath ? (
+        <Box key={index} width={cardWidth} height={cardHeight} />
       ) : (
         <Pressable
           key={index}
           width={cardWidth}
-          height={16}
+          height={cardHeight}
           mb={4}
           onPress={() => {
             if (loading) return;
@@ -129,7 +167,7 @@ const OnekeyHardwareHomescreen: FC = () => {
               source={item.staticPath}
               resizeMode="contain"
               size={cardWidth}
-              height={16}
+              height={cardHeight}
               borderRadius="12px"
               borderWidth={index === activeIndex ? '2px' : 0}
               borderColor="interactive-default"
@@ -138,7 +176,7 @@ const OnekeyHardwareHomescreen: FC = () => {
           </Box>
         </Pressable>
       ),
-    [cardWidth, activeIndex, loading],
+    [cardWidth, cardHeight, activeIndex, loading],
   );
 
   const flatlistProps = useMemo(
@@ -162,30 +200,39 @@ const OnekeyHardwareHomescreen: FC = () => {
 
   const footer = useMemo(
     () => (
-      <Box
-        px={{ base: 4, md: 6 }}
-        mb={{ base: `${bottom}px` }}
-        height={isSmallScreen ? '82px' : '70px'}
-        alignItems="center"
-        flexDir="row"
-        justifyContent={isSmallScreen ? 'center' : 'flex-end'}
-        borderTopWidth={isSmallScreen ? 0 : '1px'}
-        borderTopColor="border-subdued"
-      >
-        <Button
-          flex={isSmallScreen ? 1 : undefined}
-          type="primary"
-          size={isSmallScreen ? 'xl' : 'base'}
-          onPress={() => handleConfirm()}
-          isLoading={loading}
+      <>
+        {deviceType === 'touch' && (
+          <Box display="flex" alignItems="center" justifyContent="center">
+            <Typography.Text>
+              Supports PNG or JPG, 480 x 800 pixels
+            </Typography.Text>
+          </Box>
+        )}
+        <Box
+          px={{ base: 4, md: 6 }}
+          mb={{ base: `${bottom}px` }}
+          height={isSmallScreen ? '82px' : '70px'}
+          alignItems="center"
+          flexDir="row"
+          justifyContent={isSmallScreen ? 'center' : 'flex-end'}
+          borderTopWidth={isSmallScreen ? 0 : '1px'}
+          borderTopColor="border-subdued"
         >
-          {intl.formatMessage({
-            id: 'action__confirm',
-          })}
-        </Button>
-      </Box>
+          <Button
+            flex={isSmallScreen ? 1 : undefined}
+            type="primary"
+            size={isSmallScreen ? 'xl' : 'base'}
+            onPress={() => handleConfirm()}
+            isLoading={loading}
+          >
+            {intl.formatMessage({
+              id: 'action__confirm',
+            })}
+          </Button>
+        </Box>
+      </>
     ),
-    [handleConfirm, loading, isSmallScreen, intl, bottom],
+    [handleConfirm, deviceType, loading, isSmallScreen, intl, bottom],
   );
 
   return (

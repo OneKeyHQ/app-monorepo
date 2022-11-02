@@ -1,6 +1,6 @@
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import { T1Data } from './homescreensData';
+import { T1Data, TouchData } from './homescreensData';
 
 /**
  * For major_version less then 2.0.0
@@ -61,11 +61,20 @@ export const homescreensT1 = [
   'xrc',
 ];
 
+export const homescreenTouch = [
+  'wallpaper-1',
+  'wallpaper-2',
+  'wallpaper-3',
+  'wallpaper-4',
+];
+
 export const getHomescreenKeys = (type: IOneKeyDeviceType) => {
   switch (type) {
     case 'classic':
     case 'mini':
       return homescreensT1;
+    case 'touch':
+      return homescreenTouch;
     default:
       return [];
   }
@@ -86,7 +95,14 @@ export const getHomescreenData = (type: IOneKeyDeviceType) => {
         },
         {} as HomescreenMap,
       );
-
+    case 'touch':
+      return getHomescreenKeys(type).reduce<HomescreenMap>(
+        (acc, key: string) => {
+          acc[key] = (TouchData as unknown as HomescreenMap)[key];
+          return acc;
+        },
+        {} as HomescreenMap,
+      );
     default:
       return {};
   }
