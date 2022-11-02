@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react/no-unknown-property */
-import {
+import React, {
   forwardRef,
   useCallback,
   useEffect,
@@ -170,7 +170,7 @@ const DesktopWebView = forwardRef(
           if (onSrcChange) {
             onSrcChange(url);
           } else {
-            webviewRef.current?.loadURL(url);
+            // webviewRef.current?.loadURL(url);
           }
         },
       };
@@ -180,8 +180,11 @@ const DesktopWebView = forwardRef(
       return wrapper;
     });
 
-    const initWebviewByRef = useCallback(($ref: any) => {
+    const initWebviewByRef = useCallback(($ref) => {
       webviewRef.current = $ref as IElectronWebView;
+      // desktop "ipc-message" listener must be added after webviewReady
+      //    so use ref to check it
+
       setIsWebviewReady(true);
     }, []);
 
@@ -228,7 +231,9 @@ const DesktopWebView = forwardRef(
                 try {
                   const uri = new URL(url);
                   originInUrl = uri?.origin || '';
-                } catch {
+                } catch (error) {
+                  // noop
+                } finally {
                   // noop
                 }
               }
@@ -242,7 +247,7 @@ const DesktopWebView = forwardRef(
               }
               return false;
             },
-          }).catch();
+          });
           if (origin) {
             // - receive
             jsBridgeHost.receive(data, { origin });

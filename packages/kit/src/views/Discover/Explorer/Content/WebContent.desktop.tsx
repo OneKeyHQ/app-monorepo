@@ -25,7 +25,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const webview = useMemo(
     () => (
       <WebView
-        id={id}
+        key={String(showHome)}
         src={url}
         onWebViewRef={(ref) => {
           const { dispatch } = backgroundApiProxy;
@@ -40,7 +40,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id],
+    [id, showHome],
   );
 
   return (
