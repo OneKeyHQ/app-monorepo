@@ -234,9 +234,14 @@ async function openConnectToDappModal({
       },
     });
   };
-  unlockUtils.runAfterUnlock(() => {
+
+  if (platformEnv.isExtension) {
     showWalletConnectConnectionModal();
-  });
+  } else {
+    unlockUtils.runAfterUnlock(() => {
+      showWalletConnectConnectionModal();
+    });
+  }
 }
 
 // V2:

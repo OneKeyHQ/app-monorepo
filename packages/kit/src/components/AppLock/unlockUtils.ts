@@ -8,12 +8,19 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import store from '../../store';
 import { wait } from '../../utils/helper';
 
 let prevUnlockCallback: () => Promise<void> | undefined;
-async function runAfterUnlock(callback: () => Promise<any> | void) {
-  const isUnlock = await backgroundApiProxy.serviceApp.isUnlock();
+async function runAfterUnlock(
+  callback: () => Promise<any> | void,
+  { ignoreExt = true }: { ignoreExt?: boolean } = {},
+) {
+  if (ignoreExt) {
+    return callback();
+  }
+  await wait(0); // TODO wait store ready
+  const isUnlock = store.getState()?.status?.isUnlock;
   if (isUnlock) {
     return callback();
   }
@@ -28,7 +35,6 @@ async function runAfterUnlock(callback: () => Promise<any> | void) {
       // alert(1111);
       resolve(await callback());
     };
-    // TODO how ext working with lock?
     const isExtBg = platformEnv.isExtensionBackground;
     if (isExtBg) {
       if (prevUnlockCallback) {

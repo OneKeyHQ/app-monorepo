@@ -69,7 +69,9 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
               window.desktopApi.focus();
             });
           }
-          return unlockUtils.runAfterUnlock(doProviderRequest);
+          if (!platformEnv.isExtension) {
+            return unlockUtils.runAfterUnlock(doProviderRequest);
+          }
         }
 
         return doProviderRequest();
