@@ -232,6 +232,7 @@ class ServiceApp extends ServiceBase {
       serviceNetwork,
       appSelector,
       serviceBootstrap,
+      serviceOnboarding,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -271,6 +272,7 @@ class ServiceApp extends ServiceBase {
     );
 
     serviceBootstrap.switchDefaultRpcToOnekeyRpcNode();
+    serviceOnboarding.checkOnboardingStatus();
     this._appInited = true;
   }
 
