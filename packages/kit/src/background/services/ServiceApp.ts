@@ -260,7 +260,7 @@ class ServiceApp extends ServiceBase {
     const activeAccountId = serviceAccount.initCheckingAccount(accounts);
 
     if (activeNetworkId) {
-      await engine.updateOnlineTokens(activeNetworkId, false);
+      engine.updateOnlineTokens(activeNetworkId, false);
     }
 
     dispatch(

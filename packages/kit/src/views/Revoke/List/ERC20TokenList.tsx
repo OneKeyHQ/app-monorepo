@@ -21,7 +21,7 @@ import {
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { AssetType, Filter } from '../FilterBar';
-import { useERC20Allowances, useIsVerticalOrMiddleLayout } from '../hooks';
+import { useIsVerticalOrMiddleLayout, useTokenAllowances } from '../hooks';
 
 import { ERC20Allowance } from './ERC20Allowance';
 
@@ -35,20 +35,20 @@ export const EmptyRecord = () => {
   );
 };
 
-export const Header = () => {
+export const Header = ({ assetType }: { assetType: AssetType }) => {
   const intl = useIntl();
   return (
     <ListItem>
       <ListItem.Column
         text={{
           label: intl.formatMessage({
-            id: 'form__token',
+            id: assetType === AssetType.tokens ? 'form__token' : 'form__nft',
           }),
         }}
         w="200px"
       />
       <ListItem.Column
-        w="100px"
+        w="200px"
         text={{
           label: intl.formatMessage({
             id: 'form__balance',
@@ -122,7 +122,7 @@ export const ListLoading = () => {
             </HStack>
           </ListItem.Column>
           <ListItem.Column>
-            <HStack w="100px" justifyContent="flex-end">
+            <HStack w="200px" justifyContent="flex-end">
               <Skeleton shape="Body1" />
             </HStack>
           </ListItem.Column>
@@ -164,11 +164,11 @@ export const ERC20TokenList: FC<{
     allowances,
     prices,
     address: accountAddress,
-  } = useERC20Allowances(networkId, addressOrName);
+  } = useTokenAllowances(networkId, addressOrName, filters.assetType);
 
   const data = useMemo(
     () =>
-      allowances
+      (allowances
         ?.filter((item) => item.allowance.length > 0)
         ?.filter(
           ({ token }) => filters.includeUnverifiedTokens || token.verified,
@@ -181,7 +181,7 @@ export const ERC20TokenList: FC<{
             return !(toFloat(Number(balance), token.decimals) === '0.000');
           }
           return balance === '0';
-        }) ?? [],
+        }) ?? []) as ERC20TokenAllowance[],
     [filters, allowances],
   );
 
@@ -213,7 +213,7 @@ export const ERC20TokenList: FC<{
             />
           </ListItem.Column>
           <ListItem.Column>
-            <VStack w="100px" alignSelf="flex-start" textAlign="right">
+            <VStack w="200px" alignSelf="flex-start" textAlign="right">
               <Typography.Body1Strong>
                 {`${toFloat(Number(balance), decimals)} ${symbol}`}
               </Typography.Body1Strong>
@@ -334,12 +334,13 @@ export const ERC20TokenList: FC<{
     },
     [networkId, prices, intl, accountAddress],
   );
-
   return (
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={isVertical ? undefined : () => <Header />}
+      ListHeaderComponent={
+        isVertical ? undefined : () => <Header assetType={AssetType.tokens} />
+      }
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id ?? token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}
