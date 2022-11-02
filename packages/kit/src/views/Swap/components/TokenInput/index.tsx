@@ -213,27 +213,37 @@ const TokenInput: FC<TokenInputProps> = ({
               <Icon size={20} name="ChevronDownSolid" />
             </Center>
           </Pressable>
-          <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <NumberInput
-              w="full"
-              h="auto"
-              borderWidth={0}
-              placeholder="0.00"
-              fontSize={24}
-              fontWeight="bold"
-              bg="transparent"
-              _disabled={{ bg: 'transparent' }}
-              _hover={{ bg: 'transparent' }}
-              _focus={{ bg: 'transparent' }}
-              value={inputValue}
-              borderRadius={0}
-              onChangeText={onChange}
-              py="1"
-              pr="2"
-              textAlign="right"
-              isDisabled={isDisabled}
-              rightCustomElement={null}
-            />
+          <Box
+            flex="1"
+            flexDirection="row"
+            h="full"
+            justifyContent="flex-end"
+            position="relative"
+          >
+            <Box position="absolute" w="full" top="0" right="0">
+              <NumberInput
+                w="full"
+                h="auto"
+                borderWidth={0}
+                placeholder="0.00"
+                fontSize={24}
+                fontWeight="bold"
+                bg="transparent"
+                _disabled={{ bg: 'transparent' }}
+                _hover={{ bg: 'transparent' }}
+                _focus={{ bg: 'transparent' }}
+                value={inputValue}
+                borderRadius={0}
+                onChangeText={onChange}
+                pt="3"
+                pb="12"
+                // py="1"
+                pr="2"
+                textAlign="right"
+                isDisabled={isDisabled}
+                rightCustomElement={null}
+              />
+            </Box>
           </Box>
         </Box>
         <Box
@@ -241,6 +251,7 @@ const TokenInput: FC<TokenInputProps> = ({
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
+          zIndex="-1"
         >
           <Pressable
             onPress={() => {
@@ -273,7 +284,7 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             </Box>
           </Pressable>
-          <Box>
+          <Box pointerEvents="none">
             <Typography.Caption color="text-subdued" numberOfLines={2}>
               <FormatCurrency
                 numbers={[price ?? 0, inputValue ?? 0]}
