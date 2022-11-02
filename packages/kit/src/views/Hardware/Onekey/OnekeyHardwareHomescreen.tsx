@@ -1,7 +1,15 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -28,6 +36,7 @@ import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   HomescreenItem,
   getHomescreenData,
+  imageCache,
 } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -51,6 +60,11 @@ const OnekeyHardwareHomescreen: FC = () => {
   const [data, setData] = useState<HomescreenItem[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
+  const [uploadImages, setUploadImages] =
+    useState<typeof imageCache>(imageCache);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const initializedRef = useRef<boolean>(false);
+
   const { engine, serviceHardware } = backgroundApiProxy;
 
   const isSmallScreen = useIsVerticalLayout();
@@ -64,24 +78,81 @@ const OnekeyHardwareHomescreen: FC = () => {
 
   const numColumns = 4;
 
-  useEffect(() => {
-    const homescreensMap = getHomescreenData(deviceType);
-    const dataSource = Object.values(homescreensMap).map((item) => item);
-    if (deviceType === 'touch') {
-      dataSource.push({
-        name: 'AddAction',
-        staticPath: null,
-      } as HomescreenItem);
-    }
+  const hackLayout = (dataSource: HomescreenItem[]): HomescreenItem[] => {
     const layoutData = Array.from({
       length: dataSource.length % numColumns,
     }).map(
       (_, index) =>
         ({ name: `hackLayout-${index}`, staticPath: null } as HomescreenItem),
     );
+    return layoutData;
+  };
+
+  const syncUploadImage = useCallback(
+    (images: HomescreenItem[]) => {
+      const originData = images.filter(
+        (i) =>
+          !i.name.startsWith('hackLayout') && !i.name.startsWith('AddAction'),
+      );
+      let insertIndex = originData.length;
+      const dataSource = [...originData];
+
+      Object.values(uploadImages).forEach((item) => {
+        if (!originData.find((i) => i.name === item.name)) {
+          dataSource.splice(insertIndex, 0, item as HomescreenItem);
+          insertIndex += 1;
+        }
+      });
+      dataSource.push({
+        name: 'AddAction',
+        staticPath: null,
+      } as HomescreenItem);
+      return dataSource;
+    },
+    [uploadImages],
+  );
+
+  useEffect(() => {
+    const homescreensMap = getHomescreenData(deviceType);
+    let dataSource = Object.values(homescreensMap).map((item) => item);
+    if (deviceType === 'touch') {
+      dataSource = syncUploadImage(dataSource);
+    }
+    const layoutData = hackLayout(dataSource);
     dataSource.push(...layoutData);
     setData(dataSource);
-  }, [deviceType]);
+    setIsInitialized(true);
+    initializedRef.current = true;
+  }, [deviceType, syncUploadImage]);
+
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    if (!isInitialized) return;
+    const dataSource = syncUploadImage(data);
+    const layoutData = hackLayout(dataSource);
+    dataSource.push(...layoutData);
+    setData(dataSource);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadImages]);
+
+  const addImage = useCallback((uri: string) => {
+    const name = `upload-${Object.keys(imageCache).length}`;
+    imageCache[name] = { name, staticPath: uri };
+    setUploadImages({ ...imageCache });
+    // setTimeout(() => syncDataSource());
+  }, []);
+
+  const pickImage = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.2,
+    });
+
+    if (!result.cancelled && result.uri) {
+      addImage(result.uri);
+    }
+  }, [addImage]);
 
   const handleConfirm = useCallback(async () => {
     if (!connectId) return;
@@ -129,7 +200,7 @@ const OnekeyHardwareHomescreen: FC = () => {
             mb={4}
             onPress={() => {
               if (loading) return;
-              setActiveIndex(index);
+              pickImage();
             }}
           >
             <Box
@@ -176,7 +247,7 @@ const OnekeyHardwareHomescreen: FC = () => {
           </Box>
         </Pressable>
       ),
-    [cardWidth, cardHeight, activeIndex, loading],
+    [cardWidth, cardHeight, activeIndex, loading, pickImage],
   );
 
   const flatlistProps = useMemo(

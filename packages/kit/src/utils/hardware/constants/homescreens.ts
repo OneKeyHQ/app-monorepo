@@ -107,3 +107,5 @@ export const getHomescreenData = (type: IOneKeyDeviceType) => {
       return {};
   }
 };
+
+export const imageCache: Record<string, HomescreenItem> = {};
