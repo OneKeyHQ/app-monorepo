@@ -25,6 +25,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const webview = useMemo(
     () => (
       <WebView
+        id={id}
         key={String(showHome)}
         src={url}
         onWebViewRef={(ref) => {

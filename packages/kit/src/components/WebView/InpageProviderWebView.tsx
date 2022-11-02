@@ -65,6 +65,7 @@ export type InpageProviderWebViewProps = InpageWebViewProps & {
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
     {
+      id,
       src = '',
       onSrcChange,
       receiveHandler,
@@ -243,6 +244,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           {isDesktop && (
             <Freeze freeze={desktopLoadError}>
               <DesktopWebView
+                id={id}
                 key={key}
                 ref={setWebViewRef}
                 src={src}

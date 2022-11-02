@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react/no-unknown-property */
-import React, {
+import {
   forwardRef,
   useCallback,
   useEffect,
@@ -182,9 +182,6 @@ const DesktopWebView = forwardRef(
 
     const initWebviewByRef = useCallback(($ref) => {
       webviewRef.current = $ref as IElectronWebView;
-      // desktop "ipc-message" listener must be added after webviewReady
-      //    so use ref to check it
-
       setIsWebviewReady(true);
     }, []);
 
