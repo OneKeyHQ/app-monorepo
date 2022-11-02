@@ -3,6 +3,7 @@ import { FC, useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable } from 'native-base';
 
 import { Box, CustomSkeleton, ImageViewer } from '@onekeyhq/components';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PlatformImage } from './PlatformImage';
@@ -25,6 +26,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   const [imageState, updateImageState] = useState<ImageState>(
     skeleton ? 'loading' : null,
   );
+  const isMounted = useIsMounted();
   const { preview } = rest;
   const [src, updateSrc] = useState(rest.src);
   const retryCount = useRef(0);
@@ -38,6 +40,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   const onImageError = useCallback(() => {
     if (onErrorWithTask && retryCount.current === 0) {
       onErrorWithTask().then((success) => {
+        if (!isMounted.current) return;
         if (success) {
           updateSrc(`${rest.src as string}?t=${Date.now()}`);
           retryCount.current += 1;
@@ -47,13 +50,14 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
       });
     } else if (retryCount.current < retry) {
       setTimeout(() => {
+        if (!isMounted.current) return;
         updateSrc(`${rest.src as string}?t=${Date.now()}`);
         retryCount.current += 1;
       }, retryDuring);
     } else {
       updateImageState('fail');
     }
-  }, [onErrorWithTask, retry, rest.src, retryDuring]);
+  }, [onErrorWithTask, retry, isMounted, rest.src, retryDuring]);
 
   const renderImage = useMemo(() => {
     const key = platformEnv.isWeb ? src : undefined;
@@ -62,6 +66,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
         <PlatformImage
           key={key}
           onLoad={() => {
+            if (!isMounted.current) return;
             updateImageState('success');
           }}
           onError={onImageError}
@@ -87,6 +92,7 @@ export const Image: FC<ImageProps & { onPress?: () => void }> = ({
     borderRadius,
     alt,
     bgColor,
+    isMounted,
   ]);
   return (
     <Box {...rest}>
