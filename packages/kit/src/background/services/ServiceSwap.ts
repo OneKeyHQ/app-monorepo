@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await */
 import { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -39,6 +40,11 @@ export default class ServiceSwap extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     const networks = appSelector((s) => s.runtime.networks);
     return networks.find((network) => network.id === networkId);
+  }
+
+  @backgroundMethod()
+  async getServerEndPoint() {
+    return getFiatEndpoint();
   }
 
   @backgroundMethod()

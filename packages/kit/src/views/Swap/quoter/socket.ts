@@ -1,7 +1,6 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -164,13 +163,13 @@ export class SocketQuoter implements Quoter {
     this.refreshSupportedChains();
   }
 
-  getBaseURL() {
-    const baseURL = `${getFiatEndpoint()}/socketBridge`;
-    return baseURL;
+  async getBaseURL(): Promise<string> {
+    const baseURL = await backgroundApiProxy.serviceSwap.getServerEndPoint();
+    return `${baseURL}/socketBridge`;
   }
 
   async fetchTokenPrice(token: Token): Promise<SocketTokenPrice | undefined> {
-    const baseURL = this.getBaseURL();
+    const baseURL = await this.getBaseURL();
     const url = `${baseURL}/token-price`;
     const data = await this.client.get(url, {
       params: {
@@ -201,7 +200,7 @@ export class SocketQuoter implements Quoter {
     tokenOut: Token,
     userAddress: string,
   ): Promise<number | undefined> {
-    const baseURL = this.getBaseURL();
+    const baseURL = await this.getBaseURL();
     const url = `${baseURL}/quote`;
     const params = {
       fromChainId: getChainIdFromNetworkId(tokenIn.networkId),
@@ -280,7 +279,7 @@ export class SocketQuoter implements Quoter {
   }
 
   async fetchSupportedChains(): Promise<SupportedChain[]> {
-    const baseURL = this.getBaseURL();
+    const baseURL = await this.getBaseURL();
     const res = await this.client.get(`${baseURL}/supported/chains`);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return res?.data?.result as SupportedChain[];
@@ -297,7 +296,7 @@ export class SocketQuoter implements Quoter {
   }
 
   async fetchSupportedBridges(): Promise<SupportedBridge[]> {
-    const baseURL = this.getBaseURL();
+    const baseURL = await this.getBaseURL();
     const res = await this.client.get(`${baseURL}/supported/bridges`);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return res?.data?.result as SupportedBridge[];
@@ -322,7 +321,7 @@ export class SocketQuoter implements Quoter {
   }
 
   async fetchTransactionData(route: SocketRoute) {
-    const baseURL = this.getBaseURL();
+    const baseURL = await this.getBaseURL();
     const res = await this.client.post(`${baseURL}/build-tx`, { route });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const data = res.data.result as SocketBuildTransactionResponse | undefined;
@@ -332,7 +331,7 @@ export class SocketQuoter implements Quoter {
   async fetchSimpleQuoteFromInput(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
-    const baseURL = this.getBaseURL();
+    const baseURL = await this.getBaseURL();
     const url = `${baseURL}/quote`;
     if (
       params.networkIn.id !== params.networkOut.id ||
@@ -468,7 +467,7 @@ export class SocketQuoter implements Quoter {
   async fetchMultichainQuoteFromInput(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
-    const baseURL = this.getBaseURL();
+    const baseURL = await this.getBaseURL();
     const url = `${baseURL}/quote`;
     if (params.independentField === 'OUTPUT') {
       return undefined;
@@ -651,7 +650,7 @@ export class SocketQuoter implements Quoter {
   > {
     let res: any;
     try {
-      const baseURL = this.getBaseURL();
+      const baseURL = await this.getBaseURL();
       res = await this.client.get(`${baseURL}/bridge-status`, { params });
     } catch (e) {
       console.log(e);

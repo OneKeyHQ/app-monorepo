@@ -19052,7 +19052,7 @@ react-native-web@0.18.9:
 
 react-native-webview@^11.17.2, "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview":
   version "11.23.1"
-  resolved "https://github.com/OneKeyHQ/react-native-webview.git#bb80dfcbce70bd269dc0724a357f35993f64c23d"
+  resolved "https://github.com/OneKeyHQ/react-native-webview.git#1d598d7e23f48e156e95b8ebec8dfc677ebec63d"
   dependencies:
     escape-string-regexp "2.0.0"
     invariant "2.2.4"
