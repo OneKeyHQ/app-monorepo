@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Switch, Typography } from '@onekeyhq/components';
@@ -14,6 +15,13 @@ import TransactionRate from './components/TransactionRate';
 import { useSwapState } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
 import { isNoCharge } from './utils';
+
+function formatPercentageFee(percentageFee?: string): string {
+  if (!percentageFee) return '0';
+  let bn = new BigNumber(percentageFee);
+  bn = bn.multipliedBy(100);
+  return bn.isNaN() ? '0' : bn.toFixed();
+}
 
 const SwapArrivalTime = () => {
   const intl = useIntl();
@@ -184,7 +192,8 @@ const SwapQuote = () => {
           {intl.formatMessage({ id: 'form__included_onekey_fee' })}
         </Typography.Caption>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          {isNoCharge(quote.type) ? (
+          {isNoCharge(quote.type) ||
+          (quote.percentageFee && Number(quote.percentageFee) === 0) ? (
             <Box flexDirection="column" alignItems="flex-end">
               <Typography.Caption color="text-subdued" strikeThrough>
                 0.2 - 0.875%
@@ -195,7 +204,9 @@ const SwapQuote = () => {
             </Box>
           ) : (
             <Typography.Caption color="text-subdued">
-              0.2 - 0.875%
+              {!quote.percentageFee
+                ? ' 0.2 - 0.875%'
+                : `${formatPercentageFee(quote.percentageFee)}%`}
             </Typography.Caption>
           )}
         </Box>
