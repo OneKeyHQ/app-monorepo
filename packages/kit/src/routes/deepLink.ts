@@ -76,7 +76,7 @@ const processDeepLinkUrl = memoizee(
         }
       }
 
-      // ** WalletConnect uri
+      // ** WalletConnect uri DeepLink
       // wc:c157eb01-8262-40e4-963e-7ebee47d0eac@1?bridge=https%3A%2F%2F7.bridge.walletconnect.org&key=881d859aa3ae028e284dd03e3be1d09c486329a400509a39c85246813808956b
       if (
         scheme === WALLET_CONNECT_DEEP_LINK ||

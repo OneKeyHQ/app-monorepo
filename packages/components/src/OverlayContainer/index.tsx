@@ -17,6 +17,7 @@ export const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
   return (
     <Container style={StyleSheet.absoluteFill}>
       <View
+        testID="OverlayContainer-View"
         pointerEvents="box-none"
         style={StyleSheet.absoluteFill}
         {...props}

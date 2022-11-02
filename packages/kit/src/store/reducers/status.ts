@@ -37,6 +37,9 @@ export const slice = createSlice({
     setBoardingCompleted: (state) => {
       state.boardingCompleted = true;
     },
+    setBoardingNotCompleted: (state) => {
+      state.boardingCompleted = false;
+    },
     setAuthenticationType(
       state,
       action: PayloadAction<'FINGERPRINT' | 'FACIAL'>,
@@ -90,6 +93,7 @@ export const slice = createSlice({
 
 export const {
   setBoardingCompleted,
+  setBoardingNotCompleted,
   setAuthenticationType,
   lock,
   unlock,
