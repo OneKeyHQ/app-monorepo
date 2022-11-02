@@ -424,4 +424,5 @@ export const tokenReservedValues: Record<string, number> = {
   [OnekeyNetwork.bsc]: 0.01,
   [OnekeyNetwork.polygon]: 0.03,
   [OnekeyNetwork.btc]: 0,
+  [OnekeyNetwork.optimism]: 0.0001,
 };
