@@ -10,6 +10,7 @@ export type IDappSignAndSendParams = {
   unsignedMessage?: IUnsignedMessageEvm;
   encodedTx?: IEncodedTx;
   signOnly?: boolean;
+  _$t?: number;
 };
 
 // TODO rename useDappQuery

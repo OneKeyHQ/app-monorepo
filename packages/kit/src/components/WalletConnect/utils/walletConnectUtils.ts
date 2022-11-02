@@ -1,19 +1,13 @@
 import { IClientMeta } from '@walletconnect/types';
 import { Linking, Platform } from 'react-native';
 
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '../../../background/utils';
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import store from '../../../store';
-import { getTimeDurationMs, wait } from '../../../utils/helper';
+import { getTimeDurationMs } from '../../../utils/helper';
 import { DappConnectionModalRoutes } from '../../../views/DappModals/types';
 import unlockUtils from '../../AppLock/unlockUtils';
 import { WalletService } from '../types';

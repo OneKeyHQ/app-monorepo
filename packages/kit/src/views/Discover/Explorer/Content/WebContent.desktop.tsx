@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { Box } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -11,7 +10,7 @@ import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import { useGotoSite } from '../Controller/useGotoSite';
 import { useWebController } from '../Controller/useWebController';
-import { webHandler, webviewRefs } from '../explorerUtils';
+import { webviewRefs } from '../explorerUtils';
 
 /*
 Desktop should load 'about:blank' first to avoid DAPP site load before webview message bridge established.

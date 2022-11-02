@@ -25,6 +25,8 @@ function SendConfirmFromDapp() {
     unsignedMessage,
     encodedTx,
     signOnly = false,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    _$t = undefined,
   } = useDappParams();
   useEffect(() => {
     let action: any;
@@ -42,6 +44,7 @@ function SendConfirmFromDapp() {
         signOnly,
         // @ts-ignore
         _disabledAnimationOfNavigate: true,
+        _$t,
       };
       // replace router to SendConfirm
       action = StackActions.replace(SendRoutes.SendConfirm, params);
@@ -54,13 +57,14 @@ function SendConfirmFromDapp() {
         unsignedMessage,
         // @ts-ignore
         _disabledAnimationOfNavigate: true,
+        _$t,
       };
       action = StackActions.replace(SendRoutes.SignMessageConfirm, params);
     }
     if (action) {
       navigation.dispatch(action);
     }
-  }, [encodedTx, navigation, sourceInfo, unsignedMessage, signOnly]);
+  }, [_$t, encodedTx, navigation, sourceInfo, unsignedMessage, signOnly]);
 
   return null;
 }
