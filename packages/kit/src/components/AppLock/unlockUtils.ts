@@ -16,7 +16,7 @@ async function runAfterUnlock(
   callback: () => Promise<any> | void,
   { ignoreExt = true }: { ignoreExt?: boolean } = {},
 ) {
-  if (ignoreExt) {
+  if (ignoreExt && platformEnv.isExtension) {
     return callback();
   }
   await wait(0); // TODO wait store ready
