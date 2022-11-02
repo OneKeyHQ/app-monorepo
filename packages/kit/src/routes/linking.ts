@@ -65,6 +65,10 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/${RootRoutes.OnLanding}`,
   },
   {
+    screen: `${RootRoutes.OnLandingWalletConnect}`,
+    path: `/${RootRoutes.OnLandingWalletConnect}`,
+  },
+  {
     screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
     path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },
@@ -248,7 +252,7 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
       // /account/:address/:networkId?
       [RootRoutes.Account]: AccountRootLandingPathSchema,
       // /wc/connect
-      [RootRoutes.OnLanding]: WalletConnectUniversalLinkPathSchema,
+      [RootRoutes.OnLandingWalletConnect]: WalletConnectUniversalLinkPathSchema,
       NotFound: '*',
     },
   },

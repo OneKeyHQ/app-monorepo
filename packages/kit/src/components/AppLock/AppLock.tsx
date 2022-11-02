@@ -1,5 +1,7 @@
 import React, { FC, useEffect, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+
 import { Box, OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -12,6 +14,29 @@ import { AppStateUnlock } from './AppStateUnlock';
 import { AppStateUpdater } from './AppStateUpdater';
 
 type AppLockProps = { children: JSX.Element; renderAsOverlay?: boolean };
+
+// open url matched here won't show unlock screen
+// TODO use https://www.npmjs.com/package/path-to-regexp to check match
+const unlockWhiteListUrl = [
+  '/account/', // /account/0x88888
+  '/wc/connect',
+  '/onlanding',
+  '/root/initial/tab/home/Revoke',
+  '/root/Revoke',
+];
+
+function isUnlockWhiteListUrl() {
+  // only available for web
+  // TODO only for dapp mode web, but not wallet mode web
+  if (!platformEnv.isWeb) {
+    return false;
+  }
+  return Boolean(
+    unlockWhiteListUrl.find((item) =>
+      window.location?.pathname?.startsWith(item),
+    ),
+  );
+}
 
 export const AppLockView: FC<AppLockProps> = ({
   children,
@@ -26,10 +51,11 @@ export const AppLockView: FC<AppLockProps> = ({
     [enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock],
   );
   const data = useDebounce(memo, 300);
-
+  // const route = useRoute();
+  // console.log('AppLockView route', route);
   const prerequisites = data.isPasswordSet;
   const isUnlock = data.isDataUnlock && data.isStatusUnlock;
-  const showUnlockView = prerequisites && !isUnlock;
+  const showUnlockView = prerequisites && !isUnlock && !isUnlockWhiteListUrl();
 
   // iOS should NOT render unlock screen by Overlay
   // it's not working if Modal visible
