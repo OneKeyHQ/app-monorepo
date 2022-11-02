@@ -36,8 +36,11 @@ import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   HomescreenItem,
   getHomescreenData,
-  imageCache,
 } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
+import {
+  generateUploadResParams,
+  imageCache,
+} from '@onekeyhq/kit/src/utils/hardware/homescreens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type RouteProps = RouteProp<
@@ -159,8 +162,21 @@ const OnekeyHardwareHomescreen: FC = () => {
     if (activeIndex === null) return;
     try {
       setLoading(true);
+
+      const selectedItem = data[activeIndex];
+      if (deviceType === 'touch' && selectedItem.name.startsWith('upload')) {
+        const uploadResParams = await generateUploadResParams(
+          selectedItem.staticPath,
+        );
+        console.log('should upload: ', uploadResParams);
+        if (uploadResParams) {
+          await serviceHardware.uploadResource(connectId, uploadResParams);
+        }
+        return;
+      }
+
       await serviceHardware.applySettings(connectId, {
-        homescreen: data[activeIndex].hex,
+        homescreen: selectedItem.hex,
       });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       navigation.getParent()?.goBack();
@@ -177,7 +193,16 @@ const OnekeyHardwareHomescreen: FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [connectId, data, activeIndex, serviceHardware, intl, toast, navigation]);
+  }, [
+    connectId,
+    data,
+    activeIndex,
+    serviceHardware,
+    intl,
+    toast,
+    navigation,
+    deviceType,
+  ]);
 
   const { width } = useWindowDimensions();
   const containerWidth = platformEnv.isNative ? width : 400;

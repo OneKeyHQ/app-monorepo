@@ -1,5 +1,14 @@
 /* eslint-disable no-bitwise */
 /* eslint-disable no-param-reassign */
+import { Buffer } from 'buffer';
+
+import { bytesToHex } from '@noble/hashes/utils';
+import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
+import { ResourceType } from '@onekeyfe/hd-transport';
+import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
+
+import { HomescreenItem } from './constants/homescreens';
+
 const T1_WIDTH = 128;
 const T1_HEIGHT = 64;
 
@@ -164,4 +173,45 @@ export const elementToHomescreen = (element: HTMLImageElement) => {
   const hex = imageDataToHex(imageData);
   removeCanvas();
   return hex;
+};
+
+export const imageCache: Record<string, Partial<HomescreenItem>> = {};
+
+export const compressHomescreen = async (uri: string, height: number) => {
+  if (!uri) return;
+  const imageResult = await manipulateAsync(
+    uri,
+    [
+      {
+        resize: {
+          height,
+        },
+      },
+    ],
+    { compress: 0.2, format: SaveFormat.PNG, base64: true },
+  );
+
+  const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
+  const arrayBuffer = new Uint8Array(buffer);
+  return {
+    ...imageResult,
+    arrayBuffer,
+  };
+};
+
+export const generateUploadResParams = async (uri: string) => {
+  const data = await compressHomescreen(uri, 800);
+  const zoomData = await compressHomescreen(uri, 240);
+
+  if (!data?.arrayBuffer && !zoomData?.arrayBuffer) return;
+
+  const params: DeviceUploadResourceParams = {
+    resType: ResourceType.WallPaper,
+    suffix: 'png',
+    dataHex: bytesToHex(data?.arrayBuffer as Uint8Array),
+    thumbnailDataHex: bytesToHex(zoomData?.arrayBuffer as Uint8Array),
+    nftMetaData: '',
+  };
+
+  return params;
 };
