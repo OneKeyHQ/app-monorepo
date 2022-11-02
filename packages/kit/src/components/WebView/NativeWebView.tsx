@@ -55,11 +55,14 @@ const NativeWebView = forwardRef(
     const webviewOnMessage = useCallback(
       (event: WebViewMessageEvent) => {
         const { data } = event.nativeEvent;
-        const uri = new URL(event.nativeEvent.url);
-        const origin = uri?.origin || '';
-        appDebugLogger.webview('onMessage', origin, data);
-        // - receive
-        jsBridge.receive(data, { origin });
+        try {
+          const uri = new URL(event.nativeEvent.url);
+          const origin = uri?.origin || '';
+          appDebugLogger.webview('onMessage', origin, data);
+          // - receive
+          jsBridge.receive(data, { origin });
+          // eslint-disable-next-line no-empty
+        } catch {}
         onMessage?.(event);
       },
       [jsBridge, onMessage],

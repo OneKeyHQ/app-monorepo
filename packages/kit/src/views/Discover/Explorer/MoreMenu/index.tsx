@@ -109,6 +109,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
       visible
       dropdownPosition="right"
       title={intl.formatMessage({ id: 'select__options' })}
+      onVisibleChange={onClose}
       onChange={(v) => {
         onClose();
         v();
