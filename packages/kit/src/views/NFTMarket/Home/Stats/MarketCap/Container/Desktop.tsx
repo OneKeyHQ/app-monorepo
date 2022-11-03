@@ -8,13 +8,13 @@ import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import PriceText from '../../../../PriceText';
+import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
 import StatsItemCell from '../../StatsItemCell';
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
-
   return (
     <Box>
       <StatsItemCell
@@ -47,10 +47,17 @@ const ListHeaderComponent = () => {
 
 const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
   const context = useStatsListContext()?.context;
+  const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTMarketCapCollection> = useCallback(
     ({ item, index }) => (
       <StatsItemCell
+        onPress={() => {
+          goToCollectionDetail({
+            contractAddress: item.contract_address as string,
+            networkId: context?.selectedNetwork?.id as string,
+          });
+        }}
         height="64px"
         index={`${index + 1}`}
         title={item.contract_name}
@@ -69,7 +76,7 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
         }
       />
     ),
-    [context?.selectedNetwork?.id],
+    [context?.selectedNetwork?.id, goToCollectionDetail],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {

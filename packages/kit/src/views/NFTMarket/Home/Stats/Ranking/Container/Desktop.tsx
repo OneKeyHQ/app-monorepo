@@ -9,6 +9,7 @@ import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import PriceText, { PriceString } from '../../../../PriceText';
+import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
 import StatsItemCell from '../../StatsItemCell';
@@ -102,7 +103,9 @@ const ListHeaderComponent = () => {
           //   typography="Subheading"
           //   color="text-subdued"
           // >
-          //   Blue chip rates
+          //   {intl.formatMessage({
+          //     id: 'content__blue_chip_rates',
+          //   })}
           // </Text>,
           <Text
             textAlign="right"
@@ -130,6 +133,8 @@ const ListHeaderComponent = () => {
 const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
+  const goToCollectionDetail = useCollectionDetail();
+
   const renderItem: ListRenderItem<NFTMarketRanking> = useCallback(
     ({ item, index }) => {
       const uniqueOwner =
@@ -137,6 +142,12 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
 
       return (
         <StatsItemCell
+          onPress={() => {
+            goToCollectionDetail({
+              contractAddress: item.contract_address as string,
+              networkId: context?.selectedNetwork?.id as string,
+            });
+          }}
           height="64px"
           index={`${index + 1}`}
           title={item.contract_name}
@@ -156,7 +167,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
                 : ''}
             </Text>,
             // <Text textAlign="right" numberOfLines={1} typography="Body1">
-            //   {item.label2}
+            //   {item.}
             // </Text>,
             <Text textAlign="right" numberOfLines={1} typography="Body1">
               {item.sales}
@@ -177,7 +188,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
         />
       );
     },
-    [context?.selectedNetwork?.id, intl],
+    [context?.selectedNetwork?.id, goToCollectionDetail, intl],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {

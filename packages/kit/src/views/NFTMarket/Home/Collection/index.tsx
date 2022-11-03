@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
@@ -7,6 +7,7 @@ import {
   Box,
   FlatList,
   NetImage,
+  Pressable,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -14,17 +15,29 @@ import { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import PriceText from '../../PriceText';
+import { useCollectionDetail } from '../hook';
 
 import EmptyView from './EmptyView';
 
-const Mobile = ({ listData }: { listData: Collection[] }) => {
+type Props = {
+  listData: Collection[];
+  onSelectCollection: (collection: Collection) => void;
+};
+const Mobile: FC<Props> = ({ listData, onSelectCollection }) => {
   const intl = useIntl();
 
   const renderItem: ListRenderItem<Collection> = useCallback(
     ({ item }) => {
       const { bannerUrl, contractName, floorPrice, chain } = item;
       return (
-        <Box width="280px" height="336px" mr="10px">
+        <Pressable
+          onPress={() => {
+            onSelectCollection(item);
+          }}
+          width="280px"
+          height="336px"
+          mr="10px"
+        >
           <Box size="280px" borderRadius="12px" overflow="hidden">
             <NetImage width="280px" height="280px" src={bannerUrl} />
           </Box>
@@ -43,10 +56,10 @@ const Mobile = ({ listData }: { listData: Collection[] }) => {
               color="text-subdued"
             />
           )}
-        </Box>
+        </Pressable>
       );
     },
-    [intl],
+    [intl, onSelectCollection],
   );
 
   return (
@@ -63,8 +76,7 @@ const Mobile = ({ listData }: { listData: Collection[] }) => {
     />
   );
 };
-
-const Desktop = ({ listData }: { listData: Collection[] }) => {
+const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
   const ref = useRef(null);
   const intl = useIntl();
 
@@ -73,7 +85,14 @@ const Desktop = ({ listData }: { listData: Collection[] }) => {
       const { bannerUrl, contractName, floorPrice, chain } = item;
 
       return (
-        <Box width="220px" height="202px" mr="10px">
+        <Pressable
+          onPress={() => {
+            onSelectCollection(item);
+          }}
+          width="220px"
+          height="202px"
+          mr="10px"
+        >
           <Box
             width="220px"
             height="146px"
@@ -97,10 +116,10 @@ const Desktop = ({ listData }: { listData: Collection[] }) => {
               color="text-subdued"
             />
           )}
-        </Box>
+        </Pressable>
       );
     },
-    [intl],
+    [intl, onSelectCollection],
   );
   return (
     <>
@@ -143,6 +162,7 @@ const CollectionModule = () => {
   const { serviceNFT } = backgroundApiProxy;
   const [listData, updateListData] = useState<Collection[]>([]);
   const intl = useIntl();
+  const goToCollectionDetail = useCollectionDetail();
 
   useEffect(() => {
     (async () => {
@@ -151,10 +171,21 @@ const CollectionModule = () => {
     })();
   }, [serviceNFT]);
 
+  const onSelectCollection = useCallback(
+    (collection: Collection) => {
+      goToCollectionDetail({
+        networkId: collection.chain as string,
+        contractAddress: collection.contractAddress as string,
+        collection,
+      });
+    },
+    [goToCollectionDetail],
+  );
+
   const ListView = isSmallScreen ? (
-    <Mobile listData={listData} />
+    <Mobile listData={listData} onSelectCollection={onSelectCollection} />
   ) : (
-    <Desktop listData={listData} />
+    <Desktop listData={listData} onSelectCollection={onSelectCollection} />
   );
 
   return (

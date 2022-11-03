@@ -1,6 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
-import camelcaseKeys from 'camelcase-keys';
 
 import {
   Collection,
@@ -105,7 +104,7 @@ export const getUserNFTAssets = async (params: {
     .get<NFTServiceResp<Collection[]>>(apiUrl)
     .then((resp) => resp.data)
     .catch(() => ({ data: [] }));
-  return camelcaseKeys(data, { deep: true });
+  return data;
 };
 
 export const syncImage = async (params: {
@@ -162,7 +161,7 @@ export const getAsset = async (params: {
     .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
     .then((resp) => resp.data)
     .catch(() => ({ data: undefined }));
-  return camelcaseKeys(data, { deep: true });
+  return data;
 };
 
 function mergeLocalAsset({
@@ -211,7 +210,7 @@ export const getNFTTransactionHistory = async (
       .get<NFTServiceResp<NFTTransaction[]>>(apiUrl)
       .then((resp) => resp.data)
       .catch(() => ({ data: [] }));
-    const transactions = camelcaseKeys(data, { deep: true }).data;
+    const transactions = data.data;
     const contractAddressList = transactions
       .map((tx) => tx.collectionId)
       .filter(Boolean);
