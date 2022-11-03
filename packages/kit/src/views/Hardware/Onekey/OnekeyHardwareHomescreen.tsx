@@ -2,15 +2,18 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
   Button,
+  Icon,
   Image,
   Modal,
   Pressable,
+  Typography,
   useToast,
 } from '@onekeyhq/components';
 import {
@@ -27,6 +30,11 @@ import {
   HomescreenItem,
   getHomescreenData,
 } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
+import {
+  generateUploadResParams,
+  imageCache,
+} from '@onekeyhq/kit/src/utils/hardware/homescreens';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type RouteProps = RouteProp<
@@ -49,9 +57,14 @@ const OnekeyHardwareHomescreen: FC = () => {
   const [data, setData] = useState<HomescreenItem[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
+  const [uploadImages, setUploadImages] =
+    useState<typeof imageCache>(imageCache);
+  const [isInitialized, setIsInitialized] = useState(false);
+
   const { engine, serviceHardware } = backgroundApiProxy;
 
   const isSmallScreen = useIsVerticalLayout();
+  const isTouch = deviceType === 'touch';
 
   useEffect(() => {
     engine.getHWDeviceByWalletId(walletId).then((device) => {
@@ -62,26 +75,108 @@ const OnekeyHardwareHomescreen: FC = () => {
 
   const numColumns = 4;
 
-  useEffect(() => {
-    const homescreensMap = getHomescreenData(deviceType);
-    const dataSource = Object.values(homescreensMap).map((item) => item);
+  const hackLayout = (dataSource: HomescreenItem[]): HomescreenItem[] => {
     const layoutData = Array.from({
       length: dataSource.length % numColumns,
     }).map(
       (_, index) =>
         ({ name: `hackLayout-${index}`, staticPath: null } as HomescreenItem),
     );
+    return layoutData;
+  };
+
+  const syncUploadImage = useCallback(
+    (images: HomescreenItem[], insertMode = false) => {
+      const originData = images.filter(
+        (i) =>
+          !i.name.startsWith('hackLayout') && !i.name.startsWith('AddAction'),
+      );
+      let insertIndex = originData.length;
+      const dataSource = [...originData];
+
+      Object.values(uploadImages).forEach((item) => {
+        if (!originData.find((i) => i.name === item.name)) {
+          dataSource.splice(insertIndex, 0, item as HomescreenItem);
+          if (insertMode) {
+            setActiveIndex(insertIndex);
+          }
+          insertIndex += 1;
+        }
+      });
+      dataSource.push({
+        name: 'AddAction',
+        staticPath: null,
+      } as HomescreenItem);
+      return dataSource;
+    },
+    [uploadImages],
+  );
+
+  // initialize
+  useEffect(() => {
+    const homescreensMap = getHomescreenData(deviceType);
+    let dataSource = Object.values(homescreensMap).map((item) => item);
+    if (isTouch) {
+      dataSource = syncUploadImage(dataSource);
+    }
+    const layoutData = hackLayout(dataSource);
     dataSource.push(...layoutData);
     setData(dataSource);
-  }, [deviceType]);
+    setIsInitialized(true);
+  }, [isTouch, deviceType, syncUploadImage]);
+
+  // Organize data after uploading images
+  useEffect(() => {
+    if (!isInitialized) return;
+    const dataSource = syncUploadImage(data, true);
+    const layoutData = hackLayout(dataSource);
+    dataSource.push(...layoutData);
+    setData(dataSource);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadImages]);
+
+  const addImage = useCallback((imageInfo: ImagePicker.ImageInfo) => {
+    const { uri, height, width } = imageInfo;
+    const name = `upload-${Object.keys(imageCache).length}`;
+    imageCache[name] = { name, staticPath: uri, height, width };
+    setUploadImages({ ...imageCache });
+  }, []);
+
+  const pickImage = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (!result.cancelled && result.uri) {
+      addImage(result);
+    }
+  }, [addImage]);
 
   const handleConfirm = useCallback(async () => {
     if (!connectId) return;
     if (activeIndex === null) return;
     try {
       setLoading(true);
+
+      const selectedItem = data[activeIndex];
+      if (isTouch && selectedItem.name.startsWith('upload')) {
+        const uploadResParams = await generateUploadResParams(
+          selectedItem.staticPath,
+          selectedItem.width ?? 0,
+          selectedItem.height ?? 0,
+        );
+        debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
+        if (uploadResParams) {
+          await serviceHardware.uploadResource(connectId, uploadResParams);
+        }
+        toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+        return;
+      }
+
       await serviceHardware.applySettings(connectId, {
-        homescreen: data[activeIndex].hex,
+        homescreen: selectedItem.hex,
       });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       navigation.getParent()?.goBack();
@@ -98,7 +193,16 @@ const OnekeyHardwareHomescreen: FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [connectId, data, activeIndex, serviceHardware, intl, toast, navigation]);
+  }, [
+    connectId,
+    data,
+    activeIndex,
+    serviceHardware,
+    intl,
+    toast,
+    navigation,
+    isTouch,
+  ]);
 
   const { width } = useWindowDimensions();
   const containerWidth = platformEnv.isNative ? width : 400;
@@ -107,16 +211,46 @@ const OnekeyHardwareHomescreen: FC = () => {
   const cardWidth = Math.floor(
     (containerWidth - containerPadding * 2 - sperate * 3) / 4,
   );
+  const cardHeight = deviceType === 'touch' ? '120px' : '64px';
 
   const renderItem = useCallback(
     ({ item, index }: RenderItemParams) =>
-      !item.staticPath ? (
-        <Box key={index} width={cardWidth} height={16} />
+      // eslint-disable-next-line no-nested-ternary
+      item.name === 'AddAction' ? (
+        <Box key={index} width={cardWidth} height={cardHeight}>
+          <Pressable
+            key={index}
+            width={cardWidth}
+            height={cardHeight}
+            mb={4}
+            onPress={() => {
+              if (loading) return;
+              pickImage();
+            }}
+          >
+            <Box
+              flex={1}
+              height={cardHeight}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="12px"
+              borderWidth="2px"
+              borderColor={
+                activeIndex === index ? 'interactive-default' : 'border-default'
+              }
+            >
+              <Icon size={24} name="PlusOutline" color="icon-default" />
+            </Box>
+          </Pressable>
+        </Box>
+      ) : !item.staticPath ? (
+        <Box key={index} width={cardWidth} height={cardHeight} />
       ) : (
         <Pressable
           key={index}
           width={cardWidth}
-          height={16}
+          height={cardHeight}
           mb={4}
           onPress={() => {
             if (loading) return;
@@ -126,10 +260,14 @@ const OnekeyHardwareHomescreen: FC = () => {
           <Box flex={1} height={16}>
             <Image
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              source={item.staticPath}
-              resizeMode="contain"
+              source={
+                item.name.startsWith('upload')
+                  ? { uri: item.staticPath }
+                  : item.staticPath
+              }
+              resizeMode={isTouch ? 'cover' : 'contain'}
               size={cardWidth}
-              height={16}
+              height={cardHeight}
               borderRadius="12px"
               borderWidth={index === activeIndex ? '2px' : 0}
               borderColor="interactive-default"
@@ -138,7 +276,7 @@ const OnekeyHardwareHomescreen: FC = () => {
           </Box>
         </Pressable>
       ),
-    [cardWidth, activeIndex, loading],
+    [cardWidth, cardHeight, activeIndex, loading, pickImage, isTouch],
   );
 
   const flatlistProps = useMemo(
@@ -162,30 +300,41 @@ const OnekeyHardwareHomescreen: FC = () => {
 
   const footer = useMemo(
     () => (
-      <Box
-        px={{ base: 4, md: 6 }}
-        mb={{ base: `${bottom}px` }}
-        height={isSmallScreen ? '82px' : '70px'}
-        alignItems="center"
-        flexDir="row"
-        justifyContent={isSmallScreen ? 'center' : 'flex-end'}
-        borderTopWidth={isSmallScreen ? 0 : '1px'}
-        borderTopColor="border-subdued"
-      >
-        <Button
-          flex={isSmallScreen ? 1 : undefined}
-          type="primary"
-          size={isSmallScreen ? 'xl' : 'base'}
-          onPress={() => handleConfirm()}
-          isLoading={loading}
+      <>
+        {deviceType === 'touch' && (
+          <Box display="flex" alignItems="center" justifyContent="center">
+            <Typography.Text>
+              {intl.formatMessage({
+                id: 'form__support_png_and_jpg_480_800_pixels',
+              })}
+            </Typography.Text>
+          </Box>
+        )}
+        <Box
+          px={{ base: 4, md: 6 }}
+          mb={{ base: `${bottom}px` }}
+          height={isSmallScreen ? '82px' : '70px'}
+          alignItems="center"
+          flexDir="row"
+          justifyContent={isSmallScreen ? 'center' : 'flex-end'}
+          borderTopWidth={isSmallScreen ? 0 : '1px'}
+          borderTopColor="border-subdued"
         >
-          {intl.formatMessage({
-            id: 'action__confirm',
-          })}
-        </Button>
-      </Box>
+          <Button
+            flex={isSmallScreen ? 1 : undefined}
+            type="primary"
+            size={isSmallScreen ? 'xl' : 'base'}
+            onPress={() => handleConfirm()}
+            isLoading={loading}
+          >
+            {intl.formatMessage({
+              id: 'action__confirm',
+            })}
+          </Button>
+        </Box>
+      </>
     ),
-    [handleConfirm, loading, isSmallScreen, intl, bottom],
+    [handleConfirm, isTouch, loading, isSmallScreen, intl, bottom],
   );
 
   return (

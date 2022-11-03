@@ -5,6 +5,7 @@ import {
   DeviceSendSupportFeatures,
   DeviceSettingsParams,
   DeviceSupportFeaturesPayload,
+  DeviceUploadResourceParams,
   FIRMWARE,
   FIRMWARE_EVENT,
   IDeviceType,
@@ -616,6 +617,21 @@ class ServiceHardware extends ServiceBase {
     } catch {
       // empty
     }
+  }
+
+  @backgroundMethod()
+  async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.deviceUploadResource(connectId, params)
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response;
+      });
   }
 }
 

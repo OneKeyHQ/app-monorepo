@@ -1,5 +1,16 @@
 /* eslint-disable no-bitwise */
 /* eslint-disable no-param-reassign */
+import { Buffer } from 'buffer';
+
+import { bytesToHex } from '@noble/hashes/utils';
+import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
+import { ResourceType } from '@onekeyfe/hd-transport';
+import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
+
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { HomescreenItem } from './constants/homescreens';
+
 const T1_WIDTH = 128;
 const T1_HEIGHT = 64;
 
@@ -164,4 +175,98 @@ export const elementToHomescreen = (element: HTMLImageElement) => {
   const hex = imageDataToHex(imageData);
   removeCanvas();
   return hex;
+};
+
+export const imageCache: Record<string, Partial<HomescreenItem>> = {};
+
+function getOriginX(
+  originW: number,
+  originH: number,
+  scaleW: number,
+  scaleH: number,
+) {
+  const width = Math.ceil((scaleH / originH) * originW);
+  const originX =
+    width <= scaleW
+      ? 0
+      : Math.ceil(Math.ceil(width / 2) - Math.ceil(scaleW / 2));
+  return originX;
+}
+
+export const compressHomescreen = async (
+  uri: string,
+  width: number,
+  height: number,
+  originW: number,
+  originH: number,
+) => {
+  if (!uri) return;
+  const imageResult = await manipulateAsync(
+    uri,
+    [
+      {
+        resize: {
+          height,
+        },
+      },
+      {
+        crop: {
+          height,
+          width,
+          originX: getOriginX(originW, originH, width, height),
+          originY: 0,
+        },
+      },
+    ],
+    { compress: 0.9, format: SaveFormat.JPEG, base64: true },
+  );
+
+  const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
+  const arrayBuffer = new Uint8Array(buffer);
+  return {
+    ...imageResult,
+    arrayBuffer,
+  };
+};
+
+function formatBytes(bytes: number, decimals = 2) {
+  if (!+bytes) return '0 Bytes';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`;
+}
+
+export const generateUploadResParams = async (
+  uri: string,
+  width: number,
+  height: number,
+) => {
+  const data = await compressHomescreen(uri, 480, 800, width, height);
+  const zoomData = await compressHomescreen(uri, 144, 240, width, height);
+
+  if (!data?.arrayBuffer && !zoomData?.arrayBuffer) return;
+
+  debugLogger.hardwareSDK.info(
+    'homescreen data byte length: ',
+    formatBytes(data?.arrayBuffer?.byteLength ?? 0, 3),
+  );
+  debugLogger.hardwareSDK.info(
+    'homescreen thumbnail byte length: ',
+    formatBytes(zoomData?.arrayBuffer?.byteLength ?? 0, 3),
+  );
+
+  const params: DeviceUploadResourceParams = {
+    resType: ResourceType.WallPaper,
+    suffix: 'jpeg',
+    dataHex: bytesToHex(data?.arrayBuffer as Uint8Array),
+    thumbnailDataHex: bytesToHex(zoomData?.arrayBuffer as Uint8Array),
+    nftMetaData: '',
+  };
+
+  return params;
 };

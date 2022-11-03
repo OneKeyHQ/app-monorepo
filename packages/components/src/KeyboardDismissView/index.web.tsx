@@ -1,11 +1,11 @@
 import { FC } from 'react';
 
-import { View } from 'native-base';
+import Box from '../Box';
 
 const KeyboardDismissView: FC = ({ children, ...props }) => (
-  <View w="full" h="full" {...props}>
+  <Box testID="KeyboardDismissView-web" w="full" h="full" {...props}>
     {children}
-  </View>
+  </Box>
 );
 
 export default KeyboardDismissView;
